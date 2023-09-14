@@ -19,11 +19,9 @@ function Test-Port
     .PARAMETER Udp
         Use udp port
 
-    .PARAMETER UdpTimeout
-        Sets a timeout (in milliseconds) for UDP port query.
-
-    .PARAMETER TcpTimeout
-        Sets a timeout (in milliseconds) for TCP port query.
+    .PARAMETER Timeout
+        Sets a timeout (in milliseconds) for port query.
+        The default is '3000' (3 seconds).
 
     .NOTES
         Name: Test-Port.ps1
@@ -58,7 +56,7 @@ function Test-Port
         Checks port 80 on server1 and server2 to see if it is listening
 
     .EXAMPLE
-        PS > Test-Port -comp dc1 -Port 17 -udp -UDPtimeout 10000
+        PS > Test-Port -comp dc1 -Port 17 -udp -Timeout 10000
 
         Server   : dc1
         Port     : 17
@@ -100,11 +98,8 @@ function Test-Port
         [Alias('IPAddress', '__Server', 'CN')]
         [String[]]$ComputerName,
 
-        [Parameter( Mandatory = $false)]
-        [Int]$TcpTimeout = 1000,
-
         [Parameter()]
-        [Int]$UdpTimeout = 1000,
+        [Int]$Timeout = 3000,
 
         [Parameter()]
         [Switch]$Tcp,
@@ -155,7 +150,7 @@ function Test-Port
                     $connect = $tcpobject.BeginConnect($computer, $targetPort, $null, $null)
 
                     # Configure a timeout before quitting
-                    $wait = $connect.AsyncWaitHandle.WaitOne($TcpTimeout, $false)
+                    $wait = $connect.AsyncWaitHandle.WaitOne($Timeout, $false)
 
                     # if timeout
                     if (!$wait)
@@ -227,7 +222,7 @@ function Test-Port
                     $udpobject = New-Object System.Net.Sockets.Udpclient
 
                     # Set a timeout on receiving message
-                    $udpobject.client.ReceiveTimeout = $UdpTimeout
+                    $udpobject.client.ReceiveTimeout = $Timeout
 
                     # Connect to remote machine's port
                     Write-Verbose 'Making UDP connection to remote server'
