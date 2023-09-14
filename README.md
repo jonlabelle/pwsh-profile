@@ -4,10 +4,10 @@
 
 ## Install
 
-1. Overlay [this repository](http://github.com/jonlabelle/pwsh-profile) on top of your [PowerShell profile path](#powershell-profile-paths).
+1. Overlay [this repository](https://github.com/jonlabelle/pwsh-profile) on top of your [PowerShell profile path](#powershell-profile-paths).
 
    ```console
-   git clone http://github.com/jonlabelle/pwsh-profile.git '~/.config/powershell'
+   git clone https://github.com/jonlabelle/pwsh-profile.git $HOME/.config/powershell
    ```
 
 ## PowerShell Profile Paths
