@@ -37,7 +37,7 @@ git clone https://github.com/jonlabelle/pwsh-profile.git $HOME\Documents\PowerSh
 
 ## Update
 
-To pull in the latest updates from the [Git repo](https://github.com/jonlabelle/pwsh-profile):
+To pull in the latest updates from [this GitHub repo](https://github.com/jonlabelle/pwsh-profile):
 
 ```powershell
 Update-Profile
