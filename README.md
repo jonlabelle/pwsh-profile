@@ -1,5 +1,7 @@
 # PowerShell Profile
 
+[![ci](https://github.com/jonlabelle/pwsh-profile/actions/workflows/ci.yml/badge.svg)](https://github.com/jonlabelle/pwsh-profile/actions/workflows/ci.yml)
+
 > My personal PowerShell profile.
 
 ## Install
