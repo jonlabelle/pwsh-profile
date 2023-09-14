@@ -16,6 +16,29 @@ foreach ($function in $functions)
     . $function.FullName
 }
 
+<#
+.SYNOPSIS
+    Updates PowerShell profile to the latest version.
+
+.LINK
+    https://github.com/jonlabelle/pwsh-profile
+#>
+function Update-Profile
+{
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
+    param()
+    Write-Host -ForegroundColor Cyan 'Updating PowerShell profile...'
+
+    # CD to this script's directory and update
+    Push-Location -Path $PSScriptRoot
+    git pull
+    Pop-Location
+
+    # Reload the profile (https://devblogs.microsoft.com/scripting/powertip-reload-your-powershell-profile/)
+    & $profile
+}
+
 function Prompt
 {
     # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_profiles?view=powershell-7.2#add-a-customized-powershell-prompt
