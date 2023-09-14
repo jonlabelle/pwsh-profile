@@ -16,26 +16,6 @@ foreach ($function in $functions)
     . $function.FullName
 }
 
-#
-# Description: Helper function to show variable defined in the environment, that
-# you declared, opposed to all global variables via `Get-Variable`.
-#
-# Usage:
-#
-#   To show variable declared by you:
-#   PS> cmpv
-#
-#   To show all variables:
-#   PS> $AutomaticVariables
-#
-# Link:
-# https://4sysops.com/archives/display-and-search-all-variables-of-a-powershell-script-with-get-variable/#excluding-automatic-variables-in-get-variable
-$AutomaticVariables = Get-Variable
-function cmpv
-{
-    Compare-Object (Get-Variable) $AutomaticVariables -Property Name -PassThru | Where-Object -Property Name -NE 'AutomaticVariables'
-}
-
 function Prompt
 {
     # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_profiles?view=powershell-7.2#add-a-customized-powershell-prompt
