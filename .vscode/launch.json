@@ -1,0 +1,38 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+
+    "configurations": [
+        {
+            "name": "PowerShell: Run PSScriptAnalyzer",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "Invoke-ScriptAnalyzer",
+            // prettier-ignore
+            "args": [
+                "-Settings", "PSScriptAnalyzerSettings.psd1",
+                "-Path", ".",
+                "-Recurse"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "PowerShell: Run current file",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "${file}",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            // Run this launch config and then set breakpoints in your module.
+            // Then you can `Import-Module -Force ./DailyBackup.psd1`
+            // and run a function that will hit the breakpoint.
+            "name": "PowerShell: Interactive session",
+            "type": "PowerShell",
+            "request": "launch",
+            "cwd": ""
+        }
+    ]
+}
