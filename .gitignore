@@ -9,6 +9,11 @@ tmp/
 .env.local
 .env.*.local
 
+# PowerShell profile parts
+Help/
+Modules/
+Scripts/
+
 # Log files
 npm-debug.log*
 yarn-debug.log*
