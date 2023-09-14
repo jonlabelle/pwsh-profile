@@ -6,11 +6,11 @@
 
 ## Install
 
-~~Overlay~~ Overwrite [this repository](https://github.com/jonlabelle/pwsh-profile) your existing [PowerShell profile path](https://gist.github.com/jonlabelle/f2a4fdd989dbfe59e444e0beaf07bcc9).
+~~Overlay~~ Overwrite your [PowerShell profile path](https://gist.github.com/jonlabelle/f2a4fdd989dbfe59e444e0beaf07bcc9) with the contents of this repository.
 
-Choose the appropriate platform:
+Choose your appropriate platform:
 
-- [Linux/macOS](#linux-macos)
+- [Linux/macOS](#linuxmacos)
 - [Windows](#windows)
   - [PowerShell Desktop](#powershell-desktop)
   - [PowerShell Core](#powershell-core)
