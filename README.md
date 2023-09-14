@@ -6,11 +6,18 @@
 
 ## Install
 
-Overlay [this repository](https://github.com/jonlabelle/pwsh-profile) on top of your [PowerShell profile path](https://gist.github.com/jonlabelle/f2a4fdd989dbfe59e444e0beaf07bcc9).
+~~Overlay~~ Overwrite [this repository](https://github.com/jonlabelle/pwsh-profile) your existing [PowerShell profile path](https://gist.github.com/jonlabelle/f2a4fdd989dbfe59e444e0beaf07bcc9).
+
+Choose the appropriate platform:
+
+- [Linux/macOS](#linux-macos)
+- [Windows](#windows)
+  - [PowerShell Desktop](#powershell-desktop)
+  - [PowerShell Core](#powershell-core)
 
 ### Linux/macOS
 
-```console
+```powershell
 git clone https://github.com/jonlabelle/pwsh-profile.git $HOME/.config/powershell
 ```
 
@@ -18,12 +25,20 @@ git clone https://github.com/jonlabelle/pwsh-profile.git $HOME/.config/powershel
 
 #### PowerShell Desktop
 
-```console
+```powershell
 git clone https://github.com/jonlabelle/pwsh-profile.git $HOME\Documents\WindowsPowerShell
 ```
 
 #### PowerShell Core
 
-```console
+```powershell
 git clone https://github.com/jonlabelle/pwsh-profile.git $HOME\Documents\PowerShell
+```
+
+## Update
+
+To pull in the latest updates from the [Git repo](https://github.com/jonlabelle/pwsh-profile):
+
+```powershell
+Update-Profile
 ```
