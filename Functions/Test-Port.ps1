@@ -167,19 +167,27 @@ function Test-Port
                     else
                     {
                         $error.Clear()
-                        $tcpobject.EndConnect($connect) | Out-Null
 
-                        # if error
-                        if ($error[0])
+                        $failed = $false
+
+                        try
                         {
-                            # Begin making error more readable in report
-                            [string]$string = ($error[0].exception).message
-                            $message = (($string.split(':')[1]).replace('"', '')).TrimStart()
-                            $failed = $true
+                            $tcpobject.EndConnect($connect) | Out-Null
                         }
-
-                        # Close connection
-                        $tcpobject.Close()
+                        catch
+                        {
+                            if ($error[0])
+                            {
+                                # Begin making error more readable in report
+                                [string]$string = ($error[0].exception).message
+                                $message = (($string.split(':')[1]).replace('"', '')).TrimStart()
+                                $failed = $true
+                            }
+                        }
+                        finally
+                        {
+                            $tcpobject.Close()
+                        }
 
                         # if unable to query port to due failure
                         if ($failed)
@@ -203,7 +211,7 @@ function Test-Port
                     }
 
                     # Reset failed value
-                    $failed = $Null
+                    $failed = $false
 
                     # Merge temp array with report
                     $report += $output
