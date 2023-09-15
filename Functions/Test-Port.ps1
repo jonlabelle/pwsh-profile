@@ -52,7 +52,7 @@ function Test-Port
 
         Server   : dc1
         Port     : 17
-        TypePort : UDP
+        Protocol : UDP
         Open     : True
         Status   : Connection successful.
 
@@ -138,7 +138,7 @@ function Test-Port
                 if ($Tcp)
                 {
                     # Create temporary holder
-                    $output = '' | Select-Object Server, Port, TypePort, Open, Status
+                    $output = '' | Select-Object Server, Port, Protocol, Open, Status
 
                     # Create object for connecting to port on ComputerName
                     $tcpobject = New-Object System.Net.Sockets.TcpClient
@@ -160,7 +160,7 @@ function Test-Port
                         # Build report
                         $output.Server = $computer
                         $output.Port = $targetPort
-                        $output.TypePort = 'TCP'
+                        $output.Protocol = 'TCP'
                         $output.Open = $false
                         $output.Status = 'Connection timed out.'
                     }
@@ -187,7 +187,7 @@ function Test-Port
                             # Build report
                             $output.Server = $computer
                             $output.Port = $targetPort
-                            $output.TypePort = 'TCP'
+                            $output.Protocol = 'TCP'
                             $output.Open = $false
                             $output.Status = "$message"
                         }
@@ -196,8 +196,8 @@ function Test-Port
                             # Build report
                             $output.Server = $computer
                             $output.Port = $targetPort
-                            $output.TypePort = 'TCP'
-                            $output.Open = 'True'
+                            $output.Protocol = 'TCP'
+                            $output.Open = $true
                             $output.Status = 'Connection successful.'
                         }
                     }
@@ -212,7 +212,7 @@ function Test-Port
                 if ($Udp)
                 {
                     # Create temporary holder
-                    $output = '' | Select-Object Server, Port, TypePort, Open, Status
+                    $output = '' | Select-Object Server, Port, Protocol, Open, Status
 
                     # Create object for connecting to port on ComputerName
                     $udpobject = New-Object System.Net.Sockets.Udpclient
@@ -249,8 +249,8 @@ function Test-Port
                             # Build report
                             $output.Server = $computer
                             $output.Port = $targetPort
-                            $output.TypePort = 'UDP'
-                            $output.Open = 'True'
+                            $output.Protocol = 'UDP'
+                            $output.Open = $true
                             $output.Status = $returndata
                             $udpobject.close()
                         }
@@ -270,8 +270,8 @@ function Test-Port
                                 # Build report
                                 $output.Server = $computer
                                 $output.Port = $targetPort
-                                $output.TypePort = 'UDP'
-                                $output.Open = 'True'
+                                $output.Protocol = 'UDP'
+                                $output.Open = $true
                                 $output.Status = 'Connection successful.'
                             }
                             else
@@ -285,7 +285,7 @@ function Test-Port
                                 # Build report
                                 $output.Server = $computer
                                 $output.Port = $targetPort
-                                $output.TypePort = 'UDP'
+                                $output.Protocol = 'UDP'
                                 $output.Open = $false
                                 $output.Status = 'Host is unreachable.'
                             }
@@ -300,7 +300,7 @@ function Test-Port
                             # Build report
                             $output.Server = $computer
                             $output.Port = $targetPort
-                            $output.TypePort = 'UDP'
+                            $output.Protocol = 'UDP'
                             $output.Open = $false
                             $output.Status = 'Connection timed out.'
                         }
