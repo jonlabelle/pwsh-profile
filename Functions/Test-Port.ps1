@@ -48,37 +48,35 @@ function Test-Port
         Checks port 80 on server1 and server2 to see if it is listening
 
     .EXAMPLE
-        PS > Test-Port -comp dc1 -Port 17 -udp -Timeout 10000
+        PS > Test-Port -ComputerName dc1 -Port 17 -Udp -Timeout 10000
 
         Server   : dc1
         Port     : 17
         TypePort : UDP
         Open     : True
-        Notes    : "My spelling is Wobbly.  It's good spelling but it Wobbles, and the lettersvget in the wrong places." A. A. Milne (1882-1958)
+        Status   : Connection successful.
 
-        Description
-        -----------
-        Queries port 17 (qotd) on the UDP port and returns whether port is open or not
+        Queries port 17 (qotd) on the UDP port and returns whether port is open or not.
 
     .EXAMPLE
         PS > @("server1","server2") | Test-Port -Port 80
 
-        Checks port 80 on server1 and server2 to see if it is listening
+        Checks port 80 on server1 and server2 to see if it is listening.
 
     .EXAMPLE
         PS > (Get-Content hosts.txt) | Test-Port -Port 80
 
-        Checks port 80 on servers in host file to see if it is listening
+        Checks port 80 on servers in host file to see if it is listening.
 
     .EXAMPLE
         PS > Test-Port -ComputerName (Get-Content hosts.txt) -Port 80
 
-        Checks port 80 on servers in host file to see if it is listening
+        Checks port 80 on servers in host file to see if it is listening.
 
     .EXAMPLE
         PS > Test-Port -ComputerName (Get-Content hosts.txt) -Port @(1..59)
 
-        Checks a range of ports from 1-59 on all servers in the hosts.txt file
+        Checks a range of ports from 1-59 on all servers in the hosts.txt file.
 
     .LINK
         https://learn-powershell.net/2011/02/21/querying-udp-ports-with-powershell/
@@ -140,7 +138,7 @@ function Test-Port
                 if ($Tcp)
                 {
                     # Create temporary holder
-                    $output = '' | Select-Object Server, Port, TypePort, Open, Notes
+                    $output = '' | Select-Object Server, Port, TypePort, Open, Status
 
                     # Create object for connecting to port on ComputerName
                     $tcpobject = New-Object System.Net.Sockets.TcpClient
@@ -164,7 +162,7 @@ function Test-Port
                         $output.Port = $targetPort
                         $output.TypePort = 'TCP'
                         $output.Open = $false
-                        $output.Notes = 'Connection timed out.'
+                        $output.Status = 'Connection timed out.'
                     }
                     else
                     {
@@ -191,7 +189,7 @@ function Test-Port
                             $output.Port = $targetPort
                             $output.TypePort = 'TCP'
                             $output.Open = $false
-                            $output.Notes = "$message"
+                            $output.Status = "$message"
                         }
                         else
                         {
@@ -200,7 +198,7 @@ function Test-Port
                             $output.Port = $targetPort
                             $output.TypePort = 'TCP'
                             $output.Open = 'True'
-                            $output.Notes = 'Connection successful.'
+                            $output.Status = 'Connection successful.'
                         }
                     }
 
@@ -214,7 +212,7 @@ function Test-Port
                 if ($Udp)
                 {
                     # Create temporary holder
-                    $output = '' | Select-Object Server, Port, TypePort, Open, Notes
+                    $output = '' | Select-Object Server, Port, TypePort, Open, Status
 
                     # Create object for connecting to port on ComputerName
                     $udpobject = New-Object System.Net.Sockets.Udpclient
@@ -253,7 +251,7 @@ function Test-Port
                             $output.Port = $targetPort
                             $output.TypePort = 'UDP'
                             $output.Open = 'True'
-                            $output.Notes = $returndata
+                            $output.Status = $returndata
                             $udpobject.close()
                         }
                     }
@@ -274,7 +272,7 @@ function Test-Port
                                 $output.Port = $targetPort
                                 $output.TypePort = 'UDP'
                                 $output.Open = 'True'
-                                $output.Notes = 'Connection successful.'
+                                $output.Status = 'Connection successful.'
                             }
                             else
                             {
@@ -289,7 +287,7 @@ function Test-Port
                                 $output.Port = $targetPort
                                 $output.TypePort = 'UDP'
                                 $output.Open = $false
-                                $output.Notes = 'Host is unreachable.'
+                                $output.Status = 'Host is unreachable.'
                             }
                         }
                         elseif ($Error[0].ToString() -match 'forcibly closed by the remote host' )
@@ -304,7 +302,7 @@ function Test-Port
                             $output.Port = $targetPort
                             $output.TypePort = 'UDP'
                             $output.Open = $false
-                            $output.Notes = 'Connection timed out.'
+                            $output.Status = 'Connection timed out.'
                         }
                         else
                         {
@@ -324,4 +322,3 @@ function Test-Port
         $report
     }
 }
-
