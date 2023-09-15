@@ -202,7 +202,7 @@ function Test-Port
                             $temp.Port = $targetPort
                             $temp.TypePort = 'TCP'
                             $temp.Open = 'True'
-                            $temp.Notes = ''
+                            $temp.Notes = 'Connection successful'
                         }
                     }
 
@@ -276,7 +276,7 @@ function Test-Port
                                 $temp.Port = $targetPort
                                 $temp.TypePort = 'UDP'
                                 $temp.Open = 'True'
-                                $temp.Notes = ''
+                                $temp.Notes = 'Connection successful'
                             }
                             else
                             {
