@@ -27,7 +27,9 @@ function Update-Profile
 {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
-    param()
+    param(
+        [switch] $Verbose
+    )
     Write-Host -ForegroundColor Cyan 'Updating PowerShell profile...'
 
     # CD to this script's directory and update
@@ -35,7 +37,7 @@ function Update-Profile
     git pull
     Pop-Location
 
-    . Reload-Profile
+    . Reload-Profile -Verbose:$Verbose
 }
 
 function Prompt
