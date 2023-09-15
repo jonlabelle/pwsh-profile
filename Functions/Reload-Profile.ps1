@@ -19,7 +19,7 @@ function Reload-Profile
     ) | ForEach-Object {
         if (Test-Path $_)
         {
-            Write-Verbose "Reloading '$_'"
+            Write-Verbose "Reloading profile '$_'"
             . $_
         }
     }
