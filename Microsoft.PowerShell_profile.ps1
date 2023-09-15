@@ -35,12 +35,14 @@ function Update-Profile
     git pull
     Pop-Location
 
-    # Reload the profile (https://devblogs.microsoft.com/scripting/powertip-reload-your-powershell-profile/)
-    & $profile
+    . Reload-Profile
 }
 
 function Prompt
 {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
+    param()
+
     # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_profiles?view=powershell-7.2#add-a-customized-powershell-prompt
     # "PS > "
     Write-Host 'PS' -ForegroundColor 'Cyan' -NoNewline
