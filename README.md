@@ -18,7 +18,7 @@ Choose your appropriate platform:
 ### Linux/macOS
 
 ```powershell
-git clone https://github.com/jonlabelle/pwsh-profile.git $HOME/.config/powershell
+git clone 'https://github.com/jonlabelle/pwsh-profile.git' $HOME/.config/powershell
 ```
 
 ### Windows
@@ -26,13 +26,13 @@ git clone https://github.com/jonlabelle/pwsh-profile.git $HOME/.config/powershel
 #### PowerShell Desktop
 
 ```powershell
-git clone https://github.com/jonlabelle/pwsh-profile.git $HOME\Documents\WindowsPowerShell
+git clone 'https://github.com/jonlabelle/pwsh-profile.git' $HOME\Documents\WindowsPowerShell
 ```
 
 #### PowerShell Core
 
 ```powershell
-git clone https://github.com/jonlabelle/pwsh-profile.git $HOME\Documents\PowerShell
+git clone 'https://github.com/jonlabelle/pwsh-profile.git' $HOME\Documents\PowerShell
 ```
 
 ## Update
