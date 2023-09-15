@@ -30,15 +30,7 @@ function Test-Port
         List of Ports: http://www.iana.org/assignments/port-numbers
 
         Update by Jon LaBelle, 9/29/2022
-
-        To Do:
-        - Add capability to run background jobs for each host to shorten the time to scan.
-
-    .LINK
-        https://learn-powershell.net/2011/02/21/querying-udp-ports-with-powershell/
-
-    .LINK
-        https://jonlabelle.com/snippets/view/powershell/test-tcp-or-udp-network-port-in-powershell
+        TODO: Add capability to run background jobs for each host to shorten the time to scan.
 
     .EXAMPLE
         PS > Test-Port -ComputerName 'server' -Port 80
@@ -87,8 +79,15 @@ function Test-Port
         PS > Test-Port -ComputerName (Get-Content hosts.txt) -Port @(1..59)
 
         Checks a range of ports from 1-59 on all servers in the hosts.txt file
+
+    .LINK
+        https://learn-powershell.net/2011/02/21/querying-udp-ports-with-powershell/
+
+    .LINK
+        https://jonlabelle.com/snippets/view/powershell/test-tcp-or-udp-network-port-in-powershell
     #>
     [CmdletBinding(ConfirmImpact = 'low')]
+    [OutputType([System.Object[]])]
     param(
         [Parameter(Position = 0, Mandatory = $true)]
         [Int[]]$Port,
@@ -141,7 +140,7 @@ function Test-Port
                 if ($Tcp)
                 {
                     # Create temporary holder
-                    $temp = '' | Select-Object Server, Port, TypePort, Open, Notes
+                    $output = '' | Select-Object Server, Port, TypePort, Open, Notes
 
                     # Create object for connecting to port on ComputerName
                     $tcpobject = New-Object System.Net.Sockets.TcpClient
@@ -154,7 +153,6 @@ function Test-Port
 
                     # if timeout
                     if (!$wait)
-
                     {
                         # Close connection
                         $tcpobject.Close()
@@ -162,11 +160,11 @@ function Test-Port
                         Write-Verbose 'Connection timeout'
 
                         # Build report
-                        $temp.Server = $computer
-                        $temp.Port = $targetPort
-                        $temp.TypePort = 'TCP'
-                        $temp.Open = 'False'
-                        $temp.Notes = 'Connection to port timed out.'
+                        $output.Server = $computer
+                        $output.Port = $targetPort
+                        $output.TypePort = 'TCP'
+                        $output.Open = $false
+                        $output.Notes = 'Connection timed out.'
                     }
                     else
                     {
@@ -189,20 +187,20 @@ function Test-Port
                         if ($failed)
                         {
                             # Build report
-                            $temp.Server = $computer
-                            $temp.Port = $targetPort
-                            $temp.TypePort = 'TCP'
-                            $temp.Open = 'False'
-                            $temp.Notes = "$message"
+                            $output.Server = $computer
+                            $output.Port = $targetPort
+                            $output.TypePort = 'TCP'
+                            $output.Open = $false
+                            $output.Notes = "$message"
                         }
                         else
                         {
                             # Build report
-                            $temp.Server = $computer
-                            $temp.Port = $targetPort
-                            $temp.TypePort = 'TCP'
-                            $temp.Open = 'True'
-                            $temp.Notes = 'Connection successful'
+                            $output.Server = $computer
+                            $output.Port = $targetPort
+                            $output.TypePort = 'TCP'
+                            $output.Open = 'True'
+                            $output.Notes = 'Connection successful.'
                         }
                     }
 
@@ -210,13 +208,13 @@ function Test-Port
                     $failed = $Null
 
                     # Merge temp array with report
-                    $report += $temp
+                    $report += $output
                 }
 
                 if ($Udp)
                 {
                     # Create temporary holder
-                    $temp = '' | Select-Object Server, Port, TypePort, Open, Notes
+                    $output = '' | Select-Object Server, Port, TypePort, Open, Notes
 
                     # Create object for connecting to port on ComputerName
                     $udpobject = New-Object System.Net.Sockets.Udpclient
@@ -251,11 +249,11 @@ function Test-Port
                             Write-Verbose 'Connection successful'
 
                             # Build report
-                            $temp.Server = $computer
-                            $temp.Port = $targetPort
-                            $temp.TypePort = 'UDP'
-                            $temp.Open = 'True'
-                            $temp.Notes = $returndata
+                            $output.Server = $computer
+                            $output.Port = $targetPort
+                            $output.TypePort = 'UDP'
+                            $output.Open = 'True'
+                            $output.Notes = $returndata
                             $udpobject.close()
                         }
                     }
@@ -266,32 +264,32 @@ function Test-Port
                             # Close connection
                             $udpobject.Close()
 
-                            # Make sure that the host is online and not a false positive that it is open
+                            # Make sure that the host is online and not a false-positive
                             if (Test-Connection -comp $computer -Count 1 -Quiet)
                             {
                                 Write-Verbose 'Connection Open'
 
                                 # Build report
-                                $temp.Server = $computer
-                                $temp.Port = $targetPort
-                                $temp.TypePort = 'UDP'
-                                $temp.Open = 'True'
-                                $temp.Notes = 'Connection successful'
+                                $output.Server = $computer
+                                $output.Port = $targetPort
+                                $output.TypePort = 'UDP'
+                                $output.Open = 'True'
+                                $output.Notes = 'Connection successful.'
                             }
                             else
                             {
                                 <#
-                                It is possible that the host is not online or that the host is online,
-                                but ICMP is blocked by a firewall and this port is actually open.
+                                    It is possible that is online, but ICMP is blocked by a
+                                    firewall and this port is actually open.
                                 #>
-                                Write-Verbose 'Host not unavailable'
+                                Write-Verbose 'Host unreachable'
 
                                 # Build report
-                                $temp.Server = $computer
-                                $temp.Port = $targetPort
-                                $temp.TypePort = 'UDP'
-                                $temp.Open = 'False'
-                                $temp.Notes = 'Unable to verify if port is open or host is available.'
+                                $output.Server = $computer
+                                $output.Port = $targetPort
+                                $output.TypePort = 'UDP'
+                                $output.Open = $false
+                                $output.Notes = 'Host is unreachable.'
                             }
                         }
                         elseif ($Error[0].ToString() -match 'forcibly closed by the remote host' )
@@ -302,11 +300,11 @@ function Test-Port
                             Write-Verbose 'Connection timeout'
 
                             # Build report
-                            $temp.Server = $computer
-                            $temp.Port = $targetPort
-                            $temp.TypePort = 'UDP'
-                            $temp.Open = 'False'
-                            $temp.Notes = 'Connection to port timed out.'
+                            $output.Server = $computer
+                            $output.Port = $targetPort
+                            $output.TypePort = 'UDP'
+                            $output.Open = $false
+                            $output.Notes = 'Connection timed out.'
                         }
                         else
                         {
@@ -315,7 +313,7 @@ function Test-Port
                     }
 
                     # Merge temp array with report
-                    $report += $temp
+                    $report += $output
                 }
             }
         }
@@ -327,5 +325,3 @@ function Test-Port
     }
 }
 
-# Test-Port -Port 80, 443, 21, 22 -ComputerName 'non.tech0.net', 'google.com'
-# Test-Port -Port @(1..5) -ComputerName 'non.tech0.net'
