@@ -1,12 +1,3 @@
-# $SCRIPT:shell = 'powershell'
-# if ($PSVersionTable.PSVersion.Major -lt 6) { $SCRIPT:shell = 'WindowsPowerShell' }
-
-$SCRIPT:IsWindowsPlatform = $false
-if ([IO.Path]::DirectorySeparatorChar -eq '\')
-{
-    $SCRIPT:IsWindowsPlatform = $true
-}
-
 #
 # Dot source all functions
 $functions = @(Get-ChildItem -LiteralPath (Join-Path -Path $PSScriptRoot 'Functions') -Filter '*.ps1' -File -Depth 1 -ErrorAction 'SilentlyContinue')
@@ -27,9 +18,8 @@ function Update-Profile
 {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
-    param(
-        [switch] $Verbose
-    )
+    param([switch] $Verbose)
+
     Write-Host -ForegroundColor Cyan 'Updating PowerShell profile...'
 
     # CD to this script's directory and update
