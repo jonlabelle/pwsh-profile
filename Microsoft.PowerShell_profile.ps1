@@ -7,15 +7,15 @@ foreach ($function in $functions)
     . $function.FullName
 }
 
-<#
-.SYNOPSIS
-    Updates PowerShell profile to the latest version.
-
-.LINK
-    https://github.com/jonlabelle/pwsh-profile
-#>
 function Update-Profile
 {
+    <#
+    .SYNOPSIS
+        Updates PowerShell profile to the latest version.
+
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile
+    #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
     param([switch] $Verbose)
