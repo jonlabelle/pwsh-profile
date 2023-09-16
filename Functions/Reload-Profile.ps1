@@ -1,12 +1,12 @@
-<#
-.SYNOPSIS
-    Reload PowerShell profile.
-
-.LINK
-    https://stackoverflow.com/a/5501909
-#>
 function Reload-Profile
 {
+    <#
+    .SYNOPSIS
+        Reload PowerShell profile.
+
+    .LINK
+        https://stackoverflow.com/a/5501909
+    #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '')]
     [CmdletBinding()]
     param()
@@ -19,7 +19,7 @@ function Reload-Profile
     ) | ForEach-Object {
         if (Test-Path $_)
         {
-            Write-Verbose "Reloading profile '$_'"
+            Write-Verbose "Loading profile '$_'"
             . $_
         }
     }

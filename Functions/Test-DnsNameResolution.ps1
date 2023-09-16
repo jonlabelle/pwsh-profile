@@ -21,6 +21,9 @@ function Test-DnsNameResolution
 
       .LINK
           https://adamtheautomator.com/resolve-dnsname/
+
+      .LINK
+          https://jonlabelle.com/snippets/view/powershell/test-dns-name-in-powershell
   #>
 
     [CmdletBinding()]
