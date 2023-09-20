@@ -6,7 +6,7 @@ function Get-RandomAlphaNumericString
     [CmdletBinding()]
     [OutputType([String])]
     param (
-        [int] $Length = 12
+        [int] $Length = 32
     )
 
     if ($Length -le 0)
