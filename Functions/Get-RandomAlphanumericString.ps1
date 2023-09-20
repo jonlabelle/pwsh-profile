@@ -7,6 +7,16 @@ function Get-RandomAlphaNumericString
     [OutputType([String])]
     param ([int] $Length = 12)
 
+    if ($Length -le 0)
+    {
+        throw "Length parameter must be greater than zero"
+    }
+
+    if ($Length -gt 1024)
+    {
+        throw "Length parameter cannot exceed 1024"
+    }
+
     # Write-Output (-join ( (0x30..0x39) + ( 0x41..0x5A) + ( 0x61..0x7A) | Get-Random -Count $Length | ForEach-Object { [char]$_ }))
 
     # Adapted from: Using ForEach with a nested call to Get-Random on the input ranges is another way to avoid repeats:
