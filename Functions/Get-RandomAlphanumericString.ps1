@@ -5,7 +5,9 @@ function Get-RandomAlphaNumericString
 {
     [CmdletBinding()]
     [OutputType([String])]
-    param ([int] $Length = 12)
+    param (
+        [int] $Length = 12
+    )
 
     if ($Length -le 0)
     {
@@ -21,5 +23,5 @@ function Get-RandomAlphaNumericString
 
     # Adapted from: Using ForEach with a nested call to Get-Random on the input ranges is another way to avoid repeats:
     # https://gist.github.com/gregjhogan/2350eb60d02aa759c9d269c3fc6265b1?permalink_comment_id=4053128#gistcomment-4053128
-    -join (1..$Length | ForEach-Object {[char]((0x30..0x39) + ( 0x41..0x5A) + ( 0x61..0x7A) | Get-Random)})
+    -join (1..$Length | ForEach-Object {[char]((0x30..0x39) + (0x41..0x5A) + (0x61..0x7A) | Get-Random)})
 }
