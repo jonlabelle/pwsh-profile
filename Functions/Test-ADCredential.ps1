@@ -16,11 +16,6 @@ function Test-ADCredential
         $Credential
     )
 
-    begin
-    {
-        Add-Type -AssemblyName System.DirectoryServices.AccountManagement
-    }
-
     process
     {
         $user = $Credential.username
