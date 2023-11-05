@@ -9,6 +9,7 @@ function Test-ADCredential
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
     [CmdletBinding()]
+    [OutputType([bool])]
     param (
         [Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [ValidateNotNullOrEmpty()]
@@ -27,10 +28,12 @@ function Test-ADCredential
         if ($null -eq $de.name)
         {
             Write-Error "Authentication failed for '$user'"
+            $false
         }
         else
         {
             Write-Host "Successfully authenticated with '$user'" -ForegroundColor Green
+            $true
         }
 
         $de.Dispose()
