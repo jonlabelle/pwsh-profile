@@ -1,4 +1,4 @@
-function Test-IsAdmin
+function Test-Admin
 {
     <#
     .SYNOPSIS
@@ -10,5 +10,5 @@ function Test-IsAdmin
     $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = New-Object System.Security.Principal.WindowsPrincipal($identity)
 
-    return $principal.IsInRole( [System.Security.Principal.WindowsBuiltInRole]::Administrator)
+    return $principal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
 }
