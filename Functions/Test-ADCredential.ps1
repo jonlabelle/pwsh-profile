@@ -19,20 +19,20 @@ function Test-ADCredential
 
     process
     {
-        $user = $Credential.username
-        $password = $Credential.GetNetworkCredential().password
-
+        $username = $Credential.UserName
+        $password = $Credential.GetNetworkCredential().Password
         $domain = 'LDAP://' + ([ADSI]'').distinguishedName
-        $de = New-Object System.DirectoryServices.DirectoryEntry($domain, $user, $password)
+
+        $de = New-Object System.DirectoryServices.DirectoryEntry($domain, $username, $password)
 
         if ($null -eq $de.name)
         {
-            Write-Error "Authentication failed for '$user'"
+            Write-Error "Authentication failed for '$username'"
             $false
         }
         else
         {
-            Write-Host "Successfully authenticated with '$user'" -ForegroundColor Green
+            Write-Host "Successfully authenticated '$username'" -ForegroundColor Green
             $true
         }
 
