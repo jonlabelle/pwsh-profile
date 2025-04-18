@@ -62,9 +62,7 @@ function Invoke-FFMpeg
         [string]$FFmpegPath,
 
         [switch]$Force,
-
         [switch]$KeepSourceFiles,
-
         [switch]$PauseOnError
     )
 
