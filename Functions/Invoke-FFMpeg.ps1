@@ -9,10 +9,10 @@ function Invoke-FFMpeg
         while converting audio to AAC format and subtitles to MOV_TEXT format. The output is saved as MP4 files.
         By default, input files are deleted after successful conversion.
 
-    .PARAMETER InputDir
+    .PARAMETER Path
         The directory containing the video files to be processed.
 
-    .PARAMETER InputFileExt
+    .PARAMETER Extension
         The file extension of input video files. Defaults to 'mkv'.
 
     .PARAMETER FFmpegPath
@@ -22,22 +22,22 @@ function Invoke-FFMpeg
     .PARAMETER Force
         If specified, overwrites output files that already exist.
 
-    .PARAMETER NoDelete
+    .PARAMETER KeepSourceFiles
         If specified, input files will not be deleted after successful conversion.
 
-    .PARAMETER NoContinueOnError
+    .PARAMETER PauseOnError
         If specified, the function will wait for user input when an error occurs instead of automatically continuing to the next file.
 
     .EXAMPLE
-        PS> Invoke-FFMpeg -InputDir "C:\Videos" -InputFileExt "mkv"
+        PS> Invoke-FFMpeg -Path "C:\Videos" -Extension "mkv"
         Processes all .mkv files in C:\Videos, converting them to MP4 with copied video streams and re-encoded audio and subtitle streams.
 
     .EXAMPLE
-        PS> Invoke-FFMpeg -InputDir "C:\Videos" -FFmpegPath "D:\tools\ffmpeg.exe" -Force
+        PS> Invoke-FFMpeg -Path "C:\Videos" -FFmpegPath "D:\tools\ffmpeg.exe" -Force
         Processes videos using a specific FFmpeg executable and overwrites existing output files.
 
     .EXAMPLE
-        PS> Invoke-FFMpeg -InputDir "D:\Movies" -InputFileExt "avi" -NoDelete -NoContinueOnError
+        PS> Invoke-FFMpeg -Path "D:\Movies" -Extension "avi" -KeepSourceFiles -PauseOnError
         Processes all .avi files in D:\Movies without deleting the input files and pauses for user input when errors occur.
 
     .LINK
@@ -51,19 +51,21 @@ function Invoke-FFMpeg
     param(
         [Parameter(Mandatory = $true, Position = 0)]
         [ValidateNotNullOrEmpty()]
-        [string]$InputDir,
+        [string]$Path,
 
         [Parameter(Position = 1)]
         [ValidateNotNullOrEmpty()]
-        [string]$InputFileExt = 'mkv',
+        [string]$Extension = 'mkv',
 
         [Parameter(Position = 2)]
         [ValidateNotNullOrEmpty()]
         [string]$FFmpegPath,
 
-        [switch]$NoDelete,
+        [switch]$Force,
 
-        [switch]$NoContinueOnError
+        [switch]$KeepSourceFiles,
+
+        [switch]$PauseOnError
     )
 
     # Platform detection for PowerShell 5.1
@@ -120,34 +122,34 @@ function Invoke-FFMpeg
     }
 
     # Validate Input Directory
-    if (-not (Test-Path -Path $InputDir -PathType Container))
+    if (-not (Test-Path -Path $Path -PathType Container))
     {
-        Write-Error "Input directory not found: '$InputDir'"
+        Write-Error "Input directory not found: '$Path'"
         return $false
     }
 
     # Normalize file extension (ensure it has no leading dot)
-    $InputFileExt = $InputFileExt.TrimStart('.')
+    $Extension = $Extension.TrimStart('.')
 
     # Store current location and change to input directory
     try
     {
-        Push-Location -Path $InputDir -ErrorAction Stop
-        Write-VerboseMessage "Changed working directory to: $InputDir"
+        Push-Location -Path $Path -ErrorAction Stop
+        Write-VerboseMessage "Changed working directory to: $Path"
     }
     catch
     {
-        Write-Error "Failed to change directory to '$InputDir'. Error: $($_.Exception.Message)"
+        Write-Error "Failed to change directory to '$Path'. Error: $($_.Exception.Message)"
         return $false
     }
 
     # Find files to process
-    $filesToProcess = Get-ChildItem -Filter "*.$InputFileExt" -File
+    $filesToProcess = Get-ChildItem -Filter "*.$Extension" -File
     $totalFiles = $filesToProcess.Count
 
     if ($totalFiles -eq 0)
     {
-        Write-Warning "No '$InputFileExt' files found in '$InputDir'"
+        Write-Warning "No '$Extension' files found in '$Path'"
         Pop-Location
         return $true
     }
@@ -213,7 +215,7 @@ function Invoke-FFMpeg
                 Write-Warning "FFmpeg failed for '$inputFile' with exit code $LASTEXITCODE."
                 $errorCount++
 
-                if ($NoContinueOnError)
+                if ($PauseOnError)
                 {
                     Read-Host 'Press Enter to continue...'
                 }
@@ -223,8 +225,8 @@ function Invoke-FFMpeg
                 Write-Host "Successfully converted '$inputFile' to '$outputFile'" -ForegroundColor Green
                 $successCount++
 
-                # Delete input file unless NoDelete is specified
-                if (-not $NoDelete)
+                # Delete input file unless KeepSourceFiles is specified
+                if (-not $KeepSourceFiles)
                 {
                     try
                     {
@@ -243,7 +245,7 @@ function Invoke-FFMpeg
             Write-Error "Error running FFmpeg for '$inputFile'. Error: $($_.Exception.Message)"
             $errorCount++
 
-            if ($NoContinueOnError)
+            if ($PauseOnError)
             {
                 Read-Host 'Press Enter to continue...'
             }
