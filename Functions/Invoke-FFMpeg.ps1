@@ -43,8 +43,8 @@ function Invoke-FFMpeg
     .LINK
         https://ffmpeg.org/documentation.html
     #>
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', 'Used for colored output in interactive console applications', Scope = 'Function')]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidGlobalVars', 'Required for platform detection in older PowerShell versions', Scope = 'Function')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidGlobalVars', '', '')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', 'Variables are used in conditional statements later in the script')]
     [CmdletBinding()]
     [OutputType([System.Boolean])]
@@ -71,7 +71,7 @@ function Invoke-FFMpeg
     {
         $global:IsWindows = $true
         $global:IsMacOS = $false
-        $global:IsLinux = $false
+        # $global:IsLinux = $false
     }
 
     function Write-VerboseMessage
