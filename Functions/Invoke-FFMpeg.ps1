@@ -217,13 +217,13 @@ function Invoke-FFMpeg
 
         # Construct ffmpeg arguments using splatting
         $ffmpegArgs = @(
-            '-i', $inputFile,
-            '-map', '0',
-            '-vcodec', 'copy',
-            '-acodec', 'aac', '-ac', '2', '-b:a', '320k',
-            '-scodec', 'mov_text', '-metadata:s:s:0', 'language=eng', '-metadata:s:s:1', 'language=ipk',
-            '-movflags', '+faststart',
-            '-map_metadata', '-1'
+            '-i', $inputFile, # Input file
+            '-map', '0', # Map all streams from input
+            '-vcodec', 'copy', # Copy video stream without re-encoding
+            '-acodec', 'aac', '-ac', '2', '-b:a', '320k', # Convert audio to AAC with 2 channels and 320k bitrate
+            '-scodec', 'mov_text', '-metadata:s:s:0', 'language=eng', '-metadata:s:s:1', 'language=ipk', # Convert subtitles to MOV_TEXT format
+            '-movflags', '+faststart', # Optimize for web streaming
+            '-map_metadata', '-1' # Remove metadata from input
         )
 
         # Add force overwrite if needed
