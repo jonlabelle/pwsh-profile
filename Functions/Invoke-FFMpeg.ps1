@@ -58,11 +58,10 @@ function Invoke-FFMpeg
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidGlobalVars', '')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('AvoidDefaultValueForMandatoryParameter', '')]
     [CmdletBinding()]
     [OutputType([System.Boolean])]
     param(
-        [Parameter(Mandatory = $true, Position = 0)]
+        [Parameter(Position = 0)]
         [ValidateNotNullOrEmpty()]
         [string]$Path = '.',
 
