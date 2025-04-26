@@ -15,6 +15,7 @@ Icon             # macOS custom icons (ends with \r)
 ._*              # macOS extended attributes
 
 node_modules
+/tmp
 
 # Build output directory
 /dist
