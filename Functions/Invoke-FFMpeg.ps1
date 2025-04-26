@@ -28,16 +28,17 @@ function Invoke-FFMpeg
     .PARAMETER PauseOnError
         If specified, the function will wait for user input when an error occurs instead of automatically continuing to the next file.
 
-    .PARAMETER Recursive
-        If specified, searches for video files in the specified Path and all subdirectories.
+    .PARAMETER NoRecursion
+        If specified, disables recursive searching and only processes files in the specified Path.
+        By default, search is recursive through all subdirectories.
 
     .PARAMETER Exclude
-        Specifies directories to exclude when using Recursive search.
+        Specifies directories to exclude when searching recursively.
         Defaults to @('.git', 'node_modules').
 
     .EXAMPLE
         PS> Invoke-FFMpeg -Path "C:\Videos" -Extension "mkv"
-        Processes all .mkv files in C:\Videos, converting them to MP4 with copied video streams and re-encoded audio and subtitle streams.
+        Processes all .mkv files in C:\Videos and all subdirectories, converting them to MP4 with copied video streams and re-encoded audio and subtitle streams.
 
     .EXAMPLE
         PS> Invoke-FFMpeg -Path "C:\Videos" -FFmpegPath "D:\tools\ffmpeg.exe" -Force
@@ -48,8 +49,8 @@ function Invoke-FFMpeg
         Processes all .avi files in D:\Movies without deleting the input files and pauses for user input when errors occur.
 
     .EXAMPLE
-        PS> Invoke-FFMpeg -Path "D:\Movies" -Recursive
-        Recursively processes all .mkv files in D:\Movies and all subdirectories.
+        PS> Invoke-FFMpeg -Path "D:\Movies" -NoRecursion
+        Processes only the .mkv files directly in D:\Movies without searching subdirectories.
 
     .LINK
         https://ffmpeg.org/documentation.html
@@ -75,7 +76,7 @@ function Invoke-FFMpeg
         [switch]$Force,
         [switch]$KeepSourceFiles,
         [switch]$PauseOnError,
-        [switch]$Recursive,
+        [switch]$NoRecursion,
 
         [Parameter()]
         [string[]]$Exclude = @('.git', 'node_modules')
@@ -157,9 +158,14 @@ function Invoke-FFMpeg
     }
 
     # Find files to process
-    if ($Recursive)
+    if ($NoRecursion)
     {
-        $filesToProcess = Get-ChildItem -Path $Path -Recurse -Filter "*.$Extension" -File -Exclude $Exclude | Where-Object {
+        $filesToProcess = Get-ChildItem -Path $Path -Filter "*.$Extension" -File
+        Write-VerboseMessage "Searching for *.$Extension files in current directory only"
+    }
+    else
+    {
+        $filesToProcess = Get-ChildItem -Path $Path -Recurse -Filter "*.$Extension" -File | Where-Object {
             $excludeMatch = $false
             foreach ($excludePath in $Exclude)
             {
@@ -172,11 +178,6 @@ function Invoke-FFMpeg
             -not $excludeMatch
         }
         Write-VerboseMessage "Searching recursively for *.$Extension files (excluding $($Exclude -join ', '))"
-    }
-    else
-    {
-        $filesToProcess = Get-ChildItem -Path $Path -Filter "*.$Extension" -File
-        Write-VerboseMessage "Searching for *.$Extension files in current directory only"
     }
     $totalFiles = $filesToProcess.Count
 
