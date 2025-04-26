@@ -55,10 +55,10 @@ function Invoke-FFMpeg
     .LINK
         https://ffmpeg.org/documentation.html
     #>
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '', '')]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidGlobalVars', '', '')]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '', '')]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('AvoidDefaultValueForMandatoryParameter', '', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidGlobalVars', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('AvoidDefaultValueForMandatoryParameter', '')]
     [CmdletBinding()]
     [OutputType([System.Boolean])]
     param(
