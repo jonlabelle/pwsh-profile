@@ -6,6 +6,12 @@
 # Example usage:
 # Invoke-ScriptAnalyzer -Settings PSScriptAnalyzerSettings.psd1 -Path . -Recurse
 @{
+  # Exclude specific rules globally
+  ExcludeRules = @(
+    'PSAvoidUsingWriteHost',
+    'PSUseShouldProcessForStateChangingFunctions'
+  )
+
   Rules = @{
     PSUseCompatibleSyntax = @{
 
