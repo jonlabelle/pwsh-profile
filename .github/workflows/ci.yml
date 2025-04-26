@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Checkout Git repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@main
 
       - name: Install PSScriptAnalyzer module
         shell: pwsh
@@ -30,13 +30,42 @@ jobs:
         shell: pwsh
         run: |
           Invoke-ScriptAnalyzer -Settings PSScriptAnalyzerSettings.psd1 -Path . -Recurse -OutVariable issues
+
           $errors = $issues.Where({$_.Severity -eq 'Error'})
           $warnings = $issues.Where({$_.Severity -eq 'Warning'})
-          if ($errors)
-          {
+
+          if ($errors) {
               Write-Error "There were $($errors.Count) errors and $($warnings.Count) warnings total." -ErrorAction Stop
           }
-          else
-          {
+          else {
+              Write-Output "There were $($errors.Count) errors and $($warnings.Count) warnings total."
+          }
+
+  ci-powershell-desktop:
+    name: Build on windows-latest
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Git repository
+        uses: actions/checkout@main
+
+      - name: Install PSScriptAnalyzer module
+        shell: powershell
+        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted
+          Install-Module PSScriptAnalyzer -ErrorAction Stop
+
+      - name: Run PSScriptAnalyzer
+        shell: powershell
+        run: |
+          Invoke-ScriptAnalyzer -Settings PSScriptAnalyzerSettings.psd1 -Path . -Recurse -OutVariable issues
+
+          $errors = $issues.Where({$_.Severity -eq 'Error'})
+          $warnings = $issues.Where({$_.Severity -eq 'Warning'})
+
+          if ($errors) {
+              Write-Error "There were $($errors.Count) errors and $($warnings.Count) warnings total." -ErrorAction Stop
+          }
+          else {
               Write-Output "There were $($errors.Count) errors and $($warnings.Count) warnings total."
           }
