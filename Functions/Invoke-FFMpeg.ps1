@@ -199,14 +199,17 @@ function Invoke-FFMpeg
     foreach ($file in $filesToProcess)
     {
         $currentFileNumber++
+        # Use full paths instead of just filenames
+        $inputFilePath = $file.FullName
+        $outputFilePath = [System.IO.Path]::ChangeExtension($inputFilePath, 'mp4')
         $inputFile = $file.Name
-        $outputFile = [System.IO.Path]::ChangeExtension($file.Name, 'mp4')
+        $outputFile = [System.IO.Path]::GetFileName($outputFilePath)
 
         # Progress information
         Write-Host "[$currentFileNumber/$totalFiles] Processing: '$inputFile'" -ForegroundColor Yellow
 
         # Check if output file already exists
-        if ((Test-Path -Path $outputFile) -and (-not $Force))
+        if ((Test-Path -Path $outputFilePath) -and (-not $Force))
         {
             Write-Warning "Output file '$outputFile' already exists. Use -Force to overwrite. Skipping..."
             $skipCount++
@@ -214,10 +217,20 @@ function Invoke-FFMpeg
         }
 
         Write-VerboseMessage "Converting to: '$outputFile'"
+        Write-VerboseMessage "Input path: '$inputFilePath'"
+        Write-VerboseMessage "Output path: '$outputFilePath'"
+
+        # Verify input file exists
+        if (-not (Test-Path -Path $inputFilePath -PathType Leaf))
+        {
+            Write-Error "Input file not found: '$inputFilePath'"
+            $errorCount++
+            continue
+        }
 
         # Construct ffmpeg arguments using splatting
         $ffmpegArgs = @(
-            '-i', $inputFile, # Input file
+            '-i', $inputFilePath, # Use full path for input file
             '-map', '0', # Map all streams from input
             '-vcodec', 'copy', # Copy video stream without re-encoding
             '-acodec', 'aac', '-ac', '2', '-b:a', '320k', # Convert audio to AAC with 2 channels and 320k bitrate
@@ -233,7 +246,7 @@ function Invoke-FFMpeg
         }
 
         # Add output file
-        $ffmpegArgs += $outputFile
+        $ffmpegArgs += $outputFilePath
 
         # Execute ffmpeg
         try
@@ -264,7 +277,7 @@ function Invoke-FFMpeg
                 {
                     try
                     {
-                        Remove-Item -Path $inputFile -Confirm:$false -ErrorAction Stop
+                        Remove-Item -Path $inputFilePath -Confirm:$false -ErrorAction Stop
                         Write-Host "Deleted input file '$inputFile'" -ForegroundColor Green
                     }
                     catch
