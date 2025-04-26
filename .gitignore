@@ -1,6 +1,23 @@
 .DS_Store
+desktop.ini
+Thumbs.db        # Windows thumbnail cache files
+ehthumbs.db      # Windows thumbnail cache files
+ehthumbs_vista.db # Windows thumbnail cache files
+*.stackdump      # Windows error dump files
+[Dd]esktop.ini   # Already have desktop.ini but this catches Desktop.ini too
+$RECYCLE.BIN/    # Windows Recycle Bin used on file shares
+.Spotlight-V100/ # macOS Spotlight index files
+.Trashes         # macOS Trash files
+.fseventsd/      # macOS File System Events
+.AppleDouble     # macOS resource forks
+.LSOverride      # macOS folder attributes
+Icon             # macOS custom icons (ends with \r)
+._*              # macOS extended attributes
+
 node_modules
-tmp/
+
+# Build output directory
+/dist
 
 # Build output directory
 /dist
@@ -34,7 +51,6 @@ pnpm-debug.log*
 !.vscode/settings.json
 !.vscode/tasks.json
 
-tmp/
 *.code-workspace
 dist/
 
