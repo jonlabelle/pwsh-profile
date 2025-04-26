@@ -18,5 +18,13 @@
     "powershell.promptToUpdatePowerShell": false,
     "powershell.codeFormatting.whitespaceInsideBrace": false,
     "powershell.codeFormatting.openBraceOnSameLine": false,
-    "powershell.codeFormatting.useConstantStrings": true
+    "powershell.codeFormatting.useConstantStrings": true,
+    "cSpell.words": [
+        "acodec",
+        "faststart",
+        "LASTEXITCODE",
+        "movflags",
+        "scodec",
+        "vcodec"
+    ]
 }
