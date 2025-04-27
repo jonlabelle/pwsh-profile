@@ -128,10 +128,10 @@ function Test-Port
                     $output = '' | Select-Object Server, Port, Protocol, Open, Status
 
                     # Create object for connecting to port on ComputerName
-                    $tcpobject = New-Object System.Net.Sockets.TcpClient
+                    $tcpObject = New-Object System.Net.Sockets.TcpClient
 
                     # Connect to remote machine's port
-                    $connect = $tcpobject.BeginConnect($computer, $targetPort, $null, $null)
+                    $connect = $tcpObject.BeginConnect($computer, $targetPort, $null, $null)
 
                     # Configure a timeout before quitting
                     $wait = $connect.AsyncWaitHandle.WaitOne($Timeout, $false)
@@ -140,7 +140,7 @@ function Test-Port
                     if (!$wait)
                     {
                         # Close connection
-                        $tcpobject.Close()
+                        $tcpObject.Close()
 
                         Write-Verbose 'Connection timeout'
 
@@ -159,7 +159,7 @@ function Test-Port
 
                         try
                         {
-                            $tcpobject.EndConnect($connect) | Out-Null
+                            $tcpObject.EndConnect($connect) | Out-Null
                         }
                         catch
                         {
@@ -173,7 +173,7 @@ function Test-Port
                         }
                         finally
                         {
-                            $tcpobject.Close()
+                            $tcpObject.Close()
                         }
 
                         # if unable to query port to due failure
@@ -210,34 +210,34 @@ function Test-Port
                     $output = '' | Select-Object Server, Port, Protocol, Open, Status
 
                     # Create object for connecting to port on ComputerName
-                    $udpobject = New-Object System.Net.Sockets.Udpclient
+                    $udpObject = New-Object System.Net.Sockets.UdpClient
 
                     # Set a timeout on receiving message
-                    $udpobject.client.ReceiveTimeout = $Timeout
+                    $udpObject.client.ReceiveTimeout = $Timeout
 
                     # Connect to remote machine's port
                     Write-Verbose 'Making UDP connection to remote server'
-                    $udpobject.Connect("$computer", $targetPort)
+                    $udpObject.Connect("$computer", $targetPort)
 
                     # Sends a message to the host to which you have connected.
                     Write-Verbose 'Sending message to remote host'
-                    $a = New-Object system.text.asciiencoding
+                    $a = New-Object System.Text.ASCIIEncoding
                     $byte = $a.GetBytes("$(Get-Date)")
-                    [void]$udpobject.Send($byte, $byte.length)
+                    [void]$udpObject.Send($byte, $byte.length)
 
-                    # IPEndPoint object will allow us to read datagrams sent from any source.
+                    # IPEndPoint object will allow us to read data-grams sent from any source.
                     Write-Verbose 'Creating remote endpoint'
 
-                    $remoteendpoint = New-Object System.Net.IPEndPoint([System.Net.IPAddress]::Any, 0)
+                    $remoteEndpoint = New-Object System.Net.IPEndPoint([System.Net.IPAddress]::Any, 0)
 
                     try
                     {
                         # Blocks until a message returns on this socket from a remote host.
                         Write-Verbose 'Waiting for message return'
-                        $receivebytes = $udpobject.Receive([ref]$remoteendpoint)
+                        $receiveBytes = $udpObject.Receive([ref]$remoteEndpoint)
 
-                        [string]$returndata = $a.GetString($receivebytes)
-                        if ($returndata)
+                        [string]$returnData = $a.GetString($receiveBytes)
+                        if ($returnData)
                         {
                             Write-Verbose 'Connection successful'
 
@@ -246,8 +246,8 @@ function Test-Port
                             $output.Port = $targetPort
                             $output.Protocol = 'UDP'
                             $output.Open = $true
-                            $output.Status = $returndata
-                            $udpobject.close()
+                            $output.Status = $returnData
+                            $udpObject.close()
                         }
                     }
                     catch
@@ -255,7 +255,7 @@ function Test-Port
                         if ($Error[0].ToString() -match '\bRespond after a period of time\b')
                         {
                             # Close connection
-                            $udpobject.Close()
+                            $udpObject.Close()
 
                             # Make sure that the host is online and not a false-positive
                             if (Test-Connection -comp $computer -Count 1 -Quiet)
@@ -288,7 +288,7 @@ function Test-Port
                         elseif ($Error[0].ToString() -match 'forcibly closed by the remote host' )
                         {
                             # Close connection
-                            $udpobject.Close()
+                            $udpObject.Close()
 
                             Write-Verbose 'Connection timeout'
 
@@ -301,7 +301,7 @@ function Test-Port
                         }
                         else
                         {
-                            $udpobject.close()
+                            $udpObject.close()
                         }
                     }
 

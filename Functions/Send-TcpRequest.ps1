@@ -46,28 +46,28 @@ function Send-TcpRequest
 
     ## Store the input into an array that we can scan over. If there was no input,
     ## then we will be in interactive mode.
-    $currentInput = $inputObject
+    $currentInput = $InputObject
     if (-not $currentInput)
     {
         $currentInput = @($input)
     }
-    $scriptedMode = ([bool] $currentInput) -or $test
+    $scriptedMode = ([bool] $currentInput) -or $Test
 
     function Main
     {
         ## Open the socket, and connect to the computer on the specified port
         if (-not $scriptedMode)
         {
-            Write-Host "Connecting to $computerName on port $port"
+            Write-Host "Connecting to $ComputerName on port $Port"
         }
 
         try
         {
-            $socket = New-Object Net.Sockets.TcpClient($computerName, $port)
+            $socket = New-Object Net.Sockets.TcpClient($ComputerName, $Port)
         }
         catch
         {
-            if ($test) { $false }
+            if ($Test) { $false }
             else { Write-Error "Could not connect to remote computer: $_" }
 
             return
@@ -75,7 +75,7 @@ function Send-TcpRequest
 
         ## If we're just testing the connection, we've made the connection
         ## successfully, so just return $true
-        if ($test) { $true; return }
+        if ($Test) { $true; return }
 
         ## If this is interactive mode, supply the prompt
         if (-not $scriptedMode)
@@ -89,7 +89,7 @@ function Send-TcpRequest
         if ($UseSSL)
         {
             $sslStream = New-Object System.Net.Security.SslStream $stream, $false
-            $sslStream.AuthenticateAsClient($computerName)
+            $sslStream.AuthenticateAsClient($ComputerName)
             $stream = $sslStream
         }
 
@@ -166,7 +166,7 @@ function Send-TcpRequest
             Start-Sleep -m 1000
 
             ## Read what data is available
-            $foundmore = $false
+            $foundMore = $false
             $stream.ReadTimeout = 1000
 
             do
@@ -177,13 +177,13 @@ function Send-TcpRequest
 
                     if ($read -gt 0)
                     {
-                        $foundmore = $true
+                        $foundMore = $true
                         $outputBuffer += ($encoding.GetString($buffer, 0, $read))
                     }
                 }
                 catch { $foundMore = $false; $read = 0 }
             } while ($read -gt 0)
-        } while ($foundmore)
+        } while ($foundMore)
 
         $outputBuffer
     }

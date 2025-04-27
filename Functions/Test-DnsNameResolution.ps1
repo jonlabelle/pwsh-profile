@@ -56,7 +56,7 @@ function Test-DnsNameResolution
         # $Server = @('8.8.8.8','8.8.4.4') # Google DNS server
     )
 
-    $resolvParams = @{
+    $resolveParams = @{
         'DnsOnly' = $true
         'NoHostsFile' = $true
         'ErrorAction' = 'SilentlyContinue'
@@ -66,12 +66,12 @@ function Test-DnsNameResolution
 
     if ($Server -and $Server.Count -gt 0)
     {
-        $resolvParams += @{Server = $Server}
+        $resolveParams += @{Server = $Server}
     }
 
     try
     {
-        if (Resolve-DnsName @resolvParams)
+        if (Resolve-DnsName @resolveParams)
         {
             $true
         }

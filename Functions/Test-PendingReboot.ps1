@@ -47,7 +47,7 @@ function Test-PendingReboot
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
-        [pscredential]$Credential
+        [PSCredential]$Credential
     )
 
     $ErrorActionPreference = 'Stop'
@@ -125,7 +125,7 @@ function Test-PendingReboot
         }
 
         # Added "test-path" to each test that did not leverage a custom function from above since
-        # an exception is thrown when Get-ItemProperty or Get-ChildItem are passed a nonexistant key path
+        # an exception is thrown when Get-ItemProperty or Get-ChildItem are passed a none-existent key path
         $tests = @(
             { Test-RegistryKey -Key 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending' }
             { Test-RegistryKey -Key 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootInProgress' }
@@ -215,7 +215,7 @@ function Test-PendingReboot
                     $output.IsPendingReboot = $false
                 }
             }
-            [pscustomobject]$output
+            [PSCustomObject]$output
         }
         catch
         {
@@ -229,5 +229,4 @@ function Test-PendingReboot
             }
         }
     }
-
 }

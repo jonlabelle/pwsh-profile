@@ -1,4 +1,4 @@
-function Get-CmdletAlias ($cmdletname)
+function Get-CmdletAlias ($CmdletName)
 {
     <#
     .SYNOPSIS
@@ -8,7 +8,7 @@ function Get-CmdletAlias ($cmdletname)
         This function retrieves and displays all defined aliases that reference a specific cmdlet.
         It helps users discover alternative shorthand ways to call frequently used cmdlets.
 
-    .PARAMETER cmdletname
+    .PARAMETER CmdletName
         The name of the cmdlet to find aliases for. Can be a partial name (wildcards are supported).
 
     .EXAMPLE
@@ -45,6 +45,6 @@ function Get-CmdletAlias ($cmdletname)
     #>
     # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_profiles?view=powershell-7.2#add-a-function-that-lists-the-aliases-for-any-cmdlet
     Get-Alias |
-    Where-Object -FilterScript {$_.Definition -like "$cmdletname"} |
+    Where-Object -FilterScript {$_.Definition -like "$CmdletName"} |
     Format-Table -Property Definition, Name -AutoSize
 }
