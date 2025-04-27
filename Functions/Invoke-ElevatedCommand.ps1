@@ -2,18 +2,52 @@ function Invoke-ElevatedCommand
 {
     <#
     .SYNOPSIS
+        Runs a script block with elevated privileges and passes pipeline input.
 
-        Runs the provided script block under an elevated instance of PowerShell as
-        through it were a member of a regular pipeline.
+    .DESCRIPTION
+        This function executes the provided script block in an elevated PowerShell session
+        while maintaining pipeline functionality. It provides a way to run commands with
+        administrator privileges without losing the context of the current session.
+
+    .PARAMETER Scriptblock
+        The script block to execute with elevated privileges.
+        This parameter is mandatory.
+
+    .PARAMETER InputObject
+        Input to provide to the elevated process via the pipeline.
+        This parameter accepts pipeline input.
+
+    .PARAMETER EnableProfile
+        When specified, loads the PowerShell profile in the elevated session.
+        By default, profiles are not loaded.
 
     .EXAMPLE
+        PS> Invoke-ElevatedCommand { Get-Service | Where-Object Status -eq 'Running' }
+        Runs an elevated PowerShell session to get running services.
 
-        PS > Get-Process | Invoke-ElevatedCommand.ps1 {
-        $input | Where-Object { $_.Handles -gt 500 } } | Sort Handles
+    .EXAMPLE
+        PS> Get-Process | Invoke-ElevatedCommand { $input | Where-Object Handles -gt 500 } | Sort-Object Handles
+        Gets all processes, pipes them to an elevated session that filters for processes with more than 500 handles,
+        and then sorts the results by handle count.
+
+    .EXAMPLE
+        PS> Invoke-ElevatedCommand -EnableProfile { Import-Module ActiveDirectory; Get-ADUser -Filter * }
+        Runs an elevated PowerShell session with profile loaded, imports the ActiveDirectory module,
+        and retrieves all AD users.
+
+    .OUTPUTS
+        System.Object
+        The output from the elevated script block is returned to the calling session.
 
     .NOTES
         From Windows PowerShell Cookbook (O'Reilly)
         by Lee Holmes (http://www.leeholmes.com/guide)
+
+        This function creates temporary files to stream input and output between sessions.
+        These files are automatically cleaned up when the function completes.
+
+    .LINK
+        https://www.leeholmes.com/blog/
     #>
     param(
         ## The script block to invoke elevated

@@ -1,98 +1,78 @@
-<#
-.Synopsis
-   This is a pecking bird function, a press on the <Ctrl> key will run every 3 minutes.
-.DESCRIPTION
-   This function will run a background job to keep your computer alive. By default a KeyPess of the <Ctrl> key will be pushed every 5 minutes.
-   Please be aware that this is a short term workaround to allow you to complete an otherwise impossible task, such as download a large file.
-   This function should only be run when your computer is locked in a secure location.
-.EXAMPLE
-   Start-KeepAlive
-   Id     Name            PSJobTypeName   State         HasMoreData     Location
-   --     ----            -------------   -----         -----------     --------
-   90     KeepAlive       BackgroundJob   Running       True            localhost
-
-   KeepAlive set to run until 10/01/2012 00:35:03
-
-   By default the keepalive will run for 1 hour, with a keypress every 5 minutes.
-.EXAMPLE
-   Start-KeepAlive -KeepAliveHours 3
-   Id     Name            PSJobTypeName   State         HasMoreData     Location
-   --     ----            -------------   -----         -----------     --------
-   92     KeepAlive       BackgroundJob   Running       True            localhost
-
-   KeepAlive set to run until 10/01/2012 02:36:12
-
-   You can specify a longer KeepAlive period using the KeepAlive parameter E.g. specify 3 hours
-.EXAMPLE
-   Start-KeepAlive -KeepAliveHours 2 -SleepSeconds 600
-
-   You can also change the default period between each keypress, here the keypress occurs every 10 minutes (600 Seconds).
-.EXAMPLE
-   KeepAliveHours -Query
-   Job will run till 09/30/2012 17:20:05 + 5 minutes, around 19.96 Minutes
-   Job will run till 09/30/2012 17:20:05 + 5 minutes, around 14.96 Minutes
-   Job will run till 09/30/2012 17:20:05 + 5 minutes, around 9.96 Minutes
-   Job will run till 09/30/2012 17:20:05 + 5 minutes, around 4.96 Minutes
-   Job will run till 09/30/2012 17:20:05 + 5 minutes, around -0.04 Minutes
-
-   KeepAlive has now completed.... job will be cleaned up.
-
-   KeepAlive has now completed.
-
-   Run with the Query Switch to get an update on how long the timout will have to run.
-.EXAMPLE
-   KeepAliveHours -Query
-   Job will run till 09/30/2012 17:20:05 + 5 minutes, around 19.96 Minutes
-   Job will run till 09/30/2012 17:20:05 + 5 minutes, around 14.96 Minutes
-   Job will run till 09/30/2012 17:20:05 + 5 minutes, around 9.96 Minutes
-   Job will run till 09/30/2012 17:20:05 + 5 minutes, around 4.96 Minutes
-   Job will run till 09/30/2012 17:20:05 + 5 minutes, around -0.04 Minutes
-
-   KeepAlive has now completed.... job will be cleaned up.
-
-   KeepAlive has now completed.
-
-   The Query switch will also clean up the background job if you run this once the KeepAlive has complete..EXAMPLE
-.EXAMPLE
-   KeepAliveHours -EndJob
-   KeepAlive has now ended...
-
-   Run Endjob once you download has complete to stop the Keepalive and remove the background job.
-.EXAMPLE
-   KeepAliveHours -EndJob
-   KeepAlive has now ended...
-
-   Run EndJob anytime to stop the KeepAlive and remove the Job.
-.INPUTS
-   KeepAliveHours - The time the keepalive will be active on the system
-.INPUTS
-   SleepSeconds - The time between Keypresses. This should be less than the timeout of your computer screensaver or lock screen.
-.OUTPUTS
-   This cmdlet creates a background job, when you Query the results the status from the background job will be outputed on the screen to let you know how long the KeepAlive will run for.
-.NOTES
-   General notes
-.COMPONENT
-   This is a standlone cmdlet, you may change the keystroke to do something more meaningful in a different scenario that this was originally written.
-.ROLE
-   This utility should only be used in the privacy of your own home or locked office.
-.FUNCTIONALITY
-   Call this function to enable a temporary KeepAlive for your computer. Allow you to download a large file without sleepin the computer.
-
-   If the KeepAlive ends and you do not run -Query or -EndJob, then the completed job will remain.
-
-   You can run Get-Job to view the job. Get-Job -Name KeepAlive | Remove-Job will cleanup the Job.
-
-   By default you cannot create more than one KeepAlive Job, unless you provide a different JobName. There should be no reason to do this. With Query or EndJob, you can cleanup any old Jobs and then create a new one.
-#>
 function Start-KeepAlive
 {
+    <#
+    .SYNOPSIS
+        Prevents system inactivity timeout by simulating key-presses at regular intervals.
+
+    .DESCRIPTION
+        This function runs a background job that simulates key-press activity to keep
+        a computer awake and prevent sleep, screensaver activation, or session timeout.
+        By default, it sends a Ctrl key press every 3 minutes for a specified duration.
+
+        CAUTION: This function should only be used in secure environments when you need
+        to prevent timeout during long operations like file downloads.
+
+    .PARAMETER KeepAliveHours
+        The number of hours the keep-alive job will run.
+        Default is 12 hours.
+
+    .PARAMETER SleepSeconds
+        The number of seconds between each key-press.
+        Default is 180 seconds (3 minutes).
+
+    .PARAMETER JobName
+        The name of the background job.
+        Default is 'KeepAlive'.
+
+    .PARAMETER EndJob
+        When specified, stops any running keep-alive job and removes it.
+
+    .PARAMETER Query
+        When specified, displays the status of the keep-alive job and cleans up completed jobs.
+
+    .PARAMETER KeyToPress
+        The key to simulate pressing.
+        Default is '^' (Ctrl key).
+        Reference for other keys: http://msdn.microsoft.com/en-us/library/office/aa202943(v=office.10).aspx
+
+    .EXAMPLE
+        PS> Start-KeepAlive
+        Starts a keep-alive job that will run for 12 hours, pressing the Ctrl key every 3 minutes.
+
+    .EXAMPLE
+        PS> Start-KeepAlive -KeepAliveHours 3 -SleepSeconds 300
+        Starts a keep-alive job that will run for 3 hours, pressing the Ctrl key every 5 minutes.
+
+    .EXAMPLE
+        PS> Start-KeepAlive -KeyToPress '{TAB}'
+        Starts a keep-alive job that simulates pressing the Tab key instead of Ctrl.
+
+    .EXAMPLE
+        PS> Start-KeepAlive -Query
+        Displays the status of the current keep-alive job.
+
+    .EXAMPLE
+        PS> Start-KeepAlive -EndJob
+        Stops the running keep-alive job and removes it.
+
+    .OUTPUTS
+        System.Management.Automation.PSRemotingJob
+        Returns a background job object when starting a new keep-alive job.
+
+    .NOTES
+        This function should only be used when your computer is locked in a secure location.
+        It is intended as a temporary workaround for specific scenarios where system timeout
+        would interfere with important tasks.
+
+        If you don't manually end the job using -EndJob, use Get-Job | Remove-Job to clean up old jobs.
+    #>
     param (
         $KeepAliveHours = 12,
         $SleepSeconds = 180,
         $JobName = 'KeepAlive',
         [Switch]$EndJob,
         [Switch]$Query,
-        $KeyToPress = '^' # Default KeyPress is <Ctrl>
+        $KeyToPress = '^' # Default key-press is <Ctrl>
         # Reference for other keys: http://msdn.microsoft.com/en-us/library/office/aa202943(v=office.10).aspx
     )
 
@@ -191,11 +171,8 @@ function Start-KeepAlive
             Start-Job @JobProperties
 
             "`nKeepAlive set to run until $EndTime"
-
         }
     }#Process
-
-
 }#Start-KeepAlive
 
 # ## Usage

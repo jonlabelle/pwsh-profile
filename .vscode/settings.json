@@ -21,9 +21,12 @@
     "powershell.codeFormatting.useConstantStrings": true,
     "cSpell.words": [
         "acodec",
+        "ADSI",
         "faststart",
+        "HKLM",
         "LASTEXITCODE",
         "movflags",
+        "Netlogon",
         "scodec",
         "vcodec"
     ]

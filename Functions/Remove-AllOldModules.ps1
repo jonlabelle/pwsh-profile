@@ -1,28 +1,28 @@
 function Remove-AllOldModules
 {
     <#
-        .SYNOPSIS
-            Basic function to remove old PowerShell modules which are installed.
+    .SYNOPSIS
+        Removes all older versions of installed PowerShell modules.
 
-            Description: This little snippet with remove any old PowerShell modules (that are not the latest version), which are installed.
+    .DESCRIPTION
+        This function identifies and removes older versions of PowerShell modules that are installed,
+        keeping only the latest version of each module. This helps maintain a clean PowerShell environment
+        and reduces disk space usage.
 
-        .NOTES
-            Version: 0.1
-            #requires -Version 2.0 -Modules PowerShellGet
-            Author: Luke Murray (Luke.Geek.NZ)
-            Link: https://luke.geek.nz/powershell/remove-old-powershell-modules-versions-using-powershell/
+    .EXAMPLE
+        PS > Remove-AllOldModules
+        Uninstalls all older versions of PowerShell modules, keeping only the latest version of each module.
+
+    .NOTES
+        Version: 0.1
+        #requires -Version 2.0 -Modules PowerShellGet
+        Author: Luke Murray (Luke.Geek.NZ)
+        Updated by: Jon LaBelle
+        Link: https://luke.geek.nz/powershell/remove-old-powershell-modules-versions-using-powershell/
+
+        To show all installed modules, run:
+        Get-Module -ListAvailable
     #>
-
-    #
-    # Added to my pwsh profile:
-    # /Users/jon/.config/powershell/profile.ps1
-    #
-    # Snippet:
-    # https://jonlabelle.com/snippets/view/powershell/remove-old-powershell-modules
-    #
-    # To show all installed modules, run:
-    # Get-Module -ListAvailable
-    #
 
     $Latest = Get-InstalledModule
 
