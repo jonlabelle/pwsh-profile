@@ -1,42 +1,52 @@
 function Rename-VideoSeasonFile
 {
     <#
-        .SYNOPSIS
-            Renames files into their proper season sequence format.
+    .SYNOPSIS
+        Renames files into their proper season sequence format.
 
-        .PARAMETER Path
-            The directory path to search.
-            The default is the current working directory.
+    .DESCRIPTION
+        This function searches for video files with season/episode identifiers in their names
+        (patterns like S01E01) and renames them to a standardized uppercase format. It's useful
+        for organizing TV show collections to ensure consistent naming across all files.
 
-        .PARAMETER Filters
-            The file filters to search.
-            The default filters are @('*.mkv', '*.mp4', '*.mov', '*.avi')
+        The function looks for patterns like s01e01 or S01E01 in filenames and renames the file
+        to use the uppercase version (S01E01) while preserving the file extension.
 
-        .PARAMETER WhatIf
-            If specified, the file rename operation will not be performed.
+    .PARAMETER Path
+        The directory path to search for video files.
+        Default is the current working directory.
 
-        .PARAMETER Exclude
-            Paths to exclude.
-            The default exclusions paths are @('.git', 'node_modules')
+    .PARAMETER Filters
+        The file extensions to search for.
+        Default filters are @('*.mkv', '*.mp4', '*.mov', '*.avi').
 
-        .EXAMPLE
-            PS > Rename-VideoSeason -Verbose -WhatIf
+    .PARAMETER WhatIf
+        When specified, shows what would happen if the command runs but doesn't perform the actual rename operation.
 
-            To show what would happen using the default options.
+    .PARAMETER Exclude
+        Specifies paths to exclude from the search.
+        Default exclusions are @('.git', 'node_modules').
 
-        .EXAMPLE
-            PS > Rename-VideoSeason -Path 'path/to/season' -Filters '*.mp4' -Verbose
+    .EXAMPLE
+        PS> Rename-VideoSeasonFile -Verbose -WhatIf
+        Displays what would happen if the function ran with the default options, showing which files would be renamed.
 
-            To rename mp4 files with season sequence format.
+    .EXAMPLE
+        PS> Rename-VideoSeasonFile -Path 'D:\TV Shows\Breaking Bad' -Filters '*.mp4' -Verbose
+        Renames all MP4 files in the specified directory that contain season identifiers.
 
-        .LINK
-            https://jonlabelle.com/snippets/view/powershell/rename-video-season-sequence-files-in-powershell
+    .EXAMPLE
+        PS> Rename-VideoSeasonFile -Path 'D:\Downloads' -Exclude @('.git', 'node_modules', 'temp')
+        Renames video files in the Downloads folder, excluding any in the specified directories.
 
-        .NOTES
-            Version: 1.1.0
-            Date: January 14, 2023
-            Author: Jon LaBelle
-            License: MIT
+    .NOTES
+        Version: 1.1.0
+        Date: January 14, 2023
+        Author: Jon LaBelle
+        License: MIT
+
+    .LINK
+        https://jonlabelle.com/snippets/view/powershell/rename-video-season-sequence-files-in-powershell
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param(

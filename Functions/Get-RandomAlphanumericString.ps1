@@ -3,6 +3,42 @@
 # https://jonlabelle.com/snippets/view/powershell/generate-random-alphanumeric-string-in-powershell
 function Get-RandomAlphaNumericString
 {
+    <#
+    .SYNOPSIS
+        Generates a random alphanumeric string of specified length.
+
+    .DESCRIPTION
+        This function generates a random string consisting of uppercase letters,
+        lowercase letters, and numbers (0-9, A-Z, a-z). It's useful for creating
+        random passwords, IDs, or other unique identifiers.
+
+    .PARAMETER Length
+        The length of the random string to generate.
+        Default is 32 characters. Must be between 1 and 1024 characters.
+
+    .EXAMPLE
+        PS> Get-RandomAlphaNumericString
+        Returns a random 32-character alphanumeric string.
+
+    .EXAMPLE
+        PS> Get-RandomAlphaNumericString -Length 16
+        Returns a random 16-character alphanumeric string.
+
+    .EXAMPLE
+        PS> Get-RandomAlphaNumericString -Length 64
+        Returns a random 64-character alphanumeric string.
+
+    .OUTPUTS
+        System.String
+        Returns a string of random alphanumeric characters.
+
+    .NOTES
+        The function uses the Get-Random cmdlet for randomization. While suitable for
+        most general purposes, it should not be used for cryptographic security needs.
+
+    .LINK
+        https://jonlabelle.com/snippets/view/powershell/generate-random-alphanumeric-string-in-powershell
+    #>
     [CmdletBinding()]
     [OutputType([String])]
     param (

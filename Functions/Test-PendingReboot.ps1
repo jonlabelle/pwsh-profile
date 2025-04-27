@@ -2,15 +2,39 @@ function Test-PendingReboot
 {
     <#
     .SYNOPSIS
-        This script tests various registry values to see if the local computer is pending a reboot.
+        Tests various registry values to see if the local computer is pending a reboot.
+
+    .DESCRIPTION
+        This function checks multiple registry locations to determine if a Windows system
+        needs to be rebooted due to pending changes from Windows updates, component-based
+        servicing, computer name changes, domain joins, or other system modifications.
+
+    .PARAMETER ComputerName
+        The computer(s) to check for pending reboots. If not specified, the local computer is checked.
+        This parameter accepts an array of computer names for checking multiple systems.
+
+    .PARAMETER Credential
+        The credentials to use when connecting to remote computers.
+        Not required when checking the local computer.
+
+    .EXAMPLE
+        PS> Test-PendingReboot
+        Checks if the local computer has pending reboots.
+
+    .EXAMPLE
+        PS> Test-PendingReboot -ComputerName 'Server01', 'Server02'
+        Checks if Server01 and Server02 have pending reboots.
+
+    .EXAMPLE
+        PS> Test-PendingReboot -ComputerName 'Server01' -Credential (Get-Credential)
+        Checks if Server01 has pending reboots using the provided credentials.
+
+    .OUTPUTS
+        PSCustomObject
+        Returns an object with ComputerName and IsPendingReboot properties.
 
     .NOTES
         Inspiration from: https://gallery.technet.microsoft.com/scriptcenter/Get-PendingReboot-Query-bdb79542
-
-    .EXAMPLE
-        PS> Test-PendingReboot -ComputerName localhost
-
-        This example checks various registry values to see if the local computer is pending a reboot.
 
     .LINK
         https://github.com/adbertram/Random-PowerShell-Work/blob/master/Random%20Stuff/Test-PendingReboot.ps1

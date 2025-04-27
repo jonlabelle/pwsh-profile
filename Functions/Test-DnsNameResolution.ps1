@@ -1,29 +1,44 @@
 function Test-DnsNameResolution
 {
     <#
-      .DESCRIPTION
-          A script to test if a DNS name can be resolved.
+    .SYNOPSIS
+        Tests if a DNS name can be resolved.
 
-      .EXAMPLE
-          PS > .\Test-DnsNameResolution.ps1 -Name 'google.com'
-          True
+    .DESCRIPTION
+        This function checks if a given DNS name can be resolved using the specified DNS servers.
+        It returns a boolean value indicating whether resolution was successful.
 
-          Test whether google.com can be resolved.
+    .PARAMETER Name
+        The DNS name to resolve. This parameter is mandatory.
 
-      .EXAMPLE
-          PS > .\Test-DnsNameResolution.ps1 -Name 'google.com' -Server '8.8.8.8','8.8.4.4'
-          True
+    .PARAMETER Server
+        The DNS server(s) to use for resolution. If not specified, the system's default DNS servers are used.
+        You can specify multiple DNS servers as an array.
 
-          Specify DNS servers to use; in this case, Google's public DNS servers.
+    .EXAMPLE
+        PS > Test-DnsNameResolution -Name 'google.com'
+        True
 
-      .LINK
-          https://github.com/adbertram/Random-PowerShell-Work/blob/master/DNS/Test-DnsNameResolution.ps1
+        Tests whether google.com can be resolved using the system's default DNS servers.
 
-      .LINK
-          https://adamtheautomator.com/resolve-dnsname/
+    .EXAMPLE
+        PS > Test-DnsNameResolution -Name 'google.com' -Server '8.8.8.8','8.8.4.4'
+        True
 
-      .LINK
-          https://jonlabelle.com/snippets/view/powershell/test-dns-name-in-powershell
+        Tests whether google.com can be resolved using Google's public DNS servers (8.8.8.8 and 8.8.4.4).
+
+    .OUTPUTS
+        System.Boolean
+        Returns $true if the DNS name can be resolved, otherwise $false.
+
+    .LINK
+        https://github.com/adbertram/Random-PowerShell-Work/blob/master/DNS/Test-DnsNameResolution.ps1
+
+    .LINK
+        https://adamtheautomator.com/resolve-dnsname/
+
+    .LINK
+        https://jonlabelle.com/snippets/view/powershell/test-dns-name-in-powershell
   #>
 
     [CmdletBinding()]

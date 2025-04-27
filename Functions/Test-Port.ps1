@@ -2,81 +2,68 @@ function Test-Port
 {
     <#
     .SYNOPSIS
-        Tests a TCP or UPP port for connectivity.
+        Tests TCP or UDP port connectivity to target hosts.
 
     .DESCRIPTION
-        Tests a TCP or UPP port for connectivity.
-
-    .PARAMETER ComputerName
-        Name of server to test the port connection on.
+        Tests whether specific TCP or UDP ports are open and accessible on target hosts.
+        Provides detailed connection information including success status and connection details.
 
     .PARAMETER Port
-        Port to test
+        Port numbers to test. Accepts an array of port numbers.
 
-    .PARAMETER Tcp
-        Use tcp port.
-
-    .PARAMETER Udp
-        Use udp port
+    .PARAMETER ComputerName
+        Target hosts to test. Accepts an array of computer names or IP addresses.
+        If not specified, 'localhost' is used as the default.
 
     .PARAMETER Timeout
         Sets a timeout (in milliseconds) for port query.
-        The default is '3000' (3 seconds).
+        The default is 3000 (3 seconds).
+
+    .PARAMETER Tcp
+        Use this switch to test TCP ports. If neither Tcp nor Udp is specified, Tcp is used by default.
+
+    .PARAMETER Udp
+        Use this switch to test UDP ports.
+
+    .EXAMPLE
+        PS > Test-Port -ComputerName 'server' -Port 80
+        Tests if TCP port 80 is open on server 'server'.
+
+    .EXAMPLE
+        PS > 'server' | Test-Port -Port 80
+        Tests if TCP port 80 is open on server 'server' using pipeline input.
+
+    .EXAMPLE
+        PS > Test-Port -ComputerName @("server1","server2") -Port 80
+        Tests if TCP port 80 is open on both server1 and server2.
+
+    .EXAMPLE
+        PS > Test-Port -ComputerName dc1 -Port 17 -Udp -Timeout 10000
+        Tests if UDP port 17 is open on server dc1 with a 10-second timeout.
+
+    .EXAMPLE
+        PS > @("server1","server2") | Test-Port -Port 80
+        Tests if TCP port 80 is open on both server1 and server2 using pipeline input.
+
+    .EXAMPLE
+        PS > (Get-Content hosts.txt) | Test-Port -Port 80
+        Tests if TCP port 80 is open on all servers listed in the hosts.txt file.
+
+    .EXAMPLE
+        PS > Test-Port -ComputerName (Get-Content hosts.txt) -Port @(1..59)
+        Tests a range of ports from 1-59 on all servers in the hosts.txt file.
+
+    .OUTPUTS
+        System.Object[]
+        Returns custom objects with server, port, protocol, connection status, and details.
 
     .NOTES
         Name: Test-Port.ps1
         Author: Boe Prox
         DateCreated: 18Aug2010
-        List of Ports: http://www.iana.org/assignments/port-numbers
+        Updated by Jon LaBelle, 9/29/2022
 
-        Update by Jon LaBelle, 9/29/2022
-        TODO: Add capability to run background jobs for each host to shorten the time to scan.
-
-    .EXAMPLE
-        PS > Test-Port -ComputerName 'server' -Port 80
-
-        Checks port 80 on server 'server' to see if it is listening
-
-    .EXAMPLE
-        PS > 'server' | Test-Port -Port 80
-
-        Checks port 80 on server 'server' to see if it is listening
-
-    .EXAMPLE
-        PS > Test-Port -ComputerName @("server1","server2") -Port 80
-
-        Checks port 80 on server1 and server2 to see if it is listening
-
-    .EXAMPLE
-        PS > Test-Port -ComputerName dc1 -Port 17 -Udp -Timeout 10000
-
-        Server   : dc1
-        Port     : 17
-        Protocol : UDP
-        Open     : True
-        Status   : Connection successful.
-
-        Queries port 17 (qotd) on the UDP port and returns whether port is open or not.
-
-    .EXAMPLE
-        PS > @("server1","server2") | Test-Port -Port 80
-
-        Checks port 80 on server1 and server2 to see if it is listening.
-
-    .EXAMPLE
-        PS > (Get-Content hosts.txt) | Test-Port -Port 80
-
-        Checks port 80 on servers in host file to see if it is listening.
-
-    .EXAMPLE
-        PS > Test-Port -ComputerName (Get-Content hosts.txt) -Port 80
-
-        Checks port 80 on servers in host file to see if it is listening.
-
-    .EXAMPLE
-        PS > Test-Port -ComputerName (Get-Content hosts.txt) -Port @(1..59)
-
-        Checks a range of ports from 1-59 on all servers in the hosts.txt file.
+        Ports reference: http://www.iana.org/assignments/port-numbers
 
     .LINK
         https://learn-powershell.net/2011/02/21/querying-udp-ports-with-powershell/
