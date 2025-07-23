@@ -24,8 +24,8 @@ function Invoke-FFMpeg
     .PARAMETER Force
         If specified, overwrites output files that already exist.
 
-    .PARAMETER KeepSourceFiles
-        If specified, input files will not be deleted after successful conversion.
+    .PARAMETER KeepSourceFile
+        If specified, input file(s) will not be deleted after successful conversion.
 
     .PARAMETER PauseOnError
         If specified, the function will wait for user input when an error occurs instead of automatically continuing to the next file.
@@ -52,7 +52,7 @@ function Invoke-FFMpeg
         Processes videos using H.265 encoding for better compression and overwrites existing output files.
 
     .EXAMPLE
-        PS> Invoke-FFMpeg -Path "D:\Movies" -Extension "avi" -VideoEncoder "H.264" -KeepSourceFiles
+        PS> Invoke-FFMpeg -Path "D:\Movies" -Extension "avi" -VideoEncoder "H.264" -KeepSourceFile
         Processes all .avi files using H.264 encoding without deleting the input files.
 
     .EXAMPLE
@@ -70,27 +70,39 @@ function Invoke-FFMpeg
     param(
         [Parameter(Position = 0)]
         [ValidateNotNullOrEmpty()]
-        [string]$Path = '.',
+        [string]
+        $Path = '.',
 
         [Parameter(Position = 1)]
         [ValidateNotNullOrEmpty()]
-        [string]$Extension = 'mkv',
+        [string]
+        $Extension = 'mkv',
 
         [Parameter(Position = 2)]
         [ValidateNotNullOrEmpty()]
-        [string]$FFmpegPath,
+        [string]
+        $FFmpegPath,
 
-        [switch]$Force,
-        [switch]$KeepSourceFiles,
-        [switch]$PauseOnError,
-        [switch]$NoRecursion,
+        [switch]
+        $Force,
+
+        [switch]
+        $KeepSourceFile,
+
+        [switch]
+        $PauseOnError,
+
+        [switch]
+        $NoRecursion,
 
         [Parameter()]
-        [string[]]$Exclude = @('.git', 'node_modules'),
+        [string[]]
+        $Exclude = @('.git', 'node_modules'),
 
         [Parameter()]
         [ValidateSet('H.264', 'H.265')]
-        [string]$VideoEncoder = 'H.264'
+        [string]
+        $VideoEncoder = 'H.264'
     )
 
     # Platform detection for PowerShell 5.1
@@ -314,8 +326,8 @@ function Invoke-FFMpeg
                 Write-Host "Successfully converted '$inputFile' to '$outputFile'" -ForegroundColor Green
                 $successCount++
 
-                # Delete input file unless KeepSourceFiles is specified
-                if (-not $KeepSourceFiles)
+                # Delete input file unless KeepSourceFile is specified
+                if (-not $KeepSourceFile)
                 {
                     try
                     {
