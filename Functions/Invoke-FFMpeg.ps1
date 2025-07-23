@@ -2,11 +2,13 @@ function Invoke-FFMpeg
 {
     <#
     .SYNOPSIS
-        Converts video files by copying video streams and re-encoding audio/subtitle streams.
+        Converts video files using Samsung-friendly encoding settings with H.264 or H.265 video encoding.
 
     .DESCRIPTION
-        This function processes video files in a specified directory, copying the video stream (no re-encoding)
-        while converting audio to AAC format and subtitles to MOV_TEXT format. The output is saved as MP4 files.
+        This function processes video files in a specified directory using Samsung-friendly encoding settings.
+        For H.264: Supports 4K30 with High profile, Level 5.1, up to 100 Mbps bitrate for optimal Samsung TV compatibility.
+        For H.265: Supports 4K60 with Level 5.2, up to 100 Mbps bitrate for better compression.
+        Audio is converted to AAC-LC format at 48 kHz with 192 kbps bitrate.
         By default, input files are deleted after successful conversion.
 
     .PARAMETER Path
@@ -36,17 +38,22 @@ function Invoke-FFMpeg
         Specifies directories to exclude when searching recursively.
         Defaults to @('.git', 'node_modules').
 
+    .PARAMETER VideoEncoder
+        Specifies the video encoder to use. Valid values are 'H.264' and 'H.265'.
+        H.264 provides faster encoding with 4K30 support, while H.265 offers better compression with 4K60 support.
+        Defaults to 'H.264' for Samsung TV compatibility.
+
     .EXAMPLE
         PS> Invoke-FFMpeg -Path "C:\Videos" -Extension "mkv"
-        Processes all .mkv files in C:\Videos and all subdirectories, converting them to MP4 with copied video streams and re-encoded audio and subtitle streams.
+        Processes all .mkv files in C:\Videos using H.264 encoding (default) with Samsung-friendly settings.
 
     .EXAMPLE
-        PS> Invoke-FFMpeg -Path "C:\Videos" -FFmpegPath "D:\tools\ffmpeg.exe" -Force
-        Processes videos using a specific FFmpeg executable and overwrites existing output files.
+        PS> Invoke-FFMpeg -Path "C:\Videos" -VideoEncoder "H.265" -Force
+        Processes videos using H.265 encoding for better compression and overwrites existing output files.
 
     .EXAMPLE
-        PS> Invoke-FFMpeg -Path "D:\Movies" -Extension "avi" -KeepSourceFiles -PauseOnError
-        Processes all .avi files in D:\Movies without deleting the input files and pauses for user input when errors occur.
+        PS> Invoke-FFMpeg -Path "D:\Movies" -Extension "avi" -VideoEncoder "H.264" -KeepSourceFiles
+        Processes all .avi files using H.264 encoding without deleting the input files.
 
     .EXAMPLE
         PS> Invoke-FFMpeg -Path "D:\Movies" -NoRecursion
@@ -79,7 +86,11 @@ function Invoke-FFMpeg
         [switch]$NoRecursion,
 
         [Parameter()]
-        [string[]]$Exclude = @('.git', 'node_modules')
+        [string[]]$Exclude = @('.git', 'node_modules'),
+
+        [Parameter()]
+        [ValidateSet('H.264', 'H.265')]
+        [string]$VideoEncoder = 'H.264'
     )
 
     # Platform detection for PowerShell 5.1
@@ -228,16 +239,47 @@ function Invoke-FFMpeg
             continue
         }
 
-        # Construct ffmpeg arguments using splatting
-        $ffmpegArgs = @(
-            '-i', $inputFilePath, # Use full path for input file
-            '-map', '0', # Map all streams from input
-            '-vcodec', 'copy', # Copy video stream without re-encoding
-            '-acodec', 'aac', '-ac', '2', '-b:a', '320k', # Convert audio to AAC with 2 channels and 320k bitrate
-            '-scodec', 'mov_text', '-metadata:s:s:0', 'language=eng', '-metadata:s:s:1', 'language=ipk', # Convert subtitles to MOV_TEXT format
-            '-movflags', '+faststart', # Optimize for web streaming
-            '-map_metadata', '-1' # Remove metadata from input
-        )
+        # Construct ffmpeg arguments using Samsung-friendly encoding settings
+        if ($VideoEncoder -eq 'H.264')
+        {
+            # Samsung-friendly H.264 encoding: 4K30, High profile, Level 5.1, up to 100 Mbps
+            $ffmpegArgs = @(
+                '-i', $inputFilePath,                                  # Input file
+                '-vcodec', 'libx264',                                  # H.264 video codec
+                '-preset', 'medium',                                   # Encoding speed preset (balance of speed vs compression)
+                '-crf', '18',                                          # Constant rate factor (near-visually-lossless quality)
+                '-profile', 'high',                                    # H.264 High profile for Samsung compatibility
+                '-level', '5.1',                                       # H.264 Level 5.1 (seamless up to 3840×2160)
+                '-pix_fmt', 'yuv420p',                                 # Pixel format for wide compatibility
+                '-framerate', '30',                                    # Max 30 fps for 4K on Samsung TV
+                '-maxrate', '100M',                                    # Max bitrate 100 Mbps
+                '-bufsize', '200M',                                    # Buffer size (2x maxrate)
+                '-x264-params', 'keyint=60:min-keyint=60',             # Keyframe interval settings
+                '-acodec', 'aac',                                      # AAC audio codec
+                '-b:a', '192k',                                        # Audio bitrate 192 kbps
+                '-ac', '2',                                            # 2 audio channels (stereo)
+                '-ar', '48000',                                        # Audio sample rate 48 kHz
+                '-movflags', '+faststart'                              # Web-optimized for progressive download
+            )
+        }
+        else # H.265
+        {
+            # Samsung-friendly H.265 encoding: 4K60, Level 5.2, up to 100 Mbps (better compression)
+            $ffmpegArgs = @(
+                '-i', $inputFilePath,                                  # Input file
+                '-vcodec', 'libx265',                                  # H.265 video codec
+                '-preset', 'medium',                                   # Encoding speed preset (balance of speed vs compression)
+                '-crf', '22',                                          # Constant rate factor (good quality for H.265)
+                '-x265-params', 'level-idc=5.2:keyint=60',             # H.265 Level 5.2 with keyframe interval
+                '-pix_fmt', 'yuv420p10le',                             # 10-bit pixel format for better quality
+                '-r', '60',                                            # Max 60 fps for 4K with H.265
+                '-acodec', 'aac',                                      # AAC audio codec
+                '-b:a', '192k',                                        # Audio bitrate 192 kbps
+                '-ac', '2',                                            # 2 audio channels (stereo)
+                '-ar', '48000',                                        # Audio sample rate 48 kHz
+                '-movflags', '+faststart'                              # Web-optimized for progressive download
+            )
+        }
 
         # Add force overwrite if needed
         if ($Force)

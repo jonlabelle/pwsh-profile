@@ -19,12 +19,18 @@
     "powershell.codeFormatting.whitespaceInsideBrace": false,
     "powershell.codeFormatting.openBraceOnSameLine": false,
     "powershell.codeFormatting.useConstantStrings": true,
+
     "cSpell.words": [
         "acodec",
         "ADSI",
         "faststart",
         "HKLM",
+        "kbps",
+        "keyint",
         "LASTEXITCODE",
+        "libx",
+        "maxrate",
+        "Mbps",
         "movflags",
         "Netlogon",
         "scodec",
