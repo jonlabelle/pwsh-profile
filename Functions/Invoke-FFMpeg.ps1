@@ -36,6 +36,7 @@ function Invoke-FFMpeg
 
     .PARAMETER Exclude
         Specifies directories to exclude when searching recursively.
+        Only applies when -NoRecursion is not specified.
         Defaults to @('.git', 'node_modules').
 
     .PARAMETER VideoEncoder
@@ -216,22 +217,15 @@ function Invoke-FFMpeg
     # Find files to process
     if ($NoRecursion)
     {
+        # When not using recursion, exclusions are not applied since we only search the current directory
         $filesToProcess = Get-ChildItem -Path $Path -Filter "*.$Extension" -File
         Write-VerboseMessage "Searching for *.$Extension files in current directory only"
     }
     else
     {
         $filesToProcess = Get-ChildItem -Path $Path -Recurse -Filter "*.$Extension" -File | Where-Object {
-            $excludeMatch = $false
-            foreach ($excludePath in $Exclude)
-            {
-                if ($_.FullName -like "*$excludePath*")
-                {
-                    $excludeMatch = $true
-                    break
-                }
-            }
-            -not $excludeMatch
+            $fullPath = $_.FullName
+            -not ($Exclude | Where-Object { $fullPath -like "*$_*" })
         }
         Write-VerboseMessage "Searching recursively for *.$Extension files (excluding $($Exclude -join ', '))"
     }
