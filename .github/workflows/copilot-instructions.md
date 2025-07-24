@@ -1,0 +1,1 @@
+- Ensure all generated PowerShell commands and options are compatible with PowerShell Desktop (5.1) and PowerShell Core (7+), on Windows, macOS, and Linux.
