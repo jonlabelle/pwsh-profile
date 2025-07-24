@@ -123,6 +123,39 @@ function Invoke-FFMpeg
         }
     }
 
+    # The time will be display as:
+    # - 10 seconds
+    # - 1 minute 30 seconds
+    # - 1 day, 3 hours, 20 minutes and 10 seconds
+    function Format-ElapsedTime
+    {
+        param(
+            [DateTime]$StartTime,
+            [DateTime]$EndTime
+        )
+
+        $elapsedTime = $EndTime - $StartTime
+        $timeFormatted = ''
+
+        if ($elapsedTime.Days -gt 0)
+        {
+            $timeFormatted += "$($elapsedTime.Days) day$(if ($elapsedTime.Days -ne 1) { 's' }), "
+        }
+        if ($elapsedTime.Hours -gt 0)
+        {
+            $timeFormatted += "$($elapsedTime.Hours) hour$(if ($elapsedTime.Hours -ne 1) { 's' }), "
+        }
+        if ($elapsedTime.Minutes -gt 0)
+        {
+            $timeFormatted += "$($elapsedTime.Minutes) minute$(if ($elapsedTime.Minutes -ne 1) { 's' }) and "
+        }
+
+        $seconds = [math]::Round($elapsedTime.TotalSeconds - ($elapsedTime.Days * 86400) - ($elapsedTime.Hours * 3600) - ($elapsedTime.Minutes * 60))
+        $timeFormatted += "$seconds second$(if ($seconds -ne 1) { 's' })"
+
+        return $timeFormatted
+    }
+
     # Validate and resolve FFmpeg path
     if (-not $FFmpegPath)
     {
@@ -212,6 +245,9 @@ function Invoke-FFMpeg
     }
 
     Write-Host "Found $totalFiles file(s) to process" -ForegroundColor Green
+
+    # Start timer for script execution
+    $scriptStartTime = Get-Date
 
     # Process files
     $currentFileNumber = 0
@@ -358,6 +394,10 @@ function Invoke-FFMpeg
     # Return to original location
     Pop-Location
 
+    # Calculate elapsed time
+    $scriptEndTime = Get-Date
+    $timeFormatted = Format-ElapsedTime -StartTime $scriptStartTime -EndTime $scriptEndTime
+
     # Summary
     Write-Host '----------------------------------------' -ForegroundColor Cyan
     Write-Host 'Summary:' -ForegroundColor Cyan
@@ -365,6 +405,7 @@ function Invoke-FFMpeg
     Write-Host "  Successful: $successCount" -ForegroundColor $(if ($successCount -gt 0) { 'Green' }else { 'Cyan' })
     Write-Host "  Skipped: $skipCount" -ForegroundColor $(if ($skipCount -gt 0) { 'Yellow' }else { 'Cyan' })
     Write-Host "  Failed: $errorCount" -ForegroundColor $(if ($errorCount -gt 0) { 'Red' }else { 'Cyan' })
+    Write-Host "  Total time: $timeFormatted" -ForegroundColor Cyan
     Write-Host '----------------------------------------' -ForegroundColor Cyan
 
     # Return success if no errors occurred
