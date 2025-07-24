@@ -258,8 +258,7 @@ function Invoke-FFMpeg
     foreach ($file in $filesToProcess)
     {
         $currentFileNumber++
-        # Use full paths instead of just filenames
-        $inputFilePath = $file.FullName
+        $inputFilePath = $file.FullName # Use full paths instead of just filenames
         $outputFilePath = [System.IO.Path]::ChangeExtension($inputFilePath, 'mp4')
         $inputFile = $file.Name
         $outputFile = [System.IO.Path]::GetFileName($outputFilePath)
@@ -343,10 +342,30 @@ function Invoke-FFMpeg
         {
             Write-VerboseMessage "Running FFmpeg with arguments: $($ffmpegArgs -join ' ')"
 
-            # Always show FFmpeg output
-            & $FFmpegPath @ffmpegArgs
+            # Cross-platform FFmpeg execution to preserve TTY behavior for proper progress display
+            # Windows uses Start-Process for better process control, Unix systems use direct execution
+            if ($IsWindows -or ($null -eq $IsWindows -and [Environment]::OSVersion.Platform -eq 'Win32NT'))
+            {
+                # Windows: Use Start-Process with available parameters
+                if ($PSVersionTable.PSVersion.Major -ge 6)
+                {
+                    # PowerShell Core on Windows
+                    $process = Start-Process -FilePath $FFmpegPath -ArgumentList $ffmpegArgs -Wait -PassThru
+                }
+                else
+                {
+                    # PowerShell Desktop on Windows
+                    $process = Start-Process -FilePath $FFmpegPath -ArgumentList $ffmpegArgs -NoNewWindow -Wait -PassThru
+                }
 
-            # Check exit code explicitly as ffmpeg might not throw terminating errors
+                $LASTEXITCODE = $process.ExitCode
+            }
+            else
+            {
+                # macOS/Linux: Use direct execution which preserves TTY behavior better
+                & $FFmpegPath @ffmpegArgs
+            }
+
             if ($LASTEXITCODE -ne 0)
             {
                 Write-Warning "FFmpeg failed for '$inputFile' with exit code $LASTEXITCODE."
