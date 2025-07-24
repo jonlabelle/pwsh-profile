@@ -182,7 +182,6 @@ function Invoke-FFMpeg
             {
                 $FFmpegPath = '/usr/bin/ffmpeg'
             }
-
             Write-VerboseMessage "Using default FFmpeg path for platform: $FFmpegPath"
         }
     }
@@ -216,25 +215,19 @@ function Invoke-FFMpeg
     }
 
     # Find files to process
-    $getChildItemParams = @{
-        Path = $Path
-        Filter = "*.$Extension"
-        File = $true
-    }
-
-    if (-not $NoRecursion)
+    if ($NoRecursion)
     {
-        $getChildItemParams.Recurse = $true
-        Write-VerboseMessage "Searching recursively for *.$Extension files (excluding $($Exclude -join ', '))"
+        # When not using recursion, exclusions are not applied since we only search the current directory
+        $filesToProcess = Get-ChildItem -Path $Path -Filter "*.$Extension" -File
+        Write-VerboseMessage "Searching for *.$Extension files in current directory only"
     }
     else
     {
-        Write-VerboseMessage "Searching for *.$Extension files in current directory only (excluding $($Exclude -join ', '))"
-    }
-
-    $filesToProcess = Get-ChildItem @getChildItemParams | Where-Object {
-        $fullPath = $_.FullName
-        -not ($Exclude | Where-Object { $fullPath -like "*$_*" })
+        $filesToProcess = Get-ChildItem -Path $Path -Recurse -Filter "*.$Extension" -File | Where-Object {
+            $fullPath = $_.FullName
+            -not ($Exclude | Where-Object { $fullPath -like "*$_*" })
+        }
+        Write-VerboseMessage "Searching recursively for *.$Extension files (excluding $($Exclude -join ', '))"
     }
 
     $totalFiles = $filesToProcess.Count
