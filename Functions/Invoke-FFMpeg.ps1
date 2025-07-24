@@ -229,6 +229,7 @@ function Invoke-FFMpeg
         }
         Write-VerboseMessage "Searching recursively for *.$Extension files (excluding $($Exclude -join ', '))"
     }
+
     $totalFiles = $filesToProcess.Count
 
     if ($totalFiles -eq 0)
