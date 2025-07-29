@@ -23,6 +23,7 @@
     "cSpell.words": [
         "acodec",
         "ADSI",
+        "badssl",
         "faststart",
         "HKLM",
         "kbps",
@@ -34,6 +35,7 @@
         "movflags",
         "Netlogon",
         "scodec",
+        "stackoverflow",
         "vcodec"
     ]
 }
