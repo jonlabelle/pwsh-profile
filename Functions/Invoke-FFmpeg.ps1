@@ -289,7 +289,7 @@ function Invoke-FFmpeg
         {
             # Samsung-friendly H.264 encoding: 4K30, High profile, Level 5.1, up to 100 Mbps
             $ffmpegArgs = @(
-                '-i', $inputFilePath,                                  # Input file
+                '-i', "`"$inputFilePath`"",                            # Input file (quoted)
                 '-vcodec', 'libx264',                                  # H.264 video codec
                 '-preset', 'medium',                                   # Encoding speed preset (balance of speed vs compression)
                 '-crf', '18',                                          # Constant rate factor (near-visually-lossless quality)
@@ -311,7 +311,7 @@ function Invoke-FFmpeg
         {
             # Samsung-friendly H.265 encoding: 4K60, Level 5.2, up to 100 Mbps (better compression)
             $ffmpegArgs = @(
-                '-i', $inputFilePath,                                  # Input file
+                '-i', "`"$inputFilePath`"",                            # Input file (quoted)
                 '-vcodec', 'libx265',                                  # H.265 video codec
                 '-preset', 'medium',                                   # Encoding speed preset (balance of speed vs compression)
                 '-crf', '22',                                          # Constant rate factor (good quality for H.265)
@@ -333,7 +333,7 @@ function Invoke-FFmpeg
         }
 
         # Add output file
-        $ffmpegArgs += $outputFilePath
+        $ffmpegArgs += "`"$outputFilePath`""
 
         # Execute ffmpeg
         try
