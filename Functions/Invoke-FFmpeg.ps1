@@ -50,6 +50,10 @@ function Invoke-FFmpeg
         This is much faster but doesn't apply Samsung-friendly (or specific) encoding settings.
         This parameter cannot be used with -VideoEncoder.
 
+    .PARAMETER WhatIf
+        If specified, shows what operations would be performed without actually executing them.
+        Useful for previewing the conversion process before running it.
+
     .EXAMPLE
         PS> Invoke-FFmpeg -Path "C:\Videos" -Extension "mkv"
         Processes all .mkv files in C:\Videos using H.264 encoding (default) with Samsung-friendly settings.
@@ -70,13 +74,17 @@ function Invoke-FFmpeg
         PS> Invoke-FFmpeg -Path "D:\Movies" -Passthrough -KeepSourceFile
         Processes all .mkv files using passthrough mode (no re-encoding) and keeps the source files.
 
+    .EXAMPLE
+        PS> Invoke-FFmpeg -Path "C:\Videos" -WhatIf
+        Shows what operations would be performed on all target files in C:\Videos without actually executing them.
+
     .LINK
         https://ffmpeg.org/documentation.html
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidGlobalVars', '')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
-    [CmdletBinding(DefaultParameterSetName = 'Encode')]
+    [CmdletBinding(DefaultParameterSetName = 'Encode', SupportsShouldProcess)]
     [OutputType([System.Boolean])]
     param(
         [Parameter(Position = 0)]
@@ -290,6 +298,25 @@ function Invoke-FFmpeg
             continue
         }
 
+        # WhatIf/ShouldProcess check for conversion operation
+        $operationDescription = if ($Passthrough)
+        {
+            "Convert '$inputFile' to '$outputFile' using passthrough mode (copy video/audio, encode subtitles)"
+        }
+        else
+        {
+            "Convert '$inputFile' to '$outputFile' using $VideoEncoder encoding with Samsung-friendly settings"
+        }
+        if (-not $KeepSourceFile)
+        {
+            $operationDescription += ' and delete source file'
+        }
+        if (-not $PSCmdlet.ShouldProcess($inputFile, $operationDescription))
+        {
+            $skipCount++
+            continue
+        }
+
         Write-VerboseMessage "Converting to: '$outputFile'"
         Write-VerboseMessage "Input path: '$inputFilePath'"
         Write-VerboseMessage "Output path: '$outputFilePath'"
@@ -422,14 +449,17 @@ function Invoke-FFmpeg
                 # Delete input file unless KeepSourceFile is specified
                 if (-not $KeepSourceFile)
                 {
-                    try
+                    if ($PSCmdlet.ShouldProcess($inputFile, 'Delete source file'))
                     {
-                        Remove-Item -Path $inputFilePath -Confirm:$false -ErrorAction Stop
-                        Write-Host "Deleted input file '$inputFile'" -ForegroundColor Green
-                    }
-                    catch
-                    {
-                        Write-Warning "Failed to delete '$inputFile'. Error: $($_.Exception.Message)"
+                        try
+                        {
+                            Remove-Item -Path $inputFilePath -Confirm:$false -ErrorAction Stop
+                            Write-Host "Deleted input file '$inputFile'" -ForegroundColor Green
+                        }
+                        catch
+                        {
+                            Write-Warning "Failed to delete '$inputFile'. Error: $($_.Exception.Message)"
+                        }
                     }
                 }
             }
