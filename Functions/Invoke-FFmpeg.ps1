@@ -199,39 +199,58 @@ function Invoke-FFmpeg
             return $timeFormatted
         }
 
-        # Validate and resolve FFmpeg path
-        if (-not $FFmpegPath)
+        # Function to validate and resolve FFmpeg path
+        function Get-ValidFFmpegPath
         {
-            # Try to find in PATH first
-            $ffmpegCommand = Get-Command 'ffmpeg' -ErrorAction SilentlyContinue
-            if ($ffmpegCommand)
-            {
-                $FFmpegPath = $ffmpegCommand.Path
-                Write-VerboseMessage "Using FFmpeg from PATH: $FFmpegPath"
-            }
-            else
-            {
-                # Platform-specific default locations
-                if ($IsWindows -or ($null -eq $IsWindows -and [Environment]::OSVersion.Platform -eq 'Win32NT'))
-                {
-                    $FFmpegPath = 'C:\ffmpeg\bin\ffmpeg.exe'
-                }
-                elseif ($IsMacOS -or ($null -eq $IsMacOS -and [Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([Runtime.InteropServices.OSPlatform]::OSX)))
-                {
-                    $FFmpegPath = '/usr/local/bin/ffmpeg'
-                }
-                else # Linux or other
-                {
-                    $FFmpegPath = '/usr/bin/ffmpeg'
-                }
+            param([string]$ProvidedPath)
 
-                Write-VerboseMessage "Using default FFmpeg path for platform: $FFmpegPath"
+            $resolvedPath = $ProvidedPath
+
+            if (-not $resolvedPath)
+            {
+                # Try to find in PATH first
+                $ffmpegCommand = Get-Command 'ffmpeg' -ErrorAction SilentlyContinue
+                if ($ffmpegCommand)
+                {
+                    $resolvedPath = $ffmpegCommand.Path
+                    Write-VerboseMessage "Using FFmpeg from PATH: $resolvedPath"
+                }
+                else
+                {
+                    # Platform-specific default locations
+                    if ($IsWindows -or ($null -eq $IsWindows -and [Environment]::OSVersion.Platform -eq 'Win32NT'))
+                    {
+                        $resolvedPath = 'C:\ffmpeg\bin\ffmpeg.exe'
+                    }
+                    elseif ($IsMacOS -or ($null -eq $IsMacOS -and [Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([Runtime.InteropServices.OSPlatform]::OSX)))
+                    {
+                        $resolvedPath = '/usr/local/bin/ffmpeg'
+                    }
+                    else
+                    {
+                        # Linux or other
+                        $resolvedPath = '/usr/bin/ffmpeg'
+                    }
+                    Write-VerboseMessage "Using default FFmpeg path for platform: $resolvedPath"
+                }
             }
+
+            if (-not (Test-Path -Path $resolvedPath -PathType Leaf))
+            {
+                throw "FFmpeg executable not found at: '$resolvedPath'"
+            }
+
+            return $resolvedPath
         }
 
-        if (-not (Test-Path -Path $FFmpegPath -PathType Leaf))
+        # Validate FFmpeg path once in begin block
+        try
         {
-            Write-Error "FFmpeg executable not found at: '$FFmpegPath'"
+            $script:ValidatedFFmpegPath = Get-ValidFFmpegPath -ProvidedPath $FFmpegPath
+        }
+        catch
+        {
+            Write-Error $_.Exception.Message
             return $false
         }
 
@@ -354,12 +373,38 @@ function Invoke-FFmpeg
                     Write-VerboseMessage "Input path: '$inputFilePath'"
                     Write-VerboseMessage "Output path: '$outputFilePath'"
 
-                    # Verify input file exists
+                    # Verify input file exists and has content
                     if (-not (Test-Path -Path $inputFilePath -PathType Leaf))
                     {
                         Write-Error "Input file not found: '$inputFilePath'"
                         $errorCount++
                         continue
+                    }
+
+                    # Check if input file has content (not 0 bytes)
+                    $inputFileInfo = Get-Item -Path $inputFilePath
+                    if ($inputFileInfo.Length -eq 0)
+                    {
+                        Write-Warning "Skipping '$inputFile' - file is empty (0 bytes)"
+                        $skipCount++
+                        continue
+                    }
+
+                    # Ensure output directory exists
+                    $outputDirectory = [System.IO.Path]::GetDirectoryName($outputFilePath)
+                    if (-not (Test-Path -Path $outputDirectory -PathType Container))
+                    {
+                        try
+                        {
+                            New-Item -Path $outputDirectory -ItemType Directory -Force -ErrorAction Stop | Out-Null
+                            Write-VerboseMessage "Created output directory: '$outputDirectory'"
+                        }
+                        catch
+                        {
+                            Write-Error "Failed to create output directory '$outputDirectory'. Error: $($_.Exception.Message)"
+                            $errorCount++
+                            continue
+                        }
                     }
 
                     # Construct ffmpeg arguments using Samsung-friendly encoding settings
@@ -448,12 +493,12 @@ function Invoke-FFmpeg
                             if ($PSVersionTable.PSVersion.Major -ge 6)
                             {
                                 # PowerShell Core on Windows
-                                $process = Start-Process -FilePath $FFmpegPath -ArgumentList $ffmpegArgs -Wait -PassThru
+                                $process = Start-Process -FilePath $script:ValidatedFFmpegPath -ArgumentList $ffmpegArgs -Wait -PassThru
                             }
                             else
                             {
                                 # PowerShell Desktop on Windows
-                                $process = Start-Process -FilePath $FFmpegPath -ArgumentList $ffmpegArgs -NoNewWindow -Wait -PassThru
+                                $process = Start-Process -FilePath $script:ValidatedFFmpegPath -ArgumentList $ffmpegArgs -NoNewWindow -Wait -PassThru
                             }
 
                             $LASTEXITCODE = $process.ExitCode
@@ -461,7 +506,7 @@ function Invoke-FFmpeg
                         else
                         {
                             # macOS/Linux: Use direct execution which preserves TTY behavior better
-                            & $FFmpegPath @ffmpegArgs
+                            & $script:ValidatedFFmpegPath @ffmpegArgs
                         }
 
                         if ($LASTEXITCODE -ne 0)
