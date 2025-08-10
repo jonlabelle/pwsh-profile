@@ -400,12 +400,8 @@ function Invoke-FFmpeg
                 'Calculating...'
             }
 
-            # Update progress bar
-            $progressStatus = "Processing: $inputFile ($fileSizeFormatted) | ETA: $estimatedTimeRemaining"
-            Write-Progress -Activity 'Converting Video Files' -Status $progressStatus -PercentComplete $progressPercent -CurrentOperation "File $script:globalFileCounter of $script:totalFilesAcrossAllPaths"
-
-            # Progress information to console
-            Write-Host "[$script:globalFileCounter/$script:totalFilesAcrossAllPaths] Processing: '$inputFile' ($fileSizeFormatted)" -ForegroundColor Yellow
+            # Progress information to console with ETA
+            Write-Host "[$script:globalFileCounter/$script:totalFilesAcrossAllPaths] Processing: '$inputFile' ($fileSizeFormatted) | ETA: $estimatedTimeRemaining" -ForegroundColor Yellow
 
             # Check if output file already exists
             if ((Test-Path -Path $outputFilePath) -and (-not $Force))
@@ -619,9 +615,6 @@ function Invoke-FFmpeg
 
             Write-Host ''
         }
-
-        # Clear progress bar when done
-        Write-Progress -Activity 'Converting Video Files' -Completed
     }
 
     end
