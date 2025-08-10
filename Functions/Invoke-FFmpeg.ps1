@@ -199,6 +199,58 @@ function Invoke-FFmpeg
             return $timeFormatted
         }
 
+        # Function to format file size in human-readable format
+        function Format-FileSize
+        {
+            param([long]$SizeInBytes)
+
+            if ($SizeInBytes -eq 0) { return '0 B' }
+
+            $units = @('B', 'KB', 'MB', 'GB', 'TB')
+            $index = 0
+            $size = [double]$SizeInBytes
+
+            while ($size -ge 1024 -and $index -lt ($units.Length - 1))
+            {
+                $size /= 1024
+                $index++
+            }
+
+            return '{0:N2} {1}' -f $size, $units[$index]
+        }
+
+        # Function to estimate remaining time based on current progress
+        function Get-EstimatedTimeRemaining
+        {
+            param(
+                [DateTime]$StartTime,
+                [int]$CompletedItems,
+                [int]$TotalItems
+            )
+
+            if ($CompletedItems -eq 0) { return 'Calculating...' }
+
+            $elapsedTime = (Get-Date) - $StartTime
+            $averageTimePerItem = $elapsedTime.TotalSeconds / $CompletedItems
+            $remainingItems = $TotalItems - $CompletedItems
+            $estimatedRemainingSeconds = $averageTimePerItem * $remainingItems
+
+            $remainingTime = [TimeSpan]::FromSeconds($estimatedRemainingSeconds)
+
+            if ($remainingTime.TotalHours -ge 1)
+            {
+                return '{0:D2}h {1:D2}m {2:D2}s' -f $remainingTime.Hours, $remainingTime.Minutes, $remainingTime.Seconds
+            }
+            elseif ($remainingTime.TotalMinutes -ge 1)
+            {
+                return '{0:D2}m {1:D2}s' -f $remainingTime.Minutes, $remainingTime.Seconds
+            }
+            else
+            {
+                return '{0:D2}s' -f $remainingTime.Seconds
+            }
+        }
+
         # Function to validate and resolve FFmpeg path
         function Get-ValidFFmpegPath
         {
@@ -260,6 +312,8 @@ function Invoke-FFmpeg
         $script:totalSkipped = 0
         $script:totalFailed = 0
         $script:scriptStartTime = Get-Date
+        $script:globalFileCounter = 0
+        $script:totalFilesAcrossAllPaths = 0
 
         # Normalize file extension (ensure it has no leading dot)
         $Extension = $Extension.TrimStart('.')
@@ -267,9 +321,12 @@ function Invoke-FFmpeg
 
     process
     {
+        # First pass: collect all files to get total count for progress reporting
+        $allFilesToProcess = @()
+
         foreach ($currentPath in $Path)
         {
-            Write-Verbose "Processing path: $currentPath"
+            Write-Verbose "Scanning path: $currentPath"
 
             # Validate Input Directory
             if (-not (Test-Path -Path $currentPath -PathType Container))
@@ -279,294 +336,292 @@ function Invoke-FFmpeg
                 continue
             }
 
-            # Store current location and change to input directory
-            try
+            # Find files to process
+            if ($NoRecursion)
             {
-                Push-Location -Path $currentPath -ErrorAction Stop
-                Write-VerboseMessage "Changed working directory to: $currentPath"
+                Write-VerboseMessage "Searching for *.$Extension files in current directory only"
+                $filesToProcess = Get-ChildItem -Path $currentPath -Filter "*.$Extension" -File
             }
-            catch
+            else
             {
-                Write-Error "Failed to change directory to '$currentPath'. Error: $($_.Exception.Message)"
+                Write-VerboseMessage "Searching recursively for *.$Extension files (excluding $($Exclude -join ', '))"
+                $filesToProcess = Get-ChildItem -Path $currentPath -Recurse -Filter "*.$Extension" -File | Where-Object {
+                    $fullPath = $_.FullName
+                    -not ($Exclude | Where-Object { $fullPath -like "*$_*" })
+                }
+            }
+
+            foreach ($file in $filesToProcess)
+            {
+                $allFilesToProcess += [PSCustomObject]@{
+                    File = $file
+                    SourcePath = $currentPath
+                }
+            }
+        }
+
+        $script:totalFilesAcrossAllPaths = $allFilesToProcess.Count
+        $script:totalProcessed = $script:totalFilesAcrossAllPaths
+
+        if ($script:totalFilesAcrossAllPaths -eq 0)
+        {
+            Write-Warning "No '$Extension' files found in any of the specified paths"
+            return $true
+        }
+
+        Write-Host "Found $script:totalFilesAcrossAllPaths file(s) to process across all paths" -ForegroundColor Green
+
+        # Second pass: process all files with unified progress reporting
+        foreach ($fileInfo in $allFilesToProcess)
+        {
+            $script:globalFileCounter++
+            $file = $fileInfo.File
+            $currentPath = $fileInfo.SourcePath
+
+            $inputFilePath = $file.FullName
+            $outputFilePath = [System.IO.Path]::ChangeExtension($inputFilePath, 'mp4')
+            $inputFile = $file.Name
+            $outputFile = [System.IO.Path]::GetFileName($outputFilePath)
+
+            # Get file size for progress display
+            $inputFileInfo = Get-Item -Path $inputFilePath -ErrorAction SilentlyContinue
+            $fileSizeFormatted = if ($inputFileInfo) { Format-FileSize -SizeInBytes $inputFileInfo.Length } else { 'Unknown' }
+
+            # Calculate progress percentage
+            $progressPercent = [math]::Round(($script:globalFileCounter / $script:totalFilesAcrossAllPaths) * 100, 1)
+
+            # Estimate remaining time
+            $estimatedTimeRemaining = if ($script:globalFileCounter -gt 1)
+            {
+                Get-EstimatedTimeRemaining -StartTime $script:scriptStartTime -CompletedItems ($script:globalFileCounter - 1) -TotalItems $script:totalFilesAcrossAllPaths
+            }
+            else
+            {
+                'Calculating...'
+            }
+
+            # Update progress bar
+            $progressStatus = "Processing: $inputFile ($fileSizeFormatted) | ETA: $estimatedTimeRemaining"
+            Write-Progress -Activity 'Converting Video Files' -Status $progressStatus -PercentComplete $progressPercent -CurrentOperation "File $script:globalFileCounter of $script:totalFilesAcrossAllPaths"
+
+            # Progress information to console
+            Write-Host "[$script:globalFileCounter/$script:totalFilesAcrossAllPaths] Processing: '$inputFile' ($fileSizeFormatted)" -ForegroundColor Yellow
+
+            # Check if output file already exists
+            if ((Test-Path -Path $outputFilePath) -and (-not $Force))
+            {
+                Write-Warning "Output file '$outputFile' already exists. Use -Force to overwrite. Skipping..."
+                $script:totalSkipped++
+                continue
+            }
+
+            # ShouldProcess check for conversion operation
+            $operationDescription = if ($Passthrough)
+            {
+                "Convert '$inputFile' to '$outputFile' using passthrough mode (copy video/audio, encode subtitles)"
+            }
+            else
+            {
+                "Convert '$inputFile' to '$outputFile' using $VideoEncoder encoding with Samsung-friendly settings"
+            }
+            if (-not $KeepSourceFile)
+            {
+                $operationDescription += ' and delete source file'
+            }
+            if (-not $PSCmdlet.ShouldProcess($inputFile, $operationDescription))
+            {
+                $script:totalSkipped++
+                continue
+            }
+
+            Write-VerboseMessage "Converting to: '$outputFile'"
+            Write-VerboseMessage "Input path: '$inputFilePath'"
+            Write-VerboseMessage "Output path: '$outputFilePath'"
+
+            # Verify input file exists and has content
+            if (-not (Test-Path -Path $inputFilePath -PathType Leaf))
+            {
+                Write-Error "Input file not found: '$inputFilePath'"
                 $script:totalFailed++
                 continue
             }
 
-            try
+            # Check if input file has content (not 0 bytes)
+            if ($inputFileInfo.Length -eq 0)
             {
-                # Find files to process
-                if ($NoRecursion)
-                {
-                    Write-VerboseMessage "Searching for *.$Extension files in current directory only"
+                Write-Warning "Skipping '$inputFile' - file is empty (0 bytes)"
+                $script:totalSkipped++
+                continue
+            }
 
-                    # When not using recursion, exclusions are not applied since we only search the current directory
-                    $filesToProcess = Get-ChildItem -Path $currentPath -Filter "*.$Extension" -File
+            # Ensure output directory exists
+            $outputDirectory = [System.IO.Path]::GetDirectoryName($outputFilePath)
+            if (-not (Test-Path -Path $outputDirectory -PathType Container))
+            {
+                try
+                {
+                    New-Item -Path $outputDirectory -ItemType Directory -Force -ErrorAction Stop | Out-Null
+                    Write-VerboseMessage "Created output directory: '$outputDirectory'"
                 }
-                else
+                catch
                 {
-                    Write-VerboseMessage "Searching recursively for *.$Extension files (excluding $($Exclude -join ', '))"
-
-                    $filesToProcess = Get-ChildItem -Path $currentPath -Recurse -Filter "*.$Extension" -File | Where-Object {
-                        $fullPath = $_.FullName
-                        -not ($Exclude | Where-Object { $fullPath -like "*$_*" })
-                    }
-                }
-
-                $totalFiles = $filesToProcess.Count
-
-                if ($totalFiles -eq 0)
-                {
-                    Write-Warning "No '$Extension' files found in '$currentPath'"
+                    Write-Error "Failed to create output directory '$outputDirectory'. Error: $($_.Exception.Message)"
+                    $script:totalFailed++
                     continue
                 }
+            }
 
-                Write-Host "Found $totalFiles file(s) to process in '$currentPath'" -ForegroundColor Green
+            # Construct ffmpeg arguments using Samsung-friendly encoding settings
+            if ($Passthrough)
+            {
+                # Passthrough mode: copy video and audio without re-encoding, only encode subtitles
+                $ffmpegArgs = @(
+                    '-i', "`"$inputFilePath`"",                      # Input file (quoted)
+                    '-vcodec', 'copy',                               # Copy video stream without re-encoding
+                    '-acodec', 'copy',                               # Copy audio stream without re-encoding
+                    '-scodec', 'mov_text',                           # Convert subtitles to mov_text format (MP4 compatible)
+                    '-map', '0:v',                                   # Map video stream
+                    '-map', '0:a',                                   # Map audio stream
+                    '-map', '0:s?',                                  # Map subtitle streams if they exist (optional)
+                    '-movflags', '+faststart'                        # Web-optimized for progressive download
+                )
+            }
+            elseif ($VideoEncoder -eq 'H.264')
+            {
+                # Samsung-friendly H.264 encoding: 4K30, High profile, Level 5.1, up to 100 Mbps
+                $ffmpegArgs = @(
+                    '-i', "`"$inputFilePath`"",                      # Input file (quoted)
+                    '-vcodec', 'libx264',                            # H.264 video codec
+                    '-preset', 'medium',                             # Encoding speed preset (balance of speed vs compression)
+                    '-crf', '18',                                    # Constant rate factor (near-visually-lossless quality)
+                    '-profile', 'high',                              # H.264 High profile for Samsung compatibility
+                    '-level', '5.1',                                 # H.264 Level 5.1 (seamless up to 3840×2160)
+                    '-pix_fmt', 'yuv420p',                           # Pixel format for wide compatibility
+                    '-framerate', '30',                              # Max 30 fps for 4K on Samsung TV
+                    '-maxrate', '100M',                              # Max bitrate 100 Mbps
+                    '-bufsize', '200M',                              # Buffer size (2x maxrate)
+                    '-x264-params', 'keyint=60:min-keyint=60',       # Keyframe interval settings
+                    '-acodec', 'aac',                                # AAC audio codec
+                    '-b:a', '192k',                                  # Audio bitrate 192 kbps
+                    '-ac', '2',                                      # 2 audio channels (stereo)
+                    '-ar', '48000',                                  # Audio sample rate 48 kHz
+                    '-scodec', 'mov_text',                           # Convert subtitles to mov_text format (MP4 compatible)
+                    '-map', '0:v',                                   # Map video stream
+                    '-map', '0:a',                                   # Map audio stream
+                    '-map', '0:s?',                                  # Map subtitle streams if they exist (optional)
+                    '-movflags', '+faststart'                        # Web-optimized for progressive download
+                )
+            }
+            else # H.265
+            {
+                # Samsung-friendly H.265 encoding: 4K60, Level 5.2, up to 100 Mbps (better compression)
+                $ffmpegArgs = @(
+                    '-i', "`"$inputFilePath`"",                      # Input file (quoted)
+                    '-vcodec', 'libx265',                            # H.265 video codec
+                    '-preset', 'medium',                             # Encoding speed preset (balance of speed vs compression)
+                    '-crf', '22',                                    # Constant rate factor (good quality for H.265)
+                    '-x265-params', 'level-idc=5.2:keyint=60',       # H.265 Level 5.2 with keyframe interval
+                    '-pix_fmt', 'yuv420p10le',                       # 10-bit pixel format for better quality
+                    '-r', '60',                                      # Max 60 fps for 4K with H.265
+                    '-acodec', 'aac',                                # AAC audio codec
+                    '-b:a', '192k',                                  # Audio bitrate 192 kbps
+                    '-ac', '2',                                      # 2 audio channels (stereo)
+                    '-ar', '48000',                                  # Audio sample rate 48 kHz
+                    '-scodec', 'mov_text',                           # Convert subtitles to mov_text format (MP4 compatible)
+                    '-map', '0:v',                                   # Map video stream
+                    '-map', '0:a',                                   # Map audio stream
+                    '-map', '0:s?',                                  # Map subtitle streams if they exist (optional)
+                    '-movflags', '+faststart'                        # Web-optimized for progressive download
+                )
+            }
 
-                # Update script counters
-                $script:totalProcessed += $totalFiles
+            # Add force overwrite if needed
+            if ($Force)
+            {
+                $ffmpegArgs += '-y'
+            }
 
-                # Process files
-                $currentFileNumber = 0
-                $successCount = 0
-                $skipCount = 0
-                $errorCount = 0
+            # Add output file
+            $ffmpegArgs += "`"$outputFilePath`""
 
-                foreach ($file in $filesToProcess)
+            # Execute ffmpeg
+            try
+            {
+                Write-VerboseMessage "Running FFmpeg with arguments: $($ffmpegArgs -join ' ')"
+
+                # Cross-platform FFmpeg execution to preserve TTY behavior for proper progress display
+                # Windows uses Start-Process for better process control, Unix systems use direct execution
+                if ($IsWindows -or ($null -eq $IsWindows -and [Environment]::OSVersion.Platform -eq 'Win32NT'))
                 {
-                    $currentFileNumber++
-                    $inputFilePath = $file.FullName # Use full paths instead of just filenames
-                    $outputFilePath = [System.IO.Path]::ChangeExtension($inputFilePath, 'mp4')
-                    $inputFile = $file.Name
-                    $outputFile = [System.IO.Path]::GetFileName($outputFilePath)
-
-                    # Progress information
-                    Write-Host "[$currentFileNumber/$totalFiles] Processing: '$inputFile'" -ForegroundColor Yellow
-
-                    # Check if output file already exists
-                    if ((Test-Path -Path $outputFilePath) -and (-not $Force))
+                    # Windows: Use Start-Process with available parameters
+                    if ($PSVersionTable.PSVersion.Major -ge 6)
                     {
-                        Write-Warning "Output file '$outputFile' already exists. Use -Force to overwrite. Skipping..."
-                        $skipCount++
-                        continue
-                    }
-
-                    # WhatIf/ShouldProcess check for conversion operation
-                    $operationDescription = if ($Passthrough)
-                    {
-                        "Convert '$inputFile' to '$outputFile' using passthrough mode (copy video/audio, encode subtitles)"
+                        # PowerShell Core on Windows
+                        $process = Start-Process -FilePath $script:ValidatedFFmpegPath -ArgumentList $ffmpegArgs -Wait -PassThru
                     }
                     else
                     {
-                        "Convert '$inputFile' to '$outputFile' using $VideoEncoder encoding with Samsung-friendly settings"
-                    }
-                    if (-not $KeepSourceFile)
-                    {
-                        $operationDescription += ' and delete source file'
-                    }
-                    if (-not $PSCmdlet.ShouldProcess($inputFile, $operationDescription))
-                    {
-                        $skipCount++
-                        continue
+                        # PowerShell Desktop on Windows
+                        $process = Start-Process -FilePath $script:ValidatedFFmpegPath -ArgumentList $ffmpegArgs -NoNewWindow -Wait -PassThru
                     }
 
-                    Write-VerboseMessage "Converting to: '$outputFile'"
-                    Write-VerboseMessage "Input path: '$inputFilePath'"
-                    Write-VerboseMessage "Output path: '$outputFilePath'"
-
-                    # Verify input file exists and has content
-                    if (-not (Test-Path -Path $inputFilePath -PathType Leaf))
-                    {
-                        Write-Error "Input file not found: '$inputFilePath'"
-                        $errorCount++
-                        continue
-                    }
-
-                    # Check if input file has content (not 0 bytes)
-                    $inputFileInfo = Get-Item -Path $inputFilePath
-                    if ($inputFileInfo.Length -eq 0)
-                    {
-                        Write-Warning "Skipping '$inputFile' - file is empty (0 bytes)"
-                        $skipCount++
-                        continue
-                    }
-
-                    # Ensure output directory exists
-                    $outputDirectory = [System.IO.Path]::GetDirectoryName($outputFilePath)
-                    if (-not (Test-Path -Path $outputDirectory -PathType Container))
-                    {
-                        try
-                        {
-                            New-Item -Path $outputDirectory -ItemType Directory -Force -ErrorAction Stop | Out-Null
-                            Write-VerboseMessage "Created output directory: '$outputDirectory'"
-                        }
-                        catch
-                        {
-                            Write-Error "Failed to create output directory '$outputDirectory'. Error: $($_.Exception.Message)"
-                            $errorCount++
-                            continue
-                        }
-                    }
-
-                    # Construct ffmpeg arguments using Samsung-friendly encoding settings
-                    if ($Passthrough)
-                    {
-                        # Passthrough mode: copy video and audio without re-encoding, only encode subtitles
-                        $ffmpegArgs = @(
-                            '-i', "`"$inputFilePath`"",                      # Input file (quoted)
-                            '-vcodec', 'copy',                               # Copy video stream without re-encoding
-                            '-acodec', 'copy',                               # Copy audio stream without re-encoding
-                            '-scodec', 'mov_text',                           # Convert subtitles to mov_text format (MP4 compatible)
-                            '-map', '0:v',                                   # Map video stream
-                            '-map', '0:a',                                   # Map audio stream
-                            '-map', '0:s?',                                  # Map subtitle streams if they exist (optional)
-                            '-movflags', '+faststart'                        # Web-optimized for progressive download
-                        )
-                    }
-                    elseif ($VideoEncoder -eq 'H.264')
-                    {
-                        # Samsung-friendly H.264 encoding: 4K30, High profile, Level 5.1, up to 100 Mbps
-                        $ffmpegArgs = @(
-                            '-i', "`"$inputFilePath`"",                      # Input file (quoted)
-                            '-vcodec', 'libx264',                            # H.264 video codec
-                            '-preset', 'medium',                             # Encoding speed preset (balance of speed vs compression)
-                            '-crf', '18',                                    # Constant rate factor (near-visually-lossless quality)
-                            '-profile', 'high',                              # H.264 High profile for Samsung compatibility
-                            '-level', '5.1',                                 # H.264 Level 5.1 (seamless up to 3840×2160)
-                            '-pix_fmt', 'yuv420p',                           # Pixel format for wide compatibility
-                            '-framerate', '30',                              # Max 30 fps for 4K on Samsung TV
-                            '-maxrate', '100M',                              # Max bitrate 100 Mbps
-                            '-bufsize', '200M',                              # Buffer size (2x maxrate)
-                            '-x264-params', 'keyint=60:min-keyint=60',       # Keyframe interval settings
-                            '-acodec', 'aac',                                # AAC audio codec
-                            '-b:a', '192k',                                  # Audio bitrate 192 kbps
-                            '-ac', '2',                                      # 2 audio channels (stereo)
-                            '-ar', '48000',                                  # Audio sample rate 48 kHz
-                            '-scodec', 'mov_text',                           # Convert subtitles to mov_text format (MP4 compatible)
-                            '-map', '0:v',                                   # Map video stream
-                            '-map', '0:a',                                   # Map audio stream
-                            '-map', '0:s?',                                  # Map subtitle streams if they exist (optional)
-                            '-movflags', '+faststart'                        # Web-optimized for progressive download
-                        )
-                    }
-                    else # H.265
-                    {
-                        # Samsung-friendly H.265 encoding: 4K60, Level 5.2, up to 100 Mbps (better compression)
-                        $ffmpegArgs = @(
-                            '-i', "`"$inputFilePath`"",                      # Input file (quoted)
-                            '-vcodec', 'libx265',                            # H.265 video codec
-                            '-preset', 'medium',                             # Encoding speed preset (balance of speed vs compression)
-                            '-crf', '22',                                    # Constant rate factor (good quality for H.265)
-                            '-x265-params', 'level-idc=5.2:keyint=60',       # H.265 Level 5.2 with keyframe interval
-                            '-pix_fmt', 'yuv420p10le',                       # 10-bit pixel format for better quality
-                            '-r', '60',                                      # Max 60 fps for 4K with H.265
-                            '-acodec', 'aac',                                # AAC audio codec
-                            '-b:a', '192k',                                  # Audio bitrate 192 kbps
-                            '-ac', '2',                                      # 2 audio channels (stereo)
-                            '-ar', '48000',                                  # Audio sample rate 48 kHz
-                            '-scodec', 'mov_text',                           # Convert subtitles to mov_text format (MP4 compatible)
-                            '-map', '0:v',                                   # Map video stream
-                            '-map', '0:a',                                   # Map audio stream
-                            '-map', '0:s?',                                  # Map subtitle streams if they exist (optional)
-                            '-movflags', '+faststart'                        # Web-optimized for progressive download
-                        )
-                    }
-
-                    # Add force overwrite if needed
-                    if ($Force)
-                    {
-                        $ffmpegArgs += '-y'
-                    }
-
-                    # Add output file
-                    $ffmpegArgs += "`"$outputFilePath`""
-
-                    # Execute ffmpeg
-                    try
-                    {
-                        Write-VerboseMessage "Running FFmpeg with arguments: $($ffmpegArgs -join ' ')"
-
-                        # Cross-platform FFmpeg execution to preserve TTY behavior for proper progress display
-                        # Windows uses Start-Process for better process control, Unix systems use direct execution
-                        if ($IsWindows -or ($null -eq $IsWindows -and [Environment]::OSVersion.Platform -eq 'Win32NT'))
-                        {
-                            # Windows: Use Start-Process with available parameters
-                            if ($PSVersionTable.PSVersion.Major -ge 6)
-                            {
-                                # PowerShell Core on Windows
-                                $process = Start-Process -FilePath $script:ValidatedFFmpegPath -ArgumentList $ffmpegArgs -Wait -PassThru
-                            }
-                            else
-                            {
-                                # PowerShell Desktop on Windows
-                                $process = Start-Process -FilePath $script:ValidatedFFmpegPath -ArgumentList $ffmpegArgs -NoNewWindow -Wait -PassThru
-                            }
-
-                            $LASTEXITCODE = $process.ExitCode
-                        }
-                        else
-                        {
-                            # macOS/Linux: Use direct execution which preserves TTY behavior better
-                            & $script:ValidatedFFmpegPath @ffmpegArgs
-                        }
-
-                        if ($LASTEXITCODE -ne 0)
-                        {
-                            Write-Warning "FFmpeg failed for '$inputFile' with exit code $LASTEXITCODE."
-                            $errorCount++
-
-                            if ($PauseOnError)
-                            {
-                                Read-Host 'Press Enter to continue...'
-                            }
-                        }
-                        else
-                        {
-                            Write-Host "Successfully converted '$inputFile' to '$outputFile'" -ForegroundColor Green
-                            $successCount++
-
-                            # Delete input file unless KeepSourceFile is specified
-                            if (-not $KeepSourceFile)
-                            {
-                                if ($PSCmdlet.ShouldProcess($inputFile, 'Delete source file'))
-                                {
-                                    try
-                                    {
-                                        Remove-Item -Path $inputFilePath -Confirm:$false -ErrorAction Stop
-                                        Write-Host "Deleted input file '$inputFile'" -ForegroundColor Green
-                                    }
-                                    catch
-                                    {
-                                        Write-Warning "Failed to delete '$inputFile'. Error: $($_.Exception.Message)"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        Write-Error "Error running FFmpeg for '$inputFile'. Error: $($_.Exception.Message)"
-                        $errorCount++
-
-                        if ($PauseOnError)
-                        {
-                            Read-Host 'Press Enter to continue...'
-                        }
-                    }
-
-                    Write-Host ''
+                    $LASTEXITCODE = $process.ExitCode
+                }
+                else
+                {
+                    # macOS/Linux: Use direct execution which preserves TTY behavior better
+                    & $script:ValidatedFFmpegPath @ffmpegArgs
                 }
 
-                # Update script counters
-                $script:totalSuccessful += $successCount
-                $script:totalSkipped += $skipCount
-                $script:totalFailed += $errorCount
+                if ($LASTEXITCODE -ne 0)
+                {
+                    Write-Warning "FFmpeg failed for '$inputFile' with exit code $LASTEXITCODE."
+                    $script:totalFailed++
+
+                    if ($PauseOnError)
+                    {
+                        Read-Host 'Press Enter to continue...'
+                    }
+                }
+                else
+                {
+                    Write-Host "Successfully converted '$inputFile' to '$outputFile'" -ForegroundColor Green
+                    $script:totalSuccessful++
+
+                    # Delete input file unless KeepSourceFile is specified
+                    if (-not $KeepSourceFile)
+                    {
+                        if ($PSCmdlet.ShouldProcess($inputFile, 'Delete source file'))
+                        {
+                            try
+                            {
+                                Remove-Item -Path $inputFilePath -Confirm:$false -ErrorAction Stop
+                                Write-Host "Deleted input file '$inputFile'" -ForegroundColor Green
+                            }
+                            catch
+                            {
+                                Write-Warning "Failed to delete '$inputFile'. Error: $($_.Exception.Message)"
+                            }
+                        }
+                    }
+                }
             }
-            finally
+            catch
             {
-                # Return to original location
-                Pop-Location
+                Write-Error "Error running FFmpeg for '$inputFile'. Error: $($_.Exception.Message)"
+                $script:totalFailed++
+
+                if ($PauseOnError)
+                {
+                    Read-Host 'Press Enter to continue...'
+                }
             }
+
+            Write-Host ''
         }
+
+        # Clear progress bar when done
+        Write-Progress -Activity 'Converting Video Files' -Completed
     }
 
     end
