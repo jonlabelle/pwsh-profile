@@ -303,6 +303,8 @@ function Invoke-FFmpeg
         catch
         {
             Write-Error $_.Exception.Message
+            # Set flag to indicate initialization failed
+            $script:initializationFailed = $true
             return $false
         }
 
@@ -619,6 +621,12 @@ function Invoke-FFmpeg
 
     end
     {
+        # Skip end block processing if initialization failed
+        if ($script:initializationFailed)
+        {
+            return $false
+        }
+
         # Calculate elapsed time
         $scriptEndTime = Get-Date
         $elapsedTime = Format-ElapsedTime -StartTime $script:scriptStartTime -EndTime $scriptEndTime
