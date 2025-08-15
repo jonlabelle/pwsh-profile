@@ -44,12 +44,16 @@ function Invoke-FFmpeg
         Specifies the video encoder to use. Valid values are 'H.264' and 'H.265'.
         H.264 provides faster encoding with 4K30 support, while H.265 offers better compression with 4K60 support.
         Defaults to 'H.264' for Samsung TV compatibility.
-        This parameter cannot be used with -Passthrough.
+        This parameter cannot be used with -PassthroughVideo.
 
-    .PARAMETER Passthrough
-        If specified, passes through video and audio without re-encoding, and encodes subtitles to mov_text format.
-        This is much faster but doesn't apply Samsung-friendly (or specific) encoding settings.
+    .PARAMETER PassthroughVideo
+        If specified, passes through video without re-encoding while still processing audio according to other settings.
+        This is faster but doesn't apply Samsung-friendly video encoding settings.
         This parameter cannot be used with -VideoEncoder.
+
+    .PARAMETER PassthroughAudio
+        If specified, passes through audio without re-encoding while still processing video according to other settings.
+        This is faster but doesn't apply Samsung-friendly audio encoding settings.
 
     .PARAMETER WhatIf
         If specified, shows what operations would be performed without actually executing them.
@@ -72,8 +76,12 @@ function Invoke-FFmpeg
         Processes only the .mkv files directly in D:\Movies without searching subdirectories.
 
     .EXAMPLE
-        PS> Invoke-FFmpeg -Path "D:\Movies" -Passthrough -KeepSourceFile
-        Processes all .mkv files using passthrough mode (no re-encoding) and keeps the source files.
+        PS> Invoke-FFmpeg -Path "D:\Movies" -PassthroughVideo -KeepSourceFile
+        Processes all .mkv files using video passthrough (no video re-encoding) and keeps the source files.
+
+    .EXAMPLE
+        PS> Invoke-FFmpeg -Path "D:\Movies" -PassthroughAudio -VideoEncoder "H.265"
+        Processes all .mkv files using H.265 video encoding while passing through the audio without re-encoding.
 
     .EXAMPLE
         PS> Invoke-FFmpeg -Path "C:\Videos" -WhatIf
@@ -141,9 +149,13 @@ function Invoke-FFmpeg
         [string]
         $VideoEncoder = 'H.264',
 
-        [Parameter(ParameterSetName = 'Passthrough')]
+        [Parameter(ParameterSetName = 'VideoPassthrough')]
         [switch]
-        $Passthrough
+        $PassthroughVideo,
+
+        [Parameter()]
+        [switch]
+        $PassthroughAudio
     )
 
     begin
@@ -412,13 +424,17 @@ function Invoke-FFmpeg
             }
 
             # ShouldProcess check for conversion operation
-            $operationDescription = if ($Passthrough)
+            $operationDescription = if ($PassthroughVideo)
             {
-                "Convert '$inputFile' to '$outputFile' using passthrough mode (copy video/audio, encode subtitles)"
+                "Convert '$inputFile' to '$outputFile' using video passthrough mode"
             }
             else
             {
                 "Convert '$inputFile' to '$outputFile' using $VideoEncoder encoding with Samsung-friendly settings"
+            }
+            if ($PassthroughAudio)
+            {
+                $operationDescription += ' with audio passthrough'
             }
             if (-not $KeepSourceFile)
             {
@@ -468,9 +484,9 @@ function Invoke-FFmpeg
             }
 
             # Construct ffmpeg arguments using Samsung-friendly encoding settings
-            if ($Passthrough)
+            if ($PassthroughVideo -and $PassthroughAudio)
             {
-                # Passthrough mode: copy video and audio without re-encoding, only encode subtitles
+                # Both passthrough mode: copy video and audio without re-encoding, only encode subtitles
                 $ffmpegArgs = @(
                     '-i', "`"$inputFilePath`"",                      # Input file (quoted)
                     '-vcodec', 'copy',                               # Copy video stream without re-encoding
@@ -482,21 +498,12 @@ function Invoke-FFmpeg
                     '-movflags', '+faststart'                        # Web-optimized for progressive download
                 )
             }
-            elseif ($VideoEncoder -eq 'H.264')
+            elseif ($PassthroughVideo)
             {
-                # Samsung-friendly H.264 encoding: 4K30, High profile, Level 5.1, up to 100 Mbps
+                # Video passthrough with audio encoding
                 $ffmpegArgs = @(
                     '-i', "`"$inputFilePath`"",                      # Input file (quoted)
-                    '-vcodec', 'libx264',                            # H.264 video codec
-                    '-preset', 'medium',                             # Encoding speed preset (balance of speed vs compression)
-                    '-crf', '18',                                    # Constant rate factor (near-visually-lossless quality)
-                    '-profile', 'high',                              # H.264 High profile for Samsung compatibility
-                    '-level', '5.1',                                 # H.264 Level 5.1 (seamless up to 3840×2160)
-                    '-pix_fmt', 'yuv420p',                           # Pixel format for wide compatibility
-                    '-framerate', '30',                              # Max 30 fps for 4K on Samsung TV
-                    '-maxrate', '100M',                              # Max bitrate 100 Mbps
-                    '-bufsize', '200M',                              # Buffer size (2x maxrate)
-                    '-x264-params', 'keyint=60:min-keyint=60',       # Keyframe interval settings
+                    '-vcodec', 'copy',                               # Copy video stream without re-encoding
                     '-acodec', 'aac',                                # AAC audio codec
                     '-b:a', '192k',                                  # Audio bitrate 192 kbps
                     '-ac', '2',                                      # 2 audio channels (stereo)
@@ -508,21 +515,75 @@ function Invoke-FFmpeg
                     '-movflags', '+faststart'                        # Web-optimized for progressive download
                 )
             }
+            elseif ($VideoEncoder -eq 'H.264')
+            {
+                # Samsung-friendly H.264 encoding: 4K30, High profile, Level 5.1, up to 100 Mbps
+                $videoArgs = @(
+                    '-vcodec', 'libx264',                            # H.264 video codec
+                    '-preset', 'medium',                             # Encoding speed preset (balance of speed vs compression)
+                    '-crf', '18',                                    # Constant rate factor (near-visually-lossless quality)
+                    '-profile', 'high',                              # H.264 High profile for Samsung compatibility
+                    '-level', '5.1',                                 # H.264 Level 5.1 (seamless up to 3840×2160)
+                    '-pix_fmt', 'yuv420p',                           # Pixel format for wide compatibility
+                    '-framerate', '30',                              # Max 30 fps for 4K on Samsung TV
+                    '-maxrate', '100M',                              # Max bitrate 100 Mbps
+                    '-bufsize', '200M',                              # Buffer size (2x maxrate)
+                    '-x264-params', 'keyint=60:min-keyint=60'        # Keyframe interval settings
+                )
+
+                $audioArgs = if ($PassthroughAudio)
+                {
+                    @('-acodec', 'copy')                             # Copy audio stream without re-encoding
+                }
+                else
+                {
+                    @(
+                        '-acodec', 'aac',                            # AAC audio codec
+                        '-b:a', '192k',                              # Audio bitrate 192 kbps
+                        '-ac', '2',                                  # 2 audio channels (stereo)
+                        '-ar', '48000'                               # Audio sample rate 48 kHz
+                    )
+                }
+
+                $ffmpegArgs = @(
+                    '-i', "`"$inputFilePath`""                       # Input file (quoted)
+                ) + $videoArgs + $audioArgs + @(
+                    '-scodec', 'mov_text',                           # Convert subtitles to mov_text format (MP4 compatible)
+                    '-map', '0:v',                                   # Map video stream
+                    '-map', '0:a',                                   # Map audio stream
+                    '-map', '0:s?',                                  # Map subtitle streams if they exist (optional)
+                    '-movflags', '+faststart'                        # Web-optimized for progressive download
+                )
+            }
             else # H.265
             {
                 # Samsung-friendly H.265 encoding: 4K60, Level 5.2, up to 100 Mbps (better compression)
-                $ffmpegArgs = @(
-                    '-i', "`"$inputFilePath`"",                      # Input file (quoted)
+                $videoArgs = @(
                     '-vcodec', 'libx265',                            # H.265 video codec
                     '-preset', 'medium',                             # Encoding speed preset (balance of speed vs compression)
                     '-crf', '22',                                    # Constant rate factor (good quality for H.265)
                     '-x265-params', 'level-idc=5.2:keyint=60',       # H.265 Level 5.2 with keyframe interval
                     '-pix_fmt', 'yuv420p10le',                       # 10-bit pixel format for better quality
-                    '-r', '60',                                      # Max 60 fps for 4K with H.265
-                    '-acodec', 'aac',                                # AAC audio codec
-                    '-b:a', '192k',                                  # Audio bitrate 192 kbps
-                    '-ac', '2',                                      # 2 audio channels (stereo)
-                    '-ar', '48000',                                  # Audio sample rate 48 kHz
+                    '-r', '60'                                       # Max 60 fps for 4K with H.265
+                )
+
+                $audioArgs = if ($PassthroughAudio)
+                {
+                    @('-acodec', 'copy')                             # Copy audio stream without re-encoding
+                }
+                else
+                {
+                    @(
+                        '-acodec', 'aac',                            # AAC audio codec
+                        '-b:a', '192k',                              # Audio bitrate 192 kbps
+                        '-ac', '2',                                  # 2 audio channels (stereo)
+                        '-ar', '48000'                               # Audio sample rate 48 kHz
+                    )
+                }
+
+                $ffmpegArgs = @(
+                    '-i', "`"$inputFilePath`""                       # Input file (quoted)
+                ) + $videoArgs + $audioArgs + @(
                     '-scodec', 'mov_text',                           # Convert subtitles to mov_text format (MP4 compatible)
                     '-map', '0:v',                                   # Map video stream
                     '-map', '0:a',                                   # Map audio stream
