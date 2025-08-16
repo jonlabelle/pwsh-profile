@@ -160,12 +160,20 @@ function Invoke-FFmpeg
 
     begin
     {
-        # Platform detection for PowerShell 5.1
+        # Platform detection - consolidated for efficiency and compatibility
         if ($PSVersionTable.PSVersion.Major -lt 6)
         {
-            $global:IsWindows = $true
-            $global:IsMacOS = $false
-            # $global:IsLinux = $false
+            # PowerShell 5.1 - Windows only
+            $script:IsWindowsPlatform = $true
+            $script:IsMacOSPlatform = $false
+            $script:IsLinuxPlatform = $false
+        }
+        else
+        {
+            # PowerShell Core - cross-platform
+            $script:IsWindowsPlatform = $IsWindows
+            $script:IsMacOSPlatform = $IsMacOS
+            $script:IsLinuxPlatform = $IsLinux
         }
 
         function Write-VerboseMessage
@@ -282,11 +290,11 @@ function Invoke-FFmpeg
                 else
                 {
                     # Platform-specific default locations
-                    if ($IsWindows -or ($null -eq $IsWindows -and [Environment]::OSVersion.Platform -eq 'Win32NT'))
+                    if ($script:IsWindowsPlatform)
                     {
                         $resolvedPath = 'C:\ffmpeg\bin\ffmpeg.exe'
                     }
-                    elseif ($IsMacOS -or ($null -eq $IsMacOS -and [Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([Runtime.InteropServices.OSPlatform]::OSX)))
+                    elseif ($script:IsMacOSPlatform)
                     {
                         $resolvedPath = '/usr/local/bin/ffmpeg'
                     }
@@ -608,7 +616,7 @@ function Invoke-FFmpeg
 
                 # Cross-platform FFmpeg execution to preserve TTY behavior for proper progress display
                 # Windows uses Start-Process for better process control, Unix systems use direct execution
-                if ($IsWindows -or ($null -eq $IsWindows -and [Environment]::OSVersion.Platform -eq 'Win32NT'))
+                if ($script:IsWindowsPlatform)
                 {
                     # Windows: Use Start-Process with available parameters
                     if ($PSVersionTable.PSVersion.Major -ge 6)
