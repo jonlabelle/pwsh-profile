@@ -160,7 +160,7 @@ function Invoke-FFmpeg
 
     begin
     {
-        # Platform detection - consolidated for efficiency and compatibility
+        # Platform detection
         if ($PSVersionTable.PSVersion.Major -lt 6)
         {
             # PowerShell 5.1 - Windows only

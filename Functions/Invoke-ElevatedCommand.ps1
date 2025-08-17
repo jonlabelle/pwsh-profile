@@ -67,8 +67,6 @@ function Invoke-ElevatedCommand
 
     begin
     {
-        Set-StrictMode -Version 3
-
         # Platform detection
         if ($PSVersionTable.PSVersion.Major -lt 6)
         {
@@ -140,5 +138,7 @@ function Invoke-ElevatedCommand
         [Console]::WriteLine($outputFile)
         # Remove-Item $outputFile
         Remove-Item $inputFile
+    }
+}
     }
 }
