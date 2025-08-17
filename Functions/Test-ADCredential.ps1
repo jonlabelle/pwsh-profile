@@ -6,13 +6,18 @@ function Test-ADCredential
 
     .DESCRIPTION
         This function validates Active Directory credentials by attempting to authenticate
-        against the Active Directory domain. It returns a boolean value indicating whether
-        the authentication was successful. The function includes proper error handling
-        and resource cleanup.
+        against the Active Directory domain controller. It performs actual directory queries
+        to ensure credentials are properly validated, not just directory binding. The function
+        includes proper error handling and resource cleanup.
 
-        NOTE: This function only works on Windows platforms as it relies on Windows-specific
-        .NET DirectoryServices classes and Active Directory integration. On macOS and Linux,
-        use alternative LDAP authentication methods.
+        REQUIREMENTS:
+        - Windows platform (relies on Windows-specific .NET DirectoryServices classes)
+        - Active connection to an Active Directory domain controller
+        - Network access to query the domain's RootDSE
+
+        NOTE: This function only works on Windows platforms and requires an active connection
+        to an Active Directory domain. On macOS and Linux, use alternative LDAP authentication
+        methods. The function will return $false if no domain controller is accessible.
 
     .PARAMETER Credential
         The PSCredential object containing username and password to test.
@@ -39,14 +44,27 @@ function Test-ADCredential
 
         Tests invalid credentials and shows the detailed error message with verbose output.
 
+    .EXAMPLE
+        PS> Test-ADCredential -Credential $cred
+        ERROR: Unable to connect to Active Directory. This function requires a connection to an Active Directory domain controller. Ensure you are on a domain-joined machine or have network access to a domain controller.
+        False
+
+        Shows the error when not connected to a domain or when domain controller is unreachable.
+
     .OUTPUTS
         System.Boolean
         Returns $true if authentication succeeds, otherwise $false.
 
     .NOTES
-        This function attempts to bind to the domain controller using the provided credentials.
-        It uses proper exception handling and resource cleanup. Requires the machine to be
-        domain-joined or have access to a domain controller.
+        This function performs actual directory queries to validate credentials, not just
+        directory binding. It requires an active connection to an Active Directory domain
+        controller and will fail gracefully if no domain is accessible. The function uses
+        proper exception handling and resource cleanup for both DirectoryEntry and
+        DirectorySearcher objects.
+
+        The function first attempts to connect to LDAP://RootDSE to determine the domain
+        context, then performs a directory search to validate the provided credentials.
+        This ensures true authentication validation rather than just connection binding.
 
     .LINK
         https://jonlabelle.com/snippets/view/powershell/test-windows-credential
