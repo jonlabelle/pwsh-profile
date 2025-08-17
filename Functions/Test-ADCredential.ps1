@@ -136,7 +136,15 @@ function Test-ADCredential
         {
             if ($null -ne $de)
             {
-                $de.Dispose()
+                try
+                {
+                    $de.Dispose()
+                }
+                catch
+                {
+                    # Silently ignore disposal errors as the object may already be disposed
+                    Write-Debug "DirectoryEntry disposal failed: $($_.Exception.Message)"
+                }
             }
         }
     }
