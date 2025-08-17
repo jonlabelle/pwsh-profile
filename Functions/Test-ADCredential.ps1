@@ -99,16 +99,8 @@ function Test-ADCredential
         }
         catch
         {
-            Write-Warning 'Unable to determine domain context. Using current domain.'
-            try
-            {
-                $domain = 'LDAP://' + ([ADSI]'').distinguishedName
-            }
-            catch
-            {
-                Write-Error 'Unable to connect to Active Directory. Ensure you are on a domain-joined machine.'
-                return $false
-            }
+            Write-Error 'Unable to connect to Active Directory. This function requires a connection to an Active Directory domain controller. Ensure you are on a domain-joined machine or have network access to a domain controller.'
+            return $false
         }
 
         $de = $null
@@ -116,8 +108,13 @@ function Test-ADCredential
         {
             $de = New-Object System.DirectoryServices.DirectoryEntry($domain, $username, $password)
 
-            # Force authentication by accessing a property
-            $null = $de.Name
+            # Force authentication by performing a more thorough validation
+            # Just accessing .Name isn't sufficient - we need to actually query the directory
+            $searcher = New-Object System.DirectoryServices.DirectorySearcher($de)
+            $searcher.Filter = '(objectClass=*)'
+            $searcher.SizeLimit = 1
+            $null = $searcher.FindOne()
+            $searcher.Dispose()
 
             Write-Verbose "Successfully authenticated '$username'"
             $true
@@ -129,7 +126,7 @@ function Test-ADCredential
         }
         catch
         {
-            Write-Error "Unexpected error during authentication: $($_.Exception.Message)"
+            Write-Verbose "Authentication failed for '$username': $($_.Exception.Message)"
             $false
         }
         finally
