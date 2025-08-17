@@ -9,6 +9,9 @@ function Invoke-ElevatedCommand
         while maintaining pipeline functionality. It provides a way to run commands with
         administrator privileges without losing the context of the current session.
 
+        NOTE: This function only works on Windows platforms as it relies on Windows UAC
+        elevation mechanisms. On macOS and Linux, use sudo directly instead.
+
     .PARAMETER Scriptblock
         The script block to execute with elevated privileges.
         This parameter is mandatory.
@@ -65,6 +68,30 @@ function Invoke-ElevatedCommand
     begin
     {
         Set-StrictMode -Version 3
+
+        # Platform detection
+        if ($PSVersionTable.PSVersion.Major -lt 6)
+        {
+            # PowerShell 5.1 - Windows only
+            $script:IsWindowsPlatform = $true
+            $script:IsMacOSPlatform = $false
+            $script:IsLinuxPlatform = $false
+        }
+        else
+        {
+            # PowerShell Core - cross-platform
+            $script:IsWindowsPlatform = $IsWindows
+            $script:IsMacOSPlatform = $IsMacOS
+            $script:IsLinuxPlatform = $IsLinux
+        }
+
+        # Check if running on Windows
+        if (-not $script:IsWindowsPlatform)
+        {
+            $platformName = if ($script:IsMacOSPlatform) { 'macOS' } elseif ($script:IsLinuxPlatform) { 'Linux' } else { 'this platform' }
+            throw "Invoke-ElevatedCommand is only supported on Windows. On $platformName, use 'sudo' to run commands with elevated privileges."
+        }
+
         $inputItems = New-Object System.Collections.ArrayList
     }
 

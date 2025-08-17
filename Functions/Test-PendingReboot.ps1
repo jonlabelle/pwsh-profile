@@ -9,6 +9,10 @@ function Test-PendingReboot
         needs to be rebooted due to pending changes from Windows updates, component-based
         servicing, computer name changes, domain joins, or other system modifications.
 
+        NOTE: This function only works on Windows platforms as it relies on Windows-specific
+        registry locations and Windows Update mechanisms. On macOS and Linux, use
+        platform-specific methods to check for pending updates or reboots.
+
     .PARAMETER ComputerName
         The computer(s) to check for pending reboots. If not specified, the local computer is checked.
         This parameter accepts an array of computer names for checking multiple systems.
@@ -36,6 +40,10 @@ function Test-PendingReboot
     .NOTES
         Inspiration from: https://gallery.technet.microsoft.com/scriptcenter/Get-PendingReboot-Query-bdb79542
 
+        This function only works on Windows systems as it relies on Windows registry checks.
+        On macOS, check for pending updates with 'softwareupdate -l' or system preferences.
+        On Linux, check with package managers like 'apt list --upgradable' or '/var/run/reboot-required'.
+
     .LINK
         https://github.com/adbertram/Random-PowerShell-Work/blob/master/Random%20Stuff/Test-PendingReboot.ps1
     #>
@@ -49,6 +57,29 @@ function Test-PendingReboot
         [ValidateNotNullOrEmpty()]
         [PSCredential]$Credential
     )
+
+    # Platform detection
+    if ($PSVersionTable.PSVersion.Major -lt 6)
+    {
+        # PowerShell 5.1 - Windows only
+        $script:IsWindowsPlatform = $true
+        $script:IsMacOSPlatform = $false
+        $script:IsLinuxPlatform = $false
+    }
+    else
+    {
+        # PowerShell Core - cross-platform
+        $script:IsWindowsPlatform = $IsWindows
+        $script:IsMacOSPlatform = $IsMacOS
+        $script:IsLinuxPlatform = $IsLinux
+    }
+
+    # Check if running on Windows
+    if (-not $script:IsWindowsPlatform)
+    {
+        $platformName = if ($script:IsMacOSPlatform) { 'macOS' } elseif ($script:IsLinuxPlatform) { 'Linux' } else { 'this platform' }
+        throw "Test-PendingReboot is only supported on Windows. On $platformName, use platform-specific methods to check for pending updates or required reboots."
+    }
 
     $ErrorActionPreference = 'Stop'
 
@@ -139,7 +170,7 @@ function Test-PendingReboot
                 'HKLM:\SOFTWARE\Microsoft\Updates' | Where-Object { Test-Path $_ -PathType Container } | ForEach-Object {
                     if (Test-Path "$_\UpdateExeVolatile" )
                     {
-                    (Get-ItemProperty -Path $_ -Name 'UpdateExeVolatile' | Select-Object -ExpandProperty UpdateExeVolatile) -ne 0
+                        (Get-ItemProperty -Path $_ -Name 'UpdateExeVolatile' | Select-Object -ExpandProperty UpdateExeVolatile) -ne 0
                     }
                     else
                     {
@@ -154,13 +185,13 @@ function Test-PendingReboot
             {
                 # Added test to check first if keys exists, if not each group will return $Null
                 # May need to evaluate what it means if one or both of these keys do not exist
-            ( 'HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ActiveComputerName' | Where-Object { Test-Path $_ } | ForEach-Object { (Get-ItemProperty -Path $_ ).ComputerName } ) -ne
-            ( 'HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName' | Where-Object { Test-Path $_ } | ForEach-Object { (Get-ItemProperty -Path $_ ).ComputerName } )
+                ( 'HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ActiveComputerName' | Where-Object { Test-Path $_ } | ForEach-Object { (Get-ItemProperty -Path $_ ).ComputerName } ) -ne
+                ( 'HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName' | Where-Object { Test-Path $_ } | ForEach-Object { (Get-ItemProperty -Path $_ ).ComputerName } )
             }
             {
                 # Added test to check first if key exists
                 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Services\Pending' | Where-Object {
-                (Test-Path $_) -and (Get-ChildItem -Path $_) } | ForEach-Object { $true }
+                    (Test-Path $_) -and (Get-ChildItem -Path $_) } | ForEach-Object { $true }
             }
         )
 

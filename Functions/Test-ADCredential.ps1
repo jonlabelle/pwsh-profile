@@ -10,6 +10,10 @@ function Test-ADCredential
         the authentication was successful. The function includes proper error handling
         and resource cleanup.
 
+        NOTE: This function only works on Windows platforms as it relies on Windows-specific
+        .NET DirectoryServices classes and Active Directory integration. On macOS and Linux,
+        use alternative LDAP authentication methods.
+
     .PARAMETER Credential
         The PSCredential object containing username and password to test.
         This parameter is mandatory and accepts pipeline input.
@@ -59,6 +63,29 @@ function Test-ADCredential
 
     process
     {
+        # Platform detection
+        if ($PSVersionTable.PSVersion.Major -lt 6)
+        {
+            # PowerShell 5.1 - Windows only
+            $script:IsWindowsPlatform = $true
+            $script:IsMacOSPlatform = $false
+            $script:IsLinuxPlatform = $false
+        }
+        else
+        {
+            # PowerShell Core - cross-platform
+            $script:IsWindowsPlatform = $IsWindows
+            $script:IsMacOSPlatform = $IsMacOS
+            $script:IsLinuxPlatform = $IsLinux
+        }
+
+        # Check if running on Windows
+        if (-not $script:IsWindowsPlatform)
+        {
+            $platformName = if ($script:IsMacOSPlatform) { 'macOS' } elseif ($script:IsLinuxPlatform) { 'Linux' } else { 'this platform' }
+            throw "Test-ADCredential is only supported on Windows. On $platformName, use alternative LDAP authentication methods or consider using PowerShell modules like 'Microsoft.Graph' for Azure AD authentication."
+        }
+
         $username = $Credential.UserName
         $password = $Credential.GetNetworkCredential().Password
 

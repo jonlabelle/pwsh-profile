@@ -12,6 +12,10 @@ function Start-KeepAlive
         CAUTION: This function should only be used in secure environments when you need
         to prevent timeout during long operations like file downloads.
 
+        NOTE: This function only works on Windows platforms as it relies on Windows-specific
+        COM objects (WScript.Shell) for keystroke simulation. On macOS and Linux, use
+        platform-specific tools like 'caffeinate' (macOS) or 'xdotool' (Linux).
+
     .PARAMETER KeepAliveHours
         The number of hours the keep-alive job will run.
         Default is 12 hours.
@@ -65,6 +69,10 @@ function Start-KeepAlive
         would interfere with important tasks.
 
         If you don't manually end the job using -EndJob, use Get-Job | Remove-Job to clean up old jobs.
+
+        This function only works on Windows due to its dependency on WScript.Shell COM objects.
+        On macOS, use 'caffeinate -d' to prevent display sleep or 'caffeinate -i' to prevent system sleep.
+        On Linux, use tools like 'xset', 'xdotool', or 'systemd-inhibit' for similar functionality.
     #>
     param (
         $KeepAliveHours = 12,
@@ -78,6 +86,29 @@ function Start-KeepAlive
 
     begin
     {
+        # Platform detection
+        if ($PSVersionTable.PSVersion.Major -lt 6)
+        {
+            # PowerShell 5.1 - Windows only
+            $script:IsWindowsPlatform = $true
+            $script:IsMacOSPlatform = $false
+            $script:IsLinuxPlatform = $false
+        }
+        else
+        {
+            # PowerShell Core - cross-platform
+            $script:IsWindowsPlatform = $IsWindows
+            $script:IsMacOSPlatform = $IsMacOS
+            $script:IsLinuxPlatform = $IsLinux
+        }
+
+        # Check if running on Windows
+        if (-not $script:IsWindowsPlatform)
+        {
+            $platformName = if ($script:IsMacOSPlatform) { 'macOS' } elseif ($script:IsLinuxPlatform) { 'Linux' } else { 'this platform' }
+            throw "Start-KeepAlive is only supported on Windows. On $platformName, use platform-specific tools like 'caffeinate' (macOS) or 'xset'/'systemd-inhibit' (Linux) to prevent system sleep."
+        }
+
         $Endtime = (Get-Date).AddHours($KeepAliveHours)
     }#begin
 
@@ -134,7 +165,7 @@ function Start-KeepAlive
                 "`nStarted at..: $(Get-Date)"
                 "Ends at.....: $(Get-Date $EndTime)`n"
 
-                While ((Get-Date) -le (Get-Date $EndTime))
+                while ((Get-Date) -le (Get-Date $EndTime))
                 {
                     # Wait SleepSeconds to press (This should be less than the screensaver timeout)
                     Start-Sleep -Seconds $SleepSeconds
@@ -155,7 +186,7 @@ function Start-KeepAlive
                     # Receive-Job -AutoRemoveJob -Force
                     # Still working on a way to automatically remove the job
                 }
-                Catch
+                catch
                 {
                     "Something went wrong, manually remove job $JobName"
                 }
