@@ -140,5 +140,3 @@ function Invoke-ElevatedCommand
         Remove-Item $inputFile
     }
 }
-    }
-}
