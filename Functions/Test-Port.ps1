@@ -7,9 +7,10 @@ function Test-Port
     .DESCRIPTION
         Tests whether specific TCP or UDP ports are open and accessible on target hosts.
         Provides detailed connection information including success status and connection details.
+        Compatible with PowerShell Desktop 5.1+ on Windows, macOS, and Linux.
 
     .PARAMETER Port
-        Port numbers to test. Accepts an array of port numbers.
+        Port numbers to test. Accepts an array of port numbers (1-65535).
 
     .PARAMETER ComputerName
         Target hosts to test. Accepts an array of computer names or IP addresses.
@@ -17,7 +18,7 @@ function Test-Port
 
     .PARAMETER Timeout
         Sets a timeout (in milliseconds) for port query.
-        The default is 3000 (3 seconds).
+        The default is 3000 (3 seconds). Valid range: 100-300000 (5 minutes).
 
     .PARAMETER Tcp
         Use this switch to test TCP ports. If neither Tcp nor Udp is specified, Tcp is used by default.
@@ -55,13 +56,14 @@ function Test-Port
 
     .OUTPUTS
         System.Object[]
-        Returns custom objects with server, port, protocol, connection status, and details.
+        Returns custom objects with Server, Port, Protocol, Open, Status, and ResponseTime properties.
 
     .NOTES
         Name: Test-Port.ps1
         Author: Boe Prox
         DateCreated: 18Aug2010
         Updated by Jon LaBelle, 9/29/2022
+        Enhanced: 8/16/2025 - Improved cross-platform compatibility, reliability, and performance
 
         Ports reference: http://www.iana.org/assignments/port-numbers
 
@@ -71,249 +73,339 @@ function Test-Port
     .LINK
         https://jonlabelle.com/snippets/view/powershell/test-tcp-or-udp-network-port-in-powershell
     #>
-    [CmdletBinding(ConfirmImpact = 'low')]
+    [CmdletBinding(ConfirmImpact = 'Low')]
     [OutputType([System.Object[]])]
     param(
-        [Parameter(Position = 0, Mandatory = $true)]
+        [Parameter(Position = 0, Mandatory = $true, HelpMessage = 'Port numbers to test (1-65535)')]
+        [ValidateRange(1, 65535)]
         [Int[]]$Port,
 
-        [Parameter(Position = 1, ValueFromPipelineByPropertyName = $true)]
+        [Parameter(Position = 1, ValueFromPipelineByPropertyName = $true, ValueFromPipeline = $true, HelpMessage = 'Target hosts to test')]
         [AllowNull()]
-        [Alias('IPAddress', '__Server', 'CN')]
+        [AllowEmptyString()]
+        [Alias('IPAddress', '__Server', 'CN', 'Server', 'Target')]
         [String[]]$ComputerName,
 
-        [Parameter()]
+        [Parameter(HelpMessage = 'Timeout in milliseconds (100-300000)')]
+        [ValidateRange(100, 300000)]
         [Int]$Timeout = 3000,
 
-        [Parameter()]
+        [Parameter(HelpMessage = 'Test TCP ports')]
         [Switch]$Tcp,
 
-        [Parameter()]
-        [switch]$Udp
+        [Parameter(HelpMessage = 'Test UDP ports')]
+        [Switch]$Udp
     )
+
     begin
     {
-        if (!$Tcp -and !$Udp) {$Tcp = $true}
-
-        if (-not $ComputerName -or $ComputerName.Count -eq 0)
+        # Set default protocol if neither is specified
+        if (-not $Tcp -and -not $Udp)
         {
-            $ComputerName = 'localhost'
+            $Tcp = $true
         }
 
-        # Typically you never do this, but in this case I felt it was for the benefit of the function
-        # as any errors will be noted in the output of the report.
-        #$ErrorActionPreference = 'SilentlyContinue'
-
-        $report = @()
+        # Initialize results collection using ArrayList for better performance
+        $results = New-Object System.Collections.ArrayList
     }
+
     process
     {
+        # Handle pipeline input and set default if empty
+        if (-not $ComputerName -or $ComputerName.Count -eq 0)
+        {
+            $ComputerName = @('localhost')
+        }
+
         foreach ($computer in $ComputerName)
         {
+            # Skip empty/null computer names
+            if ([string]::IsNullOrWhiteSpace($computer))
+            {
+                continue
+            }
+
+            Write-Verbose "Testing ports on $computer"
+
             foreach ($targetPort in $Port)
             {
-                if ($targetPort -gt 65535)
-                {
-                    throw ("Port '{0}' is out of range, and cannot be higher than 65,535." -f $targetPort)
-                }
-
-                if ($targetPort -le 0)
-                {
-                    throw ("Port '{0}' is out of range, and cannot be less than or equal to zero." -f $targetPort)
-                }
+                Write-Verbose "Testing $computer`:$targetPort"
 
                 if ($Tcp)
                 {
-                    # Create temporary holder
-                    $output = '' | Select-Object Server, Port, Protocol, Open, Status
-
-                    # Create object for connecting to port on ComputerName
-                    $tcpObject = New-Object System.Net.Sockets.TcpClient
-
-                    # Connect to remote machine's port
-                    $connect = $tcpObject.BeginConnect($computer, $targetPort, $null, $null)
-
-                    # Configure a timeout before quitting
-                    $wait = $connect.AsyncWaitHandle.WaitOne($Timeout, $false)
-
-                    # if timeout
-                    if (!$wait)
-                    {
-                        # Close connection
-                        $tcpObject.Close()
-
-                        Write-Verbose 'Connection timeout'
-
-                        # Build report
-                        $output.Server = $computer
-                        $output.Port = $targetPort
-                        $output.Protocol = 'TCP'
-                        $output.Open = $false
-                        $output.Status = 'Connection timed out.'
-                    }
-                    else
-                    {
-                        $error.Clear()
-
-                        $failed = $false
-
-                        try
-                        {
-                            $tcpObject.EndConnect($connect) | Out-Null
-                        }
-                        catch
-                        {
-                            if ($error[0])
-                            {
-                                # Begin making error more readable in report
-                                [string]$string = ($error[0].exception).message
-                                $message = (($string.split(':')[1]).replace('"', '')).TrimStart()
-                                $failed = $true
-                            }
-                        }
-                        finally
-                        {
-                            $tcpObject.Close()
-                        }
-
-                        # if unable to query port to due failure
-                        if ($failed)
-                        {
-                            # Build report
-                            $output.Server = $computer
-                            $output.Port = $targetPort
-                            $output.Protocol = 'TCP'
-                            $output.Open = $false
-                            $output.Status = "$message"
-                        }
-                        else
-                        {
-                            # Build report
-                            $output.Server = $computer
-                            $output.Port = $targetPort
-                            $output.Protocol = 'TCP'
-                            $output.Open = $true
-                            $output.Status = 'Connection successful.'
-                        }
-                    }
-
-                    # Reset failed value
-                    $failed = $false
-
-                    # Merge temp array with report
-                    $report += $output
-                }
-
-                if ($Udp)
-                {
-                    # Create temporary holder
-                    $output = '' | Select-Object Server, Port, Protocol, Open, Status
-
-                    # Create object for connecting to port on ComputerName
-                    $udpObject = New-Object System.Net.Sockets.UdpClient
-
-                    # Set a timeout on receiving message
-                    $udpObject.client.ReceiveTimeout = $Timeout
-
-                    # Connect to remote machine's port
-                    Write-Verbose 'Making UDP connection to remote server'
-                    $udpObject.Connect("$computer", $targetPort)
-
-                    # Sends a message to the host to which you have connected.
-                    Write-Verbose 'Sending message to remote host'
-                    $a = New-Object System.Text.ASCIIEncoding
-                    $byte = $a.GetBytes("$(Get-Date)")
-                    [void]$udpObject.Send($byte, $byte.length)
-
-                    # IPEndPoint object will allow us to read data-grams sent from any source.
-                    Write-Verbose 'Creating remote endpoint'
-
-                    $remoteEndpoint = New-Object System.Net.IPEndPoint([System.Net.IPAddress]::Any, 0)
+                    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+                    $tcpClient = $null
 
                     try
                     {
-                        # Blocks until a message returns on this socket from a remote host.
-                        Write-Verbose 'Waiting for message return'
-                        $receiveBytes = $udpObject.Receive([ref]$remoteEndpoint)
+                        Write-Verbose "Testing TCP connection to ${computer}:${targetPort}"
 
-                        [string]$returnData = $a.GetString($receiveBytes)
-                        if ($returnData)
+                        $tcpClient = New-Object System.Net.Sockets.TcpClient
+                        $connectTask = $tcpClient.BeginConnect($computer, $targetPort, $null, $null)
+                        $success = $connectTask.AsyncWaitHandle.WaitOne($Timeout, $false)
+
+                        if ($success)
                         {
-                            Write-Verbose 'Connection successful'
+                            try
+                            {
+                                $tcpClient.EndConnect($connectTask)
+                                $stopwatch.Stop()
 
-                            # Build report
-                            $output.Server = $computer
-                            $output.Port = $targetPort
-                            $output.Protocol = 'UDP'
-                            $output.Open = $true
-                            $output.Status = $returnData
-                            $udpObject.close()
+                                Write-Verbose "TCP connection to ${computer}:${targetPort} successful"
+
+                                $result = [PSCustomObject]@{
+                                    PSTypeName = 'PortTest.Result'
+                                    Server = $computer
+                                    Port = $targetPort
+                                    Protocol = 'TCP'
+                                    Open = $true
+                                    Status = 'Connection successful'
+                                    ResponseTime = $stopwatch.ElapsedMilliseconds
+                                }
+                                [void]$results.Add($result)
+                            }
+                            catch
+                            {
+                                $stopwatch.Stop()
+                                $errorMessage = $_.Exception.Message
+
+                                # Parse common connection errors for better user feedback
+                                if ($errorMessage -match 'refused|rejected')
+                                {
+                                    $status = 'Connection refused'
+                                }
+                                elseif ($errorMessage -match 'unreachable')
+                                {
+                                    $status = 'Host unreachable'
+                                }
+                                elseif ($errorMessage -match 'timeout|timed out')
+                                {
+                                    $status = 'Connection timed out'
+                                }
+                                else
+                                {
+                                    $status = "Connection failed: $($errorMessage -replace '.*:', '' -replace '"', '' | ForEach-Object Trim)"
+                                }
+
+                                Write-Verbose "TCP connection to ${computer}:${targetPort} failed: $status"
+
+                                $result = [PSCustomObject]@{
+                                    PSTypeName = 'PortTest.Result'
+                                    Server = $computer
+                                    Port = $targetPort
+                                    Protocol = 'TCP'
+                                    Open = $false
+                                    Status = $status
+                                    ResponseTime = $stopwatch.ElapsedMilliseconds
+                                }
+                                [void]$results.Add($result)
+                            }
+                        }
+                        else
+                        {
+                            $stopwatch.Stop()
+                            Write-Verbose "TCP connection to ${computer}:${targetPort} timed out"
+
+                            $result = [PSCustomObject]@{
+                                PSTypeName = 'PortTest.Result'
+                                Server = $computer
+                                Port = $targetPort
+                                Protocol = 'TCP'
+                                Open = $false
+                                Status = 'Connection timed out'
+                                ResponseTime = $Timeout
+                            }
+                            [void]$results.Add($result)
                         }
                     }
                     catch
                     {
-                        if ($Error[0].ToString() -match '\bRespond after a period of time\b')
+                        $stopwatch.Stop()
+                        Write-Verbose "TCP test error for ${computer}:${targetPort}: $($_.Exception.Message)"
+
+                        $result = [PSCustomObject]@{
+                            PSTypeName = 'PortTest.Result'
+                            Server = $computer
+                            Port = $targetPort
+                            Protocol = 'TCP'
+                            Open = $false
+                            Status = "Error: $($_.Exception.Message)"
+                            ResponseTime = $stopwatch.ElapsedMilliseconds
+                        }
+                        [void]$results.Add($result)
+                    }
+                    finally
+                    {
+                        if ($null -ne $tcpClient)
                         {
-                            # Close connection
-                            $udpObject.Close()
-
-                            # Make sure that the host is online and not a false-positive
-                            if (Test-Connection -comp $computer -Count 1 -Quiet)
+                            try
                             {
-                                Write-Verbose 'Connection Open'
+                                $tcpClient.Close()
+                            }
+                            catch
+                            {
+                                Write-Debug "Error closing TCP client: $($_.Exception.Message)"
+                            }
+                            $tcpClient.Dispose()
+                        }
+                    }
+                }
 
-                                # Build report
-                                $output.Server = $computer
-                                $output.Port = $targetPort
-                                $output.Protocol = 'UDP'
-                                $output.Open = $true
-                                $output.Status = 'Connection successful.'
+                if ($Udp)
+                {
+                    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+                    $udpClient = $null
+
+                    try
+                    {
+                        Write-Verbose "Testing UDP connection to ${computer}:${targetPort}"
+
+                        $udpClient = New-Object System.Net.Sockets.UdpClient
+                        $udpClient.Client.ReceiveTimeout = $Timeout
+                        $udpClient.Client.SendTimeout = $Timeout
+
+                        # Connect to the remote endpoint
+                        $udpClient.Connect($computer, $targetPort)
+
+                        # Send a small test packet
+                        $encoder = [System.Text.Encoding]::ASCII
+                        $testData = $encoder.GetBytes("PowerShell-Test-$(Get-Date -Format 'yyyyMMddHHmmss')")
+                        [void]$udpClient.Send($testData, $testData.Length)
+
+                        # Try to receive a response
+                        $remoteEndpoint = New-Object System.Net.IPEndPoint([System.Net.IPAddress]::Any, 0)
+
+                        try
+                        {
+                            $responseBytes = $udpClient.Receive([ref]$remoteEndpoint)
+                            $stopwatch.Stop()
+
+                            if ($responseBytes.Length -gt 0)
+                            {
+                                Write-Verbose "UDP response received from ${computer}:${targetPort}"
+
+                                $result = [PSCustomObject]@{
+                                    PSTypeName = 'PortTest.Result'
+                                    Server = $computer
+                                    Port = $targetPort
+                                    Protocol = 'UDP'
+                                    Open = $true
+                                    Status = 'Response received'
+                                    ResponseTime = $stopwatch.ElapsedMilliseconds
+                                }
+                                [void]$results.Add($result)
+                            }
+                        }
+                        catch [System.Net.Sockets.SocketException]
+                        {
+                            $stopwatch.Stop()
+
+                            # UDP is connectionless, so we need to interpret the exception
+                            $errorCode = $_.Exception.SocketErrorCode
+
+                            if ($errorCode -eq [System.Net.Sockets.SocketError]::TimedOut)
+                            {
+                                # No response doesn't necessarily mean the port is closed for UDP
+                                # For simplicity, we'll consider it potentially open but filtered
+                                Write-Verbose "UDP test to ${computer}:${targetPort} - no response (may be open but not responding)"
+
+                                $result = [PSCustomObject]@{
+                                    PSTypeName = 'PortTest.Result'
+                                    Server = $computer
+                                    Port = $targetPort
+                                    Protocol = 'UDP'
+                                    Open = $true
+                                    Status = 'No response (likely filtered or open)'
+                                    ResponseTime = $Timeout
+                                }
+                                [void]$results.Add($result)
+                            }
+                            elseif ($errorCode -eq [System.Net.Sockets.SocketError]::ConnectionReset)
+                            {
+                                Write-Verbose "UDP test to ${computer}:${targetPort} - port closed (ICMP unreachable received)"
+
+                                $result = [PSCustomObject]@{
+                                    PSTypeName = 'PortTest.Result'
+                                    Server = $computer
+                                    Port = $targetPort
+                                    Protocol = 'UDP'
+                                    Open = $false
+                                    Status = 'Port closed (ICMP unreachable)'
+                                    ResponseTime = $stopwatch.ElapsedMilliseconds
+                                }
+                                [void]$results.Add($result)
                             }
                             else
                             {
-                                <#
-                                    It is possible that is online, but ICMP is blocked by a
-                                    firewall and this port is actually open.
-                                #>
-                                Write-Verbose 'Host unreachable'
+                                Write-Verbose "UDP test to ${computer}:${targetPort} - socket error: $errorCode"
 
-                                # Build report
-                                $output.Server = $computer
-                                $output.Port = $targetPort
-                                $output.Protocol = 'UDP'
-                                $output.Open = $false
-                                $output.Status = 'Host is unreachable.'
+                                $result = [PSCustomObject]@{
+                                    PSTypeName = 'PortTest.Result'
+                                    Server = $computer
+                                    Port = $targetPort
+                                    Protocol = 'UDP'
+                                    Open = $false
+                                    Status = "Socket error: $errorCode"
+                                    ResponseTime = $stopwatch.ElapsedMilliseconds
+                                }
+                                [void]$results.Add($result)
                             }
                         }
-                        elseif ($Error[0].ToString() -match 'forcibly closed by the remote host' )
+                        catch
                         {
-                            # Close connection
-                            $udpObject.Close()
+                            $stopwatch.Stop()
+                            Write-Verbose "UDP test to ${computer}:${targetPort} - unexpected error: $($_.Exception.Message)"
 
-                            Write-Verbose 'Connection timeout'
-
-                            # Build report
-                            $output.Server = $computer
-                            $output.Port = $targetPort
-                            $output.Protocol = 'UDP'
-                            $output.Open = $false
-                            $output.Status = 'Connection timed out.'
-                        }
-                        else
-                        {
-                            $udpObject.close()
+                            $result = [PSCustomObject]@{
+                                PSTypeName = 'PortTest.Result'
+                                Server = $computer
+                                Port = $targetPort
+                                Protocol = 'UDP'
+                                Open = $false
+                                Status = "Error: $($_.Exception.Message)"
+                                ResponseTime = $stopwatch.ElapsedMilliseconds
+                            }
+                            [void]$results.Add($result)
                         }
                     }
+                    catch
+                    {
+                        $stopwatch.Stop()
+                        Write-Verbose "UDP test setup error for ${computer}:${targetPort}: $($_.Exception.Message)"
 
-                    # Merge temp array with report
-                    $report += $output
+                        $result = [PSCustomObject]@{
+                            PSTypeName = 'PortTest.Result'
+                            Server = $computer
+                            Port = $targetPort
+                            Protocol = 'UDP'
+                            Open = $false
+                            Status = "Setup error: $($_.Exception.Message)"
+                            ResponseTime = $stopwatch.ElapsedMilliseconds
+                        }
+                        [void]$results.Add($result)
+                    }
+                    finally
+                    {
+                        if ($null -ne $udpClient)
+                        {
+                            try
+                            {
+                                $udpClient.Close()
+                            }
+                            catch
+                            {
+                                Write-Debug "Error closing UDP client: $($_.Exception.Message)"
+                            }
+                            $udpClient.Dispose()
+                        }
+                    }
                 }
             }
         }
     }
+
     end
     {
-        # Generate Report
-        $report
+        return $results.ToArray()
     }
 }
