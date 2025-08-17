@@ -7,7 +7,8 @@ function Test-ADCredential
     .DESCRIPTION
         This function validates Active Directory credentials by attempting to authenticate
         against the Active Directory domain. It returns a boolean value indicating whether
-        the authentication was successful.
+        the authentication was successful. The function includes proper error handling
+        and resource cleanup.
 
     .PARAMETER Credential
         The PSCredential object containing username and password to test.
@@ -16,30 +17,37 @@ function Test-ADCredential
     .EXAMPLE
         PS> $cred = Get-Credential
         PS> Test-ADCredential -Credential $cred
-        Successfully authenticated 'username'
         True
 
         Tests the credentials provided and returns $true if they are valid.
 
     .EXAMPLE
-        PS> Get-Credential | Test-ADCredential
-        Authentication failed for 'username'
+        PS> Get-Credential | Test-ADCredential -Verbose
+        VERBOSE: Successfully authenticated 'username'
+        True
+
+        Tests credentials from the pipeline with verbose output.
+
+    .EXAMPLE
+        PS> Test-ADCredential -Credential $invalidCred -Verbose
+        VERBOSE: Authentication failed for 'username': Logon failure: unknown user name or bad password
         False
 
-        Tests credentials from the pipeline and returns $false if authentication fails.
+        Tests invalid credentials and shows the detailed error message with verbose output.
 
     .OUTPUTS
         System.Boolean
         Returns $true if authentication succeeds, otherwise $false.
 
     .NOTES
-        This function attempts to bind to the default domain controller using the provided credentials.
-        If authentication fails, it writes an error message but continues execution.
+        This function attempts to bind to the domain controller using the provided credentials.
+        It uses proper exception handling and resource cleanup. Requires the machine to be
+        domain-joined or have access to a domain controller.
 
     .LINK
         https://jonlabelle.com/snippets/view/powershell/test-windows-credential
     #>
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [CmdletBinding()]
     [OutputType([bool])]
     param (
@@ -53,21 +61,56 @@ function Test-ADCredential
     {
         $username = $Credential.UserName
         $password = $Credential.GetNetworkCredential().Password
-        $domain = 'LDAP://' + ([ADSI]'').distinguishedName
 
-        $de = New-Object System.DirectoryServices.DirectoryEntry($domain, $username, $password)
-
-        if ($null -eq $de.name)
+        try
         {
-            Write-Error "Authentication failed for '$username'"
-            $false
+            # Get the domain distinguished name more reliably
+            $rootDSE = New-Object System.DirectoryServices.DirectoryEntry('LDAP://RootDSE')
+            $defaultNamingContext = $rootDSE.Properties['defaultNamingContext'][0]
+            $domain = "LDAP://$defaultNamingContext"
+            $rootDSE.Dispose()
         }
-        else
+        catch
         {
-            Write-Host "Successfully authenticated '$username'" -ForegroundColor Green
+            Write-Warning 'Unable to determine domain context. Using current domain.'
+            try
+            {
+                $domain = 'LDAP://' + ([ADSI]'').distinguishedName
+            }
+            catch
+            {
+                Write-Error 'Unable to connect to Active Directory. Ensure you are on a domain-joined machine.'
+                return $false
+            }
+        }
+
+        $de = $null
+        try
+        {
+            $de = New-Object System.DirectoryServices.DirectoryEntry($domain, $username, $password)
+
+            # Force authentication by accessing a property
+            $null = $de.Name
+
+            Write-Verbose "Successfully authenticated '$username'"
             $true
         }
-
-        $de.Dispose()
+        catch [System.DirectoryServices.DirectoryServiceCOMException]
+        {
+            Write-Verbose "Authentication failed for '$username': $($_.Exception.Message)"
+            $false
+        }
+        catch
+        {
+            Write-Error "Unexpected error during authentication: $($_.Exception.Message)"
+            $false
+        }
+        finally
+        {
+            if ($null -ne $de)
+            {
+                $de.Dispose()
+            }
+        }
     }
 }
