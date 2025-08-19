@@ -35,45 +35,60 @@ function Test-PendingReboot
 
     .EXAMPLE
         PS> Test-PendingReboot
-        Checks if the local computer has pending reboots.
+        ComputerName PendingReboot Reason
+        ------------ ------------- ------
+        localhost               True Pending File Rename Operations
+
+        Checks if the local computer has pending reboots and shows the reason.
 
     .EXAMPLE
         PS> Test-PendingReboot -ComputerName 'Server01', 'Server02'
-        Checks if Server01 and Server02 have pending reboots.
+        ComputerName PendingReboot Reason
+        ------------ ------------- ------
+        Server01                True Windows Update - Reboot Required
+        Server02               False
+
+        Checks if Server01 and Server02 have pending reboots and shows the reasons.
 
     .EXAMPLE
         PS> Test-PendingReboot -ComputerName 'Server01' -Credential (Get-Credential)
+        ComputerName PendingReboot Reason
+        ------------ ------------- ------
+        Server01                True Component Based Servicing - Packages Pending
+
         Checks if Server01 has pending reboots using the provided credentials.
 
     .EXAMPLE
         PS> Test-PendingReboot -Verbose
+        VERBOSE: Pending reboot detected: Registry key exists - HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager
         VERBOSE: Pending reboot detected: PendingFileRenameOperations exists
 
-        ComputerName IsPendingReboot
-        ------------ ---------------
-        localhost               True
+        ComputerName PendingReboot Reason
+        ------------ ------------- ------
+        localhost               True Pending File Rename Operations
 
-        Checks the local computer with verbose output showing which condition triggered the pending reboot detection.
+        Checks the local computer with verbose output showing which conditions triggered the pending reboot detection.
 
     .EXAMPLE
         PS> Test-PendingReboot -ComputerName 'NonExistentServer'
         Write-Error: Failed to check pending reboot status for 'NonExistentServer': [WinRM cannot complete the operation...]
 
-        ComputerName       IsPendingReboot
-        ------------       ---------------
+        ComputerName       PendingReboot Reason
+        ------------       ------------- ------
         NonExistentServer
 
-        Shows error handling when a computer cannot be reached. The IsPendingReboot property will be $null for failed connections.
+        Shows error handling when a computer cannot be reached. Both PendingReboot and Reason will be $null for failed connections.
 
     .OUTPUTS
         PSCustomObject
         Returns a PSCustomObject for each computer with the following properties:
         - ComputerName: [string] The name of the computer that was checked
-        - IsPendingReboot: [bool] True if a reboot is pending, False if not, $null if an error occurred
+        - PendingReboot: [bool] True if a reboot is pending, False if not, $null if an error occurred
+        - Reason: [string] Descriptive reason(s) why a reboot is pending, $null if no reboot needed or error occurred
 
     .NOTES
         Author: Based on inspiration from Adam Bertram
-        Version: 2.0 (Optimized)
+        Version: 3.0 (Enhanced with Reason Detection)
 
         Inspiration from: https://gallery.technet.microsoft.com/scriptcenter/Get-PendingReboot-Query-bdb79542
 
@@ -83,12 +98,18 @@ function Test-PendingReboot
         - Proper session management for remote connections
         - Individual error handling prevents one failed check from stopping all checks
 
+        Enhanced Features:
+        - Returns specific reasons for pending reboots for better troubleshooting
+        - Multiple reasons are concatenated with semicolon separator
+        - Detailed verbose output shows exactly which conditions were detected
+
         This function only works on Windows systems as it relies on Windows registry checks.
         On macOS, check for pending updates with 'softwareupdate -l' or system preferences.
         On Linux, check with package managers like 'apt list --upgradable' or '/var/run/reboot-required'.
 
         Error Handling:
-        - Returns IsPendingReboot = $null when a computer cannot be reached
+        - Returns PendingReboot = $null when a computer cannot be reached
+        - Returns Reason = $null when no reboot needed or error occurred
         - Individual registry checks are wrapped in try-catch blocks for resilience
         - Verbose output shows exactly which condition triggered pending reboot detection
 
@@ -124,26 +145,28 @@ function Test-PendingReboot
     function Test-LocalPendingReboot
     {
         [CmdletBinding()]
-        [OutputType([bool])]
+        [OutputType([PSCustomObject])]
         param()
+
+        $reasons = @()
 
         # Registry paths that indicate pending reboot
         $regPaths = @(
-            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending'
-            'HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootInProgress'
-            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'
-            'HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\PackagesPending'
-            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\PostRebootReporting'
-            'HKLM:\SOFTWARE\Microsoft\ServerManager\CurrentRebootAttempts'
+            @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending'; Reason = 'Component Based Servicing - Reboot Pending' }
+            @{ Path = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootInProgress'; Reason = 'Component Based Servicing - Reboot In Progress' }
+            @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'; Reason = 'Windows Update - Reboot Required' }
+            @{ Path = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\PackagesPending'; Reason = 'Component Based Servicing - Packages Pending' }
+            @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\PostRebootReporting'; Reason = 'Windows Update - Post Reboot Reporting' }
+            @{ Path = 'HKLM:\SOFTWARE\Microsoft\ServerManager\CurrentRebootAttempts'; Reason = 'Server Manager - Reboot Attempts' }
         )
 
         # Check for registry keys that indicate pending reboot
-        foreach ($path in $regPaths)
+        foreach ($regPath in $regPaths)
         {
-            if (Test-Path -Path $path -PathType Container)
+            if (Test-Path -Path $regPath.Path -PathType Container)
             {
-                Write-Verbose "Pending reboot detected: Registry key exists - $path"
-                return $true
+                Write-Verbose "Pending reboot detected: Registry key exists - $($regPath.Path)"
+                $reasons += $regPath.Reason
             }
         }
 
@@ -151,15 +174,18 @@ function Test-PendingReboot
         try
         {
             $sessionManager = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager'
-            $pendingOps = @('PendingFileRenameOperations', 'PendingFileRenameOperations2')
+            $pendingOps = @(
+                @{ Name = 'PendingFileRenameOperations'; Reason = 'Pending File Rename Operations' }
+                @{ Name = 'PendingFileRenameOperations2'; Reason = 'Pending File Rename Operations 2' }
+            )
 
             foreach ($op in $pendingOps)
             {
-                $value = Get-ItemProperty -Path $sessionManager -Name $op -ErrorAction SilentlyContinue
-                if ($value -and $value.$op)
+                $value = Get-ItemProperty -Path $sessionManager -Name $op.Name -ErrorAction SilentlyContinue
+                if ($value -and $value.($op.Name))
                 {
-                    Write-Verbose "Pending reboot detected: $op exists"
-                    return $true
+                    Write-Verbose "Pending reboot detected: $($op.Name) exists"
+                    $reasons += $op.Reason
                 }
             }
         }
@@ -181,7 +207,7 @@ function Test-PendingReboot
                     if ($volatileValue -and $volatileValue.UpdateExeVolatile -ne 0)
                     {
                         Write-Verbose "Pending reboot detected: UpdateExeVolatile = $($volatileValue.UpdateExeVolatile)"
-                        return $true
+                        $reasons += 'Windows Update - Volatile Operations'
                     }
                 }
             }
@@ -193,9 +219,9 @@ function Test-PendingReboot
 
         # Check for registry values that indicate pending operations
         $registryChecks = @(
-            @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce'; Value = 'DVDRebootSignal' }
-            @{ Path = 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon'; Value = 'JoinDomain' }
-            @{ Path = 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon'; Value = 'AvoidSpnSet' }
+            @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce'; Value = 'DVDRebootSignal'; Reason = 'DVD Reboot Signal' }
+            @{ Path = 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon'; Value = 'JoinDomain'; Reason = 'Domain Join Operations' }
+            @{ Path = 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon'; Value = 'AvoidSpnSet'; Reason = 'Netlogon SPN Operations' }
         )
 
         foreach ($check in $registryChecks)
@@ -205,7 +231,7 @@ function Test-PendingReboot
                 if (Get-ItemProperty -Path $check.Path -Name $check.Value -ErrorAction SilentlyContinue)
                 {
                     Write-Verbose "Pending reboot detected: Registry value exists - $($check.Path)\$($check.Value)"
-                    return $true
+                    $reasons += $check.Reason
                 }
             }
             catch
@@ -223,7 +249,7 @@ function Test-PendingReboot
             if ($activeComputer -and $pendingComputer -and ($activeComputer.ComputerName -ne $pendingComputer.ComputerName))
             {
                 Write-Verbose "Pending reboot detected: Computer name change from '$($activeComputer.ComputerName)' to '$($pendingComputer.ComputerName)'"
-                return $true
+                $reasons += "Computer Name Change ($($activeComputer.ComputerName) -> $($pendingComputer.ComputerName))"
             }
         }
         catch
@@ -238,7 +264,7 @@ function Test-PendingReboot
             if ((Test-Path $pendingServicesPath -PathType Container) -and (Get-ChildItem -Path $pendingServicesPath -ErrorAction SilentlyContinue))
             {
                 Write-Verbose 'Pending reboot detected: Windows Update services pending'
-                return $true
+                $reasons += 'Windows Update - Services Pending'
             }
         }
         catch
@@ -246,28 +272,34 @@ function Test-PendingReboot
             Write-Verbose "Could not check Windows Update pending services: $($_.Exception.Message)"
         }
 
-        return $false
+        # Return result with reasons
+        return [PSCustomObject]@{
+            PendingReboot = $reasons.Count -gt 0
+            Reason = if ($reasons.Count -gt 0) { $reasons -join '; ' } else { $null }
+        }
     }
 
     # Remote scriptblock for PS remoting
     $remoteScriptBlock = {
+        $reasons = @()
+
         # Registry paths that indicate pending reboot
         $regPaths = @(
-            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending'
-            'HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootInProgress'
-            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'
-            'HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\PackagesPending'
-            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\PostRebootReporting'
-            'HKLM:\SOFTWARE\Microsoft\ServerManager\CurrentRebootAttempts'
+            @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending'; Reason = 'Component Based Servicing - Reboot Pending' }
+            @{ Path = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootInProgress'; Reason = 'Component Based Servicing - Reboot In Progress' }
+            @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'; Reason = 'Windows Update - Reboot Required' }
+            @{ Path = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\PackagesPending'; Reason = 'Component Based Servicing - Packages Pending' }
+            @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\PostRebootReporting'; Reason = 'Windows Update - Post Reboot Reporting' }
+            @{ Path = 'HKLM:\SOFTWARE\Microsoft\ServerManager\CurrentRebootAttempts'; Reason = 'Server Manager - Reboot Attempts' }
         )
 
         # Check for registry keys that indicate pending reboot
-        foreach ($path in $regPaths)
+        foreach ($regPath in $regPaths)
         {
-            if (Test-Path -Path $path -PathType Container)
+            if (Test-Path -Path $regPath.Path -PathType Container)
             {
-                Write-Verbose "Pending reboot detected: Registry key exists - $path"
-                return $true
+                Write-Verbose "Pending reboot detected: Registry key exists - $($regPath.Path)"
+                $reasons += $regPath.Reason
             }
         }
 
@@ -275,15 +307,18 @@ function Test-PendingReboot
         try
         {
             $sessionManager = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager'
-            $pendingOps = @('PendingFileRenameOperations', 'PendingFileRenameOperations2')
+            $pendingOps = @(
+                @{ Name = 'PendingFileRenameOperations'; Reason = 'Pending File Rename Operations' }
+                @{ Name = 'PendingFileRenameOperations2'; Reason = 'Pending File Rename Operations 2' }
+            )
 
             foreach ($op in $pendingOps)
             {
-                $value = Get-ItemProperty -Path $sessionManager -Name $op -ErrorAction SilentlyContinue
-                if ($value -and $value.$op)
+                $value = Get-ItemProperty -Path $sessionManager -Name $op.Name -ErrorAction SilentlyContinue
+                if ($value -and $value.($op.Name))
                 {
-                    Write-Verbose "Pending reboot detected: $op exists"
-                    return $true
+                    Write-Verbose "Pending reboot detected: $($op.Name) exists"
+                    $reasons += $op.Reason
                 }
             }
         }
@@ -305,7 +340,7 @@ function Test-PendingReboot
                     if ($volatileValue -and $volatileValue.UpdateExeVolatile -ne 0)
                     {
                         Write-Verbose "Pending reboot detected: UpdateExeVolatile = $($volatileValue.UpdateExeVolatile)"
-                        return $true
+                        $reasons += 'Windows Update - Volatile Operations'
                     }
                 }
             }
@@ -317,9 +352,9 @@ function Test-PendingReboot
 
         # Check for registry values that indicate pending operations
         $registryChecks = @(
-            @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce'; Value = 'DVDRebootSignal' }
-            @{ Path = 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon'; Value = 'JoinDomain' }
-            @{ Path = 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon'; Value = 'AvoidSpnSet' }
+            @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce'; Value = 'DVDRebootSignal'; Reason = 'DVD Reboot Signal' }
+            @{ Path = 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon'; Value = 'JoinDomain'; Reason = 'Domain Join Operations' }
+            @{ Path = 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon'; Value = 'AvoidSpnSet'; Reason = 'Netlogon SPN Operations' }
         )
 
         foreach ($check in $registryChecks)
@@ -329,7 +364,7 @@ function Test-PendingReboot
                 if (Get-ItemProperty -Path $check.Path -Name $check.Value -ErrorAction SilentlyContinue)
                 {
                     Write-Verbose "Pending reboot detected: Registry value exists - $($check.Path)\$($check.Value)"
-                    return $true
+                    $reasons += $check.Reason
                 }
             }
             catch
@@ -347,7 +382,7 @@ function Test-PendingReboot
             if ($activeComputer -and $pendingComputer -and ($activeComputer.ComputerName -ne $pendingComputer.ComputerName))
             {
                 Write-Verbose "Pending reboot detected: Computer name change from '$($activeComputer.ComputerName)' to '$($pendingComputer.ComputerName)'"
-                return $true
+                $reasons += "Computer Name Change ($($activeComputer.ComputerName) -> $($pendingComputer.ComputerName))"
             }
         }
         catch
@@ -362,7 +397,7 @@ function Test-PendingReboot
             if ((Test-Path $pendingServicesPath -PathType Container) -and (Get-ChildItem -Path $pendingServicesPath -ErrorAction SilentlyContinue))
             {
                 Write-Verbose 'Pending reboot detected: Windows Update services pending'
-                return $true
+                $reasons += 'Windows Update - Services Pending'
             }
         }
         catch
@@ -370,7 +405,11 @@ function Test-PendingReboot
             Write-Verbose "Could not check Windows Update pending services: $($_.Exception.Message)"
         }
 
-        return $false
+        # Return result with reasons
+        return [PSCustomObject]@{
+            PendingReboot = $reasons.Count -gt 0
+            Reason = if ($reasons.Count -gt 0) { $reasons -join '; ' } else { $null }
+        }
     }
 
     # Default to localhost if no ComputerName specified
@@ -385,7 +424,8 @@ function Test-PendingReboot
         {
             $output = [PSCustomObject]@{
                 ComputerName = $computer
-                IsPendingReboot = $false
+                PendingReboot = $false
+                Reason = $null
             }
 
             # Check if this is a local computer
@@ -394,7 +434,9 @@ function Test-PendingReboot
             if ($isLocal)
             {
                 # Use optimized local function for better performance
-                $output.IsPendingReboot = Test-LocalPendingReboot
+                $result = Test-LocalPendingReboot
+                $output.PendingReboot = $result.PendingReboot
+                $output.Reason = $result.Reason
             }
             else
             {
@@ -412,7 +454,9 @@ function Test-PendingReboot
                 $session = New-PSSession @sessionParams
                 try
                 {
-                    $output.IsPendingReboot = Invoke-Command -Session $session -ScriptBlock $remoteScriptBlock
+                    $result = Invoke-Command -Session $session -ScriptBlock $remoteScriptBlock
+                    $output.PendingReboot = $result.PendingReboot
+                    $output.Reason = $result.Reason
                 }
                 finally
                 {
@@ -429,7 +473,8 @@ function Test-PendingReboot
             # Return object with error indication
             [PSCustomObject]@{
                 ComputerName = $computer
-                IsPendingReboot = $null
+                PendingReboot = $null
+                Reason = $null
             }
         }
     }
