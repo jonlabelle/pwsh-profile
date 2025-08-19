@@ -7,14 +7,17 @@ function Test-Port
     .DESCRIPTION
         Tests whether specific TCP or UDP ports are open and accessible on target hosts.
         Provides detailed connection information including success status and connection details.
+        Supports pipeline input for port numbers, allowing easy testing of multiple ports.
         Compatible with PowerShell Desktop 5.1+ on Windows, macOS, and Linux.
 
     .PARAMETER Port
         Port numbers to test. Accepts an array of port numbers (1-65535).
+        Supports pipeline input for easy testing of multiple ports (e.g., 22,80,443 | Test-Port).
 
     .PARAMETER ComputerName
         Target hosts to test. Accepts an array of computer names or IP addresses.
         If not specified, 'localhost' is used as the default.
+        Supports pipeline input by property name for object-based input.
 
     .PARAMETER Timeout
         Sets a timeout (in milliseconds) for port query.
@@ -31,8 +34,16 @@ function Test-Port
         Tests if TCP port 80 is open on server 'server'.
 
     .EXAMPLE
-        PS > 'server' | Test-Port -Port 80
-        Tests if TCP port 80 is open on server 'server' using pipeline input.
+        PS > 80 | Test-Port
+        Tests if TCP port 80 is open on localhost using pipeline input for the port.
+
+    .EXAMPLE
+        PS > 22,80,443 | Test-Port
+        Tests if TCP ports 22, 80, and 443 are open on localhost using pipeline input.
+
+    .EXAMPLE
+        PS > 1..100 | Test-Port -ComputerName 'server'
+        Tests TCP ports 1-100 on 'server' using pipeline input for port range.
 
     .EXAMPLE
         PS > Test-Port -ComputerName @("server1","server2") -Port 80
@@ -43,12 +54,8 @@ function Test-Port
         Tests if UDP port 17 is open on server dc1 with a 10-second timeout.
 
     .EXAMPLE
-        PS > @("server1","server2") | Test-Port -Port 80
-        Tests if TCP port 80 is open on both server1 and server2 using pipeline input.
-
-    .EXAMPLE
-        PS > (Get-Content hosts.txt) | Test-Port -Port 80
-        Tests if TCP port 80 is open on all servers listed in the hosts.txt file.
+        PS > 80,443,8080 | Test-Port -ComputerName @("server1","server2")
+        Tests multiple ports on multiple servers using pipeline input for ports.
 
     .EXAMPLE
         PS > Test-Port -ComputerName (Get-Content hosts.txt) -Port @(1..59)
@@ -76,11 +83,11 @@ function Test-Port
     [CmdletBinding(ConfirmImpact = 'Low')]
     [OutputType([System.Object[]])]
     param(
-        [Parameter(Position = 0, Mandatory = $true, HelpMessage = 'Port numbers to test (1-65535)')]
+        [Parameter(Position = 0, Mandatory = $true, ValueFromPipeline = $true, HelpMessage = 'Port numbers to test (1-65535)')]
         [ValidateRange(1, 65535)]
         [Int[]]$Port,
 
-        [Parameter(Position = 1, ValueFromPipelineByPropertyName = $true, ValueFromPipeline = $true, HelpMessage = 'Target hosts to test')]
+        [Parameter(Position = 1, ValueFromPipelineByPropertyName = $true, HelpMessage = 'Target hosts to test')]
         [AllowNull()]
         [AllowEmptyString()]
         [Alias('IPAddress', '__Server', 'CN', 'Server', 'Target')]
@@ -107,10 +114,32 @@ function Test-Port
 
         # Initialize results collection using ArrayList for better performance
         $results = New-Object System.Collections.ArrayList
+
+        # Initialize port collection for pipeline input
+        $allPorts = New-Object System.Collections.ArrayList
     }
 
     process
     {
+        # Collect ports from pipeline input
+        if ($Port)
+        {
+            foreach ($p in $Port)
+            {
+                [void]$allPorts.Add($p)
+            }
+        }
+    }
+
+    end
+    {
+        # Handle case where no ports were provided
+        if ($allPorts.Count -eq 0)
+        {
+            Write-Error 'No ports specified for testing.'
+            return
+        }
+
         # Handle pipeline input and set default if empty
         if (-not $ComputerName -or $ComputerName.Count -eq 0)
         {
@@ -127,7 +156,7 @@ function Test-Port
 
             Write-Verbose "Testing ports on $computer"
 
-            foreach ($targetPort in $Port)
+            foreach ($targetPort in $allPorts)
             {
                 Write-Verbose "Testing $computer`:$targetPort"
 
@@ -402,10 +431,7 @@ function Test-Port
                 }
             }
         }
-    }
 
-    end
-    {
         return $results.ToArray()
     }
 }
