@@ -1,4 +1,4 @@
-function Get-IP
+function Get-IPSubnet
 {
     <#PSScriptInfo
         .VERSION 3.1.0
@@ -10,10 +10,10 @@ function Get-IP
 
     <#
     .DESCRIPTION
-        Calculate IP subnets.
+        Calculate IP subnet information including network address, broadcast address, subnet mask, and other subnet details.
 
     .EXAMPLE
-        Get-IP -CIDR 192.168.0.0/24
+        Get-IPSubnet -CIDR 192.168.0.0/24
         IP           : 192.168.0.0
         Mask         : 255.255.255.0
         PrefixLength : 24
@@ -29,7 +29,7 @@ function Get-IP
         BroadcastBin : 11000000.10101000.00000000.11111111
 
     .EXAMPLE
-        Get-IP -IPAddress 192.168.0.0 -Mask 255.255.255.0
+        Get-IPSubnet -IPAddress 192.168.0.0 -Mask 255.255.255.0
         IP           : 192.168.0.0
         Mask         : 255.255.255.0
         PrefixLength : 24
@@ -45,7 +45,7 @@ function Get-IP
         BroadcastBin : 11000000.10101000.00000000.11111111
 
     .EXAMPLE
-        Get-IP -IPAddress 192.168.3.0 -PrefixLength 23
+        Get-IPSubnet -IPAddress 192.168.3.0 -PrefixLength 23
         IP           : 192.168.3.0
         Mask         : 255.255.254.0
         PrefixLength : 23
@@ -60,36 +60,36 @@ function Get-IP
         SubnetBin    : 11000000.10101000.00000010.00000000
         BroadcastBin : 11000000.10101000.00000011.11111111
     .EXAMPLE
-        (Get-IP -IPAddress (Get-IP 192.168.99.56/28).Subnet -PrefixLength 32).Add(1).IPAddress
+        (Get-IPSubnet -IPAddress (Get-IPSubnet 192.168.99.56/28).Subnet -PrefixLength 32).Add(1).IPAddress
         192.168.99.49
 
     .EXAMPLE
-        (Get-IP 192.168.99.56/28).Compare('192.168.99.50')
+        (Get-IPSubnet 192.168.99.56/28).Compare('192.168.99.50')
         True
 
     .EXAMPLE
-        (Get-IP 192.168.99.58/30).GetIPArray()
+        (Get-IPSubnet 192.168.99.58/30).GetIPArray()
         192.168.99.56
         192.168.99.57
         192.168.99.58
         192.168.99.59
 
     .EXAMPLE
-        Get-NetRoute -AddressFamily IPv4 | ? {(Get-IP -CIDR $_.DestinationPrefix).Compare('8.8.8.8')} | Sort-Object -Property @(@{Expression = {$_.DestinationPrefix.Split('/')[1]}; Asc = $false},'RouteMetric','ifMetric')
+        Get-NetRoute -AddressFamily IPv4 | ? {(Get-IPSubnet -CIDR $_.DestinationPrefix).Compare('8.8.8.8')} | Sort-Object -Property @(@{Expression = {$_.DestinationPrefix.Split('/')[1]}; Asc = $false},'RouteMetric','ifMetric')
 
         ifIndex DestinationPrefix                              NextHop                                  RouteMetric ifMetric PolicyStore
         ------- -----------------                              -------                                  ----------- -------- -----------
         22      0.0.0.0/0                                      192.168.0.1                                        0 25       ActiveStore
 
     .EXAMPLE
-        (Get-IP 0.0.0.0/0).GetLocalRoute('127.0.0.1')
+        (Get-IPSubnet 0.0.0.0/0).GetLocalRoute('127.0.0.1')
 
         ifIndex DestinationPrefix                              NextHop                                  RouteMetric ifMetric PolicyStore
         ------- -----------------                              -------                                  ----------- -------- -----------
         1       127.0.0.0/8                                    0.0.0.0                                          256 75       ActiveStore
 
     .EXAMPLE
-        (Get-IP 0.0.0.0/0).GetLocalRoute('127.0.0.1',2)
+        (Get-IPSubnet 0.0.0.0/0).GetLocalRoute('127.0.0.1',2)
 
         ifIndex DestinationPrefix                              NextHop                                  RouteMetric ifMetric PolicyStore
         ------- -----------------                              -------                                  ----------- -------- -----------
@@ -97,7 +97,7 @@ function Get-IP
         1       127.0.0.0/8                                    0.0.0.0                                          256 75       ActiveStore
 
     .EXAMPLE
-        (Get-IP 192.168.0.0/25).Overlaps('192.168.0.0/27')
+        (Get-IPSubnet 192.168.0.0/25).Overlaps('192.168.0.0/27')
         True
 #>
     [CmdletBinding(DefaultParameterSetName = 'CIDR')]
@@ -197,7 +197,7 @@ function Get-IP
 
     Add-Member -InputObject $Object -MemberType:ScriptMethod -Name Add -Value {
         param([int]$Add, [int]$PrefixLength = $This.PrefixLength)
-        Get-IP -IPAddress ([IPAddress]([String]$($This.ToDecimal + $Add))).IPAddressToString -PrefixLength $PrefixLength
+        Get-IPSubnet -IPAddress ([IPAddress]([String]$($This.ToDecimal + $Add))).IPAddressToString -PrefixLength $PrefixLength
     }
 
     Add-Member -InputObject $Object -MemberType:ScriptMethod -Name Compare -Value {
@@ -210,7 +210,7 @@ function Get-IP
 
     Add-Member -InputObject $Object -MemberType:ScriptMethod -Name Overlaps -Value {
         param ([Parameter(Mandatory = $true)][string]$CIDR = $This.CIDR)
-        $Calc = Get-IP -Cidr $CIDR
+        $Calc = Get-IPSubnet -Cidr $CIDR
         $This.Compare($Calc.Subnet) -or $This.Compare($Calc.Broadcast)
     }
 
@@ -224,12 +224,12 @@ function Get-IP
 
     Add-Member -InputObject $Object -MemberType:ScriptMethod -Name isLocal -Value {
         param ([Parameter(Mandatory = $true)][IPAddress]$IP = $This.IPAddress)
-        [bool](@(Get-NetIPAddress -AddressFamily IPv4 -AddressState Preferred).Where({ (Get-IP -IPAddress $_.IPAddress -PrefixLength $_.PrefixLength).Compare($IP) }).Count)
+        [bool](@(Get-NetIPAddress -AddressFamily IPv4 -AddressState Preferred).Where({ (Get-IPSubnet -IPAddress $_.IPAddress -PrefixLength $_.PrefixLength).Compare($IP) }).Count)
     }
 
     Add-Member -InputObject $Object -MemberType:ScriptMethod -Name GetLocalRoute -Value {
         param ([Parameter(Mandatory = $true)][IPAddress]$IP = $This.IPAddress, [int]$Count = 1)
-        @(Get-NetRoute -AddressFamily IPv4).Where({ (Get-IP -CIDR $_.DestinationPrefix).Compare($IP) }) | Sort-Object -Property @{Expression = { (Get-IP -CIDR $_.DestinationPrefix).PrefixLength } } -Descending | Select-Object -First $Count
+        @(Get-NetRoute -AddressFamily IPv4).Where({ (Get-IPSubnet -CIDR $_.DestinationPrefix).Compare($IP) }) | Sort-Object -Property @{Expression = { (Get-IPSubnet -CIDR $_.DestinationPrefix).PrefixLength } } -Descending | Select-Object -First $Count
     }
 
     Add-Member -InputObject $Object -MemberType:ScriptMethod -Force -Name ToString -Value {
