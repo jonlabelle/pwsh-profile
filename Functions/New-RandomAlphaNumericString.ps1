@@ -1,4 +1,4 @@
-function Get-RandomAlphaNumericString
+function New-RandomAlphaNumericString
 {
     <#
     .SYNOPSIS
@@ -27,19 +27,19 @@ function Get-RandomAlphaNumericString
         Recommended for passwords and security tokens.
 
     .EXAMPLE
-        PS> Get-RandomAlphaNumericString
+        PS> New-RandomAlphaNumericString
         Returns a random 32-character alphanumeric string.
 
     .EXAMPLE
-        PS> Get-RandomAlphaNumericString -Length 16
+        PS> New-RandomAlphaNumericString -Length 16
         Returns a random 16-character alphanumeric string.
 
     .EXAMPLE
-        PS> Get-RandomAlphaNumericString -Length 64 -ExcludeAmbiguous
+        PS> New-RandomAlphaNumericString -Length 64 -ExcludeAmbiguous
         Returns a random 64-character string without ambiguous characters.
 
     .EXAMPLE
-        PS> Get-RandomAlphaNumericString -Length 20 -IncludeSymbols -Secure
+        PS> New-RandomAlphaNumericString -Length 20 -IncludeSymbols -Secure
         Returns a 20-character string with symbols using secure random generation.
 
     .OUTPUTS
