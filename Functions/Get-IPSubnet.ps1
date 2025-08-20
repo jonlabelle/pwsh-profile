@@ -101,9 +101,10 @@ function Get-IPSubnet
         True
 #>
     [CmdletBinding(DefaultParameterSetName = 'CIDR')]
+    [OutputType('NetWork.IPCalcResult')]
     param(
         [Parameter(Mandatory = $true, ParameterSetName = 'CIDR', ValueFromPipelineByPropertyName = $true, Position = 0)]
-        [ValidateScript({ $Array = ($_ -split '\\|\/'); ($Array[0] -as [IPAddress]).AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork -and [string[]](0..32) -contains $Array[1] })]
+        [ValidateScript({ $array = ($_ -split '\\|\/'); ($array[0] -as [IPAddress]).AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork -and [string[]](0..32) -contains $array[1] })]
         [Alias('DestinationPrefix')]
         [string]$CIDR,
 
@@ -147,76 +148,76 @@ function Get-IPSubnet
             $PrefixLength = 32 - ($Mask.GetAddressBytes().ForEach({ [System.Math]::Log((256 - $_), 2) }) | Measure-Object -Sum).Sum
         }
 
-        [int[]]$SplitIPAddress = $IPAddress.GetAddressBytes()
-        [int64]$ToDecimal = $SplitIPAddress[0] * 16mb + $SplitIPAddress[1] * 64kb + $SplitIPAddress[2] * 256 + $SplitIPAddress[3]
+        [int[]]$splitIPAddress = $IPAddress.GetAddressBytes()
+        [int64]$toDecimal = $splitIPAddress[0] * 16mb + $splitIPAddress[1] * 64kb + $splitIPAddress[2] * 256 + $splitIPAddress[3]
 
-        [int[]]$SplitMask = $Mask.GetAddressBytes()
-        $IPBin = ($SplitIPAddress.ForEach({ [System.Convert]::ToString($_, 2).PadLeft(8, '0') })) -join '.'
-        $MaskBin = ($SplitMask.ForEach({ [System.Convert]::ToString($_, 2).PadLeft(8, '0') })) -join '.'
+        [int[]]$splitMask = $Mask.GetAddressBytes()
+        $ipBin = ($splitIPAddress.ForEach({ [System.Convert]::ToString($_, 2).PadLeft(8, '0') })) -join '.'
+        $maskBin = ($splitMask.ForEach({ [System.Convert]::ToString($_, 2).PadLeft(8, '0') })) -join '.'
 
-        if ((($MaskBin -replace '\.').TrimStart('1').Contains('1')) -and (!$WildCard))
+        if ((($maskBin -replace '\.').TrimStart('1').Contains('1')) -and (!$WildCard))
         {
             Write-Warning 'Mask Length error, you can try put WildCard'; break
         }
         if (!$WildCard)
         {
-            [IPAddress]$WildCard = $SplitMask.ForEach({ 255 - $_ }) -join '.'
+            [IPAddress]$WildCard = $splitMask.ForEach({ 255 - $_ }) -join '.'
         }
         if ($WildCard)
         {
-            [int[]]$SplitWildCard = $WildCard.GetAddressBytes()
+            [int[]]$splitWildCard = $WildCard.GetAddressBytes()
         }
 
-        [IPAddress]$Subnet = $IPAddress.Address -band $Mask.Address
-        [int[]]$SplitSubnet = $Subnet.GetAddressBytes()
-        [string]$SubnetBin = $SplitSubnet.ForEach({ [System.Convert]::ToString($_, 2).PadLeft(8, '0') }) -join '.'
-        [IPAddress]$Broadcast = @(0..3).ForEach({ [int]($SplitSubnet[$_]) + [int]($SplitWildCard[$_]) }) -join '.'
-        [int[]]$SplitBroadcast = $Broadcast.GetAddressBytes()
-        [string]$BroadcastBin = $SplitBroadcast.ForEach({ [System.Convert]::ToString($_, 2).PadLeft(8, '0') }) -join '.'
-        [string]$CIDR = "$($Subnet.IPAddressToString)/$PrefixLength"
-        [int64]$IPcount = [System.Math]::Pow(2, $(32 - $PrefixLength))
+        [IPAddress]$subnet = $IPAddress.Address -band $Mask.Address
+        [int[]]$splitSubnet = $subnet.GetAddressBytes()
+        [string]$subnetBin = $splitSubnet.ForEach({ [System.Convert]::ToString($_, 2).PadLeft(8, '0') }) -join '.'
+        [IPAddress]$broadcast = @(0..3).ForEach({ [int]($splitSubnet[$_]) + [int]($splitWildCard[$_]) }) -join '.'
+        [int[]]$splitBroadcast = $broadcast.GetAddressBytes()
+        [string]$broadcastBin = $splitBroadcast.ForEach({ [System.Convert]::ToString($_, 2).PadLeft(8, '0') }) -join '.'
+        [string]$CIDR = "$($subnet.IPAddressToString)/$PrefixLength"
+        [int64]$ipCount = [System.Math]::Pow(2, $(32 - $PrefixLength))
 
-        $Object = [pscustomobject][ordered]@{
+        $object = [PSCustomObject][Ordered]@{
             IPAddress = $IPAddress.IPAddressToString
             Mask = $Mask.IPAddressToString
             PrefixLength = $PrefixLength
             WildCard = $WildCard.IPAddressToString
-            IPcount = $IPcount
-            Subnet = $Subnet
-            Broadcast = $Broadcast
+            IPcount = $ipCount
+            Subnet = $subnet
+            Broadcast = $broadcast
             CIDR = $CIDR
-            ToDecimal = $ToDecimal
-            IPBin = $IPBin
-            MaskBin = $MaskBin
-            SubnetBin = $SubnetBin
-            BroadcastBin = $BroadcastBin
+            ToDecimal = $toDecimal
+            IPBin = $ipBin
+            MaskBin = $maskBin
+            SubnetBin = $subnetBin
+            BroadcastBin = $broadcastBin
             PSTypeName = 'NetWork.IPCalcResult'
         }
 
-        [string[]]$DefaultProperties = @('IPAddress', 'Mask', 'PrefixLength', 'WildCard', 'Subnet', 'Broadcast', 'CIDR', 'ToDecimal')
+        [string[]]$defaultProperties = @('IPAddress', 'Mask', 'PrefixLength', 'WildCard', 'Subnet', 'Broadcast', 'CIDR', 'ToDecimal')
 
-        Add-Member -InputObject $Object -MemberType AliasProperty -Name IP -Value IPAddress
+        Add-Member -InputObject $object -MemberType AliasProperty -Name IP -Value IPAddress
 
-        Add-Member -InputObject $Object -MemberType:ScriptMethod -Name Add -Value {
-            param([int]$Add, [int]$PrefixLength = $This.PrefixLength)
-            Get-IPSubnet -IPAddress ([IPAddress]([String]$($This.ToDecimal + $Add))).IPAddressToString -PrefixLength $PrefixLength
+        Add-Member -InputObject $object -MemberType:ScriptMethod -Name Add -Value {
+            param([int]$add, [int]$PrefixLength = $This.PrefixLength)
+            Get-IPSubnet -IPAddress ([IPAddress]([String]$($This.ToDecimal + $add))).IPAddressToString -PrefixLength $PrefixLength
         }
 
-        Add-Member -InputObject $Object -MemberType:ScriptMethod -Name Compare -Value {
-            param ([Parameter(Mandatory = $true)][IPAddress]$IP)
-            $IPBin = -join (($IP)).GetAddressBytes().ForEach({ [System.Convert]::ToString($_, 2).PadLeft(8, '0') })
-            $SubnetBin = $This.SubnetBin.Replace('.', '')
-            for ($i = 0; $i -lt $This.PrefixLength; $i += 1) { if ($IPBin[$i] -ne $SubnetBin[$i]) { return $false } }
+        Add-Member -InputObject $object -MemberType:ScriptMethod -Name Compare -Value {
+            param ([Parameter(Mandatory = $true)][IPAddress]$ip)
+            $ipBin = -join (($ip)).GetAddressBytes().ForEach({ [System.Convert]::ToString($_, 2).PadLeft(8, '0') })
+            $subnetBin = $This.SubnetBin.Replace('.', '')
+            for ($i = 0; $i -lt $This.PrefixLength; $i += 1) { if ($ipBin[$i] -ne $subnetBin[$i]) { return $false } }
             return $true
         }
 
-        Add-Member -InputObject $Object -MemberType:ScriptMethod -Name Overlaps -Value {
-            param ([Parameter(Mandatory = $true)][string]$CIDR = $This.CIDR)
-            $Calc = Get-IPSubnet -Cidr $CIDR
-            $This.Compare($Calc.Subnet) -or $This.Compare($Calc.Broadcast)
+        Add-Member -InputObject $object -MemberType:ScriptMethod -Name Overlaps -Value {
+            param ([Parameter(Mandatory = $true)][string]$cidr = $This.CIDR)
+            $calc = Get-IPSubnet -Cidr $cidr
+            $This.Compare($calc.Subnet) -or $This.Compare($calc.Broadcast)
         }
 
-        Add-Member -InputObject $Object -MemberType:ScriptMethod -Name GetIParray -Value {
+        Add-Member -InputObject $object -MemberType:ScriptMethod -Name GetIParray -Value {
             $w = @($This.Subnet.GetAddressBytes()[0]..$This.Broadcast.GetAddressBytes()[0])
             $x = @($This.Subnet.GetAddressBytes()[1]..$This.Broadcast.GetAddressBytes()[1])
             $y = @($This.Subnet.GetAddressBytes()[2]..$This.Broadcast.GetAddressBytes()[2])
@@ -224,24 +225,24 @@ function Get-IPSubnet
             $w.ForEach({ $wi = $_; $x.ForEach({ $xi = $_; $y.ForEach({ $yi = $_; $z.ForEach({ $zi = $_; $wi, $xi, $yi, $zi -join '.' }) }) }) })
         }
 
-        Add-Member -InputObject $Object -MemberType:ScriptMethod -Name isLocal -Value {
-            param ([Parameter(Mandatory = $true)][IPAddress]$IP = $This.IPAddress)
-            [bool](@(Get-NetIPAddress -AddressFamily IPv4 -AddressState Preferred).Where({ (Get-IPSubnet -IPAddress $_.IPAddress -PrefixLength $_.PrefixLength).Compare($IP) }).Count)
+        Add-Member -InputObject $object -MemberType:ScriptMethod -Name isLocal -Value {
+            param ([Parameter(Mandatory = $true)][IPAddress]$ip = $This.IPAddress)
+            [bool](@(Get-NetIPAddress -AddressFamily IPv4 -AddressState Preferred).Where({ (Get-IPSubnet -IPAddress $_.IPAddress -PrefixLength $_.PrefixLength).Compare($ip) }).Count)
         }
 
-        Add-Member -InputObject $Object -MemberType:ScriptMethod -Name GetLocalRoute -Value {
-            param ([Parameter(Mandatory = $true)][IPAddress]$IP = $This.IPAddress, [int]$Count = 1)
-            @(Get-NetRoute -AddressFamily IPv4).Where({ (Get-IPSubnet -CIDR $_.DestinationPrefix).Compare($IP) }) | Sort-Object -Property @{Expression = { (Get-IPSubnet -CIDR $_.DestinationPrefix).PrefixLength } } -Descending | Select-Object -First $Count
+        Add-Member -InputObject $object -MemberType:ScriptMethod -Name GetLocalRoute -Value {
+            param ([Parameter(Mandatory = $true)][IPAddress]$ip = $This.IPAddress, [int]$count = 1)
+            @(Get-NetRoute -AddressFamily IPv4).Where({ (Get-IPSubnet -CIDR $_.DestinationPrefix).Compare($ip) }) | Sort-Object -Property @{Expression = { (Get-IPSubnet -CIDR $_.DestinationPrefix).PrefixLength } } -Descending | Select-Object -First $count
         }
 
-        Add-Member -InputObject $Object -MemberType:ScriptMethod -Force -Name ToString -Value {
+        Add-Member -InputObject $object -MemberType:ScriptMethod -Force -Name ToString -Value {
             $This.CIDR
         }
 
-        $PSPropertySet = New-Object -TypeName System.Management.Automation.PSPropertySet -ArgumentList @('DefaultDisplayPropertySet', $DefaultProperties)
-        $PSStandardMembers = [System.Management.Automation.PSMemberInfo[]]$PSPropertySet
-        Add-Member -InputObject $Object -MemberType MemberSet -Name PSStandardMembers -Value $PSStandardMembers
+        $psPropertySet = New-Object -TypeName System.Management.Automation.PSPropertySet -ArgumentList @('DefaultDisplayPropertySet', $defaultProperties)
+        $psStandardMembers = [System.Management.Automation.PSMemberInfo[]]$psPropertySet
+        Add-Member -InputObject $object -MemberType MemberSet -Name PSStandardMembers -Value $psStandardMembers
 
-        Write-Output -InputObject $Object
+        Write-Output -InputObject $object
     }
 }
