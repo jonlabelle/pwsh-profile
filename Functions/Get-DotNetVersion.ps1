@@ -2,12 +2,12 @@ function Get-DotNetVersion
 {
     <#
     .SYNOPSIS
-        Gets installed .NET Framework and .NET Core/.NET versions from local or remote computers.
+        Gets installed .NET Framework and .NET (formally .NET Core) versions from local or remote computers.
 
     .DESCRIPTION
         Retrieves comprehensive information about installed .NET versions including both .NET Framework
-        and .NET Core/.NET 5+ versions. By default, shows results for both runtime types, indicating when
-        a particular type is not installed. Use -FrameworkOnly or -CoreOnly to filter results to specific
+        and .NET versions. By default, shows results for both runtime types, indicating when
+        a particular type is not installed. Use -FrameworkOnly or -DotNetOnly to filter results to specific
         runtime types. Supports both local and remote computer queries.
         Compatible with PowerShell Desktop 5.1+ on Windows, macOS, and Linux.
 
@@ -17,30 +17,30 @@ function Get-DotNetVersion
         Supports pipeline input by property name for object-based input.
 
     .PARAMETER All
-        Show all installed versions of .NET Framework and .NET Core/.NET 5+.
+        Show all installed versions of .NET Framework and .NET.
         If not specified, only the latest version of each type is returned.
 
     .PARAMETER Credential
         Specifies credentials for remote computer access. Required for remote computers that need authentication.
 
     .PARAMETER IncludeSDKs
-        Include .NET SDK versions in addition to runtime versions for .NET Core/.NET 5+.
+        Include .NET SDK versions in addition to runtime versions for .NET.
 
     .PARAMETER FrameworkOnly
-        Show only .NET Framework versions. Cannot be used with -CoreOnly parameter.
+        Show only .NET Framework versions. Cannot be used with -DotNetOnly parameter.
 
-    .PARAMETER CoreOnly
-        Show only .NET Core/.NET 5+ versions. Cannot be used with -FrameworkOnly parameter.
+    .PARAMETER DotNetOnly
+        Show only .NET versions. Cannot be used with -FrameworkOnly parameter.
 
     .EXAMPLE
         PS > Get-DotNetVersion
 
-        Gets the latest .NET Framework and .NET Core versions from the local computer.
+        Gets the latest .NET Framework and .NET versions from the local computer.
 
     .EXAMPLE
         PS > Get-DotNetVersion -All
 
-        Gets all installed .NET Framework and .NET Core versions from the local computer.
+        Gets all installed .NET Framework and .NET versions from the local computer.
 
     .EXAMPLE
         PS > Get-DotNetVersion -ComputerName 'server01' -Credential (Get-Credential)
@@ -63,9 +63,9 @@ function Get-DotNetVersion
         Gets only .NET Framework versions from the local computer.
 
     .EXAMPLE
-        PS > Get-DotNetVersion -CoreOnly -All
+        PS > Get-DotNetVersion -DotNetOnly -All
 
-        Gets all .NET Core/.NET 5+ versions from the local computer.
+        Gets all .NET versions from the local computer.
 
     .EXAMPLE
         PS > Get-DotNetVersion -ComputerName 'server01' -FrameworkOnly -All
@@ -83,11 +83,11 @@ function Get-DotNetVersion
         Enhanced cross-platform support for .NET detection
 
         .NET Framework detection uses Windows Registry (Windows only)
-        .NET Core/.NET 5+ detection uses dotnet CLI when available, falls back to directory scanning
+        .NET detection uses dotnet CLI when available, falls back to directory scanning
 
         Remote execution uses PowerShell remoting (WinRM) and requires appropriate permissions
-        By default returns results for both .NET Framework and .NET Core, indicating "Not installed" when absent
-        Use -FrameworkOnly or -CoreOnly to filter results to specific runtime types
+        By default returns results for both .NET Framework and .NET, indicating "Not installed" when absent
+        Use -FrameworkOnly or -DotNetOnly to filter results to specific runtime types
 
     .LINK
         https://docs.microsoft.com/en-us/dotnet/framework/migration-guide/how-to-determine-which-versions-are-installed
@@ -117,8 +117,8 @@ function Get-DotNetVersion
         [Parameter(ParameterSetName = 'FrameworkOnly', HelpMessage = 'Show only .NET Framework versions')]
         [Switch]$FrameworkOnly,
 
-        [Parameter(ParameterSetName = 'CoreOnly', HelpMessage = 'Show only .NET Core/.NET 5+ versions')]
-        [Switch]$CoreOnly
+        [Parameter(ParameterSetName = 'DotNetOnly', HelpMessage = 'Show only .NET versions')]
+        [Switch]$DotNetOnly
     )
 
     begin
@@ -146,7 +146,10 @@ function Get-DotNetVersion
             461814 = '4.7.2'
             528040 = '4.8'
             528049 = '4.8'
+            528372 = '4.8'
+            528449 = '4.8'
             533320 = '4.8.1'
+            533325 = '4.8.1'
         }
     }
 
@@ -177,8 +180,8 @@ function Get-DotNetVersion
 
                     Write-Verbose "Processing .NET versions for $computer"
 
-                    # Get .NET Framework versions (Windows only) - Skip if CoreOnly
-                    if (-not $CoreOnly)
+                    # Get .NET Framework versions (Windows only) - Skip if DotNetOnly
+                    if (-not $DotNetOnly)
                     {
                         $frameworkVersions = @()
 
@@ -304,7 +307,7 @@ function Get-DotNetVersion
                         }
                     }
 
-                    # Get .NET Core/.NET 5+ versions - Skip if FrameworkOnly
+                    # Get .NET versions - Skip if FrameworkOnly
                     if (-not $FrameworkOnly)
                     {
                         $coreVersions = @()
@@ -415,7 +418,7 @@ function Get-DotNetVersion
                         }
                         catch
                         {
-                            Write-Verbose "Error detecting .NET Core versions: $($_.Exception.Message)"
+                            Write-Verbose "Error detecting .NET versions: $($_.Exception.Message)"
                         }
 
                         # Process Core results
@@ -428,7 +431,7 @@ function Get-DotNetVersion
                             {
                                 $runtimeName = switch ($group.Name)
                                 {
-                                    'Microsoft.NETCore.App' { '.NET Core' }
+                                    'Microsoft.NETCore.App' { '.NET' }
                                     'Microsoft.AspNetCore.App' { 'ASP.NET Core' }
                                     'Microsoft.WindowsDesktop.App' { '.NET Desktop' }
                                     'Microsoft.NETCore.SDK' { '.NET SDK' }
@@ -471,11 +474,11 @@ function Get-DotNetVersion
                         }
                         else
                         {
-                            # No .NET Core detected
+                            # No .NET detected
                             $computerResults += [PSCustomObject]@{
                                 PSTypeName = 'DotNetVersion.Result'
                                 ComputerName = $computer
-                                RuntimeType = '.NET Core'
+                                RuntimeType = '.NET'
                                 Version = 'Not installed'
                                 Release = $null
                                 InstallPath = $null
@@ -511,14 +514,14 @@ function Get-DotNetVersion
                         $session = New-PSSession @sessionParams
 
                         $remoteResults = Invoke-Command -Session $session -ScriptBlock {
-                            param($Computer, $All, $IncludeSDKs, $FrameworkVersionTable, $FrameworkOnly, $CoreOnly)
+                            param($Computer, $All, $IncludeSDKs, $FrameworkVersionTable, $FrameworkOnly, $DotNetOnly)
 
                             $computerResults = @()
 
                             Write-Verbose "Processing .NET versions for $Computer"
 
-                            # Get .NET Framework versions (Windows only) - Skip if CoreOnly
-                            if (-not $CoreOnly)
+                            # Get .NET Framework versions (Windows only) - Skip if DotNetOnly
+                            if (-not $DotNetOnly)
                             {
                                 $frameworkVersions = @()
 
@@ -644,7 +647,7 @@ function Get-DotNetVersion
                                 }
                             }
 
-                            # Get .NET Core/.NET 5+ versions - Skip if FrameworkOnly
+                            # Get .NET versions - Skip if FrameworkOnly
                             if (-not $FrameworkOnly)
                             {
                                 $coreVersions = @()
@@ -755,7 +758,7 @@ function Get-DotNetVersion
                                 }
                                 catch
                                 {
-                                    Write-Verbose "Error detecting .NET Core versions: $($_.Exception.Message)"
+                                    Write-Verbose "Error detecting .NET versions: $($_.Exception.Message)"
                                 }
 
                                 # Process Core results
@@ -768,7 +771,7 @@ function Get-DotNetVersion
                                     {
                                         $runtimeName = switch ($group.Name)
                                         {
-                                            'Microsoft.NETCore.App' { '.NET Core' }
+                                            'Microsoft.NETCore.App' { '.NET' }
                                             'Microsoft.AspNetCore.App' { 'ASP.NET Core' }
                                             'Microsoft.WindowsDesktop.App' { '.NET Desktop' }
                                             'Microsoft.NETCore.SDK' { '.NET SDK' }
@@ -811,11 +814,11 @@ function Get-DotNetVersion
                                 }
                                 else
                                 {
-                                    # No .NET Core detected
+                                    # No .NET detected
                                     $computerResults += [PSCustomObject]@{
                                         PSTypeName = 'DotNetVersion.Result'
                                         ComputerName = $Computer
-                                        RuntimeType = '.NET Core'
+                                        RuntimeType = '.NET'
                                         Version = 'Not installed'
                                         Release = $null
                                         InstallPath = $null
@@ -827,7 +830,7 @@ function Get-DotNetVersion
 
                             return $computerResults
 
-                        } -ArgumentList $computer, $All.IsPresent, $IncludeSDKs.IsPresent, $FrameworkVersionTable, $FrameworkOnly.IsPresent, $CoreOnly.IsPresent
+                        } -ArgumentList $computer, $All.IsPresent, $IncludeSDKs.IsPresent, $FrameworkVersionTable, $FrameworkOnly.IsPresent, $DotNetOnly.IsPresent
 
                         foreach ($result in $remoteResults)
                         {
@@ -848,7 +851,7 @@ function Get-DotNetVersion
                 Write-Warning "Failed to query computer '$computer': $($_.Exception.Message)"
 
                 # Add error entries for both runtime types
-                foreach ($runtimeType in @('.NET Framework', '.NET Core'))
+                foreach ($runtimeType in @('.NET Framework', '.NET'))
                 {
                     $errorResult = [PSCustomObject]@{
                         PSTypeName = 'DotNetVersion.Result'
