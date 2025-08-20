@@ -22,10 +22,6 @@ function Get-DotNetVersion
     .PARAMETER Credential
         Specifies credentials for remote computer access. Required for remote computers that need authentication.
 
-    .PARAMETER Timeout
-        Sets a timeout (in milliseconds) for remote operations.
-        The default is 30000 (30 seconds). Valid range: 5000-300000.
-
     .PARAMETER IncludeSDKs
         Include .NET SDK versions in addition to runtime versions for .NET Core/.NET 5+.
 
@@ -88,10 +84,6 @@ function Get-DotNetVersion
 
         [Parameter(HelpMessage = 'Credentials for remote computer access')]
         [PSCredential]$Credential,
-
-        [Parameter(HelpMessage = 'Timeout for remote operations in milliseconds (5000-300000)')]
-        [ValidateRange(5000, 300000)]
-        [Int]$Timeout = 30000,
 
         [Parameter(HelpMessage = 'Include .NET SDK versions in addition to runtime versions')]
         [Switch]$IncludeSDKs
@@ -475,18 +467,12 @@ function Get-DotNetVersion
                         $sessionParams.Credential = $Credential
                     }
 
-                    # Create session options with timeout
-                    # OperationTimeout expects milliseconds, IdleTimeout expects seconds (minimum 60)
-                    $idleTimeoutSeconds = [Math]::Max(60, [Math]::Ceiling($Timeout / 1000))
-                    $sessionOption = New-PSSessionOption -OperationTimeout $Timeout -IdleTimeout $idleTimeoutSeconds
-                    $sessionParams.SessionOption = $sessionOption
-
                     $session = $null
                     try
                     {
                         $session = New-PSSession @sessionParams
 
-                        $remoteResults = Invoke-Command -Session $session -ScriptBlock {
+                        $remoteResults = Invoke-Command -Session $session -ArgumentList $computer, $All.IsPresent, $IncludeSDKs.IsPresent, $FrameworkVersionTable -ScriptBlock {
                             param($Computer, $All, $IncludeSDKs, $FrameworkVersionTable)
 
                             $computerResults = @()
