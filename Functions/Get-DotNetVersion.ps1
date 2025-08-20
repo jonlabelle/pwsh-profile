@@ -476,7 +476,9 @@ function Get-DotNetVersion
                     }
 
                     # Create session options with timeout
-                    $sessionOption = New-PSSessionOption -OperationTimeout $Timeout -IdleTimeout $Timeout
+                    # OperationTimeout expects milliseconds, IdleTimeout expects seconds (minimum 60)
+                    $idleTimeoutSeconds = [Math]::Max(60, [Math]::Ceiling($Timeout / 1000))
+                    $sessionOption = New-PSSessionOption -OperationTimeout $Timeout -IdleTimeout $idleTimeoutSeconds
                     $sessionParams.SessionOption = $sessionOption
 
                     $session = $null
