@@ -63,6 +63,9 @@ function Get-DotNetVersion
         .NET Framework detection uses Windows Registry (Windows only)
         .NET Core/.NET 5+ detection uses dotnet CLI when available, falls back to directory scanning
 
+        Remote execution uses PowerShell remoting (WinRM) and requires appropriate permissions
+        Always returns results for both .NET Framework and .NET Core, indicating "Not installed" when absent
+
     .LINK
         https://docs.microsoft.com/en-us/dotnet/framework/migration-guide/how-to-determine-which-versions-are-installed
 
