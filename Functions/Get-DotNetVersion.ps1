@@ -6,8 +6,9 @@ function Get-DotNetVersion
 
     .DESCRIPTION
         Retrieves comprehensive information about installed .NET versions including both .NET Framework
-        and .NET Core/.NET 5+ versions. Always shows results for both runtime types, indicating when
-        a particular type is not installed. Supports both local and remote computer queries.
+        and .NET Core/.NET 5+ versions. By default, shows results for both runtime types, indicating when
+        a particular type is not installed. Use -FrameworkOnly or -CoreOnly to filter results to specific
+        runtime types. Supports both local and remote computer queries.
         Compatible with PowerShell Desktop 5.1+ on Windows, macOS, and Linux.
 
     .PARAMETER ComputerName
@@ -85,7 +86,8 @@ function Get-DotNetVersion
         .NET Core/.NET 5+ detection uses dotnet CLI when available, falls back to directory scanning
 
         Remote execution uses PowerShell remoting (WinRM) and requires appropriate permissions
-        Always returns results for both .NET Framework and .NET Core, indicating "Not installed" when absent
+        By default returns results for both .NET Framework and .NET Core, indicating "Not installed" when absent
+        Use -FrameworkOnly or -CoreOnly to filter results to specific runtime types
 
     .LINK
         https://docs.microsoft.com/en-us/dotnet/framework/migration-guide/how-to-determine-which-versions-are-installed
@@ -301,20 +303,6 @@ function Get-DotNetVersion
                             }
                         }
                     }
-                    else
-                    {
-                        # CoreOnly specified - show Framework as not installed
-                        $computerResults += [PSCustomObject]@{
-                            PSTypeName = 'DotNetVersion.Result'
-                            ComputerName = $computer
-                            RuntimeType = '.NET Framework'
-                            Version = 'Not installed'
-                            Release = $null
-                            InstallPath = $null
-                            IsLatest = $null
-                            Type = 'Runtime'
-                        }
-                    }
 
                     # Get .NET Core/.NET 5+ versions - Skip if FrameworkOnly
                     if (-not $FrameworkOnly)
@@ -496,20 +484,6 @@ function Get-DotNetVersion
                             }
                         }
                     }
-                    else
-                    {
-                        # FrameworkOnly specified - show Core as not installed
-                        $computerResults += [PSCustomObject]@{
-                            PSTypeName = 'DotNetVersion.Result'
-                            ComputerName = $computer
-                            RuntimeType = '.NET Core'
-                            Version = 'Not installed'
-                            Release = $null
-                            InstallPath = $null
-                            IsLatest = $null
-                            Type = 'Runtime'
-                        }
-                    }
 
                     foreach ($result in $computerResults)
                     {
@@ -667,20 +641,6 @@ function Get-DotNetVersion
                                         IsLatest = $null
                                         Type = 'Runtime'
                                     }
-                                }
-                            }
-                            else
-                            {
-                                # CoreOnly specified - show Framework as not installed
-                                $computerResults += [PSCustomObject]@{
-                                    PSTypeName = 'DotNetVersion.Result'
-                                    ComputerName = $Computer
-                                    RuntimeType = '.NET Framework'
-                                    Version = 'Not installed'
-                                    Release = $null
-                                    InstallPath = $null
-                                    IsLatest = $null
-                                    Type = 'Runtime'
                                 }
                             }
 
@@ -862,20 +822,6 @@ function Get-DotNetVersion
                                         IsLatest = $null
                                         Type = 'Runtime'
                                     }
-                                }
-                            }
-                            else
-                            {
-                                # FrameworkOnly specified - show Core as not installed
-                                $computerResults += [PSCustomObject]@{
-                                    PSTypeName = 'DotNetVersion.Result'
-                                    ComputerName = $Computer
-                                    RuntimeType = '.NET Core'
-                                    Version = 'Not installed'
-                                    Release = $null
-                                    InstallPath = $null
-                                    IsLatest = $null
-                                    Type = 'Runtime'
                                 }
                             }
 
