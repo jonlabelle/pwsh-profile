@@ -472,7 +472,7 @@ function Get-DotNetVersion
                     {
                         $session = New-PSSession @sessionParams
 
-                        $remoteResults = Invoke-Command -Session $session -ArgumentList $computer, $All.IsPresent, $IncludeSDKs.IsPresent, $FrameworkVersionTable -ScriptBlock {
+                        $remoteResults = Invoke-Command -Session $session -ScriptBlock {
                             param($Computer, $All, $IncludeSDKs, $FrameworkVersionTable)
 
                             $computerResults = @()
