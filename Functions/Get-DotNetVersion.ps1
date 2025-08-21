@@ -28,6 +28,7 @@ function Get-DotNetVersion
 
     .PARAMETER IncludeSDKs
         Include .NET SDK versions in addition to runtime versions for .NET.
+        Not applicable when -FrameworkOnly is specified since .NET Framework does not have separate SDK releases.
 
     .PARAMETER FrameworkOnly
         Show only .NET Framework versions. Cannot be used with -DotNetOnly parameter.
@@ -71,6 +72,11 @@ function Get-DotNetVersion
         Gets all .NET versions from the local computer.
 
     .EXAMPLE
+        PS > Get-DotNetVersion -DotNetOnly -IncludeSDKs
+
+        Gets the latest .NET version and all SDK versions from the local computer.
+
+    .EXAMPLE
         PS > Get-DotNetVersion -ComputerName 'server01' -FrameworkOnly -All
 
         Gets all .NET Framework versions from a remote server.
@@ -88,9 +94,10 @@ function Get-DotNetVersion
         .NET Framework detection uses Windows Registry (Windows only)
         .NET detection uses dotnet CLI when available, falls back to directory scanning
 
-        Remote execution uses PowerShell remoting (WinRM) and requires appropriate permissions
-        By default returns results for both .NET Framework and .NET, indicating "Not installed" when absent
-        Use -FrameworkOnly or -DotNetOnly to filter results to specific runtime types
+        - Remote execution uses PowerShell remoting (WinRM) and requires appropriate permissions
+        - By default returns results for both .NET Framework and .NET, indicating "Not installed" when absent
+        - Use -FrameworkOnly or -DotNetOnly to filter results to specific runtime types
+        - The -IncludeSDKs parameter can be used with -DotNetOnly or the default parameter set, but not with -FrameworkOnly
 
     .LINK
         https://docs.microsoft.com/en-us/dotnet/framework/migration-guide/how-to-determine-which-versions-are-installed
@@ -114,7 +121,8 @@ function Get-DotNetVersion
         [Parameter(HelpMessage = 'Credentials for remote computer access')]
         [PSCredential]$Credential,
 
-        [Parameter(HelpMessage = 'Include .NET SDK versions in addition to runtime versions')]
+        [Parameter(ParameterSetName = 'All', HelpMessage = 'Include .NET SDK versions in addition to runtime versions')]
+        [Parameter(ParameterSetName = 'DotNetOnly', HelpMessage = 'Include .NET SDK versions in addition to runtime versions')]
         [Switch]$IncludeSDKs,
 
         [Parameter(ParameterSetName = 'FrameworkOnly', HelpMessage = 'Show only .NET Framework versions')]
@@ -128,6 +136,12 @@ function Get-DotNetVersion
     {
         # Initialize results collection
         $results = New-Object System.Collections.ArrayList
+
+        # Although parameter sets should prevent this, add an extra validation check
+        if ($FrameworkOnly -and $IncludeSDKs)
+        {
+            Write-Warning 'The -IncludeSDKs parameter is not applicable with -FrameworkOnly since .NET Framework does not have separate SDK releases.'
+        }
 
         # .NET Framework version mapping (Windows only)
         $FrameworkVersionTable = @{
