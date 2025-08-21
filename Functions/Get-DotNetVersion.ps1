@@ -9,6 +9,9 @@ function Get-DotNetVersion
         and .NET versions. By default, shows results for both runtime types, indicating when
         a particular type is not installed. Use -FrameworkOnly or -DotNetOnly to filter results to specific
         runtime types. Supports both local and remote computer queries.
+
+        Detects .NET Framework versions from 1.0 through 4.8.1, including .NET Framework 4.0 Client
+        and Full profiles. Also detects .NET (Core) versions and associated runtimes.
         Compatible with PowerShell Desktop 5.1+ on Windows, macOS, and Linux.
 
     .PARAMETER ComputerName
@@ -212,15 +215,42 @@ function Get-DotNetVersion
                                         }
                                     }
 
-                                    # Get .NET Framework 4.x versions
-                                    $v4Key = $ndpKey.OpenSubKey('v4\Full')
-                                    if ($v4Key)
-                                    {
-                                        $release = [int]$v4Key.GetValue('Release', 0)
-                                        $version = $v4Key.GetValue('Version', '4.0')
-                                        $installPath = $v4Key.GetValue('InstallPath', '')
+                                    # Check for .NET Framework 4.0 (Client and Full profiles)
+                                    $v4ClientKey = $ndpKey.OpenSubKey('v4\Client')
+                                    $v4FullKey = $ndpKey.OpenSubKey('v4\Full')
 
-                                        if ($release -gt 0)
+                                    # .NET Framework 4.0 detection
+                                    if ($v4ClientKey -and $v4ClientKey.GetValue('Install') -eq 1)
+                                    {
+                                        $version = $v4ClientKey.GetValue('Version', '4.0')
+                                        $installPath = $v4ClientKey.GetValue('InstallPath', '')
+
+                                        $frameworkVersions += [PSCustomObject]@{
+                                            Version = "$version (Client Profile)"
+                                            Release = $null
+                                            InstallPath = $installPath
+                                        }
+                                        $v4ClientKey.Close()
+                                    }
+
+                                    if ($v4FullKey)
+                                    {
+                                        $release = [int]$v4FullKey.GetValue('Release', 0)
+                                        $version = $v4FullKey.GetValue('Version', '4.0')
+                                        $installPath = $v4FullKey.GetValue('InstallPath', '')
+                                        $install = $v4FullKey.GetValue('Install')
+
+                                        # Handle .NET Framework 4.0 (no release number)
+                                        if ($release -eq 0 -and $install -eq 1)
+                                        {
+                                            $frameworkVersions += [PSCustomObject]@{
+                                                Version = $version
+                                                Release = $null
+                                                InstallPath = $installPath
+                                            }
+                                        }
+                                        # Handle .NET Framework 4.5+ (with release number)
+                                        elseif ($release -gt 0)
                                         {
                                             # Map release number to version
                                             $mappedVersion = $FrameworkVersionTable[$release]
@@ -245,7 +275,7 @@ function Get-DotNetVersion
                                                 InstallPath = $installPath
                                             }
                                         }
-                                        $v4Key.Close()
+                                        $v4FullKey.Close()
                                     }
                                     $ndpKey.Close()
                                 }
@@ -552,15 +582,42 @@ function Get-DotNetVersion
                                                 }
                                             }
 
-                                            # Get .NET Framework 4.x versions
-                                            $v4Key = $ndpKey.OpenSubKey('v4\Full')
-                                            if ($v4Key)
-                                            {
-                                                $release = [int]$v4Key.GetValue('Release', 0)
-                                                $version = $v4Key.GetValue('Version', '4.0')
-                                                $installPath = $v4Key.GetValue('InstallPath', '')
+                                            # Check for .NET Framework 4.0 (Client and Full profiles)
+                                            $v4ClientKey = $ndpKey.OpenSubKey('v4\Client')
+                                            $v4FullKey = $ndpKey.OpenSubKey('v4\Full')
 
-                                                if ($release -gt 0)
+                                            # .NET Framework 4.0 detection
+                                            if ($v4ClientKey -and $v4ClientKey.GetValue('Install') -eq 1)
+                                            {
+                                                $version = $v4ClientKey.GetValue('Version', '4.0')
+                                                $installPath = $v4ClientKey.GetValue('InstallPath', '')
+
+                                                $frameworkVersions += [PSCustomObject]@{
+                                                    Version = "$version (Client Profile)"
+                                                    Release = $null
+                                                    InstallPath = $installPath
+                                                }
+                                                $v4ClientKey.Close()
+                                            }
+
+                                            if ($v4FullKey)
+                                            {
+                                                $release = [int]$v4FullKey.GetValue('Release', 0)
+                                                $version = $v4FullKey.GetValue('Version', '4.0')
+                                                $installPath = $v4FullKey.GetValue('InstallPath', '')
+                                                $install = $v4FullKey.GetValue('Install')
+
+                                                # Handle .NET Framework 4.0 (no release number)
+                                                if ($release -eq 0 -and $install -eq 1)
+                                                {
+                                                    $frameworkVersions += [PSCustomObject]@{
+                                                        Version = $version
+                                                        Release = $null
+                                                        InstallPath = $installPath
+                                                    }
+                                                }
+                                                # Handle .NET Framework 4.5+ (with release number)
+                                                elseif ($release -gt 0)
                                                 {
                                                     # Map release number to version
                                                     $mappedVersion = $FrameworkVersionTable[$release]
@@ -585,7 +642,7 @@ function Get-DotNetVersion
                                                         InstallPath = $installPath
                                                     }
                                                 }
-                                                $v4Key.Close()
+                                                $v4FullKey.Close()
                                             }
                                             $ndpKey.Close()
                                         }
