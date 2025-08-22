@@ -27,7 +27,6 @@ function Update-Profile
     # CD to this script's directory and update
     Push-Location -Path $PSScriptRoot
     git pull --rebase --quiet
-    Write-Host '' # Add a blank line for better readability
     Pop-Location
 
     . Reload-Profile -Verbose:$Verbose
