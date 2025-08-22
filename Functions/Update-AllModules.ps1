@@ -64,6 +64,7 @@ function Update-AllModules
     .LINK
         https://jonlabelle.com/snippets/view/markdown/powershellget-commands
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([System.Void])]
     param(

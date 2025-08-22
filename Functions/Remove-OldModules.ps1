@@ -72,6 +72,7 @@ function Remove-OldModules
     .LINK
         https://luke.geek.nz/powershell/remove-old-powershell-modules-versions-using-powershell/
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([System.Void])]
     param(
