@@ -72,8 +72,8 @@ The profile includes various utility commands organized by category:
 
 ### 📦 PowerShell Module Management
 
-- **`Remove-AllOldModules`** — Removes older versions of installed PowerShell modules
-- **`Update-AllModules`** — Updates all installed PowerShell modules to their latest versions
+- **`Remove-EveryOldModule`** — Removes older versions of installed PowerShell modules
+- **`Update-EveryModule`** — Updates all installed PowerShell modules to their latest versions
 
 ### 🛠️ Profile Management
 
@@ -101,7 +101,7 @@ Update-Profile
 
 ## Automatic Update Checks
 
-The profile [automatically checks for updates](./Functions/Test-ProfileUpdate.ps1) when it loads in *interactive mode* and will prompt you to update if updates are available. The check runs in the background without slowing down your profile startup.
+The profile [automatically checks for updates](./Functions/Test-ProfileUpdate.ps1) when it loads in _interactive mode_ and will prompt you to update if updates are available. The check runs in the background without slowing down your profile startup.
 
 When updates are detected, you'll be prompted at your next command prompt:
 
