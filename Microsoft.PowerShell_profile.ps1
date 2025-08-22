@@ -65,9 +65,9 @@ function Update-Profile
 
     . Reload-Profile -Verbose:$Verbose
 
+    Write-Host ''
     # Force prompt to reappear by starting a new command line
     Prompt
-    Write-Host ''
 }
 
 # (New-Object System.Net.WebClient).Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
