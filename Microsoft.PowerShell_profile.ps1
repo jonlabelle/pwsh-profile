@@ -22,11 +22,11 @@ function Update-Profile
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
     param([switch] $Verbose)
 
-    Write-Host -ForegroundColor Cyan 'Updating PowerShell profile...'
+    Write-Host 'Updating PowerShell profile...' -ForegroundColor Cyan
 
     # CD to this script's directory and update
     Push-Location -Path $PSScriptRoot
-    git pull
+    git pull --rebase
     Pop-Location
 
     . Reload-Profile -Verbose:$Verbose
@@ -48,6 +48,31 @@ function Prompt
     {
         Write-Host ''  # Add a blank line for better readability
         Write-Host 'Profile updates are available!' -ForegroundColor Yellow
+
+        # Show available changes
+        try
+        {
+            Push-Location -Path $PSScriptRoot
+            $gitLog = git log --oneline HEAD..origin/main 2>$null
+            if ($gitLog)
+            {
+                Write-Host 'Here are the available changes:' -ForegroundColor Cyan
+                foreach ($line in $gitLog)
+                {
+                    # Remove branch references and format as bullet point
+                    $cleanLine = $line -replace '\s*\([^)]+\)\s*', ''
+                    Write-Host "  • $cleanLine" -ForegroundColor Gray
+                }
+                Write-Host ''
+            }
+            Pop-Location
+        }
+        catch
+        {
+            # If we can't get the log, just continue with the prompt
+            Write-Debug "Could not retrieve git log: $($_.Exception.Message)"
+        }
+
         $response = Read-Host 'Would you like to update your profile now? (Y/N)'
         if ($response -match '^[Yy]([Ee][Ss])?$')
         {
