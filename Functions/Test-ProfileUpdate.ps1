@@ -188,15 +188,19 @@ function Test-ProfileUpdate
                 return $null
             }
 
-            # Fetch latest information from remote (without downloading objects)
+            # Fetch latest information from remote
             try
             {
                 Write-Verbose "Fetching remote information"
-                $null = git fetch --dry-run 2>&1
+                $fetchOutput = git fetch origin 2>&1
                 if ($LASTEXITCODE -ne 0)
                 {
-                    Write-Verbose "Git fetch failed with exit code $LASTEXITCODE"
+                    Write-Verbose "Git fetch failed with exit code $LASTEXITCODE. Output: $fetchOutput"
                     return $null
+                }
+                else
+                {
+                    Write-Verbose "Git fetch completed successfully"
                 }
             }
             catch
