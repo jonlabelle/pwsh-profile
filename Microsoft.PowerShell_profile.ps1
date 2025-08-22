@@ -54,19 +54,15 @@ function Update-Profile
         Pop-Location
     }
 
-    ## Reload the profile to apply changes
-    # . Reload-Profile -Verbose:$Verbose
-
     # Clear the update available flags
     Remove-Variable -Name ProfileUpdatesAvailable -Scope Global -ErrorAction SilentlyContinue
     Remove-Variable -Name ProfileUpdatePromptShown -Scope Global -ErrorAction SilentlyContinue
 
     Write-Host 'Profile updated successfully! Run ''Reload-Profile'' to reload your profile.' -ForegroundColor Green
-
     # . Reload-Profile -Verbose:$Verbose
 
     # Force prompt to reappear by starting a new command line.
-    Prompt
+    prompt
 }
 
 # (New-Object System.Net.WebClient).Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
@@ -150,7 +146,7 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                                     Remove-Variable -Name ProfileUpdatesAvailable -Scope Global -ErrorAction SilentlyContinue
 
                                     # Force prompt to reappear
-                                    Prompt
+                                    prompt
                                 }
 
                                 $global:ProfileUpdatePromptShown = $true
