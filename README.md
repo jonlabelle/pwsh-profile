@@ -35,10 +35,32 @@ git clone 'https://github.com/jonlabelle/pwsh-profile.git' $HOME\Documents\Windo
 git clone 'https://github.com/jonlabelle/pwsh-profile.git' $HOME\Documents\PowerShell
 ```
 
+## Features
+
+- **Cross-platform compatibility** - Works on Windows, macOS, and Linux
+- **Auto-loading functions** - All functions in the `Functions/` directory are automatically loaded
+- **Automatic update notifications** - Background checks for profile updates without slowing startup
+- **Custom prompt** - Clean, colored PowerShell prompt
+- **Utility functions** - Collection of helpful PowerShell functions for daily tasks
+
 ## Update
 
-To pull in the latest updates from [this GitHub repo](https://github.com/jonlabelle/pwsh-profile):
+To manually pull in the latest updates from [this GitHub repo](https://github.com/jonlabelle/pwsh-profile):
 
 ```powershell
 Update-Profile
+```
+
+## Automatic Update Checks
+
+The profile [automatically checks for updates](./Functions/Test-ProfileUpdate.ps1) when it loads and will notify you if updates are available. The check runs in the background without slowing down your profile startup.
+
+To disable automatic update checks, create an empty `.disable-update-check` file in your profile directory:
+
+```powershell
+# For Windows PowerShell Desktop
+New-Item -Path "$HOME\Documents\WindowsPowerShell\.disable-update-check" -ItemType File
+
+# For PowerShell Core
+New-Item -Path "$HOME\Documents\PowerShell\.disable-update-check" -ItemType File
 ```

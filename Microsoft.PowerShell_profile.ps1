@@ -50,10 +50,6 @@ function Prompt
 Write-Host -ForegroundColor DarkBlue -NoNewline 'User profile loaded: '
 Write-Host -ForegroundColor Gray "$PSCommandPath"
 
-# Temp enable verbose/debug for profile load (profile update not working)
-$DebugPreference = 'Continue'
-$VerbosePreference = 'Continue'
-
 #
 # Check for profile updates in background (non-blocking)
 try
@@ -71,7 +67,7 @@ try
 
                 if ($result -eq $true)
                 {
-                    Write-Host -ForegroundColor Yellow "Profile updates available! Run 'Update-Profile' to get the latest changes."
+                    Write-Host "Profile updates available! Run 'Update-Profile' to get the latest changes." -ForegroundColor Yellow
                 }
             }
             elseif ($job.State -eq 'Failed')
