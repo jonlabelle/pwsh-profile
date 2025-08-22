@@ -38,6 +38,8 @@ function Update-Profile
     Write-Host 'Profile updated successfully!' -ForegroundColor Green
 
     Prompt # Refresh the prompt to reflect any changes
+
+    Write-Host 'Done!' -ForegroundColor Green
 }
 
 #
