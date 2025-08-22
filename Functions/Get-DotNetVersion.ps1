@@ -103,6 +103,9 @@ function Get-DotNetVersion
         https://docs.microsoft.com/en-us/dotnet/framework/migration-guide/how-to-determine-which-versions-are-installed
 
     .LINK
+        https://learn.microsoft.com/en-us/dotnet/core/install/how-to-detect-installed-versions
+
+    .LINK
         https://jonlabelle.com/snippets/view/powershell/get-installed-net-versions-in-powershell
 
     .LINK
