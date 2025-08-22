@@ -66,10 +66,7 @@ function Update-Profile
     . Reload-Profile -Verbose:$Verbose
 
     # Force prompt to reappear by starting a new command line.
-    Write-Host ''
-    $null = Start-Sleep -Milliseconds 200
-    # This will force PowerShell to redraw the prompt
-    [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt()
+    Prompt
     Write-Host ''
 }
 
