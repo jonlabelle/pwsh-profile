@@ -51,12 +51,11 @@ function Update-Profile
 
     Write-Host 'Profile updated successfully! Run ''Reload-Profile'' to reload your profile.' -ForegroundColor Green
 
-    # Force a new prompt line
-    [Console]::WriteLine()
-    [Console]::ForegroundColor = 'Cyan'
-    [Console]::Write('PS')
-    [Console]::ResetColor()
-    [Console]::Write(' > ')
+    # Force prompt to reappear by starting a new command line
+    Write-Host ''
+    $null = Start-Sleep -Milliseconds 100
+    # This will force PowerShell to redraw the prompt
+    [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt()
 }
 
 # (New-Object System.Net.WebClient).Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
