@@ -112,4 +112,4 @@ Would you like to update your profile now? (Y/N):
 
 Choose "Y" or "Yes" to update immediately, or "N" to skip and update later manually with `Update-Profile`.
 
-To disable automatic update checks entirely, create an empty `.disable-update-check` file in your profile directory:
+To disable automatic update checks entirely, create an empty `.disable-profile-update-check` file in your profile directory:
