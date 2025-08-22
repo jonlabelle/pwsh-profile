@@ -36,6 +36,9 @@ function Update-Profile
     Remove-Variable -Name ProfileUpdatePromptShown -Scope Global -ErrorAction SilentlyContinue
 
     Write-Host 'Profile updated successfully! Run ''Reload-Profile'' to reload your profile.' -ForegroundColor Green
+
+    # Force prompt redisplay by calling the prompt function
+    Write-Host (Prompt) -NoNewline
 }
 
 #
