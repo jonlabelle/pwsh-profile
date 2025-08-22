@@ -61,8 +61,8 @@ function Update-Profile
     Write-Host 'Profile updated successfully! Run ''Reload-Profile'' to reload your profile.' -ForegroundColor Green
     # . Reload-Profile -Verbose:$Verbose
 
-    # Force prompt to reappear by starting a new command line.
-    prompt
+    # # Force prompt to reappear by starting a new command line.
+    # prompt
 }
 
 # (New-Object System.Net.WebClient).Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
@@ -144,10 +144,10 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                                 {
                                     Write-Host "Skipped profile update. You can run 'Update-Profile' later to get the latest changes." -ForegroundColor Gray
                                     Remove-Variable -Name ProfileUpdatesAvailable -Scope Global -ErrorAction SilentlyContinue
-
-                                    # Force prompt to reappear
-                                    prompt
                                 }
+
+                                # Force prompt to reappear
+                                Prompt
 
                                 $global:ProfileUpdatePromptShown = $true
                             }
