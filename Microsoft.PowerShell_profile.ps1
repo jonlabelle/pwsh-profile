@@ -34,6 +34,8 @@ function Update-Profile
     # Clear the update available flags
     Remove-Variable -Name ProfileUpdatesAvailable -Scope Global -ErrorAction SilentlyContinue
     Remove-Variable -Name ProfileUpdatePromptShown -Scope Global -ErrorAction SilentlyContinue
+
+    Write-Host 'Profile updated successfully!' -ForegroundColor Green
 }
 
 #
