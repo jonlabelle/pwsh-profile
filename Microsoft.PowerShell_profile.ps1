@@ -45,3 +45,36 @@ function Prompt
 
 Write-Host -ForegroundColor DarkBlue -NoNewline 'User profile loaded: '
 Write-Host -ForegroundColor Gray "$PSCommandPath"
+
+# Check for profile updates in background (non-blocking)
+try
+{
+    $updateJob = Test-ProfileUpdate -Async -ErrorAction SilentlyContinue
+    if ($updateJob)
+    {
+        # Register an event to handle the job completion
+        Register-ObjectEvent -InputObject $updateJob -EventName StateChanged -Action {
+            $job = $Event.Sender
+            if ($job.State -eq 'Completed')
+            {
+                $result = Receive-Job -Job $job -ErrorAction SilentlyContinue
+                Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+
+                if ($result -eq $true)
+                {
+                    Write-Host -ForegroundColor Yellow "Profile updates available! Run 'Update-Profile' to get the latest changes."
+                }
+            }
+            elseif ($job.State -eq 'Failed')
+            {
+                # Clean up failed job silently
+                Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+            }
+        } | Out-Null
+    }
+}
+catch
+{
+    # Silently ignore any errors during update check to avoid disrupting profile load
+    Write-Debug "Profile update check failed: $($_.Exception.Message)"
+}
