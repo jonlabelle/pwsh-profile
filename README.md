@@ -101,7 +101,7 @@ Update-Profile
 
 ## Automatic Update Checks
 
-The profile [automatically checks for updates](./Functions/Test-ProfileUpdate.ps1) when it loads in interactive mode and will prompt you to update if updates are available. The check runs in the background without slowing down your profile startup.
+The profile [automatically checks for updates](./Functions/Test-ProfileUpdate.ps1) when it loads in *interactive mode* and will prompt you to update if updates are available. The check runs in the background without slowing down your profile startup.
 
 When updates are detected, you'll be prompted at your next command prompt:
 
@@ -111,8 +111,5 @@ Would you like to update your profile now? (Y/N):
 ```
 
 Choose "Y" or "Yes" to update immediately, or "N" to skip and update later manually with `Update-Profile`.
-
-> [!Note]
-> Update checks only run in interactive PowerShell sessions to avoid interrupting automated scripts or CI/CD pipelines.
 
 To disable automatic update checks entirely, create an empty `.disable-update-check` file in your profile directory:
