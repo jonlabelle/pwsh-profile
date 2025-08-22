@@ -105,7 +105,7 @@ The profile [automatically checks for updates](./Functions/Test-ProfileUpdate.ps
 
 When updates are detected, you'll be asked:
 
-```text
+```console
 Profile updates are available!
 Would you like to update your profile now? (Y/N)
 ```
