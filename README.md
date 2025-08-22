@@ -2,7 +2,7 @@
 
 [![ci](https://github.com/jonlabelle/pwsh-profile/actions/workflows/ci.yml/badge.svg)](https://github.com/jonlabelle/pwsh-profile/actions/workflows/ci.yml)
 
-> My personal PowerShell profile.
+> Cross-platform PowerShell profile with auto-loading utility functions for network testing, system administration, and developer workflows
 
 ## Install
 
