@@ -49,6 +49,13 @@ function Update-Profile
     Remove-Variable -Name ProfileUpdatePromptShown -Scope Global -ErrorAction SilentlyContinue
 
     Write-Host 'Profile updated successfully! Run ''Reload-Profile'' to reload your profile.' -ForegroundColor Green
+
+    # Force a new prompt line
+    [Console]::WriteLine()
+    [Console]::ForegroundColor = 'Cyan'
+    [Console]::Write('PS')
+    [Console]::ResetColor()
+    [Console]::Write(' > ')
 }
 
 # (New-Object System.Net.WebClient).Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
