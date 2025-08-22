@@ -55,9 +55,9 @@ function Prompt
 # Show the profile path in the console when in interactive mode
 if ($Host.UI.RawUI -and [Environment]::UserInteractive)
 {
-    Write-Host 'User profile loaded: ' -ForegroundColor DarkBlue -NoNewline
-    Write-Host "$PSCommandPath" -ForegroundColor Gray
-    Write-Host '' # Add a blank line for better readability
+    Write-Verbose 'User profile loaded: '
+    Write-Verbose "$PSCommandPath"
+    Write-Verbose '' # Add a blank line for better readability
 }
 
 #
