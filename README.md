@@ -43,6 +43,10 @@ git clone 'https://github.com/jonlabelle/pwsh-profile.git' $HOME\Documents\Power
 - **Custom prompt** - Clean, colored PowerShell prompt
 - **Utility functions** - Collection of helpful PowerShell functions for daily tasks
 
+## Screenshot
+
+![PowerShell Profile in Windows Terminal](term-screen-shot.png)
+
 ## Update
 
 To manually pull in the latest updates from [this GitHub repo](https://github.com/jonlabelle/pwsh-profile):
