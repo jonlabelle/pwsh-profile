@@ -105,7 +105,7 @@ function Test-ProfileUpdate
             $disableFile = Join-Path -Path $profileRoot -ChildPath '.disable-profile-update-check'
             if (Test-Path -Path $disableFile)
             {
-                Write-Verbose "Update check disabled by .disable-profile-update-check file"
+                Write-Verbose 'Update check disabled by .disable-profile-update-check file'
                 return $false
             }
         }
@@ -128,20 +128,20 @@ function Test-ProfileUpdate
             # Check if this is a Git repository
             if (-not (Test-Path -Path '.git'))
             {
-                Write-Verbose "Profile directory is not a Git repository"
+                Write-Verbose 'Profile directory is not a Git repository'
                 return $null
             }
 
             # Test Internet connectivity by trying to reach the remote repository
             try
             {
-                Write-Verbose "Testing connectivity to remote repository"
+                Write-Verbose 'Testing connectivity to remote repository'
 
                 # Get remote URL
                 $remoteUrl = git config --get remote.origin.url 2>$null
                 if (-not $remoteUrl)
                 {
-                    Write-Verbose "No remote origin configured"
+                    Write-Verbose 'No remote origin configured'
                     return $null
                 }
 
@@ -178,7 +178,7 @@ function Test-ProfileUpdate
 
                 if (-not $connected)
                 {
-                    Write-Verbose "No Internet connectivity detected"
+                    Write-Verbose 'No Internet connectivity detected'
                     return $null
                 }
             }
@@ -191,7 +191,7 @@ function Test-ProfileUpdate
             # Fetch latest information from remote
             try
             {
-                Write-Verbose "Fetching remote information"
+                Write-Verbose 'Fetching remote information'
                 $fetchOutput = git fetch origin 2>&1
                 if ($LASTEXITCODE -ne 0)
                 {
@@ -200,7 +200,7 @@ function Test-ProfileUpdate
                 }
                 else
                 {
-                    Write-Verbose "Git fetch completed successfully"
+                    Write-Verbose 'Git fetch completed successfully'
                 }
             }
             catch
@@ -240,7 +240,7 @@ function Test-ProfileUpdate
 
                 if (-not $localHead -or -not $remoteHead)
                 {
-                    Write-Verbose "Could not determine local or remote HEAD commit"
+                    Write-Verbose 'Could not determine local or remote HEAD commit'
                     return $null
                 }
 
@@ -259,7 +259,7 @@ function Test-ProfileUpdate
                     }
                 }
 
-                Write-Verbose "Local repository is up to date"
+                Write-Verbose 'Local repository is up to date'
                 return $false
             }
             catch
@@ -271,13 +271,13 @@ function Test-ProfileUpdate
 
         if ($Async)
         {
-            Write-Verbose "Starting background update check job"
+            Write-Verbose 'Starting background update check job'
             $job = Start-Job -ScriptBlock $updateCheckScript -ArgumentList $profileRoot -Name 'ProfileUpdateCheck'
             return $job
         }
         else
         {
-            Write-Verbose "Running synchronous update check"
+            Write-Verbose 'Running synchronous update check'
             return & $updateCheckScript $profileRoot
         }
     }

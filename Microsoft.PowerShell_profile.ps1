@@ -30,6 +30,49 @@ function Update-Profile
     Pop-Location
 
     . Reload-Profile -Verbose:$Verbose
+
+    # Clear the update available flag
+    if ($global:ProfileUpdatesAvailable)
+    {
+        Remove-Variable -Name ProfileUpdatesAvailable -Scope Global -ErrorAction SilentlyContinue
+    }
+}
+
+#
+# Function to check and prompt for profile updates interactively
+function Invoke-ProfileUpdatePrompt
+{
+    <#
+    .SYNOPSIS
+        Prompts the user to update the profile if updates are available.
+
+    .DESCRIPTION
+        This function checks if the global ProfileUpdatesAvailable flag is set
+        and prompts the user with a Y/N choice to update the profile immediately.
+        This must be called from the main thread, not from an event handler.
+    #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
+    [CmdletBinding()]
+    param()
+
+    if ($global:ProfileUpdatesAvailable)
+    {
+        Write-Host 'Profile updates are available!' -ForegroundColor Yellow
+        $response = Read-Host 'Would you like to update your profile now? (Y/N)'
+        if ($response -match '^[Yy]([Ee][Ss])?$')
+        {
+            Update-Profile
+        }
+        else
+        {
+            Write-Host "Skipped profile update. You can run 'Update-Profile' later to get the latest changes." -ForegroundColor Gray
+            Remove-Variable -Name ProfileUpdatesAvailable -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
+    else
+    {
+        Write-Host 'No profile updates are currently available.' -ForegroundColor Green
+    }
 }
 
 #
@@ -69,16 +112,12 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
 
                     if ($result -eq $true)
                     {
+                        # Set a global variable to signal that updates are available
+                        # We can't use Read-Host in an event handler reliably
+                        $global:ProfileUpdatesAvailable = $true
+
                         Write-Host 'Profile updates are available!' -ForegroundColor Yellow
-                        $response = Read-Host 'Would you like to update your profile now? (Y/N)'
-                        if ($response -match '^[Yy]([Ee][Ss])?$')
-                        {
-                            Update-Profile
-                        }
-                        else
-                        {
-                            Write-Host "Skipped profile update. You can run 'Update-Profile' later to get the latest changes." -ForegroundColor Gray
-                        }
+                        Write-Host "Type 'Update-Profile' to update now, or ignore this message to update later." -ForegroundColor Gray
                     }
                 }
                 elseif ($job.State -eq 'Failed')
