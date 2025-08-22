@@ -8,6 +8,19 @@ foreach ($function in $functions)
 }
 
 #
+# Custom prompt function
+function Prompt
+{
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
+    param()
+
+    # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_profiles?view=powershell-7.2#add-a-customized-powershell-prompt
+    # "PS > "
+    Write-Host 'PS' -ForegroundColor 'Cyan' -NoNewline
+    return ' > '
+}
+
+#
 # Function to update the profile from the git repository
 function Update-Profile
 {
@@ -36,22 +49,6 @@ function Update-Profile
     Remove-Variable -Name ProfileUpdatePromptShown -Scope Global -ErrorAction SilentlyContinue
 
     Write-Host 'Profile updated successfully! Run ''Reload-Profile'' to reload your profile.' -ForegroundColor Green
-
-    # Force prompt redisplay by calling the prompt function
-    Write-Host (Prompt) -NoNewline
-}
-
-#
-# Custom prompt function
-function Prompt
-{
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
-    param()
-
-    # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_profiles?view=powershell-7.2#add-a-customized-powershell-prompt
-    # "PS > "
-    Write-Host 'PS' -ForegroundColor 'Cyan' -NoNewline
-    return ' > '
 }
 
 # (New-Object System.Net.WebClient).Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
