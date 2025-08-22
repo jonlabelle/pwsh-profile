@@ -42,6 +42,7 @@ function Update-Profile
     git pull --rebase --quiet
     Pop-Location
 
+    # Reload the profile to apply changes
     # . Reload-Profile -Verbose:$Verbose
 
     # Clear the update available flags
