@@ -12,7 +12,7 @@ function Test-ProfileUpdate
         The check is designed to be non-blocking and network-aware:
         - Only checks if Internet connectivity is available
         - Uses background job processing to avoid blocking profile load
-        - Respects opt-out file (.disable-update-check)
+        - Respects opt-out file (.disable-profile-update-check)
         - Works cross-platform (Windows, macOS, Linux)
 
         If updates are detected, displays a notification message suggesting to run Update-Profile.
@@ -22,7 +22,7 @@ function Test-ProfileUpdate
         This is the recommended approach when called during profile loading.
 
     .PARAMETER Force
-        When specified, ignores the .disable-update-check file and performs the check anyway.
+        When specified, ignores the .disable-profile-update-check file and performs the check anyway.
 
     .EXAMPLE
         PS > Test-ProfileUpdates
@@ -34,7 +34,7 @@ function Test-ProfileUpdate
 
     .EXAMPLE
         PS > Test-ProfileUpdates -Force
-        Checks for updates even if .disable-update-check file exists.
+        Checks for updates even if .disable-profile-update-check file exists.
 
     .OUTPUTS
         System.Boolean
@@ -45,7 +45,7 @@ function Test-ProfileUpdate
         This function requires Git to be available in the system PATH.
         Internet connectivity is required to check for remote updates.
 
-        To opt-out of automatic update checks, create a .disable-update-check file
+        To opt-out of automatic update checks, create a .disable-profile-update-check file
         in the profile directory.
 
         Compatible with PowerShell Desktop 5.1+ and PowerShell Core 6.2+.
@@ -102,10 +102,10 @@ function Test-ProfileUpdate
         # Check for opt-out file unless Force is specified
         if (-not $Force)
         {
-            $disableFile = Join-Path -Path $profileRoot -ChildPath '.disable-update-check'
+            $disableFile = Join-Path -Path $profileRoot -ChildPath '.disable-profile-update-check'
             if (Test-Path -Path $disableFile)
             {
-                Write-Verbose "Update check disabled by .disable-update-check file"
+                Write-Verbose "Update check disabled by .disable-profile-update-check file"
                 return $false
             }
         }

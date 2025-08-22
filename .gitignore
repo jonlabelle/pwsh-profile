@@ -59,4 +59,4 @@ dist/
 test/stubs/files-backed-up/
 
 # Profile update check opt-out file
-.disable-update-check
+.disable-profile-update-check
