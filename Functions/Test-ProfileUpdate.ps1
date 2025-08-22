@@ -105,7 +105,7 @@ function Test-ProfileUpdate
             $disableFile = Join-Path -Path $profileRoot -ChildPath '.disable-update-check'
             if (Test-Path -Path $disableFile)
             {
-                Write-Verbose "Update check disabled by .disable-update-check file"
+                Write-Verbose 'Update check disabled by .disable-update-check file'
                 return $false
             }
         }

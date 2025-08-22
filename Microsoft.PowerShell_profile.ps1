@@ -124,6 +124,53 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                         # Set a global variable to signal that updates are available
                         # The prompt function will handle the user interaction
                         $global:ProfileUpdatesAvailable = $true
+
+                        # Immediately show the notification instead of waiting for prompt
+                        if ($Host.UI.RawUI -and [Environment]::UserInteractive)
+                        {
+                            try
+                            {
+                                # Show the notification immediately
+                                Write-Host '' # Add a blank line
+                                Write-Host 'Profile updates are available!' -ForegroundColor Yellow
+
+                                # Show available changes
+                                Push-Location -Path (Split-Path -Parent $PSCommandPath) -ErrorAction SilentlyContinue
+                                try
+                                {
+                                    $gitLog = git log --oneline HEAD..origin/main 2>$null
+                                    if ($gitLog)
+                                    {
+                                        Write-Host 'Here are the available changes:' -ForegroundColor Cyan
+                                        foreach ($line in $gitLog)
+                                        {
+                                            # Remove branch references and format as bullet point
+                                            $cleanLine = $line -replace '\s*\([^)]+\)\s*', ''
+                                            Write-Host "  • $cleanLine" -ForegroundColor Gray
+                                        }
+                                        Write-Host ''
+                                    }
+                                }
+                                catch
+                                {
+                                    Write-Debug "Could not retrieve git log: $($_.Exception.Message)"
+                                }
+                                finally
+                                {
+                                    Pop-Location -ErrorAction SilentlyContinue
+                                }
+
+                                Write-Host "Run 'Update-Profile' to install updates, or press any key to continue..." -ForegroundColor Cyan
+
+                                # Set flag to prevent prompt from showing again
+                                $global:ProfileUpdatePromptShown = $true
+                            }
+                            catch
+                            {
+                                # If immediate display fails, fall back to prompt-based approach
+                                Write-Debug "Could not display immediate notification: $($_.Exception.Message)"
+                            }
+                        }
                     }
                 }
                 elseif ($job.State -eq 'Failed')
