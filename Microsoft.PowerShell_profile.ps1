@@ -39,7 +39,7 @@ function Update-Profile
 
     # CD to this script's directory and update
     Push-Location -Path $PSScriptRoot
-    git pull --rebase --quiet
+    $null = Start-Process -FilePath 'git' -ArgumentList 'pull', '--rebase', '--quiet' -WorkingDirectory $PSScriptRoot -Wait -NoNewWindow -PassThru
     Pop-Location
 
     ## Reload the profile to apply changes
@@ -130,17 +130,8 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                                 $response = Read-Host 'Would you like to update your profile now? (Y/N)'
                                 if ($response -match '^[Yy]([Ee][Ss])?$')
                                 {
-                                    & {
-                                        Write-Host 'Updating PowerShell profile...' -ForegroundColor Cyan
-                                        Push-Location -Path (Split-Path -Parent $PSCommandPath)
-                                        git pull --rebase --quiet
-                                        Write-Host '' # Add a blank line for better readability
-                                        Pop-Location
-                                        . "$PSScriptRoot\Functions\Reload-Profile.ps1"
-                                        Reload-Profile
-                                        Remove-Variable -Name ProfileUpdatesAvailable -Scope Global -ErrorAction SilentlyContinue
-                                        Remove-Variable -Name ProfileUpdatePromptShown -Scope Global -ErrorAction SilentlyContinue
-                                    }
+                                    # Just call the Update-Profile function instead of duplicating the logic
+                                    Update-Profile
                                 }
                                 else
                                 {
