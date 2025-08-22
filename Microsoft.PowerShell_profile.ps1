@@ -66,10 +66,10 @@ function Update-Profile
     . Reload-Profile -Verbose:$Verbose
 
     # Force prompt to reappear by starting a new command line
-    # Write-Host ''
-    # $null = Start-Sleep -Milliseconds 100
+    Write-Host ''
+    $null = Start-Sleep -Milliseconds 200
     # This will force PowerShell to redraw the prompt
-    # [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt()
+    [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt()
 }
 
 # (New-Object System.Net.WebClient).Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
