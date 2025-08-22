@@ -66,7 +66,7 @@ function Update-Profile
     . Reload-Profile -Verbose:$Verbose
 
     Write-Host ''
-    # Force prompt to reappear by starting a new command line
+    # Force prompt to reappear by starting a new command line.
     Prompt
 }
 
