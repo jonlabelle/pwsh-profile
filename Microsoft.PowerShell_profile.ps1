@@ -31,32 +31,22 @@ function Update-Profile
 
     . Reload-Profile -Verbose:$Verbose
 
-    # Clear the update available flag
-    if ($global:ProfileUpdatesAvailable)
-    {
-        Remove-Variable -Name ProfileUpdatesAvailable -Scope Global -ErrorAction SilentlyContinue
-    }
+    # Clear the update available flags
+    Remove-Variable -Name ProfileUpdatesAvailable -Scope Global -ErrorAction SilentlyContinue
+    Remove-Variable -Name ProfileUpdatePromptShown -Scope Global -ErrorAction SilentlyContinue
 }
 
 #
-# Function to check and prompt for profile updates interactively
-function Invoke-ProfileUpdatePrompt
+# Custom prompt function
+function Prompt
 {
-    <#
-    .SYNOPSIS
-        Prompts the user to update the profile if updates are available.
-
-    .DESCRIPTION
-        This function checks if the global ProfileUpdatesAvailable flag is set
-        and prompts the user with a Y/N choice to update the profile immediately.
-        This must be called from the main thread, not from an event handler.
-    #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
-    [CmdletBinding()]
     param()
 
-    if ($global:ProfileUpdatesAvailable)
+    # Check if profile updates are available and prompt user
+    if ($global:ProfileUpdatesAvailable -and -not $global:ProfileUpdatePromptShown)
     {
+        Write-Host ''  # Add a blank line for better readability
         Write-Host 'Profile updates are available!' -ForegroundColor Yellow
         $response = Read-Host 'Would you like to update your profile now? (Y/N)'
         if ($response -match '^[Yy]([Ee][Ss])?$')
@@ -68,19 +58,8 @@ function Invoke-ProfileUpdatePrompt
             Write-Host "Skipped profile update. You can run 'Update-Profile' later to get the latest changes." -ForegroundColor Gray
             Remove-Variable -Name ProfileUpdatesAvailable -Scope Global -ErrorAction SilentlyContinue
         }
+        $global:ProfileUpdatePromptShown = $true
     }
-    else
-    {
-        Write-Host 'No profile updates are currently available.' -ForegroundColor Green
-    }
-}
-
-#
-# Custom prompt function
-function Prompt
-{
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
-    param()
 
     # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_profiles?view=powershell-7.2#add-a-customized-powershell-prompt
     # "PS > "
@@ -113,11 +92,8 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                     if ($result -eq $true)
                     {
                         # Set a global variable to signal that updates are available
-                        # We can't use Read-Host in an event handler reliably
+                        # The prompt function will handle the user interaction
                         $global:ProfileUpdatesAvailable = $true
-
-                        Write-Host 'Profile updates are available!' -ForegroundColor Yellow
-                        Write-Host "Type 'Update-Profile' to update now, or ignore this message to update later." -ForegroundColor Gray
                     }
                 }
                 elseif ($job.State -eq 'Failed')

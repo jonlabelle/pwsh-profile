@@ -2,7 +2,7 @@
 
 [![ci](https://github.com/jonlabelle/pwsh-profile/actions/workflows/ci.yml/badge.svg)](https://github.com/jonlabelle/pwsh-profile/actions/workflows/ci.yml)
 
-> Cross-platform PowerShell profile with auto-loading utility functions for network testing, system administration, and developer workflows
+> Cross-platform PowerShell profile with auto-loading utility functions for network testing, system administration, and developer workflows.
 
 ## Install
 
@@ -103,23 +103,16 @@ Update-Profile
 
 The profile [automatically checks for updates](./Functions/Test-ProfileUpdate.ps1) when it loads in interactive mode and will prompt you to update if updates are available. The check runs in the background without slowing down your profile startup.
 
-When updates are detected, you'll be asked:
+When updates are detected, you'll be prompted at your next command prompt:
 
 ```console
 Profile updates are available!
-Would you like to update your profile now? (Y/N)
+Would you like to update your profile now? (Y/N):
 ```
 
 Choose "Y" or "Yes" to update immediately, or "N" to skip and update later manually with `Update-Profile`.
 
-**Note:** Update checks only run in interactive PowerShell sessions to avoid interrupting automated scripts or CI/CD pipelines.
+> [!Note]
+> Update checks only run in interactive PowerShell sessions to avoid interrupting automated scripts or CI/CD pipelines.
 
-To disable automatic profile update checks entirely, create an empty `.disable-profile-update-check` file in your profile directory:
-
-```powershell
-# For Windows PowerShell Desktop
-New-Item -Path "$HOME\Documents\WindowsPowerShell\.disable-profile-update-check" -ItemType File
-
-# For PowerShell Core
-New-Item -Path "$HOME\Documents\PowerShell\.disable-profile-update-check" -ItemType File
-```
+To disable automatic update checks entirely, create an empty `.disable-update-check` file in your profile directory:
