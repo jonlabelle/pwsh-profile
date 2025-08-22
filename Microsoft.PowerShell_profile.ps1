@@ -106,7 +106,7 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                                         {
                                             # Remove branch references and format as bullet point
                                             $cleanLine = $line -replace '\s*\([^)]+\)\s*', ''
-                                            Write-Host "  • $cleanLine" -ForegroundColor Gray
+                                            Write-Host "  - $cleanLine" -ForegroundColor Gray
                                         }
                                         Write-Host ''
                                     }
