@@ -7,6 +7,8 @@ foreach ($function in $functions)
     . $function.FullName
 }
 
+#
+# Function to update the profile from the git repository
 function Update-Profile
 {
     <#
@@ -30,6 +32,8 @@ function Update-Profile
     . Reload-Profile -Verbose:$Verbose
 }
 
+#
+# Custom prompt function
 function Prompt
 {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
@@ -46,6 +50,7 @@ function Prompt
 Write-Host -ForegroundColor DarkBlue -NoNewline 'User profile loaded: '
 Write-Host -ForegroundColor Gray "$PSCommandPath"
 
+#
 # Check for profile updates in background (non-blocking)
 try
 {
