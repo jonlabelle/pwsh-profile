@@ -4,7 +4,25 @@ function Test-ADCredential
     .SYNOPSIS
         Test the username and password of Active Directory credentials.
 
-    .DESCRIPTION
+         try
+        {
+            # Get the domain distinguished name using the simpler ADSI approach from original
+            $domain = 'LDAP://' + ([ADSI]'').distinguishedName
+
+            # If the simple approach fails, fall back to RootDSE method
+            if (-not $domain -or $domain -eq 'LDAP://')
+            {
+                $rootDSE = New-Object System.DirectoryServices.DirectoryEntry('LDAP://RootDSE')
+                $defaultNamingContext = $rootDSE.Properties['defaultNamingContext'][0]
+                $domain = "LDAP://$defaultNamingContext"
+                $rootDSE.Dispose()
+            }
+        }
+        catch
+        {
+            Write-Error 'Unable to connect to Active Directory. This function requires a connection to an Active Directory domain controller. Ensure you are on a domain-joined machine or have network access to a domain controller.'
+            return $false
+        }ON
         This function validates Active Directory credentials by attempting to authenticate
         against the Active Directory domain controller. It performs actual directory queries
         to ensure credentials are properly validated, not just directory binding. The function
@@ -70,6 +88,7 @@ function Test-ADCredential
         https://jonlabelle.com/snippets/view/powershell/test-windows-credential
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
     [CmdletBinding()]
     [OutputType([bool])]
     param (
@@ -78,6 +97,20 @@ function Test-ADCredential
         [PSCredential]
         $Credential
     )
+
+    begin
+    {
+        # Load required assemblies for DirectoryServices
+        try
+        {
+            Add-Type -AssemblyName System.DirectoryServices.AccountManagement -ErrorAction Stop
+            Add-Type -AssemblyName System.DirectoryServices -ErrorAction Stop
+        }
+        catch
+        {
+            Write-Warning "Failed to load DirectoryServices assemblies: $($_.Exception.Message)"
+        }
+    }
 
     process
     {
@@ -126,7 +159,15 @@ function Test-ADCredential
         {
             $de = New-Object System.DirectoryServices.DirectoryEntry($domain, $username, $password)
 
-            # Force authentication by performing a more thorough validation
+            # Test authentication using the original simpler approach first
+            if ($null -eq $de.Name)
+            {
+                Write-Verbose "Authentication failed for '$username': Unable to bind to directory"
+                Write-Host "Authentication failed for '$username'" -ForegroundColor Red
+                return $false
+            }
+
+            # If simple test passes, perform more thorough validation
             # Just accessing .Name isn't sufficient - we need to actually query the directory
             $searcher = New-Object System.DirectoryServices.DirectorySearcher($de)
             $searcher.Filter = '(objectClass=*)'
@@ -135,16 +176,27 @@ function Test-ADCredential
             $searcher.Dispose()
 
             Write-Verbose "Successfully authenticated '$username'"
+            Write-Host "Successfully authenticated with '$username'" -ForegroundColor Green
             $true
+        }
+        catch [System.Runtime.InteropServices.COMException]
+        {
+            # Handle COM exceptions from DirectoryServices operations
+            Write-Verbose "Authentication failed for '$username': $($_.Exception.Message)"
+            Write-Host "Authentication failed for '$username'" -ForegroundColor Red
+            $false
         }
         catch [System.DirectoryServices.DirectoryServiceCOMException]
         {
+            # Handle DirectoryServices specific exceptions if available
             Write-Verbose "Authentication failed for '$username': $($_.Exception.Message)"
+            Write-Host "Authentication failed for '$username'" -ForegroundColor Red
             $false
         }
         catch
         {
             Write-Verbose "Authentication failed for '$username': $($_.Exception.Message)"
+            Write-Host "Authentication failed for '$username'" -ForegroundColor Red
             $false
         }
         finally
