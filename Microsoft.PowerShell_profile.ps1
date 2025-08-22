@@ -69,7 +69,7 @@ function Update-Profile
     Write-Host ''
     $null = Start-Sleep -Milliseconds 200
     # This will force PowerShell to redraw the prompt
-    # [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt()
+    [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt()
     Write-Host ''
 }
 
