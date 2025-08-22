@@ -44,50 +44,6 @@ function Prompt
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
     param()
 
-    # Check if profile updates are available and prompt user
-    if ($global:ProfileUpdatesAvailable -and -not $global:ProfileUpdatePromptShown)
-    {
-        Write-Host ''  # Add a blank line for better readability
-        Write-Host 'Profile updates are available!' -ForegroundColor Yellow
-
-        # Show available changes
-        try
-        {
-            Push-Location -Path $PSScriptRoot
-            $gitLog = git log --oneline HEAD..origin/main 2>$null
-            if ($gitLog)
-            {
-                Write-Host 'Here are the available changes:' -ForegroundColor Cyan
-                foreach ($line in $gitLog)
-                {
-                    # Remove branch references and format as bullet point
-                    $cleanLine = $line -replace '\s*\([^)]+\)\s*', ''
-                    Write-Host "  • $cleanLine" -ForegroundColor Gray
-                }
-                Write-Host ''
-            }
-            Pop-Location
-        }
-        catch
-        {
-            # If we can't get the log, just continue with the prompt
-            Write-Debug "Could not retrieve git log: $($_.Exception.Message)"
-        }
-
-        $response = Read-Host 'Would you like to update your profile now? (Y/N)'
-        if ($response -match '^[Yy]([Ee][Ss])?$')
-        {
-            Update-Profile
-        }
-        else
-        {
-            Write-Host "Skipped profile update. You can run 'Update-Profile' later to get the latest changes." -ForegroundColor Gray
-            Remove-Variable -Name ProfileUpdatesAvailable -Scope Global -ErrorAction SilentlyContinue
-        }
-
-        $global:ProfileUpdatePromptShown = $true
-    }
-
     # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_profiles?view=powershell-7.2#add-a-customized-powershell-prompt
     # "PS > "
     Write-Host 'PS' -ForegroundColor 'Cyan' -NoNewline
@@ -143,6 +99,7 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                                     $gitLog = git log --oneline HEAD..origin/main 2>$null
                                     if ($gitLog)
                                     {
+                                        Write-Host '' # Add a blank line for better readability
                                         Write-Host 'Here are the available changes:' -ForegroundColor Cyan
                                         foreach ($line in $gitLog)
                                         {
