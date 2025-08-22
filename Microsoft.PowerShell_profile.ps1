@@ -26,7 +26,7 @@ function Update-Profile
 
     # CD to this script's directory and update
     Push-Location -Path $PSScriptRoot
-    git pull --rebase
+    git pull --rebase --quiet
     Write-Host '' # Add a blank line for better readability
     Pop-Location
 
@@ -168,7 +168,7 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                                     & {
                                         Write-Host 'Updating PowerShell profile...' -ForegroundColor Cyan
                                         Push-Location -Path (Split-Path -Parent $PSCommandPath)
-                                        git pull --rebase
+                                        git pull --rebase --quiet
                                         Write-Host '' # Add a blank line for better readability
                                         Pop-Location
                                         . "$PSScriptRoot\Functions\Reload-Profile.ps1"
