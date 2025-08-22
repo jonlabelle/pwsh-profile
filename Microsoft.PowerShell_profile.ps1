@@ -50,6 +50,10 @@ function Prompt
 Write-Host -ForegroundColor DarkBlue -NoNewline 'User profile loaded: '
 Write-Host -ForegroundColor Gray "$PSCommandPath"
 
+# Temp enable verbose/debug for profile load (profile update not working)
+$DebugPreference = 'Continue'
+$VerbosePreference = 'Continue'
+
 #
 # Check for profile updates in background (non-blocking)
 try
