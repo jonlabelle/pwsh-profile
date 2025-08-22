@@ -148,6 +148,8 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                                 {
                                     Write-Host "Skipped profile update. You can run 'Update-Profile' later to get the latest changes." -ForegroundColor Gray
                                     Remove-Variable -Name ProfileUpdatesAvailable -Scope Global -ErrorAction SilentlyContinue
+                                    # Force prompt to reappear
+                                    Prompt
                                 }
 
                                 $global:ProfileUpdatePromptShown = $true
