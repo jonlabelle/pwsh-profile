@@ -39,8 +39,20 @@ function Update-Profile
 
     # CD to this script's directory and update
     Push-Location -Path $PSScriptRoot
-    $null = Start-Process -FilePath 'git' -ArgumentList 'pull', '--rebase', '--quiet' -WorkingDirectory $PSScriptRoot -Wait -NoNewWindow -PassThru
-    Pop-Location
+
+    try
+    {
+        $null = Start-Process -FilePath 'git' -ArgumentList 'pull', '--rebase', '--quiet' -WorkingDirectory $PSScriptRoot -Wait -NoNewWindow -PassThru
+    }
+    catch
+    {
+        Write-Error "An error occurred while updating the profile: $($_.Exception.Message)"
+        return
+    }
+    finally
+    {
+        Pop-Location
+    }
 
     ## Reload the profile to apply changes
     # . Reload-Profile -Verbose:$Verbose
