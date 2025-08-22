@@ -35,7 +35,9 @@ function Update-Profile
     Remove-Variable -Name ProfileUpdatesAvailable -Scope Global -ErrorAction SilentlyContinue
     Remove-Variable -Name ProfileUpdatePromptShown -Scope Global -ErrorAction SilentlyContinue
 
-    Write-Host 'Profile updated successfully! To reload your profile, run: Reload-Profile' -ForegroundColor Green
+    Write-Host 'Profile updated successfully!' -ForegroundColor Green
+
+    Prompt # Refresh the prompt to reflect any changes
 }
 
 #
