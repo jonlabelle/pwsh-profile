@@ -114,7 +114,7 @@ Choose "Y" or "Yes" to update immediately, or "N" to skip and update later manua
 
 **Note:** Update checks only run in interactive PowerShell sessions to avoid interrupting automated scripts or CI/CD pipelines.
 
-To disable automatic update checks entirely, create an empty `.disable-profile-update-check` file in your profile directory:
+To disable automatic profile update checks entirely, create an empty `.disable-profile-update-check` file in your profile directory:
 
 ```powershell
 # For Windows PowerShell Desktop
