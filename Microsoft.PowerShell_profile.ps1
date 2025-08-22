@@ -29,17 +29,13 @@ function Update-Profile
     git pull --rebase --quiet
     Pop-Location
 
-    . Reload-Profile -Verbose:$Verbose
+    # . Reload-Profile -Verbose:$Verbose
 
     # Clear the update available flags
     Remove-Variable -Name ProfileUpdatesAvailable -Scope Global -ErrorAction SilentlyContinue
     Remove-Variable -Name ProfileUpdatePromptShown -Scope Global -ErrorAction SilentlyContinue
 
-    Write-Host 'Profile updated successfully!' -ForegroundColor Green
-
-    Prompt # Refresh the prompt to reflect any changes
-
-    Write-Host 'Done.' -ForegroundColor Green
+    Write-Host 'Profile updated successfully! Run ''Reload-Profile'' to reload your profile.' -ForegroundColor Green
 }
 
 #
