@@ -1,4 +1,4 @@
-function Remove-EveryOldModule
+function Remove-OldModules
 {
     <#
     .SYNOPSIS
@@ -22,37 +22,37 @@ function Remove-EveryOldModule
         Includes system modules in the cleanup process. Use with caution.
 
     .EXAMPLE
-        PS > Remove-AllOldModules
+        PS > Remove-OldModules
 
         Removes all older versions of PowerShell modules, keeping only the latest version of each.
 
     .EXAMPLE
-        PS > Remove-AllOldModules -ExcludeModule @('PSReadLine', 'PowerShellGet') -WhatIf
+        PS > Remove-OldModules -ExcludeModule @('PSReadLine', 'PowerShellGet') -WhatIf
 
         Shows what would be removed while excluding specific modules from cleanup.
 
     .EXAMPLE
-        PS > Remove-AllOldModules -Force -Verbose
+        PS > Remove-OldModules -Force -Verbose
 
         Forces removal of old module versions with verbose output.
 
     .EXAMPLE
-        PS > Remove-AllOldModules -IncludeSystemModules -WhatIf
+        PS > Remove-OldModules -IncludeSystemModules -WhatIf
 
         Shows what would be removed including system modules (use with caution).
 
     .EXAMPLE
-        PS > Remove-AllOldModules -ExcludeModule @('Azure*', 'PowerShellGet') -IncludeSystemModules
+        PS > Remove-OldModules -ExcludeModule @('Azure*', 'PowerShellGet') -IncludeSystemModules
 
         Removes old versions including system modules but excludes Azure modules and PowerShellGet.
 
     .EXAMPLE
-        PS > Remove-AllOldModules -Confirm
+        PS > Remove-OldModules -Confirm
 
         Removes old module versions with interactive confirmation for each removal operation.
 
     .EXAMPLE
-        PS > Remove-AllOldModules -ExcludeModule @('PSReadLine') -Force -Verbose
+        PS > Remove-OldModules -ExcludeModule @('PSReadLine') -Force -Verbose
 
         Forces removal with verbose output while excluding PSReadLine from cleanup.
 

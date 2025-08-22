@@ -35,7 +35,7 @@ function Get-OutdatedModule
         Gets only outdated Azure modules using pipeline filtering.
 
     .EXAMPLE
-        PS > $outdated = Get-OutdatedModule; $outdated | Update-EveryModule -ExcludeModule @('ProblematicModule')
+        PS > $outdated = Get-OutdatedModule; $outdated | Update-AllModules -ExcludeModule @('ProblematicModule')
         Store outdated modules and use the results to selectively update modules.
 
     .OUTPUTS

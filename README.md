@@ -73,8 +73,8 @@ The profile includes various utility commands organized by category:
 ### 📦 PowerShell Module Management
 
 - **`Get-OutdatedModule`** — Gets information about installed PowerShell modules that have newer versions available
-- **`Remove-EveryOldModule`** — Removes older versions of installed PowerShell modules
-- **`Update-EveryModule`** — Updates all installed PowerShell modules to their latest versions
+- **`Remove-OldModules`** — Removes older versions of installed PowerShell modules
+- **`Update-AllModules`** — Updates all installed PowerShell modules to their latest versions
 
 ### 🛠️ Profile Management
 
