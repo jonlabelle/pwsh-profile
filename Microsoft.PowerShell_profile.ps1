@@ -63,9 +63,8 @@ function Update-Profile
 
     Write-Host 'Profile updated successfully! Run ''Reload-Profile'' to reload your profile.' -ForegroundColor Green
 
-    . Reload-Profile -Verbose:$Verbose
+    # . Reload-Profile -Verbose:$Verbose
 
-    Write-Host ''
     # Force prompt to reappear by starting a new command line.
     Prompt
 }
