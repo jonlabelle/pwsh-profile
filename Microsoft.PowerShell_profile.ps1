@@ -127,15 +127,14 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                         # The prompt function will handle the user interaction
                         $global:ProfileUpdatesAvailable = $true
 
-                        # Immediately show the notification instead of waiting for prompt
-                        if ($Host.UI.RawUI -and [Environment]::UserInteractive)
+                        # Immediately trigger the prompt logic by calling it directly
+                        if ($Host.UI.RawUI -and [Environment]::UserInteractive -and -not $global:ProfileUpdatePromptShown)
                         {
                             try
                             {
-                                # Show the notification immediately
-                                Write-Host '' # Add a blank line
+                                # Show the update prompt immediately
+                                Write-Host ''  # Add a blank line for better readability
                                 Write-Host 'Profile updates are available!' -ForegroundColor Yellow
-                                Write-Host '' # Add a blank line
 
                                 # Show available changes
                                 Push-Location -Path (Split-Path -Parent $PSCommandPath) -ErrorAction SilentlyContinue
@@ -163,15 +162,33 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                                     Pop-Location -ErrorAction SilentlyContinue
                                 }
 
-                                Write-Host "Run 'Update-Profile' to install updates, or press any key to continue..." -ForegroundColor Cyan
+                                $response = Read-Host 'Would you like to update your profile now? (Y/N)'
+                                if ($response -match '^[Yy]([Ee][Ss])?$')
+                                {
+                                    & {
+                                        Write-Host 'Updating PowerShell profile...' -ForegroundColor Cyan
+                                        Push-Location -Path (Split-Path -Parent $PSCommandPath)
+                                        git pull --rebase
+                                        Write-Host '' # Add a blank line for better readability
+                                        Pop-Location
+                                        . "$PSScriptRoot\Functions\Reload-Profile.ps1"
+                                        Reload-Profile
+                                        Remove-Variable -Name ProfileUpdatesAvailable -Scope Global -ErrorAction SilentlyContinue
+                                        Remove-Variable -Name ProfileUpdatePromptShown -Scope Global -ErrorAction SilentlyContinue
+                                    }
+                                }
+                                else
+                                {
+                                    Write-Host "Skipped profile update. You can run 'Update-Profile' later to get the latest changes." -ForegroundColor Gray
+                                    Remove-Variable -Name ProfileUpdatesAvailable -Scope Global -ErrorAction SilentlyContinue
+                                }
 
-                                # Set flag to prevent prompt from showing again
                                 $global:ProfileUpdatePromptShown = $true
                             }
                             catch
                             {
-                                # If immediate display fails, fall back to prompt-based approach
-                                Write-Debug "Could not display immediate notification: $($_.Exception.Message)"
+                                # If immediate prompt fails, fall back to normal prompt-based approach
+                                Write-Debug "Could not show immediate prompt: $($_.Exception.Message)"
                             }
                         }
                     }
