@@ -27,6 +27,7 @@ function Update-Profile
     # CD to this script's directory and update
     Push-Location -Path $PSScriptRoot
     git pull --rebase
+    Write-Host '' # Add a blank line for better readability
     Pop-Location
 
     . Reload-Profile -Verbose:$Verbose
@@ -100,6 +101,7 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
 {
     Write-Host 'User profile loaded: ' -ForegroundColor DarkBlue -NoNewline
     Write-Host "$PSCommandPath" -ForegroundColor Gray
+    Write-Host '' # Add a blank line for better readability
 }
 
 #
@@ -133,6 +135,7 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                                 # Show the notification immediately
                                 Write-Host '' # Add a blank line
                                 Write-Host 'Profile updates are available!' -ForegroundColor Yellow
+                                Write-Host '' # Add a blank line
 
                                 # Show available changes
                                 Push-Location -Path (Split-Path -Parent $PSCommandPath) -ErrorAction SilentlyContinue
