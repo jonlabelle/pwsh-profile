@@ -39,7 +39,7 @@ function Update-Profile
 
     Prompt # Refresh the prompt to reflect any changes
 
-    Write-Host 'Done!' -ForegroundColor Green
+    Write-Host 'Done.' -ForegroundColor Green
 }
 
 #
