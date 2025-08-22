@@ -59,10 +59,6 @@ function Update-Profile
     Remove-Variable -Name ProfileUpdatePromptShown -Scope Global -ErrorAction SilentlyContinue
 
     Write-Host 'Profile updated successfully! Run ''Reload-Profile'' to reload your profile.' -ForegroundColor Green
-    # . Reload-Profile -Verbose:$Verbose
-
-    # # Force prompt to reappear by starting a new command line.
-    # prompt
 }
 
 # (New-Object System.Net.WebClient).Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
