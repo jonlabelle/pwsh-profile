@@ -83,6 +83,7 @@ function Prompt
             Write-Host "Skipped profile update. You can run 'Update-Profile' later to get the latest changes." -ForegroundColor Gray
             Remove-Variable -Name ProfileUpdatesAvailable -Scope Global -ErrorAction SilentlyContinue
         }
+
         $global:ProfileUpdatePromptShown = $true
     }
 
@@ -94,8 +95,12 @@ function Prompt
 
 # (New-Object System.Net.WebClient).Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
 
-Write-Host -ForegroundColor DarkBlue -NoNewline 'User profile loaded: '
-Write-Host -ForegroundColor Gray "$PSCommandPath"
+# Show the profile path in the console when in interactive mode
+if ($Host.UI.RawUI -and [Environment]::UserInteractive)
+{
+    Write-Host 'User profile loaded: ' -ForegroundColor DarkBlue -NoNewline
+    Write-Host "$PSCommandPath" -ForegroundColor Gray
+}
 
 #
 # Check for profile updates in background (non-blocking) - only in interactive mode
