@@ -129,7 +129,7 @@ function Update-AllModules
             Write-Host 'Retrieving installed modules...' -ForegroundColor Cyan
             $installedModules = Get-InstalledModule | Where-Object { $_.Name -notin $ExcludeModule }
 
-            if (-not $installedModules)
+            if (-not $installedModules -or $installedModules.Count -eq 0)
             {
                 Write-Host 'No modules found to update.' -ForegroundColor Yellow
                 return

@@ -115,7 +115,7 @@ function Remove-OldModules
             Write-Host 'Retrieving installed modules...' -ForegroundColor Cyan
             $allModules = Get-InstalledModule -ErrorAction Stop
 
-            if (-not $allModules)
+            if (-not $allModules -or $allModules.Count -eq 0)
             {
                 Write-Host 'No modules found.' -ForegroundColor Yellow
                 return
@@ -148,7 +148,16 @@ function Remove-OldModules
                     continue
                 }
 
-                Write-Progress -Activity 'Cleaning up old module versions' -Status "Processing $moduleName" -PercentComplete (($processedCount / $allModules.Count) * 100)
+                # Calculate progress percentage safely
+                $percentComplete = if ($allModules.Count -gt 0)
+                {
+                    ($processedCount / $allModules.Count) * 100
+                }
+                else
+                {
+                    0
+                }
+                Write-Progress -Activity 'Cleaning up old module versions' -Status "Processing $moduleName" -PercentComplete $percentComplete
 
                 try
                 {

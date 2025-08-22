@@ -106,7 +106,7 @@ function Get-OutdatedModule
             Write-Host 'Retrieving installed modules...' -ForegroundColor Cyan
             $installedModules = Get-InstalledModule -ErrorAction Stop
 
-            if (-not $installedModules)
+            if (-not $installedModules -or $installedModules.Count -eq 0)
             {
                 Write-Host 'No modules found.' -ForegroundColor Yellow
                 return
@@ -139,7 +139,16 @@ function Get-OutdatedModule
                     continue
                 }
 
-                Write-Progress -Activity 'Checking for outdated modules' -Status "Checking $moduleName" -PercentComplete (($processedCount / $installedModules.Count) * 100)
+                # Calculate progress percentage safely
+                $percentComplete = if ($installedModules.Count -gt 0)
+                {
+                    ($processedCount / $installedModules.Count) * 100
+                }
+                else
+                {
+                    0
+                }
+                Write-Progress -Activity 'Checking for outdated modules' -Status "Checking $moduleName" -PercentComplete $percentComplete
 
                 try
                 {
