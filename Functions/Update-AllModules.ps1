@@ -254,22 +254,22 @@ function Update-AllModules
                             {
                                 Write-Host '  Retrying with elevated privileges...' -ForegroundColor Yellow
 
-                                # Use Invoke-ElevatedCommand to update the module
-                                Invoke-ElevatedCommand -Scriptblock {
-                                    param($ModuleName, $ForceUpdate, $VerboseOutput)
-
-                                    $elevatedUpdateParams = @{
-                                        Name = $ModuleName
+                                # Create the script block with embedded variables to avoid parameter passing issues
+                                $elevatedScriptBlock = [ScriptBlock]::Create(@"
+                                    `$elevatedUpdateParams = @{
+                                        Name = '$($module.Name)'
                                         ErrorAction = 'Stop'
                                     }
-                                    if ($ForceUpdate) { $elevatedUpdateParams.Force = $true }
-                                    if ($VerboseOutput) { $elevatedUpdateParams.Verbose = $true }
+                                    if ('$($Force.IsPresent)' -eq 'True') { `$elevatedUpdateParams.Force = `$true }
+                                    if ('$($VerbosePreference -eq 'Continue')' -eq 'True') { `$elevatedUpdateParams.Verbose = `$true }
 
                                     Update-Module @elevatedUpdateParams
-                                } -InputObject @($module.Name, $Force.IsPresent, ($VerbosePreference -eq 'Continue'))
+"@)
+
+                                # Use Invoke-ElevatedCommand to update the module
+                                Invoke-ElevatedCommand -Scriptblock $elevatedScriptBlock
 
                                 $updatedCount++
-
                                 Write-Host "  Successfully updated $($module.Name) with elevation" -ForegroundColor Green
                                 Write-Verbose "Successfully updated $($module.Name) with elevation"
                             }
@@ -305,19 +305,20 @@ function Update-AllModules
                             {
                                 Write-Host '  Retrying with elevated privileges...' -ForegroundColor Yellow
 
-                                # Use Invoke-ElevatedCommand to update the module
-                                Invoke-ElevatedCommand -Scriptblock {
-                                    param($ModuleName, $ForceUpdate, $VerboseOutput)
-
-                                    $elevatedUpdateParams = @{
-                                        Name = $ModuleName
+                                # Create the script block with embedded variables to avoid parameter passing issues
+                                $elevatedScriptBlock = [ScriptBlock]::Create(@"
+                                    `$elevatedUpdateParams = @{
+                                        Name = '$($module.Name)'
                                         ErrorAction = 'Stop'
                                     }
-                                    if ($ForceUpdate) { $elevatedUpdateParams.Force = $true }
-                                    if ($VerboseOutput) { $elevatedUpdateParams.Verbose = $true }
+                                    if ('$($Force.IsPresent)' -eq 'True') { `$elevatedUpdateParams.Force = `$true }
+                                    if ('$($VerbosePreference -eq 'Continue')' -eq 'True') { `$elevatedUpdateParams.Verbose = `$true }
 
                                     Update-Module @elevatedUpdateParams
-                                } -InputObject @($module.Name, $Force.IsPresent, ($VerbosePreference -eq 'Continue'))
+"@)
+
+                                # Use Invoke-ElevatedCommand to update the module
+                                Invoke-ElevatedCommand -Scriptblock $elevatedScriptBlock
 
                                 $updatedCount++
                                 Write-Host "  Successfully updated $($module.Name) with elevation" -ForegroundColor Green
