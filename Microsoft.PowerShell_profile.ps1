@@ -68,7 +68,7 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
 {
     Write-Verbose 'User profile loaded: '
     Write-Verbose "$PSCommandPath"
-    Write-Verbose '' # Add a blank line for better readability
+    Write-Verbose ''
 }
 
 #
@@ -100,7 +100,7 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                             try
                             {
                                 # Show the update prompt immediately
-                                Write-Host ''  # Add a blank line for better readability
+                                Write-Host ''
                                 Write-Host 'Profile updates are available!' -ForegroundColor Yellow
 
                                 # Show available changes
@@ -110,8 +110,9 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                                     $gitLog = git log --oneline HEAD..origin/main 2>$null
                                     if ($gitLog)
                                     {
-                                        Write-Host '' # Add a blank line for better readability
+                                        Write-Host ''
                                         Write-Host 'Here are the available changes:' -ForegroundColor Cyan
+                                        Write-Host ''
                                         foreach ($line in $gitLog)
                                         {
                                             # Remove branch references and format as bullet point
@@ -143,7 +144,7 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                                 }
 
                                 # Force prompt to reappear
-                                Prompt
+                                prompt
 
                                 $global:ProfileUpdatePromptShown = $true
                             }

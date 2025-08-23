@@ -110,6 +110,7 @@ When updates are detected, you'll be prompted at your next command prompt:
 Profile updates are available!
 
 Here are the available changes:
+
   - fix: module retrieval checks
   - feat: add new utility functions
 
