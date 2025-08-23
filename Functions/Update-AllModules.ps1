@@ -31,6 +31,10 @@ function Update-AllModules
         the module source and have verified the update is legitimate. Consider using -WhatIf first
         to review what would be updated before applying this parameter.
 
+    .PARAMETER Interactive
+        Prompts the user for each module update, allowing them to choose whether to update each
+        individual module. This provides fine-grained control over which modules are updated.
+
     .PARAMETER WhatIf
         Shows what modules would be updated without actually updating them.
 
@@ -48,6 +52,16 @@ function Update-AllModules
         PS > Update-AllModules -UseElevation -Verbose
 
         Updates all modules with automatic privilege elevation for modules requiring admin rights.
+
+    .EXAMPLE
+        PS > Update-AllModules -Interactive
+
+        Prompts for each module update, allowing the user to choose which modules to update.
+
+    .EXAMPLE
+        PS > Update-AllModules -Interactive -UseElevation
+
+        Interactive mode with automatic privilege elevation when needed.
 
     .EXAMPLE
         PS > Update-AllModules -UseElevation -SkipPublisherCheck -Verbose
@@ -98,6 +112,7 @@ function Update-AllModules
         - Use -ExcludeModule for problematic modules that fail to update
         - Use -UseElevation on Windows to automatically handle privilege elevation
         - Use -SkipPublisherCheck to bypass digital signature verification issues
+        - Use -Interactive for fine-grained control over which modules to update
         - The Invoke-ElevatedCommand function must be available for elevation support
 
         SECURITY CONSIDERATIONS:
@@ -134,7 +149,10 @@ function Update-AllModules
         [Switch]$UseElevation,
 
         [Parameter()]
-        [Switch]$SkipPublisherCheck
+        [Switch]$SkipPublisherCheck,
+
+        [Parameter()]
+        [Switch]$Interactive
     )
 
     begin
@@ -228,13 +246,61 @@ function Update-AllModules
                 return
             }
 
-            Write-Host "Found $($installedModules.Count) module(s) to check for updates" -ForegroundColor Green
+            # If Interactive mode, check which modules have updates available first
+            if ($Interactive)
+            {
+                Write-Host 'Checking for available updates...' -ForegroundColor Cyan
+                $outdatedModules = @()
+
+                foreach ($module in $installedModules)
+                {
+                    try
+                    {
+                        $latestModule = Find-Module -Name $module.Name -Repository PSGallery -ErrorAction Stop
+                        if ($latestModule.Version -gt $module.Version)
+                        {
+                            $outdatedModules += [PSCustomObject]@{
+                                Name = $module.Name
+                                CurrentVersion = $module.Version
+                                AvailableVersion = $latestModule.Version
+                                Module = $module
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        Write-Verbose "Could not check updates for $($module.Name): $($_.Exception.Message)"
+                    }
+                }
+
+                if ($outdatedModules.Count -eq 0)
+                {
+                    Write-Host 'All modules are already up to date.' -ForegroundColor Green
+                    return
+                }
+
+                Write-Host "Found $($outdatedModules.Count) module(s) with available updates:" -ForegroundColor Yellow
+                foreach ($outdated in $outdatedModules)
+                {
+                    Write-Host "  - $($outdated.Name): $($outdated.CurrentVersion) → $($outdated.AvailableVersion)" -ForegroundColor Cyan
+                }
+                Write-Host ''
+
+                # Filter installedModules to only include outdated ones for interactive prompting
+                $modulesToProcess = $outdatedModules.Module
+            }
+            else
+            {
+                $modulesToProcess = $installedModules
+            }
+
+            Write-Host "Found $($modulesToProcess.Count) module(s) to check for updates" -ForegroundColor Green
 
             # Check if this is a WhatIf operation
             if ($WhatIfPreference)
             {
                 Write-Host 'WhatIf: The following modules would be updated:' -ForegroundColor Yellow
-                foreach ($module in $installedModules)
+                foreach ($module in $modulesToProcess)
                 {
                     Write-Host "  - $($module.Name) (Current version: $($module.Version))" -ForegroundColor Cyan
                 }
@@ -256,7 +322,7 @@ function Update-AllModules
             }
 
             # Update each module individually with ShouldProcess check
-            $moduleList = if ($installedModules.Count -eq 1) { $installedModules.Name } else { 'all installed modules' }
+            $moduleList = if ($modulesToProcess.Count -eq 1) { $modulesToProcess.Name } else { 'selected modules' }
 
             if ($PSCmdlet.ShouldProcess($moduleList, 'Update PowerShell modules'))
             {
@@ -265,20 +331,66 @@ function Update-AllModules
                 $processedCount = 0
                 $skippedCount = 0
 
-                foreach ($module in $installedModules)
+                foreach ($module in $modulesToProcess)
                 {
                     $processedCount++
 
                     # Calculate progress percentage
-                    $percentComplete = if ($installedModules.Count -gt 0)
+                    $percentComplete = if ($modulesToProcess.Count -gt 0)
                     {
-                        ($processedCount / $installedModules.Count) * 100
+                        ($processedCount / $modulesToProcess.Count) * 100
                     }
                     else
                     {
                         0
                     }
-                    Write-Progress -Activity 'Updating PowerShell modules' -Status "Updating $($module.Name)" -PercentComplete $percentComplete
+                    Write-Progress -Activity 'Updating PowerShell modules' -Status "Processing $($module.Name)" -PercentComplete $percentComplete
+
+                    # Interactive mode: prompt user for each module
+                    if ($Interactive)
+                    {
+                        $availableVersion = if ($outdatedModules)
+                        {
+                            ($outdatedModules | Where-Object Name -EQ $module.Name).AvailableVersion
+                        }
+                        else
+                        {
+                            'Unknown'
+                        }
+
+                        Write-Host ''
+                        Write-Host "Module: $($module.Name)" -ForegroundColor Cyan
+                        Write-Host "  Current version: $($module.Version)" -ForegroundColor Gray
+                        Write-Host "  Available version: $availableVersion" -ForegroundColor Gray
+
+                        $response = Read-Host 'Do you want to update this module? (y/N/a=all/q=quit)'
+
+                        switch -Regex ($response)
+                        {
+                            '^[Aa]([Ll][Ll])?$'
+                            {
+                                Write-Host 'Updating all remaining modules...' -ForegroundColor Green
+                                $Interactive = $false  # Disable interactive mode for remaining modules
+                                break
+                            }
+                            '^[Qq]([Uu][Ii][Tt])?$'
+                            {
+                                Write-Host 'Update process cancelled by user.' -ForegroundColor Yellow
+                                return
+                            }
+                            '^[Yy]([Ee][Ss])?$'
+                            {
+                                # Continue with update
+                                break
+                            }
+                            default
+                            {
+                                Write-Host "Skipping $($module.Name)" -ForegroundColor Yellow
+                                $skippedCount++
+                                continue
+                            }
+                        }
+                    }
 
                     Write-Host "Updating module: $($module.Name) (current version: $($module.Version))" -ForegroundColor Cyan
 
