@@ -115,8 +115,8 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                                         Write-Host ''
                                         foreach ($line in $gitLog)
                                         {
-                                            # Remove branch references and format as bullet point
-                                            $cleanLine = $line -replace '\s*\([^)]+\)\s*', ''
+                                            # Remove hash prefix and branch references, format as bullet point
+                                            $cleanLine = $line -replace '^\w+\s+', '' -replace '\s*\([^)]+\)\s*', ''
                                             Write-Host "  - $cleanLine" -ForegroundColor Gray
                                         }
                                         Write-Host ''
