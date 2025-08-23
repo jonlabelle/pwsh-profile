@@ -31,6 +31,9 @@ function Update-AllModules
         Skips the publisher check when updating modules. This allows updating modules that have
         different digital signatures than the previously installed version.
 
+        Requires PowerShellGet 2.0 or later. If using an older version of PowerShellGet,
+        this parameter will be ignored with a warning message.
+
         WARNING: This bypasses an important security feature. Only use this parameter when you trust
         the module source and have verified the update is legitimate. Consider using -WhatIf first
         to review what would be updated before applying this parameter.
@@ -126,7 +129,7 @@ function Update-AllModules
         - Use -ExcludeModule for problematic modules that fail to update
         - Use -IncludeModule to update only specific modules (cannot be used with ExcludeModule)
         - Use -UseElevation on Windows to automatically handle privilege elevation
-        - Use -SkipPublisherCheck to bypass digital signature verification issues
+        - Use -SkipPublisherCheck to bypass digital signature verification issues (requires PowerShellGet 2.0+)
         - Use -Interactive for fine-grained control over which modules to update
         - The Invoke-ElevatedCommand function must be available for elevation support
 
@@ -203,17 +206,30 @@ function Update-AllModules
             $UseElevation = $false
         }
 
+        # Check PowerShellGet version for SkipPublisherCheck compatibility
+        $powerShellGetModule = Get-Module PowerShellGet -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1
+        $supportsSkipPublisherCheck = $powerShellGetModule -and $powerShellGetModule.Version -ge [Version]'2.0.0'
+
         # Show security warning for SkipPublisherCheck
         if ($SkipPublisherCheck)
         {
-            Write-Warning 'SkipPublisherCheck bypasses module publisher verification - a security feature that helps prevent malicious updates. Only proceed if you trust the module sources.'
-            if ($Host.UI.RawUI -and [Environment]::UserInteractive)
+            if (-not $supportsSkipPublisherCheck)
             {
-                $response = Read-Host 'Do you want to continue with publisher check disabled? (y/N)'
-                if ($response -notmatch '^[Yy]([Ee][Ss])?$')
+                Write-Warning "SkipPublisherCheck parameter requires PowerShellGet 2.0 or later. Current version: $($powerShellGetModule.Version). The parameter will be ignored."
+                Write-Host 'Consider upgrading PowerShellGet: Install-Module PowerShellGet -Force -AllowClobber' -ForegroundColor Yellow
+                $SkipPublisherCheck = $false
+            }
+            else
+            {
+                Write-Warning 'SkipPublisherCheck bypasses module publisher verification - a security feature that helps prevent malicious updates. Only proceed if you trust the module sources.'
+                if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                 {
-                    Write-Host 'Operation cancelled by user.' -ForegroundColor Yellow
-                    return
+                    $response = Read-Host 'Do you want to continue with publisher check disabled? (y/N)'
+                    if ($response -notmatch '^[Yy]([Ee][Ss])?$')
+                    {
+                        Write-Host 'Operation cancelled by user.' -ForegroundColor Yellow
+                        return
+                    }
                 }
             }
         }
@@ -363,7 +379,7 @@ function Update-AllModules
             {
                 $updateParams.Force = $true
             }
-            if ($SkipPublisherCheck)
+            if ($SkipPublisherCheck -and $supportsSkipPublisherCheck)
             {
                 $updateParams.SkipPublisherCheck = $true
             }
@@ -479,7 +495,14 @@ function Update-AllModules
                                     }
                                     if ('$($Force.IsPresent)' -eq 'True') { `$elevatedUpdateParams.Force = `$true }
                                     if ('$($VerbosePreference -eq 'Continue')' -eq 'True') { `$elevatedUpdateParams.Verbose = `$true }
-                                    if ('$($SkipPublisherCheck.IsPresent)' -eq 'True') { `$elevatedUpdateParams.SkipPublisherCheck = `$true }
+
+                                    # Only add SkipPublisherCheck if supported
+                                    if ('$($SkipPublisherCheck.IsPresent)' -eq 'True') {
+                                        `$psGetModule = Get-Module PowerShellGet -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1
+                                        if (`$psGetModule -and `$psGetModule.Version -ge [Version]'2.0.0') {
+                                            `$elevatedUpdateParams.SkipPublisherCheck = `$true
+                                        }
+                                    }
 
                                     Update-Module @elevatedUpdateParams
 "@) # End of here-string for elevated script block
@@ -531,7 +554,14 @@ function Update-AllModules
                                     }
                                     if ('$($Force.IsPresent)' -eq 'True') { `$elevatedUpdateParams.Force = `$true }
                                     if ('$($VerbosePreference -eq 'Continue')' -eq 'True') { `$elevatedUpdateParams.Verbose = `$true }
-                                    if ('$($SkipPublisherCheck.IsPresent)' -eq 'True') { `$elevatedUpdateParams.SkipPublisherCheck = `$true }
+
+                                    # Only add SkipPublisherCheck if supported
+                                    if ('$($SkipPublisherCheck.IsPresent)' -eq 'True') {
+                                        `$psGetModule = Get-Module PowerShellGet -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1
+                                        if (`$psGetModule -and `$psGetModule.Version -ge [Version]'2.0.0') {
+                                            `$elevatedUpdateParams.SkipPublisherCheck = `$true
+                                        }
+                                    }
 
                                     Update-Module @elevatedUpdateParams
 "@) # End of here-string for elevated script block
