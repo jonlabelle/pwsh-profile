@@ -23,6 +23,14 @@ function Update-AllModules
         Automatically elevates privileges when updating modules that require administrator rights.
         Only works on Windows platforms. On other platforms, this parameter is ignored.
 
+    .PARAMETER SkipPublisherCheck
+        Skips the publisher check when updating modules. This allows updating modules that have
+        different digital signatures than the previously installed version.
+
+        WARNING: This bypasses an important security feature. Only use this parameter when you trust
+        the module source and have verified the update is legitimate. Consider using -WhatIf first
+        to review what would be updated before applying this parameter.
+
     .PARAMETER WhatIf
         Shows what modules would be updated without actually updating them.
 
@@ -42,6 +50,12 @@ function Update-AllModules
         Updates all modules with automatic privilege elevation for modules requiring admin rights.
 
     .EXAMPLE
+        PS > Update-AllModules -UseElevation -SkipPublisherCheck -Verbose
+
+        Updates all modules with automatic privilege elevation and skips publisher verification.
+        WARNING: Only use -SkipPublisherCheck when you trust the module sources.
+
+    .EXAMPLE
         PS > Update-AllModules -ExcludeModule @('Azure', 'AzureRM') -UseElevation
 
         Updates all modules except Azure and AzureRM, using elevation when needed.
@@ -50,6 +64,13 @@ function Update-AllModules
         PS > Update-AllModules -Force -Verbose
 
         Forcefully updates all modules with verbose output.
+
+    .EXAMPLE
+        PS > Update-AllModules -WhatIf
+        PS > Get-OutdatedModules | ForEach-Object { Update-Module -Name $_.Name -SkipPublisherCheck }
+
+        Safer alternative: First preview what would be updated, then update modules individually
+        with selective use of -SkipPublisherCheck for better security control.
 
     .EXAMPLE
         PS > Update-AllModules -WhatIf
@@ -76,7 +97,22 @@ function Update-AllModules
         - May require elevated permissions on some systems for system-installed modules
         - Use -ExcludeModule for problematic modules that fail to update
         - Use -UseElevation on Windows to automatically handle privilege elevation
+        - Use -SkipPublisherCheck to bypass digital signature verification issues
         - The Invoke-ElevatedCommand function must be available for elevation support
+
+        SECURITY CONSIDERATIONS:
+        - The -SkipPublisherCheck parameter bypasses PowerShell's built-in security that validates
+          module publishers. This security feature helps prevent malicious module updates.
+        - Only use -SkipPublisherCheck for trusted modules from the official PowerShell Gallery
+        - Consider alternative approaches like updating modules individually to maintain better control
+        - Always review module changes and changelogs before updating, especially with -SkipPublisherCheck
+        - Use -WhatIf first to preview what would be updated before using -SkipPublisherCheck
+
+        ALTERNATIVE APPROACHES:
+        - Update modules individually: Update-Module -Name ModuleName -SkipPublisherCheck
+        - Check module details first: Get-InstalledModule ModuleName | Format-List
+        - Review publisher changes: Find-Module ModuleName | Format-List Name, Author, CompanyName
+        - Use PowerShellGet v3+ which has improved publisher validation handling
 
     .LINK
         https://jonlabelle.com/snippets/view/markdown/powershellget-commands
@@ -95,7 +131,10 @@ function Update-AllModules
         [Switch]$Force,
 
         [Parameter()]
-        [Switch]$UseElevation
+        [Switch]$UseElevation,
+
+        [Parameter()]
+        [Switch]$SkipPublisherCheck
     )
 
     begin
@@ -119,6 +158,21 @@ function Update-AllModules
         {
             Write-Warning 'UseElevation parameter is only supported on Windows. Ignoring elevation request.'
             $UseElevation = $false
+        }
+
+        # Show security warning for SkipPublisherCheck
+        if ($SkipPublisherCheck)
+        {
+            Write-Warning 'SkipPublisherCheck bypasses module publisher verification - a security feature that helps prevent malicious updates. Only proceed if you trust the module sources.'
+            if ($Host.UI.RawUI -and [Environment]::UserInteractive)
+            {
+                $response = Read-Host 'Do you want to continue with publisher check disabled? (y/N)'
+                if ($response -notmatch '^[Yy]([Ee][Ss])?$')
+                {
+                    Write-Host 'Operation cancelled by user.' -ForegroundColor Yellow
+                    return
+                }
+            }
         }
 
         # Configure TLS for secure connections
@@ -196,6 +250,10 @@ function Update-AllModules
             {
                 $updateParams.Force = $true
             }
+            if ($SkipPublisherCheck)
+            {
+                $updateParams.SkipPublisherCheck = $true
+            }
 
             # Update each module individually with ShouldProcess check
             $moduleList = if ($installedModules.Count -eq 1) { $installedModules.Name } else { 'all installed modules' }
@@ -262,9 +320,10 @@ function Update-AllModules
                                     }
                                     if ('$($Force.IsPresent)' -eq 'True') { `$elevatedUpdateParams.Force = `$true }
                                     if ('$($VerbosePreference -eq 'Continue')' -eq 'True') { `$elevatedUpdateParams.Verbose = `$true }
+                                    if ('$($SkipPublisherCheck.IsPresent)' -eq 'True') { `$elevatedUpdateParams.SkipPublisherCheck = `$true }
 
                                     Update-Module @elevatedUpdateParams
-"@)
+"@) # End of here-string for elevated script block
 
                                 # Use Invoke-ElevatedCommand to update the module
                                 Invoke-ElevatedCommand -Scriptblock $elevatedScriptBlock
@@ -313,9 +372,10 @@ function Update-AllModules
                                     }
                                     if ('$($Force.IsPresent)' -eq 'True') { `$elevatedUpdateParams.Force = `$true }
                                     if ('$($VerbosePreference -eq 'Continue')' -eq 'True') { `$elevatedUpdateParams.Verbose = `$true }
+                                    if ('$($SkipPublisherCheck.IsPresent)' -eq 'True') { `$elevatedUpdateParams.SkipPublisherCheck = `$true }
 
                                     Update-Module @elevatedUpdateParams
-"@)
+"@) # End of here-string for elevated script block
 
                                 # Use Invoke-ElevatedCommand to update the module
                                 Invoke-ElevatedCommand -Scriptblock $elevatedScriptBlock
@@ -360,6 +420,10 @@ function Update-AllModules
                     if ($UseElevation -eq $false -and $script:IsWindowsPlatform)
                     {
                         Write-Host '  Tip: Use -UseElevation parameter to automatically handle privilege elevation' -ForegroundColor Gray
+                    }
+                    if ($SkipPublisherCheck -eq $false)
+                    {
+                        Write-Host '  Tip: Use -SkipPublisherCheck parameter to bypass publisher verification issues' -ForegroundColor Gray
                     }
                 }
                 if ($updatedCount -eq 0 -and $failedCount -eq 0 -and $skippedCount -eq 0)
