@@ -3,7 +3,7 @@
 $functions = @(Get-ChildItem -LiteralPath (Join-Path -Path $PSScriptRoot 'Functions') -Filter '*.ps1' -File -Depth 1 -ErrorAction 'SilentlyContinue')
 foreach ($function in $functions)
 {
-    Write-Verbose ("Loading function(s) '{0}'" -f $function.FullName)
+    Write-Verbose ('Loading function: {0}' -f $function.FullName)
     . $function.FullName
 }
 
