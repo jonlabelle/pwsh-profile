@@ -72,7 +72,7 @@ The profile includes various utility commands organized by category:
 
 ### 📦 PowerShell Module Management
 
-- **`Get-OutdatedModule`** — Gets information about installed PowerShell modules that have newer versions available
+- **`Get-OutdatedModules`** — Gets information about installed PowerShell modules that have newer versions available
 - **`Remove-OldModules`** — Removes older versions of installed PowerShell modules
 - **`Update-AllModules`** — Updates all installed PowerShell modules to their latest versions
 
@@ -108,9 +108,20 @@ When updates are detected, you'll be prompted at your next command prompt:
 
 ```console
 Profile updates are available!
+
+Here are the available changes:
+  - fix: module retrieval checks
+  - feat: add new utility functions
+
 Would you like to update your profile now? (Y/N):
 ```
 
 Choose "Y" or "Yes" to update immediately, or "N" to skip and update later manually with `Update-Profile`.
 
+### Opting Out of Automatic Update Checks
+
 To disable automatic update checks entirely, create an empty `.disable-profile-update-check` file in your profile directory:
+
+```powershell
+New-Item -Path (Split-Path $PROFILE) -ItemType File -Name '.disable-profile-update-check'
+```
