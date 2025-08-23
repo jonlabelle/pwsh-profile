@@ -13,6 +13,10 @@ function Update-AllModules
     .PARAMETER ExcludeModule
         Array of module names to exclude from updates.
 
+    .PARAMETER IncludeModule
+        Array of specific module names to include for updates. When specified, only these modules
+        will be considered for updates. Cannot be used together with ExcludeModule.
+
     .PARAMETER TrustPSGallery
         Automatically sets PSGallery installation policy to Trusted if not already configured.
 
@@ -42,6 +46,16 @@ function Update-AllModules
         PS > Update-AllModules
 
         Updates all installed PowerShell modules to their latest versions.
+
+    .EXAMPLE
+        PS > Update-AllModules -IncludeModule @('Pester', 'DailyBackup')
+
+        Updates only the specified modules (Pester and DailyBackup).
+
+    .EXAMPLE
+        PS > Update-AllModules -IncludeModule @('Pester') -Interactive -UseElevation
+
+        Interactive mode for only the Pester module with automatic privilege elevation.
 
     .EXAMPLE
         PS > Update-AllModules -ExcludeModule @('Azure', 'AzureRM') -TrustPSGallery
@@ -110,6 +124,7 @@ function Update-AllModules
         - Internet connection required to check for updates
         - May require elevated permissions on some systems for system-installed modules
         - Use -ExcludeModule for problematic modules that fail to update
+        - Use -IncludeModule to update only specific modules (cannot be used with ExcludeModule)
         - Use -UseElevation on Windows to automatically handle privilege elevation
         - Use -SkipPublisherCheck to bypass digital signature verification issues
         - Use -Interactive for fine-grained control over which modules to update
@@ -140,6 +155,9 @@ function Update-AllModules
         [String[]]$ExcludeModule = @(),
 
         [Parameter()]
+        [String[]]$IncludeModule = @(),
+
+        [Parameter()]
         [Switch]$TrustPSGallery,
 
         [Parameter()]
@@ -158,6 +176,13 @@ function Update-AllModules
     begin
     {
         Write-Verbose 'Starting module update process'
+
+        # Check for conflicting parameters
+        if ($ExcludeModule.Count -gt 0 -and $IncludeModule.Count -gt 0)
+        {
+            Write-Error 'Cannot use both ExcludeModule and IncludeModule parameters together. Use one or the other.'
+            return
+        }
 
         # Platform detection for elevation support
         if ($PSVersionTable.PSVersion.Major -lt 6)
@@ -238,7 +263,29 @@ function Update-AllModules
         {
             # Get all installed modules
             Write-Host 'Retrieving installed modules...' -ForegroundColor Cyan
-            $installedModules = Get-InstalledModule | Where-Object { $_.Name -notin $ExcludeModule }
+            $allInstalledModules = Get-InstalledModule
+
+            # Apply include/exclude filtering
+            if ($IncludeModule.Count -gt 0)
+            {
+                $installedModules = $allInstalledModules | Where-Object { $_.Name -in $IncludeModule }
+                if ($installedModules.Count -lt $IncludeModule.Count)
+                {
+                    $notFound = $IncludeModule | Where-Object { $_ -notin $installedModules.Name }
+                    foreach ($missing in $notFound)
+                    {
+                        Write-Warning "Module '$missing' specified in IncludeModule is not installed"
+                    }
+                }
+            }
+            elseif ($ExcludeModule.Count -gt 0)
+            {
+                $installedModules = $allInstalledModules | Where-Object { $_.Name -notin $ExcludeModule }
+            }
+            else
+            {
+                $installedModules = $allInstalledModules
+            }
 
             if (-not $installedModules -or $installedModules.Count -eq 0)
             {
