@@ -81,7 +81,7 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
         if ($updateJob)
         {
             # Register an event to handle the job completion
-            Register-ObjectEvent -InputObject $updateJob -EventName StateChanged -Action {
+            $eventRegistration = Register-ObjectEvent -InputObject $updateJob -EventName StateChanged -Action {
                 $job = $Event.Sender
                 if ($job.State -eq 'Completed')
                 {
@@ -161,7 +161,10 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                     # Clean up failed job silently
                     Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
                 }
-            } | Out-Null
+            }
+
+            # Store the event subscription so it doesn't get garbage collected
+            $global:ProfileUpdateEventSubscription = $eventRegistration
         }
     }
     catch
