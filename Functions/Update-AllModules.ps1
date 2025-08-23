@@ -215,9 +215,16 @@ function Update-AllModules
         {
             if (-not $supportsSkipPublisherCheck)
             {
-                Write-Warning "SkipPublisherCheck parameter requires PowerShellGet 2.0 or later. Current version: $($powerShellGetModule.Version). The parameter will be ignored."
-                Write-Host 'Consider upgrading PowerShellGet: Install-Module PowerShellGet -Force -AllowClobber' -ForegroundColor Yellow
-                $SkipPublisherCheck = $false
+                Write-Error "SkipPublisherCheck parameter requires PowerShellGet 2.0 or later. Current version: $($powerShellGetModule.Version)"
+                Write-Host ''
+                Write-Host 'To update PowerShellGet:' -ForegroundColor Yellow
+                Write-Host '  Install-Module PowerShellGet -Force -AllowClobber' -ForegroundColor Cyan
+                Write-Host '  Restart PowerShell, then try again' -ForegroundColor Cyan
+                Write-Host ''
+                Write-Host 'To update Pester manually (common issue):' -ForegroundColor Yellow
+                Write-Host '  Uninstall-Module Pester -Force -AllVersions' -ForegroundColor Cyan
+                Write-Host '  Install-Module Pester -Force -Scope CurrentUser' -ForegroundColor Cyan
+                return
             }
             else
             {
