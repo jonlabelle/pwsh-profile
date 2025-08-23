@@ -19,6 +19,10 @@ function Update-AllModules
     .PARAMETER Force
         Forces the update even if a newer version is already installed.
 
+    .PARAMETER UseElevation
+        Automatically elevates privileges when updating modules that require administrator rights.
+        Only works on Windows platforms. On other platforms, this parameter is ignored.
+
     .PARAMETER WhatIf
         Shows what modules would be updated without actually updating them.
 
@@ -31,6 +35,16 @@ function Update-AllModules
         PS > Update-AllModules -ExcludeModule @('Azure', 'AzureRM') -TrustPSGallery
 
         Updates all modules except Azure and AzureRM, and configures PSGallery as trusted.
+
+    .EXAMPLE
+        PS > Update-AllModules -UseElevation -Verbose
+
+        Updates all modules with automatic privilege elevation for modules requiring admin rights.
+
+    .EXAMPLE
+        PS > Update-AllModules -ExcludeModule @('Azure', 'AzureRM') -UseElevation
+
+        Updates all modules except Azure and AzureRM, using elevation when needed.
 
     .EXAMPLE
         PS > Update-AllModules -Force -Verbose
@@ -59,8 +73,10 @@ function Update-AllModules
     .NOTES
         - Requires PowerShell 5.1 or later
         - Internet connection required to check for updates
-        - May require elevated permissions on some systems
+        - May require elevated permissions on some systems for system-installed modules
         - Use -ExcludeModule for problematic modules that fail to update
+        - Use -UseElevation on Windows to automatically handle privilege elevation
+        - The Invoke-ElevatedCommand function must be available for elevation support
 
     .LINK
         https://jonlabelle.com/snippets/view/markdown/powershellget-commands
@@ -76,12 +92,34 @@ function Update-AllModules
         [Switch]$TrustPSGallery,
 
         [Parameter()]
-        [Switch]$Force
+        [Switch]$Force,
+
+        [Parameter()]
+        [Switch]$UseElevation
     )
 
     begin
     {
         Write-Verbose 'Starting module update process'
+
+        # Platform detection for elevation support
+        if ($PSVersionTable.PSVersion.Major -lt 6)
+        {
+            # PowerShell 5.1 - Windows only
+            $script:IsWindowsPlatform = $true
+        }
+        else
+        {
+            # PowerShell Core - use built-in variables
+            $script:IsWindowsPlatform = $IsWindows
+        }
+
+        # Check if UseElevation is supported on this platform
+        if ($UseElevation -and -not $script:IsWindowsPlatform)
+        {
+            Write-Warning 'UseElevation parameter is only supported on Windows. Ignoring elevation request.'
+            $UseElevation = $false
+        }
 
         # Configure TLS for secure connections
         try
@@ -152,7 +190,7 @@ function Update-AllModules
             # Update parameters
             $updateParams = @{
                 Verbose = $VerbosePreference -eq 'Continue'
-                ErrorAction = 'Continue'
+                ErrorAction = 'Stop'  # Changed to Stop so we can catch errors properly
             }
             if ($Force)
             {
@@ -167,6 +205,7 @@ function Update-AllModules
                 $updatedCount = 0
                 $failedCount = 0
                 $processedCount = 0
+                $skippedCount = 0
 
                 foreach ($module in $installedModules)
                 {
@@ -183,10 +222,10 @@ function Update-AllModules
                     }
                     Write-Progress -Activity 'Updating PowerShell modules' -Status "Updating $($module.Name)" -PercentComplete $percentComplete
 
+                    Write-Host "Updating module: $($module.Name) (current version: $($module.Version))" -ForegroundColor Cyan
+
                     try
                     {
-                        Write-Host "Updating module: $($module.Name) (current version: $($module.Version))" -ForegroundColor Cyan
-
                         $moduleUpdateParams = $updateParams.Clone()
                         $moduleUpdateParams.Name = $module.Name
 
@@ -194,19 +233,105 @@ function Update-AllModules
                         $updatedCount++
                         Write-Verbose "Successfully updated $($module.Name)"
                     }
-                    catch [System.InvalidOperationException]
+                    catch [Microsoft.PowerShell.Commands.WriteErrorException]
                     {
-                        if ($_.Exception.Message -like "*No match was found*")
+                        $errorMessage = $_.Exception.Message
+
+                        # Check for specific error conditions
+                        if ($errorMessage -like '*No match was found*')
                         {
                             Write-Warning "Module $($module.Name) not found in repository - skipping"
+                            $skippedCount++
                         }
-                        elseif ($_.Exception.Message -like "*newer version*")
+                        elseif ($errorMessage -like '*newer version*' -or $errorMessage -like '*already up to date*')
                         {
-                            Write-Host "Module $($module.Name) is already up to date" -ForegroundColor Green
+                            Write-Host "  Module $($module.Name) is already up to date" -ForegroundColor Green
+                            $skippedCount++
+                        }
+                        elseif ($UseElevation -and $script:IsWindowsPlatform -and $errorMessage -like '*Administrator rights are required*')
+                        {
+                            try
+                            {
+                                Write-Host '  Retrying with elevated privileges...' -ForegroundColor Yellow
+
+                                # Use Invoke-ElevatedCommand to update the module
+                                Invoke-ElevatedCommand -Scriptblock {
+                                    param($ModuleName, $ForceUpdate, $VerboseOutput)
+
+                                    $elevatedUpdateParams = @{
+                                        Name = $ModuleName
+                                        ErrorAction = 'Stop'
+                                    }
+                                    if ($ForceUpdate) { $elevatedUpdateParams.Force = $true }
+                                    if ($VerboseOutput) { $elevatedUpdateParams.Verbose = $true }
+
+                                    Update-Module @elevatedUpdateParams
+                                } -InputObject @($module.Name, $Force.IsPresent, ($VerbosePreference -eq 'Continue'))
+
+                                $updatedCount++
+
+                                Write-Host "  Successfully updated $($module.Name) with elevation" -ForegroundColor Green
+                                Write-Verbose "Successfully updated $($module.Name) with elevation"
+                            }
+                            catch
+                            {
+                                Write-Warning "Failed to update $($module.Name) even with elevation: $($_.Exception.Message)"
+                                $failedCount++
+                            }
                         }
                         else
                         {
-                            Write-Warning "Failed to update $($module.Name): $($_.Exception.Message)"
+                            Write-Warning "Failed to update $($module.Name): $errorMessage"
+                            $failedCount++
+                        }
+                    }
+                    catch [System.InvalidOperationException]
+                    {
+                        $errorMessage = $_.Exception.Message
+
+                        if ($errorMessage -like '*No match was found*')
+                        {
+                            Write-Warning "Module $($module.Name) not found in repository - skipping"
+                            $skippedCount++
+                        }
+                        elseif ($errorMessage -like '*newer version*')
+                        {
+                            Write-Host "  Module $($module.Name) is already up to date" -ForegroundColor Green
+                            $skippedCount++
+                        }
+                        elseif ($UseElevation -and $script:IsWindowsPlatform -and $errorMessage -like '*Administrator rights are required*')
+                        {
+                            try
+                            {
+                                Write-Host '  Retrying with elevated privileges...' -ForegroundColor Yellow
+
+                                # Use Invoke-ElevatedCommand to update the module
+                                Invoke-ElevatedCommand -Scriptblock {
+                                    param($ModuleName, $ForceUpdate, $VerboseOutput)
+
+                                    $elevatedUpdateParams = @{
+                                        Name = $ModuleName
+                                        ErrorAction = 'Stop'
+                                    }
+                                    if ($ForceUpdate) { $elevatedUpdateParams.Force = $true }
+                                    if ($VerboseOutput) { $elevatedUpdateParams.Verbose = $true }
+
+                                    Update-Module @elevatedUpdateParams
+                                } -InputObject @($module.Name, $Force.IsPresent, ($VerbosePreference -eq 'Continue'))
+
+                                $updatedCount++
+                                Write-Host "  Successfully updated $($module.Name) with elevation" -ForegroundColor Green
+                                Write-Verbose "Successfully updated $($module.Name) with elevation"
+                            }
+                            catch
+                            {
+                                Write-Warning "Failed to update $($module.Name) even with elevation: $($_.Exception.Message)"
+                                $failedCount++
+                            }
+                        }
+                        else
+                        {
+                            Write-Warning "Failed to update $($module.Name): $errorMessage"
                             $failedCount++
                         }
                     }
@@ -224,13 +349,21 @@ function Update-AllModules
                 {
                     Write-Host "Successfully updated $updatedCount module(s)" -ForegroundColor Green
                 }
+                if ($skippedCount -gt 0)
+                {
+                    Write-Host "$skippedCount module(s) were already up to date or skipped" -ForegroundColor Cyan
+                }
                 if ($failedCount -gt 0)
                 {
                     Write-Host "$failedCount module(s) failed to update" -ForegroundColor Yellow
+                    if ($UseElevation -eq $false -and $script:IsWindowsPlatform)
+                    {
+                        Write-Host '  Tip: Use -UseElevation parameter to automatically handle privilege elevation' -ForegroundColor Gray
+                    }
                 }
-                if ($updatedCount -eq 0 -and $failedCount -eq 0)
+                if ($updatedCount -eq 0 -and $failedCount -eq 0 -and $skippedCount -eq 0)
                 {
-                    Write-Host 'All modules are already up to date' -ForegroundColor Green
+                    Write-Host 'No modules were processed' -ForegroundColor Yellow
                 }
 
                 Write-Host 'Module update process completed' -ForegroundColor Green
