@@ -6,8 +6,9 @@ function Update-AllModules
 
     .DESCRIPTION
         This function updates all installed PowerShell modules to their latest versions from the PowerShell Gallery.
-        It includes error handling, supports excluding specific modules, and can optionally configure PSGallery trust.
-        Cross-platform compatible with PowerShell 5.1+ on Windows, macOS, and Linux.
+        Each module is updated individually with proper error handling and progress reporting. It supports excluding
+        specific modules and can optionally configure PSGallery trust. Cross-platform compatible with PowerShell 5.1+
+        on Windows, macOS, and Linux.
 
     .PARAMETER ExcludeModule
         Array of module names to exclude from updates.
@@ -151,28 +152,88 @@ function Update-AllModules
             # Update parameters
             $updateParams = @{
                 Verbose = $VerbosePreference -eq 'Continue'
+                ErrorAction = 'Continue'
             }
             if ($Force)
             {
                 $updateParams.Force = $true
             }
 
-            # Update all modules with ShouldProcess check
+            # Update each module individually with ShouldProcess check
             $moduleList = if ($installedModules.Count -eq 1) { $installedModules.Name } else { 'all installed modules' }
 
             if ($PSCmdlet.ShouldProcess($moduleList, 'Update PowerShell modules'))
             {
-                if ($installedModules.Count -eq 1)
+                $updatedCount = 0
+                $failedCount = 0
+                $processedCount = 0
+
+                foreach ($module in $installedModules)
                 {
-                    Write-Host "Updating module: $($installedModules.Name)" -ForegroundColor Cyan
-                }
-                else
-                {
-                    Write-Host 'Updating all modules...' -ForegroundColor Cyan
+                    $processedCount++
+
+                    # Calculate progress percentage
+                    $percentComplete = if ($installedModules.Count -gt 0)
+                    {
+                        ($processedCount / $installedModules.Count) * 100
+                    }
+                    else
+                    {
+                        0
+                    }
+                    Write-Progress -Activity 'Updating PowerShell modules' -Status "Updating $($module.Name)" -PercentComplete $percentComplete
+
+                    try
+                    {
+                        Write-Host "Updating module: $($module.Name) (current version: $($module.Version))" -ForegroundColor Cyan
+
+                        $moduleUpdateParams = $updateParams.Clone()
+                        $moduleUpdateParams.Name = $module.Name
+
+                        Update-Module @moduleUpdateParams
+                        $updatedCount++
+                        Write-Verbose "Successfully updated $($module.Name)"
+                    }
+                    catch [System.InvalidOperationException]
+                    {
+                        if ($_.Exception.Message -like "*No match was found*")
+                        {
+                            Write-Warning "Module $($module.Name) not found in repository - skipping"
+                        }
+                        elseif ($_.Exception.Message -like "*newer version*")
+                        {
+                            Write-Host "Module $($module.Name) is already up to date" -ForegroundColor Green
+                        }
+                        else
+                        {
+                            Write-Warning "Failed to update $($module.Name): $($_.Exception.Message)"
+                            $failedCount++
+                        }
+                    }
+                    catch
+                    {
+                        Write-Warning "Failed to update $($module.Name): $($_.Exception.Message)"
+                        $failedCount++
+                    }
                 }
 
-                Update-Module @updateParams
-                Write-Host 'Module update process completed successfully' -ForegroundColor Green
+                Write-Progress -Activity 'Updating PowerShell modules' -Completed
+
+                # Display summary
+                if ($updatedCount -gt 0)
+                {
+                    Write-Host "Successfully updated $updatedCount module(s)" -ForegroundColor Green
+                }
+                if ($failedCount -gt 0)
+                {
+                    Write-Host "$failedCount module(s) failed to update" -ForegroundColor Yellow
+                }
+                if ($updatedCount -eq 0 -and $failedCount -eq 0)
+                {
+                    Write-Host 'All modules are already up to date' -ForegroundColor Green
+                }
+
+                Write-Host 'Module update process completed' -ForegroundColor Green
             }
         }
         catch [System.InvalidOperationException]
