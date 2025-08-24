@@ -241,17 +241,6 @@ function Update-AllModules
             }
         }
 
-        # Configure TLS for secure connections
-        try
-        {
-            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-            Write-Verbose 'Configured TLS 1.2 for secure connections'
-        }
-        catch
-        {
-            Write-Warning "Could not configure TLS settings: $($_.Exception.Message)"
-        }
-
         # Configure PSGallery trust if requested
         if ($TrustPSGallery)
         {
