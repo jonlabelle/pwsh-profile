@@ -10,7 +10,8 @@
   ExcludeRules = @(
     'PSAvoidUsingWriteHost',
     'PSUseShouldProcessForStateChangingFunctions',
-    'PSAvoidGlobalVars'
+    'PSAvoidGlobalVars',
+    'PSReviewUnusedParameter' # This rule is broken and reports false positives
   )
 
   Rules = @{
