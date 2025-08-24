@@ -1,4 +1,4 @@
-function Update-AllModules
+﻿function Update-AllModules
 {
     <#
     .SYNOPSIS
