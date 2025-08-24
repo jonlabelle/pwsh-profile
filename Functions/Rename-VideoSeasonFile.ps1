@@ -6,26 +6,29 @@ function Rename-VideoSeasonFile
 
     .DESCRIPTION
         This function searches for video files with season/episode identifiers in their names
-        (patterns like S01E01) and renames them to a standardized uppercase format. It's useful
-        for organizing TV show collections to ensure consistent naming across all files.
+        (patterns like S01E01, s1e1, Season 1 Episode 1, etc.) and renames them to a standardized
+        uppercase format. It's useful for organizing TV show collections to ensure consistent
+        naming across all files.
 
-        The function looks for patterns like s01e01 or S01E01 in filenames and renames the file
-        to use the uppercase version (S01E01) while preserving the file extension.
+        The function supports multiple season/episode naming patterns and preserves the original
+        filename structure while standardizing the season/episode identifier.
 
     .PARAMETER Path
-        The directory path to search for video files.
+        The directory path(s) to search for video files.
+        Accepts an array of paths and supports pipeline input.
         Default is the current working directory.
+        Must be valid directory paths.
 
     .PARAMETER Filters
         The file extensions to search for.
-        Default filters are @('*.mkv', '*.mp4', '*.mov', '*.avi').
-
-    .PARAMETER WhatIf
-        When specified, shows what would happen if the command runs but doesn't perform the actual rename operation.
+        Default filters are @('*.mkv', '*.mp4', '*.mov', '*.avi', '*.m4v', '*.wmv').
 
     .PARAMETER Exclude
-        Specifies paths to exclude from the search.
-        Default exclusions are @('.git', 'node_modules').
+        Specifies directory names to exclude from the search.
+        Default exclusions are @('.git', 'node_modules', '.vscode').
+
+    .PARAMETER PassThru
+        Returns objects representing the renamed files.
 
     .EXAMPLE
         PS> Rename-VideoSeasonFile -Verbose -WhatIf
@@ -36,72 +39,279 @@ function Rename-VideoSeasonFile
         Renames all MP4 files in the specified directory that contain season identifiers.
 
     .EXAMPLE
-        PS> Rename-VideoSeasonFile -Path 'D:\Downloads' -Exclude @('.git', 'node_modules', 'temp')
-        Renames video files in the Downloads folder, excluding any in the specified directories.
+        PS> Rename-VideoSeasonFile -Path 'D:\Downloads' -Exclude @('.git', 'node_modules', 'temp') -PassThru
+        Renames video files in the Downloads folder, excluding specified directories, and returns information about renamed files.
+
+    .EXAMPLE
+        PS> Rename-VideoSeasonFile -Path @('D:\TV Shows\Breaking Bad', 'D:\TV Shows\Better Call Saul') -Filters '*.mp4' -Verbose
+        Renames all MP4 files in multiple specified directories that contain season identifiers.
+
+    .EXAMPLE
+        PS> @('D:\TV Shows', 'D:\Movies') | Rename-VideoSeasonFile -PassThru
+        Renames video files in multiple directories using pipeline input and returns information about renamed files.
+
+    .EXAMPLE
+        PS> Get-ChildItem -Directory 'D:\TV Shows' | Rename-VideoSeasonFile -Verbose
+        Processes video files in all subdirectories of the TV Shows folder via pipeline input.
+
+    .OUTPUTS
+        System.IO.FileInfo
+        When PassThru is specified, returns FileInfo objects for renamed files.
 
     .NOTES
-        Version: 1.1.0
-        Date: January 14, 2023
+        Version: 2.0.0
+        Date: August 24, 2025
         Author: Jon LaBelle
         License: MIT
+
+        Supported patterns:
+        - S01E01, s01e01 (standard format)
+        - S1E1, s1e1 (short format)
+        - Season 1 Episode 1, season 1 episode 1
+        - 1x01, 1X01 (alternative format)
 
     .LINK
         https://jonlabelle.com/snippets/view/powershell/rename-video-season-sequence-files-in-powershell
     #>
     [CmdletBinding(SupportsShouldProcess)]
+    [OutputType([System.IO.FileInfo])]
     param(
-        [Parameter()]
-        [String]
-        $Path = $pwd,
+        [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Alias('Directory', 'Folder', 'Location')]
+        [ValidateScript({
+                if (-not (Test-Path -Path $_ -PathType Container))
+                {
+                    throw "Path '$_' does not exist or is not a directory."
+                }
+                $true
+            })]
+        [String[]]$Path = @($PWD.Path),
 
         [Parameter()]
-        [String[]]
-        $Filters = @('*.mkv', '*.mp4', '*.mov', '*.avi'),
+        [ValidateNotNullOrEmpty()]
+        [String[]]$Filters = @('*.mkv', '*.mp4', '*.mov', '*.avi', '*.m4v', '*.wmv'),
 
         [Parameter()]
-        [String[]]
-        $Exclude = @('.git', 'node_modules')
+        [ValidateNotNullOrEmpty()]
+        [String[]]$Exclude = @('.git', 'node_modules', '.vscode'),
+
+        [Parameter()]
+        [Switch]$PassThru
     )
 
-    if (-not [System.String]::IsNullOrWhiteSpace($Path))
+    begin
     {
-        foreach ($filter in $Filters)
+        Write-Verbose "Starting video file rename process for $($Path.Count) path(s)"
+
+        # Enhanced regex patterns to match various season/episode formats
+        $patterns = @(
+            [PSCustomObject]@{
+                Name = 'Standard'
+                Regex = '[Ss](\d{1,2})[Ee](\d{1,2})'
+                Description = 'S01E01 or s01e01 format'
+            },
+            [PSCustomObject]@{
+                Name = 'Alternative'
+                Regex = '(\d{1,2})[xX](\d{1,2})'
+                Description = '1x01 or 1X01 format'
+            },
+            [PSCustomObject]@{
+                Name = 'Verbose'
+                Regex = '[Ss]eason\s*(\d{1,2})\s*[Ee]pisode\s*(\d{1,2})'
+                Description = 'Season 1 Episode 01 format'
+            }
+        )
+
+        $renamedFiles = [System.Collections.Generic.List[System.IO.FileInfo]]::new()
+        $processedCount = 0
+        $renamedCount = 0
+        $totalFilesAcrossAllPaths = 0
+        $startTime = Get-Date
+    }
+
+    process
+    {
+        # First pass: collect all files to get total count for progress reporting
+        $allFilesToProcess = @()
+
+        foreach ($currentPath in $Path)
         {
-            $files = @(Get-ChildItem -Path $Path -Filter $filter -Recurse -File -Exclude $Exclude | Where-Object { $_.BaseName -cmatch '[Ss]\d{2}[Ee]\d{2}' })
+            Write-Verbose "Scanning path: $currentPath"
 
-            foreach ($file in $files)
+            if ([String]::IsNullOrWhiteSpace($currentPath))
             {
-                Write-Verbose ("Checking '{0}' in '{1}'" -f $file.Name, $file.Directory.FullName)
+                Write-Warning 'Path parameter is null or empty, skipping.'
+                continue
+            }
 
-                if ($file.BaseName -cmatch '[Ss]\d{2}[Ee]\d{2}')
+            # Validate Input Directory
+            if (-not (Test-Path -Path $currentPath -PathType Container))
+            {
+                Write-Error "Input directory not found: '$currentPath'"
+                continue
+            }
+
+            # Get all video files for current path
+            $allVideoFiles = @()
+            foreach ($filter in $Filters)
+            {
+                try
                 {
-                    $fileExtension = $file.Extension
-                    $matchedFile = $Matches.0
-
-                    if (-not $matchedFile)
-                    {
-                        Write-Verbose ("Regex numbered matching group returned null, ignoring file '{0}'" -f $file.FullName)
-                        continue
-                    }
-
-                    if ($matchedFile -ceq $file.BaseName.ToUpper())
-                    {
-                        Write-Verbose ("'{0}' is already formatted" -f $file.Name)
-                    }
-                    else
-                    {
-                        if ($PSCmdlet.ShouldProcess($file.FullName, 'Rename file'))
+                    $filesForFilter = Get-ChildItem -Path $currentPath -Filter $filter -Recurse -File -ErrorAction Stop |
+                    Where-Object {
+                        # Exclude files in specified directories
+                        $exclude = $false
+                        foreach ($excludeDir in $Exclude)
                         {
-                            $newFileName = ('{0}{1}' -f $matchedFile.ToUpper().Trim(), $fileExtension.ToLower().Trim())
-                            Move-Item -LiteralPath $file.FullName -Destination (Join-Path -Path $file.DirectoryName -ChildPath $newFileName)
+                            if ($_.DirectoryName -like "*$([System.IO.Path]::DirectorySeparatorChar)$excludeDir$([System.IO.Path]::DirectorySeparatorChar)*" -or
+                                $_.DirectoryName -like "*$([System.IO.Path]::DirectorySeparatorChar)$excludeDir")
+                            {
+                                $exclude = $true
+                                break
+                            }
                         }
+                        -not $exclude
                     }
+                    $allVideoFiles += $filesForFilter
                 }
-                else
+                catch
                 {
-                    Write-Verbose ("File does not match rename criteria: '{0}'" -f $file.FullName)
+                    Write-Error "Error searching for files with filter '$filter' in path '$currentPath': $($_.Exception.Message)"
+                    continue
                 }
             }
+
+            foreach ($file in $allVideoFiles)
+            {
+                $allFilesToProcess += [PSCustomObject]@{
+                    File = $file
+                    SourcePath = $currentPath
+                }
+            }
+        }
+
+        $totalFilesAcrossAllPaths = $allFilesToProcess.Count
+
+        if ($totalFilesAcrossAllPaths -eq 0)
+        {
+            Write-Warning 'No video files with supported extensions found in any of the specified paths'
+            return
+        }
+
+        Write-Verbose "Found $totalFilesAcrossAllPaths video files to process across all paths"
+
+        # Second pass: process all files with unified progress reporting
+        foreach ($fileInfo in $allFilesToProcess)
+        {
+            $processedCount++
+            $file = $fileInfo.File
+            $currentPath = $fileInfo.SourcePath
+
+            Write-Verbose "Processing file $processedCount/$($totalFilesAcrossAllPaths): '$($file.Name)' from '$currentPath'"
+
+            $matchFound = $false
+            $newBaseName = $null
+
+            # Try each pattern until we find a match
+            foreach ($pattern in $patterns)
+            {
+                if ($file.BaseName -match $pattern.Regex)
+                {
+                    $matchFound = $true
+                    $season = $Matches[1].PadLeft(2, '0')
+                    $episode = $Matches[2].PadLeft(2, '0')
+
+                    # Create standardized S##E## format
+                    $standardFormat = "S${season}E${episode}"
+
+                    # Replace the matched pattern with standardized format
+                    $newBaseName = $file.BaseName -replace $pattern.Regex, $standardFormat
+
+                    Write-Verbose "Matched pattern '$($pattern.Name)' ($($pattern.Description))"
+                    Write-Verbose "Season: $season, Episode: $episode"
+                    break
+                }
+            }
+
+            if (-not $matchFound)
+            {
+                Write-Verbose "No season/episode pattern found in: '$($file.Name)'"
+                continue
+            }
+
+            # Check if rename is needed
+            if ($newBaseName -ceq $file.BaseName)
+            {
+                Write-Verbose "File already has correct format: '$($file.Name)'"
+                continue
+            }
+
+            $newFileName = "$newBaseName$($file.Extension.ToLower())"
+            $newFullPath = [System.IO.Path]::Combine($file.DirectoryName, $newFileName)
+
+            # Check if target file already exists
+            if (Test-Path -Path $newFullPath -PathType Leaf)
+            {
+                Write-Warning "Target file already exists, skipping: '$newFileName'"
+                continue
+            }
+
+            if ($PSCmdlet.ShouldProcess($file.FullName, "Rename to '$newFileName'"))
+            {
+                try
+                {
+                    Write-Verbose "Renaming: '$($file.Name)' -> '$newFileName'"
+                    $renamedFile = Move-Item -LiteralPath $file.FullName -Destination $newFullPath -PassThru -ErrorAction Stop
+                    $renamedFiles.Add($renamedFile)
+                    $renamedCount++
+
+                    Write-Host 'Renamed: ' -ForegroundColor Green -NoNewline
+                    Write-Host "'$($file.Name)' " -ForegroundColor White -NoNewline
+                    Write-Host '-> ' -ForegroundColor Yellow -NoNewline
+                    Write-Host "'$newFileName'" -ForegroundColor Cyan
+                }
+                catch
+                {
+                    Write-Error "Failed to rename '$($file.Name)': $($_.Exception.Message)"
+                }
+            }
+        }
+    }
+
+    end
+    {
+        # Calculate elapsed time
+        $endTime = Get-Date
+        $elapsedTime = $endTime - $startTime
+        $elapsedFormatted = if ($elapsedTime.TotalMinutes -ge 1)
+        {
+            '{0:mm\:ss}' -f $elapsedTime
+        }
+        else
+        {
+            '{0:ss\.ff} seconds' -f $elapsedTime
+        }
+
+        Write-Verbose 'Rename operation completed'
+        Write-Verbose "Files processed: $processedCount"
+        Write-Verbose "Files renamed: $renamedCount"
+        Write-Verbose "Total elapsed time: $elapsedFormatted"
+
+        if ($processedCount -gt 0)
+        {
+            Write-Host "`nSummary: " -ForegroundColor Magenta -NoNewline
+            Write-Host "Processed $processedCount files across $($Path.Count) path(s), renamed $renamedCount files" -ForegroundColor White
+
+            if ($elapsedTime.TotalSeconds -ge 1)
+            {
+                Write-Host 'Elapsed time: ' -ForegroundColor Cyan -NoNewline
+                Write-Host "$elapsedFormatted" -ForegroundColor White
+            }
+        }
+
+        if ($PassThru -and $renamedFiles.Count -gt 0)
+        {
+            return $renamedFiles.ToArray()
         }
     }
 }
