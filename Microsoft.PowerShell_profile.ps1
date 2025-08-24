@@ -193,7 +193,7 @@ function Show-ProfileUpdateNotification
     {
         Write-Debug "Could not show profile update notification: $($_.Exception.Message)"
     }
-}# (New-Object System.Net.WebClient).Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
+}
 
 # Show the profile path in the console when in interactive mode
 if ($Host.UI.RawUI -and [Environment]::UserInteractive)
