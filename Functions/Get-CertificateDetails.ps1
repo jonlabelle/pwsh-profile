@@ -1,4 +1,4 @@
-function Get-CertificateDetail
+function Get-CertificateDetails
 {
     <#
     .SYNOPSIS
@@ -31,27 +31,27 @@ function Get-CertificateDetail
         Key Usage, Extended Key Usage, and other X.509 extensions.
 
     .EXAMPLE
-        PS > Get-CertificateDetail -ComputerName 'google.com'
+        PS > Get-CertificateDetails -ComputerName 'google.com'
 
         Gets detailed SSL certificate information for google.com on port 443.
 
     .EXAMPLE
-        PS > Get-CertificateDetail -ComputerName 'example.com' -Port 8443
+        PS > Get-CertificateDetails -ComputerName 'example.com' -Port 8443
 
         Gets detailed SSL certificate information for example.com on port 8443.
 
     .EXAMPLE
-        PS > @('google.com', 'github.com', 'stackoverflow.com') | Get-CertificateDetail
+        PS > @('google.com', 'github.com', 'stackoverflow.com') | Get-CertificateDetails
 
         Gets detailed SSL certificate information for multiple hosts using pipeline input.
 
     .EXAMPLE
-        PS > Get-CertificateDetail -ComputerName 'secure.company.com' -Timeout 5000 -IncludeChain
+        PS > Get-CertificateDetails -ComputerName 'secure.company.com' -Timeout 5000 -IncludeChain
 
         Gets certificate details with a 5-second timeout and includes certificate chain information.
 
     .EXAMPLE
-        PS > Get-CertificateDetail -ComputerName 'api.service.com' -IncludeExtensions
+        PS > Get-CertificateDetails -ComputerName 'api.service.com' -IncludeExtensions
 
         Gets certificate details including X.509 extensions like Subject Alternative Names.
 
@@ -70,7 +70,7 @@ function Get-CertificateDetail
         The certificate validation callback is set to always return true to retrieve certificates
         even if they have validation issues (expired, self-signed, etc.).
     #>
-
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding()]
     [OutputType([System.Management.Automation.PSCustomObject])]
     param

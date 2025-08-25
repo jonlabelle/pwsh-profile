@@ -54,7 +54,7 @@ The profile includes various utility commands organized by category:
 ### 🌐 Network & DNS
 
 - **`Get-CertificateExpiration`** — Gets SSL/TLS certificate expiration dates from remote hosts
-- **`Get-CertificateDetails`** — Retrieves detailed SSL/TLS certificate information from remote hosts
+- **`Get-CertificateDetailss`** — Retrieves detailed SSL/TLS certificate information from remote hosts
 - **`Send-TcpRequest`** — Sends TCP requests and retrieves responses for network testing
 - **`Test-DnsNameResolution`** — Tests DNS name resolution using cross-platform .NET methods
 - **`Test-Port`** — Tests TCP/UDP port connectivity with detailed connection information
