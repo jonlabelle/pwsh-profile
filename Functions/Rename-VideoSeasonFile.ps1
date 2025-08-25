@@ -6,12 +6,13 @@ function Rename-VideoSeasonFile
 
     .DESCRIPTION
         This function searches for video files with season/episode identifiers in their names
-        (patterns like S01E01, s1e1, Season 1 Episode 1, etc.) and renames them to a standardized
-        uppercase format. It's useful for organizing TV show collections to ensure consistent
-        naming across all files.
+        (patterns like S01E01, s1e1, Season 1 Episode 1, etc.) and renames them to a clean,
+        standardized format containing only the season/episode identifier. It's useful for
+        organizing TV show collections by removing extra information like quality indicators,
+        release groups, and other metadata from filenames.
 
-        The function supports multiple season/episode naming patterns and preserves the original
-        filename structure while standardizing the season/episode identifier.
+        The function creates clean filenames in the format S##E##.ext (e.g., S01E01.mkv)
+        regardless of the original filename complexity.
 
     .PARAMETER Path
         The directory path(s) to search for video files.
@@ -36,7 +37,8 @@ function Rename-VideoSeasonFile
 
     .EXAMPLE
         PS> Rename-VideoSeasonFile -Path 'D:\TV Shows\Breaking Bad' -Filters '*.mp4' -Verbose
-        Renames all MP4 files in the specified directory that contain season identifiers.
+        Renames all MP4 files in the specified directory that contain season identifiers to clean S##E##.mp4 format.
+        For example: "Breaking.Bad.S01E01.1080p.BluRay.x264-DEMAND.mp4" becomes "S01E01.mp4"
 
     .EXAMPLE
         PS> Rename-VideoSeasonFile -Path 'D:\Downloads' -Exclude @('.git', 'node_modules', 'temp') -PassThru
@@ -157,21 +159,28 @@ function Rename-VideoSeasonFile
             {
                 try
                 {
-                    $filesForFilter = Get-ChildItem -Path $currentPath -Filter $filter -Recurse -File -ErrorAction Stop |
-                    Where-Object {
-                        # Exclude files in specified directories
-                        $exclude = $false
-                        foreach ($excludeDir in $Exclude)
-                        {
-                            if ($_.DirectoryName -like "*$([System.IO.Path]::DirectorySeparatorChar)$excludeDir$([System.IO.Path]::DirectorySeparatorChar)*" -or
-                                $_.DirectoryName -like "*$([System.IO.Path]::DirectorySeparatorChar)$excludeDir")
+                    $filesForFilter = Get-ChildItem -Path $currentPath -Filter $filter -Recurse -File -ErrorAction Stop
+
+                    # Apply exclusion filter if needed
+                    if ($Exclude.Count -gt 0)
+                    {
+                        $filesForFilter = $filesForFilter | Where-Object {
+                            $filePath = $_.DirectoryName
+                            $shouldExclude = $false
+                            foreach ($excludeDir in $Exclude)
                             {
-                                $exclude = $true
-                                break
+                                if ($filePath -like "*$([System.IO.Path]::DirectorySeparatorChar)$excludeDir" -or
+                                    $filePath -like "*$([System.IO.Path]::DirectorySeparatorChar)$excludeDir$([System.IO.Path]::DirectorySeparatorChar)*")
+                                {
+                                    $shouldExclude = $true
+                                    break
+                                }
                             }
+                            -not $shouldExclude
                         }
-                        -not $exclude
                     }
+
+                    Write-Verbose "Found $($filesForFilter.Count) files with filter '$filter'"
                     $allVideoFiles += $filesForFilter
                 }
                 catch
@@ -221,14 +230,12 @@ function Rename-VideoSeasonFile
                     $season = $Matches[1].PadLeft(2, '0')
                     $episode = $Matches[2].PadLeft(2, '0')
 
-                    # Create standardized S##E## format
-                    $standardFormat = "S${season}E${episode}"
-
-                    # Replace the matched pattern with standardized format
-                    $newBaseName = $file.BaseName -replace $pattern.Regex, $standardFormat
+                    # Create standardized S##E## format as the entire new basename
+                    $newBaseName = "S${season}E${episode}"
 
                     Write-Verbose "Matched pattern '$($pattern.Name)' ($($pattern.Description))"
                     Write-Verbose "Season: $season, Episode: $episode"
+                    Write-Verbose "Clean filename will be: $newBaseName$($file.Extension.ToLower())"
                     break
                 }
             }
