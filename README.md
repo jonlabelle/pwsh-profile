@@ -88,7 +88,7 @@ The profile includes various utility commands organized by category:
 
 ### 🔧 Utilities
 
-- **`Get-CmdletAlias`** — Displays aliases for PowerShell cmdlets
+- **`Get-CommandAlias`** — Displays aliases for PowerShell cmdlets
 - **`Get-IPSubnet`** — Calculates IP subnet information including network/broadcast addresses
 - **`New-RandomAlphaNumericString`** — Generates random alphanumeric strings for passwords/tokens
 

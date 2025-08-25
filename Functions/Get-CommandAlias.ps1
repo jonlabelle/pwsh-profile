@@ -1,22 +1,22 @@
-function Get-CmdletAlias
+function Get-CommandAlias
 {
     <#
     .SYNOPSIS
-        Lists all aliases for the specified cmdlet.
+        Lists all aliases for the specified PowerShell command.
 
     .DESCRIPTION
-        This function retrieves and displays all defined aliases that reference a specific cmdlet.
-        It helps users discover alternative shorthand ways to call frequently used cmdlets.
-        Supports wildcard patterns for flexible cmdlet name matching.
+        This function retrieves and displays all defined aliases that reference a specific command.
+        It helps users discover alternative shorthand ways to call frequently used commands.
+        Supports wildcard patterns for flexible command name matching.
 
         Compatible with PowerShell Desktop 5.1+ on Windows, macOS, and Linux.
 
-    .PARAMETER CmdletName
-        The name of the cmdlet to find aliases for. Can be a partial name (wildcards are supported).
+    .PARAMETER Name
+        The name of the command to find aliases for. Can be a partial name (wildcards are supported).
         This parameter is mandatory and supports pipeline input.
 
     .EXAMPLE
-        PS> Get-CmdletAlias -CmdletName Get-ChildItem
+        PS> Get-CommandAlias -Name Get-ChildItem
 
         Definition    Name
         ----------    ----
@@ -24,20 +24,20 @@ function Get-CmdletAlias
         Get-ChildItem gci
         Get-ChildItem ls
 
-        Lists all aliases defined for the Get-ChildItem cmdlet.
+        Lists all aliases defined for the Get-ChildItem command.
 
     .EXAMPLE
-        PS> Get-CmdletAlias -CmdletName Select*
+        PS> Get-CommandAlias -Name Select*
 
         Definition    Name
         ----------    ----
         Select-Object select
         Select-String sls
 
-        Lists all aliases for cmdlets that start with "Select".
+        Lists all aliases for commands that start with "Select".
 
     .EXAMPLE
-        PS> 'Get-Process', 'Get-Service' | Get-CmdletAlias
+        PS> 'Get-Process', 'Get-Service' | Get-CommandAlias
 
         Definition  Name
         ----------  ----
@@ -45,11 +45,11 @@ function Get-CmdletAlias
         Get-Process ps
         Get-Service gsv
 
-        Gets aliases for multiple cmdlets using pipeline input.
+        Gets aliases for multiple commands using pipeline input.
 
     .OUTPUTS
         System.Object
-        A formatted table showing the cmdlet definition and its corresponding aliases.
+        A formatted table showing the command definition and its corresponding aliases.
 
     .NOTES
         This function is commonly added to PowerShell profiles for quick alias reference.
@@ -69,7 +69,7 @@ function Get-CmdletAlias
         [Parameter(Mandatory, ValueFromPipeline, Position = 0)]
         [ValidateNotNullOrEmpty()]
         [String]
-        $CmdletName
+        $Name
     )
 
     begin
@@ -79,21 +79,21 @@ function Get-CmdletAlias
 
     process
     {
-        Write-Verbose "Looking up aliases for cmdlet: '$CmdletName'"
+        Write-Verbose "Looking up aliases for cmdlet: '$Name'"
 
         try
         {
-            $aliases = Get-Alias | Where-Object -FilterScript { $_.Definition -like "$CmdletName" }
+            $aliases = Get-Alias | Where-Object -FilterScript { $_.Definition -like "$Name" }
 
             if ($aliases)
             {
-                Write-Verbose "Found $($aliases.Count) alias(es) for '$CmdletName'"
+                Write-Verbose "Found $($aliases.Count) alias(es) for '$Name'"
                 $aliases | Format-Table -Property Definition, Name -AutoSize
             }
             else
             {
-                Write-Verbose "No aliases found for cmdlet: '$CmdletName'"
-                Write-Warning "No aliases found for cmdlet: '$CmdletName'"
+                Write-Verbose "No aliases found for cmdlet: '$Name'"
+                Write-Warning "No aliases found for cmdlet: '$Name'"
             }
         }
         catch
