@@ -21,11 +21,16 @@ function Prompt
         if ($global:ProfileUpdateCheckCompleted -and $global:ProfileUpdatesAvailable)
         {
             # Updates were found by the timer - show full notification now
-            # Mark as shown immediately to prevent duplicate prompts
-            $global:ProfileUpdatePromptShown = $true
-            # Show the full notification with git log and Y/N prompt for both PowerShell versions
-            Show-ProfileUpdateNotification
-            return ' > '  # Return early to avoid duplicate prompt output
+            # For PowerShell Desktop 5.1, this is the primary notification method
+            # For PowerShell Core, this provides the full experience if user presses Enter after the brief notification
+            if ($PSVersionTable.PSVersion.Major -lt 6 -or $PSVersionTable.PSVersion.Major -ge 6)
+            {
+                # Mark as shown immediately to prevent duplicate prompts
+                $global:ProfileUpdatePromptShown = $true
+                # Show the full notification with git log and Y/N prompt
+                Show-ProfileUpdateNotification
+                return ' > '  # Return early to avoid duplicate prompt output
+            }
         }
         elseif (-not $global:ProfileUpdateCheckStarted -and $PSVersionTable.PSVersion.Major -lt 6)
         {
@@ -234,8 +239,39 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                     $global:ProfileUpdatesAvailable = $true
                     $global:ProfileUpdateCheckCompleted = $true
 
-                    # For both PowerShell Desktop 5.1 and PowerShell Core, let the prompt handle the notification
-                    # This ensures consistent behavior with the full git log and Y/N prompt
+                    # For PowerShell Core, show immediate brief notification since prompt won't trigger automatically
+                    # For PowerShell Desktop 5.1, rely on the prompt to show the full notification
+                    if ($PSVersionTable.PSVersion.Major -ge 6)
+                    {
+                        try
+                        {
+                            # Schedule a simple notification to display after a short delay
+                            $notificationTimer = New-Object System.Timers.Timer
+                            $notificationTimer.Interval = 1000  # 1 second delay
+                            $notificationTimer.AutoReset = $false
+                            $notificationTimer.Enabled = $true
+
+                            $notificationAction = {
+                                try
+                                {
+                                    Write-Host ''
+                                    Write-Host 'Profile updates are available!' -ForegroundColor Yellow
+                                    Write-Host 'Press Enter and then run Update-Profile to see the changes and update.' -ForegroundColor Gray
+                                    Write-Host ''
+                                }
+                                catch
+                                {
+                                    Write-Debug "Could not show notification: $($_.Exception.Message)"
+                                }
+                            }
+
+                            Register-ObjectEvent -InputObject $notificationTimer -EventName Elapsed -Action $notificationAction
+                        }
+                        catch
+                        {
+                            Write-Debug "Could not set up notification timer: $($_.Exception.Message)"
+                        }
+                    }
                 }
             }
             else
