@@ -20,15 +20,12 @@ function Prompt
     {
         if ($global:ProfileUpdateCheckCompleted -and $global:ProfileUpdatesAvailable)
         {
-            # Updates were found by the timer - show notification now
-            if ($PSVersionTable.PSVersion.Major -lt 6)
-            {
-                # Mark as shown immediately to prevent duplicate prompts
-                $global:ProfileUpdatePromptShown = $true
-                # For PowerShell Desktop 5.1, show the full notification in the prompt
-                Show-ProfileUpdateNotification
-                return ' > '  # Return early to avoid duplicate prompt output
-            }
+            # Updates were found by the timer - show full notification now
+            # Mark as shown immediately to prevent duplicate prompts
+            $global:ProfileUpdatePromptShown = $true
+            # Show the full notification with git log and Y/N prompt for both PowerShell versions
+            Show-ProfileUpdateNotification
+            return ' > '  # Return early to avoid duplicate prompt output
         }
         elseif (-not $global:ProfileUpdateCheckStarted -and $PSVersionTable.PSVersion.Major -lt 6)
         {
@@ -237,21 +234,8 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                     $global:ProfileUpdatesAvailable = $true
                     $global:ProfileUpdateCheckCompleted = $true
 
-                    # For PowerShell Desktop 5.1, rely entirely on the prompt to show notifications
-                    # For PowerShell Core, show an immediate brief notification
-                    if ($PSVersionTable.PSVersion.Major -ge 6)
-                    {
-                        try
-                        {
-                            Write-Host 'Profile updates are available! Run Update-Profile to get the latest changes.' -ForegroundColor Yellow
-                            $global:ProfileUpdatePromptShown = $true
-                        }
-                        catch
-                        {
-                            # If immediate notification fails, the prompt will handle it
-                            Write-Debug "Could not show immediate notification: $($_.Exception.Message)"
-                        }
-                    }
+                    # For both PowerShell Desktop 5.1 and PowerShell Core, let the prompt handle the notification
+                    # This ensures consistent behavior with the full git log and Y/N prompt
                 }
             }
             else
