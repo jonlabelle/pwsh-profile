@@ -21,16 +21,12 @@ function Prompt
         if ($global:ProfileUpdateCheckCompleted -and $global:ProfileUpdatesAvailable)
         {
             # Updates were found by the timer - show full notification now
-            # For PowerShell Desktop 5.1, this is the primary notification method
-            # For PowerShell Core, this provides the full experience if user presses Enter after the brief notification
-            if ($PSVersionTable.PSVersion.Major -lt 6 -or $PSVersionTable.PSVersion.Major -ge 6)
-            {
-                # Mark as shown immediately to prevent duplicate prompts
-                $global:ProfileUpdatePromptShown = $true
-                # Show the full notification with git log and Y/N prompt
-                Show-ProfileUpdateNotification
-                return ' > '  # Return early to avoid duplicate prompt output
-            }
+            # This works for both PowerShell Desktop 5.1 and PowerShell Core
+            # Mark as shown immediately to prevent duplicate prompts
+            $global:ProfileUpdatePromptShown = $true
+            # Show the full notification with git log and Y/N prompt
+            Show-ProfileUpdateNotification
+            return ' > '  # Return early to avoid duplicate prompt output
         }
         elseif (-not $global:ProfileUpdateCheckStarted -and $PSVersionTable.PSVersion.Major -lt 6)
         {
@@ -266,54 +262,32 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                     $global:ProfileUpdatesAvailable = $true
                     $global:ProfileUpdateCheckCompleted = $true
 
-                    # For PowerShell Core, show the full notification with git log after a short delay
-                    # For PowerShell Desktop 5.1, rely on the prompt to show the full notification
+                    # For PowerShell Core, we need to actively trigger the notification
+                    # since the Prompt function may not be called automatically after the timer
                     if ($PSVersionTable.PSVersion.Major -ge 6)
                     {
-                        try
-                        {
-                            # Schedule the full notification to display after a short delay
-                            $notificationTimer = New-Object System.Timers.Timer
-                            $notificationTimer.Interval = 1000  # 1 second delay
-                            $notificationTimer.AutoReset = $false
-                            $notificationTimer.Enabled = $true
+                        # Use a short timer to trigger the notification after the main timer completes
+                        $notificationTimer = New-Object System.Timers.Timer
+                        $notificationTimer.Interval = 500  # Short delay
+                        $notificationTimer.AutoReset = $false
+                        $notificationTimer.Enabled = $true
 
-                            $notificationAction = {
-                                try
+                        $notificationAction = {
+                            # Force call to the prompt logic
+                            if ($global:ProfileUpdateCheckCompleted -and $global:ProfileUpdatesAvailable -and -not $global:ProfileUpdatePromptShown)
+                            {
+                                $global:ProfileUpdatePromptShown = $true
+                                # Import and call Show-ProfileUpdateNotification
+                                $profileScript = Join-Path -Path $script:ProfileRootForUpdateCheck -ChildPath 'Microsoft.PowerShell_profile.ps1'
+                                if (Test-Path -Path $profileScript)
                                 {
-                                    # Import the Show-ProfileUpdateNotification function
-                                    $profilePath = $script:ProfileRootForUpdateCheck
-                                    if ($profilePath)
-                                    {
-                                        $profileScript = Join-Path -Path $profilePath -ChildPath 'Microsoft.PowerShell_profile.ps1'
-                                        if (Test-Path -Path $profileScript)
-                                        {
-                                            # Source the profile to get the Show-ProfileUpdateNotification function
-                                            . $profileScript
-                                            # Mark as shown to prevent duplicate prompts
-                                            $global:ProfileUpdatePromptShown = $true
-                                            # Show the full notification with git log and Y/N prompt
-                                            Show-ProfileUpdateNotification
-                                        }
-                                    }
-                                }
-                                catch
-                                {
-                                    Write-Debug "Could not show full notification: $($_.Exception.Message)"
-                                    # Fallback to brief notification
-                                    Write-Host ''
-                                    Write-Host 'Profile updates are available!' -ForegroundColor Yellow
-                                    Write-Host 'Run Update-Profile to see the changes and update.' -ForegroundColor Gray
-                                    Write-Host ''
+                                    . $profileScript
+                                    Show-ProfileUpdateNotification
                                 }
                             }
+                        }
 
-                            Register-ObjectEvent -InputObject $notificationTimer -EventName Elapsed -Action $notificationAction
-                        }
-                        catch
-                        {
-                            Write-Debug "Could not set up notification timer: $($_.Exception.Message)"
-                        }
+                        Register-ObjectEvent -InputObject $notificationTimer -EventName Elapsed -Action $notificationAction
                     }
                 }
             }
