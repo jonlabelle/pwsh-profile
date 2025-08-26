@@ -1,13 +1,14 @@
-function New-RandomAlphaNumericString
+function New-RandomString
 {
     <#
     .SYNOPSIS
-        Generates a random alphanumeric string of specified length.
+        Generates a random string of specified length.
 
     .DESCRIPTION
         This function generates a random string consisting of uppercase letters,
-        lowercase letters, and numbers (0-9, A-Z, a-z). It's useful for creating
-        random passwords, IDs, or other unique identifiers.
+        lowercase letters, and numbers (0-9, A-Z, a-z). When the IncludeSymbols
+        parameter is specified, it can also include common symbols (!@#$%^&*).
+        It's useful for creating random passwords, IDs, tokens, or other unique identifiers.
 
         Compatible with PowerShell Desktop 5.1+ on Windows, macOS, and Linux.
 
@@ -27,24 +28,25 @@ function New-RandomAlphaNumericString
         Recommended for passwords and security tokens.
 
     .EXAMPLE
-        PS> New-RandomAlphaNumericString
-        Returns a random 32-character alphanumeric string.
+        PS> New-RandomString
+        Returns a random 32-character string using alphanumeric characters.
 
     .EXAMPLE
-        PS> New-RandomAlphaNumericString -Length 16
-        Returns a random 16-character alphanumeric string.
+        PS> New-RandomString -Length 16
+        Returns a random 16-character string using alphanumeric characters.
 
     .EXAMPLE
-        PS> New-RandomAlphaNumericString -Length 64 -ExcludeAmbiguous
-        Returns a random 64-character string without ambiguous characters.
+        PS> New-RandomString -Length 64 -ExcludeAmbiguous
+        Returns a random 64-character string without ambiguous characters (0, O, 1, l, I).
 
     .EXAMPLE
-        PS> New-RandomAlphaNumericString -Length 20 -IncludeSymbols -Secure
-        Returns a 20-character string with symbols using secure random generation.
+        PS> New-RandomString -Length 20 -IncludeSymbols -Secure
+        Returns a 20-character string including symbols using secure random generation.
 
     .OUTPUTS
         System.String
         Returns a string of random characters based on the specified parameters.
+        Character set includes alphanumeric characters and optionally symbols.
 
     .NOTES
         - Compatible with PowerShell Desktop 5.1+ and PowerShell Core 6+
@@ -53,7 +55,7 @@ function New-RandomAlphaNumericString
         - For general use cases, the default (non-secure) method is sufficient
 
     .LINK
-        https://jonlabelle.com/snippets/view/powershell/generate-random-alphanumeric-string-in-powershell
+        https://jonlabelle.com/snippets/view/powershell/generate-random-string-in-powershell
     #>
     [CmdletBinding()]
     [OutputType([String])]
