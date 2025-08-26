@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Checkout Git repository
-        uses: actions/checkout@main
+        uses: actions/checkout@v4
 
       - name: Install PSScriptAnalyzer module
         shell: pwsh
@@ -55,7 +55,7 @@ jobs:
           }
 
       - name: Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results-${{ matrix.platform }}
@@ -67,7 +67,7 @@ jobs:
 
     steps:
       - name: Checkout Git repository
-        uses: actions/checkout@main
+        uses: actions/checkout@v4
 
       - name: Install PSScriptAnalyzer module
         shell: powershell
@@ -104,7 +104,7 @@ jobs:
           }
 
       - name: Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results-windows-desktop
