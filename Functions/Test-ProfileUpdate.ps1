@@ -114,6 +114,9 @@ function Test-ProfileUpdate
         $updateCheckScript = {
             param($ProfileRoot)
 
+            # Save the current location before changing directories
+            $originalLocation = Get-Location
+
             # Change to profile directory
             try
             {
@@ -125,11 +128,26 @@ function Test-ProfileUpdate
                 return $null
             }
 
+            # Helper function to restore location before returning
+            function RestoreLocationAndReturn
+            {
+                param($ReturnValue)
+                try
+                {
+                    Set-Location -Path $originalLocation -ErrorAction SilentlyContinue
+                }
+                catch
+                {
+                    Write-Debug "Could not restore original location: $($_.Exception.Message)"
+                }
+                return $ReturnValue
+            }
+
             # Check if this is a Git repository
             if (-not (Test-Path -Path '.git'))
             {
                 Write-Verbose 'Profile directory is not a Git repository'
-                return $null
+                return RestoreLocationAndReturn $null
             }
 
             # Test Internet connectivity by trying to reach the remote repository
@@ -142,7 +160,7 @@ function Test-ProfileUpdate
                 if (-not $remoteUrl)
                 {
                     Write-Verbose 'No remote origin configured'
-                    return $null
+                    return RestoreLocationAndReturn $null
                 }
 
                 # Extract hostname from remote URL for connectivity test
@@ -179,13 +197,13 @@ function Test-ProfileUpdate
                 if (-not $connected)
                 {
                     Write-Verbose 'No Internet connectivity detected'
-                    return $null
+                    return RestoreLocationAndReturn $null
                 }
             }
             catch
             {
                 Write-Verbose "Connectivity test failed: $($_.Exception.Message)"
-                return $null
+                return RestoreLocationAndReturn $null
             }
 
             # Fetch latest information from remote
@@ -196,7 +214,7 @@ function Test-ProfileUpdate
                 if ($LASTEXITCODE -ne 0)
                 {
                     Write-Verbose "Git fetch failed with exit code $LASTEXITCODE. Output: $fetchOutput"
-                    return $null
+                    return RestoreLocationAndReturn $null
                 }
                 else
                 {
@@ -206,7 +224,7 @@ function Test-ProfileUpdate
             catch
             {
                 Write-Verbose "Failed to fetch remote information: $($_.Exception.Message)"
-                return $null
+                return RestoreLocationAndReturn $null
             }
 
             # Compare local and remote HEAD
@@ -241,7 +259,7 @@ function Test-ProfileUpdate
                 if (-not $localHead -or -not $remoteHead)
                 {
                     Write-Verbose 'Could not determine local or remote HEAD commit'
-                    return $null
+                    return RestoreLocationAndReturn $null
                 }
 
                 Write-Verbose "Local HEAD: $localHead"
@@ -255,17 +273,17 @@ function Test-ProfileUpdate
                     if ($behindCommits -and $behindCommits -gt 0)
                     {
                         Write-Verbose "Local repository is $behindCommits commits behind remote"
-                        return $true
+                        return RestoreLocationAndReturn $true
                     }
                 }
 
                 Write-Verbose 'Local repository is up to date'
-                return $false
+                return RestoreLocationAndReturn $false
             }
             catch
             {
                 Write-Verbose "Failed to compare local and remote commits: $($_.Exception.Message)"
-                return $null
+                return RestoreLocationAndReturn $null
             }
         }
 
