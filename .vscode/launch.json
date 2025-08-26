@@ -19,10 +19,56 @@
             "cwd": "${workspaceFolder}"
         },
         {
+            "name": "PowerShell: Run all Pester tests",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "Invoke-Pester",
+            "args": [
+                "-Path", "Tests",
+                "-Output", "Detailed"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "PowerShell: Run unit tests (exclude Integration)",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "Invoke-Pester",
+            "args": [
+                "-Path", "Tests",
+                "-ExcludeTag", "Integration",
+                "-Output", "Detailed"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "PowerShell: Run integration tests (Integration tag)",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "Invoke-Pester",
+            "args": [
+                "-Path", "Tests",
+                "-Tag", "Integration",
+                "-Output", "Detailed"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
             "name": "PowerShell: Run current file",
             "type": "PowerShell",
             "request": "launch",
             "script": "${file}",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "PowerShell: Run Pester for current file",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "Invoke-Pester",
+            "args": [
+                "-Path", "${file}",
+                "-Output", "Detailed"
+            ],
             "cwd": "${workspaceFolder}"
         },
         {

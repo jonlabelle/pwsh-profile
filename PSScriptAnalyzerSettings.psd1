@@ -8,10 +8,11 @@
 @{
   # Exclude specific rules globally
   ExcludeRules = @(
-    'PSAvoidUsingWriteHost',
-    'PSUseShouldProcessForStateChangingFunctions',
-    'PSAvoidGlobalVars',
-    'PSReviewUnusedParameter' # This rule is broken and reports false positives
+    'PSAvoidUsingWriteHost', # We use it when appropriate to write interactive output
+    'PSUseShouldProcessForStateChangingFunctions', # This shouldn't be an issue anymore, should be removed
+    'PSAvoidGlobalVars', # Globals are required for tracking update check in profile
+    'PSReviewUnusedParameter', # This rule is broken and reports false positives
+    'PSAvoidUsingComputerNameHardcoded' # This rule is too noisy in test scripts
   )
 
   Rules = @{

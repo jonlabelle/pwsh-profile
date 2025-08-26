@@ -18,13 +18,15 @@ jobs:
 
     steps:
       - name: Checkout Git repository
-        uses: actions/checkout@main
+        uses: actions/checkout@v4
 
-      - name: Install PSScriptAnalyzer module
+      - name: Install PSScriptAnalyzer and Pester (Pester v5)
         shell: pwsh
         run: |
           Set-PSRepository PSGallery -InstallationPolicy Trusted
-          Install-Module PSScriptAnalyzer -ErrorAction Stop
+          Install-Module PSScriptAnalyzer -Force -ErrorAction Stop
+          # Install a modern Pester release (v5) for consistent behavior across platforms
+          Install-Module -Name Pester -RequiredVersion 5.* -Force -Scope CurrentUser -ErrorAction Stop
 
       - name: Run PSScriptAnalyzer
         shell: pwsh
@@ -40,6 +42,37 @@ jobs:
           else {
               Write-Output "There were $($errors.Count) errors and $($warnings.Count) warnings total."
           }
+
+      - name: Run unit Pester tests
+        shell: pwsh
+        run: |
+          # Import the explicitly installed Pester v5 and run unit tests only
+          Import-Module Pester -ErrorAction Stop
+          # Run unit tests (integration tests live under Tests/Integration and are excluded here)
+          Invoke-Pester -Path Tests -ExcludeTag Integration -Output Detailed
+
+  integration:
+    name: Integration tests (network/certificate)
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Checkout Git repository
+        uses: actions/checkout@v4
+
+      - name: Install Pester (Pester v5)
+        shell: pwsh
+        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted
+          Install-Module -Name Pester -RequiredVersion 5.* -Force -Scope CurrentUser -ErrorAction Stop
+
+      - name: Run integration Pester tests
+        shell: pwsh
+        run: |
+          Import-Module Pester -ErrorAction Stop
+          # Integration tests are tagged with 'Integration'
+          Invoke-Pester -Path Tests -Tag Integration -Output Detailed
 
   ci-powershell-desktop:
     name: Build on windows-latest (desktop)
