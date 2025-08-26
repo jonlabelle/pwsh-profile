@@ -9,23 +9,32 @@ Describe "Test-Port" {
             # Use localhost since we can't test external servers
             $result = Test-Port -ComputerName 'localhost' -Port 22  # SSH is more likely to be available
             $result | Should -Not -BeNullOrEmpty
-            $result | Should -BeOfType [System.Object[]]
-            $result[0] | Should -HaveProperty 'Server'
-            $result[0] | Should -HaveProperty 'Port'
-            $result[0] | Should -HaveProperty 'Protocol'
-            $result[0] | Should -HaveProperty 'Open'
-            $result[0] | Should -HaveProperty 'Status'
-            $result[0] | Should -HaveProperty 'ResponseTime'
-            $result[0].Server | Should -Be 'localhost'
-            $result[0].Port | Should -Be 22
-            $result[0].Protocol | Should -Be 'TCP'
+            
+            # Function returns an array even for single results
+            if ($result.Count -eq 1) {
+                $testResult = $result[0]
+            } else {
+                $testResult = $result
+            }
+            
+            $testResult | Should -HaveProperty 'Server'
+            $testResult | Should -HaveProperty 'Port'
+            $testResult | Should -HaveProperty 'Protocol'
+            $testResult | Should -HaveProperty 'Open'
+            $testResult | Should -HaveProperty 'Status'
+            $testResult | Should -HaveProperty 'ResponseTime'
+            $testResult.Server | Should -Be 'localhost'
+            $testResult.Port | Should -Be 22
+            $testResult.Protocol | Should -Be 'TCP'
         }
 
         It "Tests if TCP port 80 is open on localhost using pipeline input for the port" {
             $result = 80 | Test-Port
             $result | Should -Not -BeNullOrEmpty
-            $result[0].Port | Should -Be 80
-            $result[0].Server | Should -Be 'localhost'  # Default when no ComputerName specified
+            
+            $testResult = if ($result.Count -eq 1) { $result[0] } else { $result }
+            $testResult.Port | Should -Be 80
+            $testResult.Server | Should -Be 'localhost'  # Default when no ComputerName specified
         }
 
         It "Tests if TCP ports 22, 80, and 443 are open on localhost using pipeline input" {
@@ -126,28 +135,31 @@ Describe "Test-Port" {
             $result = Test-Port -Port 80
             $result | Should -Not -BeNullOrEmpty
             
-            $result[0] | Should -HaveProperty 'PSTypeName'
-            $result[0] | Should -HaveProperty 'Server'
-            $result[0] | Should -HaveProperty 'Port'
-            $result[0] | Should -HaveProperty 'Protocol'
-            $result[0] | Should -HaveProperty 'Open'
-            $result[0] | Should -HaveProperty 'Status'
-            $result[0] | Should -HaveProperty 'ResponseTime'
+            $testResult = if ($result.Count -eq 1) { $result[0] } else { $result }
+            
+            $testResult | Should -HaveProperty 'PSTypeName'
+            $testResult | Should -HaveProperty 'Server'
+            $testResult | Should -HaveProperty 'Port'
+            $testResult | Should -HaveProperty 'Protocol'
+            $testResult | Should -HaveProperty 'Open'
+            $testResult | Should -HaveProperty 'Status'
+            $testResult | Should -HaveProperty 'ResponseTime'
             
             # Check data types
-            $result[0].PSTypeName | Should -Be 'PortTest.Result'
-            $result[0].Server | Should -BeOfType [String]
-            $result[0].Port | Should -BeOfType [Int32]
-            $result[0].Protocol | Should -BeOfType [String]
-            $result[0].Open | Should -BeOfType [Boolean]
-            $result[0].Status | Should -BeOfType [String]
-            $result[0].ResponseTime | Should -BeOfType [Int64]
+            $testResult.PSTypeName | Should -Be 'PortTest.Result'
+            $testResult.Server | Should -BeOfType [String]
+            $testResult.Port | Should -BeOfType [Int32]
+            $testResult.Protocol | Should -BeOfType [String]
+            $testResult.Open | Should -BeOfType [Boolean]
+            $testResult.Status | Should -BeOfType [String]
+            $testResult.ResponseTime | Should -BeOfType [Int64]
         }
 
         It "Should have reasonable response times" {
             $result = Test-Port -Port 80 -ComputerName 'localhost'
-            $result[0].ResponseTime | Should -BeGreaterOrEqual 0
-            $result[0].ResponseTime | Should -BeLessOrEqual 10000  # 10 seconds should be more than enough for localhost
+            $testResult = if ($result.Count -eq 1) { $result[0] } else { $result }
+            $testResult.ResponseTime | Should -BeGreaterOrEqual 0
+            $testResult.ResponseTime | Should -BeLessOrEqual 10000  # 10 seconds should be more than enough for localhost
         }
     }
 
