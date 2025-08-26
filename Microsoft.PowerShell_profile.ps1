@@ -44,20 +44,18 @@ function Prompt
                 if (Test-Path -Path $testProfileUpdatePath)
                 {
                     . $testProfileUpdatePath
-                    $updateAvailable = Test-ProfileUpdate -ErrorAction SilentlyContinue
+                    # Use async version to avoid blocking the prompt
+                    $updateJob = Test-ProfileUpdate -Async -ErrorAction SilentlyContinue
 
-                    if ($updateAvailable -eq $true)
+                    if ($updateJob)
                     {
-                        $global:ProfileUpdatesAvailable = $true
-                        $global:ProfileUpdateCheckCompleted = $true
-                        # Mark as shown immediately to prevent duplicate prompts
-                        $global:ProfileUpdatePromptShown = $true
-                        Show-ProfileUpdateNotification
-                        return ' > '  # Return early to avoid duplicate prompt output
+                        # Store the job for later checking - don't block here
+                        $global:ProfileUpdateJob = $updateJob
+                        # We'll check this job result in the timer action instead
                     }
                     else
                     {
-                        # No updates available, mark as checked to avoid future checks
+                        # Job creation failed, mark as checked to avoid future attempts
                         $global:ProfileUpdatePromptShown = $true
                     }
                 }
@@ -230,8 +228,37 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
             {
                 . $testProfileUpdatePath
 
-                # Run the actual update check
-                $updateAvailable = Test-ProfileUpdate -ErrorAction SilentlyContinue
+                # Check if there's already a job from the prompt (PowerShell Desktop 5.1)
+                $updateJob = $null
+                $updateAvailable = $null
+
+                if ($global:ProfileUpdateJob)
+                {
+                    $updateJob = $global:ProfileUpdateJob
+                    # Clear the global variable
+                    Remove-Variable -Name ProfileUpdateJob -Scope Global -ErrorAction SilentlyContinue
+                }
+                else
+                {
+                    # Run the actual update check asynchronously
+                    $updateJob = Test-ProfileUpdate -Async -ErrorAction SilentlyContinue
+                }
+
+                if ($updateJob)
+                {
+                    # Wait for job completion with timeout (non-blocking for the timer context)
+                    $jobResult = Wait-Job -Job $updateJob -Timeout 30
+                    if ($jobResult)
+                    {
+                        $updateAvailable = Receive-Job -Job $updateJob -ErrorAction SilentlyContinue
+                        Remove-Job -Job $updateJob -ErrorAction SilentlyContinue
+                    }
+                    else
+                    {
+                        # Timeout - clean up job
+                        Remove-Job -Job $updateJob -Force -ErrorAction SilentlyContinue
+                    }
+                }
 
                 if ($updateAvailable -eq $true)
                 {
