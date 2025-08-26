@@ -1,0 +1,127 @@
+BeforeAll {
+    # Import the function under test
+    . "$PSScriptRoot/../../Functions/New-RandomString.ps1"
+}
+
+Describe "New-RandomString" {
+    Context "Basic functionality" {
+        It "Returns a random 32-character string by default" {
+            $result = New-RandomString
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 32
+            $result | Should -MatchExactly '^[0-9A-Za-z]+$'
+        }
+
+        It "Returns a random 16-character string when Length is specified" {
+            $result = New-RandomString -Length 16
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 16
+            $result | Should -MatchExactly '^[0-9A-Za-z]+$'
+        }
+
+        It "Returns a random 64-character string without ambiguous characters when ExcludeAmbiguous is specified" {
+            $result = New-RandomString -Length 64 -ExcludeAmbiguous
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 64
+            # Based on implementation: only excludes '0' and '1' from numbers, but includes all letters
+            $result | Should -Not -Match '[01]'
+            $result | Should -MatchExactly '^[2-9A-Za-z]+$'
+        }
+
+        It "Returns a 20-character string including symbols when IncludeSymbols and Secure are specified" {
+            $result = New-RandomString -Length 20 -IncludeSymbols -Secure
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 20
+            # Should allow alphanumeric and symbols
+            $result | Should -MatchExactly '^[0-9A-Za-z!@#$%^&*]+$'
+        }
+
+        It "Returns different values on multiple calls" {
+            $result1 = New-RandomString -Length 10
+            $result2 = New-RandomString -Length 10
+            $result1 | Should -Not -Be $result2
+        }
+    }
+
+    Context "Parameter validation" {
+        It "Should accept Length values within valid range" {
+            { New-RandomString -Length 1 } | Should -Not -Throw
+            { New-RandomString -Length 10000 } | Should -Not -Throw
+        }
+
+        It "Should reject Length values outside valid range" {
+            { New-RandomString -Length 0 } | Should -Throw
+            { New-RandomString -Length 10001 } | Should -Throw
+            { New-RandomString -Length -1 } | Should -Throw
+        }
+    }
+
+    Context "Character set validation" {
+        It "Should include numbers when not excluding ambiguous" {
+            $result = New-RandomString -Length 1000  # Large sample to increase probability
+            $result | Should -Match '[0-9]'
+        }
+
+        It "Should include uppercase letters" {
+            $result = New-RandomString -Length 1000
+            $result | Should -Match '[A-Z]'
+        }
+
+        It "Should include lowercase letters" {
+            $result = New-RandomString -Length 1000
+            $result | Should -Match '[a-z]'
+        }
+
+        It "Should include symbols when IncludeSymbols is specified" {
+            $result = New-RandomString -Length 1000 -IncludeSymbols
+            $result | Should -Match '[!@#$%^&*]'
+        }
+
+        It "Should not include symbols when IncludeSymbols is not specified" {
+            $result = New-RandomString -Length 100
+            $result | Should -Not -Match '[!@#$%^&*]'
+        }
+    }
+
+    Context "ExcludeAmbiguous parameter" {
+        It "Should exclude ambiguous characters when ExcludeAmbiguous is specified" {
+            # Test multiple times to increase confidence
+            1..10 | ForEach-Object {
+                $result = New-RandomString -Length 100 -ExcludeAmbiguous
+                # Based on actual implementation: only '0' and '1' are excluded
+                $result | Should -Not -Match '[01]'
+            }
+        }
+
+        It "Should still include non-ambiguous numbers and letters when ExcludeAmbiguous is specified" {
+            $result = New-RandomString -Length 1000 -ExcludeAmbiguous
+            $result | Should -Match '[2-9]'  # Non-ambiguous numbers (actual implementation)
+            $result | Should -Match '[A-Z]'  # All uppercase letters (actual implementation)
+            $result | Should -Match '[a-z]'  # All lowercase letters (actual implementation)
+        }
+    }
+
+    Context "Secure parameter" {
+        It "Should generate cryptographically secure random when Secure is specified" {
+            # We can't directly test cryptographic security, but we can test that it works
+            $result = New-RandomString -Length 32 -Secure
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 32
+        }
+
+        It "Should work with all parameter combinations when Secure is specified" {
+            $result = New-RandomString -Length 50 -ExcludeAmbiguous -IncludeSymbols -Secure
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 50
+            $result | Should -Not -Match '[01]'  # Based on actual implementation
+            $result | Should -Match '[!@#$%^&*]'
+        }
+    }
+
+    Context "Output type" {
+        It "Should return a string" {
+            $result = New-RandomString
+            $result | Should -BeOfType [String]
+        }
+    }
+}
