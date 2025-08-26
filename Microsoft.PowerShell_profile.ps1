@@ -266,13 +266,13 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                     $global:ProfileUpdatesAvailable = $true
                     $global:ProfileUpdateCheckCompleted = $true
 
-                    # For PowerShell Core, show immediate brief notification since prompt won't trigger automatically
+                    # For PowerShell Core, show the full notification with git log after a short delay
                     # For PowerShell Desktop 5.1, rely on the prompt to show the full notification
                     if ($PSVersionTable.PSVersion.Major -ge 6)
                     {
                         try
                         {
-                            # Schedule a simple notification to display after a short delay
+                            # Schedule the full notification to display after a short delay
                             $notificationTimer = New-Object System.Timers.Timer
                             $notificationTimer.Interval = 1000  # 1 second delay
                             $notificationTimer.AutoReset = $false
@@ -281,14 +281,30 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
                             $notificationAction = {
                                 try
                                 {
-                                    Write-Host ''
-                                    Write-Host 'Profile updates are available!' -ForegroundColor Yellow
-                                    Write-Host 'Press Enter and then run Update-Profile to see the changes and update.' -ForegroundColor Gray
-                                    Write-Host ''
+                                    # Import the Show-ProfileUpdateNotification function
+                                    $profilePath = $script:ProfileRootForUpdateCheck
+                                    if ($profilePath)
+                                    {
+                                        $profileScript = Join-Path -Path $profilePath -ChildPath 'Microsoft.PowerShell_profile.ps1'
+                                        if (Test-Path -Path $profileScript)
+                                        {
+                                            # Source the profile to get the Show-ProfileUpdateNotification function
+                                            . $profileScript
+                                            # Mark as shown to prevent duplicate prompts
+                                            $global:ProfileUpdatePromptShown = $true
+                                            # Show the full notification with git log and Y/N prompt
+                                            Show-ProfileUpdateNotification
+                                        }
+                                    }
                                 }
                                 catch
                                 {
-                                    Write-Debug "Could not show notification: $($_.Exception.Message)"
+                                    Write-Debug "Could not show full notification: $($_.Exception.Message)"
+                                    # Fallback to brief notification
+                                    Write-Host ''
+                                    Write-Host 'Profile updates are available!' -ForegroundColor Yellow
+                                    Write-Host 'Run Update-Profile to see the changes and update.' -ForegroundColor Gray
+                                    Write-Host ''
                                 }
                             }
 
