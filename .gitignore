@@ -55,5 +55,5 @@ pnpm-debug.log*
 *.code-workspace
 dist/
 
-# Ignore stub destination backup
-test/stubs/files-backed-up/
+# Pester's NUnit test results
+testresults.xml
