@@ -47,21 +47,24 @@ param(
 
 # Ensure we're in the script directory
 $ScriptRoot = $PSScriptRoot
-if (-not $ScriptRoot) {
+if (-not $ScriptRoot)
+{
     $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 }
 Set-Location $ScriptRoot
 
 # Import Pester if not already loaded
-if (-not (Get-Module -Name Pester -ListAvailable)) {
-    Write-Error "Pester module is not installed. Please install Pester 5.x first: Install-Module Pester -Force"
+if (-not (Get-Module -Name Pester -ListAvailable))
+{
+    Write-Error 'Pester module is not installed. Please install Pester 5.x first: Install-Module Pester -Force'
     exit 1
 }
 
 Import-Module Pester -Force
 
 # Determine which tests to run
-$TestPaths = switch ($TestType) {
+$TestPaths = switch ($TestType)
+{
     'Unit' { @('./Tests/Unit') }
     'Integration' { @('./Tests/Integration') }
     'All' { @('./Tests/Unit', './Tests/Integration') }
@@ -70,7 +73,8 @@ $TestPaths = switch ($TestType) {
 # Filter paths to only existing directories
 $TestPaths = $TestPaths | Where-Object { Test-Path $_ }
 
-if (-not $TestPaths) {
+if (-not $TestPaths)
+{
     Write-Warning "No test directories found for test type: $TestType"
     exit 1
 }
@@ -90,35 +94,39 @@ $PesterConfiguration.TestResult.OutputFormat = 'NUnitXml'
 $PesterConfiguration.TestResult.OutputPath = './testresults.xml'
 
 # Run tests
-try {
+try
+{
     $TestResults = Invoke-Pester -Configuration $PesterConfiguration
 
     # Output results summary
-    Write-Host ""
-    Write-Host "Test Results Summary:" -ForegroundColor Yellow
+    Write-Host ''
+    Write-Host 'Test Results Summary:' -ForegroundColor Yellow
     Write-Host "  Total Tests: $($TestResults.TotalCount)" -ForegroundColor White
     Write-Host "  Passed: $($TestResults.PassedCount)" -ForegroundColor Green
     Write-Host "  Failed: $($TestResults.FailedCount)" -ForegroundColor Red
     Write-Host "  Skipped: $($TestResults.SkippedCount)" -ForegroundColor Yellow
     Write-Host "  Duration: $($TestResults.Duration)" -ForegroundColor White
 
-    if ($TestResults.FailedCount -gt 0) {
-        Write-Host ""
-        Write-Host "Failed Tests:" -ForegroundColor Red
+    if ($TestResults.FailedCount -gt 0)
+    {
+        Write-Host ''
+        Write-Host 'Failed Tests:' -ForegroundColor Red
         $TestResults.Failed | ForEach-Object {
             Write-Host "  - $($_.Name)" -ForegroundColor Red
         }
     }
 
     # Return results if requested
-    if ($PassThru) {
+    if ($PassThru)
+    {
         return $TestResults
     }
 
     # Exit with appropriate code
     exit $TestResults.FailedCount
 }
-catch {
+catch
+{
     Write-Error "Error running tests: $($_.Exception.Message)"
     exit 1
 }

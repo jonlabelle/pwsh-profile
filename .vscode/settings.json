@@ -34,8 +34,10 @@
         "Mbps",
         "movflags",
         "Netlogon",
+        "pwsh",
         "scodec",
         "stackoverflow",
+        "testresults",
         "vcodec"
     ]
 }

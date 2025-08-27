@@ -9,13 +9,7 @@
             "name": "PowerShell: Run PSScriptAnalyzer",
             "type": "PowerShell",
             "request": "launch",
-            "script": "Invoke-ScriptAnalyzer",
-            // prettier-ignore
-            "args": [
-                "-Settings", "PSScriptAnalyzerSettings.psd1",
-                "-Path", ".",
-                "-Recurse"
-            ],
+            "script": "Invoke-ScriptAnalyzer -Settings PSScriptAnalyzerSettings.psd1 -Path ${workspaceFolder} -Recurse",
             "cwd": "${workspaceFolder}"
         },
         {
@@ -33,6 +27,42 @@
             "type": "PowerShell",
             "request": "launch",
             "cwd": ""
+        },
+        {
+            "name": "PowerShell: Run All Pester Tests",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "Invoke-Tests.ps1",
+            // prettier-ignore
+            "args": [
+                "-TestType", "All",
+                "-OutputFormat", "Detailed"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "PowerShell: Run Unit Tests",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "Invoke-Tests.ps1",
+            // prettier-ignore
+            "args": [
+                "-TestType", "Unit",
+                "-OutputFormat", "Detailed"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "PowerShell: Run Integration Tests",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "Invoke-Tests.ps1",
+            // prettier-ignore
+            "args": [
+                "-TestType", "Integration",
+                "-OutputFormat", "Detailed"
+            ],
+            "cwd": "${workspaceFolder}"
         }
     ]
 }

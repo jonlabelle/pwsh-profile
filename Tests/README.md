@@ -1,22 +1,24 @@
 # PowerShell Profile Test Suite
 
-This directory contains comprehensive Pester 5.x tests for the PowerShell Profile project.
+[![ci](https://github.com/jonlabelle/pwsh-profile/actions/workflows/ci.yml/badge.svg)](https://github.com/jonlabelle/pwsh-profile/actions/workflows/ci.yml)
+
+> This directory contains comprehensive Pester 5.x tests for the PowerShell Profile project.
 
 ## Test Structure
 
-```
+```plaintext
 Tests/
-├── Unit/                           # Unit tests for individual functions
-│   ├── New-RandomString.Tests.ps1  # String generation utility tests
-│   ├── Get-CommandAlias.Tests.ps1  # Command alias lookup tests
-│   ├── Get-IPSubnet.Tests.ps1      # IP subnet calculation tests
+├── Unit/                                 # Unit tests for individual functions
+│   ├── New-RandomString.Tests.ps1        # String generation utility tests
+│   ├── Get-CommandAlias.Tests.ps1        # Command alias lookup tests
+│   ├── Get-IPSubnet.Tests.ps1            # IP subnet calculation tests
 │   ├── Test-DnsNameResolution.Tests.ps1  # DNS resolution tests
-│   ├── Test-Port.Tests.ps1         # Network port testing tests
-│   └── Get-DotNetVersion.Tests.ps1 # .NET version detection tests
-├── Integration/                    # Integration and cross-system tests
-│   └── Test-Port.Tests.ps1         # Real-world port testing scenarios
-├── PesterConfiguration.psd1        # Pester configuration file
-└── README.md                       # This file
+│   ├── Test-Port.Tests.ps1               # Network port testing tests
+│   └── Get-DotNetVersion.Tests.ps1       # .NET version detection tests
+├── Integration/                          # Integration and cross-system tests
+│   └── Test-Port.Tests.ps1               # Real-world port testing scenarios
+├── PesterConfiguration.psd1              # Pester configuration file
+└── README.md                             # This file
 ```
 
 ## Running Tests
@@ -55,6 +57,7 @@ Invoke-Pester -Configuration (Import-PowerShellDataFile Tests/PesterConfiguratio
 ### Unit Tests (122 tests total)
 
 #### New-RandomString (17 tests)
+
 - ✅ Basic functionality (default parameters, length specification)
 - ✅ Character set validation (numbers, letters, symbols)
 - ✅ ExcludeAmbiguous parameter behavior
@@ -63,6 +66,7 @@ Invoke-Pester -Configuration (Import-PowerShellDataFile Tests/PesterConfiguratio
 - ✅ Parameter validation and error handling
 
 #### Get-CommandAlias (11 tests)
+
 - ✅ Basic alias lookup for known commands
 - ✅ Wildcard pattern support
 - ✅ Pipeline input processing
@@ -71,6 +75,7 @@ Invoke-Pester -Configuration (Import-PowerShellDataFile Tests/PesterConfiguratio
 - ✅ Cross-platform compatibility
 
 #### Get-IPSubnet (17 tests)
+
 - ✅ CIDR notation input parsing
 - ✅ IP address and subnet mask calculations
 - ✅ Complex subnet calculations and methods
@@ -79,6 +84,7 @@ Invoke-Pester -Configuration (Import-PowerShellDataFile Tests/PesterConfiguratio
 - ✅ Parameter validation for IP addresses and prefix lengths
 
 #### Test-DnsNameResolution (24 tests)
+
 - ✅ DNS resolution functionality (adapted for localhost)
 - ✅ IPv4 and IPv6 record type support
 - ✅ Custom DNS server parameter handling
@@ -87,6 +93,7 @@ Invoke-Pester -Configuration (Import-PowerShellDataFile Tests/PesterConfiguratio
 - ✅ Verbose output and logging validation
 
 #### Test-Port (28 tests)
+
 - ✅ TCP and UDP port testing
 - ✅ Pipeline input for ports and computers
 - ✅ Timeout and error handling
@@ -95,6 +102,7 @@ Invoke-Pester -Configuration (Import-PowerShellDataFile Tests/PesterConfiguratio
 - ✅ Performance characteristics
 
 #### Get-DotNetVersion (26 tests)
+
 - ✅ .NET Framework and .NET Core detection
 - ✅ Parameter set validation
 - ✅ Cross-platform runtime detection
@@ -105,6 +113,7 @@ Invoke-Pester -Configuration (Import-PowerShellDataFile Tests/PesterConfiguratio
 ### Integration Tests (24 tests)
 
 #### Test-Port Integration
+
 - ✅ Real-world port testing scenarios
 - ✅ Performance testing and reliability
 - ✅ Network edge case handling
@@ -115,25 +124,33 @@ Invoke-Pester -Configuration (Import-PowerShellDataFile Tests/PesterConfiguratio
 ## Test Design Principles
 
 ### Based on Documentation Examples
+
 All tests are derived from the `.EXAMPLE` sections in function documentation, ensuring:
+
 - Real-world usage patterns are tested
 - Documentation accuracy is validated
 - Function behavior matches documented expectations
 
 ### Cross-Platform Compatibility
+
 Tests are designed to work on:
+
 - Windows (PowerShell Desktop 5.1 and PowerShell Core)
 - macOS (PowerShell Core)
 - Linux (PowerShell Core)
 
 ### Network-Aware Testing
+
 Tests adapt to network restrictions:
+
 - Use localhost for network testing when external access is limited
 - Graceful fallback for DNS resolution tests
 - Appropriate timeout handling for unreliable networks
 
 ### Meaningful Testing Focus
+
 Tests focus on:
+
 - ✅ Functional behavior validation
 - ✅ Parameter validation and error handling
 - ✅ Output structure consistency
@@ -144,6 +161,7 @@ Tests focus on:
 ## Continuous Integration
 
 Tests are automatically executed in GitHub Actions CI pipeline:
+
 - **PowerShell Core**: Tests run on macOS, Ubuntu, and Windows
 - **PowerShell Desktop**: Tests run on Windows Server
 - **Test Results**: Uploaded as NUnit XML artifacts
@@ -156,6 +174,7 @@ Tests are automatically executed in GitHub Actions CI pipeline:
   shell: pwsh
   run: |
     ./Invoke-Tests.ps1 -TestType All -OutputFormat Normal
+
     if ($LASTEXITCODE -ne 0) {
       Write-Error "Tests failed with exit code $LASTEXITCODE" -ErrorAction Stop
     }
@@ -179,6 +198,7 @@ Tests are automatically executed in GitHub Actions CI pipeline:
 ## Contributing
 
 When adding new tests:
+
 1. Follow the existing test structure and naming conventions
 2. Base tests on function documentation examples
 3. Include both positive and negative test cases
