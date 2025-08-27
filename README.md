@@ -79,6 +79,7 @@ The profile includes various utility commands organized by category:
 ### 🛠️ Profile Management
 
 - **`Reload-Profile`** — Reloads the PowerShell profile without restarting the session
+- **`Show-ProfileCommand`** — Shows a bulleted list of all available commands in the PowerShell profile Functions folder
 - **`Test-ProfileUpdate`** — Checks for available profile updates from the GitHub repository
 
 ### 🎬 Media Processing
