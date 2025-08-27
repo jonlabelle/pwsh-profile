@@ -39,7 +39,6 @@ git clone 'https://github.com/jonlabelle/pwsh-profile.git' $HOME\Documents\Power
 
 - **Cross-platform compatibility** - Works on Windows, macOS, and Linux
 - **Auto-loading functions** - All functions in the `Functions/` directory are automatically loaded
-- **Automatic update notifications** - Background checks for profile updates without slowing startup
 - **Custom prompt** - Clean, colored PowerShell prompt
 - **Utility functions** - Collection of helpful PowerShell functions for daily tasks
 
@@ -101,29 +100,8 @@ To manually pull in the latest updates from [this GitHub repo](https://github.co
 Update-Profile
 ```
 
-## Automatic Update Checks
-
-The profile [automatically checks for updates](./Functions/Test-ProfileUpdate.ps1) when it loads in _interactive mode_ and will prompt you to update if updates are available. The check runs in the background without slowing down your profile startup.
-
-When updates are detected, you'll be prompted at your next command prompt:
-
-```console
-Profile updates are available!
-
-Here are the available changes:
-
-  - fix: module retrieval checks
-  - feat: add new utility functions
-
-Would you like to update your profile now? (Y/N):
-```
-
-Choose "Y" or "Yes" to update immediately, or "N" to skip and update later manually with `Update-Profile`.
-
-### Opting Out of Automatic Update Checks
-
-To disable automatic update checks entirely, create an empty `.disable-profile-update-check` file in your profile directory:
+You can also check for available updates without applying them:
 
 ```powershell
-New-Item -Path (Split-Path $PROFILE) -ItemType File -Name '.disable-profile-update-check'
+Test-ProfileUpdate
 ```

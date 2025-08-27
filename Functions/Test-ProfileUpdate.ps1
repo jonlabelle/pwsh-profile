@@ -11,18 +11,19 @@ function Test-ProfileUpdate
 
         The check is designed to be non-blocking and network-aware:
         - Only checks if Internet connectivity is available
-        - Uses background job processing to avoid blocking profile load
-        - Respects opt-out file (.disable-profile-update-check)
         - Works cross-platform (Windows, macOS, Linux)
 
         If updates are detected, displays a notification message suggesting to run Update-Profile.
 
     .PARAMETER Async
         When specified, runs the update check in a background job to avoid blocking.
-        This is the recommended approach when called during profile loading.
+
+    .PARAMETER ShowChanges
+        When specified along with available updates, displays the list of changes available in the remote repository.
+        Note: This parameter has no effect when used with -Async as the output would not be visible from background jobs.
 
     .PARAMETER Force
-        When specified, ignores the .disable-profile-update-check file and performs the check anyway.
+        Reserved for future use. Currently has no effect.
 
     .EXAMPLE
         PS > Test-ProfileUpdates
@@ -33,8 +34,12 @@ function Test-ProfileUpdate
         Starts a background job to check for profile updates without blocking.
 
     .EXAMPLE
+        PS > Test-ProfileUpdates -ShowChanges
+        Checks for updates and displays available changes if updates are found.
+
+    .EXAMPLE
         PS > Test-ProfileUpdate -Force
-        Checks for updates even if .disable-profile-update-check file exists.
+        Checks for updates (Force parameter currently has no effect).
 
     .OUTPUTS
         System.Boolean
@@ -44,9 +49,6 @@ function Test-ProfileUpdate
     .NOTES
         This function requires Git to be available in the system PATH.
         Internet connectivity is required to check for remote updates.
-
-        To opt-out of automatic update checks, create a .disable-profile-update-check file
-        in the profile directory.
 
         Compatible with PowerShell Desktop 5.1+ and PowerShell Core 6.2+.
 
@@ -61,6 +63,10 @@ function Test-ProfileUpdate
         [Parameter()]
         [switch]
         $Async,
+
+        [Parameter()]
+        [switch]
+        $ShowChanges,
 
         [Parameter()]
         [switch]
@@ -99,20 +105,9 @@ function Test-ProfileUpdate
 
     process
     {
-        # Check for opt-out file unless Force is specified
-        if (-not $Force)
-        {
-            $disableFile = Join-Path -Path $profileRoot -ChildPath '.disable-profile-update-check'
-            if (Test-Path -Path $disableFile)
-            {
-                Write-Verbose 'Update check disabled by .disable-profile-update-check file'
-                return $false
-            }
-        }
-
         # Define the update check script block
         $updateCheckScript = {
-            param($ProfileRoot)
+            param($ProfileRoot, $ShowChanges)
 
             # Save the current location before changing directories
             $originalLocation = Get-Location
@@ -231,30 +226,7 @@ function Test-ProfileUpdate
             try
             {
                 $localHead = git rev-parse HEAD 2>$null
-                $remoteHead = git rev-parse origin/HEAD 2>$null
-
-                # If origin/HEAD is not set, try origin/main or origin/master
-                if (-not $remoteHead -or $LASTEXITCODE -ne 0)
-                {
-                    $defaultBranch = git symbolic-ref refs/remotes/origin/HEAD 2>$null
-                    if ($defaultBranch)
-                    {
-                        $defaultBranch = $defaultBranch -replace '^refs/remotes/origin/', ''
-                        $remoteHead = git rev-parse "origin/$defaultBranch" 2>$null
-                    }
-                    else
-                    {
-                        # Try common default branches
-                        foreach ($branch in @('main', 'master'))
-                        {
-                            $remoteHead = git rev-parse "origin/$branch" 2>$null
-                            if ($remoteHead -and $LASTEXITCODE -eq 0)
-                            {
-                                break
-                            }
-                        }
-                    }
-                }
+                $remoteHead = git rev-parse origin/main 2>$null
 
                 if (-not $localHead -or -not $remoteHead)
                 {
@@ -273,6 +245,43 @@ function Test-ProfileUpdate
                     if ($behindCommits -and $behindCommits -gt 0)
                     {
                         Write-Verbose "Local repository is $behindCommits commits behind remote"
+
+                        # Show changes if requested
+                        if ($ShowChanges)
+                        {
+                            try
+                            {
+                                # Show the update prompt
+                                Write-Host ''
+                                Write-Host 'Profile updates are available!' -ForegroundColor Yellow
+
+                                # Use the main branch for this repository
+                                $remoteBranch = 'origin/main'
+
+                                # Show available changes
+                                $gitLog = git log --oneline "${localHead}..${remoteBranch}" 2>$null
+                                if ($gitLog)
+                                {
+                                    Write-Host ''
+                                    Write-Host 'Here are the available changes:' -ForegroundColor Cyan
+                                    Write-Host ''
+                                    foreach ($line in $gitLog)
+                                    {
+                                        # Remove hash prefix and branch references, format as bullet point
+                                        $cleanLine = $line -replace '^\w+\s+', '' -replace '\s*\([^)]+\)\s*', ''
+                                        Write-Host "  - $cleanLine" -ForegroundColor Gray
+                                    }
+                                    Write-Host ''
+                                    Write-Host 'Run ''Update-Profile'' to apply these changes.' -ForegroundColor Green
+                                    Write-Host ''
+                                }
+                            }
+                            catch
+                            {
+                                Write-Debug "Could not show profile update notification: $($_.Exception.Message)"
+                            }
+                        }
+
                         return RestoreLocationAndReturn $true
                     }
                 }
@@ -290,13 +299,13 @@ function Test-ProfileUpdate
         if ($Async)
         {
             Write-Verbose 'Starting background update check job'
-            $job = Start-Job -ScriptBlock $updateCheckScript -ArgumentList $profileRoot -Name 'ProfileUpdateCheck'
+            $job = Start-Job -ScriptBlock $updateCheckScript -ArgumentList $profileRoot, $ShowChanges.IsPresent -Name 'ProfileUpdateCheck'
             return $job
         }
         else
         {
             Write-Verbose 'Running synchronous update check'
-            return & $updateCheckScript $profileRoot
+            return & $updateCheckScript $profileRoot $ShowChanges.IsPresent
         }
     }
 

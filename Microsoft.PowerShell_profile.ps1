@@ -1,10 +1,20 @@
 #
 # Dot source all functions
-$functions = @(Get-ChildItem -LiteralPath (Join-Path -Path $PSScriptRoot 'Functions') -Filter '*.ps1' -File -Depth 1 -ErrorAction 'SilentlyContinue')
+$functions = @(Get-ChildItem -LiteralPath (Join-Path -Path $PSScriptRoot -ChildPath 'Functions') -Filter '*.ps1' -File -Depth 1 -ErrorAction 'SilentlyContinue')
 foreach ($function in $functions)
 {
     Write-Verbose ('Loading function: {0}' -f $function.FullName)
     . $function.FullName
+}
+
+#
+# Configures the prompt appearance
+function ConfigurePrompt
+{
+    # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_profiles?view=powershell-7.2#add-a-customized-powershell-prompt
+    $host.UI.RawUI.WindowTitle = "PowerShell - $([System.Environment]::UserName)@$([System.Environment]::MachineName)"
+    Write-Host 'PS' -ForegroundColor 'Cyan' -NoNewline
+    return ' > '
 }
 
 #
@@ -14,66 +24,7 @@ function Prompt
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
     param()
 
-    # Check for profile updates that need to be displayed
-    # This handles notifications for PowerShell Desktop 5.1 where timer-based notifications may not be reliable
-    if (-not $global:ProfileUpdatePromptShown)
-    {
-        if ($global:ProfileUpdateCheckCompleted -and $global:ProfileUpdatesAvailable)
-        {
-            # Updates were found by the timer - show full notification now
-            # This works for both PowerShell Desktop 5.1 and PowerShell Core
-            # Mark as shown immediately to prevent duplicate prompts
-            $global:ProfileUpdatePromptShown = $true
-            # Show the full notification with git log and Y/N prompt
-            Show-ProfileUpdateNotification
-            return ' > '  # Return early to avoid duplicate prompt output
-        }
-        elseif (-not $global:ProfileUpdateCheckStarted -and $PSVersionTable.PSVersion.Major -lt 6)
-        {
-            # First time in prompt for PowerShell Desktop 5.1 - do a direct check
-            $global:ProfileUpdateCheckStarted = $true
-
-            try
-            {
-                # Import and run the update check function directly
-                $testProfileUpdatePath = Join-Path -Path $PSScriptRoot -ChildPath 'Functions\Test-ProfileUpdate.ps1'
-                if (Test-Path -Path $testProfileUpdatePath)
-                {
-                    . $testProfileUpdatePath
-                    # Use async version to avoid blocking the prompt
-                    $updateJob = Test-ProfileUpdate -Async -ErrorAction SilentlyContinue
-
-                    if ($updateJob)
-                    {
-                        # Store the job for later checking - don't block here
-                        $global:ProfileUpdateJob = $updateJob
-                        # We'll check this job result in the timer action instead
-                    }
-                    else
-                    {
-                        # Job creation failed, mark as checked to avoid future attempts
-                        $global:ProfileUpdatePromptShown = $true
-                    }
-                }
-                else
-                {
-                    # Function not found, mark as checked to avoid future attempts
-                    $global:ProfileUpdatePromptShown = $true
-                }
-            }
-            catch
-            {
-                # Error during check, mark as checked to avoid future attempts
-                $global:ProfileUpdatePromptShown = $true
-                Write-Debug "Profile update check failed: $($_.Exception.Message)"
-            }
-        }
-    }
-
-    # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_profiles?view=powershell-7.2#add-a-customized-powershell-prompt
-    # "PS > "
-    Write-Host 'PS' -ForegroundColor 'Cyan' -NoNewline
-    return ' > '
+    ConfigurePrompt
 }
 
 #
@@ -110,7 +61,7 @@ function Update-Profile
         Pop-Location
     }
 
-    # Clear the update available flags
+    # Clear any leftover update check variables
     Remove-Variable -Name ProfileUpdatesAvailable -Scope Global -ErrorAction SilentlyContinue
     Remove-Variable -Name ProfileUpdatePromptShown -Scope Global -ErrorAction SilentlyContinue
     Remove-Variable -Name ProfileUpdateCheckCompleted -Scope Global -ErrorAction SilentlyContinue
@@ -129,8 +80,8 @@ function Show-ProfileUpdateNotification
 
     .DESCRIPTION
         This function displays information about available profile updates and prompts
-        the user to decide whether to update. It's designed to be called asynchronously
-        to avoid blocking the PowerShell session startup.
+        the user to decide whether to update. It can be called manually to check for
+        and apply profile updates.
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
     param()
@@ -168,22 +119,6 @@ function Show-ProfileUpdateNotification
         {
             Pop-Location -ErrorAction SilentlyContinue
         }
-
-        $response = Read-Host 'Would you like to update your profile now? (Y/N)'
-        if ($response -match '^[Yy]([Ee][Ss])?$')
-        {
-            Update-Profile
-        }
-        else
-        {
-            Write-Host "Skipped profile update. You can run 'Update-Profile' later to get the latest changes." -ForegroundColor Gray
-            Remove-Variable -Name ProfileUpdatesAvailable -Scope Global -ErrorAction SilentlyContinue
-            Remove-Variable -Name ProfileUpdateCheckCompleted -Scope Global -ErrorAction SilentlyContinue
-            Remove-Variable -Name ProfileUpdateCheckStarted -Scope Global -ErrorAction SilentlyContinue
-        }
-
-        # Force prompt to reappear
-        prompt
     }
     catch
     {
@@ -197,137 +132,4 @@ if ($Host.UI.RawUI -and [Environment]::UserInteractive)
     Write-Verbose 'User profile loaded: '
     Write-Verbose "$PSCommandPath"
     Write-Verbose ''
-}
-
-#
-# Check for profile updates in background (truly non-blocking) - only in interactive mode
-if ($Host.UI.RawUI -and [Environment]::UserInteractive)
-{
-    # Store the profile root path in a way that's accessible to the timer event
-    $script:ProfileRootForUpdateCheck = $PSScriptRoot
-
-    # Use a completely deferred approach - schedule the update check to run after profile load
-    # This ensures zero blocking during profile initialization
-    $updateCheckAction = {
-        try
-        {
-            # Get the profile root path from script scope
-            $profileRoot = $script:ProfileRootForUpdateCheck
-            if (-not $profileRoot)
-            {
-                $profileRoot = Split-Path -Parent $PSCommandPath
-            }
-
-            # Import the function we need
-            $testProfileUpdatePath = Join-Path -Path $profileRoot -ChildPath 'Functions\Test-ProfileUpdate.ps1'
-            if (Test-Path -Path $testProfileUpdatePath)
-            {
-                . $testProfileUpdatePath
-
-                # Check if there's already a job from the prompt (PowerShell Desktop 5.1)
-                $updateJob = $null
-                $updateAvailable = $null
-
-                if ($global:ProfileUpdateJob)
-                {
-                    $updateJob = $global:ProfileUpdateJob
-                    # Clear the global variable
-                    Remove-Variable -Name ProfileUpdateJob -Scope Global -ErrorAction SilentlyContinue
-                }
-                else
-                {
-                    # Run the actual update check asynchronously
-                    $updateJob = Test-ProfileUpdate -Async -ErrorAction SilentlyContinue
-                }
-
-                if ($updateJob)
-                {
-                    # Wait for job completion with timeout (non-blocking for the timer context)
-                    $jobResult = Wait-Job -Job $updateJob -Timeout 30
-                    if ($jobResult)
-                    {
-                        $updateAvailable = Receive-Job -Job $updateJob -ErrorAction SilentlyContinue
-                        Remove-Job -Job $updateJob -ErrorAction SilentlyContinue
-                    }
-                    else
-                    {
-                        # Timeout - clean up job
-                        Remove-Job -Job $updateJob -Force -ErrorAction SilentlyContinue
-                    }
-                }
-
-                if ($updateAvailable -eq $true)
-                {
-                    # Set global variables to signal updates are available
-                    $global:ProfileUpdatesAvailable = $true
-                    $global:ProfileUpdateCheckCompleted = $true
-
-                    # For PowerShell Core, we need to actively trigger the notification
-                    # since the Prompt function may not be called automatically after the timer
-                    if ($PSVersionTable.PSVersion.Major -ge 6)
-                    {
-                        # Use a short timer to trigger the notification after the main timer completes
-                        $notificationTimer = New-Object System.Timers.Timer
-                        $notificationTimer.Interval = 500  # Short delay
-                        $notificationTimer.AutoReset = $false
-                        $notificationTimer.Enabled = $true
-
-                        $notificationAction = {
-                            # Force call to the prompt logic
-                            if ($global:ProfileUpdateCheckCompleted -and $global:ProfileUpdatesAvailable -and -not $global:ProfileUpdatePromptShown)
-                            {
-                                $global:ProfileUpdatePromptShown = $true
-                                # Import and call Show-ProfileUpdateNotification
-                                $profileScript = Join-Path -Path $script:ProfileRootForUpdateCheck -ChildPath 'Microsoft.PowerShell_profile.ps1'
-                                if (Test-Path -Path $profileScript)
-                                {
-                                    . $profileScript
-                                    Show-ProfileUpdateNotification
-                                }
-                            }
-                        }
-
-                        Register-ObjectEvent -InputObject $notificationTimer -EventName Elapsed -Action $notificationAction
-                    }
-                }
-            }
-            else
-            {
-                Write-Debug "Could not find Test-ProfileUpdate function at: $testProfileUpdatePath"
-            }
-        }
-        catch
-        {
-            # Silently ignore errors to avoid disrupting user experience
-            Write-Debug "Profile update check failed: $($_.Exception.Message)"
-        }
-    }
-
-    # Schedule the update check to run after a short delay using a timer
-    # This completely decouples it from profile loading
-    try
-    {
-        $updateTimer = New-Object System.Timers.Timer
-        $updateTimer.Interval = 3000  # 3 second delay - enough time for profile to fully load
-        $updateTimer.AutoReset = $false
-        $updateTimer.Enabled = $true
-
-        # Register the event handler
-        $eventRegistration = Register-ObjectEvent -InputObject $updateTimer -EventName Elapsed -Action $updateCheckAction
-
-        # Store references so they don't get garbage collected
-        $global:ProfileUpdateTimer = $updateTimer
-        $global:ProfileUpdateEventSubscription = $eventRegistration
-
-        # For debugging - let's add a simple test to see if the timer fires at all
-        if ($PSVersionTable.PSVersion.Major -lt 6)
-        {
-            Write-Debug 'Profile update check scheduled for PowerShell Desktop 5.1'
-        }
-    }
-    catch
-    {
-        # If timer setup fails, silently ignore to avoid disrupting profile load
-        Write-Debug "Could not set up profile update timer: $($_.Exception.Message)"
-    }
 }

@@ -57,6 +57,3 @@ dist/
 
 # Ignore stub destination backup
 test/stubs/files-backed-up/
-
-# Profile update check opt-out file
-.disable-profile-update-check
