@@ -12,7 +12,20 @@ foreach ($function in $functions)
 function ConfigurePrompt
 {
     # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_profiles?view=powershell-7.2#add-a-customized-powershell-prompt
-    $host.UI.RawUI.WindowTitle = "PowerShell - $([System.Environment]::UserName)@$([System.Environment]::MachineName)"
+
+    # Determine PowerShell edition for window title
+    $psVersionInfo = if ($PSVersionTable.PSVersion.Major -lt 6)
+    {
+        "PowerShell Desktop $($PSVersionTable.PSVersion)"
+    }
+    else
+    {
+        "PowerShell Core $($PSVersionTable.PSVersion)"
+    }
+
+    # $host.UI.RawUI.WindowTitle = "$psVersionInfo - $([System.Environment]::UserName)@$([System.Environment]::MachineName)"
+    $host.UI.RawUI.WindowTitle = "$psVersionInfo"
+
     Write-Host 'PS' -ForegroundColor 'Cyan' -NoNewline
     return ' > '
 }
