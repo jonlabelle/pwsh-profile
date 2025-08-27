@@ -13,6 +13,3 @@ indent_size = 4
 
 [*.psd1]
 indent_size = 2
-
-[/.vscode/*.json]
-indent_size = 4

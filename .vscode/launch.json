@@ -1,68 +1,68 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
 
-    "configurations": [
-        {
-            "name": "PowerShell: Run PSScriptAnalyzer",
-            "type": "PowerShell",
-            "request": "launch",
-            "script": "Invoke-ScriptAnalyzer -Settings PSScriptAnalyzerSettings.psd1 -Path ${workspaceFolder} -Recurse",
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "name": "PowerShell: Run current file",
-            "type": "PowerShell",
-            "request": "launch",
-            "script": "${file}",
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            // Run this launch config and then set breakpoints in your module.
-            // Then you can `Import-Module -Force ./DailyBackup.psd1`
-            // and run a function that will hit the breakpoint.
-            "name": "PowerShell: Interactive session",
-            "type": "PowerShell",
-            "request": "launch",
-            "cwd": ""
-        },
-        {
-            "name": "PowerShell: Run All Pester Tests",
-            "type": "PowerShell",
-            "request": "launch",
-            "script": "./Invoke-Tests.ps1",
-            // prettier-ignore
-            "args": [
+  "configurations": [
+    {
+      "name": "PowerShell: Run PSScriptAnalyzer",
+      "type": "PowerShell",
+      "request": "launch",
+      "script": "Invoke-ScriptAnalyzer -Settings PSScriptAnalyzerSettings.psd1 -Path ${workspaceFolder} -Recurse",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "PowerShell: Run current file",
+      "type": "PowerShell",
+      "request": "launch",
+      "script": "${file}",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      // Run this launch config and then set breakpoints in your module.
+      // Then you can `Import-Module -Force ./DailyBackup.psd1`
+      // and run a function that will hit the breakpoint.
+      "name": "PowerShell: Interactive session",
+      "type": "PowerShell",
+      "request": "launch",
+      "cwd": ""
+    },
+    {
+      "name": "PowerShell: Run All Pester Tests",
+      "type": "PowerShell",
+      "request": "launch",
+      "script": "./Invoke-Tests.ps1",
+      // prettier-ignore
+      "args": [
                 "-TestType", "All",
                 "-OutputFormat", "Detailed"
             ],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "name": "PowerShell: Run Unit Tests",
-            "type": "PowerShell",
-            "request": "launch",
-            "script": "./Invoke-Tests.ps1",
-            // prettier-ignore
-            "args": [
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "PowerShell: Run Unit Tests",
+      "type": "PowerShell",
+      "request": "launch",
+      "script": "./Invoke-Tests.ps1",
+      // prettier-ignore
+      "args": [
                 "-TestType", "Unit",
                 "-OutputFormat", "Detailed"
             ],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "name": "PowerShell: Run Integration Tests",
-            "type": "PowerShell",
-            "request": "launch",
-            "script": "./Invoke-Tests.ps1",
-            // prettier-ignore
-            "args": [
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "PowerShell: Run Integration Tests",
+      "type": "PowerShell",
+      "request": "launch",
+      "script": "./Invoke-Tests.ps1",
+      // prettier-ignore
+      "args": [
                 "-TestType", "Integration",
                 "-OutputFormat", "Detailed"
             ],
-            "cwd": "${workspaceFolder}"
-        }
-    ]
+      "cwd": "${workspaceFolder}"
+    }
+  ]
 }

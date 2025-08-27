@@ -1,0 +1,521 @@
+{
+  // See https://go.microsoft.com/fwlink/?LinkId=733558
+  // for the documentation about the tasks.json format
+  "version": "2.0.0",
+
+  "tasks": [
+    // ---------------------------------------------------------
+    // PowerShell Core (pwsh) Tasks
+    // ---------------------------------------------------------
+    {
+      "label": "Run PSScriptAnalyzer (pwsh)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-Command",
+        "Invoke-ScriptAnalyzer -Settings PSScriptAnalyzerSettings.psd1 -Path ${workspaceFolder} -Recurse"
+      ],
+      "group": {
+        "kind": "test",
+        "isDefault": false
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": [
+        {
+          "owner": "powershell",
+          "fileLocation": ["relative", "${workspaceFolder}"],
+          "severity": "warning",
+          "pattern": [
+            {
+              "regexp": "^\\s*(\\w+)\\s+(.*)\\s+(\\d+):(\\d+)\\s+(.*)$",
+              "severity": 1,
+              "file": 2,
+              "line": 3,
+              "column": 4,
+              "message": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Run Current PowerShell File (pwsh)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": ["-NoProfile", "-File", "${file}"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": true
+      }
+    },
+    {
+      "label": "Run All Pester Tests (pwsh)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-File",
+        "./Invoke-Tests.ps1",
+        "-TestType",
+        "All",
+        "-OutputFormat",
+        "Detailed"
+      ],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      },
+      "problemMatcher": [
+        {
+          "owner": "pester",
+          "fileLocation": ["relative", "${workspaceFolder}"],
+          "pattern": [
+            {
+              "regexp": "^\\s+\\[-\\]\\s+(.*)\\s+(\\d+)ms\\s+\\((.*):(\\d+)\\)$",
+              "file": 3,
+              "line": 4,
+              "message": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Run Unit Tests (pwsh)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-File",
+        "./Invoke-Tests.ps1",
+        "-TestType",
+        "Unit",
+        "-OutputFormat",
+        "Detailed"
+      ],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      },
+      "problemMatcher": [
+        {
+          "owner": "pester",
+          "fileLocation": ["relative", "${workspaceFolder}"],
+          "pattern": [
+            {
+              "regexp": "^\\s+\\[-\\]\\s+(.*)\\s+(\\d+)ms\\s+\\((.*):(\\d+)\\)$",
+              "file": 3,
+              "line": 4,
+              "message": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Run Integration Tests (pwsh)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-File",
+        "./Invoke-Tests.ps1",
+        "-TestType",
+        "Integration",
+        "-OutputFormat",
+        "Detailed"
+      ],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      },
+      "problemMatcher": [
+        {
+          "owner": "pester",
+          "fileLocation": ["relative", "${workspaceFolder}"],
+          "pattern": [
+            {
+              "regexp": "^\\s+\\[-\\]\\s+(.*)\\s+(\\d+)ms\\s+\\((.*):(\\d+)\\)$",
+              "file": 3,
+              "line": 4,
+              "message": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Run Tests - Normal Output (pwsh)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-File",
+        "./Invoke-Tests.ps1",
+        "-TestType",
+        "All",
+        "-OutputFormat",
+        "Normal"
+      ],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": true
+      }
+    },
+    {
+      "label": "Run Tests - Diagnostic Output (pwsh)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-File",
+        "./Invoke-Tests.ps1",
+        "-TestType",
+        "All",
+        "-OutputFormat",
+        "Diagnostic"
+      ],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      }
+    },
+    {
+      "label": "Run Tests with PassThru (pwsh)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-File",
+        "./Invoke-Tests.ps1",
+        "-TestType",
+        "All",
+        "-OutputFormat",
+        "Detailed",
+        "-PassThru"
+      ],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      }
+    },
+    {
+      "label": "Interactive Session (pwsh)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": ["-NoExit", "-NoProfile"],
+      "group": "none",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "new",
+        "showReuseMessage": false,
+        "clear": true
+      }
+    },
+
+    // ---------------------------------------------------------
+    // Windows PowerShell Desktop (powershell.exe) Tasks
+    // ---------------------------------------------------------
+    {
+      "label": "Run PSScriptAnalyzer (powershell)",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-Command",
+        "Invoke-ScriptAnalyzer -Settings PSScriptAnalyzerSettings.psd1 -Path ${workspaceFolder} -Recurse"
+      ],
+      "group": {
+        "kind": "test",
+        "isDefault": false
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": [
+        {
+          "owner": "powershell",
+          "fileLocation": ["relative", "${workspaceFolder}"],
+          "severity": "warning",
+          "pattern": [
+            {
+              "regexp": "^\\s*(\\w+)\\s+(.*)\\s+(\\d+):(\\d+)\\s+(.*)$",
+              "severity": 1,
+              "file": 2,
+              "line": 3,
+              "column": 4,
+              "message": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Run Current PowerShell File (powershell)",
+      "type": "shell",
+      "command": "powershell",
+      "args": ["-NoProfile", "-File", "${file}"],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": true
+      }
+    },
+    {
+      "label": "Run All Pester Tests (powershell)",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-File",
+        "./Invoke-Tests.ps1",
+        "-TestType",
+        "All",
+        "-OutputFormat",
+        "Detailed"
+      ],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      },
+      "problemMatcher": [
+        {
+          "owner": "pester",
+          "fileLocation": ["relative", "${workspaceFolder}"],
+          "pattern": [
+            {
+              "regexp": "^\\s+\\[-\\]\\s+(.*)\\s+(\\d+)ms\\s+\\((.*):(\\d+)\\)$",
+              "file": 3,
+              "line": 4,
+              "message": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Run Unit Tests (powershell)",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-File",
+        "./Invoke-Tests.ps1",
+        "-TestType",
+        "Unit",
+        "-OutputFormat",
+        "Detailed"
+      ],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      },
+      "problemMatcher": [
+        {
+          "owner": "pester",
+          "fileLocation": ["relative", "${workspaceFolder}"],
+          "pattern": [
+            {
+              "regexp": "^\\s+\\[-\\]\\s+(.*)\\s+(\\d+)ms\\s+\\((.*):(\\d+)\\)$",
+              "file": 3,
+              "line": 4,
+              "message": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Run Integration Tests (powershell)",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-File",
+        "./Invoke-Tests.ps1",
+        "-TestType",
+        "Integration",
+        "-OutputFormat",
+        "Detailed"
+      ],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      },
+      "problemMatcher": [
+        {
+          "owner": "pester",
+          "fileLocation": ["relative", "${workspaceFolder}"],
+          "pattern": [
+            {
+              "regexp": "^\\s+\\[-\\]\\s+(.*)\\s+(\\d+)ms\\s+\\((.*):(\\d+)\\)$",
+              "file": 3,
+              "line": 4,
+              "message": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Run Tests - Normal Output (powershell)",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-File",
+        "./Invoke-Tests.ps1",
+        "-TestType",
+        "All",
+        "-OutputFormat",
+        "Normal"
+      ],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": true
+      }
+    },
+    {
+      "label": "Run Tests - Diagnostic Output (powershell)",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-File",
+        "./Invoke-Tests.ps1",
+        "-TestType",
+        "All",
+        "-OutputFormat",
+        "Diagnostic"
+      ],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      }
+    },
+    {
+      "label": "Run Tests with PassThru (powershell)",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-File",
+        "./Invoke-Tests.ps1",
+        "-TestType",
+        "All",
+        "-OutputFormat",
+        "Detailed",
+        "-PassThru"
+      ],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      }
+    },
+    {
+      "label": "Interactive Session (powershell)",
+      "type": "shell",
+      "command": "powershell",
+      "args": ["-NoExit", "-NoProfile"],
+      "group": "none",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "new",
+        "showReuseMessage": false,
+        "clear": true
+      }
+    }
+  ]
+}

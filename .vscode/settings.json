@@ -1,43 +1,43 @@
 {
-    "editor.rulers": [80, 120],
+  "editor.rulers": [80, 120],
 
-    "[powershell]": {
-        "files.trimTrailingWhitespace": true,
-        "files.eol": "\n",
-        "files.encoding": "utf8",
-        "files.insertFinalNewline": true
-    },
+  "[powershell]": {
+    "files.trimTrailingWhitespace": true,
+    "files.eol": "\n",
+    "files.encoding": "utf8",
+    "files.insertFinalNewline": true
+  },
 
-    "powershell.codeFormatting.preset": "Allman",
-    "powershell.codeFormatting.autoCorrectAliases": true,
-    "powershell.codeFormatting.trimWhitespaceAroundPipe": true,
-    "powershell.codeFormatting.useCorrectCasing": true,
-    "powershell.codeFormatting.whitespaceBetweenParameters": true,
-    "powershell.codeFormatting.whitespaceAroundOperator": true,
-    "powershell.codeFormatting.alignPropertyValuePairs": false,
-    "powershell.promptToUpdatePowerShell": false,
-    "powershell.codeFormatting.whitespaceInsideBrace": false,
-    "powershell.codeFormatting.openBraceOnSameLine": false,
-    "powershell.codeFormatting.useConstantStrings": true,
+  "powershell.codeFormatting.preset": "Allman",
+  "powershell.codeFormatting.autoCorrectAliases": true,
+  "powershell.codeFormatting.trimWhitespaceAroundPipe": true,
+  "powershell.codeFormatting.useCorrectCasing": true,
+  "powershell.codeFormatting.whitespaceBetweenParameters": true,
+  "powershell.codeFormatting.whitespaceAroundOperator": true,
+  "powershell.codeFormatting.alignPropertyValuePairs": false,
+  "powershell.promptToUpdatePowerShell": false,
+  "powershell.codeFormatting.whitespaceInsideBrace": false,
+  "powershell.codeFormatting.openBraceOnSameLine": false,
+  "powershell.codeFormatting.useConstantStrings": true,
 
-    "cSpell.words": [
-        "acodec",
-        "ADSI",
-        "badssl",
-        "faststart",
-        "HKLM",
-        "kbps",
-        "keyint",
-        "LASTEXITCODE",
-        "libx",
-        "maxrate",
-        "Mbps",
-        "movflags",
-        "Netlogon",
-        "pwsh",
-        "scodec",
-        "stackoverflow",
-        "testresults",
-        "vcodec"
-    ]
+  "cSpell.words": [
+    "acodec",
+    "ADSI",
+    "badssl",
+    "faststart",
+    "HKLM",
+    "kbps",
+    "keyint",
+    "LASTEXITCODE",
+    "libx",
+    "maxrate",
+    "Mbps",
+    "movflags",
+    "Netlogon",
+    "pwsh",
+    "scodec",
+    "stackoverflow",
+    "testresults",
+    "vcodec"
+  ]
 }
