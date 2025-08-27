@@ -120,8 +120,7 @@ pwsh -NoProfile -Command ". ./Functions/YourFunction.ps1; Test-YourFunction -Ver
 
 ### Profile Management
 
-- `Update-Profile` - Git pulls latest changes and reloads profile
-- `Reload-Profile` - Reloads all profile scripts without updating
+- `Update-Profile` - Git pulls latest changes (requires restart to reload profile)
 - Custom prompt function changes `PS >` color to cyan
 
 ## Key Functions Reference

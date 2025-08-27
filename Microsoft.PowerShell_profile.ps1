@@ -40,7 +40,7 @@ function Update-Profile
         Pop-Location
     }
 
-    Write-Host 'Profile updated successfully! Run ''Reload-Profile'' to reload your profile.' -ForegroundColor Green
+    Write-Host 'Profile updated successfully! Restart your PowerShell session to reload your profile.' -ForegroundColor Green
 }
 
 #
