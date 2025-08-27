@@ -59,7 +59,7 @@ function Test-DnsNameResolution
     [OutputType([System.Boolean])]
     param
     (
-        [Parameter(Mandatory, ValueFromPipeline)]
+        [Parameter(ValueFromPipeline)]
         [ValidateNotNullOrEmpty()]
         [String]
         $Name,
@@ -91,6 +91,11 @@ function Test-DnsNameResolution
 
     process
     {
+        if ([string]::IsNullOrWhiteSpace($Name))
+        {
+            throw 'Parameter -Name is required.'
+        }
+
         Write-Verbose "Testing DNS resolution for '$Name'"
 
         try

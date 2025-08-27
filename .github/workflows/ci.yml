@@ -9,7 +9,7 @@ on:
 
 jobs:
   ci:
-    name: Build on ${{ matrix.platform }} (core)
+    name: Build on ${{ matrix.platform }} (pwsh)
     runs-on: ${{ matrix.platform }}
     strategy:
       fail-fast: false
@@ -41,8 +41,29 @@ jobs:
               Write-Output "There were $($errors.Count) errors and $($warnings.Count) warnings total."
           }
 
+      - name: Install Pester module
+        shell: pwsh
+        run: |
+          Install-Module Pester -Force -SkipPublisherCheck -ErrorAction Stop
+
+      - name: Run Pester tests
+        shell: pwsh
+        run: |
+          ./Invoke-Tests.ps1 -TestType All -OutputFormat Normal
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Tests failed with exit code $LASTEXITCODE" -ErrorAction Stop
+          }
+
+      - name: Upload test results
+        uses: actions/upload-artifact@main
+        if: always()
+        with:
+          name: test-results-${{ matrix.platform }}
+          path: testresults.xml
+
   ci-powershell-desktop:
-    name: Build on windows-latest (desktop)
+    name: Build on windows-latest (powershell)
     runs-on: windows-latest
 
     steps:
@@ -69,3 +90,23 @@ jobs:
           else {
               Write-Output "There were $($errors.Count) errors and $($warnings.Count) warnings total."
           }
+
+      - name: Install Pester module
+        shell: powershell
+        run: |
+          Install-Module Pester -Force -SkipPublisherCheck -ErrorAction Stop
+
+      - name: Run Pester tests
+        shell: powershell
+        run: |
+          .\Invoke-Tests.ps1 -TestType All -OutputFormat Normal
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Tests failed with exit code $LASTEXITCODE" -ErrorAction Stop
+          }
+
+      - name: Upload test results
+        uses: actions/upload-artifact@main
+        if: always()
+        with:
+          name: test-results-windows-desktop
+          path: testresults.xml
