@@ -9,7 +9,7 @@ on:
 
 jobs:
   ci:
-    name: Build on ${{ matrix.platform }} (core)
+    name: Build on ${{ matrix.platform }} (pwsh)
     runs-on: ${{ matrix.platform }}
     strategy:
       fail-fast: false
@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Checkout Git repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@main
 
       - name: Install PSScriptAnalyzer module
         shell: pwsh
@@ -50,24 +50,25 @@ jobs:
         shell: pwsh
         run: |
           ./Invoke-Tests.ps1 -TestType All -OutputFormat Normal
+
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Tests failed with exit code $LASTEXITCODE" -ErrorAction Stop
           }
 
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@main
         if: always()
         with:
           name: test-results-${{ matrix.platform }}
           path: testresults.xml
 
   ci-powershell-desktop:
-    name: Build on windows-latest (desktop)
+    name: Build on windows-latest (powershell)
     runs-on: windows-latest
 
     steps:
       - name: Checkout Git repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@main
 
       - name: Install PSScriptAnalyzer module
         shell: powershell
@@ -104,7 +105,7 @@ jobs:
           }
 
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@main
         if: always()
         with:
           name: test-results-windows-desktop
