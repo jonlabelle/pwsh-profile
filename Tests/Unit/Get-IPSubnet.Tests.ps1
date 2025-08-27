@@ -81,7 +81,7 @@ Describe 'Get-IPSubnet' {
             $result.Subnet | Should -Be '192.168.99.48'  # The subnet address from /28
 
             # Test that Add method exists (if implemented in the function)
-            if ($result | Get-Member -name 'Add' -MemberType Method)
+            if ($result | Get-Member -Name 'Add' -MemberType Method)
             {
                 $addedResult = $result.Add(1)
                 $addedResult.IPAddress | Should -Be '192.168.99.49'
@@ -93,7 +93,7 @@ Describe 'Get-IPSubnet' {
             $subnet = Get-IPSubnet '192.168.99.56/28'
 
             # Test that Compare method exists and works (if implemented)
-            if ($subnet | Get-Member -name 'Compare' -MemberType Method)
+            if ($subnet | Get-Member -Name 'Compare' -MemberType Method)
             {
                 $compareResult = $subnet.Compare('192.168.99.50')
                 $compareResult | Should -Be $true
@@ -105,7 +105,7 @@ Describe 'Get-IPSubnet' {
             $subnet = Get-IPSubnet '192.168.99.58/30'
 
             # Test that GetIPArray method exists (if implemented)
-            if ($subnet | Get-Member -name 'GetIPArray' -MemberType Method)
+            if ($subnet | Get-Member -Name 'GetIPArray' -MemberType Method)
             {
                 $ipArray = $subnet.GetIPArray()
                 $ipArray | Should -Not -BeNullOrEmpty
@@ -121,7 +121,7 @@ Describe 'Get-IPSubnet' {
             $subnet = Get-IPSubnet '192.168.0.0/25'
 
             # Test that Overlaps method exists (if implemented)
-            if ($subnet | Get-Member -name 'Overlaps' -MemberType Method)
+            if ($subnet | Get-Member -Name 'Overlaps' -MemberType Method)
             {
                 $overlapsResult = $subnet.Overlaps('192.168.0.0/27')
                 $overlapsResult | Should -Be $true  # /27 should overlap with /25

@@ -1,0 +1,339 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<test-results xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="nunit_schema_2.5.xsd" name="Pester" total="102" errors="0" failures="0" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2025-08-26" time="21:55:43">
+  <environment cwd="C:\Users\jlabelle25\Documents\PowerShell" clr-version="9.0.6" os-version="10.0.26100" platform="Microsoft Windows 11 Pro|C:\WINDOWS|\Device\Harddisk0\Partition3" nunit-version="2.5.8.0" user="jlabelle25" machine-name="RANDOML3SS" user-domain="RANDOML3SS" />
+  <culture-info current-culture="en-US" current-uiculture="en-US" />
+  <test-suite type="TestFixture" name="Pester" executed="True" result="Success" success="True" time="53.7675" asserts="0" description="Pester">
+    <results>
+      <test-suite type="TestFixture" name="C:\Users\jlabelle25\Documents\PowerShell\Tests\Unit\Get-CommandAlias.Tests.ps1" executed="True" result="Success" success="True" time="0.2171" asserts="0" description="C:\Users\jlabelle25\Documents\PowerShell\Tests\Unit\Get-CommandAlias.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="Get-CommandAlias" executed="True" result="Success" success="True" time="0.1702" asserts="0" description="Get-CommandAlias">
+            <results>
+              <test-suite type="TestFixture" name="Get-CommandAlias.Basic functionality with known commands" executed="True" result="Success" success="True" time="0.0356" asserts="0" description="Get-CommandAlias.Basic functionality with known commands">
+                <results>
+                  <test-case description="Lists all aliases defined for Get-ChildItem command" name="Get-CommandAlias.Basic functionality with known commands.Lists all aliases defined for Get-ChildItem command" time="0.0197" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Lists aliases for Select-Object and Select-String with wildcard" name="Get-CommandAlias.Basic functionality with known commands.Lists aliases for Select-Object and Select-String with wildcard" time="0.0117" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Get-CommandAlias.Pipeline input support" executed="True" result="Success" success="True" time="0.0507" asserts="0" description="Get-CommandAlias.Pipeline input support">
+                <results>
+                  <test-case description="Gets aliases for Get-Process using pipeline input" name="Get-CommandAlias.Pipeline input support.Gets aliases for Get-Process using pipeline input" time="0.0108" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Get-CommandAlias.Wildcard pattern support" executed="True" result="Success" success="True" time="0.0735" asserts="0" description="Get-CommandAlias.Wildcard pattern support">
+                <results>
+                  <test-case description="Should work with wildcard patterns" name="Get-CommandAlias.Wildcard pattern support.Should work with wildcard patterns" time="0.0084" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should show warning for non-existent command pattern" name="Get-CommandAlias.Wildcard pattern support.Should show warning for non-existent command pattern" time="0.0097" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Get-CommandAlias.Parameter validation" executed="True" result="Success" success="True" time="0.0926" asserts="0" description="Get-CommandAlias.Parameter validation">
+                <results>
+                  <test-case description="Should require Name parameter when called directly" name="Get-CommandAlias.Parameter validation.Should require Name parameter when called directly" time="0.0058" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should handle empty Name parameter with proper validation" name="Get-CommandAlias.Parameter validation.Should handle empty Name parameter with proper validation" time="0.0058" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Get-CommandAlias.Output format" executed="True" result="Success" success="True" time="0.1123" asserts="0" description="Get-CommandAlias.Output format">
+                <results>
+                  <test-case description="Should return formatted table output" name="Get-CommandAlias.Output format.Should return formatted table output" time="0.0105" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Get-CommandAlias.Verbose output" executed="True" result="Success" success="True" time="0.1341" asserts="0" description="Get-CommandAlias.Verbose output">
+                <results>
+                  <test-case description="Should provide verbose output when requested" name="Get-CommandAlias.Verbose output.Should provide verbose output when requested" time="0.0169" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Get-CommandAlias.Cross-platform compatibility" executed="True" result="Success" success="True" time="0.151" asserts="0" description="Get-CommandAlias.Cross-platform compatibility">
+                <results>
+                  <test-case description="Should work on any PowerShell platform" name="Get-CommandAlias.Cross-platform compatibility.Should work on any PowerShell platform" time="0.0121" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Get-CommandAlias.Warning handling" executed="True" result="Success" success="True" time="0.1659" asserts="0" description="Get-CommandAlias.Warning handling">
+                <results>
+                  <test-case description="Should show warning when no aliases found" name="Get-CommandAlias.Warning handling.Should show warning when no aliases found" time="0.0071" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="C:\Users\jlabelle25\Documents\PowerShell\Tests\Unit\Get-DotNetVersion.Tests.ps1" executed="True" result="Success" success="True" time="1.3774" asserts="0" description="C:\Users\jlabelle25\Documents\PowerShell\Tests\Unit\Get-DotNetVersion.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="Get-DotNetVersion" executed="True" result="Success" success="True" time="1.2525" asserts="0" description="Get-DotNetVersion">
+            <results>
+              <test-suite type="TestFixture" name="Get-DotNetVersion.Basic functionality examples from documentation" executed="True" result="Success" success="True" time="0.2053" asserts="0" description="Get-DotNetVersion.Basic functionality examples from documentation">
+                <results>
+                  <test-case description="Gets only .NET Framework versions from the local computer" name="Get-DotNetVersion.Basic functionality examples from documentation.Gets only .NET Framework versions from the local computer" time="0.0093" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Gets all .NET versions from the local computer" name="Get-DotNetVersion.Basic functionality examples from documentation.Gets all .NET versions from the local computer" time="0.064" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Gets the latest .NET version and all SDK versions from the local computer" name="Get-DotNetVersion.Basic functionality examples from documentation.Gets the latest .NET version and all SDK versions from the local computer" time="0.1282" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Get-DotNetVersion.Parameter validation" executed="True" result="Success" success="True" time="0.555" asserts="0" description="Get-DotNetVersion.Parameter validation">
+                <results>
+                  <test-case description="Should accept valid ComputerName parameters" name="Get-DotNetVersion.Parameter validation.Should accept valid ComputerName parameters" time="0.174" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should not allow both FrameworkOnly and DotNetOnly" name="Get-DotNetVersion.Parameter validation.Should not allow both FrameworkOnly and DotNetOnly" time="0.0047" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should allow IncludeSDKs with DotNetOnly" name="Get-DotNetVersion.Parameter validation.Should allow IncludeSDKs with DotNetOnly" time="0.0551" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should allow All parameter with other combinations" name="Get-DotNetVersion.Parameter validation.Should allow All parameter with other combinations" time="0.1115" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Get-DotNetVersion.Output structure validation" executed="True" result="Success" success="True" time="0.6186" asserts="0" description="Get-DotNetVersion.Output structure validation">
+                <results>
+                  <test-case description="Should indicate when runtimes are not installed" name="Get-DotNetVersion.Output structure validation.Should indicate when runtimes are not installed" time="0.0587" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Get-DotNetVersion.Cross-platform compatibility" executed="True" result="Success" success="True" time="0.7366" asserts="0" description="Get-DotNetVersion.Cross-platform compatibility">
+                <results>
+                  <test-case description="Should work on current platform" name="Get-DotNetVersion.Cross-platform compatibility.Should work on current platform" time="0.0585" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should handle platform-specific runtime detection" name="Get-DotNetVersion.Cross-platform compatibility.Should handle platform-specific runtime detection" time="0.0564" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Get-DotNetVersion.Runtime type filtering" executed="True" result="Success" success="True" time="0.8669" asserts="0" description="Get-DotNetVersion.Runtime type filtering">
+                <results>
+                  <test-case description="Should filter to Framework only when requested" name="Get-DotNetVersion.Runtime type filtering.Should filter to Framework only when requested" time="0.0086" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should filter to .NET only when requested" name="Get-DotNetVersion.Runtime type filtering.Should filter to .NET only when requested" time="0.0588" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should include both runtime types by default" name="Get-DotNetVersion.Runtime type filtering.Should include both runtime types by default" time="0.0594" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Get-DotNetVersion.ComputerName parameter support" executed="True" result="Success" success="True" time="1.1099" asserts="0" description="Get-DotNetVersion.ComputerName parameter support">
+                <results>
+                  <test-case description="Should handle localhost as ComputerName" name="Get-DotNetVersion.ComputerName parameter support.Should handle localhost as ComputerName" time="0.0632" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should handle pipeline input for ComputerName" name="Get-DotNetVersion.ComputerName parameter support.Should handle pipeline input for ComputerName" time="0.0642" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should handle multiple computer names" name="Get-DotNetVersion.ComputerName parameter support.Should handle multiple computer names" time="0.1125" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Get-DotNetVersion.Version detection accuracy" executed="True" result="Success" success="True" time="1.2493" asserts="0" description="Get-DotNetVersion.Version detection accuracy">
+                <results>
+                  <test-case description="Should detect PowerShell version information" name="Get-DotNetVersion.Version detection accuracy.Should detect PowerShell version information" time="0.0624" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should handle cases where no versions are installed" name="Get-DotNetVersion.Version detection accuracy.Should handle cases where no versions are installed" time="0.0716" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="C:\Users\jlabelle25\Documents\PowerShell\Tests\Unit\Get-IPSubnet.Tests.ps1" executed="True" result="Success" success="True" time="0.2671" asserts="0" description="C:\Users\jlabelle25\Documents\PowerShell\Tests\Unit\Get-IPSubnet.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="Get-IPSubnet" executed="True" result="Success" success="True" time="0.2341" asserts="0" description="Get-IPSubnet">
+            <results>
+              <test-suite type="TestFixture" name="Get-IPSubnet.CIDR notation input" executed="True" result="Success" success="True" time="0.0304" asserts="0" description="Get-IPSubnet.CIDR notation input">
+                <results>
+                  <test-case description="Calculate IP subnet information for 192.168.0.0/24" name="Get-IPSubnet.CIDR notation input.Calculate IP subnet information for 192.168.0.0/24" time="0.0255" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Get-IPSubnet.IP address and mask input" executed="True" result="Success" success="True" time="0.0534" asserts="0" description="Get-IPSubnet.IP address and mask input">
+                <results>
+                  <test-case description="Calculate IP subnet information using IP address and mask" name="Get-IPSubnet.IP address and mask input.Calculate IP subnet information using IP address and mask" time="0.0185" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Get-IPSubnet.IP address and prefix length input" executed="True" result="Success" success="True" time="0.078" asserts="0" description="Get-IPSubnet.IP address and prefix length input">
+                <results>
+                  <test-case description="Calculate IP subnet information using IP address and prefix length" name="Get-IPSubnet.IP address and prefix length input.Calculate IP subnet information using IP address and prefix length" time="0.019" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Get-IPSubnet.Complex calculation examples" executed="True" result="Success" success="True" time="0.1109" asserts="0" description="Get-IPSubnet.Complex calculation examples">
+                <results>
+                  <test-case description="Should support chained calculations using Add method" name="Get-IPSubnet.Complex calculation examples.Should support chained calculations using Add method" time="0.0087" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should support Compare method for IP range checking" name="Get-IPSubnet.Complex calculation examples.Should support Compare method for IP range checking" time="0.005" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should support GetIPArray method for listing all IPs" name="Get-IPSubnet.Complex calculation examples.Should support GetIPArray method for listing all IPs" time="0.0056" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should support Overlaps method for subnet comparison" name="Get-IPSubnet.Complex calculation examples.Should support Overlaps method for subnet comparison" time="0.0071" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Get-IPSubnet.Common subnet calculations" executed="True" result="Success" success="True" time="0.1473" asserts="0" description="Get-IPSubnet.Common subnet calculations">
+                <results>
+                  <test-case description="Should calculate /8 network correctly" name="Get-IPSubnet.Common subnet calculations.Should calculate /8 network correctly" time="0.0077" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should calculate /16 network correctly" name="Get-IPSubnet.Common subnet calculations.Should calculate /16 network correctly" time="0.0089" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should calculate /30 network correctly (point-to-point)" name="Get-IPSubnet.Common subnet calculations.Should calculate /30 network correctly (point-to-point)" time="0.0069" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should calculate /32 host route correctly" name="Get-IPSubnet.Common subnet calculations.Should calculate /32 host route correctly" time="0.009" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Get-IPSubnet.Parameter validation" executed="True" result="Success" success="True" time="0.1967" asserts="0" description="Get-IPSubnet.Parameter validation">
+                <results>
+                  <test-case description="Should handle valid CIDR notation" name="Get-IPSubnet.Parameter validation.Should handle valid CIDR notation" time="0.0126" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should handle valid IP and mask combinations" name="Get-IPSubnet.Parameter validation.Should handle valid IP and mask combinations" time="0.0078" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should reject invalid IP addresses" name="Get-IPSubnet.Parameter validation.Should reject invalid IP addresses" time="0.0138" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should reject invalid prefix lengths" name="Get-IPSubnet.Parameter validation.Should reject invalid prefix lengths" time="0.0099" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Get-IPSubnet.Binary representation" executed="True" result="Success" success="True" time="0.2149" asserts="0" description="Get-IPSubnet.Binary representation">
+                <results>
+                  <test-case description="Should provide correct binary representations" name="Get-IPSubnet.Binary representation.Should provide correct binary representations" time="0.0129" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Get-IPSubnet.Decimal conversion" executed="True" result="Success" success="True" time="0.2306" asserts="0" description="Get-IPSubnet.Decimal conversion">
+                <results>
+                  <test-case description="Should provide correct decimal representation" name="Get-IPSubnet.Decimal conversion.Should provide correct decimal representation" time="0.0111" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="C:\Users\jlabelle25\Documents\PowerShell\Tests\Unit\New-RandomString.Tests.ps1" executed="True" result="Success" success="True" time="0.6457" asserts="0" description="C:\Users\jlabelle25\Documents\PowerShell\Tests\Unit\New-RandomString.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="New-RandomString" executed="True" result="Success" success="True" time="0.5952" asserts="0" description="New-RandomString">
+            <results>
+              <test-suite type="TestFixture" name="New-RandomString.Basic functionality" executed="True" result="Success" success="True" time="0.0439" asserts="0" description="New-RandomString.Basic functionality">
+                <results>
+                  <test-case description="Returns a random 32-character string by default" name="New-RandomString.Basic functionality.Returns a random 32-character string by default" time="0.0122" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Returns a random 16-character string when Length is specified" name="New-RandomString.Basic functionality.Returns a random 16-character string when Length is specified" time="0.0047" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Returns a random 64-character string without ambiguous characters when ExcludeAmbiguous is specified" name="New-RandomString.Basic functionality.Returns a random 64-character string without ambiguous characters when ExcludeAmbiguous is specified" time="0.0111" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Returns a 20-character string including symbols when IncludeSymbols and Secure are specified" name="New-RandomString.Basic functionality.Returns a 20-character string including symbols when IncludeSymbols and Secure are specified" time="0.0062" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Returns different values on multiple calls" name="New-RandomString.Basic functionality.Returns different values on multiple calls" time="0.004" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="New-RandomString.Parameter validation" executed="True" result="Success" success="True" time="0.3696" asserts="0" description="New-RandomString.Parameter validation">
+                <results>
+                  <test-case description="Should accept Length values within valid range" name="New-RandomString.Parameter validation.Should accept Length values within valid range" time="0.3164" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should reject Length values outside valid range" name="New-RandomString.Parameter validation.Should reject Length values outside valid range" time="0.0053" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="New-RandomString.Character set validation" executed="True" result="Success" success="True" time="0.4915" asserts="0" description="New-RandomString.Character set validation">
+                <results>
+                  <test-case description="Should include numbers when not excluding ambiguous" name="New-RandomString.Character set validation.Should include numbers when not excluding ambiguous" time="0.0247" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should include uppercase letters" name="New-RandomString.Character set validation.Should include uppercase letters" time="0.025" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should include lowercase letters" name="New-RandomString.Character set validation.Should include lowercase letters" time="0.0286" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should include symbols when IncludeSymbols is specified" name="New-RandomString.Character set validation.Should include symbols when IncludeSymbols is specified" time="0.0306" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should not include symbols when IncludeSymbols is not specified" name="New-RandomString.Character set validation.Should not include symbols when IncludeSymbols is not specified" time="0.007" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="New-RandomString.ExcludeAmbiguous parameter" executed="True" result="Success" success="True" time="0.5639" asserts="0" description="New-RandomString.ExcludeAmbiguous parameter">
+                <results>
+                  <test-case description="Should exclude ambiguous characters when ExcludeAmbiguous is specified" name="New-RandomString.ExcludeAmbiguous parameter.Should exclude ambiguous characters when ExcludeAmbiguous is specified" time="0.0378" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should still include non-ambiguous numbers and letters when ExcludeAmbiguous is specified" name="New-RandomString.ExcludeAmbiguous parameter.Should still include non-ambiguous numbers and letters when ExcludeAmbiguous is specified" time="0.0301" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="New-RandomString.Secure parameter" executed="True" result="Success" success="True" time="0.5823" asserts="0" description="New-RandomString.Secure parameter">
+                <results>
+                  <test-case description="Should generate cryptographically secure random when Secure is specified" name="New-RandomString.Secure parameter.Should generate cryptographically secure random when Secure is specified" time="0.0074" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should work with all parameter combinations when Secure is specified" name="New-RandomString.Secure parameter.Should work with all parameter combinations when Secure is specified" time="0.0057" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="New-RandomString.Output type" executed="True" result="Success" success="True" time="0.5911" asserts="0" description="New-RandomString.Output type">
+                <results>
+                  <test-case description="Should return a string" name="New-RandomString.Output type.Should return a string" time="0.0053" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="C:\Users\jlabelle25\Documents\PowerShell\Tests\Unit\Test-DnsNameResolution.Tests.ps1" executed="True" result="Success" success="True" time="0.5786" asserts="0" description="C:\Users\jlabelle25\Documents\PowerShell\Tests\Unit\Test-DnsNameResolution.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="Test-DnsNameResolution" executed="True" result="Success" success="True" time="0.5386" asserts="0" description="Test-DnsNameResolution">
+            <results>
+              <test-suite type="TestFixture" name="Test-DnsNameResolution.Basic DNS resolution examples from documentation" executed="True" result="Success" success="True" time="0.0362" asserts="0" description="Test-DnsNameResolution.Basic DNS resolution examples from documentation">
+                <results>
+                  <test-case description="Tests whether localhost can be resolved using the system's default DNS servers" name="Test-DnsNameResolution.Basic DNS resolution examples from documentation.Tests whether localhost can be resolved using the system's default DNS servers" time="0.0154" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Tests whether localhost can be resolved with specified DNS servers (uses system DNS for compatibility)" name="Test-DnsNameResolution.Basic DNS resolution examples from documentation.Tests whether localhost can be resolved with specified DNS servers (uses system DNS for compatibility)" time="0.0078" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Tests whether localhost has an IPv4 (A) record with verbose output" name="Test-DnsNameResolution.Basic DNS resolution examples from documentation.Tests whether localhost has an IPv4 (A) record with verbose output" time="0.0078" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test-DnsNameResolution.IPv4 record resolution" executed="True" result="Success" success="True" time="0.0534" asserts="0" description="Test-DnsNameResolution.IPv4 record resolution">
+                <results>
+                  <test-case description="Should resolve localhost to IPv4 addresses" name="Test-DnsNameResolution.IPv4 record resolution.Should resolve localhost to IPv4 addresses" time="0.0074" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should handle domain names with different cases" name="Test-DnsNameResolution.IPv4 record resolution.Should handle domain names with different cases" time="0.0055" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test-DnsNameResolution.IPv6 record resolution" executed="True" result="Success" success="True" time="0.0708" asserts="0" description="Test-DnsNameResolution.IPv6 record resolution">
+                <results>
+                  <test-case description="Should test IPv6 resolution for localhost" name="Test-DnsNameResolution.IPv6 record resolution.Should test IPv6 resolution for localhost" time="0.0074" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test-DnsNameResolution.Invalid domain handling" executed="True" result="Success" success="True" time="0.1704" asserts="0" description="Test-DnsNameResolution.Invalid domain handling">
+                <results>
+                  <test-case description="Should return false for non-existent domains" name="Test-DnsNameResolution.Invalid domain handling.Should return false for non-existent domains" time="0.0784" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should return false for invalid domain names" name="Test-DnsNameResolution.Invalid domain handling.Should return false for invalid domain names" time="0.0051" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should handle malformed domain names gracefully" name="Test-DnsNameResolution.Invalid domain handling.Should handle malformed domain names gracefully" time="0.0104" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test-DnsNameResolution.Parameter validation" executed="True" result="Success" success="True" time="0.2163" asserts="0" description="Test-DnsNameResolution.Parameter validation">
+                <results>
+                  <test-case description="Should require Name parameter" name="Test-DnsNameResolution.Parameter validation.Should require Name parameter" time="0.0066" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should reject null or empty Name parameter" name="Test-DnsNameResolution.Parameter validation.Should reject null or empty Name parameter" time="0.0069" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should validate DNS server IP addresses when provided" name="Test-DnsNameResolution.Parameter validation.Should validate DNS server IP addresses when provided" time="0.0116" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should accept valid DNS record types" name="Test-DnsNameResolution.Parameter validation.Should accept valid DNS record types" time="0.0112" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should reject invalid DNS record types" name="Test-DnsNameResolution.Parameter validation.Should reject invalid DNS record types" time="0.0044" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test-DnsNameResolution.Pipeline input support" executed="True" result="Success" success="True" time="0.3153" asserts="0" description="Test-DnsNameResolution.Pipeline input support">
+                <results>
+                  <test-case description="Should support pipeline input for domain names" name="Test-DnsNameResolution.Pipeline input support.Should support pipeline input for domain names" time="0.0158" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should handle mixed valid and invalid domains via pipeline" name="Test-DnsNameResolution.Pipeline input support.Should handle mixed valid and invalid domains via pipeline" time="0.0787" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test-DnsNameResolution.Cross-platform compatibility" executed="True" result="Success" success="True" time="0.3353" asserts="0" description="Test-DnsNameResolution.Cross-platform compatibility">
+                <results>
+                  <test-case description="Should use .NET DNS methods for cross-platform compatibility" name="Test-DnsNameResolution.Cross-platform compatibility.Should use .NET DNS methods for cross-platform compatibility" time="0.0075" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should handle system DNS configuration differences across platforms" name="Test-DnsNameResolution.Cross-platform compatibility.Should handle system DNS configuration differences across platforms" time="0.0054" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test-DnsNameResolution.Verbose output and logging" executed="True" result="Success" success="True" time="0.4254" asserts="0" description="Test-DnsNameResolution.Verbose output and logging">
+                <results>
+                  <test-case description="Should provide detailed verbose information" name="Test-DnsNameResolution.Verbose output and logging.Should provide detailed verbose information" time="0.0093" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should log different messages for successful and failed resolutions" name="Test-DnsNameResolution.Verbose output and logging.Should log different messages for successful and failed resolutions" time="0.0761" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test-DnsNameResolution.DNS server parameter behavior" executed="True" result="Success" success="True" time="0.4477" asserts="0" description="Test-DnsNameResolution.DNS server parameter behavior">
+                <results>
+                  <test-case description="Should log information about using custom DNS servers" name="Test-DnsNameResolution.DNS server parameter behavior.Should log information about using custom DNS servers" time="0.013" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should still resolve correctly when custom servers are specified" name="Test-DnsNameResolution.DNS server parameter behavior.Should still resolve correctly when custom servers are specified" time="0.0047" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test-DnsNameResolution.Error handling and edge cases" executed="True" result="Success" success="True" time="0.5341" asserts="0" description="Test-DnsNameResolution.Error handling and edge cases">
+                <results>
+                  <test-case description="Should handle network timeouts gracefully" name="Test-DnsNameResolution.Error handling and edge cases.Should handle network timeouts gracefully" time="0.0089" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should return proper result type in all scenarios" name="Test-DnsNameResolution.Error handling and edge cases.Should return proper result type in all scenarios" time="0.0731" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="C:\Users\jlabelle25\Documents\PowerShell\Tests\Unit\Test-Port.Tests.ps1" executed="True" result="Success" success="True" time="50.653" asserts="0" description="C:\Users\jlabelle25\Documents\PowerShell\Tests\Unit\Test-Port.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="Test-Port" executed="True" result="Success" success="True" time="50.5763" asserts="0" description="Test-Port">
+            <results>
+              <test-suite type="TestFixture" name="Test-Port.Pipeline input scenarios" executed="True" result="Success" success="True" time="15.0785" asserts="0" description="Test-Port.Pipeline input scenarios">
+                <results>
+                  <test-case description="Tests multiple ports on localhost using pipeline input for ports" name="Test-Port.Pipeline input scenarios.Tests multiple ports on localhost using pipeline input for ports" time="6.0369" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Tests a range of ports using pipeline input" name="Test-Port.Pipeline input scenarios.Tests a range of ports using pipeline input" time="9.033" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test-Port.Parameter validation" executed="True" result="Success" success="True" time="28.3486" asserts="0" description="Test-Port.Parameter validation">
+                <results>
+                  <test-case description="Should accept valid port numbers" name="Test-Port.Parameter validation.Should accept valid port numbers" time="9.0463" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should reject invalid port numbers" name="Test-Port.Parameter validation.Should reject invalid port numbers" time="0.0171" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should accept valid timeout values" name="Test-Port.Parameter validation.Should accept valid timeout values" time="4.1816" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should reject invalid timeout values" name="Test-Port.Parameter validation.Should reject invalid timeout values" time="0.02" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test-Port.Protocol selection" executed="True" result="Success" success="True" time="34.3984" asserts="0" description="Test-Port.Protocol selection">
+                <results>
+                  <test-case description="Should default to TCP when no protocol is specified" name="Test-Port.Protocol selection.Should default to TCP when no protocol is specified" time="3.0159" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should use TCP when Tcp switch is specified" name="Test-Port.Protocol selection.Should use TCP when Tcp switch is specified" time="3.0206" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should use UDP when Udp switch is specified" name="Test-Port.Protocol selection.Should use UDP when Udp switch is specified" time="0.0084" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test-Port.Multiple computers support" executed="True" result="Success" success="True" time="45.4964" asserts="0" description="Test-Port.Multiple computers support">
+                <results>
+                  <test-case description="Should handle multiple target computers" name="Test-Port.Multiple computers support.Should handle multiple target computers" time="5.0512" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should skip empty or null computer names" name="Test-Port.Multiple computers support.Should skip empty or null computer names" time="6.0405" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test-Port.TCP specific tests" executed="True" result="Success" success="True" time="50.5502" asserts="0" description="Test-Port.TCP specific tests">
+                <results>
+                  <test-case description="Should properly test TCP connections" name="Test-Port.TCP specific tests.Should properly test TCP connections" time="3.0324" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should handle TCP connection failures appropriately" name="Test-Port.TCP specific tests.Should handle TCP connection failures appropriately" time="2.012" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="Test-Port.UDP specific tests" executed="True" result="Success" success="True" time="50.5733" asserts="0" description="Test-Port.UDP specific tests">
+                <results>
+                  <test-case description="Should properly test UDP connections" name="Test-Port.UDP specific tests.Should properly test UDP connections" time="0.0113" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should handle UDP port testing with appropriate status messages" name="Test-Port.UDP specific tests.Should handle UDP port testing with appropriate status messages" time="0.0071" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+    </results>
+  </test-suite>
+</test-results>

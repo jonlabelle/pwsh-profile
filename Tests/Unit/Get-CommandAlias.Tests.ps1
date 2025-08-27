@@ -7,7 +7,7 @@ Describe 'Get-CommandAlias' {
     Context 'Basic functionality with known commands' {
         It 'Lists all aliases defined for Get-ChildItem command' {
             # Capture formatted output by redirecting all output streams
-            $output = Get-CommandAlias -name 'Get-ChildItem' *>&1
+            $output = Get-CommandAlias -Name 'Get-ChildItem' *>&1
             $output | Should -Not -BeNullOrEmpty
 
             # The function outputs formatted table, so we check the string content
@@ -18,7 +18,7 @@ Describe 'Get-CommandAlias' {
         }
 
         It 'Lists aliases for Select-Object and Select-String with wildcard' {
-            $output = Get-CommandAlias -name 'Select*' *>&1
+            $output = Get-CommandAlias -Name 'Select*' *>&1
             $output | Should -Not -BeNullOrEmpty
 
             $outputString = $output | Out-String
@@ -43,7 +43,7 @@ Describe 'Get-CommandAlias' {
 
     Context 'Wildcard pattern support' {
         It 'Should work with wildcard patterns' {
-            $output = Get-CommandAlias -name 'Get-C*' *>&1
+            $output = Get-CommandAlias -Name 'Get-C*' *>&1
             $output | Should -Not -BeNullOrEmpty
 
             $outputString = $output | Out-String
@@ -51,7 +51,7 @@ Describe 'Get-CommandAlias' {
         }
 
         It 'Should show warning for non-existent command pattern' {
-            $warningOutput = Get-CommandAlias -name 'NonExistentCommand*' 3>&1
+            $warningOutput = Get-CommandAlias -Name 'NonExistentCommand*' 3>&1
             $warningOutput | Should -Not -BeNullOrEmpty
             $warningOutput | Should -Match 'No aliases found'
         }
@@ -59,18 +59,18 @@ Describe 'Get-CommandAlias' {
 
     Context 'Parameter validation' {
         It 'Should require Name parameter when called directly' {
-            { Get-CommandAlias -name '' -ErrorAction Stop } | Should -Throw
+            { Get-CommandAlias -Name '' -ErrorAction Stop } | Should -Throw
         }
 
         It 'Should handle empty Name parameter with proper validation' {
             # Test with empty string - should throw validation error
-            { Get-CommandAlias -name '' -ErrorAction Stop } | Should -Throw
+            { Get-CommandAlias -Name '' -ErrorAction Stop } | Should -Throw
         }
     }
 
     Context 'Output format' {
         It 'Should return formatted table output' {
-            $output = Get-CommandAlias -name 'Get-ChildItem' *>&1
+            $output = Get-CommandAlias -Name 'Get-ChildItem' *>&1
             $output | Should -Not -BeNullOrEmpty
 
             # Check that it's formatted table output
@@ -82,7 +82,7 @@ Describe 'Get-CommandAlias' {
 
     Context 'Verbose output' {
         It 'Should provide verbose output when requested' {
-            $verboseOutput = Get-CommandAlias -name 'Get-ChildItem' -Verbose 4>&1
+            $verboseOutput = Get-CommandAlias -Name 'Get-ChildItem' -Verbose 4>&1
 
             # Should produce verbose messages
             $verboseMessages = $verboseOutput | Where-Object { $_ -is [System.Management.Automation.VerboseRecord] }
@@ -94,7 +94,7 @@ Describe 'Get-CommandAlias' {
     Context 'Cross-platform compatibility' {
         It 'Should work on any PowerShell platform' {
             # Test with core PowerShell commands available on all platforms
-            $output = Get-CommandAlias -name 'Get-Location' *>&1
+            $output = Get-CommandAlias -Name 'Get-Location' *>&1
             $output | Should -Not -BeNullOrEmpty
 
             $outputString = $output | Out-String
@@ -107,7 +107,7 @@ Describe 'Get-CommandAlias' {
     Context 'Warning handling' {
         It 'Should show warning when no aliases found' {
             # Use a command that likely has no aliases
-            $warningOutput = Get-CommandAlias -name 'Get-Random' 3>&1
+            $warningOutput = Get-CommandAlias -Name 'Get-Random' 3>&1
 
             # Should produce a warning about no aliases found
             if ($warningOutput)

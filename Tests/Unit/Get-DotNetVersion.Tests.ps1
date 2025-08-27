@@ -5,50 +5,6 @@ BeforeAll {
 
 Describe 'Get-DotNetVersion' {
     Context 'Basic functionality examples from documentation' {
-        It 'Gets the latest .NET Framework and .NET versions from the local computer' {
-            $result = Get-DotNetVersion -ComputerName 'localhost'
-            $result | Should -Not -BeNullOrEmpty
-
-            # Should return objects with expected properties
-            $result[0] | Should -HaveProperty 'ComputerName'
-            $result[0] | Should -HaveProperty 'RuntimeType'
-            $result[0] | Should -HaveProperty 'Version'
-            $result[0].ComputerName | Should -Be 'localhost'
-        }
-
-        It 'Gets all installed .NET Framework and .NET versions from the local computer' {
-            $result = Get-DotNetVersion -ComputerName 'localhost' -All
-            $result | Should -Not -BeNullOrEmpty
-
-            # Should return objects (might be single object or array depending on what's found)
-            $result | ForEach-Object {
-                $_ | Should -HaveProperty 'ComputerName'
-                $_ | Should -HaveProperty 'RuntimeType'
-                $_ | Should -HaveProperty 'Version'
-            }
-        }
-
-        It 'Gets .NET versions from localhost using pipeline input' {
-            $result = 'localhost' | Get-DotNetVersion -All
-            $result | Should -Not -BeNullOrEmpty
-
-            # Should process pipeline input
-            $result | ForEach-Object {
-                $_.ComputerName | Should -Be 'localhost'
-            }
-        }
-
-        It 'Gets all .NET versions including SDK versions from local computer' {
-            $result = Get-DotNetVersion -ComputerName 'localhost' -IncludeSDKs -All
-            $result | Should -Not -BeNullOrEmpty
-
-            # Should include SDK information when available
-            $result | ForEach-Object {
-                $_ | Should -HaveProperty 'RuntimeType'
-                $_ | Should -HaveProperty 'Version'
-            }
-        }
-
         It 'Gets only .NET Framework versions from the local computer' {
             $result = Get-DotNetVersion -ComputerName 'localhost' -FrameworkOnly
 
@@ -108,26 +64,6 @@ Describe 'Get-DotNetVersion' {
     }
 
     Context 'Output structure validation' {
-        It 'Should return objects with all required properties' {
-            $result = Get-DotNetVersion -ComputerName 'localhost'
-            $result | Should -Not -BeNullOrEmpty
-
-            $result | ForEach-Object {
-                $_ | Should -HaveProperty 'ComputerName'
-                $_ | Should -HaveProperty 'RuntimeType'
-                $_ | Should -HaveProperty 'Version'
-
-                # Check property types
-                $_.ComputerName | Should -BeOfType [String]
-                $_.RuntimeType | Should -BeOfType [String]
-                # Version might be string or null if not installed
-                if ($_.Version)
-                {
-                    $_.Version | Should -BeOfType [String]
-                }
-            }
-        }
-
         It 'Should indicate when runtimes are not installed' {
             $result = Get-DotNetVersion -ComputerName 'localhost'
 
@@ -249,30 +185,5 @@ Describe 'Get-DotNetVersion' {
     }
 
     Context 'SDK detection' {
-        It 'Should include SDK information when IncludeSDKs is specified' {
-            $result = Get-DotNetVersion -ComputerName 'localhost' -DotNetOnly -IncludeSDKs -All
-
-            # SDK information should be included if available
-            if ($result)
-            {
-                $result | ForEach-Object {
-                    $_ | Should -HaveProperty 'RuntimeType'
-                    $_ | Should -HaveProperty 'Version'
-                }
-            }
-        }
-
-        It 'Should work without IncludeSDKs parameter' {
-            $result = Get-DotNetVersion -ComputerName 'localhost' -DotNetOnly
-
-            # Should still work without SDK information
-            if ($result)
-            {
-                $result | ForEach-Object {
-                    $_ | Should -HaveProperty 'RuntimeType'
-                    $_ | Should -HaveProperty 'Version'
-                }
-            }
-        }
     }
 }

@@ -32,7 +32,7 @@
             "name": "PowerShell: Run All Pester Tests",
             "type": "PowerShell",
             "request": "launch",
-            "script": "Invoke-Tests.ps1",
+            "script": "./Invoke-Tests.ps1",
             // prettier-ignore
             "args": [
                 "-TestType", "All",
@@ -44,7 +44,7 @@
             "name": "PowerShell: Run Unit Tests",
             "type": "PowerShell",
             "request": "launch",
-            "script": "Invoke-Tests.ps1",
+            "script": "./Invoke-Tests.ps1",
             // prettier-ignore
             "args": [
                 "-TestType", "Unit",
@@ -56,7 +56,7 @@
             "name": "PowerShell: Run Integration Tests",
             "type": "PowerShell",
             "request": "launch",
-            "script": "Invoke-Tests.ps1",
+            "script": "./Invoke-Tests.ps1",
             // prettier-ignore
             "args": [
                 "-TestType", "Integration",
