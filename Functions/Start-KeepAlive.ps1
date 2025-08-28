@@ -7,7 +7,7 @@ function Start-KeepAlive
     .DESCRIPTION
         This function runs a background job that simulates key-press activity to keep
         a computer awake and prevent sleep, screensaver activation, or session timeout.
-        By default, it sends a Ctrl key press every 3 minutes for a specified duration.
+        By default, it sends an F15 key press every 1 minute for a specified duration.
 
         PLATFORM COMPATIBILITY: This function only works on Windows platforms as it relies
         on Windows-specific COM objects (WScript.Shell) for keystroke simulation. On macOS
@@ -24,7 +24,7 @@ function Start-KeepAlive
     .PARAMETER SleepSeconds
         The number of seconds between each key-press.
         Valid range: 30 to 3600 seconds (30 seconds to 1 hour).
-        Default is 180 seconds (3 minutes).
+        Default is 60 seconds (1 minute).
 
     .PARAMETER JobName
         The name of the background job.
@@ -49,7 +49,7 @@ function Start-KeepAlive
     .EXAMPLE
         PS> Start-KeepAlive
 
-        Starts a keep-alive job that will run for 12 hours, pressing the F15 key every 3 minutes.
+        Starts a keep-alive job that will run for 12 hours, pressing the F15 key every 1 minute.
 
     .EXAMPLE
         PS> Start-KeepAlive -KeepAliveHours 3 -SleepSeconds 300
@@ -99,7 +99,7 @@ function Start-KeepAlive
 
         [Parameter(ParameterSetName = 'Start')]
         [ValidateRange(30, 3600)]
-        [Int32]$SleepSeconds = 180,
+        [Int32]$SleepSeconds = 60,
 
         [Parameter(ParameterSetName = 'Start')]
         [Parameter(ParameterSetName = 'Query')]
@@ -320,13 +320,14 @@ function Start-KeepAlive
 
                         $iterationCount = 0
 
+                        # Create COM object once and reuse it (more efficient and reliable)
+                        $wshell = New-Object -ComObject WScript.Shell
+
                         while ((Get-Date) -le $EndTime)
                         {
-                            # Wait before sending keystroke (except first iteration)
-                            if ($iterationCount -gt 0)
-                            {
-                                Start-Sleep -Seconds $SleepSeconds
-                            }
+                            # Wait SleepSeconds before pressing key (should be less than screensaver timeout)
+                            # This matches the original behavior where sleep happens before each keystroke
+                            Start-Sleep -Seconds $SleepSeconds
 
                             $current = Get-Date
                             $remaining = [Math]::Round((($EndTime - $current).TotalMinutes), 2)
@@ -337,12 +338,10 @@ function Start-KeepAlive
                                 Write-Output "$(Get-Date -Format 'HH:mm:ss') - Iteration $($iterationCount + 1), $remaining minutes remaining"
                             }
 
-                            # Send the keystroke
+                            # Send the keystroke using the existing COM object
                             try
                             {
-                                $wshell = New-Object -ComObject WScript.Shell
                                 $wshell.SendKeys($KeyToPress)
-                                [System.Runtime.Interopservices.Marshal]::ReleaseComObject($wshell) | Out-Null
                             }
                             catch
                             {
@@ -360,6 +359,21 @@ function Start-KeepAlive
                     {
                         Write-Error "Keep-alive job '$JobName' encountered an error: $($_.Exception.Message)"
                         throw $_
+                    }
+                    finally
+                    {
+                        # Clean up COM object
+                        if ($wshell)
+                        {
+                            try
+                            {
+                                [System.Runtime.Interopservices.Marshal]::ReleaseComObject($wshell) | Out-Null
+                            }
+                            catch
+                            {
+                                # Ignore cleanup errors
+                            }
+                        }
                     }
                 } # end jobScript
 
