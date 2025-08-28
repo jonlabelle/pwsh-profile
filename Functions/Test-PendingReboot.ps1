@@ -35,6 +35,7 @@ function Test-PendingReboot
 
     .EXAMPLE
         PS> Test-PendingReboot
+
         ComputerName PendingReboot Reason
         ------------ ------------- ------
         localhost               True Pending File Rename Operations
@@ -43,6 +44,7 @@ function Test-PendingReboot
 
     .EXAMPLE
         PS> Test-PendingReboot -ComputerName 'Server01', 'Server02'
+
         ComputerName PendingReboot Reason
         ------------ ------------- ------
         Server01                True Windows Update - Reboot Required
@@ -52,6 +54,7 @@ function Test-PendingReboot
 
     .EXAMPLE
         PS> Test-PendingReboot -ComputerName 'Server01' -Credential (Get-Credential)
+
         ComputerName PendingReboot Reason
         ------------ ------------- ------
         Server01                True Component Based Servicing - Packages Pending
@@ -60,6 +63,7 @@ function Test-PendingReboot
 
     .EXAMPLE
         PS> Test-PendingReboot -Verbose
+
         VERBOSE: Pending reboot detected: Registry key exists - HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager
         VERBOSE: Pending reboot detected: PendingFileRenameOperations exists
 
@@ -71,6 +75,7 @@ function Test-PendingReboot
 
     .EXAMPLE
         PS> Test-PendingReboot -ComputerName 'NonExistentServer'
+
         Write-Error: Failed to check pending reboot status for 'NonExistentServer': [WinRM cannot complete the operation...]
 
         ComputerName       PendingReboot Reason

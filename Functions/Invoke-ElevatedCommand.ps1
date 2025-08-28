@@ -34,15 +34,18 @@ function Invoke-ElevatedCommand
 
     .EXAMPLE
         PS> Invoke-ElevatedCommand { Get-Service | Where-Object Status -eq 'Running' }
+
         Runs an elevated PowerShell session to get running services.
 
     .EXAMPLE
         PS> Get-Process | Invoke-ElevatedCommand { $input | Where-Object Handles -gt 500 } | Sort-Object Handles
+
         Gets all processes, pipes them to an elevated session that filters for processes with more than 500 handles,
         and then sorts the results by handle count.
 
     .EXAMPLE
         PS> Invoke-ElevatedCommand -EnableProfile { Import-Module ActiveDirectory; Get-ADUser -Filter * }
+
         Runs an elevated PowerShell session with profile loaded, imports the ActiveDirectory module,
         and retrieves all AD users.
 
@@ -50,6 +53,7 @@ function Invoke-ElevatedCommand
         PS> Invoke-ElevatedCommand -TimeoutSeconds 60 {
             Get-WmiObject -Class Win32_ComputerSystem | Select-Object Name, Domain, TotalPhysicalMemory
         }
+
         Runs an elevated WMI query with a 60-second timeout.
 
     .EXAMPLE
@@ -57,6 +61,7 @@ function Invoke-ElevatedCommand
             New-Item -Path "C:\Program Files\MyApp" -ItemType Directory -Force
             Copy-Item -Path ".\MyApp.exe" -Destination "C:\Program Files\MyApp\" -Force
         }
+
         Creates a directory and copies files to Program Files, which requires elevation.
 
     .EXAMPLE
@@ -65,6 +70,7 @@ function Invoke-ElevatedCommand
                 Test-Connection -ComputerName $_ -Count 1 -Quiet
             }
         }
+
         Tests connectivity to multiple servers using elevated privileges.
 
     .OUTPUTS

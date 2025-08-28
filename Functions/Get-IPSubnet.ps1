@@ -13,7 +13,8 @@ function Get-IPSubnet
         Calculate IP subnet information including network address, broadcast address, subnet mask, and other subnet details.
 
     .EXAMPLE
-        Get-IPSubnet -CIDR 192.168.0.0/24
+        PS > Get-IPSubnet -CIDR 192.168.0.0/24
+
         IP           : 192.168.0.0
         Mask         : 255.255.255.0
         PrefixLength : 24
@@ -29,7 +30,8 @@ function Get-IPSubnet
         BroadcastBin : 11000000.10101000.00000000.11111111
 
     .EXAMPLE
-        Get-IPSubnet -IPAddress 192.168.0.0 -Mask 255.255.255.0
+        PS > Get-IPSubnet -IPAddress 192.168.0.0 -Mask 255.255.255.0
+
         IP           : 192.168.0.0
         Mask         : 255.255.255.0
         PrefixLength : 24
@@ -45,7 +47,8 @@ function Get-IPSubnet
         BroadcastBin : 11000000.10101000.00000000.11111111
 
     .EXAMPLE
-        Get-IPSubnet -IPAddress 192.168.3.0 -PrefixLength 23
+        PS > Get-IPSubnet -IPAddress 192.168.3.0 -PrefixLength 23
+
         IP           : 192.168.3.0
         Mask         : 255.255.254.0
         PrefixLength : 23
@@ -60,36 +63,39 @@ function Get-IPSubnet
         SubnetBin    : 11000000.10101000.00000010.00000000
         BroadcastBin : 11000000.10101000.00000011.11111111
     .EXAMPLE
-        (Get-IPSubnet -IPAddress (Get-IPSubnet 192.168.99.56/28).Subnet -PrefixLength 32).Add(1).IPAddress
+        PS > (Get-IPSubnet -IPAddress (Get-IPSubnet 192.168.99.56/28).Subnet -PrefixLength 32).Add(1).IPAddress
+
         192.168.99.49
 
     .EXAMPLE
-        (Get-IPSubnet 192.168.99.56/28).Compare('192.168.99.50')
+        PS > (Get-IPSubnet 192.168.99.56/28).Compare('192.168.99.50')
+
         True
 
     .EXAMPLE
-        (Get-IPSubnet 192.168.99.58/30).GetIPArray()
+        PS > (Get-IPSubnet 192.168.99.58/30).GetIPArray()
+
         192.168.99.56
         192.168.99.57
         192.168.99.58
         192.168.99.59
 
     .EXAMPLE
-        Get-NetRoute -AddressFamily IPv4 | ? {(Get-IPSubnet -CIDR $_.DestinationPrefix).Compare('8.8.8.8')} | Sort-Object -Property @(@{Expression = {$_.DestinationPrefix.Split('/')[1]}; Asc = $false},'RouteMetric','ifMetric')
+        PS > Get-NetRoute -AddressFamily IPv4 | ? {(Get-IPSubnet -CIDR $_.DestinationPrefix).Compare('8.8.8.8')} | Sort-Object -Property @(@{Expression = {$_.DestinationPrefix.Split('/')[1]}; Asc = $false},'RouteMetric','ifMetric')
 
         ifIndex DestinationPrefix                              NextHop                                  RouteMetric ifMetric PolicyStore
         ------- -----------------                              -------                                  ----------- -------- -----------
         22      0.0.0.0/0                                      192.168.0.1                                        0 25       ActiveStore
 
     .EXAMPLE
-        (Get-IPSubnet 0.0.0.0/0).GetLocalRoute('127.0.0.1')
+        PS > (Get-IPSubnet 0.0.0.0/0).GetLocalRoute('127.0.0.1')
 
         ifIndex DestinationPrefix                              NextHop                                  RouteMetric ifMetric PolicyStore
         ------- -----------------                              -------                                  ----------- -------- -----------
         1       127.0.0.0/8                                    0.0.0.0                                          256 75       ActiveStore
 
     .EXAMPLE
-        (Get-IPSubnet 0.0.0.0/0).GetLocalRoute('127.0.0.1',2)
+        PS > (Get-IPSubnet 0.0.0.0/0).GetLocalRoute('127.0.0.1',2)
 
         ifIndex DestinationPrefix                              NextHop                                  RouteMetric ifMetric PolicyStore
         ------- -----------------                              -------                                  ----------- -------- -----------
@@ -97,7 +103,8 @@ function Get-IPSubnet
         1       127.0.0.0/8                                    0.0.0.0                                          256 75       ActiveStore
 
     .EXAMPLE
-        (Get-IPSubnet 192.168.0.0/25).Overlaps('192.168.0.0/27')
+        PS > (Get-IPSubnet 192.168.0.0/25).Overlaps('192.168.0.0/27')
+
         True
 #>
     [CmdletBinding(DefaultParameterSetName = 'CIDR')]

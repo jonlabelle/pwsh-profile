@@ -23,6 +23,7 @@ function Test-Admin
 
     .EXAMPLE
         PS> Test-Admin
+
         Returns $true if the current PowerShell session is running as an administrator, otherwise returns $false.
 
     .EXAMPLE
@@ -31,6 +32,7 @@ function Test-Admin
         } else {
             Write-Warning "Not running as admin - some operations may fail"
         }
+
         Conditionally displays a message and performs different actions based on admin privileges.
 
     .EXAMPLE
@@ -38,11 +40,13 @@ function Test-Admin
             Write-Error "This script requires administrator privileges. Please run as administrator."
             return
         }
+
         Exits the script early if not running with admin privileges.
 
     .EXAMPLE
         PS> $isAdmin = Test-Admin -Quiet
         PS> Write-Host "Admin status: $isAdmin"
+
         Checks admin status without any warning messages.
 
     .EXAMPLE
@@ -54,6 +58,7 @@ function Test-Admin
                     Write-Warning "Cannot stop system processes without admin privileges"
                 }
             }
+
         Demonstrates conditional process management based on admin privileges.
 
     .EXAMPLE
@@ -67,6 +72,7 @@ function Test-Admin
             }
         }
         PS> Invoke-AdminTask { Get-EventLog -LogName Security -Newest 10 }
+
         Shows how to create a wrapper function that checks admin privileges before executing.
 
     .OUTPUTS

@@ -20,22 +20,27 @@ function Get-OutdatedModules
 
     .EXAMPLE
         PS > Get-OutdatedModules
+
         Returns all outdated modules with current and available version information.
 
     .EXAMPLE
         PS > Get-OutdatedModules -ExcludeModule @('PSReadLine', 'PowerShellGet')
+
         Gets outdated modules while excluding specific modules from the check.
 
     .EXAMPLE
         PS > Get-OutdatedModules | Format-Table Name, CurrentVersion, AvailableVersion
+
         Displays outdated modules in a formatted table showing version information.
 
     .EXAMPLE
         PS > Get-OutdatedModules | Where-Object Name -like 'Azure*'
+
         Gets only outdated Azure modules using pipeline filtering.
 
     .EXAMPLE
         PS > $outdated = Get-OutdatedModules; $outdated | Update-AllModules -ExcludeModule @('ProblematicModule')
+
         Store outdated modules and use the results to selectively update modules.
 
     .OUTPUTS

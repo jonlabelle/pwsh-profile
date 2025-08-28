@@ -41,22 +41,27 @@ function Start-KeepAlive
 
     .EXAMPLE
         PS> Start-KeepAlive
+
         Starts a keep-alive job that will run for 12 hours, pressing the Ctrl key every 3 minutes.
 
     .EXAMPLE
         PS> Start-KeepAlive -KeepAliveHours 3 -SleepSeconds 300
+
         Starts a keep-alive job that will run for 3 hours, pressing the Ctrl key every 5 minutes.
 
     .EXAMPLE
         PS> Start-KeepAlive -KeyToPress '{TAB}'
+
         Starts a keep-alive job that simulates pressing the Tab key instead of Ctrl.
 
     .EXAMPLE
         PS> Start-KeepAlive -Query
+
         Displays the status of the current keep-alive job.
 
     .EXAMPLE
         PS> Start-KeepAlive -EndJob
+
         Stops the running keep-alive job and removes it.
 
     .OUTPUTS

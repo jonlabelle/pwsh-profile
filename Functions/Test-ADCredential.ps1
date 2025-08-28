@@ -26,6 +26,7 @@ function Test-ADCredential
     .EXAMPLE
         PS> $cred = Get-Credential
         PS> Test-ADCredential -Credential $cred
+
         Successfully authenticated with 'username'
         True
 
@@ -33,6 +34,7 @@ function Test-ADCredential
 
     .EXAMPLE
         PS> Get-Credential | Test-ADCredential -Verbose
+
         VERBOSE: Successfully authenticated 'username'
         Successfully authenticated with 'username'
         True
@@ -41,6 +43,7 @@ function Test-ADCredential
 
     .EXAMPLE
         PS> Test-ADCredential -Credential $invalidCred -Verbose
+
         VERBOSE: Authentication failed for 'username': Unable to bind to directory
         Authentication failed for 'username'
         False

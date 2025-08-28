@@ -24,12 +24,14 @@ function Test-DnsNameResolution
 
     .EXAMPLE
         PS > Test-DnsNameResolution -Name 'google.com'
+
         True
 
         Tests whether google.com can be resolved using the system's default DNS servers.
 
     .EXAMPLE
         PS > Test-DnsNameResolution -Name 'google.com' -Server '8.8.8.8','8.8.4.4'
+
         True
 
         Tests whether google.com can be resolved. Note: Custom DNS servers are specified but system DNS will be used
@@ -37,6 +39,7 @@ function Test-DnsNameResolution
 
     .EXAMPLE
         PS > Test-DnsNameResolution -Name 'google.com' -Type 'AAAA' -Verbose
+
         True
 
         Tests whether google.com has an IPv6 (AAAA) record with verbose output.

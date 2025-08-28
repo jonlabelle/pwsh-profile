@@ -27,6 +27,7 @@ function Test-ProfileUpdate
 
     .EXAMPLE
         PS > Test-ProfileUpdates
+
         Performs a synchronous check for profile updates.
 
     .EXAMPLE
@@ -35,6 +36,7 @@ function Test-ProfileUpdate
 
     .EXAMPLE
         PS > Test-ProfileUpdates -ShowChanges
+
         Checks for updates and displays available changes if updates are found.
 
     .EXAMPLE

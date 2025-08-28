@@ -42,12 +42,12 @@ function Send-TcpRequest
         Default is 30 seconds.
 
     .EXAMPLE
-        # Test if a web server is accessible
-        Send-TcpRequest -ComputerName "www.google.com" -Port 80 -Test
+        PS > Send-TcpRequest -ComputerName "www.google.com" -Port 80 -Test
+
+        Test if a web server is accessible.
 
     .EXAMPLE
-        # Send an HTTP GET request
-        $httpRequest = @"
+        PS > $httpRequest = @"
             GET / HTTP/1.1
             Host: www.example.com
             Connection: close
@@ -55,26 +55,32 @@ function Send-TcpRequest
 
         Send-TcpRequest -ComputerName "www.example.com" -Port 80 -InputObject $httpRequest
 
+        Send an HTTP GET request.
+
     .EXAMPLE
-        # Connect to an HTTPS server
-        $httpsRequest = @"
+        PS > $httpsRequest = @"
             GET /api/status HTTP/1.1
             Host: api.example.com
         "@
 
         Send-TcpRequest -ComputerName "api.example.com" -Port 443 -UseSSL -InputObject $httpsRequest
 
-    .EXAMPLE
-        # Interactive mode for debugging
-        Send-TcpRequest -ComputerName "telnet.server.com" -Port 23
+        Connect to an HTTPS server.
 
     .EXAMPLE
-        # Test SSH connectivity
-        Send-TcpRequest -ComputerName "myserver.com" -Port 22 -Test
+        PS > Send-TcpRequest -ComputerName "telnet.server.com" -Port 23
+
+        Interactive mode for debugging.
 
     .EXAMPLE
-        # Send data via pipeline with custom timeout
-        "QUIT" | Send-TcpRequest -ComputerName "mail.server.com" -Port 25 -Timeout 60
+        PS > Send-TcpRequest -ComputerName "myserver.com" -Port 22 -Test
+
+        Test SSH connectivity.
+
+    .EXAMPLE
+        PS > "QUIT" | Send-TcpRequest -ComputerName "mail.server.com" -Port 25 -Timeout 60
+
+        Send data via pipeline with custom timeout.
 
     .OUTPUTS
         System.String

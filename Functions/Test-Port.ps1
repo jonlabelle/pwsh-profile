@@ -31,26 +31,32 @@ function Test-Port
 
     .EXAMPLE
         PS > Test-Port -ComputerName 'server' -Port 80
+
         Tests if TCP port 80 is open on server 'server'.
 
     .EXAMPLE
         PS > 80 | Test-Port
+
         Tests if TCP port 80 is open on localhost using pipeline input for the port.
 
     .EXAMPLE
         PS > 22,80,443 | Test-Port
+
         Tests if TCP ports 22, 80, and 443 are open on localhost using pipeline input.
 
     .EXAMPLE
         PS > 1..100 | Test-Port -ComputerName 'server'
+
         Tests TCP ports 1-100 on 'server' using pipeline input for port range.
 
     .EXAMPLE
         PS > Test-Port -ComputerName @("server1","server2") -Port 80
+
         Tests if TCP port 80 is open on both server1 and server2.
 
     .EXAMPLE
         PS > Test-Port -ComputerName dc1 -Port 17 -Udp -Timeout 10000
+
         Tests if UDP port 17 is open on server dc1 with a 10-second timeout.
 
     .EXAMPLE
@@ -59,6 +65,7 @@ function Test-Port
 
     .EXAMPLE
         PS > Test-Port -ComputerName (Get-Content hosts.txt) -Port @(1..59)
+
         Tests a range of ports from 1-59 on all servers in the hosts.txt file.
 
     .OUTPUTS

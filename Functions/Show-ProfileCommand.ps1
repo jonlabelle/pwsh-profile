@@ -13,6 +13,7 @@ function Show-ProfileCommand
 
     .EXAMPLE
         PS > Show-ProfileCommand
+
         - Get-CertificateDetails - Gets detailed information about a certificate
         - Get-CertificateExpiration - Checks certificate expiration dates
         - Test-DnsNameResolution - Tests if a DNS name can be resolved
