@@ -5,7 +5,10 @@ BeforeAll {
     # Import the function under test
     . "$PSScriptRoot\..\..\Functions\Start-KeepAlive.ps1"
 
-    # Skip all tests if not on Windows
+    # Detect if we're in a CI environment, we won't run integration tests here
+    $script:IsCI = $env:CI -eq 'true' -or $env:GITHUB_ACTIONS
+
+    # Platform detection for cross-platform compatibility
     $script:IsWindowsTest = if ($PSVersionTable.PSVersion.Major -lt 6)
     {
         $true  # PowerShell 5.1 is Windows-only
@@ -14,9 +17,12 @@ BeforeAll {
     {
         $IsWindows  # PowerShell Core cross-platform check
     }
+
+    Write-Verbose "CI Environment detected: $script:IsCI"
+    Write-Verbose "Windows platform: $script:IsWindowsTest"
 }
 
-Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:(-not ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows)) {
+Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:($env:CI -eq 'true' -or $env:GITHUB_ACTIONS -eq 'true' -or -not ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows)) {
 
     BeforeAll {
         # Clean up any existing integration test jobs
