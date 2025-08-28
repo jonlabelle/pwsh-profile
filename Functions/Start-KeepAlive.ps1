@@ -9,89 +9,120 @@ function Start-KeepAlive
         a computer awake and prevent sleep, screensaver activation, or session timeout.
         By default, it sends a Ctrl key press every 3 minutes for a specified duration.
 
-        CAUTION: This function should only be used in secure environments when you need
-        to prevent timeout during long operations like file downloads.
+        PLATFORM COMPATIBILITY: This function only works on Windows platforms as it relies
+        on Windows-specific COM objects (WScript.Shell) for keystroke simulation. On macOS
+        and Linux, use platform-specific alternatives:
 
-        NOTE: This function only works on Windows platforms as it relies on Windows-specific
-        COM objects (WScript.Shell) for keystroke simulation. On macOS and Linux, use
-        platform-specific tools like 'caffeinate' (macOS) or 'xdotool' (Linux).
+        - macOS: 'caffeinate -d' (prevent display sleep) or 'caffeinate -i' (prevent system sleep)
+        - Linux: 'xset s off', 'xdotool', or 'systemd-inhibit' for similar functionality
 
     .PARAMETER KeepAliveHours
         The number of hours the keep-alive job will run.
+        Valid range: 0.1 to 48 hours.
         Default is 12 hours.
 
     .PARAMETER SleepSeconds
         The number of seconds between each key-press.
+        Valid range: 30 to 3600 seconds (30 seconds to 1 hour).
         Default is 180 seconds (3 minutes).
 
     .PARAMETER JobName
         The name of the background job.
+        Must be a valid job name (no special characters except hyphens and underscores).
         Default is 'KeepAlive'.
 
     .PARAMETER EndJob
         When specified, stops any running keep-alive job and removes it.
+        Cannot be combined with other operational parameters.
 
     .PARAMETER Query
         When specified, displays the status of the keep-alive job and cleans up completed jobs.
+        Cannot be combined with other operational parameters.
 
     .PARAMETER KeyToPress
-        The key to simulate pressing.
-        Default is '^' (Ctrl key).
-        Reference for other keys: http://msdn.microsoft.com/en-us/library/office/aa202943(v=office.10).aspx
+        The key to simulate pressing. Uses WScript.Shell SendKeys syntax.
+        Common options: '^' (Ctrl), '{TAB}', '{F15}' (non-interfering function key)
+        Default is '{F15}' (F15 key - least likely to interfere with applications).
+        Reference: https://docs.microsoft.com/en-us/office/vba/language/reference/user-interface-help/sendkeys-statement
 
     .EXAMPLE
         PS> Start-KeepAlive
 
-        Starts a keep-alive job that will run for 12 hours, pressing the Ctrl key every 3 minutes.
+        Starts a keep-alive job that will run for 12 hours, pressing the F15 key every 3 minutes.
 
     .EXAMPLE
         PS> Start-KeepAlive -KeepAliveHours 3 -SleepSeconds 300
 
-        Starts a keep-alive job that will run for 3 hours, pressing the Ctrl key every 5 minutes.
+        Starts a keep-alive job that will run for 3 hours, pressing the F15 key every 5 minutes.
 
     .EXAMPLE
         PS> Start-KeepAlive -KeyToPress '{TAB}'
 
-        Starts a keep-alive job that simulates pressing the Tab key instead of Ctrl.
+        Starts a keep-alive job that simulates pressing the Tab key instead of F15.
 
     .EXAMPLE
         PS> Start-KeepAlive -Query
 
-        Displays the status of the current keep-alive job.
+        Displays the status of the current keep-alive job without starting a new one.
 
     .EXAMPLE
         PS> Start-KeepAlive -EndJob
 
-        Stops the running keep-alive job and removes it.
+        Stops the running keep-alive job and removes it from the job queue.
+
+    .EXAMPLE
+        PS> Start-KeepAlive -JobName 'LongDownload' -KeepAliveHours 8
+
+        Starts a custom-named keep-alive job for an 8-hour period.
 
     .OUTPUTS
-        System.Management.Automation.PSRemotingJob
+        System.Management.Automation.Job
         Returns a background job object when starting a new keep-alive job.
 
     .NOTES
-        This function should only be used when your computer is locked in a secure location.
-        It is intended as a temporary workaround for specific scenarios where system timeout
-        would interfere with important tasks.
+        CLEANUP: Jobs are automatically cleaned up when they complete. For manual cleanup
+        of orphaned jobs, use: Get-Job -Name $JobName | Remove-Job -Force
 
-        If you don't manually end the job using -EndJob, use Get-Job | Remove-Job to clean up old jobs.
+        PLATFORM: Windows only - requires WScript.Shell COM object for keystroke simulation.
 
-        This function only works on Windows due to its dependency on WScript.Shell COM objects.
-        On macOS, use 'caffeinate -d' to prevent display sleep or 'caffeinate -i' to prevent system sleep.
-        On Linux, use tools like 'xset', 'xdotool', or 'systemd-inhibit' for similar functionality.
+        VERSION COMPATIBILITY: Compatible with PowerShell 5.1+ on Windows systems.
     #>
+    [CmdletBinding(DefaultParameterSetName = 'Start')]
+    [OutputType([System.Management.Automation.Job], ParameterSetName = 'Start')]
+    [OutputType([System.Void], ParameterSetName = 'Query')]
+    [OutputType([System.Void], ParameterSetName = 'End')]
     param (
-        $KeepAliveHours = 12,
-        $SleepSeconds = 180,
-        $JobName = 'KeepAlive',
+        [Parameter(ParameterSetName = 'Start')]
+        [ValidateRange(0.1, 48)]
+        [Double]$KeepAliveHours = 12,
+
+        [Parameter(ParameterSetName = 'Start')]
+        [ValidateRange(30, 3600)]
+        [Int32]$SleepSeconds = 180,
+
+        [Parameter(ParameterSetName = 'Start')]
+        [Parameter(ParameterSetName = 'Query')]
+        [Parameter(ParameterSetName = 'End')]
+        [ValidatePattern('^[a-zA-Z0-9_-]+$')]
+        [ValidateLength(1, 50)]
+        [String]$JobName = 'KeepAlive',
+
+        [Parameter(Mandatory, ParameterSetName = 'End')]
         [Switch]$EndJob,
+
+        [Parameter(Mandatory, ParameterSetName = 'Query')]
         [Switch]$Query,
-        $KeyToPress = '^' # Default key-press is <Ctrl>
-        # Reference for other keys: http://msdn.microsoft.com/en-us/library/office/aa202943(v=office.10).aspx
+
+        [Parameter(ParameterSetName = 'Start')]
+        [ValidateNotNullOrEmpty()]
+        [String]$KeyToPress = '{F15}' # F15 key - least likely to interfere with applications
     )
 
     begin
     {
-        # Platform detection
+        Write-Verbose "Starting Start-KeepAlive function with ParameterSet: $($PSCmdlet.ParameterSetName)"
+
+        # Platform detection for cross-platform compatibility
         if ($PSVersionTable.PSVersion.Major -lt 6)
         {
             # PowerShell 5.1 - Windows only
@@ -101,120 +132,261 @@ function Start-KeepAlive
         }
         else
         {
-            # PowerShell Core - cross-platform
+            # PowerShell Core - use built-in platform variables
             $script:IsWindowsPlatform = $IsWindows
             $script:IsMacOSPlatform = $IsMacOS
             $script:IsLinuxPlatform = $IsLinux
         }
 
-        # Check if running on Windows
+        # Validate Windows platform requirement
         if (-not $script:IsWindowsPlatform)
         {
-            $platformName = if ($script:IsMacOSPlatform) { 'macOS' } elseif ($script:IsLinuxPlatform) { 'Linux' } else { 'this platform' }
-            throw "Start-KeepAlive is only supported on Windows. On $platformName, use platform-specific tools like 'caffeinate' (macOS) or 'xset'/'systemd-inhibit' (Linux) to prevent system sleep."
-        }
-
-        $Endtime = (Get-Date).AddHours($KeepAliveHours)
-    }#begin
-
-    process
-    {
-
-        # Manually end the job and stop the KeepAlive.
-        if ($EndJob)
-        {
-            if (Get-Job -Name $JobName -ErrorAction SilentlyContinue)
+            $platformName = if ($script:IsMacOSPlatform)
             {
-                Stop-Job -Name $JobName
-                Remove-Job -Name $JobName
-                "`n$JobName has now ended..."
+                'macOS - try: caffeinate -d (prevent display sleep) or caffeinate -i (prevent system sleep)'
+            }
+            elseif ($script:IsLinuxPlatform)
+            {
+                'Linux - try: xset s off, systemd-inhibit, or xdotool for similar functionality'
             }
             else
             {
-                "`nNo job $JobName."
+                'this platform'
             }
+
+            $errorMessage = "Start-KeepAlive requires Windows due to dependency on WScript.Shell COM objects. Current platform: $platformName"
+            Write-Error $errorMessage -Category NotImplemented -ErrorAction Stop
         }
-        # Query the current status of the KeepAlive job.
-        elseif ($Query)
+
+        # Calculate end time for Start parameter set
+        if ($PSCmdlet.ParameterSetName -eq 'Start')
         {
-            try
+            $endTime = (Get-Date).AddHours($KeepAliveHours)
+            Write-Verbose "Keep-alive job will run until: $endTime"
+        }
+    } # end begin
+
+    process
+    {
+        switch ($PSCmdlet.ParameterSetName)
+        {
+            'End'
             {
-                if ((Get-Job -Name $JobName -ErrorAction Stop).PSEndTime)
+                Write-Verbose "Attempting to stop and remove job: $JobName"
+
+                $existingJob = Get-Job -Name $JobName -ErrorAction SilentlyContinue
+                if ($existingJob)
                 {
-                    Receive-Job -Name $JobName
-                    Remove-Job -Name $JobName
-                    "`n$JobName has now completed."
+                    try
+                    {
+                        if ($existingJob.State -eq 'Running')
+                        {
+                            Write-Verbose "Stopping running job: $JobName"
+                            Stop-Job -Name $JobName -PassThru | Out-Null
+                        }
+
+                        Write-Verbose "Removing job: $JobName"
+                        Remove-Job -Name $JobName -Force
+                        Write-Host "Keep-alive job '$JobName' has been stopped and removed." -ForegroundColor Green
+                    }
+                    catch
+                    {
+                        Write-Error "Failed to stop/remove job '$JobName': $($_.Exception.Message)" -ErrorAction Stop
+                    }
                 }
                 else
                 {
-                    Receive-Job -Name $JobName -Keep
+                    Write-Warning "No keep-alive job named '$JobName' found."
                 }
+                break
             }
-            catch
+
+            'Query'
             {
-                Receive-Job -Name $JobName -ErrorAction SilentlyContinue
-                "`n$JobName has ended.."
-                Get-Job -Name $JobName -ErrorAction SilentlyContinue | Remove-Job
-            }
-        }
-        # Start the KeepAlive job.
-        elseif (Get-Job -Name $JobName -ErrorAction SilentlyContinue)
-        {
-            "`n$JobName already started, please use: Start-Keepalive -Query"
-        }
-        else
-        {
-            $Job = {
-                param ($Endtime, $SleepSeconds, $JobName, $KeyToPress)
+                Write-Verbose "Querying status of job: $JobName"
 
-                "`nStarted at..: $(Get-Date)"
-                "Ends at.....: $(Get-Date $EndTime)`n"
-
-                while ((Get-Date) -le (Get-Date $EndTime))
+                $existingJob = Get-Job -Name $JobName -ErrorAction SilentlyContinue
+                if ($existingJob)
                 {
-                    # Wait SleepSeconds to press (This should be less than the screensaver timeout)
-                    Start-Sleep -Seconds $SleepSeconds
+                    try
+                    {
+                        Write-Host "Job Status for '$JobName':" -ForegroundColor Cyan
+                        Write-Host "  State: $($existingJob.State)" -ForegroundColor Yellow
+                        Write-Host "  Started: $($existingJob.PSBeginTime)" -ForegroundColor Yellow
 
-                    $Remaining = [Math]::Round( ( (Get-Date $Endtime) - (Get-Date) | Select-Object -ExpandProperty TotalMinutes ), 2 )
-                    "Job will run until $EndTime + $([Math]::Round( $SleepSeconds/60 ,2 )) minutes, around $Remaining Minutes"
+                        if ($existingJob.State -eq 'Completed')
+                        {
+                            Write-Host "  Completed: $($existingJob.PSEndTime)" -ForegroundColor Yellow
+                            Write-Verbose 'Job completed, retrieving final output and cleaning up'
 
-                    # This is the sending of the KeyStroke
-                    $x = New-Object -COM WScript.Shell
-                    $x.SendKeys($KeyToPress)
+                            $jobOutput = Receive-Job -Name $JobName -ErrorAction SilentlyContinue
+                            if ($jobOutput)
+                            {
+                                Write-Host "`nJob Output:" -ForegroundColor Cyan
+                                $jobOutput | Write-Host
+                            }
+
+                            Remove-Job -Name $JobName -Force
+                            Write-Host "`nCompleted job '$JobName' has been cleaned up." -ForegroundColor Green
+                        }
+                        elseif ($existingJob.State -eq 'Running')
+                        {
+                            Write-Host '  Status: Job is actively running' -ForegroundColor Green
+
+                            # Get recent output without removing it
+                            $recentOutput = Receive-Job -Name $JobName -Keep -ErrorAction SilentlyContinue
+                            if ($recentOutput)
+                            {
+                                Write-Host "`nRecent Output:" -ForegroundColor Cyan
+                                ($recentOutput | Select-Object -Last 5) | Write-Host
+                            }
+                        }
+                        else
+                        {
+                            Write-Host "  Status: Job is in '$($existingJob.State)' state" -ForegroundColor Yellow
+
+                            # Check for any errors
+                            if ($existingJob.ChildJobs[0].Error.Count -gt 0)
+                            {
+                                Write-Host "`nJob Errors:" -ForegroundColor Red
+                                $existingJob.ChildJobs[0].Error | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        Write-Error "Error querying job '$JobName': $($_.Exception.Message)"
+                    }
+                }
+                else
+                {
+                    Write-Warning "No keep-alive job named '$JobName' found."
+
+                    # Check for other keep-alive jobs
+                    $allKeepAliveJobs = Get-Job | Where-Object { $_.Name -like '*KeepAlive*' }
+                    if ($allKeepAliveJobs)
+                    {
+                        Write-Host "`nOther keep-alive jobs found:" -ForegroundColor Cyan
+                        $allKeepAliveJobs | Format-Table Name, State, PSBeginTime -AutoSize | Out-Host
+                    }
+                }
+                break
+            }
+
+            'Start'
+            {
+                Write-Verbose "Starting new keep-alive job: $JobName"
+
+                # Check if job already exists
+                $existingJob = Get-Job -Name $JobName -ErrorAction SilentlyContinue
+                if ($existingJob)
+                {
+                    if ($existingJob.State -eq 'Running')
+                    {
+                        Write-Warning "Keep-alive job '$JobName' is already running. Use -Query to check status or -EndJob to stop it first."
+                        return
+                    }
+                    else
+                    {
+                        Write-Verbose "Cleaning up previous job '$JobName' in state: $($existingJob.State)"
+                        Remove-Job -Name $JobName -Force -ErrorAction SilentlyContinue
+                    }
                 }
 
+                # Validate COM object availability before starting job
                 try
                 {
-                    "`n$JobName has now completed.... job will be cleaned up."
-
-                    # Would be nice if the job could remove itself, below will not work.
-                    # Receive-Job -AutoRemoveJob -Force
-                    # Still working on a way to automatically remove the job
+                    Write-Verbose 'Testing WScript.Shell COM object availability'
+                    $testCOM = New-Object -ComObject WScript.Shell
+                    [System.Runtime.Interopservices.Marshal]::ReleaseComObject($testCOM) | Out-Null
+                    Write-Verbose 'COM object test successful'
                 }
                 catch
                 {
-                    "Something went wrong, manually remove job $JobName"
+                    Write-Error "WScript.Shell COM object not available: $($_.Exception.Message)" -ErrorAction Stop
                 }
 
-            } #Job
+                # Create the background job script
+                $jobScript = {
+                    param ($EndTime, $SleepSeconds, $JobName, $KeyToPress)
 
-            $JobProperties = @{
-                ScriptBlock = $Job
-                Name = $JobName
-                ArgumentList = $Endtime, $SleepSeconds, $JobName, $KeyToPress
+                    try
+                    {
+                        Write-Output "Keep-alive job '$JobName' started at: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+                        Write-Output "Job will end at: $(Get-Date $EndTime -Format 'yyyy-MM-dd HH:mm:ss')"
+                        Write-Output "Key simulation interval: $SleepSeconds seconds"
+                        Write-Output "Key to simulate: $KeyToPress`n"
+
+                        $iterationCount = 0
+
+                        while ((Get-Date) -le $EndTime)
+                        {
+                            # Wait before sending keystroke (except first iteration)
+                            if ($iterationCount -gt 0)
+                            {
+                                Start-Sleep -Seconds $SleepSeconds
+                            }
+
+                            $current = Get-Date
+                            $remaining = [Math]::Round((($EndTime - $current).TotalMinutes), 2)
+
+                            # Only show progress every 5 iterations to reduce output volume
+                            if (($iterationCount % 5) -eq 0)
+                            {
+                                Write-Output "$(Get-Date -Format 'HH:mm:ss') - Iteration $($iterationCount + 1), $remaining minutes remaining"
+                            }
+
+                            # Send the keystroke
+                            try
+                            {
+                                $wshell = New-Object -ComObject WScript.Shell
+                                $wshell.SendKeys($KeyToPress)
+                                [System.Runtime.Interopservices.Marshal]::ReleaseComObject($wshell) | Out-Null
+                            }
+                            catch
+                            {
+                                Write-Error "Failed to send keystroke: $($_.Exception.Message)"
+                                break
+                            }
+
+                            $iterationCount++
+                        }
+
+                        Write-Output "`nKeep-alive job '$JobName' completed successfully at: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+                        Write-Output "Total keystrokes sent: $iterationCount"
+                    }
+                    catch
+                    {
+                        Write-Error "Keep-alive job '$JobName' encountered an error: $($_.Exception.Message)"
+                        throw $_
+                    }
+                } # end jobScript
+
+                # Start the background job
+                try
+                {
+                    $job = Start-Job -ScriptBlock $jobScript -Name $JobName -ArgumentList $endTime, $SleepSeconds, $JobName, $KeyToPress
+
+                    Write-Host "Keep-alive job '$JobName' started successfully." -ForegroundColor Green
+                    Write-Host "  Job ID: $($job.Id)" -ForegroundColor Cyan
+                    Write-Host "  Duration: $KeepAliveHours hours" -ForegroundColor Cyan
+                    Write-Host "  End time: $(Get-Date $endTime -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Cyan
+                    Write-Host "  Interval: $SleepSeconds seconds" -ForegroundColor Cyan
+                    Write-Host "  Key: $KeyToPress" -ForegroundColor Cyan
+                    Write-Host "`nUse 'Start-KeepAlive -Query -JobName $JobName' to check status" -ForegroundColor Yellow
+
+                    return $job
+                }
+                catch
+                {
+                    Write-Error "Failed to start keep-alive job: $($_.Exception.Message)" -ErrorAction Stop
+                }
+                break
             }
-
-            Start-Job @JobProperties
-
-            "`nKeepAlive set to run until $EndTime"
         }
-    }#Process
-}#Start-KeepAlive
-
-# ## Usage
-# Start-KeepAlive -KeepAliveHours 8 -SleepSeconds 180 -KeyToPress '{TAB}'
-
-# # To end the job:
-# Start-KeepAlive -EndJob
-# # or
-# Get-Job -Name KeepAlive | Remove-Job
+    } # end process
+    end
+    {
+        Write-Verbose 'Start-KeepAlive function completed'
+    } # end end
+} # end function Start-KeepAlive

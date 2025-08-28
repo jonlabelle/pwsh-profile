@@ -24,8 +24,10 @@
     "acodec",
     "ADSI",
     "badssl",
+    "caffeinate",
     "faststart",
     "HKLM",
+    "Interopservices",
     "kbps",
     "keyint",
     "LASTEXITCODE",
@@ -38,6 +40,8 @@
     "scodec",
     "stackoverflow",
     "testresults",
-    "vcodec"
+    "vcodec",
+    "wshell",
+    "xset"
   ]
 }
