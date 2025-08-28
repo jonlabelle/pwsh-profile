@@ -54,11 +54,11 @@ function Prompt
     # Determine PowerShell edition for window title
     $psVersionInfo = if ($PSVersionTable.PSVersion.Major -lt 6)
     {
-        "PowerShell Desktop $($PSVersionTable.PSVersion)"
+        "PowerShell Desktop $($PSVersionTable.PSVersion.Major).$($PSVersionTable.PSVersion.Minor)"
     }
     else
     {
-        "PowerShell Core $($PSVersionTable.PSVersion)"
+        "PowerShell Core $($PSVersionTable.PSVersion.Major).$($PSVersionTable.PSVersion.Minor)"
     }
 
     # $host.UI.RawUI.WindowTitle = "$psVersionInfo - $([System.Environment]::UserName)@$([System.Environment]::MachineName)"
