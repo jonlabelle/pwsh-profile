@@ -43,6 +43,7 @@ function Start-KeepAlive
         The key to simulate pressing. Uses WScript.Shell SendKeys syntax.
         Common options: '^' (Ctrl), '{TAB}', '{F15}' (non-interfering function key)
         Default is '{F15}' (F15 key - least likely to interfere with applications).
+        Note that the {F15} key simulation is handled entirely by software, not hardware. The WScript.Shell.SendKeys() method sends a virtual keystroke to Windows, which doesn't require the physical key to exist.
         Reference: https://docs.microsoft.com/en-us/office/vba/language/reference/user-interface-help/sendkeys-statement
 
     .EXAMPLE
