@@ -5,7 +5,14 @@ BeforeAll {
     # Import the function under test
     . "$PSScriptRoot\..\..\Functions\Start-KeepAlive.ps1"
 
-    # Skip all tests if not on Windows
+    # Detect if we're in a CI environment
+    $script:IsCI = $env:CI -eq 'true' -or
+    $env:GITHUB_ACTIONS -eq 'true' -or
+    $env:APPVEYOR -eq 'True' -or
+    $env:AZURE_PIPELINES -eq 'True' -or
+    $env:TF_BUILD -eq 'True'
+
+    # Platform detection for cross-platform compatibility
     $script:IsWindowsTest = if ($PSVersionTable.PSVersion.Major -lt 6)
     {
         $true  # PowerShell 5.1 is Windows-only
@@ -14,6 +21,9 @@ BeforeAll {
     {
         $IsWindows  # PowerShell Core cross-platform check
     }
+
+    Write-Verbose "CI Environment detected: $script:IsCI"
+    Write-Verbose "Windows platform: $script:IsWindowsTest"
 }
 
 Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
@@ -33,10 +43,44 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
             $command.ParameterSets.Name | Should -Contain 'End'
         }
 
-        It 'Should only work on Windows platforms' -Skip:$script:IsWindowsTest {
+        It 'Should only work on Windows platforms' -Skip:($PSVersionTable.PSVersion.Major -lt 6 -or ($PSVersionTable.PSVersion.Major -ge 6 -and (Get-Variable 'IsWindows' -ErrorAction SilentlyContinue) -and $IsWindows)) {
             # This test only runs on non-Windows platforms to verify the error
-            # Skip on Windows since the function should work there
+            # Skip on Windows since the function should work there (but not in CI)
             { Start-KeepAlive -KeepAliveHours 0.1 } | Should -Throw '*Start-KeepAlive requires Windows*'
+        }
+
+        It 'Should detect CI environment and handle appropriately' -Skip:(-not $script:IsCI) {
+            # This test only runs in CI environments to verify behavior
+            # In CI, even on Windows, the function might fail due to lack of interactive session
+            Write-Host 'Running in CI environment - testing COM availability'
+
+            # The function should either work (if COM is available) or fail gracefully
+            # We don't expect it to throw the "requires Windows" error on Windows CI
+            $result = try
+            {
+                Start-KeepAlive -KeepAliveHours 0.1 -JobName 'CI-Test'
+                'Success'
+            }
+            catch
+            {
+                if ($_.Exception.Message -like '*Start-KeepAlive requires Windows*')
+                {
+                    'Platform-Error'
+                }
+                else
+                {
+                    'Other-Error'
+                }
+            }
+
+            # On Windows CI, we should not get a platform error
+            if ($script:IsWindowsTest)
+            {
+                $result | Should -Not -Be 'Platform-Error'
+            }
+
+            # Clean up any jobs that might have been created
+            Get-Job -Name 'CI-Test' -ErrorAction SilentlyContinue | Remove-Job -Force
         }
     }
 

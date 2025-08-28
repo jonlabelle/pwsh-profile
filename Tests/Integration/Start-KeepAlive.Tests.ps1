@@ -16,7 +16,7 @@ BeforeAll {
     }
 }
 
-Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:(-not $script:IsWindowsTest) {
+Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:(-not ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows)) {
 
     BeforeAll {
         # Clean up any existing integration test jobs
