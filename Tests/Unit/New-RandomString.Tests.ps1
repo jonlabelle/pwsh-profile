@@ -110,11 +110,31 @@ Describe 'New-RandomString' {
         }
 
         It 'Should work with all parameter combinations when Secure is specified' {
-            $result = New-RandomString -Length 50 -ExcludeAmbiguous -IncludeSymbols -Secure
-            $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 50
-            $result | Should -Not -Match '[01]'  # Based on actual implementation
-            $result | Should -Match '[!@#$%^&*]'
+            # Test multiple times to ensure we get symbols due to randomness
+            $foundSymbol = $false
+            $foundNoAmbiguous = $true
+
+            for ($i = 0; $i -lt 10; $i++)
+            {
+                $result = New-RandomString -Length 100 -ExcludeAmbiguous -IncludeSymbols -Secure
+                $result | Should -Not -BeNullOrEmpty
+                $result.Length | Should -Be 100
+
+                # Check that no ambiguous characters are present
+                if ($result -match '[01]')
+                {
+                    $foundNoAmbiguous = $false
+                }
+
+                # Check if we found symbols in any attempt
+                if ($result -match '[!@#$%^&*]')
+                {
+                    $foundSymbol = $true
+                }
+            }
+
+            $foundNoAmbiguous | Should -Be $true
+            $foundSymbol | Should -Be $true
         }
     }
 

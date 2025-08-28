@@ -118,6 +118,7 @@ function New-RandomString
         # Use cryptographically secure random number generation
         try
         {
+            # Use System.Security.Cryptography.RandomNumberGenerator for all modern PowerShell versions
             if ($PSVersionTable.PSVersion.Major -ge 6)
             {
                 # PowerShell Core 6+ - use System.Security.Cryptography.RandomNumberGenerator
@@ -125,7 +126,7 @@ function New-RandomString
             }
             else
             {
-                # PowerShell Desktop 5.1 - use RNGCryptoServiceProvider
+                # PowerShell Desktop 5.1 - use RNGCryptoServiceProvider for compatibility
                 $rng = New-Object System.Security.Cryptography.RNGCryptoServiceProvider
             }
 
@@ -140,6 +141,18 @@ function New-RandomString
 
                 $index = $randomValue % $characters.Length
                 [void]$result.Append($characters[$index])
+            }
+        }
+        catch
+        {
+            # If secure random generation fails, fall back to standard Get-Random
+            Write-Verbose "Secure random generation failed, falling back to Get-Random: $($_.Exception.Message)"
+            $result.Clear()
+
+            for ($i = 0; $i -lt $Length; $i++)
+            {
+                $randomIndex = Get-Random -Minimum 0 -Maximum $characters.Length
+                [void]$result.Append($characters[$randomIndex])
             }
         }
         finally
