@@ -22,7 +22,7 @@ BeforeAll {
     Write-Verbose "Windows platform: $script:IsWindowsTest"
 }
 
-Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:($env:CI -eq 'true' -or $env:GITHUB_ACTIONS -eq 'true' -or -not ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows)) {
+Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:($script:IsCI -or -not $script:IsWindowsTest) {
 
     BeforeAll {
         # Clean up any existing integration test jobs
