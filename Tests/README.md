@@ -54,11 +54,7 @@ Invoke-Pester -Configuration (Import-PowerShellDataFile Tests/PesterConfiguratio
 
 ### Based on Documentation Examples
 
-All tests are derived from the `.EXAMPLE` sections in function documentation, ensuring:
-
-- Real-world usage patterns are tested
-- Documentation accuracy is validated
-- Function behavior matches documented expectations
+All tests are derived from the `.EXAMPLE` sections in function documentation
 
 ### Cross-Platform Compatibility
 
@@ -67,31 +63,3 @@ Tests are designed to work on:
 - Windows (PowerShell Desktop 5.1 and PowerShell Core)
 - macOS (PowerShell Core)
 - Linux (PowerShell Core)
-
-### Network-Aware Testing
-
-Tests adapt to network restrictions:
-
-- Use localhost for network testing when external access is limited
-- Graceful fallback for DNS resolution tests
-- Appropriate timeout handling for unreliable networks
-
-### Meaningful Testing Focus
-
-Tests focus on:
-
-- ✅ Functional behavior validation
-- ✅ Parameter validation and error handling
-- ✅ Output structure consistency
-- ✅ Performance characteristics
-- ✅ Cross-platform compatibility
-- ❌ Trivial existence checks (avoided as requested)
-
-## Continuous Integration
-
-Tests are automatically executed in GitHub Actions [CI](../.github/workflows/ci.yml) workflow:
-
-- **PowerShell Core**: Tests run on macOS, Ubuntu, and Windows
-- **PowerShell Desktop**: Tests run on Windows Server
-- **Test Results**: Uploaded as NUnit XML artifacts
-- **Failure Handling**: CI fails if any tests fail
