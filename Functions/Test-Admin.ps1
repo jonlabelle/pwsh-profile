@@ -22,12 +22,12 @@ function Test-Admin
         Useful for silent checks in scripts.
 
     .EXAMPLE
-        PS> Test-Admin
+        PS > Test-Admin
 
         Returns $true if the current PowerShell session is running as an administrator, otherwise returns $false.
 
     .EXAMPLE
-        PS> if (Test-Admin) {
+        PS > if (Test-Admin) {
             Write-Host "Running as admin - proceeding with administrative tasks" -ForegroundColor Green
         } else {
             Write-Warning "Not running as admin - some operations may fail"
@@ -36,7 +36,7 @@ function Test-Admin
         Conditionally displays a message and performs different actions based on admin privileges.
 
     .EXAMPLE
-        PS> if (-not (Test-Admin)) {
+        PS > if (-not (Test-Admin)) {
             Write-Error "This script requires administrator privileges. Please run as administrator."
             return
         }
@@ -44,13 +44,13 @@ function Test-Admin
         Exits the script early if not running with admin privileges.
 
     .EXAMPLE
-        PS> $isAdmin = Test-Admin -Quiet
-        PS> Write-Host "Admin status: $isAdmin"
+        PS > $isAdmin = Test-Admin -Quiet
+        PS > Write-Host "Admin status: $isAdmin"
 
         Checks admin status without any warning messages.
 
     .EXAMPLE
-        PS> Get-Process | Where-Object { $_.ProcessName -eq 'svchost' } |
+        PS > Get-Process | Where-Object { $_.ProcessName -eq 'svchost' } |
             ForEach-Object {
                 if (Test-Admin) {
                     $_ | Stop-Process -WhatIf
@@ -62,7 +62,7 @@ function Test-Admin
         Demonstrates conditional process management based on admin privileges.
 
     .EXAMPLE
-        PS> function Invoke-AdminTask {
+        PS > function Invoke-AdminTask {
             param([scriptblock]$ScriptBlock)
 
             if (Test-Admin) {
@@ -71,7 +71,7 @@ function Test-Admin
                 Write-Error "Administrative privileges required for this operation"
             }
         }
-        PS> Invoke-AdminTask { Get-EventLog -LogName Security -Newest 10 }
+        PS > Invoke-AdminTask { Get-EventLog -LogName Security -Newest 10 }
 
         Shows how to create a wrapper function that checks admin privileges before executing.
 

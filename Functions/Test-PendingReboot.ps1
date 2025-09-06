@@ -34,7 +34,7 @@ function Test-PendingReboot
         Not required when checking the local computer.
 
     .EXAMPLE
-        PS> Test-PendingReboot
+        PS > Test-PendingReboot
 
         ComputerName PendingReboot Reason
         ------------ ------------- ------
@@ -43,7 +43,7 @@ function Test-PendingReboot
         Checks if the local computer has pending reboots and shows the reason.
 
     .EXAMPLE
-        PS> Test-PendingReboot -ComputerName 'Server01', 'Server02'
+        PS > Test-PendingReboot -ComputerName 'Server01', 'Server02'
 
         ComputerName PendingReboot Reason
         ------------ ------------- ------
@@ -53,7 +53,7 @@ function Test-PendingReboot
         Checks if Server01 and Server02 have pending reboots and shows the reasons.
 
     .EXAMPLE
-        PS> Test-PendingReboot -ComputerName 'Server01' -Credential (Get-Credential)
+        PS > Test-PendingReboot -ComputerName 'Server01' -Credential (Get-Credential)
 
         ComputerName PendingReboot Reason
         ------------ ------------- ------
@@ -62,7 +62,7 @@ function Test-PendingReboot
         Checks if Server01 has pending reboots using the provided credentials.
 
     .EXAMPLE
-        PS> Test-PendingReboot -Verbose
+        PS > Test-PendingReboot -Verbose
 
         VERBOSE: Pending reboot detected: Registry key exists - HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager
         VERBOSE: Pending reboot detected: PendingFileRenameOperations exists
@@ -74,7 +74,7 @@ function Test-PendingReboot
         Checks the local computer with verbose output showing which conditions triggered the pending reboot detection.
 
     .EXAMPLE
-        PS> Test-PendingReboot -ComputerName 'NonExistentServer'
+        PS > Test-PendingReboot -ComputerName 'NonExistentServer'
 
         Write-Error: Failed to check pending reboot status for 'NonExistentServer': [WinRM cannot complete the operation...]
 

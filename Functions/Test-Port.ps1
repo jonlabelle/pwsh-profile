@@ -24,7 +24,8 @@ function Test-Port
         The default is 3000 (3 seconds). Valid range: 100-300000 (5 minutes).
 
     .PARAMETER Tcp
-        Use this switch to test TCP ports. If neither Tcp nor Udp is specified, Tcp is used by default.
+        Use this switch to test TCP ports.
+        If neither Tcp nor Udp is specified, Tcp is used by default.
 
     .PARAMETER Udp
         Use this switch to test UDP ports.
@@ -61,6 +62,7 @@ function Test-Port
 
     .EXAMPLE
         PS > 80,443,8080 | Test-Port -ComputerName @("server1","server2")
+
         Tests multiple ports on multiple servers using pipeline input for ports.
 
     .EXAMPLE
@@ -72,20 +74,17 @@ function Test-Port
         System.Object[]
         Returns custom objects with Server, Port, Protocol, Open, Status, and ResponseTime properties.
 
-    .NOTES
-        Name: Test-Port.ps1
-        Author: Boe Prox
-        DateCreated: 18Aug2010
-        Updated by Jon LaBelle, 9/29/2022
-        Enhanced: 8/16/2025 - Improved cross-platform compatibility, reliability, and performance
-
-        Ports reference: http://www.iana.org/assignments/port-numbers
-
     .LINK
         https://learn-powershell.net/2011/02/21/querying-udp-ports-with-powershell/
 
     .LINK
         https://jonlabelle.com/snippets/view/powershell/test-tcp-or-udp-network-port-in-powershell
+
+    .NOTES
+        Original Author: Boe Prox
+        Created: 18-Aug-2010
+        Updated by: Jon LaBelle, 9/29/2022
+        Enhanced: 8/16/2025 - Improved cross-platform compatibility, reliability, and performance
     #>
     [CmdletBinding(ConfirmImpact = 'Low')]
     [OutputType([System.Object[]])]

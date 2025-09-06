@@ -32,33 +32,33 @@ function Rename-VideoSeasonFile
         Returns objects representing the renamed files.
 
     .EXAMPLE
-        PS> Rename-VideoSeasonFile -Verbose -WhatIf
+        PS > Rename-VideoSeasonFile -Verbose -WhatIf
 
         Displays what would happen if the function ran with the default options, showing which files would be renamed.
 
     .EXAMPLE
-        PS> Rename-VideoSeasonFile -Path 'D:\TV Shows\Breaking Bad' -Filters '*.mp4' -Verbose
+        PS > Rename-VideoSeasonFile -Path 'D:\TV Shows\Breaking Bad' -Filters '*.mp4' -Verbose
 
         Renames all MP4 files in the specified directory that contain season identifiers to clean S##E##.mp4 format.
         For example: "Breaking.Bad.S01E01.1080p.BluRay.x264-DEMAND.mp4" becomes "S01E01.mp4"
 
     .EXAMPLE
-        PS> Rename-VideoSeasonFile -Path 'D:\Downloads' -Exclude @('.git', 'node_modules', 'temp') -PassThru
+        PS > Rename-VideoSeasonFile -Path 'D:\Downloads' -Exclude @('.git', 'node_modules', 'temp') -PassThru
 
         Renames video files in the Downloads folder, excluding specified directories, and returns information about renamed files.
 
     .EXAMPLE
-        PS> Rename-VideoSeasonFile -Path @('D:\TV Shows\Breaking Bad', 'D:\TV Shows\Better Call Saul') -Filters '*.mp4' -Verbose
+        PS > Rename-VideoSeasonFile -Path @('D:\TV Shows\Breaking Bad', 'D:\TV Shows\Better Call Saul') -Filters '*.mp4' -Verbose
 
         Renames all MP4 files in multiple specified directories that contain season identifiers.
 
     .EXAMPLE
-        PS> @('D:\TV Shows', 'D:\Movies') | Rename-VideoSeasonFile -PassThru
+        PS > @('D:\TV Shows', 'D:\Movies') | Rename-VideoSeasonFile -PassThru
 
         Renames video files in multiple directories using pipeline input and returns information about renamed files.
 
     .EXAMPLE
-        PS> Get-ChildItem -Directory 'D:\TV Shows' | Rename-VideoSeasonFile -Verbose
+        PS > Get-ChildItem -Directory 'D:\TV Shows' | Rename-VideoSeasonFile -Verbose
 
         Processes video files in all subdirectories of the TV Shows folder via pipeline input.
 

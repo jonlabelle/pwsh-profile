@@ -60,52 +60,52 @@
         Useful for previewing the conversion process before running it.
 
     .EXAMPLE
-        PS> Invoke-FFmpeg -Path "C:\Videos" -Extension "mkv"
+        PS > Invoke-FFmpeg -Path "C:\Videos" -Extension "mkv"
 
         Processes all .mkv files in C:\Videos using H.264 encoding (default) with Samsung-friendly settings.
 
     .EXAMPLE
-        PS> Invoke-FFmpeg -Path "C:\Videos" -VideoEncoder "H.265" -Force
+        PS > Invoke-FFmpeg -Path "C:\Videos" -VideoEncoder "H.265" -Force
 
         Processes videos using H.265 encoding for better compression and overwrites existing output files.
 
     .EXAMPLE
-        PS> Invoke-FFmpeg -Path "D:\Movies" -Extension "avi" -VideoEncoder "H.264" -KeepSourceFile
+        PS > Invoke-FFmpeg -Path "D:\Movies" -Extension "avi" -VideoEncoder "H.264" -KeepSourceFile
 
         Processes all .avi files using H.264 encoding without deleting the input files.
 
     .EXAMPLE
-        PS> Invoke-FFmpeg -Path "D:\Movies" -NoRecursion
+        PS > Invoke-FFmpeg -Path "D:\Movies" -NoRecursion
 
         Processes only the .mkv files directly in D:\Movies without searching subdirectories.
 
     .EXAMPLE
-        PS> Invoke-FFmpeg -Path "D:\Movies" -PassthroughVideo -KeepSourceFile
+        PS > Invoke-FFmpeg -Path "D:\Movies" -PassthroughVideo -KeepSourceFile
 
         Processes all .mkv files using video passthrough (no video re-encoding) and keeps the source files.
 
     .EXAMPLE
-        PS> Invoke-FFmpeg -Path "D:\Movies" -PassthroughAudio -VideoEncoder "H.265"
+        PS > Invoke-FFmpeg -Path "D:\Movies" -PassthroughAudio -VideoEncoder "H.265"
 
         Processes all .mkv files using H.265 video encoding while passing through the audio without re-encoding.
 
     .EXAMPLE
-        PS> Invoke-FFmpeg -Path "C:\Videos" -WhatIf
+        PS > Invoke-FFmpeg -Path "C:\Videos" -WhatIf
 
         Shows what operations would be performed on all target files in C:\Videos without actually executing them.
 
     .EXAMPLE
-        PS> Invoke-FFmpeg -Path @("C:\Videos", "D:\Movies") -Extension "mkv"
+        PS > Invoke-FFmpeg -Path @("C:\Videos", "D:\Movies") -Extension "mkv"
 
         Processes all .mkv files in multiple directories by passing an array to the Path parameter.
 
     .EXAMPLE
-        PS> @("C:\Videos", "D:\Movies") | Invoke-FFmpeg -Extension "mkv"
+        PS > @("C:\Videos", "D:\Movies") | Invoke-FFmpeg -Extension "mkv"
 
         Processes all .mkv files in multiple directories using pipeline input.
 
     .EXAMPLE
-        PS> Get-ChildItem -Directory | Invoke-FFmpeg -VideoEncoder "H.265"
+        PS > Get-ChildItem -Directory | Invoke-FFmpeg -VideoEncoder "H.265"
 
         Processes videos in all subdirectories using H.265 encoding via pipeline input.
 

@@ -47,32 +47,32 @@ function Start-KeepAlive
         Reference: https://docs.microsoft.com/en-us/office/vba/language/reference/user-interface-help/sendkeys-statement
 
     .EXAMPLE
-        PS> Start-KeepAlive
+        PS > Start-KeepAlive
 
         Starts a keep-alive job that will run for 12 hours, pressing the F15 key every 1 minute.
 
     .EXAMPLE
-        PS> Start-KeepAlive -KeepAliveHours 3 -SleepSeconds 300
+        PS > Start-KeepAlive -KeepAliveHours 3 -SleepSeconds 300
 
         Starts a keep-alive job that will run for 3 hours, pressing the F15 key every 5 minutes.
 
     .EXAMPLE
-        PS> Start-KeepAlive -KeyToPress '{TAB}'
+        PS > Start-KeepAlive -KeyToPress '{TAB}'
 
         Starts a keep-alive job that simulates pressing the Tab key instead of F15.
 
     .EXAMPLE
-        PS> Start-KeepAlive -Query
+        PS > Start-KeepAlive -Query
 
         Displays the status of the current keep-alive job without starting a new one.
 
     .EXAMPLE
-        PS> Start-KeepAlive -EndJob
+        PS > Start-KeepAlive -EndJob
 
         Stops the running keep-alive job and removes it from the job queue.
 
     .EXAMPLE
-        PS> Start-KeepAlive -JobName 'LongDownload' -KeepAliveHours 8
+        PS > Start-KeepAlive -JobName 'LongDownload' -KeepAliveHours 8
 
         Starts a custom-named keep-alive job for an 8-hour period.
 

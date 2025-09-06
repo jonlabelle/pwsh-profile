@@ -28,22 +28,22 @@ function New-RandomString
         Recommended for passwords and security tokens.
 
     .EXAMPLE
-        PS> New-RandomString
+        PS > New-RandomString
 
         Returns a random 32-character string using alphanumeric characters.
 
     .EXAMPLE
-        PS> New-RandomString -Length 16
+        PS > New-RandomString -Length 16
 
         Returns a random 16-character string using alphanumeric characters.
 
     .EXAMPLE
-        PS> New-RandomString -Length 64 -ExcludeAmbiguous
+        PS > New-RandomString -Length 64 -ExcludeAmbiguous
 
         Returns a random 64-character string without ambiguous characters (0, O, 1, l, I).
 
     .EXAMPLE
-        PS> New-RandomString -Length 20 -IncludeSymbols -Secure
+        PS > New-RandomString -Length 20 -IncludeSymbols -Secure
 
         Returns a 20-character string including symbols using secure random generation.
 

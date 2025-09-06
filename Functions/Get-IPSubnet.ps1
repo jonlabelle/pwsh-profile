@@ -1,13 +1,5 @@
 function Get-IPSubnet
 {
-    <#PSScriptInfo
-        .VERSION 3.1.0
-        .GUID cb059a0e-09b6-4756-8df4-28e997b9d97f
-        .AUTHOR saw-friendship@yandex.ru
-        .TAGS IP Subnet Calculator WildCard CIDR
-        .PROJECTURI https://sawfriendship.wordpress.com/
-    #>
-
     <#
     .DESCRIPTION
         Calculate IP subnet information including network address, broadcast address, subnet mask, and other subnet details.
@@ -29,6 +21,8 @@ function Get-IPSubnet
         SubnetBin    : 11000000.10101000.00000000.00000000
         BroadcastBin : 11000000.10101000.00000000.11111111
 
+        Calculate subnet information using CIDR notation.
+
     .EXAMPLE
         PS > Get-IPSubnet -IPAddress 192.168.0.0 -Mask 255.255.255.0
 
@@ -46,6 +40,8 @@ function Get-IPSubnet
         SubnetBin    : 11000000.10101000.00000000.00000000
         BroadcastBin : 11000000.10101000.00000000.11111111
 
+        Calculate subnet information using IP address and subnet mask.
+
     .EXAMPLE
         PS > Get-IPSubnet -IPAddress 192.168.3.0 -PrefixLength 23
 
@@ -62,15 +58,20 @@ function Get-IPSubnet
         MaskBin      : 11111111.11111111.11111110.00000000
         SubnetBin    : 11000000.10101000.00000010.00000000
         BroadcastBin : 11000000.10101000.00000011.11111111
+
+        Calculate subnet information using IP address and prefix length.
+
     .EXAMPLE
         PS > (Get-IPSubnet -IPAddress (Get-IPSubnet 192.168.99.56/28).Subnet -PrefixLength 32).Add(1).IPAddress
-
         192.168.99.49
+
+        Add 1 to the subnet network address to get the next IP address.
 
     .EXAMPLE
         PS > (Get-IPSubnet 192.168.99.56/28).Compare('192.168.99.50')
-
         True
+
+        Test if an IP address belongs to a specific subnet.
 
     .EXAMPLE
         PS > (Get-IPSubnet 192.168.99.58/30).GetIPArray()
@@ -80,12 +81,16 @@ function Get-IPSubnet
         192.168.99.58
         192.168.99.59
 
+        Get all IP addresses within a subnet range.
+
     .EXAMPLE
         PS > Get-NetRoute -AddressFamily IPv4 | ? {(Get-IPSubnet -CIDR $_.DestinationPrefix).Compare('8.8.8.8')} | Sort-Object -Property @(@{Expression = {$_.DestinationPrefix.Split('/')[1]}; Asc = $false},'RouteMetric','ifMetric')
 
         ifIndex DestinationPrefix                              NextHop                                  RouteMetric ifMetric PolicyStore
         ------- -----------------                              -------                                  ----------- -------- -----------
         22      0.0.0.0/0                                      192.168.0.1                                        0 25       ActiveStore
+
+        Find the routing table entry that would be used to reach a specific IP address.
 
     .EXAMPLE
         PS > (Get-IPSubnet 0.0.0.0/0).GetLocalRoute('127.0.0.1')
@@ -94,19 +99,35 @@ function Get-IPSubnet
         ------- -----------------                              -------                                  ----------- -------- -----------
         1       127.0.0.0/8                                    0.0.0.0                                          256 75       ActiveStore
 
+        Find the most specific local route for an IP address.
+
     .EXAMPLE
-        PS > (Get-IPSubnet 0.0.0.0/0).GetLocalRoute('127.0.0.1',2)
+        PS > (Get-IPSubnet 0.0.0.0/0).GetLocalRoute('127.0.0.1', 2)
 
         ifIndex DestinationPrefix                              NextHop                                  RouteMetric ifMetric PolicyStore
         ------- -----------------                              -------                                  ----------- -------- -----------
         1       127.0.0.1/32                                   0.0.0.0                                          256 75       ActiveStore
         1       127.0.0.0/8                                    0.0.0.0                                          256 75       ActiveStore
 
+        Get multiple local routes for an IP address, ordered by specificity.
+
     .EXAMPLE
         PS > (Get-IPSubnet 192.168.0.0/25).Overlaps('192.168.0.0/27')
-
         True
-#>
+
+        Check if two subnets overlap with each other.
+
+    .LINK
+        https://jonlabelle.com/snippets/view/powershell/ip-subnet-calculator
+
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Get-IPSubnet.ps1
+
+    .NOTES
+        Original Author: saw-friendship@yandex.ru
+        Description: IP Subnet Calculator WildCard CIDR
+        URL: https://sawfriendship.wordpress.com/
+    #>
     [CmdletBinding(DefaultParameterSetName = 'CIDR')]
     [OutputType('NetWork.IPCalcResult')]
     param(

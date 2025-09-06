@@ -24,8 +24,8 @@ function Test-ADCredential
         This parameter is mandatory and accepts pipeline input.
 
     .EXAMPLE
-        PS> $cred = Get-Credential
-        PS> Test-ADCredential -Credential $cred
+        PS > $cred = Get-Credential
+        PS > Test-ADCredential -Credential $cred
 
         Successfully authenticated with 'username'
         True
@@ -33,7 +33,7 @@ function Test-ADCredential
         Tests the credentials provided and returns $true if they are valid.
 
     .EXAMPLE
-        PS> Get-Credential | Test-ADCredential -Verbose
+        PS > Get-Credential | Test-ADCredential -Verbose
 
         VERBOSE: Successfully authenticated 'username'
         Successfully authenticated with 'username'
@@ -42,7 +42,7 @@ function Test-ADCredential
         Tests credentials from the pipeline with verbose output.
 
     .EXAMPLE
-        PS> Test-ADCredential -Credential $invalidCred -Verbose
+        PS > Test-ADCredential -Credential $invalidCred -Verbose
 
         VERBOSE: Authentication failed for 'username': Unable to bind to directory
         Authentication failed for 'username'

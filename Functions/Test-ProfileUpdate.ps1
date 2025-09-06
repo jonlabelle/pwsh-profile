@@ -10,6 +10,7 @@ function Test-ProfileUpdate
         remote HEAD commit to determine if updates are available.
 
         The check is designed to be non-blocking and network-aware:
+
         - Only checks if Internet connectivity is available
         - Works cross-platform (Windows, macOS, Linux)
 
@@ -32,6 +33,7 @@ function Test-ProfileUpdate
 
     .EXAMPLE
         PS > Test-ProfileUpdates -Async
+
         Starts a background job to check for profile updates without blocking.
 
     .EXAMPLE
@@ -41,6 +43,7 @@ function Test-ProfileUpdate
 
     .EXAMPLE
         PS > Test-ProfileUpdate -Force
+
         Checks for updates (Force parameter currently has no effect).
 
     .OUTPUTS

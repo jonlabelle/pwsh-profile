@@ -16,7 +16,7 @@ function Get-CommandAlias
         This parameter is mandatory and supports pipeline input.
 
     .EXAMPLE
-        PS> Get-CommandAlias -Name Get-ChildItem
+        PS > Get-CommandAlias -Name Get-ChildItem
 
         Definition    Name
         ----------    ----
@@ -27,7 +27,7 @@ function Get-CommandAlias
         Lists all aliases defined for the Get-ChildItem command.
 
     .EXAMPLE
-        PS> Get-CommandAlias -Name Select*
+        PS > Get-CommandAlias -Name Select*
 
         Definition    Name
         ----------    ----
@@ -37,7 +37,7 @@ function Get-CommandAlias
         Lists all aliases for commands that start with "Select".
 
     .EXAMPLE
-        PS> 'Get-Process', 'Get-Service' | Get-CommandAlias
+        PS > 'Get-Process', 'Get-Service' | Get-CommandAlias
 
         Definition  Name
         ----------  ----

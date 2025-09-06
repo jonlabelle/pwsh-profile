@@ -53,7 +53,7 @@ function Send-TcpRequest
             Connection: close
         "@
 
-        Send-TcpRequest -ComputerName "www.example.com" -Port 80 -InputObject $httpRequest
+        PS > Send-TcpRequest -ComputerName "www.example.com" -Port 80 -InputObject $httpRequest
 
         Send an HTTP GET request.
 
@@ -63,7 +63,7 @@ function Send-TcpRequest
             Host: api.example.com
         "@
 
-        Send-TcpRequest -ComputerName "api.example.com" -Port 443 -UseSSL -InputObject $httpsRequest
+        PS > Send-TcpRequest -ComputerName "api.example.com" -Port 443 -UseSSL -InputObject $httpsRequest
 
         Connect to an HTTPS server.
 
@@ -82,15 +82,128 @@ function Send-TcpRequest
 
         Send data via pipeline with custom timeout.
 
+    .EXAMPLE
+        PS > $smtpCommands = @(
+            "HELO mydomain.com",
+            "MAIL FROM:<test@mydomain.com>",
+            "RCPT TO:<recipient@example.com>",
+            "DATA",
+            "Subject: Test Email",
+            "",
+            "This is a test message.",
+            ".",
+            "QUIT"
+        )
+
+        PS > Send-TcpRequest -ComputerName "smtp.server.com" -Port 587 -InputObject $smtpCommands
+
+        Send multiple SMTP commands for email testing.
+
+    .EXAMPLE
+        PS > $ftpCommands = @(
+            "USER anonymous",
+            "PASS guest@example.com",
+            "SYST",
+            "PWD",
+            "LIST",
+            "QUIT"
+        )
+
+        PS > Send-TcpRequest -ComputerName "ftp.server.com" -Port 21 -InputObject $ftpCommands
+
+        Connect to FTP server and execute basic commands.
+
+    .EXAMPLE
+        PS > $popCommands = @(
+            "USER myusername",
+            "PASS mypassword",
+            "STAT",
+            "LIST",
+            "QUIT"
+        )
+
+        PS > Send-TcpRequest -ComputerName "pop.server.com" -Port 110 -InputObject $popCommands
+
+        Check email via POP3 protocol.
+
+    .EXAMPLE
+        PS > $servers = @("web1.example.com", "web2.example.com", "web3.example.com")
+
+        PS > $servers | ForEach-Object {
+            "$_ : $(Send-TcpRequest -ComputerName $_ -Port 443 -Test)"
+        }
+
+        Test HTTPS connectivity across multiple servers.
+
+    .EXAMPLE
+        PS > $httpRequest = @"
+            POST /api/data HTTP/1.1
+            Host: api.example.com
+            Content-Type: application/json
+            Content-Length: 25
+
+            {"key":"value","id":123}
+        "@
+
+        PS > Send-TcpRequest -ComputerName "api.example.com" -Port 443 -UseSSL -InputObject $httpRequest
+
+        Send HTTP POST request with JSON payload over HTTPS.
+
+    .EXAMPLE
+        PS > Send-TcpRequest -ComputerName "irc.server.com" -Port 6667 -InputObject @(
+            "NICK MyNickname",
+            "USER MyNickname 0 * :Real Name",
+            "JOIN #channel",
+            "PRIVMSG #channel :Hello everyone!",
+            "QUIT :Goodbye"
+        )
+
+        Connect to IRC server and send messages.
+
+    .EXAMPLE
+        PS > $timeRequest = [byte[]](0x1B) + [System.Text.Encoding]::ASCII.GetBytes(" ") * 47
+
+        PS > Send-TcpRequest -ComputerName "time.nist.gov" -Port 37 -Test
+
+        Test connection to time server (would need binary handling for actual time protocol).
+
+    .EXAMPLE
+        PS > $snppCommands = @(
+            "PAGE 5551234567",
+            "MESS Your server alert: Database backup completed successfully at $(Get-Date -Format 'HH:mm')",
+            "SEND",
+            "QUIT"
+        )
+
+        PS > Send-TcpRequest -ComputerName "pager.company.com" -Port 444 -InputObject $snppCommands
+
+        Send a pager message using SNPP (Simple Network Paging Protocol).
+        The protocol sends: PAGE (pager number), MESS (message text), SEND (transmit), QUIT (disconnect).
+
+    .EXAMPLE
+        PS > $wctpMessage = @"
+            wctp-Submit: wctp-Submit
+            wctp-Originator: admin@company.com
+            wctp-Recipient: 5551234567@wireless.company.com
+            wctp-MessageId: MSG$(Get-Random -Minimum 1000 -Maximum 9999)
+
+            Subject: Server Alert
+
+            URGENT: Web server disk space at 95% capacity. Immediate attention required.
+        "@
+
+        PS > Send-TcpRequest -ComputerName "wctp.gateway.com" -Port 444 -InputObject $wctpMessage
+
+        Send a wireless message using WCTP (Wireless Communications Transfer Protocol).
+        WCTP uses HTTP-style headers to send messages to wireless devices like pagers and phones.
+
     .OUTPUTS
         System.String
         Returns the response from the remote server when in scripted mode.
         In test mode, returns System.Boolean indicating connection success.
 
     .NOTES
-        Author: Lee Holmes (adapted and enhanced)
-        From: Windows PowerShell Cookbook (O'Reilly)
-        URL: http://www.leeholmes.com/guide
+        Original Author: Lee Holmes, Windows PowerShell Cookbook (O'Reilly), https://www.leeholmes.com/guide
 
         Enhanced with improved error handling, parameter validation, timeout support,
         and comprehensive documentation.

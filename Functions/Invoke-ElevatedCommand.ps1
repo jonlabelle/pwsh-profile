@@ -33,31 +33,31 @@ function Invoke-ElevatedCommand
         Default is 300 seconds (5 minutes). Use 0 for no timeout.
 
     .EXAMPLE
-        PS> Invoke-ElevatedCommand { Get-Service | Where-Object Status -eq 'Running' }
+        PS > Invoke-ElevatedCommand { Get-Service | Where-Object Status -eq 'Running' }
 
         Runs an elevated PowerShell session to get running services.
 
     .EXAMPLE
-        PS> Get-Process | Invoke-ElevatedCommand { $input | Where-Object Handles -gt 500 } | Sort-Object Handles
+        PS > Get-Process | Invoke-ElevatedCommand { $input | Where-Object Handles -gt 500 } | Sort-Object Handles
 
         Gets all processes, pipes them to an elevated session that filters for processes with more than 500 handles,
         and then sorts the results by handle count.
 
     .EXAMPLE
-        PS> Invoke-ElevatedCommand -EnableProfile { Import-Module ActiveDirectory; Get-ADUser -Filter * }
+        PS > Invoke-ElevatedCommand -EnableProfile { Import-Module ActiveDirectory; Get-ADUser -Filter * }
 
         Runs an elevated PowerShell session with profile loaded, imports the ActiveDirectory module,
         and retrieves all AD users.
 
     .EXAMPLE
-        PS> Invoke-ElevatedCommand -TimeoutSeconds 60 {
+        PS > Invoke-ElevatedCommand -TimeoutSeconds 60 {
             Get-WmiObject -Class Win32_ComputerSystem | Select-Object Name, Domain, TotalPhysicalMemory
         }
 
         Runs an elevated WMI query with a 60-second timeout.
 
     .EXAMPLE
-        PS> Invoke-ElevatedCommand {
+        PS > Invoke-ElevatedCommand {
             New-Item -Path "C:\Program Files\MyApp" -ItemType Directory -Force
             Copy-Item -Path ".\MyApp.exe" -Destination "C:\Program Files\MyApp\" -Force
         }
@@ -65,7 +65,7 @@ function Invoke-ElevatedCommand
         Creates a directory and copies files to Program Files, which requires elevation.
 
     .EXAMPLE
-        PS> "Server01", "Server02" | Invoke-ElevatedCommand {
+        PS > "Server01", "Server02" | Invoke-ElevatedCommand {
             $input | ForEach-Object {
                 Test-Connection -ComputerName $_ -Count 1 -Quiet
             }
