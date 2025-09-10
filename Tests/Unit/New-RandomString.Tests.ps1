@@ -173,10 +173,12 @@ Describe 'New-RandomString' {
 
         It 'Should throw an error when all characters are excluded' {
             # Create a list that excludes all possible characters
-            $allChars = @()
-            $allChars += 0..9 | ForEach-Object { $_.ToString() }
-            $allChars += 'A'..'Z'
-            $allChars += 'a'..'z'
+            # Use explicit arrays for better compatibility across PowerShell versions
+            $numbers = @('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')
+            $upperCase = @('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z')
+            $lowerCase = @('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z')
+
+            $allChars = $numbers + $upperCase + $lowerCase
 
             { New-RandomString -Length 10 -ExcludeCharacters $allChars } | Should -Throw -ExpectedMessage '*All available characters have been excluded*'
         }
