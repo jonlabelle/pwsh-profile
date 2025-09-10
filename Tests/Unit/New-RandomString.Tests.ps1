@@ -101,6 +101,115 @@ Describe 'New-RandomString' {
         }
     }
 
+    Context 'ExcludeCharacters parameter' {
+        It 'Should exclude specific characters when ExcludeCharacters is specified' {
+            $excludedChars = @('0', '1', 'A', 'a')
+            $result = New-RandomString -Length 100 -ExcludeCharacters $excludedChars
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 100
+
+            # None of the excluded characters should appear
+            foreach ($char in $excludedChars)
+            {
+                $result | Should -Not -Match [regex]::Escape($char)
+            }
+        }
+
+        It 'Should work with symbols exclusion when IncludeSymbols is specified' {
+            $excludedSymbols = @('!', '@', '#')
+            $result = New-RandomString -Length 200 -IncludeSymbols -ExcludeCharacters $excludedSymbols
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 200
+
+            # Excluded symbols should not appear
+            foreach ($symbol in $excludedSymbols)
+            {
+                $result | Should -Not -Match [regex]::Escape($symbol)
+            }
+
+            # But other symbols should still be possible
+            # Test multiple times to increase probability of finding allowed symbols
+            $foundAllowedSymbol = $false
+            for ($i = 0; $i -lt 10; $i++)
+            {
+                $testResult = New-RandomString -Length 200 -IncludeSymbols -ExcludeCharacters $excludedSymbols
+                if ($testResult -match '[$%^&*]')
+                {
+                    $foundAllowedSymbol = $true
+                    break
+                }
+            }
+            $foundAllowedSymbol | Should -Be $true
+        }
+
+        It 'Should work in combination with ExcludeAmbiguous' {
+            $additionalExclusions = @('X', 'Y', 'Z')
+            $result = New-RandomString -Length 100 -ExcludeAmbiguous -ExcludeCharacters $additionalExclusions
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 100
+
+            # Should exclude ambiguous characters (0, 1 based on implementation)
+            $result | Should -Not -Match '[01]'
+
+            # Should also exclude additional characters
+            foreach ($char in $additionalExclusions)
+            {
+                $result | Should -Not -Match [regex]::Escape($char)
+            }
+        }
+
+        It 'Should work with Secure parameter' {
+            $excludedChars = @('0', 'O', '1', 'I')
+            $result = New-RandomString -Length 50 -ExcludeCharacters $excludedChars -Secure
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 50
+
+            # None of the excluded characters should appear
+            foreach ($char in $excludedChars)
+            {
+                $result | Should -Not -Match [regex]::Escape($char)
+            }
+        }
+
+        It 'Should throw an error when all characters are excluded' {
+            # Create a list that excludes all possible characters
+            $allChars = @()
+            $allChars += 0..9 | ForEach-Object { $_.ToString() }
+            $allChars += 'A'..'Z'
+            $allChars += 'a'..'z'
+
+            { New-RandomString -Length 10 -ExcludeCharacters $allChars } | Should -Throw -ExpectedMessage '*All available characters have been excluded*'
+        }
+
+        It 'Should handle empty ExcludeCharacters array' {
+            $result = New-RandomString -Length 20 -ExcludeCharacters @()
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 20
+            $result | Should -MatchExactly '^[0-9A-Za-z]+$'
+        }
+
+        It 'Should exclude single character correctly' {
+            $result = New-RandomString -Length 100 -ExcludeCharacters @('X')
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 100
+            $result | Should -Not -Match 'X'
+        }
+
+        It 'Should handle case-sensitive exclusions' {
+            # Test excluding uppercase 'A'
+            $result = New-RandomString -Length 100 -ExcludeCharacters @('A')
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 100
+            $result | Should -Not -Match 'A'
+
+            # Test excluding lowercase 'a'
+            $result2 = New-RandomString -Length 100 -ExcludeCharacters @('a')
+            $result2 | Should -Not -BeNullOrEmpty
+            $result2.Length | Should -Be 100
+            $result2 | Should -Not -Match 'a'
+        }
+    }
+
     Context 'Secure parameter' {
         It 'Should generate cryptographically secure random when Secure is specified' {
             # We can't directly test cryptographic security, but we can test that it works

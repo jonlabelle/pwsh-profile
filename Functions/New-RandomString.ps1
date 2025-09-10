@@ -23,6 +23,10 @@ function New-RandomString
     .PARAMETER IncludeSymbols
         Includes common symbols (!@#$%^&*) in addition to alphanumeric characters.
 
+    .PARAMETER ExcludeCharacters
+        An array of specific characters to exclude from the generated string.
+        This parameter allows fine-grained control over which characters should not appear.
+
     .PARAMETER Secure
         Uses cryptographically secure random number generation instead of Get-Random.
         Recommended for passwords and security tokens.
@@ -47,6 +51,16 @@ function New-RandomString
 
         Returns a 20-character string including symbols using secure random generation.
 
+    .EXAMPLE
+        PS > New-RandomString -Length 12 -ExcludeCharacters @('0', '1', 'O', 'I')
+
+        Returns a 12-character string excluding the specified characters.
+
+    .EXAMPLE
+        PS > New-RandomString -Length 8 -IncludeSymbols -ExcludeCharacters @('!', '@', '#')
+
+        Returns an 8-character string including symbols but excluding '!', '@', and '#'.
+
     .OUTPUTS
         System.String
         Returns a string of random characters based on the specified parameters.
@@ -70,6 +84,10 @@ function New-RandomString
 
         [Parameter()]
         [switch] $ExcludeAmbiguous,
+
+        [Parameter()]
+        [ValidateNotNull()]
+        [string[]] $ExcludeCharacters = @(),
 
         [Parameter()]
         [switch] $IncludeSymbols,
@@ -105,6 +123,21 @@ function New-RandomString
     if ($IncludeSymbols)
     {
         $characterPool += $symbols
+    }
+
+    # Apply custom character exclusions if specified
+    if ($ExcludeCharacters.Count -gt 0)
+    {
+        Write-Verbose "Excluding characters: $($ExcludeCharacters -join ', ')"
+        $characterPool = $characterPool | Where-Object { $_ -notin $ExcludeCharacters }
+
+        # Validate that we still have characters left
+        if ($characterPool.Count -eq 0)
+        {
+            throw 'All available characters have been excluded. Please reduce the exclusion list.'
+        }
+
+        Write-Verbose "Character pool size after exclusions: $($characterPool.Count)"
     }
 
     # Convert to array for better performance
