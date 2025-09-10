@@ -260,6 +260,21 @@
         "clear": true
       }
     },
+    {
+      "label": "Install Dev Requirements (pwsh)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": ["-NoProfile", "-File", "./dev-requirements.ps1"],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": true
+      }
+    },
 
     // ---------------------------------------------------------
     // Windows PowerShell Desktop (powershell.exe) Tasks
@@ -312,6 +327,21 @@
         "kind": "build",
         "isDefault": false
       },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": true
+      }
+    },
+    {
+      "label": "Install Dev Requirements (powershell)",
+      "type": "shell",
+      "command": "powershell",
+      "args": ["-NoProfile", "-File", "./dev-requirements.ps1"],
+      "group": "build",
       "presentation": {
         "echo": true,
         "reveal": "always",
