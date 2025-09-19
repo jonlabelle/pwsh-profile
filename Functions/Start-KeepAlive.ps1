@@ -385,7 +385,7 @@ function Start-KeepAlive
                     Write-Host "Keep-alive job '$JobName' started successfully." -ForegroundColor Green
                     Write-Host "  Job ID: $($job.Id)" -ForegroundColor Cyan
                     Write-Host "  Duration: $KeepAliveHours hours" -ForegroundColor Cyan
-                    Write-Host "  End time: $(Get-Date $endTime -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Cyan
+                    Write-Host "  End time: $(Get-Date $endTime -Format 'yyyy-MM-dd h:mm:ss tt')" -ForegroundColor Cyan
                     Write-Host "  Interval: $SleepSeconds seconds" -ForegroundColor Cyan
                     Write-Host "  Key: $KeyToPress" -ForegroundColor Cyan
                     Write-Host "`nUse 'Start-KeepAlive -Query -JobName $JobName' to check status" -ForegroundColor Yellow
