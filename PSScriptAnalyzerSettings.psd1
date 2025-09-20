@@ -13,6 +13,7 @@
     'PSAvoidGlobalVars', # Required for updating $Profile
     'PSReviewUnusedParameter', # This rule is broken and reports false positives
     'PSAvoidUsingComputerNameHardcoded' # Acceptable in test scripts
+    'PSAvoidUsingConvertToSecureStringWithPlainText' # Acceptable in test scripts
   )
 
   Rules = @{
