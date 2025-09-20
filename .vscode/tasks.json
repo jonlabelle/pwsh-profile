@@ -261,7 +261,7 @@
       }
     },
     {
-      "label": "Install Dev Requirements (pwsh)",
+      "label": "Install Required Dev Modules (pwsh)",
       "type": "shell",
       "command": "pwsh",
       "args": ["-NoProfile", "-File", "./dev-requirements.ps1"],
@@ -337,7 +337,7 @@
       }
     },
     {
-      "label": "Install Dev Requirements (powershell)",
+      "label": "Install Required Dev Modules (powershell)",
       "type": "shell",
       "command": "powershell",
       "args": ["-NoProfile", "-File", "./dev-requirements.ps1"],

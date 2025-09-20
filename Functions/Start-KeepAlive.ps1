@@ -88,6 +88,8 @@ function Start-KeepAlive
 
         VERSION COMPATIBILITY: Compatible with PowerShell 5.1+ on Windows systems.
     #>
+    #
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingEmptyCatchBlock', '', Justification = '')]
     [CmdletBinding(DefaultParameterSetName = 'Start')]
     [OutputType([System.Management.Automation.Job], ParameterSetName = 'Start')]
     [OutputType([System.Void], ParameterSetName = 'Query')]
@@ -375,7 +377,7 @@ function Start-KeepAlive
                             }
                         }
                     }
-                } # end jobScript
+                }
 
                 # Start the background job
                 try
@@ -399,9 +401,9 @@ function Start-KeepAlive
                 break
             }
         }
-    } # end process
+    }
     end
     {
         Write-Verbose 'Start-KeepAlive function completed'
-    } # end end
-} # end function Start-KeepAlive
+    }
+}

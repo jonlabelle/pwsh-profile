@@ -1,4 +1,4 @@
-function Protect-PathWithPassword
+﻿function Protect-PathWithPassword
 {
     <#
     .SYNOPSIS
@@ -167,17 +167,42 @@ function Protect-PathWithPassword
                 throw "Invalid output path: $OutputPath"
             }
 
-            # Create output directory if it doesn't exist
+            # Create output directory if it doesn't exist and it looks like a directory
             if (-not (Test-Path $OutputPath))
             {
-                try
+                # Check if this looks like a directory (no extension or ends with slash/backslash)
+                $isDirectory = (-not [System.IO.Path]::HasExtension($OutputPath)) -or
+                $OutputPath.EndsWith('/') -or
+                $OutputPath.EndsWith('\')
+
+                if ($isDirectory)
                 {
-                    New-Item -Path $OutputPath -ItemType Directory -Force | Out-Null
-                    Write-Verbose "Created output directory: $OutputPath"
+                    try
+                    {
+                        New-Item -Path $OutputPath -ItemType Directory -Force | Out-Null
+                        Write-Verbose "Created output directory: $OutputPath"
+                    }
+                    catch
+                    {
+                        throw "Failed to create output directory: $OutputPath"
+                    }
                 }
-                catch
+                else
                 {
-                    throw "Failed to create output directory: $OutputPath"
+                    # It's a file path, so create the parent directory if needed
+                    $parentDir = [System.IO.Path]::GetDirectoryName($OutputPath)
+                    if ($parentDir -and -not (Test-Path $parentDir))
+                    {
+                        try
+                        {
+                            New-Item -Path $parentDir -ItemType Directory -Force | Out-Null
+                            Write-Verbose "Created parent directory: $parentDir"
+                        }
+                        catch
+                        {
+                            throw "Failed to create parent directory: $parentDir"
+                        }
+                    }
                 }
             }
         }
@@ -263,16 +288,12 @@ function Invoke-FileEncryption
         # Check if output file exists
         if ((Test-Path $outputFile) -and -not $Force)
         {
-            $choice = Read-Host "File '$outputFile' already exists. Overwrite? (y/N)"
-            if ($choice -notmatch '^[yY]')
-            {
-                Write-Warning "Skipping file: $FilePath"
-                return [PSCustomObject]@{
-                    OriginalPath = $FilePath
-                    EncryptedPath = $outputFile
-                    Success = $false
-                    Error = 'File exists and Force not specified'
-                }
+            Write-Warning "Skipping file: $FilePath (file exists, use -Force to overwrite)"
+            return [PSCustomObject]@{
+                OriginalPath = $FilePath
+                EncryptedPath = $outputFile
+                Success = $false
+                Error = 'File exists and Force not specified'
             }
         }
 

@@ -1,10 +1,10 @@
-BeforeAll {
+﻿BeforeAll {
     # Import the functions to test
-    . "$PSScriptRoot/../../Functions/Protect-Path.ps1"
-    . "$PSScriptRoot/../../Functions/Unprotect-Path.ps1"
+    . "$PSScriptRoot/../../Functions/Protect-PathWithPassword.ps1"
+    . "$PSScriptRoot/../../Functions/Unprotect-PathWithPassword.ps1"
 }
 
-Describe 'Protect-Path and Unprotect-Path Integration Tests' {
+Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Tests' {
     BeforeEach {
         # Create test directory structure
         $script:TestDir = Join-Path ([System.IO.Path]::GetTempPath()) ('PathProtectionIntegration_' + [System.Guid]::NewGuid().ToString('N')[0..7] -join '')
@@ -30,9 +30,9 @@ Describe 'Protect-Path and Unprotect-Path Integration Tests' {
             [System.IO.File]::WriteAllBytes($binaryFile, $binaryData)
 
             # Encrypt and decrypt
-            $encResult = Protect-Path -Path $binaryFile -Password $script:TestPassword
+            $encResult = Protect-PathWithPassword -Path $binaryFile -Password $script:TestPassword
             Remove-Item $binaryFile -Force
-            $decResult = Unprotect-Path -Path $encResult.EncryptedPath -Password $script:TestPassword
+            $decResult = Unprotect-PathWithPassword -Path $encResult.EncryptedPath -Password $script:TestPassword
 
             # Verify binary data integrity
             $restoredData = [System.IO.File]::ReadAllBytes($decResult.DecryptedPath)
@@ -47,7 +47,7 @@ Describe 'Protect-Path and Unprotect-Path Integration Tests' {
 
             # Measure encryption time
             $encStartTime = Get-Date
-            $encResult = Protect-Path -Path $largeFile -Password $script:TestPassword
+            $encResult = Protect-PathWithPassword -Path $largeFile -Password $script:TestPassword
             $encEndTime = Get-Date
             $encTime = ($encEndTime - $encStartTime).TotalSeconds
 
@@ -58,7 +58,7 @@ Describe 'Protect-Path and Unprotect-Path Integration Tests' {
             # Measure decryption time
             Remove-Item $largeFile -Force
             $decStartTime = Get-Date
-            $decResult = Unprotect-Path -Path $encResult.EncryptedPath -Password $script:TestPassword
+            $decResult = Unprotect-PathWithPassword -Path $encResult.EncryptedPath -Password $script:TestPassword
             $decEndTime = Get-Date
             $decTime = ($decEndTime - $decStartTime).TotalSeconds
 
@@ -74,7 +74,7 @@ Describe 'Protect-Path and Unprotect-Path Integration Tests' {
 
         It 'Should handle different text encodings' {
             $encodings = @(
-                @{ Name = 'UTF8'; Encoding = [System.Text.Encoding]::UTF8 }
+                @{ Name = 'UTF8'; Encoding = [System.Text.UTF8Encoding]::new($false) }  # UTF8 without BOM
                 @{ Name = 'ASCII'; Encoding = [System.Text.Encoding]::ASCII }
                 @{ Name = 'Unicode'; Encoding = [System.Text.Encoding]::Unicode }
             )
@@ -84,18 +84,18 @@ Describe 'Protect-Path and Unprotect-Path Integration Tests' {
                 $testFile = Join-Path $script:TestDir "encoding_$($enc.Name).txt"
                 $testContent = "Test content for $($enc.Name) encoding"
 
-                # Write file with specific encoding
-                [System.IO.File]::WriteAllText($testFile, $testContent, $enc.Encoding)
+                # Write file with specific encoding using WriteAllBytes to avoid BOM issues
+                $contentBytes = $enc.Encoding.GetBytes($testContent)
+                [System.IO.File]::WriteAllBytes($testFile, $contentBytes)
 
                 # Encrypt and decrypt
-                $encResult = Protect-Path -Path $testFile -Password $script:TestPassword
+                $encResult = Protect-PathWithPassword -Path $testFile -Password $script:TestPassword
                 Remove-Item $testFile -Force
-                $decResult = Unprotect-Path -Path $encResult.EncryptedPath -Password $script:TestPassword
+                $decResult = Unprotect-PathWithPassword -Path $encResult.EncryptedPath -Password $script:TestPassword
 
-                # Verify content (reading as bytes to ensure exact match)
-                $originalBytes = $enc.Encoding.GetBytes($testContent)
+                # Verify content (comparing with the same bytes we wrote)
                 $restoredBytes = [System.IO.File]::ReadAllBytes($decResult.DecryptedPath)
-                $restoredBytes | Should -Be $originalBytes
+                $restoredBytes | Should -Be $contentBytes
             }
         }
     }
@@ -106,8 +106,8 @@ Describe 'Protect-Path and Unprotect-Path Integration Tests' {
             'Identical content for security testing' | Out-File -FilePath $testFile -Encoding UTF8
 
             # Encrypt the same file twice
-            $enc1 = Protect-Path -Path $testFile -Password $script:TestPassword -OutputPath (Join-Path $script:TestDir 'enc1.dat')
-            $enc2 = Protect-Path -Path $testFile -Password $script:TestPassword -OutputPath (Join-Path $script:TestDir 'enc2.dat')
+            $enc1 = Protect-PathWithPassword -Path $testFile -Password $script:TestPassword -OutputPath (Join-Path $script:TestDir 'enc1.dat')
+            $enc2 = Protect-PathWithPassword -Path $testFile -Password $script:TestPassword -OutputPath (Join-Path $script:TestDir 'enc2.dat')
 
             # Read encrypted files as bytes
             $encBytes1 = [System.IO.File]::ReadAllBytes($enc1.EncryptedPath)
@@ -118,8 +118,8 @@ Describe 'Protect-Path and Unprotect-Path Integration Tests' {
 
             # But both should decrypt to the same content
             Remove-Item $testFile -Force
-            $dec1 = Unprotect-Path -Path $enc1.EncryptedPath -Password $script:TestPassword -OutputPath (Join-Path $script:TestDir 'dec1.txt')
-            $dec2 = Unprotect-Path -Path $enc2.EncryptedPath -Password $script:TestPassword -OutputPath (Join-Path $script:TestDir 'dec2.txt')
+            $dec1 = Unprotect-PathWithPassword -Path $enc1.EncryptedPath -Password $script:TestPassword -OutputPath (Join-Path $script:TestDir 'dec1.txt')
+            $dec2 = Unprotect-PathWithPassword -Path $enc2.EncryptedPath -Password $script:TestPassword -OutputPath (Join-Path $script:TestDir 'dec2.txt')
 
             $content1 = Get-Content $dec1.DecryptedPath -Raw
             $content2 = Get-Content $dec2.DecryptedPath -Raw
@@ -134,11 +134,11 @@ Describe 'Protect-Path and Unprotect-Path Integration Tests' {
             $wrongPassword = ConvertTo-SecureString 'Wrong_Password_123!' -AsPlainText -Force
 
             # Encrypt with correct password
-            $encResult = Protect-Path -Path $testFile -Password $correctPassword
+            $encResult = Protect-PathWithPassword -Path $testFile -Password $correctPassword
             Remove-Item $testFile -Force
 
             # Try to decrypt with wrong password
-            $decResult = Unprotect-Path -Path $encResult.EncryptedPath -Password $wrongPassword -ErrorAction SilentlyContinue
+            $decResult = Unprotect-PathWithPassword -Path $encResult.EncryptedPath -Password $wrongPassword -ErrorAction SilentlyContinue
 
             # Should fail
             $decResult.Success | Should -Be $false
@@ -161,7 +161,7 @@ Describe 'Protect-Path and Unprotect-Path Integration Tests' {
             }
 
             # Encrypt all files via pipeline
-            $encResults = Get-ChildItem -Path $script:TestDir -File | Protect-Path -Password $script:TestPassword
+            $encResults = Get-ChildItem -Path $script:TestDir -File | Protect-PathWithPassword -Password $script:TestPassword
 
             # All encryptions should succeed
             $encResults | Should -HaveCount 5
@@ -171,7 +171,7 @@ Describe 'Protect-Path and Unprotect-Path Integration Tests' {
             $testFiles | ForEach-Object { Remove-Item $_ -Force }
 
             # Decrypt all files via pipeline
-            $decResults = Get-ChildItem -Path $script:TestDir -File -Filter '*.enc' | Unprotect-Path -Password $script:TestPassword
+            $decResults = Get-ChildItem -Path $script:TestDir -File -Filter '*.enc' | Unprotect-PathWithPassword -Password $script:TestPassword
 
             # All decryptions should succeed
             $decResults | Should -HaveCount 5
@@ -207,13 +207,13 @@ Describe 'Protect-Path and Unprotect-Path Integration Tests' {
             }
 
             # Encrypt recursively
-            Protect-Path -Path $script:TestDir -Password $script:TestPassword -Recurse | Out-Null
+            Protect-PathWithPassword -Path $script:TestDir -Password $script:TestPassword -Recurse | Out-Null
 
             # Remove original files
             $files | ForEach-Object { Remove-Item $_.Path -Force }
 
             # Decrypt recursively
-            Unprotect-Path -Path $script:TestDir -Password $script:TestPassword -Recurse | Out-Null
+            Unprotect-PathWithPassword -Path $script:TestDir -Password $script:TestPassword -Recurse | Out-Null
 
             # Verify all files are restored
             foreach ($file in $files)
