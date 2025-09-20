@@ -144,18 +144,20 @@ function Rename-VideoSeasonFile
 
         foreach ($currentPath in $Path)
         {
-            Write-Verbose "Scanning path: $currentPath"
-
             if ([String]::IsNullOrWhiteSpace($currentPath))
             {
                 Write-Warning 'Path parameter is null or empty, skipping.'
                 continue
             }
 
+            # Normalize path first (handles ~, relative paths)
+            $normalizedPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($currentPath)
+            Write-Verbose "Scanning path: $normalizedPath"
+
             # Validate Input Directory
-            if (-not (Test-Path -Path $currentPath -PathType Container))
+            if (-not (Test-Path -Path $normalizedPath -PathType Container))
             {
-                Write-Error "Input directory not found: '$currentPath'"
+                Write-Error "Input directory not found: '$normalizedPath'"
                 continue
             }
 
@@ -165,7 +167,7 @@ function Rename-VideoSeasonFile
             {
                 try
                 {
-                    $filesForFilter = Get-ChildItem -Path $currentPath -Filter $filter -Recurse -File -ErrorAction Stop
+                    $filesForFilter = Get-ChildItem -Path $normalizedPath -Filter $filter -Recurse -File -ErrorAction Stop
 
                     # Apply exclusion filter if needed
                     if ($Exclude.Count -gt 0)
@@ -191,7 +193,7 @@ function Rename-VideoSeasonFile
                 }
                 catch
                 {
-                    Write-Error "Error searching for files with filter '$filter' in path '$currentPath': $($_.Exception.Message)"
+                    Write-Error "Error searching for files with filter '$filter' in path '$normalizedPath': $($_.Exception.Message)"
                     continue
                 }
             }
@@ -200,7 +202,7 @@ function Rename-VideoSeasonFile
             {
                 $allFilesToProcess += [PSCustomObject]@{
                     File = $file
-                    SourcePath = $currentPath
+                    SourcePath = $normalizedPath
                 }
             }
         }

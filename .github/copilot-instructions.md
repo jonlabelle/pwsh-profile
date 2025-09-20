@@ -36,6 +36,17 @@ if ($PSVersionTable.PSVersion.Major -lt 6) {
 
 - **DNS Resolution:** Use `[System.Net.Dns]::GetHostAddresses()` instead of Windows-only `Resolve-DnsName`
 - **File Paths:** Use `[System.IO.Path]::` methods for cross-platform compatibility
+- **Path Resolution:** For arbitrary strings/variables (and to normalize to an absolute path without requiring the path to exist), including the `~` symbol:
+
+  ```powershell
+  $OutputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
+
+  # If you're inside an advanced function, you can also use:
+  $OutputPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
+
+  # Note: Does NOT require the target to exist.
+  ```
+
 - **Network Testing:** Prefer .NET Socket classes over Windows-specific cmdlets
 - **Admin Detection:** `Test-Admin` function only works on Windows
 

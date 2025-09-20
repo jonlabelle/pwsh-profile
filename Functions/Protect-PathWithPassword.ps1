@@ -151,21 +151,8 @@
         # Resolve output path if provided
         if ($OutputPath)
         {
-            # Expand ~ to home directory and resolve relative paths
-            if ($OutputPath.StartsWith('~'))
-            {
-                $OutputPath = $OutputPath -replace '^~', [System.Environment]::GetFolderPath('UserProfile')
-            }
-
-            # Convert to absolute path
-            try
-            {
-                $OutputPath = [System.IO.Path]::GetFullPath($OutputPath)
-            }
-            catch
-            {
-                throw "Invalid output path: $OutputPath"
-            }
+            # Expand '~', resolve relative paths, and convert to absolute path
+            $OutputPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
 
             # Create output directory if it doesn't exist and it looks like a directory
             if (-not (Test-Path $OutputPath))
@@ -212,7 +199,10 @@
     {
         try
         {
-            $resolvedPath = Resolve-Path -Path $Path -ErrorAction Stop
+            # Normalize path first (handles ~, relative paths)
+            $normalizedPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
+            # Then validate existence
+            $resolvedPath = Resolve-Path -Path $normalizedPath -ErrorAction Stop
             $item = Get-Item -Path $resolvedPath -ErrorAction Stop
 
             if ($item.PSIsContainer)

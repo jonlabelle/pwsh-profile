@@ -288,6 +288,12 @@
 
             $resolvedPath = $ProvidedPath
 
+            # Normalize FFmpeg path if provided (handles ~, relative paths)
+            if ($resolvedPath)
+            {
+                $resolvedPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($resolvedPath)
+            }
+
             if (-not $resolvedPath)
             {
                 # Try to find in PATH first
@@ -356,12 +362,14 @@
 
         foreach ($currentPath in $Path)
         {
-            Write-Verbose "Scanning path: $currentPath"
+            # Normalize path first (handles ~, relative paths)
+            $normalizedPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($currentPath)
+            Write-Verbose "Scanning path: $normalizedPath"
 
             # Validate Input Directory
-            if (-not (Test-Path -Path $currentPath -PathType Container))
+            if (-not (Test-Path -Path $normalizedPath -PathType Container))
             {
-                Write-Error "Input directory not found: '$currentPath'"
+                Write-Error "Input directory not found: '$normalizedPath'"
                 $script:totalFailed++
                 continue
             }
@@ -370,12 +378,12 @@
             if ($NoRecursion)
             {
                 Write-VerboseMessage "Searching for *.$Extension files in current directory only"
-                $filesToProcess = Get-ChildItem -Path $currentPath -Filter "*.$Extension" -File
+                $filesToProcess = Get-ChildItem -Path $normalizedPath -Filter "*.$Extension" -File
             }
             else
             {
                 Write-VerboseMessage "Searching recursively for *.$Extension files (excluding $($Exclude -join ', '))"
-                $filesToProcess = Get-ChildItem -Path $currentPath -Recurse -Filter "*.$Extension" -File | Where-Object {
+                $filesToProcess = Get-ChildItem -Path $normalizedPath -Recurse -Filter "*.$Extension" -File | Where-Object {
                     $fullPath = $_.FullName
                     -not ($Exclude | Where-Object { $fullPath -like "*$_*" })
                 }
@@ -385,7 +393,7 @@
             {
                 $allFilesToProcess += [PSCustomObject]@{
                     File = $file
-                    SourcePath = $currentPath
+                    SourcePath = $normalizedPath
                 }
             }
         }
