@@ -225,6 +225,13 @@ Describe 'Set-TlsSecurityProtocol' {
             {
                 # PowerShell Core - should attempt TLS 1.3
                 { Set-TlsSecurityProtocol -MinimumVersion 'Tls13' } | Should -Not -Throw
+
+                $current = [Net.ServicePointManager]::SecurityProtocol
+                # Should have either TLS 1.3 or TLS 1.2 (fallback) set
+                $hasTls12 = ($current -band [Net.SecurityProtocolType]::Tls12) -ne 0
+                $hasTls13 = try { ($current -band [Net.SecurityProtocolType]::Tls13) -ne 0 } catch { $false }
+
+                ($hasTls12 -or $hasTls13) | Should -Be $true
             }
             else
             {
