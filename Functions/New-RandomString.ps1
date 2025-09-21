@@ -73,10 +73,10 @@
         Returns an 8-character string including symbols but excluding '!', '@', and '#'.
 
     .EXAMPLE
-        PS > New-RandomString -Length 16 -IncludeCharacters @('æ', 'ø', 'å', 'ñ', 'ü')
-        3æøKL9ñMNüå7RbPZ
+        PS > New-RandomString -Length 16 -IncludeCharacters @('-', '_', '.', '+', '=')
+        3-K.L9+MN=_7RbPZ
 
-        Returns a 16-character string that includes custom Unicode characters in addition to standard alphanumeric characters.
+        Returns a 16-character string that includes custom ASCII characters in addition to standard alphanumeric characters.
 
     .EXAMPLE
         PS > New-RandomString -Length 12 -IncludeCharacters @('-', '_', '.') -ExcludeAmbiguous
@@ -85,16 +85,16 @@
         Returns a 12-character string with custom separator characters, excluding ambiguous characters.
 
     .EXAMPLE
-        PS > New-RandomString -Length 20 -IncludeCharacters @('🎲', '🔐', '🚀') -IncludeSymbols
-        K9🎲L*w@S3h🔐Y2m8🚀!xQ
+        PS > New-RandomString -Length 20 -IncludeCharacters @('+', '=', '%') -IncludeSymbols
+        K9+L*w@S3h=Y2m8%!xQ
 
-        Returns a 20-character string including emoji characters and symbols for modern applications.
+        Returns a 20-character string including custom characters and symbols for applications requiring special formatting.
 
     .EXAMPLE
-        PS > New-RandomString -Length 10 -IncludeCharacters @('α', 'β', 'γ', 'δ') -ExcludeCharacters @('0', '1', 'O', 'I')
-        αγP4Mβδh8K
+        PS > New-RandomString -Length 10 -IncludeCharacters @('+', '=', '%', '~') -ExcludeCharacters @('0', '1', 'O', 'I')
+        +P4M=~h8K
 
-        Returns a 10-character string with Greek letters, excluding potentially confusing characters.
+        Returns a 10-character string with custom characters, excluding potentially confusing characters.
 
     .OUTPUTS
         System.String
@@ -188,7 +188,6 @@
     }
 
     # Convert to array for better performance
-    # Handle multi-byte characters (like emojis) by not casting to [char[]]
     $characters = $characterPool
 
     # Generate the random string

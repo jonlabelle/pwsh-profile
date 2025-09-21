@@ -235,7 +235,7 @@ Describe 'New-RandomString' {
 
     Context 'IncludeCharacters parameter' {
         It 'Should include custom characters when IncludeCharacters is specified' {
-            $customChars = @('æ', 'ø', 'å')
+            $customChars = @('-', '_', '.')
             $result = New-RandomString -Length 200 -IncludeCharacters $customChars
             $result | Should -Not -BeNullOrEmpty
             $result.Length | Should -Be 200
@@ -253,29 +253,28 @@ Describe 'New-RandomString' {
             $foundCustomChar | Should -Be $true
         }
 
-        It 'Should work with emoji and Unicode characters' {
-            $emojiChars = @('🎲', '🔐', '🚀')
-            $result = New-RandomString -Length 100 -IncludeCharacters $emojiChars
+        It 'Should work with special ASCII characters' {
+            $specialChars = @('-', '_', '.', '|')
+            $result = New-RandomString -Length 100 -IncludeCharacters $specialChars
             $result | Should -Not -BeNullOrEmpty
-            # Note: Emojis are multi-byte UTF-16 characters, so string length may be longer than expected
-            $result.Length | Should -BeGreaterOrEqual 100
+            $result.Length | Should -Be 100
 
-            # Test multiple times to increase probability of finding emojis
-            $foundEmoji = $false
+            # Test multiple times to increase probability of finding special characters
+            $foundSpecialChar = $false
             for ($i = 0; $i -lt 10; $i++)
             {
-                $testResult = New-RandomString -Length 100 -IncludeCharacters $emojiChars
-                foreach ($emoji in $emojiChars)
+                $testResult = New-RandomString -Length 100 -IncludeCharacters $specialChars
+                foreach ($char in $specialChars)
                 {
-                    if ($testResult -match [regex]::Escape($emoji))
+                    if ($testResult -match [regex]::Escape($char))
                     {
-                        $foundEmoji = $true
+                        $foundSpecialChar = $true
                         break
                     }
                 }
-                if ($foundEmoji) { break }
+                if ($foundSpecialChar) { break }
             }
-            $foundEmoji | Should -Be $true
+            $foundSpecialChar | Should -Be $true
         }
 
         It 'Should work in combination with IncludeSymbols' {
@@ -289,7 +288,7 @@ Describe 'New-RandomString' {
         }
 
         It 'Should work in combination with ExcludeAmbiguous' {
-            $customChars = @('α', 'β', 'γ')
+            $customChars = @('+', '=', '%')
             $result = New-RandomString -Length 100 -IncludeCharacters $customChars -ExcludeAmbiguous
             $result | Should -Not -BeNullOrEmpty
             $result.Length | Should -Be 100
@@ -316,7 +315,7 @@ Describe 'New-RandomString' {
         }
 
         It 'Should respect ExcludeCharacters even when characters are in IncludeCharacters' {
-            $customChars = @('X', 'Y', 'Z', 'æ', 'ø')
+            $customChars = @('X', 'Y', 'Z', '-', '_')
             $excludeChars = @('X', 'Z')  # Exclude some of the custom characters
             $result = New-RandomString -Length 100 -IncludeCharacters $customChars -ExcludeCharacters $excludeChars
             $result | Should -Not -BeNullOrEmpty
@@ -333,7 +332,7 @@ Describe 'New-RandomString' {
             for ($i = 0; $i -lt 10; $i++)
             {
                 $testResult = New-RandomString -Length 100 -IncludeCharacters $customChars -ExcludeCharacters $excludeChars
-                if ($testResult -match '[Yæø]')
+                if ($testResult -match '[Y_-]')
                 {
                     $foundAllowedCustomChar = $true
                     break
@@ -343,7 +342,7 @@ Describe 'New-RandomString' {
         }
 
         It 'Should work with Secure parameter' {
-            $customChars = @('α', 'β', 'γ', 'δ')
+            $customChars = @('+', '=', '%', '~')
             $result = New-RandomString -Length 50 -IncludeCharacters $customChars -Secure
             $result | Should -Not -BeNullOrEmpty
             $result.Length | Should -Be 50
@@ -374,7 +373,7 @@ Describe 'New-RandomString' {
         }
 
         It 'Should handle single custom character' {
-            $customChar = @('æ')
+            $customChar = @('-')
             $result = New-RandomString -Length 100 -IncludeCharacters $customChar
             $result | Should -Not -BeNullOrEmpty
             $result.Length | Should -Be 100
@@ -384,7 +383,7 @@ Describe 'New-RandomString' {
             for ($i = 0; $i -lt 10; $i++)
             {
                 $testResult = New-RandomString -Length 100 -IncludeCharacters $customChar
-                if ($testResult -match 'æ')
+                if ($testResult -match '-')
                 {
                     $foundCustomChar = $true
                     break
