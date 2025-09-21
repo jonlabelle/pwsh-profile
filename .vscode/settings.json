@@ -30,6 +30,7 @@
     "decryptor",
     "encryptor",
     "faststart",
+    "Finalizers",
     "HELO",
     "HKLM",
     "Interopservices",

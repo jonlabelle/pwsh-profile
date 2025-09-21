@@ -26,10 +26,30 @@ Describe 'Protect-PathWithPassword Unit Tests' {
     }
 
     AfterEach {
-        # Clean up test directory
-        if (Test-Path $script:TestDir)
+        # Clean up test directory - ensure cleanup even if tests fail
+        try
         {
-            Remove-Item -Path $script:TestDir -Recurse -Force -ErrorAction SilentlyContinue
+            if ($script:TestDir -and (Test-Path $script:TestDir))
+            {
+                Remove-Item -Path $script:TestDir -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+        catch
+        {
+            # Force cleanup with additional attempts if first fails
+            try
+            {
+                Start-Sleep -Milliseconds 100
+                if (Test-Path $script:TestDir)
+                {
+                    Get-ChildItem -Path $script:TestDir -Recurse -Force | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+                    Remove-Item -Path $script:TestDir -Force -ErrorAction SilentlyContinue
+                }
+            }
+            catch
+            {
+                Write-Warning "Failed to cleanup test directory: $script:TestDir - $_"
+            }
         }
     }
 

@@ -17,6 +17,7 @@ Tests/
 │   └── Get-DotNetVersion.Tests.ps1       # .NET version detection tests
 ├── Integration/                          # Integration and cross-system tests
 │   └── Test-Port.Tests.ps1               # Real-world port testing scenarios
+├── TestCleanupUtilities.ps1              # Robust cleanup functions for tests
 ├── PesterConfiguration.psd1              # Pester configuration file
 └── README.md                             # This file
 ```
@@ -63,3 +64,64 @@ Tests are designed to work on:
 - Windows (PowerShell Desktop 5.1 and PowerShell Core)
 - macOS (PowerShell Core)
 - Linux (PowerShell Core)
+
+### Robust Resource Cleanup
+
+All tests implement comprehensive cleanup to ensure test isolation and prevent resource leaks:
+
+#### Test Directory Cleanup
+
+```powershell
+AfterEach {
+    try {
+        if ($script:TestDir -and (Test-Path $script:TestDir)) {
+            Remove-Item -Path $script:TestDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    catch {
+        # Multiple cleanup attempts with garbage collection
+        try {
+            Start-Sleep -Milliseconds 100
+            [System.GC]::Collect()
+            [System.GC]::WaitForPendingFinalizers()
+            if (Test-Path $script:TestDir) {
+                Get-ChildItem -Path $script:TestDir -Recurse -Force | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+                Remove-Item -Path $script:TestDir -Force -ErrorAction SilentlyContinue
+            }
+        }
+        catch {
+            Write-Warning "Failed to cleanup test directory: $script:TestDir - $_"
+        }
+    }
+}
+```
+
+#### Background Job Cleanup
+
+```powershell
+AfterEach {
+    try {
+        # Stop and remove test jobs with timeout
+        Get-Job -Name 'Test*' -ErrorAction SilentlyContinue | Stop-Job -ErrorAction SilentlyContinue
+        Start-Sleep -Milliseconds 100
+        Get-Job -Name 'Test*' -ErrorAction SilentlyContinue | Remove-Job -Force -ErrorAction SilentlyContinue
+    }
+    catch {
+        Write-Warning "Failed to cleanup test jobs: $_"
+    }
+}
+```
+
+#### Using TestCleanupUtilities.ps1
+
+For complex cleanup scenarios, tests can use the centralized cleanup utilities:
+
+```powershell
+BeforeAll {
+    . "$PSScriptRoot/../TestCleanupUtilities.ps1"
+}
+
+AfterEach {
+    Invoke-RobustTestCleanup -TestDirectories @($script:TestDir) -JobNamePatterns @('Test*', 'KeepAlive*')
+}
+```

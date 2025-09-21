@@ -26,12 +26,44 @@ Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:($script:I
 
     BeforeAll {
         # Clean up any existing integration test jobs
-        Get-Job -Name 'IntegrationTest*' -ErrorAction SilentlyContinue | Remove-Job -Force
+        try
+        {
+            Get-Job -Name 'IntegrationTest*' -ErrorAction SilentlyContinue | Stop-Job -ErrorAction SilentlyContinue
+            Get-Job -Name 'IntegrationTest*' -ErrorAction SilentlyContinue | Remove-Job -Force -ErrorAction SilentlyContinue
+        }
+        catch
+        {
+            Write-Warning "Failed to cleanup existing jobs in BeforeAll: $_"
+        }
     }
 
     AfterAll {
-        # Clean up all integration test jobs
-        Get-Job -Name 'IntegrationTest*' -ErrorAction SilentlyContinue | Remove-Job -Force
+        # Clean up all integration test jobs - ensure complete cleanup
+        try
+        {
+            Get-Job -Name 'IntegrationTest*' -ErrorAction SilentlyContinue | Stop-Job -ErrorAction SilentlyContinue
+            Start-Sleep -Milliseconds 500  # Give jobs time to stop
+            Get-Job -Name 'IntegrationTest*' -ErrorAction SilentlyContinue | Remove-Job -Force -ErrorAction SilentlyContinue
+        }
+        catch
+        {
+            Write-Warning "Failed to cleanup jobs in AfterAll: $_"
+        }
+
+        # Additional cleanup attempt for any remaining jobs
+        try
+        {
+            $remainingJobs = Get-Job | Where-Object { $_.Name -like 'IntegrationTest*' }
+            if ($remainingJobs)
+            {
+                $remainingJobs | Stop-Job -ErrorAction SilentlyContinue
+                $remainingJobs | Remove-Job -Force -ErrorAction SilentlyContinue
+            }
+        }
+        catch
+        {
+            Write-Warning "Failed to cleanup remaining jobs: $_"
+        }
     }
 
     Context 'Real Keep-Alive Functionality' {
@@ -78,8 +110,20 @@ Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:($script:I
             }
             finally
             {
-                # Ensure cleanup
-                Get-Job -Name 'IntegrationTest1' -ErrorAction SilentlyContinue | Remove-Job -Force
+                # Ensure comprehensive cleanup even if test fails
+                try
+                {
+                    $jobToClean = Get-Job -Name 'IntegrationTest1' -ErrorAction SilentlyContinue
+                    if ($jobToClean)
+                    {
+                        Stop-Job -Job $jobToClean -ErrorAction SilentlyContinue
+                        Remove-Job -Job $jobToClean -Force -ErrorAction SilentlyContinue
+                    }
+                }
+                catch
+                {
+                    Write-Warning "Failed to cleanup IntegrationTest1 job: $_"
+                }
             }
         }
 
@@ -103,7 +147,20 @@ Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:($script:I
             }
             finally
             {
-                Get-Job -Name 'IntegrationTest2' -ErrorAction SilentlyContinue | Remove-Job -Force
+                # Ensure comprehensive cleanup even if test fails
+                try
+                {
+                    $jobToClean = Get-Job -Name 'IntegrationTest2' -ErrorAction SilentlyContinue
+                    if ($jobToClean)
+                    {
+                        Stop-Job -Job $jobToClean -ErrorAction SilentlyContinue
+                        Remove-Job -Job $jobToClean -Force -ErrorAction SilentlyContinue
+                    }
+                }
+                catch
+                {
+                    Write-Warning "Failed to cleanup IntegrationTest2 job: $_"
+                }
             }
         }
 
@@ -177,7 +234,20 @@ Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:($script:I
             }
             finally
             {
-                Get-Job -Name 'IntegrationTest4' -ErrorAction SilentlyContinue | Remove-Job -Force
+                # Ensure comprehensive cleanup even if test fails
+                try
+                {
+                    $jobToClean = Get-Job -Name 'IntegrationTest4' -ErrorAction SilentlyContinue
+                    if ($jobToClean)
+                    {
+                        Stop-Job -Job $jobToClean -ErrorAction SilentlyContinue
+                        Remove-Job -Job $jobToClean -Force -ErrorAction SilentlyContinue
+                    }
+                }
+                catch
+                {
+                    Write-Warning "Failed to cleanup IntegrationTest4 job: $_"
+                }
             }
         }
     }
@@ -187,24 +257,41 @@ Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:($script:I
         It 'Should handle system interruption gracefully' {
             $job = Start-KeepAlive -KeepAliveHours 0.1 -JobName 'IntegrationTest5'
 
-            Start-Sleep 2  # Let it start
-
-            # Simulate interruption by stopping the job externally
-            Stop-Job -Name 'IntegrationTest5'
-
-            # Function should handle this gracefully when queried
-            $queryOutput = Start-KeepAlive -Query -JobName 'IntegrationTest5' 3>&1 2>&1 | Out-String
-            $queryOutput | Should -Match 'IntegrationTest5'
-
-            # Verify job state after interruption
-            $interruptedJob = Get-Job -Name 'IntegrationTest5' -ErrorAction SilentlyContinue
-            if ($interruptedJob)
+            try
             {
-                $interruptedJob.State | Should -BeIn @('Stopped', 'Failed', 'Completed')
-            }
+                Start-Sleep 2  # Let it start
 
-            # Clean up
-            Get-Job -Name 'IntegrationTest5' -ErrorAction SilentlyContinue | Remove-Job -Force
+                # Simulate interruption by stopping the job externally
+                Stop-Job -Name 'IntegrationTest5'
+
+                # Function should handle this gracefully when queried
+                $queryOutput = Start-KeepAlive -Query -JobName 'IntegrationTest5' 3>&1 2>&1 | Out-String
+                $queryOutput | Should -Match 'IntegrationTest5'
+
+                # Verify job state after interruption
+                $interruptedJob = Get-Job -Name 'IntegrationTest5' -ErrorAction SilentlyContinue
+                if ($interruptedJob)
+                {
+                    $interruptedJob.State | Should -BeIn @('Stopped', 'Failed', 'Completed')
+                }
+            }
+            finally
+            {
+                # Ensure comprehensive cleanup even if test fails
+                try
+                {
+                    $jobToClean = Get-Job -Name 'IntegrationTest5' -ErrorAction SilentlyContinue
+                    if ($jobToClean)
+                    {
+                        Stop-Job -Job $jobToClean -ErrorAction SilentlyContinue
+                        Remove-Job -Job $jobToClean -Force -ErrorAction SilentlyContinue
+                    }
+                }
+                catch
+                {
+                    Write-Warning "Failed to cleanup IntegrationTest5 job: $_"
+                }
+            }
         }
 
         It 'Should handle multiple concurrent jobs with different names' {
@@ -229,7 +316,20 @@ Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:($script:I
             }
             finally
             {
-                Get-Job -Name 'IntegrationTestConcurrent*' -ErrorAction SilentlyContinue | Remove-Job -Force
+                # Ensure comprehensive cleanup even if test fails
+                try
+                {
+                    $jobsToClean = Get-Job -Name 'IntegrationTestConcurrent*' -ErrorAction SilentlyContinue
+                    if ($jobsToClean)
+                    {
+                        $jobsToClean | Stop-Job -ErrorAction SilentlyContinue
+                        $jobsToClean | Remove-Job -Force -ErrorAction SilentlyContinue
+                    }
+                }
+                catch
+                {
+                    Write-Warning "Failed to cleanup IntegrationTestConcurrent jobs: $_"
+                }
             }
         }
     }

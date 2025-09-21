@@ -132,12 +132,29 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
 
         BeforeEach {
             # Clean up any existing test jobs
-            Get-Job -Name 'TestKeepAlive*' -ErrorAction SilentlyContinue | Remove-Job -Force
+            try
+            {
+                Get-Job -Name 'TestKeepAlive*' -ErrorAction SilentlyContinue | Stop-Job -ErrorAction SilentlyContinue
+                Get-Job -Name 'TestKeepAlive*' -ErrorAction SilentlyContinue | Remove-Job -Force -ErrorAction SilentlyContinue
+            }
+            catch
+            {
+                Write-Warning "Failed to cleanup TestKeepAlive jobs in BeforeEach: $_"
+            }
         }
 
         AfterEach {
             # Clean up test jobs after each test
-            Get-Job -Name 'TestKeepAlive*' -ErrorAction SilentlyContinue | Remove-Job -Force
+            try
+            {
+                Get-Job -Name 'TestKeepAlive*' -ErrorAction SilentlyContinue | Stop-Job -ErrorAction SilentlyContinue
+                Start-Sleep -Milliseconds 100
+                Get-Job -Name 'TestKeepAlive*' -ErrorAction SilentlyContinue | Remove-Job -Force -ErrorAction SilentlyContinue
+            }
+            catch
+            {
+                Write-Warning "Failed to cleanup TestKeepAlive jobs in AfterEach: $_"
+            }
         }
 
         It 'Should start a new keep-alive job successfully' {
@@ -179,11 +196,21 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
     Context 'Job Management - Query Parameter Set' -Skip:(-not $script:IsWindowsTest) {
 
         BeforeEach {
-            Get-Job -Name 'TestQuery*' -ErrorAction SilentlyContinue | Remove-Job -Force
+            Get-Job -Name 'TestQuery*' -ErrorAction SilentlyContinue | Stop-Job -ErrorAction SilentlyContinue
+            Get-Job -Name 'TestQuery*' -ErrorAction SilentlyContinue | Remove-Job -Force -ErrorAction SilentlyContinue
         }
 
         AfterEach {
-            Get-Job -Name 'TestQuery*' -ErrorAction SilentlyContinue | Remove-Job -Force
+            try
+            {
+                Get-Job -Name 'TestQuery*' -ErrorAction SilentlyContinue | Stop-Job -ErrorAction SilentlyContinue
+                Start-Sleep -Milliseconds 100
+                Get-Job -Name 'TestQuery*' -ErrorAction SilentlyContinue | Remove-Job -Force -ErrorAction SilentlyContinue
+            }
+            catch
+            {
+                Write-Warning "Failed to cleanup TestQuery jobs in AfterEach: $_"
+            }
         }
 
         It 'Should warn when querying non-existent job' {
@@ -213,11 +240,21 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
     Context 'Job Management - End Parameter Set' -Skip:(-not $script:IsWindowsTest) {
 
         BeforeEach {
-            Get-Job -Name 'TestEnd*' -ErrorAction SilentlyContinue | Remove-Job -Force
+            Get-Job -Name 'TestEnd*' -ErrorAction SilentlyContinue | Stop-Job -ErrorAction SilentlyContinue
+            Get-Job -Name 'TestEnd*' -ErrorAction SilentlyContinue | Remove-Job -Force -ErrorAction SilentlyContinue
         }
 
         AfterEach {
-            Get-Job -Name 'TestEnd*' -ErrorAction SilentlyContinue | Remove-Job -Force
+            try
+            {
+                Get-Job -Name 'TestEnd*' -ErrorAction SilentlyContinue | Stop-Job -ErrorAction SilentlyContinue
+                Start-Sleep -Milliseconds 100
+                Get-Job -Name 'TestEnd*' -ErrorAction SilentlyContinue | Remove-Job -Force -ErrorAction SilentlyContinue
+            }
+            catch
+            {
+                Write-Warning "Failed to cleanup TestEnd jobs in AfterEach: $_"
+            }
         }
 
         It 'Should warn when trying to end non-existent job' {
