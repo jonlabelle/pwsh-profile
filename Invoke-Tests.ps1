@@ -3,13 +3,8 @@
 .SYNOPSIS
     Runs Pester tests for the PowerShell Profile project with cross-version compatibility.
 
-.DESCRIP# Check Pester version and configure accordingly
-# This enables cross-version compatibility between Pester 4.x and 5+
-$PesterVersion = (Get-Module Pester).Version
-$IsPester5OrHigher = $PesterVersion -and $PesterVersion.Major -ge 5
-
-# Check for Pester 3.x which is not supported
-if ($PesterVersion -and $PesterVersion.Major -lt 4) {  This script runs unit and integration tests using Pester, automatically detecting
+.DESCRIPTION
+    This script runs unit and integration tests using Pester, automatically detecting
     the installed Pester version and using the appropriate syntax for compatibility
     with both Pester 4.x and Pester 5+.
 
@@ -99,7 +94,8 @@ if (-not (Get-Module Pester -ListAvailable))
 $PesterModules = Get-Module Pester -ListAvailable | Sort-Object Version -Descending
 $LatestPester = $PesterModules[0]
 
-if ($LatestPester.Version.Major -lt 4) {
+if ($LatestPester.Version.Major -lt 4)
+{
     Write-Error @"
 The latest available Pester version ($($LatestPester.Version.ToString())) is too old.
 
@@ -198,14 +194,22 @@ if ($IsPester5OrHigher -and ([System.Management.Automation.PSTypeName]'PesterCon
     $PesterConfiguration.TestResult.OutputPath = './testresults.xml'
 
     # Run tests
+    $oldProgressPreference = $global:ProgressPreference
     try
     {
+        # Disable progress bars for cleaner output
+        $global:ProgressPreference = 'SilentlyContinue'
+
         $TestResults = Invoke-Pester -Configuration $PesterConfiguration
     }
     catch
     {
         Write-Error "Error running tests: $($_.Exception.Message)"
         exit 1
+    }
+    finally
+    {
+        $global:ProgressPreference = $oldProgressPreference
     }
 }
 else
@@ -259,14 +263,22 @@ else
     }
 
     # Run tests
+    $oldProgressPreference = $global:ProgressPreference
     try
     {
+        # Disable progress bars for cleaner output
+        $global:ProgressPreference = 'SilentlyContinue'
+
         $TestResults = Invoke-Pester @PesterParams
     }
     catch
     {
         Write-Error "Error running tests: $($_.Exception.Message)"
         exit 1
+    }
+    finally
+    {
+        $global:ProgressPreference = $oldProgressPreference
     }
 }
 
