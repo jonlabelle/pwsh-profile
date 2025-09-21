@@ -1,4 +1,5 @@
-function Set-TlsSecurityProtocol {
+function Set-TlsSecurityProtocol
+{
     <#
     .SYNOPSIS
         Configures TLS security protocol settings for secure network connections.
@@ -68,31 +69,41 @@ function Set-TlsSecurityProtocol {
         [Switch]$PassThru
     )
 
-    begin {
+    begin
+    {
         Write-Verbose "Starting TLS security protocol configuration (Minimum: $MinimumVersion)"
     }
 
-    process {
-        try {
+    process
+    {
+        try
+        {
             $currentProtocol = [Net.ServicePointManager]::SecurityProtocol
             Write-Verbose "Current security protocol: $currentProtocol"
 
             # Build the desired protocol flags
-            try {
+            try
+            {
                 $desiredProtocol = [Net.SecurityProtocolType]::$MinimumVersion
-            } catch {
+            }
+            catch
+            {
                 # If the requested protocol is not available, fall back to TLS 1.2
                 Write-Verbose "Requested protocol $MinimumVersion not available, falling back to TLS 1.2"
                 $desiredProtocol = [Net.SecurityProtocolType]::Tls12
             }
 
             # Add TLS 1.3 support if available and requested
-            if ($MinimumVersion -eq 'Tls13' -and $PSVersionTable.PSVersion.Major -ge 6) {
-                try {
+            if ($MinimumVersion -eq 'Tls13' -and $PSVersionTable.PSVersion.Major -ge 6)
+            {
+                try
+                {
                     $tls13 = [Net.SecurityProtocolType]::Tls13
                     $desiredProtocol = $desiredProtocol -bor $tls13
                     Write-Verbose 'TLS 1.3 support added to desired protocol'
-                } catch {
+                }
+                catch
+                {
                     Write-Verbose 'TLS 1.3 not available on this system, using TLS 1.2 as minimum'
                     $desiredProtocol = [Net.SecurityProtocolType]::Tls12
                 }
@@ -101,18 +112,25 @@ function Set-TlsSecurityProtocol {
             # Check if we need to update the protocol
             $needsUpdate = $Force -or (($currentProtocol -band $desiredProtocol) -eq 0)
 
-            if ($needsUpdate) {
+            if ($needsUpdate)
+            {
                 # Preserve existing secure protocols and add the minimum required
-                if (-not $Force -and $currentProtocol -ne [Net.SecurityProtocolType]::SystemDefault) {
+                if (-not $Force -and $currentProtocol -ne [Net.SecurityProtocolType]::SystemDefault)
+                {
                     # Keep existing protocols that are TLS 1.2 or higher
                     $secureProtocols = @('Tls12', 'Tls13')
-                    foreach ($protocol in $secureProtocols) {
-                        try {
+                    foreach ($protocol in $secureProtocols)
+                    {
+                        try
+                        {
                             $protocolValue = [Net.SecurityProtocolType]::$protocol
-                            if (($currentProtocol -band $protocolValue) -ne 0) {
+                            if (($currentProtocol -band $protocolValue) -ne 0)
+                            {
                                 $desiredProtocol = $desiredProtocol -bor $protocolValue
                             }
-                        } catch {
+                        }
+                        catch
+                        {
                             # Protocol not available on this system
                             continue
                         }
@@ -121,21 +139,26 @@ function Set-TlsSecurityProtocol {
 
                 [Net.ServicePointManager]::SecurityProtocol = $desiredProtocol
                 Write-Verbose "Updated security protocol to: $desiredProtocol"
-            } else {
+            }
+            else
+            {
                 Write-Verbose "Security protocol already configured with $MinimumVersion or higher"
             }
 
-            if ($PassThru) {
+            if ($PassThru)
+            {
                 return [Net.ServicePointManager]::SecurityProtocol
             }
         }
-        catch {
+        catch
+        {
             Write-Error "Failed to configure TLS security protocol: $($_.Exception.Message)"
             throw
         }
     }
 
-    end {
+    end
+    {
         Write-Verbose 'TLS security protocol configuration completed'
     }
 }
