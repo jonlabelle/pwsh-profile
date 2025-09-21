@@ -105,9 +105,10 @@
         [Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [Alias('FullName')]
         [ValidateScript({
-                if (-not (Test-Path $_))
+                $normalizedPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($_)
+                if (-not (Test-Path $normalizedPath))
                 {
-                    throw "Path does not exist: $_"
+                    throw "Path does not exist: $normalizedPath"
                 }
                 $true
             })]
@@ -203,9 +204,9 @@
         try
         {
             # Normalize path first (handles ~, relative paths)
-            $normalizedPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
+            $Path = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
             # Then validate existence
-            $resolvedPath = Resolve-Path -Path $normalizedPath -ErrorAction Stop
+            $resolvedPath = Resolve-Path -Path $Path -ErrorAction Stop
             $item = Get-Item -Path $resolvedPath -ErrorAction Stop
 
             if ($item.PSIsContainer)
