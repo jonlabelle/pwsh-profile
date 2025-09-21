@@ -77,8 +77,7 @@ function Get-OutdatedModules
         # Configure TLS for secure connections
         try
         {
-            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-            Write-Verbose 'Configured TLS 1.2 for secure connections'
+            Set-TlsSecurityProtocol -MinimumVersion Tls12 -Verbose:$VerbosePreference
         }
         catch
         {
