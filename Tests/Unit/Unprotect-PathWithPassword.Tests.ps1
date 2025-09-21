@@ -135,6 +135,12 @@ Describe 'Unprotect-PathWithPassword Unit Tests' {
         }
 
         It 'Should fail with wrong password' {
+            # Clean up any existing decrypted file to ensure we test password validation, not file overwrite
+            if (Test-Path $script:TestFile1)
+            {
+                Remove-Item $script:TestFile1 -Force
+            }
+
             $result = Unprotect-PathWithPassword -Path $script:EncFile1 -Password $script:WrongPassword -ErrorAction SilentlyContinue
 
             $result.Success | Should -Be $false
