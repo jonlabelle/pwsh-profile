@@ -1,3 +1,19 @@
+#Requires -Version 5.1
+#Requires -Modules Pester
+
+<#
+.SYNOPSIS
+    Unit tests for Test-DnsNameResolution function.
+
+.DESCRIPTION
+    Tests the Test-DnsNameResolution function which performs cross-platform DNS name resolution
+    using .NET methods instead of Windows-specific cmdlets for maximum compatibility.
+
+.NOTES
+    These tests are based on the examples in the Test-DnsNameResolution function documentation.
+    Tests verify cross-platform DNS resolution and proper handling of various domain name scenarios.
+#>
+
 BeforeAll {
     # Import the function under test
     . "$PSScriptRoot/../../Functions/Test-DnsNameResolution.ps1"
@@ -5,20 +21,24 @@ BeforeAll {
 
 Describe 'Test-DnsNameResolution' {
     Context 'Basic DNS resolution examples from documentation' {
-        It "Tests whether localhost can be resolved using the system's default DNS servers" {
+        It "Tests whether localhost can be resolved using the system's default DNS servers (Example: Test-DnsNameResolution -Name 'localhost')" {
+            # Test basic DNS resolution using system's default DNS servers
             # Use localhost instead of google.com due to network restrictions in test environment
             $result = Test-DnsNameResolution -Name 'localhost'
             $result | Should -BeOfType [System.Boolean]
             $result | Should -Be $true
         }
 
-        It 'Tests whether localhost can be resolved with specified DNS servers (uses system DNS for compatibility)' {
+        It 'Tests whether localhost can be resolved with specified DNS servers (Example: Test-DnsNameResolution -Name "localhost" -Server "8.8.8.8", "8.8.4.4")' {
+            # Test DNS resolution with custom DNS servers specified
+            # Note: This test uses system DNS for compatibility but validates the parameter structure
             $result = Test-DnsNameResolution -Name 'localhost' -Server '8.8.8.8', '8.8.4.4'
             $result | Should -BeOfType [System.Boolean]
             $result | Should -Be $true
         }
 
-        It 'Tests whether localhost has an IPv4 (A) record with verbose output' {
+        It 'Tests whether localhost has an IPv4 (A) record with verbose output (Example: Test-DnsNameResolution -Name "localhost" -Type "A" -Verbose)' {
+            # Test specific DNS record type resolution with verbose logging
             $verboseOutput = Test-DnsNameResolution -Name 'localhost' -Type 'A' -Verbose 4>&1
 
             # Extract the boolean result (last item should be the result)

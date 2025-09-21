@@ -1,4 +1,20 @@
-﻿BeforeAll {
+﻿#Requires -Version 5.1
+#Requires -Modules Pester
+
+<#
+.SYNOPSIS
+    Unit tests for Protect-PathWithPassword function.
+
+.DESCRIPTION
+    Tests the Protect-PathWithPassword function which encrypts files and directories with password protection.
+    Validates parameter validation, file encryption, directory processing, and pipeline support.
+
+.NOTES
+    These tests are based on the examples in the Protect-PathWithPassword function documentation.
+    Tests verify password-based encryption of files and directories with proper security handling.
+#>
+
+BeforeAll {
     # Import the functions to test
     . "$PSScriptRoot/../../Functions/Protect-PathWithPassword.ps1"
     . "$PSScriptRoot/../../Functions/Unprotect-PathWithPassword.ps1"
@@ -72,7 +88,8 @@ Describe 'Protect-PathWithPassword Unit Tests' {
     }
 
     Context 'Single File Encryption' {
-        It 'Should encrypt a single file successfully' {
+        It 'Should encrypt a single file successfully (Example: Protect-PathWithPassword -Path "file.txt" -Password $password -Force)' {
+            # Test basic file encryption functionality as shown in documentation
             $result = Protect-PathWithPassword -Path $script:TestFile1 -Password $script:TestPassword -Force
 
             $result.Success | Should -Be $true

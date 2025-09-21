@@ -1,3 +1,19 @@
+#Requires -Version 5.1
+#Requires -Modules Pester
+
+<#
+.SYNOPSIS
+    Unit tests for Get-DotNetVersion function.
+
+.DESCRIPTION
+    Tests the Get-DotNetVersion function which detects installed .NET Framework and .NET Core/5+ versions.
+    Validates cross-platform compatibility, parameter validation, and version detection accuracy.
+
+.NOTES
+    These tests are based on the examples in the Get-DotNetVersion function documentation.
+    Tests verify detection of both .NET Framework (Windows) and .NET Core/.NET 5+ (cross-platform).
+#>
+
 BeforeAll {
     # Import the function under test
     . "$PSScriptRoot/../../Functions/Get-DotNetVersion.ps1"
@@ -5,7 +21,8 @@ BeforeAll {
 
 Describe 'Get-DotNetVersion' {
     Context 'Basic functionality examples from documentation' {
-        It 'Gets only .NET Framework versions from the local computer' {
+        It 'Gets only .NET Framework versions from the local computer (Example: Get-DotNetVersion -ComputerName "localhost" -FrameworkOnly)' {
+            # Test filtering to show only .NET Framework versions (Windows-specific)
             $result = Get-DotNetVersion -ComputerName 'localhost' -FrameworkOnly
 
             # Should only return .NET Framework versions
@@ -17,7 +34,8 @@ Describe 'Get-DotNetVersion' {
             }
         }
 
-        It 'Gets all .NET versions from the local computer' {
+        It 'Gets all .NET versions from the local computer (Example: Get-DotNetVersion -ComputerName "localhost" -DotNetOnly -All)' {
+            # Test filtering to show only .NET (Core) versions across all platforms
             $result = Get-DotNetVersion -ComputerName 'localhost' -DotNetOnly -All
 
             # Should only return .NET (Core) versions
@@ -29,7 +47,8 @@ Describe 'Get-DotNetVersion' {
             }
         }
 
-        It 'Gets the latest .NET version and all SDK versions from the local computer' {
+        It 'Gets the latest .NET version and all SDK versions from the local computer (Example: Get-DotNetVersion -ComputerName "localhost" -DotNetOnly -IncludeSDKs)' {
+            # Test SDK detection along with runtime versions
             $result = Get-DotNetVersion -ComputerName 'localhost' -DotNetOnly -IncludeSDKs
 
             # Should include SDK information for .NET only

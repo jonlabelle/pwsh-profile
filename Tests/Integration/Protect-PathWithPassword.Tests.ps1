@@ -1,4 +1,24 @@
-﻿BeforeAll {
+﻿#Requires -Version 5.1
+#Requires -Modules Pester
+
+<#
+.SYNOPSIS
+    Integration tests for Protect-PathWithPassword and Unprotect-PathWithPassword functions.
+
+.DESCRIPTION
+    Comprehensive integration tests that verify the complete encryption/decryption workflow
+    with real files, large data sets, different file types, and various security scenarios.
+
+.NOTES
+    These integration tests validate real-world usage scenarios including:
+    - Binary file handling
+    - Large file processing
+    - Different text encodings
+    - Security robustness
+    - Batch processing workflows
+#>
+
+BeforeAll {
     # Import the functions to test
     . "$PSScriptRoot/../../Functions/Protect-PathWithPassword.ps1"
     . "$PSScriptRoot/../../Functions/Unprotect-PathWithPassword.ps1"
@@ -43,8 +63,9 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
     }
 
     Context 'Real-world File Scenarios' {
-        It 'Should handle binary files correctly' {
-            # Create a binary test file (simulate an image)
+        It 'Should handle binary files correctly (validates encryption of non-text data like images, executables, etc.)' {
+            # Create a binary test file (simulate an image or other binary content)
+            # This test ensures the encryption/decryption process preserves binary data integrity
             $binaryFile = Join-Path $script:TestDir 'test.bin'
             $binaryData = [byte[]](0..255)
             [System.IO.File]::WriteAllBytes($binaryFile, $binaryData)

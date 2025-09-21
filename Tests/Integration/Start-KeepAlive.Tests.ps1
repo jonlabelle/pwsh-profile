@@ -1,6 +1,28 @@
 #Requires -Version 5.1
 #Requires -Modules Pester
 
+#Requires -Version 5.1
+#Requires -Modules Pester
+
+<#
+.SYNOPSIS
+    Integration tests for Start-KeepAlive function.
+
+.DESCRIPTION
+    Comprehensive integration tests that verify real-world keep-alive functionality including
+    actual COM object interactions, system sleep prevention, and complete job lifecycle management.
+
+.NOTES
+    These integration tests validate real-world usage scenarios including:
+    - Actual keystroke generation and system interaction
+    - COM object creation and cleanup
+    - Background job management and monitoring
+    - System sleep prevention verification
+    - Error recovery and edge case handling
+
+    Tests are skipped in CI environments and on non-Windows platforms.
+#>
+
 BeforeAll {
     # Import the function under test
     . "$PSScriptRoot\..\..\Functions\Start-KeepAlive.ps1"

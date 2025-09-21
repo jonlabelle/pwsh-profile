@@ -1,6 +1,22 @@
 #Requires -Version 5.1
 #Requires -Modules Pester
 
+#Requires -Version 5.1
+#Requires -Modules Pester
+
+<#
+.SYNOPSIS
+    Unit tests for Start-KeepAlive function.
+
+.DESCRIPTION
+    Tests the Start-KeepAlive function which prevents system sleep by sending periodic keystrokes.
+    Validates Windows platform compatibility, parameter validation, COM object handling, and job management.
+
+.NOTES
+    These tests are based on the examples in the Start-KeepAlive function documentation.
+    Tests verify Windows-only functionality and are skipped on non-Windows platforms.
+#>
+
 BeforeAll {
     # Import the function under test
     . "$PSScriptRoot\..\..\Functions\Start-KeepAlive.ps1"

@@ -1,4 +1,21 @@
-﻿BeforeAll {
+﻿#Requires -Version 5.1
+#Requires -Modules Pester
+
+<#
+.SYNOPSIS
+    Unit tests for Unprotect-PathWithPassword function.
+
+.DESCRIPTION
+    Tests the Unprotect-PathWithPassword function which decrypts files and directories that were
+    encrypted with Protect-PathWithPassword. Validates password verification, file decryption,
+    and proper handling of encrypted content.
+
+.NOTES
+    These tests are based on the examples in the Unprotect-PathWithPassword function documentation.
+    Tests verify password-based decryption and round-trip compatibility with encryption function.
+#>
+
+BeforeAll {
     # Import the functions to test
     . "$PSScriptRoot/../../Functions/Protect-PathWithPassword.ps1"
     . "$PSScriptRoot/../../Functions/Unprotect-PathWithPassword.ps1"

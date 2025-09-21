@@ -1,3 +1,19 @@
+#Requires -Version 5.1
+#Requires -Modules Pester
+
+<#
+.SYNOPSIS
+    Unit tests for New-RandomString function.
+
+.DESCRIPTION
+    Tests the New-RandomString function which generates random strings for passwords, tokens, and other uses.
+    Validates parameter validation, character set handling, cryptographic security options, and exclusion features.
+
+.NOTES
+    These tests are based on the examples in the New-RandomString function documentation.
+    Tests verify string generation, character exclusion, and cryptographically secure random generation.
+#>
+
 BeforeAll {
     # Import the function under test
     . "$PSScriptRoot/../../Functions/New-RandomString.ps1"
@@ -5,21 +21,24 @@ BeforeAll {
 
 Describe 'New-RandomString' {
     Context 'Basic functionality' {
-        It 'Returns a random 32-character string by default' {
+        It 'Returns a random 32-character string by default (Example: New-RandomString)' {
+            # Test the default behavior - 32 character alphanumeric string
             $result = New-RandomString
             $result | Should -Not -BeNullOrEmpty
             $result.Length | Should -Be 32
             $result | Should -MatchExactly '^[0-9A-Za-z]+$'
         }
 
-        It 'Returns a random 16-character string when Length is specified' {
+        It 'Returns a random 16-character string when Length is specified (Example: New-RandomString -Length 16)' {
+            # Test custom length specification
             $result = New-RandomString -Length 16
             $result | Should -Not -BeNullOrEmpty
             $result.Length | Should -Be 16
             $result | Should -MatchExactly '^[0-9A-Za-z]+$'
         }
 
-        It 'Returns a random 64-character string without ambiguous characters when ExcludeAmbiguous is specified' {
+        It 'Returns a random 64-character string without ambiguous characters when ExcludeAmbiguous is specified (Example: New-RandomString -Length 64 -ExcludeAmbiguous)' {
+            # Test exclusion of potentially confusing characters like 0, 1, O, l
             $result = New-RandomString -Length 64 -ExcludeAmbiguous
             $result | Should -Not -BeNullOrEmpty
             $result.Length | Should -Be 64
@@ -28,7 +47,8 @@ Describe 'New-RandomString' {
             $result | Should -MatchExactly '^[2-9A-Za-z]+$'
         }
 
-        It 'Returns a 20-character string including symbols when IncludeSymbols and Secure are specified' {
+        It 'Returns a 20-character string including symbols when IncludeSymbols and Secure are specified (Example: New-RandomString -Length 20 -IncludeSymbols -Secure)' {
+            # Test symbol inclusion and cryptographically secure generation
             $result = New-RandomString -Length 20 -IncludeSymbols -Secure
             $result | Should -Not -BeNullOrEmpty
             $result.Length | Should -Be 20
@@ -37,6 +57,7 @@ Describe 'New-RandomString' {
         }
 
         It 'Returns different values on multiple calls' {
+            # Verify randomness - multiple calls should produce different results
             $result1 = New-RandomString -Length 10
             $result2 = New-RandomString -Length 10
             $result1 | Should -Not -Be $result2

@@ -1,3 +1,19 @@
+#Requires -Version 5.1
+#Requires -Modules Pester
+
+<#
+.SYNOPSIS
+    Unit tests for Get-IPSubnet function.
+
+.DESCRIPTION
+    Tests the Get-IPSubnet function which calculates IP subnet information including network address,
+    broadcast address, subnet mask, and provides advanced IP calculations through custom methods.
+
+.NOTES
+    These tests are based on the examples in the Get-IPSubnet function documentation.
+    Tests verify CIDR notation parsing, subnet calculations, and advanced IP manipulation methods.
+#>
+
 BeforeAll {
     # Import the function under test
     . "$PSScriptRoot/../../Functions/Get-IPSubnet.ps1"
@@ -5,11 +21,12 @@ BeforeAll {
 
 Describe 'Get-IPSubnet' {
     Context 'CIDR notation input' {
-        It 'Calculate IP subnet information for 192.168.0.0/24' {
+        It 'Calculate IP subnet information for 192.168.0.0/24 (Example: Get-IPSubnet -CIDR "192.168.0.0/24")' {
+            # This test validates the primary documentation example showing complete subnet calculation
             $result = Get-IPSubnet -CIDR '192.168.0.0/24'
             $result | Should -Not -BeNullOrEmpty
 
-            # Verify all expected properties from the example
+            # Verify all expected properties from the example documentation
             $result.IP | Should -Be '192.168.0.0'
             $result.Mask | Should -Be '255.255.255.0'
             $result.PrefixLength | Should -Be 24
@@ -27,11 +44,12 @@ Describe 'Get-IPSubnet' {
     }
 
     Context 'IP address and mask input' {
-        It 'Calculate IP subnet information using IP address and mask' {
+        It 'Calculate IP subnet information using IP address and mask (Example: Get-IPSubnet -IPAddress "192.168.0.0" -Mask "255.255.255.0")' {
+            # This test validates the alternative input method using separate IP and mask parameters
             $result = Get-IPSubnet -IPAddress '192.168.0.0' -Mask '255.255.255.0'
             $result | Should -Not -BeNullOrEmpty
 
-            # Should produce same results as CIDR example
+            # Should produce same results as CIDR example above
             $result.IP | Should -Be '192.168.0.0'
             $result.Mask | Should -Be '255.255.255.0'
             $result.PrefixLength | Should -Be 24

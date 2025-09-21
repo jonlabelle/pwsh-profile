@@ -1,3 +1,19 @@
+#Requires -Version 5.1
+#Requires -Modules Pester
+
+<#
+.SYNOPSIS
+    Unit tests for Get-CommandAlias function.
+
+.DESCRIPTION
+    Tests the Get-CommandAlias function which displays aliases for PowerShell cmdlets.
+    Validates basic functionality, parameter validation, pipeline support, and output formatting.
+
+.NOTES
+    These tests are based on the examples in the Get-CommandAlias function documentation.
+    The tests verify that the function correctly finds and displays aliases for known commands.
+#>
+
 BeforeAll {
     # Import the function under test
     . "$PSScriptRoot/../../Functions/Get-CommandAlias.ps1"
@@ -5,7 +21,8 @@ BeforeAll {
 
 Describe 'Get-CommandAlias' {
     Context 'Basic functionality with known commands' {
-        It 'Lists all aliases defined for Get-ChildItem command' {
+        It 'Lists all aliases defined for Get-ChildItem command (Example: Get-CommandAlias -Name "Get-ChildItem")' {
+            # This test validates the primary documentation example showing alias discovery for Get-ChildItem
             # Capture formatted output by redirecting all output streams
             $output = Get-CommandAlias -Name 'Get-ChildItem' *>&1
             $output | Should -Not -BeNullOrEmpty
@@ -13,31 +30,33 @@ Describe 'Get-CommandAlias' {
             # The function outputs formatted table, so we check the string content
             $outputString = $output | Out-String
             $outputString | Should -Match 'Get-ChildItem'
-            $outputString | Should -Match 'dir'
-            $outputString | Should -Match 'gci'
+            $outputString | Should -Match 'dir'      # Common Windows alias
+            $outputString | Should -Match 'gci'      # PowerShell-style alias
         }
 
-        It 'Lists aliases for Select-Object and Select-String with wildcard' {
+        It 'Lists aliases for Select-Object and Select-String with wildcard (Example: Get-CommandAlias -Name "Select*")' {
+            # Test wildcard pattern matching for multiple related commands
             $output = Get-CommandAlias -Name 'Select*' *>&1
             $output | Should -Not -BeNullOrEmpty
 
             $outputString = $output | Out-String
             $outputString | Should -Match 'Select-Object'
-            $outputString | Should -Match 'select'
+            $outputString | Should -Match 'select'   # Alias for Select-Object
             $outputString | Should -Match 'Select-String'
-            $outputString | Should -Match 'sls'
+            $outputString | Should -Match 'sls'      # Alias for Select-String
         }
     }
 
     Context 'Pipeline input support' {
-        It 'Gets aliases for Get-Process using pipeline input' {
+        It 'Gets aliases for Get-Process using pipeline input (Example: "Get-Process" | Get-CommandAlias)' {
+            # Test pipeline input functionality as shown in documentation examples
             $commands = @('Get-Process')  # Just test one command that we know has aliases
             $output = $commands | Get-CommandAlias *>&1
             $output | Should -Not -BeNullOrEmpty
 
             $outputString = $output | Out-String
             $outputString | Should -Match 'Get-Process'
-            $outputString | Should -Match 'gps'
+            $outputString | Should -Match 'gps'  # Known alias for Get-Process
         }
     }
 

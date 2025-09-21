@@ -1,3 +1,19 @@
+#Requires -Version 5.1
+#Requires -Modules Pester
+
+<#
+.SYNOPSIS
+    Unit tests for Test-Port function.
+
+.DESCRIPTION
+    Tests the Test-Port function which checks TCP and UDP port connectivity using cross-platform
+    .NET Socket classes for maximum compatibility across Windows, macOS, and Linux.
+
+.NOTES
+    These tests are based on the examples in the Test-Port function documentation.
+    Tests verify port connectivity testing with various protocols and parameter combinations.
+#>
+
 BeforeAll {
     # Import the function under test
     . "$PSScriptRoot/../../Functions/Test-Port.ps1"
@@ -5,6 +21,65 @@ BeforeAll {
 
 Describe 'Test-Port' {
     Context 'Basic functionality examples from documentation' {
+        It 'Tests if TCP port 80 is accessible on localhost (Example: Test-Port -ComputerName server -Port 80)' {
+            # Test basic TCP port connectivity - equivalent to first documentation example
+            $result = Test-Port -ComputerName 'localhost' -Port 80
+            $result | Should -Not -BeNullOrEmpty
+            $result[0].Server | Should -Be 'localhost'
+            $result[0].Port | Should -Be 80
+            $result[0].Protocol | Should -Be 'TCP'
+            $result[0].Open | Should -BeOfType [Boolean]
+        }
+
+        It 'Tests TCP port using pipeline input for port (Example: 80 | Test-Port)' {
+            # Test pipeline input for port number - equivalent to second documentation example
+            $result = 80 | Test-Port
+            $result | Should -Not -BeNullOrEmpty
+            $result[0].Port | Should -Be 80
+            $result[0].Protocol | Should -Be 'TCP'
+            $result[0].Server | Should -Be 'localhost'  # Default when no ComputerName specified
+        }
+
+        It 'Tests multiple TCP ports using pipeline input (Example: 22,80,443 | Test-Port)' {
+            # Test multiple ports via pipeline - equivalent to third documentation example
+            $result = 22, 80, 443 | Test-Port
+            $result | Should -Not -BeNullOrEmpty
+            $result | Should -HaveCount 3
+            $result[0].Port | Should -Be 22
+            $result[1].Port | Should -Be 80
+            $result[2].Port | Should -Be 443
+            $result | ForEach-Object {
+                $_.Protocol | Should -Be 'TCP'
+                $_.Server | Should -Be 'localhost'
+            }
+        }
+
+        It 'Tests port range using pipeline input (Example: 1..100 | Test-Port -ComputerName server)' {
+            # Test a small port range to validate the concept from documentation example
+            $result = 1..3 | Test-Port -ComputerName 'localhost'
+            $result | Should -Not -BeNullOrEmpty
+            $result | Should -HaveCount 3
+            $result[0].Port | Should -Be 1
+            $result[1].Port | Should -Be 2
+            $result[2].Port | Should -Be 3
+            $result | ForEach-Object {
+                $_.Server | Should -Be 'localhost'
+                $_.Protocol | Should -Be 'TCP'
+            }
+        }
+
+        It 'Tests multiple target computers (Example: Test-Port -ComputerName server1,server2 -Port 80)' {
+            # Test multiple computers - equivalent to documentation example
+            $result = Test-Port -ComputerName @('localhost', '127.0.0.1') -Port 80
+            $result | Should -Not -BeNullOrEmpty
+            $result | Should -HaveCount 2
+            $result[0].Server | Should -Be 'localhost'
+            $result[1].Server | Should -Be '127.0.0.1'
+            $result | ForEach-Object {
+                $_.Port | Should -Be 80
+                $_.Protocol | Should -Be 'TCP'
+            }
+        }
     }
 
     Context 'Pipeline input scenarios' {
