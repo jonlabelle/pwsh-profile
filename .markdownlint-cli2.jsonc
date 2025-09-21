@@ -1,0 +1,67 @@
+{
+  "config": {
+    "MD046": {
+      "style": "fenced"
+    },
+    "MD048": {
+      "style": "backtick"
+    },
+    "MD049": {
+      "style": "consistent"
+    },
+    "MD040": {
+      "allowed_languages": [
+        "bash",
+        "console",
+        "html",
+        "javascript",
+        "json",
+        "markdown",
+        "powershell",
+        "text",
+        "xml",
+        "yaml",
+        "plaintext"
+      ],
+      "language_only": true
+    },
+    "MD003": {
+      "style": "atx"
+    },
+    "MD035": {
+      "style": "---"
+    },
+    "MD013": {
+      "strict": false,
+      "code_blocks": false,
+      "line_length": 1000
+    },
+    "MD024": {
+      "siblings_only": true
+    },
+    "MD029": {
+      "style": "ordered"
+    },
+    "MD044": {
+      "code_blocks": false,
+      "names": [
+        "CommonMark",
+        "JavaScript",
+        "Markdown",
+        "markdown-it",
+        "markdownlint",
+        "markdownlint-cli2",
+        "Node.js"
+      ]
+    },
+    "MD036": {
+      "punctuation": ".,;:!?"
+    },
+    "MD004": {
+      "style": "dash"
+    },
+    "MD033": {
+      "allowed_elements": ["details", "summary", "strong", "br"]
+    }
+  }
+}
