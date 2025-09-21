@@ -17,7 +17,7 @@
         Default is 32 characters. Must be between 1 and 10000 characters.
 
     .PARAMETER ExcludeAmbiguous
-        Excludes potentially ambiguous characters (0, O, 1, l, I) from the generated string.
+        Excludes potentially ambiguous characters (0, O, o, 1, I, i, l) from the generated string.
         This is useful when the string will be manually typed or displayed.
 
     .PARAMETER IncludeSymbols
@@ -50,9 +50,9 @@
 
     .EXAMPLE
         PS > New-RandomString -Length 64 -ExcludeAmbiguous
-        KnY9LJMcjB3YD9mYFueFo4vGfZjmnoir68i7zemo8e3Ldq9UkSmt5Qed7R9YBauT
+        KnY9LJMcjB3YD9mYFueFZjmn68e7zem8e3Ldq9UkSmt5Qed7R9YBauT
 
-        Returns a random 64-character string without ambiguous characters (0, O, 1, l, I).
+        Returns a random 64-character string without ambiguous characters (0, O, o, 1, I, i, l).
 
     .EXAMPLE
         PS > New-RandomString -Length 20 -IncludeSymbols -Secure
@@ -139,10 +139,10 @@
     # Build character set based on parameters
     if ($ExcludeAmbiguous)
     {
-        # Exclude ambiguous characters: 0, 1, O, I, l
+        # Exclude ambiguous characters: 0, 1, O, I, l, o, i
         $numbers = @('2', '3', '4', '5', '6', '7', '8', '9')
-        $uppercaseLetters = @('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z')
-        $lowercaseLetters = @('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z')
+        $uppercaseLetters = @('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z')
+        $lowercaseLetters = @('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'j', 'k', 'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z')
     }
     else
     {
@@ -226,7 +226,7 @@
         catch
         {
             # If secure random generation fails, fall back to standard Get-Random
-            Write-Verbose "Secure random generation failed, falling back to Get-Random: $($_.Exception.Message)"
+            Write-Warning "Secure random generation failed, falling back to Get-Random: $($_.Exception.Message)"
             $result.Clear()
 
             for ($i = 0; $i -lt $Length; $i++)

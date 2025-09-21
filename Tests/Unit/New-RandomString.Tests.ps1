@@ -38,13 +38,13 @@ Describe 'New-RandomString' {
         }
 
         It 'Returns a random 64-character string without ambiguous characters when ExcludeAmbiguous is specified (Example: New-RandomString -Length 64 -ExcludeAmbiguous)' {
-            # Test exclusion of potentially confusing characters like 0, 1, O, l
+            # Test exclusion of potentially confusing characters: 0, 1, O, I, l, o, i
             $result = New-RandomString -Length 64 -ExcludeAmbiguous
             $result | Should -Not -BeNullOrEmpty
             $result.Length | Should -Be 64
-            # Based on implementation: only excludes '0' and '1' from numbers, but includes all letters
-            $result | Should -Not -Match '[01]'
-            $result | Should -MatchExactly '^[2-9A-Za-z]+$'
+            # Should exclude all ambiguous characters: 0, 1, O, I, l, o, i
+            $result | Should -Not -Match '[01OIlio]'
+            $result | Should -MatchExactly '^[2-9A-HJ-KM-NP-Za-hj-km-np-z]+$'
         }
 
         It 'Returns a 20-character string including symbols when IncludeSymbols and Secure are specified (Example: New-RandomString -Length 20 -IncludeSymbols -Secure)' {
@@ -109,16 +109,16 @@ Describe 'New-RandomString' {
             # Test multiple times to increase confidence
             1..10 | ForEach-Object {
                 $result = New-RandomString -Length 100 -ExcludeAmbiguous
-                # Based on actual implementation: only '0' and '1' are excluded
-                $result | Should -Not -Match '[01]'
+                # Should exclude all ambiguous characters: 0, 1, O, I, l, o, i
+                $result | Should -Not -Match '[01OIlio]'
             }
         }
 
         It 'Should still include non-ambiguous numbers and letters when ExcludeAmbiguous is specified' {
             $result = New-RandomString -Length 1000 -ExcludeAmbiguous
-            $result | Should -Match '[2-9]'  # Non-ambiguous numbers (actual implementation)
-            $result | Should -Match '[A-Z]'  # All uppercase letters (actual implementation)
-            $result | Should -Match '[a-z]'  # All lowercase letters (actual implementation)
+            $result | Should -Match '[2-9]'  # Non-ambiguous numbers
+            $result | Should -Match '[A-HJ-KM-NP-Z]'  # Uppercase letters excluding I, L, O
+            $result | Should -Match '[a-hj-km-np-z]'  # Lowercase letters excluding i, l, o
         }
     }
 
@@ -169,8 +169,8 @@ Describe 'New-RandomString' {
             $result | Should -Not -BeNullOrEmpty
             $result.Length | Should -Be 100
 
-            # Should exclude ambiguous characters (0, 1 based on implementation)
-            $result | Should -Not -Match '[01]'
+            # Should exclude ambiguous characters: 0, 1, O, I, l, o, i
+            $result | Should -Not -Match '[01OIlio]'
 
             # Should also exclude additional characters
             foreach ($char in $additionalExclusions)
@@ -293,8 +293,8 @@ Describe 'New-RandomString' {
             $result | Should -Not -BeNullOrEmpty
             $result.Length | Should -Be 100
 
-            # Should exclude ambiguous characters (0, 1 based on implementation)
-            $result | Should -Not -Match '[01]'
+            # Should exclude ambiguous characters: 0, 1, O, I, l, o, i
+            $result | Should -Not -Match '[01OIlio]'
 
             # Test multiple times to find custom characters
             $foundCustomChar = $false
@@ -442,8 +442,8 @@ Describe 'New-RandomString' {
                 $result | Should -Not -BeNullOrEmpty
                 $result.Length | Should -Be 100
 
-                # Check that no ambiguous characters are present
-                if ($result -match '[01]')
+                # Check that no ambiguous characters are present: 0, 1, O, I, l, o, i
+                if ($result -match '[01OIlio]')
                 {
                     $foundNoAmbiguous = $false
                 }
