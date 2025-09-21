@@ -235,10 +235,14 @@ Describe 'Set-TlsSecurityProtocol' {
             }
             else
             {
-                # PowerShell Desktop - should fall back to TLS 1.2
+                # PowerShell Desktop - should fall back to TLS 1.2 (but might set TLS 1.3 if available)
                 { Set-TlsSecurityProtocol -MinimumVersion 'Tls13' } | Should -Not -Throw
                 $current = [Net.ServicePointManager]::SecurityProtocol
-                ($current -band [Net.SecurityProtocolType]::Tls12) | Should -Not -Be 0
+                # Should have either TLS 1.3 or TLS 1.2 set
+                $hasTls12 = ($current -band [Net.SecurityProtocolType]::Tls12) -ne 0
+                $hasTls13 = try { ($current -band [Net.SecurityProtocolType]::Tls13) -ne 0 } catch { $false }
+
+                ($hasTls12 -or $hasTls13) | Should -Be $true
             }
         }
     }
