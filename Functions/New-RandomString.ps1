@@ -1,4 +1,4 @@
-function New-RandomString
+﻿function New-RandomString
 {
     <#
     .SYNOPSIS
@@ -26,6 +26,11 @@ function New-RandomString
     .PARAMETER ExcludeCharacters
         An array of specific characters to exclude from the generated string.
         This parameter allows fine-grained control over which characters should not appear.
+
+    .PARAMETER IncludeCharacters
+        An array of additional characters to include in the character pool beyond the standard
+        alphanumeric and symbol sets. These characters will be added to the available character
+        pool before any exclusions are applied.
 
     .PARAMETER Secure
         Uses cryptographically secure random number generation instead of Get-Random.
@@ -67,10 +72,35 @@ function New-RandomString
 
         Returns an 8-character string including symbols but excluding '!', '@', and '#'.
 
+    .EXAMPLE
+        PS > New-RandomString -Length 16 -IncludeCharacters @('æ', 'ø', 'å', 'ñ', 'ü')
+        3æøKL9ñMNüå7RbPZ
+
+        Returns a 16-character string that includes custom Unicode characters in addition to standard alphanumeric characters.
+
+    .EXAMPLE
+        PS > New-RandomString -Length 12 -IncludeCharacters @('-', '_', '.') -ExcludeAmbiguous
+        K9m-L_w.S3hY
+
+        Returns a 12-character string with custom separator characters, excluding ambiguous characters.
+
+    .EXAMPLE
+        PS > New-RandomString -Length 20 -IncludeCharacters @('🎲', '🔐', '🚀') -IncludeSymbols
+        K9🎲L*w@S3h🔐Y2m8🚀!xQ
+
+        Returns a 20-character string including emoji characters and symbols for modern applications.
+
+    .EXAMPLE
+        PS > New-RandomString -Length 10 -IncludeCharacters @('α', 'β', 'γ', 'δ') -ExcludeCharacters @('0', '1', 'O', 'I')
+        αγP4Mβδh8K
+
+        Returns a 10-character string with Greek letters, excluding potentially confusing characters.
+
     .OUTPUTS
         System.String
         Returns a string of random characters based on the specified parameters.
-        Character set includes alphanumeric characters and optionally symbols.
+        Character set includes alphanumeric characters, optionally symbols, and any custom characters
+        specified via the IncludeCharacters parameter.
 
     .NOTES
         - Compatible with PowerShell Desktop 5.1+ and PowerShell Core 6+
@@ -94,6 +124,10 @@ function New-RandomString
         [Parameter()]
         [ValidateNotNull()]
         [string[]] $ExcludeCharacters = @(),
+
+        [Parameter()]
+        [ValidateNotNull()]
+        [string[]] $IncludeCharacters = @(),
 
         [Parameter()]
         [switch] $IncludeSymbols,
@@ -131,6 +165,13 @@ function New-RandomString
         $characterPool += $symbols
     }
 
+    # Add custom characters if specified
+    if ($IncludeCharacters.Count -gt 0)
+    {
+        Write-Verbose "Including additional characters: $($IncludeCharacters -join ', ')"
+        $characterPool += $IncludeCharacters
+    }
+
     # Apply custom character exclusions if specified
     if ($ExcludeCharacters.Count -gt 0)
     {
@@ -147,7 +188,8 @@ function New-RandomString
     }
 
     # Convert to array for better performance
-    $characters = [char[]]$characterPool
+    # Handle multi-byte characters (like emojis) by not casting to [char[]]
+    $characters = $characterPool
 
     # Generate the random string
     $result = [System.Text.StringBuilder]::new($Length)

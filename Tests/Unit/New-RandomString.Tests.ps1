@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 #Requires -Modules Pester
 
 <#
@@ -230,6 +230,197 @@ Describe 'New-RandomString' {
             $result2 | Should -Not -BeNullOrEmpty
             $result2.Length | Should -Be 100
             $result2 | Should -Not -Match 'a'
+        }
+    }
+
+    Context 'IncludeCharacters parameter' {
+        It 'Should include custom characters when IncludeCharacters is specified' {
+            $customChars = @('æ', 'ø', 'å')
+            $result = New-RandomString -Length 200 -IncludeCharacters $customChars
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 200
+
+            # At least one custom character should appear in a large sample
+            $foundCustomChar = $false
+            foreach ($char in $customChars)
+            {
+                if ($result -match [regex]::Escape($char))
+                {
+                    $foundCustomChar = $true
+                    break
+                }
+            }
+            $foundCustomChar | Should -Be $true
+        }
+
+        It 'Should work with emoji and Unicode characters' {
+            $emojiChars = @('🎲', '🔐', '🚀')
+            $result = New-RandomString -Length 100 -IncludeCharacters $emojiChars
+            $result | Should -Not -BeNullOrEmpty
+            # Note: Emojis are multi-byte UTF-16 characters, so string length may be longer than expected
+            $result.Length | Should -BeGreaterOrEqual 100
+
+            # Test multiple times to increase probability of finding emojis
+            $foundEmoji = $false
+            for ($i = 0; $i -lt 10; $i++)
+            {
+                $testResult = New-RandomString -Length 100 -IncludeCharacters $emojiChars
+                foreach ($emoji in $emojiChars)
+                {
+                    if ($testResult -match [regex]::Escape($emoji))
+                    {
+                        $foundEmoji = $true
+                        break
+                    }
+                }
+                if ($foundEmoji) { break }
+            }
+            $foundEmoji | Should -Be $true
+        }
+
+        It 'Should work in combination with IncludeSymbols' {
+            $customChars = @('-', '_', '.')
+            $result = New-RandomString -Length 200 -IncludeCharacters $customChars -IncludeSymbols
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 200
+
+            # Should allow standard symbols and custom characters
+            $result | Should -MatchExactly '^[0-9A-Za-z!@#$%^&*._-]+$'
+        }
+
+        It 'Should work in combination with ExcludeAmbiguous' {
+            $customChars = @('α', 'β', 'γ')
+            $result = New-RandomString -Length 100 -IncludeCharacters $customChars -ExcludeAmbiguous
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 100
+
+            # Should exclude ambiguous characters (0, 1 based on implementation)
+            $result | Should -Not -Match '[01]'
+
+            # Test multiple times to find custom characters
+            $foundCustomChar = $false
+            for ($i = 0; $i -lt 10; $i++)
+            {
+                $testResult = New-RandomString -Length 100 -IncludeCharacters $customChars -ExcludeAmbiguous
+                foreach ($char in $customChars)
+                {
+                    if ($testResult -match [regex]::Escape($char))
+                    {
+                        $foundCustomChar = $true
+                        break
+                    }
+                }
+                if ($foundCustomChar) { break }
+            }
+            $foundCustomChar | Should -Be $true
+        }
+
+        It 'Should respect ExcludeCharacters even when characters are in IncludeCharacters' {
+            $customChars = @('X', 'Y', 'Z', 'æ', 'ø')
+            $excludeChars = @('X', 'Z')  # Exclude some of the custom characters
+            $result = New-RandomString -Length 100 -IncludeCharacters $customChars -ExcludeCharacters $excludeChars
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 100
+
+            # Excluded characters should not appear, even if they were in IncludeCharacters
+            foreach ($char in $excludeChars)
+            {
+                $result | Should -Not -Match [regex]::Escape($char)
+            }
+
+            # But non-excluded custom characters should still be possible
+            $foundAllowedCustomChar = $false
+            for ($i = 0; $i -lt 10; $i++)
+            {
+                $testResult = New-RandomString -Length 100 -IncludeCharacters $customChars -ExcludeCharacters $excludeChars
+                if ($testResult -match '[Yæø]')
+                {
+                    $foundAllowedCustomChar = $true
+                    break
+                }
+            }
+            $foundAllowedCustomChar | Should -Be $true
+        }
+
+        It 'Should work with Secure parameter' {
+            $customChars = @('α', 'β', 'γ', 'δ')
+            $result = New-RandomString -Length 50 -IncludeCharacters $customChars -Secure
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 50
+
+            # Test multiple times to find custom characters with secure generation
+            $foundCustomChar = $false
+            for ($i = 0; $i -lt 10; $i++)
+            {
+                $testResult = New-RandomString -Length 50 -IncludeCharacters $customChars -Secure
+                foreach ($char in $customChars)
+                {
+                    if ($testResult -match [regex]::Escape($char))
+                    {
+                        $foundCustomChar = $true
+                        break
+                    }
+                }
+                if ($foundCustomChar) { break }
+            }
+            $foundCustomChar | Should -Be $true
+        }
+
+        It 'Should handle empty IncludeCharacters array' {
+            $result = New-RandomString -Length 20 -IncludeCharacters @()
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 20
+            $result | Should -MatchExactly '^[0-9A-Za-z]+$'
+        }
+
+        It 'Should handle single custom character' {
+            $customChar = @('æ')
+            $result = New-RandomString -Length 100 -IncludeCharacters $customChar
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 100
+
+            # Test multiple times to find the custom character
+            $foundCustomChar = $false
+            for ($i = 0; $i -lt 10; $i++)
+            {
+                $testResult = New-RandomString -Length 100 -IncludeCharacters $customChar
+                if ($testResult -match 'æ')
+                {
+                    $foundCustomChar = $true
+                    break
+                }
+            }
+            $foundCustomChar | Should -Be $true
+        }
+
+        It 'Should handle duplicate characters in IncludeCharacters array' {
+            $customChars = @('X', 'X', 'Y', 'Y', 'Z')  # Duplicates should not cause issues
+            $result = New-RandomString -Length 100 -IncludeCharacters $customChars
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 100
+
+            # Test multiple times to find custom characters
+            $foundCustomChar = $false
+            for ($i = 0; $i -lt 10; $i++)
+            {
+                $testResult = New-RandomString -Length 100 -IncludeCharacters $customChars
+                if ($testResult -match '[XYZ]')
+                {
+                    $foundCustomChar = $true
+                    break
+                }
+            }
+            $foundCustomChar | Should -Be $true
+        }
+
+        It 'Should work with separator characters' {
+            $separators = @('-', '_', '.', '|')
+            $result = New-RandomString -Length 50 -IncludeCharacters $separators
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 50
+
+            # Should allow alphanumeric and separator characters
+            $result | Should -MatchExactly '^[0-9A-Za-z._|-]+$'
         }
     }
 
