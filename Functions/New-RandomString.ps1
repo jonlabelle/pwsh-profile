@@ -33,31 +33,37 @@ function New-RandomString
 
     .EXAMPLE
         PS > New-RandomString
+        fwRXOU9o0s7sx4cZYzVMiWJGJoKsOG3b
 
         Returns a random 32-character string using alphanumeric characters.
 
     .EXAMPLE
         PS > New-RandomString -Length 16
+        p6w1J4ml47zhyFCh
 
         Returns a random 16-character string using alphanumeric characters.
 
     .EXAMPLE
         PS > New-RandomString -Length 64 -ExcludeAmbiguous
+        KnY9LJMcjB3YD9mYFueFo4vGfZjmnoir68i7zemo8e3Ldq9UkSmt5Qed7R9YBauT
 
         Returns a random 64-character string without ambiguous characters (0, O, 1, l, I).
 
     .EXAMPLE
         PS > New-RandomString -Length 20 -IncludeSymbols -Secure
+        eWOHlQvO^5P%0QU%vJ4o
 
         Returns a 20-character string including symbols using secure random generation.
 
     .EXAMPLE
         PS > New-RandomString -Length 12 -ExcludeCharacters @('0', '1', 'O', 'I')
+        2lMWW4Sn26Jb
 
         Returns a 12-character string excluding the specified characters.
 
     .EXAMPLE
         PS > New-RandomString -Length 8 -IncludeSymbols -ExcludeCharacters @('!', '@', '#')
+        XS6Z7%1h
 
         Returns an 8-character string including symbols but excluding '!', '@', and '#'.
 
