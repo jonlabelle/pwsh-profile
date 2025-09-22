@@ -224,13 +224,20 @@ Describe 'Convert-LineEnding Integration Tests' {
 
             try
             {
-                # Create a 2MB file with mixed content
-                $lineContent = "This is a longer test line with various content including numbers 12345 and symbols !@#$%^&*()`r`n"
-                $totalLines = 20000
-                $content = $lineContent * $totalLines
+                # Create a 2.5MB file with mixed content to ensure we exceed 2MB
+                $lineContent = 'This is a longer test line with various content including numbers 12345 and symbols !@#$%^&*()'
+                $lineWithEnding = $lineContent + "`r`n"
+                $lineBytes = [System.Text.Encoding]::UTF8.GetBytes($lineWithEnding)
+                $targetSize = 2.5 * 1024 * 1024  # 2.5MB
+                $linesNeeded = [Math]::Ceiling($targetSize / $lineBytes.Length)
+
+                Write-Verbose "Creating file with $linesNeeded lines, targeting $([Math]::Round($targetSize / 1MB, 2))MB"
+
+                $content = $lineWithEnding * $linesNeeded
                 [System.IO.File]::WriteAllText($largeFile, $content, [System.Text.Encoding]::UTF8)
 
                 $fileSize = (Get-Item $largeFile).Length
+                Write-Verbose "Created file size: $([Math]::Round($fileSize / 1MB, 2))MB"
                 $fileSize | Should -BeGreaterThan 2MB
 
                 $startTime = Get-Date
@@ -414,6 +421,21 @@ Describe 'Convert-LineEnding Integration Tests' {
         }
 
         It 'Should handle complex include patterns for source files only' {
+            # Reset files to CRLF before this test
+            $complexFiles = @{
+                (Join-Path $script:SourceCodeDir 'main.js') = "console.log('main');`r`n"
+                (Join-Path $script:SourceCodeDir 'utils.ts') = "export function test() {}`r`n"
+                (Join-Path $script:TestsDir 'main.test.js') = "test('should work', () => {});`r`n"
+                (Join-Path $script:TestsDir 'utils.spec.ts') = "describe('utils', () => {});`r`n"
+                (Join-Path $script:DistDir 'bundle.min.js') = "console.log('minified');`r`n"
+                (Join-Path $script:DistDir 'app.min.css') = "body{color:red}`r`n"
+            }
+
+            foreach ($file in $complexFiles.GetEnumerator())
+            {
+                [System.IO.File]::WriteAllText($file.Key, $file.Value, [System.Text.Encoding]::UTF8)
+            }
+
             Convert-LineEnding -Path $script:ComplexDir -LineEnding 'LF' -Recurse -Include '*.js', '*.ts' -Exclude '*.min.*', 'dist'
 
             # Source files should be converted
@@ -433,6 +455,21 @@ Describe 'Convert-LineEnding Integration Tests' {
         }
 
         It 'Should handle multiple exclude patterns effectively' {
+            # Reset files to CRLF before this test
+            $complexFiles = @{
+                (Join-Path $script:SourceCodeDir 'main.js') = "console.log('main');`r`n"
+                (Join-Path $script:SourceCodeDir 'utils.ts') = "export function test() {}`r`n"
+                (Join-Path $script:TestsDir 'main.test.js') = "test('should work', () => {});`r`n"
+                (Join-Path $script:TestsDir 'utils.spec.ts') = "describe('utils', () => {});`r`n"
+                (Join-Path $script:DistDir 'bundle.min.js') = "console.log('minified');`r`n"
+                (Join-Path $script:DistDir 'app.min.css') = "body{color:red}`r`n"
+            }
+
+            foreach ($file in $complexFiles.GetEnumerator())
+            {
+                [System.IO.File]::WriteAllText($file.Key, $file.Value, [System.Text.Encoding]::UTF8)
+            }
+
             Convert-LineEnding -Path $script:ComplexDir -LineEnding 'LF' -Recurse -Exclude '*.min.*', 'dist', '*.test.*', '*.spec.*'
 
             # Only main source files should be converted

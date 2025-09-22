@@ -144,7 +144,7 @@ function Convert-LineEnding
         }
 
         $targetLineEnding = $lineEndings[$LineEnding]
-        $processedFiles = [System.Collections.Generic.List[PSCustomObject]]::new()
+        $processedFiles = [System.Collections.ArrayList]::new()
 
         function Test-BinaryFile
         {
@@ -232,81 +232,105 @@ function Convert-LineEnding
 
             try
             {
-                # Read first few bytes to detect BOM
-                $bytes = [System.IO.File]::ReadAllBytes($FilePath)
-                if ($bytes.Length -eq 0)
-                {
-                    return [System.Text.Encoding]::UTF8  # Default for empty files
-                }
-
-                # Check for BOM patterns
-                if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
-                {
-                    return [System.Text.Encoding]::UTF8
-                }
-                elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE)
-                {
-                    return [System.Text.Encoding]::Unicode  # UTF-16 LE
-                }
-                elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF)
-                {
-                    return [System.Text.Encoding]::BigEndianUnicode  # UTF-16 BE
-                }
-                elseif ($bytes.Length -ge 4 -and $bytes[0] -eq 0x00 -and $bytes[1] -eq 0x00 -and $bytes[2] -eq 0xFE -and $bytes[3] -eq 0xFF)
-                {
-                    return [System.Text.Encoding]::UTF32
-                }
-
-                # No BOM detected, try to determine encoding
-                # Check if it's valid UTF-8
+                # Read only the first few bytes to detect BOM and sample for encoding detection
+                $stream = [System.IO.File]::OpenRead($FilePath)
                 try
                 {
-                    $utf8 = [System.Text.Encoding]::UTF8
-                    $decoded = $utf8.GetString($bytes)
-                    $reencoded = $utf8.GetBytes($decoded)
-
-                    # If reencoding produces the same bytes, it's likely UTF-8
-                    if ($bytes.Length -eq $reencoded.Length)
+                    if ($stream.Length -eq 0)
                     {
-                        $match = $true
-                        for ($i = 0; $i -lt $bytes.Length; $i++)
+                        return [System.Text.Encoding]::UTF8  # Default for empty files
+                    }
+
+                    # Read up to 4 bytes for BOM detection
+                    $bomBuffer = New-Object byte[] 4
+                    $bomBytesRead = $stream.Read($bomBuffer, 0, 4)
+
+                    # Check for BOM patterns
+                    if ($bomBytesRead -ge 3 -and $bomBuffer[0] -eq 0xEF -and $bomBuffer[1] -eq 0xBB -and $bomBuffer[2] -eq 0xBF)
+                    {
+                        return [System.Text.Encoding]::UTF8
+                    }
+                    elseif ($bomBytesRead -ge 2 -and $bomBuffer[0] -eq 0xFF -and $bomBuffer[1] -eq 0xFE)
+                    {
+                        return [System.Text.Encoding]::Unicode  # UTF-16 LE
+                    }
+                    elseif ($bomBytesRead -ge 2 -and $bomBuffer[0] -eq 0xFE -and $bomBuffer[1] -eq 0xFF)
+                    {
+                        return [System.Text.Encoding]::BigEndianUnicode  # UTF-16 BE
+                    }
+                    elseif ($bomBytesRead -ge 4 -and $bomBuffer[0] -eq 0x00 -and $bomBuffer[1] -eq 0x00 -and $bomBuffer[2] -eq 0xFE -and $bomBuffer[3] -eq 0xFF)
+                    {
+                        return [System.Text.Encoding]::UTF32
+                    }
+
+                    # No BOM detected, read a sample to determine encoding
+                    # Reset stream position to beginning
+                    $stream.Position = 0
+
+                    # Read up to 8KB sample for encoding detection (much smaller than entire file)
+                    $sampleSize = [Math]::Min($stream.Length, 8192)
+                    $sampleBuffer = New-Object byte[] $sampleSize
+                    $sampleBytesRead = $stream.Read($sampleBuffer, 0, $sampleSize)
+
+                    if ($sampleBytesRead -eq 0)
+                    {
+                        return [System.Text.Encoding]::UTF8  # Default for empty files
+                    }
+
+                    # Check if it's valid UTF-8 using the sample
+                    try
+                    {
+                        $utf8 = [System.Text.Encoding]::UTF8
+                        $decoded = $utf8.GetString($sampleBuffer, 0, $sampleBytesRead)
+                        $reencoded = $utf8.GetBytes($decoded)
+
+                        # If reencoding produces the same bytes, it's likely UTF-8
+                        if ($sampleBytesRead -eq $reencoded.Length)
                         {
-                            if ($bytes[$i] -ne $reencoded[$i])
+                            $match = $true
+                            for ($i = 0; $i -lt $sampleBytesRead; $i++)
                             {
-                                $match = $false
-                                break
+                                if ($sampleBuffer[$i] -ne $reencoded[$i])
+                                {
+                                    $match = $false
+                                    break
+                                }
+                            }
+                            if ($match)
+                            {
+                                return $utf8
                             }
                         }
-                        if ($match)
+                    }
+                    catch
+                    {
+                        # Not valid UTF-8, continue to next encoding check
+                        Write-Debug "File '$FilePath' sample is not valid UTF-8: $($_.Exception.Message)"
+                    }
+
+                    # Check if sample bytes are all ASCII
+                    $isAscii = $true
+                    for ($i = 0; $i -lt $sampleBytesRead; $i++)
+                    {
+                        if ($sampleBuffer[$i] -gt 127)
                         {
-                            return $utf8
+                            $isAscii = $false
+                            break
                         }
                     }
-                }
-                catch
-                {
-                    # Not valid UTF-8, continue to next encoding check
-                    Write-Debug "File '$FilePath' is not valid UTF-8: $($_.Exception.Message)"
-                }
 
-                # Check if all bytes are ASCII
-                $isAscii = $true
-                foreach ($byte in $bytes)
-                {
-                    if ($byte -gt 127)
+                    if ($isAscii)
                     {
-                        $isAscii = $false
-                        break
+                        return [System.Text.Encoding]::ASCII
                     }
-                }
 
-                if ($isAscii)
+                    # Default to UTF-8 without BOM for other cases
+                    return [System.Text.Encoding]::UTF8
+                }
+                finally
                 {
-                    return [System.Text.Encoding]::ASCII
+                    $stream.Close()
                 }
-
-                # Default to UTF-8 without BOM for other cases
-                return [System.Text.Encoding]::UTF8
             }
             catch
             {
@@ -376,7 +400,7 @@ function Convert-LineEnding
                                     $newCrlfCount++
                                 }
 
-                                $lineBuffer.Clear()
+                                $lineBuffer.Clear() | Out-Null
                             }
                             elseif ($char -eq "`n")
                             {
@@ -395,7 +419,7 @@ function Convert-LineEnding
                                     $newCrlfCount++
                                 }
 
-                                $lineBuffer.Clear()
+                                $lineBuffer.Clear() | Out-Null
                             }
                             else
                             {
@@ -512,7 +536,12 @@ function Convert-LineEnding
                         $shouldExclude = $false
                         foreach ($excludePattern in $Exclude)
                         {
-                            if ($file.Name -like $excludePattern -or $file.DirectoryName -like "*$excludePattern*")
+                            # Check file name, relative path, and directory path for exclusion
+                            $relativePath = $file.FullName.Substring($resolvedPath.Length).TrimStart('\', '/')
+                            if ($file.Name -like $excludePattern -or
+                                $relativePath -like "*$excludePattern*" -or
+                                $file.DirectoryName -like "*$excludePattern*" -or
+                                $file.Directory.Name -like $excludePattern)
                             {
                                 $shouldExclude = $true
                                 break
@@ -538,10 +567,8 @@ function Convert-LineEnding
 
                         if ($PassThru)
                         {
-                            $processedFiles.Add($result)
-                        }
-
-                        if ($result.Success)
+                            $null = $processedFiles.Add($result)
+                        }                        if ($result.Success)
                         {
                             Write-Verbose "Successfully converted '$($file.FullName)' (LF: $($result.OriginalLF)→$($result.NewLF), CRLF: $($result.OriginalCRLF)→$($result.NewCRLF))"
                         }
@@ -569,7 +596,7 @@ function Convert-LineEnding
 
                     if ($PassThru)
                     {
-                        $processedFiles.Add($result)
+                        $null = $processedFiles.Add($result)
                     }
 
                     if ($result.Success)
@@ -589,7 +616,8 @@ function Convert-LineEnding
     {
         if ($PassThru)
         {
-            return $processedFiles.ToArray()
+            # Return the processed files array
+            return @($processedFiles)
         }
 
         Write-Verbose 'Line ending conversion completed'
