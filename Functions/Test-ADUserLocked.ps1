@@ -137,7 +137,7 @@ function Test-ADUserLocked
 
     process
     {
-        $de = $null
+        $directoryEntry = $null
         $searcher = $null
 
         try
@@ -145,10 +145,10 @@ function Test-ADUserLocked
             Write-Verbose "Searching for user '$UserName' in domain"
 
             # Create directory entry for the domain
-            $de = New-Object System.DirectoryServices.DirectoryEntry($domainPath)
+            $directoryEntry = New-Object System.DirectoryServices.DirectoryEntry($domainPath)
 
             # Create searcher to find the user
-            $searcher = New-Object System.DirectoryServices.DirectorySearcher($de)
+            $searcher = New-Object System.DirectoryServices.DirectorySearcher($directoryEntry)
             $searcher.Filter = "(&(objectClass=user)(sAMAccountName=$UserName))"
             $searcher.PropertiesToLoad.Add('lockoutTime') | Out-Null
             $searcher.PropertiesToLoad.Add('sAMAccountName') | Out-Null
@@ -225,11 +225,11 @@ function Test-ADUserLocked
                     Write-Debug "DirectorySearcher disposal failed: $($_.Exception.Message)"
                 }
             }
-            if ($null -ne $de)
+            if ($null -ne $directoryEntry)
             {
                 try
                 {
-                    $de.Dispose()
+                    $directoryEntry.Dispose()
                 }
                 catch
                 {

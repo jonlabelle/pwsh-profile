@@ -130,13 +130,13 @@ function Test-ADCredential
             return $false
         }
 
-        $de = $null
+        $directoryEntry = $null
         try
         {
-            $de = New-Object System.DirectoryServices.DirectoryEntry($domain, $username, $password)
+            $directoryEntry = New-Object System.DirectoryServices.DirectoryEntry($domain, $username, $password)
 
             # Test authentication using the original simpler approach first
-            if ($null -eq $de.Name)
+            if ($null -eq $directoryEntry.Name)
             {
                 Write-Verbose "Authentication failed for '$username': Unable to bind to directory"
                 Write-Host "Authentication failed for '$username'" -ForegroundColor Red
@@ -145,7 +145,7 @@ function Test-ADCredential
 
             # If simple test passes, perform more thorough validation
             # Just accessing .Name isn't sufficient - we need to actually query the directory
-            $searcher = New-Object System.DirectoryServices.DirectorySearcher($de)
+            $searcher = New-Object System.DirectoryServices.DirectorySearcher($directoryEntry)
             $searcher.Filter = '(objectClass=*)'
             $searcher.SizeLimit = 1
             $null = $searcher.FindOne()
@@ -177,11 +177,11 @@ function Test-ADCredential
         }
         finally
         {
-            if ($null -ne $de)
+            if ($null -ne $directoryEntry)
             {
                 try
                 {
-                    $de.Dispose()
+                    $directoryEntry.Dispose()
                 }
                 catch
                 {

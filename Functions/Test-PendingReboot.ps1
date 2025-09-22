@@ -184,13 +184,13 @@ function Test-PendingReboot
                 @{ Name = 'PendingFileRenameOperations2'; Reason = 'Pending File Rename Operations 2' }
             )
 
-            foreach ($op in $pendingOps)
+            foreach ($pendingOperation in $pendingOps)
             {
-                $value = Get-ItemProperty -Path $sessionManager -Name $op.Name -ErrorAction SilentlyContinue
-                if ($value -and $value.($op.Name))
+                $value = Get-ItemProperty -Path $sessionManager -Name $pendingOperation.Name -ErrorAction SilentlyContinue
+                if ($value -and $value.($pendingOperation.Name))
                 {
-                    Write-Verbose "Pending reboot detected: $($op.Name) exists"
-                    $reasons += $op.Reason
+                    Write-Verbose "Pending reboot detected: $($pendingOperation.Name) exists"
+                    $reasons += $pendingOperation.Reason
                 }
             }
         }
@@ -317,13 +317,13 @@ function Test-PendingReboot
                 @{ Name = 'PendingFileRenameOperations2'; Reason = 'Pending File Rename Operations 2' }
             )
 
-            foreach ($op in $pendingOps)
+            foreach ($pendingOperation in $pendingOps)
             {
-                $value = Get-ItemProperty -Path $sessionManager -Name $op.Name -ErrorAction SilentlyContinue
-                if ($value -and $value.($op.Name))
+                $value = Get-ItemProperty -Path $sessionManager -Name $pendingOperation.Name -ErrorAction SilentlyContinue
+                if ($value -and $value.($pendingOperation.Name))
                 {
-                    Write-Verbose "Pending reboot detected: $($op.Name) exists"
-                    $reasons += $op.Reason
+                    Write-Verbose "Pending reboot detected: $($pendingOperation.Name) exists"
+                    $reasons += $pendingOperation.Reason
                 }
             }
         }

@@ -246,11 +246,11 @@ function Get-IPSubnet
         }
 
         Add-Member -InputObject $object -MemberType:ScriptMethod -Name GetIParray -Value {
-            $w = @($This.Subnet.GetAddressBytes()[0]..$This.Broadcast.GetAddressBytes()[0])
-            $x = @($This.Subnet.GetAddressBytes()[1]..$This.Broadcast.GetAddressBytes()[1])
-            $y = @($This.Subnet.GetAddressBytes()[2]..$This.Broadcast.GetAddressBytes()[2])
-            $z = @($This.Subnet.GetAddressBytes()[3]..$This.Broadcast.GetAddressBytes()[3])
-            $w.ForEach({ $wi = $_; $x.ForEach({ $xi = $_; $y.ForEach({ $yi = $_; $z.ForEach({ $zi = $_; $wi, $xi, $yi, $zi -join '.' }) }) }) })
+            $firstOctet = @($This.Subnet.GetAddressBytes()[0]..$This.Broadcast.GetAddressBytes()[0])
+            $secondOctet = @($This.Subnet.GetAddressBytes()[1]..$This.Broadcast.GetAddressBytes()[1])
+            $thirdOctet = @($This.Subnet.GetAddressBytes()[2]..$This.Broadcast.GetAddressBytes()[2])
+            $fourthOctet = @($This.Subnet.GetAddressBytes()[3]..$This.Broadcast.GetAddressBytes()[3])
+            $firstOctet.ForEach({ $firstValue = $_; $secondOctet.ForEach({ $secondValue = $_; $thirdOctet.ForEach({ $thirdValue = $_; $fourthOctet.ForEach({ $fourthValue = $_; $firstValue, $secondValue, $thirdValue, $fourthValue -join '.' }) }) }) })
         }
 
         Add-Member -InputObject $object -MemberType:ScriptMethod -Name isLocal -Value {

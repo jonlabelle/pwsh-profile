@@ -332,7 +332,7 @@ function Invoke-FileDecryption
 
             # Extract salt, IV, and encrypted data
             $salt = $encryptedData[0..31]
-            $iv = $encryptedData[32..47]
+            $initializationVector = $encryptedData[32..47]
             $encryptedBytes = $encryptedData[48..($encryptedData.Length - 1)]
 
             # Derive key using PBKDF2 (same parameters as encryption)
@@ -346,7 +346,7 @@ function Invoke-FileDecryption
             # Decrypt using AES
             $aes = [System.Security.Cryptography.Aes]::Create()
             $aes.Key = $key
-            $aes.IV = $iv
+            $aes.IV = $initializationVector
             $aes.Mode = [System.Security.Cryptography.CipherMode]::CBC
             $aes.Padding = [System.Security.Cryptography.PaddingMode]::PKCS7
 

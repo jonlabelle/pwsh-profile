@@ -310,16 +310,16 @@ function Get-DotNetVersion
 
                             if ($All)
                             {
-                                foreach ($fw in $frameworkVersions)
+                                foreach ($frameworkVersion in $frameworkVersions)
                                 {
                                     $computerResults += [PSCustomObject]@{
                                         PSTypeName = 'DotNetVersion.Result'
                                         ComputerName = $computer
                                         RuntimeType = '.NET Framework'
-                                        Version = $fw.Version
-                                        Release = $fw.Release
-                                        InstallPath = $fw.InstallPath
-                                        IsLatest = ($fw.Version -eq $latestFramework.Version)
+                                        Version = $frameworkVersion.Version
+                                        Release = $frameworkVersion.Release
+                                        InstallPath = $frameworkVersion.InstallPath
+                                        IsLatest = ($frameworkVersion.Version -eq $latestFramework.Version)
                                         Type = 'Runtime'
                                     }
                                 }
@@ -677,16 +677,16 @@ function Get-DotNetVersion
 
                                     if ($All)
                                     {
-                                        foreach ($fw in $frameworkVersions)
+                                        foreach ($frameworkVersion in $frameworkVersions)
                                         {
                                             $computerResults += [PSCustomObject]@{
                                                 PSTypeName = 'DotNetVersion.Result'
                                                 ComputerName = $Computer
                                                 RuntimeType = '.NET Framework'
-                                                Version = $fw.Version
-                                                Release = $fw.Release
-                                                InstallPath = $fw.InstallPath
-                                                IsLatest = ($fw.Version -eq $latestFramework.Version)
+                                                Version = $frameworkVersion.Version
+                                                Release = $frameworkVersion.Release
+                                                InstallPath = $frameworkVersion.InstallPath
+                                                IsLatest = ($frameworkVersion.Version -eq $latestFramework.Version)
                                                 Type = 'Runtime'
                                             }
                                         }

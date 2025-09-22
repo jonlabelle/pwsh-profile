@@ -130,9 +130,9 @@ function Test-Port
         # Collect ports from pipeline input
         if ($Port)
         {
-            foreach ($p in $Port)
+            foreach ($portNumber in $Port)
             {
-                [void]$allPorts.Add($p)
+                [void]$allPorts.Add($portNumber)
             }
         }
     }

@@ -308,10 +308,10 @@ function Invoke-FileEncryption
 
             # Generate random salt and IV
             $salt = New-Object byte[] 32
-            $iv = New-Object byte[] 16
+            $initializationVector = New-Object byte[] 16
             $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
             $rng.GetBytes($salt)
-            $rng.GetBytes($iv)
+            $rng.GetBytes($initializationVector)
             $rng.Dispose()
 
             # Derive key using PBKDF2
@@ -328,7 +328,7 @@ function Invoke-FileEncryption
             # Encrypt using AES
             $aes = [System.Security.Cryptography.Aes]::Create()
             $aes.Key = $key
-            $aes.IV = $iv
+            $aes.IV = $initializationVector
             $aes.Mode = [System.Security.Cryptography.CipherMode]::CBC
             $aes.Padding = [System.Security.Cryptography.PaddingMode]::PKCS7
 
@@ -341,7 +341,7 @@ function Invoke-FileEncryption
             [Array]::Clear($key, 0, $key.Length)
 
             # Create output: salt + iv + encrypted data
-            $outputBytes = $salt + $iv + $encryptedBytes
+            $outputBytes = $salt + $initializationVector + $encryptedBytes
 
             # Write encrypted file
             [System.IO.File]::WriteAllBytes($outputFile, $outputBytes)

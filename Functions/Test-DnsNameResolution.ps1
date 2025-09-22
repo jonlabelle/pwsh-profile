@@ -66,11 +66,11 @@ function Test-DnsNameResolution
 
         [Parameter()]
         [ValidateScript({
-                foreach ($s in $_)
+                foreach ($serverAddress in $_)
                 {
-                    if (-not ([System.Net.IPAddress]::TryParse($s, [ref]$null)))
+                    if (-not ([System.Net.IPAddress]::TryParse($serverAddress, [ref]$null)))
                     {
-                        throw "Server '$s' is not a valid IP address."
+                        throw "Server '$serverAddress' is not a valid IP address."
                     }
                 }
                 return $true
