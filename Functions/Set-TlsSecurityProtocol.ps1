@@ -25,17 +25,20 @@ function Set-TlsSecurityProtocol
 
     .EXAMPLE
         PS > Set-TlsSecurityProtocol
+
         Configures TLS 1.2 as the minimum security protocol if not already set.
 
     .EXAMPLE
         PS > Set-TlsSecurityProtocol -MinimumVersion Tls12 -Verbose
         VERBOSE: Current security protocol: Ssl3, Tls
         VERBOSE: Updated security protocol to include TLS 1.2 for secure connections
+
         Configures TLS 1.2 with verbose output showing the changes made.
 
     .EXAMPLE
         PS > Set-TlsSecurityProtocol -Force -PassThru
         Tls12
+
         Forces TLS 1.2 configuration and returns the resulting security protocol.
 
     .EXAMPLE
@@ -43,6 +46,7 @@ function Set-TlsSecurityProtocol
         VERBOSE: Current security protocol: Tls12
         VERBOSE: TLS 1.3 not available on this system, using TLS 1.2 as minimum
         VERBOSE: Security protocol already configured with TLS 1.2 or higher
+
         Attempts to configure TLS 1.3 but falls back to TLS 1.2 if not available.
 
     .OUTPUTS
