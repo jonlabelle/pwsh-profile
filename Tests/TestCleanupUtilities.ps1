@@ -6,8 +6,10 @@ function Remove-TestDirectory
     <#
     .SYNOPSIS
         Robustly removes a test directory with multiple cleanup attempts
+
     .PARAMETER Path
         The path to the directory to remove
+
     .PARAMETER MaxAttempts
         Maximum number of cleanup attempts (default: 3)
     #>
@@ -74,8 +76,10 @@ function Stop-TestJob
     <#
     .SYNOPSIS
         Robustly stops and removes test jobs by name pattern
+
     .PARAMETER NamePattern
         The name pattern for jobs to clean up
+
     .PARAMETER TimeoutSeconds
         How long to wait for jobs to stop (default: 10)
     #>
@@ -129,8 +133,10 @@ function Invoke-RobustTestCleanup
     <#
     .SYNOPSIS
         Performs comprehensive cleanup for tests with both directories and jobs
+
     .PARAMETER TestDirectories
         Array of test directories to clean up
+
     .PARAMETER JobNamePatterns
         Array of job name patterns to clean up
     #>
