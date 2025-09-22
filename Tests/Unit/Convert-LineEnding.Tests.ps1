@@ -1,0 +1,540 @@
+#Requires -Version 5.1
+#Requires -Modules Pester
+
+<#
+.SYNOPSIS
+    Unit tests for Convert-LineEnding function.
+
+.DESCRIPTION
+    Tests the Convert-LineEnding function which converts line endings between LF and CRLF formats
+    while preserving file encoding and automatically detecting binary files.
+
+.NOTES
+    These tests verify:
+    - Line ending conversion between LF and CRLF
+    - File encoding preservation
+    - Binary file detection and skipping
+    - Streaming performance with large files
+    - WhatIf functionality
+    - Directory processing with Include/Exclude filters
+    - Error handling scenarios
+#>
+
+BeforeAll {
+    # Import the function under test
+    . "$PSScriptRoot/../../Functions/Convert-LineEnding.ps1"
+
+    # Create a test directory
+    $script:TestDir = Join-Path $TestDrive 'LineEndingTests'
+    New-Item -Path $script:TestDir -ItemType Directory -Force | Out-Null
+}
+
+AfterAll {
+    # Clean up test directory
+    if (Test-Path $script:TestDir)
+    {
+        Remove-Item -Path $script:TestDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+Describe 'Convert-LineEnding' {
+    Context 'Parameter Validation' {
+        It 'Should have mandatory Path parameter' {
+            $command = Get-Command Convert-LineEnding
+            $pathParam = $command.Parameters['Path']
+            $pathParam.Attributes.Mandatory | Should -Contain $true
+        }
+
+        It 'Should have mandatory LineEnding parameter' {
+            $command = Get-Command Convert-LineEnding
+            $lineEndingParam = $command.Parameters['LineEnding']
+            $lineEndingParam.Attributes.Mandatory | Should -Contain $true
+        }
+
+        It 'Should validate LineEnding values' {
+            $testFile = Join-Path $script:TestDir 'validation-test.txt'
+            'test' | Out-File -FilePath $testFile -NoNewline
+            { Convert-LineEnding -Path $testFile -LineEnding 'Invalid' -ErrorAction Stop } | Should -Throw
+        }
+
+        It 'Should accept valid LineEnding values' {
+            # These should not throw (testing parameter validation only)
+            $testFile = Join-Path $script:TestDir 'validation-test.txt'
+            'test' | Out-File -FilePath $testFile -NoNewline
+
+            { Convert-LineEnding -Path $testFile -LineEnding 'LF' -WhatIf } | Should -Not -Throw
+            { Convert-LineEnding -Path $testFile -LineEnding 'CRLF' -WhatIf } | Should -Not -Throw
+        }
+    }
+
+    Context 'Line Ending Conversion' {
+        BeforeEach {
+            $script:TestFile = Join-Path $script:TestDir 'lineending-test.txt'
+        }
+
+        AfterEach {
+            if (Test-Path $script:TestFile)
+            {
+                Remove-Item -Path $script:TestFile -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'Should convert CRLF to LF' {
+            # Create file with CRLF line endings
+            $content = "Line 1`r`nLine 2`r`nLine 3"
+            [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
+
+            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF'
+
+            $result = [System.IO.File]::ReadAllText($script:TestFile)
+            $result | Should -Be "Line 1`nLine 2`nLine 3"
+            $result | Should -Not -Match "`r"
+        }
+
+        It 'Should convert LF to CRLF' {
+            # Create file with LF line endings
+            $content = "Line 1`nLine 2`nLine 3"
+            [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
+
+            Convert-LineEnding -Path $script:TestFile -LineEnding 'CRLF'
+
+            $result = [System.IO.File]::ReadAllText($script:TestFile)
+            $result | Should -Be "Line 1`r`nLine 2`r`nLine 3"
+            ($result -split "`r`n").Count | Should -Be 3
+        }
+
+        It 'Should handle mixed line endings' {
+            # Create file with mixed line endings
+            $content = "Line 1`r`nLine 2`nLine 3`rLine 4"
+            [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
+
+            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF'
+
+            $result = [System.IO.File]::ReadAllText($script:TestFile)
+            $result | Should -Be "Line 1`nLine 2`nLine 3`nLine 4"
+            $result | Should -Not -Match "`r"
+        }
+
+        It 'Should handle empty files' {
+            # Create empty file using specific method to ensure it's truly empty
+            [System.IO.File]::WriteAllBytes($script:TestFile, @())
+
+            { Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' } | Should -Not -Throw
+
+            # File should remain empty (or have only BOM if encoding requires it)
+            $fileSize = (Get-Item $script:TestFile).Length
+            $fileSize | Should -BeLessOrEqual 3  # Allow for potential BOM
+        }
+
+        It 'Should handle files without line endings' {
+            # Create file without line endings
+            'Single line without newline' | Out-File -FilePath $script:TestFile -NoNewline
+
+            { Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' } | Should -Not -Throw
+
+            $result = Get-Content -Path $script:TestFile -Raw
+            $result | Should -Be 'Single line without newline'
+        }
+    }
+
+    Context 'Encoding Preservation' {
+        BeforeEach {
+            $script:TestFile = Join-Path $script:TestDir 'encoding-test.txt'
+        }
+
+        AfterEach {
+            if (Test-Path $script:TestFile)
+            {
+                Remove-Item -Path $script:TestFile -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'Should preserve UTF-8 encoding' {
+            $content = "Test with UTF-8: café, naïve, résumé`r`n"
+            [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
+
+            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF'
+
+            $result = [System.IO.File]::ReadAllText($script:TestFile, [System.Text.Encoding]::UTF8)
+            $result | Should -Be "Test with UTF-8: café, naïve, résumé`n"
+        }
+
+        It 'Should preserve UTF-8 with BOM' {
+            $content = "Test with UTF-8 BOM`r`n"
+            $utf8WithBom = New-Object System.Text.UTF8Encoding($true)
+            [System.IO.File]::WriteAllText($script:TestFile, $content, $utf8WithBom)
+
+            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF'
+
+            # Verify BOM is still present
+            $bytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $bytes[0] | Should -Be 0xEF
+            $bytes[1] | Should -Be 0xBB
+            $bytes[2] | Should -Be 0xBF
+        }
+
+        It 'Should preserve ASCII encoding' {
+            $content = "Simple ASCII text`r`n"
+            [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::ASCII)
+
+            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF'
+
+            $result = [System.IO.File]::ReadAllText($script:TestFile, [System.Text.Encoding]::ASCII)
+            $result | Should -Be "Simple ASCII text`n"
+        }
+    }
+
+    Context 'Binary File Detection' {
+        BeforeEach {
+            $script:BinaryFile = Join-Path $script:TestDir 'binary-test.bin'
+            $script:ImageFile = Join-Path $script:TestDir 'image-test.jpg'
+            $script:ExecutableFile = Join-Path $script:TestDir 'executable-test.exe'
+        }
+
+        AfterEach {
+            @($script:BinaryFile, $script:ImageFile, $script:ExecutableFile) | ForEach-Object {
+                if (Test-Path $_)
+                {
+                    Remove-Item -Path $_ -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+
+        It 'Should detect binary files by extension' {
+            # Create mock files with binary extensions
+            'fake content' | Out-File -FilePath $script:ImageFile -NoNewline
+            'fake content' | Out-File -FilePath $script:ExecutableFile -NoNewline
+
+            # Should not process these files (function should skip them silently)
+            { Convert-LineEnding -Path $script:ImageFile -LineEnding 'LF' } | Should -Not -Throw
+            { Convert-LineEnding -Path $script:ExecutableFile -LineEnding 'LF' } | Should -Not -Throw
+
+            # Files should remain unchanged
+            $imageContent = Get-Content -Path $script:ImageFile -Raw
+            $imageContent | Should -Be 'fake content'
+
+            $exeContent = Get-Content -Path $script:ExecutableFile -Raw
+            $exeContent | Should -Be 'fake content'
+        }
+
+        It 'Should detect binary files by content (null bytes)' {
+            # Create file with null bytes
+            $binaryData = [byte[]](65, 66, 67, 0, 68, 69, 70)  # ABC[null]DEF
+            [System.IO.File]::WriteAllBytes($script:BinaryFile, $binaryData)
+
+            # Should not process this file and show verbose message about null bytes
+            $verboseMessages = @()
+            Convert-LineEnding -Path $script:BinaryFile -LineEnding 'LF' -Verbose 4>&1 | Tee-Object -Variable verboseMessages | Out-Null
+            ($verboseMessages | Where-Object { $_ -match 'detected as binary.*null bytes' }) | Should -Not -BeNullOrEmpty
+        }
+
+        It 'Should detect binary files by low printable character ratio' {
+            # Create file with mostly non-printable characters (low ASCII values)
+            $binaryData = [byte[]](1..50)  # Mostly non-printable control characters
+            [System.IO.File]::WriteAllBytes($script:BinaryFile, $binaryData)
+
+            # Should not process this file
+            $verboseMessages = @()
+            Convert-LineEnding -Path $script:BinaryFile -LineEnding 'LF' -Verbose 4>&1 | Tee-Object -Variable verboseMessages | Out-Null
+            ($verboseMessages | Where-Object { $_ -match 'detected as binary.*printable character ratio' }) | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    Context 'Directory Processing' {
+        BeforeEach {
+            $script:SubDir = Join-Path $script:TestDir 'subdir'
+            New-Item -Path $script:SubDir -ItemType Directory -Force | Out-Null
+
+            # Create test files
+            "Line 1`r`nLine 2" | Out-File -FilePath (Join-Path $script:TestDir 'test1.txt') -NoNewline
+            "Line A`r`nLine B" | Out-File -FilePath (Join-Path $script:TestDir 'test1.ps1') -NoNewline
+            "Line X`r`nLine Y" | Out-File -FilePath (Join-Path $script:SubDir 'test2.txt') -NoNewline
+
+            # Create binary file that should be skipped
+            [System.IO.File]::WriteAllBytes((Join-Path $script:TestDir 'binary.exe'), [byte[]](1, 2, 3, 0, 4, 5))
+        }
+
+        AfterEach {
+            # Clean up test files created in this context
+            $filesToClean = @(
+                (Join-Path $script:TestDir 'test1.txt'),
+                (Join-Path $script:TestDir 'test1.ps1'),
+                (Join-Path $script:TestDir 'binary.exe')
+            )
+
+            foreach ($file in $filesToClean)
+            {
+                if (Test-Path $file)
+                {
+                    Remove-Item -Path $file -Force -ErrorAction SilentlyContinue
+                }
+            }
+
+            if (Test-Path $script:SubDir)
+            {
+                Remove-Item -Path $script:SubDir -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'Should process all text files in directory' {
+            Convert-LineEnding -Path $script:TestDir -LineEnding 'LF'
+
+            # Check that text files were converted
+            $result1 = Get-Content -Path (Join-Path $script:TestDir 'test1.txt') -Raw
+            $result1 | Should -Not -Match "`r"
+
+            $result2 = Get-Content -Path (Join-Path $script:TestDir 'test1.ps1') -Raw
+            $result2 | Should -Not -Match "`r"
+        }
+
+        It 'Should process recursively when Recurse is specified' {
+            Convert-LineEnding -Path $script:TestDir -LineEnding 'LF' -Recurse
+
+            # Check that file in subdirectory was also converted
+            $result = Get-Content -Path (Join-Path $script:SubDir 'test2.txt') -Raw
+            $result | Should -Not -Match "`r"
+        }
+
+        It 'Should not process recursively when Recurse is not specified' {
+            Convert-LineEnding -Path $script:TestDir -LineEnding 'LF'
+
+            # File in subdirectory should not be processed (still has CRLF)
+            $result = Get-Content -Path (Join-Path $script:SubDir 'test2.txt') -Raw
+            $result | Should -Match "`r"
+        }
+
+        It 'Should respect Include patterns' {
+            Convert-LineEnding -Path $script:TestDir -LineEnding 'LF' -Include '*.ps1'
+
+            # Only .ps1 file should be converted
+            $ps1Result = Get-Content -Path (Join-Path $script:TestDir 'test1.ps1') -Raw
+            $ps1Result | Should -Not -Match "`r"
+
+            # .txt file should not be converted
+            $txtResult = Get-Content -Path (Join-Path $script:TestDir 'test1.txt') -Raw
+            $txtResult | Should -Match "`r"
+        }
+
+        It 'Should respect Exclude patterns' {
+            Convert-LineEnding -Path $script:TestDir -LineEnding 'LF' -Exclude '*.txt'
+
+            # .ps1 file should be converted
+            $ps1Result = Get-Content -Path (Join-Path $script:TestDir 'test1.ps1') -Raw
+            $ps1Result | Should -Not -Match "`r"
+
+            # .txt file should not be converted (excluded)
+            $txtResult = Get-Content -Path (Join-Path $script:TestDir 'test1.txt') -Raw
+            $txtResult | Should -Match "`r"
+        }
+    }
+
+    Context 'WhatIf Support' {
+        BeforeEach {
+            $script:TestFile = Join-Path $script:TestDir 'whatif-test.txt'
+            "Line 1`r`nLine 2" | Out-File -FilePath $script:TestFile -NoNewline
+        }
+
+        AfterEach {
+            if (Test-Path $script:TestFile)
+            {
+                Remove-Item -Path $script:TestFile -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'Should not modify files when WhatIf is specified' {
+            $originalContent = Get-Content -Path $script:TestFile -Raw
+
+            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -WhatIf
+
+            $currentContent = Get-Content -Path $script:TestFile -Raw
+            $currentContent | Should -Be $originalContent
+            $currentContent | Should -Match "`r"  # Should still have CRLF
+        }
+
+        It 'Should show what would be processed when WhatIf is specified' {
+            # WhatIf should not throw and should not modify the file
+            { Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -WhatIf } | Should -Not -Throw
+
+            # Verify file was not actually modified (this is the key test)
+            $content = Get-Content -Path $script:TestFile -Raw
+            $content | Should -Match "`r"  # Should still have CRLF
+        }
+    }
+
+    Context 'PassThru Functionality' {
+        BeforeEach {
+            $script:TestFile = Join-Path $script:TestDir 'passthru-test.txt'
+            "Line 1`r`nLine 2`nLine 3" | Out-File -FilePath $script:TestFile -NoNewline
+        }
+
+        AfterEach {
+            if (Test-Path $script:TestFile)
+            {
+                Remove-Item -Path $script:TestFile -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'Should return processing information when PassThru is specified' {
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -PassThru
+
+            $result | Should -Not -BeNullOrEmpty
+            $result.FilePath | Should -Be $script:TestFile
+            $result.Success | Should -Be $true
+            $result.Encoding | Should -Not -BeNullOrEmpty
+        }
+
+        It 'Should return line ending counts' {
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'CRLF' -PassThru
+
+            # Should have counts of original and new line endings
+            ($result.OriginalLF + $result.OriginalCRLF) | Should -BeGreaterThan 0
+            ($result.NewLF + $result.NewCRLF) | Should -BeGreaterThan 0
+        }
+
+        It 'Should not return anything when PassThru is not specified' {
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF'
+
+            $result | Should -BeNullOrEmpty
+        }
+    }
+
+    Context 'Error Handling' {
+        It 'Should handle non-existent files gracefully' {
+            $nonExistentFile = Join-Path $script:TestDir 'does-not-exist.txt'
+
+            $errorMessages = @()
+            Convert-LineEnding -Path $nonExistentFile -LineEnding 'LF' -ErrorVariable errorMessages -ErrorAction SilentlyContinue
+            $errorMessages | Should -Not -BeNullOrEmpty
+            $errorMessages[0] | Should -Match 'Path not found'
+        }
+
+        It 'Should handle read-only files when Force is not specified' {
+            $script:ReadOnlyFile = Join-Path $script:TestDir 'readonly.txt'
+            "Test content`r`n" | Out-File -FilePath $script:ReadOnlyFile -NoNewline
+
+            try
+            {
+                Set-ItemProperty -Path $script:ReadOnlyFile -Name IsReadOnly -Value $true
+
+                $result = Convert-LineEnding -Path $script:ReadOnlyFile -LineEnding 'LF' -PassThru -ErrorAction SilentlyContinue
+                $result.Success | Should -Be $false
+                $result.Error | Should -Match 'read-only'
+            }
+            finally
+            {
+                # Clean up read-only file
+                if (Test-Path $script:ReadOnlyFile)
+                {
+                    Set-ItemProperty -Path $script:ReadOnlyFile -Name IsReadOnly -Value $false -ErrorAction SilentlyContinue
+                    Remove-Item -Path $script:ReadOnlyFile -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+
+        It 'Should handle read-only files when Force is specified' {
+            $script:ReadOnlyFile = Join-Path $script:TestDir 'readonly-force.txt'
+            "Test content`r`n" | Out-File -FilePath $script:ReadOnlyFile -NoNewline
+
+            try
+            {
+                Set-ItemProperty -Path $script:ReadOnlyFile -Name IsReadOnly -Value $true
+
+                $result = Convert-LineEnding -Path $script:ReadOnlyFile -LineEnding 'LF' -Force -PassThru
+                $result.Success | Should -Be $true
+
+                # Verify conversion worked
+                $content = Get-Content -Path $script:ReadOnlyFile -Raw
+                $content | Should -Not -Match "`r"
+            }
+            finally
+            {
+                # Clean up file
+                if (Test-Path $script:ReadOnlyFile)
+                {
+                    Set-ItemProperty -Path $script:ReadOnlyFile -Name IsReadOnly -Value $false -ErrorAction SilentlyContinue
+                    Remove-Item -Path $script:ReadOnlyFile -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+    }
+
+    Context 'Performance with Large Files' {
+        It 'Should handle large files efficiently using streaming' {
+            $script:LargeFile = Join-Path $script:TestDir 'large-test.txt'
+
+            try
+            {
+                # Create a moderately large file (about 1MB) with CRLF line endings
+                $content = ("This is a test line with some content to make it longer`r`n" * 10000)
+                [System.IO.File]::WriteAllText($script:LargeFile, $content, [System.Text.Encoding]::UTF8)
+
+                $startTime = Get-Date
+                Convert-LineEnding -Path $script:LargeFile -LineEnding 'LF'
+                $endTime = Get-Date
+
+                $processingTime = ($endTime - $startTime).TotalSeconds
+                $processingTime | Should -BeLessThan 10  # Should complete within 10 seconds
+
+                # Verify conversion worked
+                $result = [System.IO.File]::ReadAllText($script:LargeFile)
+                $result | Should -Not -Match "`r"
+
+                # Count non-empty lines (the exact count may vary slightly due to how content is constructed)
+                $lineCount = ($result -split "`n" | Where-Object { $_.Length -gt 0 }).Count
+                $lineCount | Should -BeGreaterThan 9900  # Allow for slight variations
+                $lineCount | Should -BeLessThan 10100
+            }
+            finally
+            {
+                if (Test-Path $script:LargeFile)
+                {
+                    Remove-Item -Path $script:LargeFile -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+    }
+
+    Context 'Pipeline Support' {
+        BeforeEach {
+            # Create multiple test files
+            $script:PipelineFiles = @()
+            for ($i = 1; $i -le 3; $i++)
+            {
+                $file = Join-Path $script:TestDir "pipeline-test$i.txt"
+                "Content $i`r`nLine 2" | Out-File -FilePath $file -NoNewline
+                $script:PipelineFiles += $file
+            }
+        }
+
+        AfterEach {
+            $script:PipelineFiles | ForEach-Object {
+                if (Test-Path $_)
+                {
+                    Remove-Item -Path $_ -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+
+        It 'Should accept pipeline input' {
+            { $script:PipelineFiles | Convert-LineEnding -LineEnding 'LF' } | Should -Not -Throw
+
+            # Verify all files were processed
+            foreach ($file in $script:PipelineFiles)
+            {
+                $content = Get-Content -Path $file -Raw
+                $content | Should -Not -Match "`r"
+            }
+        }
+
+        It 'Should work with Get-ChildItem pipeline' {
+            { Get-ChildItem -Path $script:TestDir -Filter '*.txt' | Convert-LineEnding -LineEnding 'LF' } | Should -Not -Throw
+
+            # Verify files were processed
+            foreach ($file in $script:PipelineFiles)
+            {
+                $content = Get-Content -Path $file -Raw
+                $content | Should -Not -Match "`r"
+            }
+        }
+    }
+}
