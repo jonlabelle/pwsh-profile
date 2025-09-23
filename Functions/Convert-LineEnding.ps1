@@ -34,8 +34,9 @@ function Convert-LineEnding
 
     .PARAMETER Include
         Specifies file patterns to include when processing directories.
-        Supports wildcards (e.g., '*.txt', '*.ps1', '*.md').
-        Default includes common text file extensions.
+        Supports wildcards (e.g., '*.txt', '*.ps1', '*.md') and specific filenames.
+        Default includes common text file extensions and extensionless text files
+        like LICENSE, README, Dockerfile, Makefile, etc.
 
     .PARAMETER Exclude
         Specifies file patterns to exclude when processing directories.
@@ -70,6 +71,12 @@ function Convert-LineEnding
         PS > Convert-LineEnding -Path 'C:\Scripts' -LineEnding 'CRLF' -Recurse -Include '*.ps1', '*.txt'
 
         Recursively converts all PowerShell and text files in the Scripts directory to Windows line endings.
+
+    .EXAMPLE
+        PS > Convert-LineEnding -Path 'project' -LineEnding 'LF' -Recurse
+
+        Converts all files in the project directory to Unix line endings, including common text files
+        like LICENSE, README, Dockerfile, and Makefile, along with all supported text file extensions.
 
     .EXAMPLE
         PS > Get-ChildItem '*.md' | Convert-LineEnding -LineEnding 'LF' -WhatIf
@@ -176,13 +183,21 @@ function Convert-LineEnding
             # Scripts and Shell Files
             '*.sh', '*.bat', '*.cmd', '*.profile', '*.zshrc', '*.bashrc', '*.vimrc',
             '.zprofile', '.bash_profile', '.bash_logout', '.npmrc', '.nvmrc',
-            '.inputrc', '.curlrc', '.screenrc'
+            '.inputrc', '.curlrc', '.screenrc',
 
             # Version Control
             '*.gitignore', '*.gitattributes',
 
             # Build and Make Files
-            '*.makefile', '*.cmake'
+            '*.makefile', '*.cmake',
+
+            # Common Extension-less Text Files
+            'LICENSE', 'LICENCE', 'README', 'CHANGELOG',
+            'AUTHORS', 'CONTRIBUTORS', 'CONTRIBUTING', 'INSTALL',
+            'NEWS', 'HISTORY', 'COPYING', 'COPYRIGHT',
+            'NOTICE', 'THANKS', 'TODO', 'BUGS',
+            'Dockerfile', 'Makefile', 'Rakefile', 'Gemfile', 'Podfile',
+            'Vagrantfile', 'Procfile', 'Brewfile'
         ),
 
         [Parameter()]
