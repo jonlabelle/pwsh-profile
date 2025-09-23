@@ -773,14 +773,12 @@ Describe 'Convert-LineEnding Integration Tests' {
                 $fileInfo = Get-Item $filePath
                 $fileInfo.CreationTime = $pastTime
                 $fileInfo.LastWriteTime = $pastTime
-                $fileInfo.LastAccessTime = $pastTime
 
                 # Store original timestamps for verification
                 $script:TestFileInfo[$fileName] = @{
                     Path = $filePath
                     OriginalCreationTime = $pastTime
                     OriginalLastWriteTime = $pastTime
-                    OriginalLastAccessTime = $pastTime
                     OriginalEncoding = $fileData.Encoding
                 }
             }
@@ -805,7 +803,6 @@ Describe 'Convert-LineEnding Integration Tests' {
             $fileInfo = Get-Item $singleTestFile
             $fileInfo.CreationTime = $pastTime
             $fileInfo.LastWriteTime = $pastTime
-            $fileInfo.LastAccessTime = $pastTime
 
             # Convert with default settings (PreserveTimestamps = true)
             $result = Convert-LineEnding -Path $singleTestFile -LineEnding 'LF' -PassThru
@@ -820,11 +817,11 @@ Describe 'Convert-LineEnding Integration Tests' {
             # Verify timestamps are preserved (allow for filesystem precision differences)
             $creationDiff = [Math]::Abs(($newFileInfo.CreationTime - $pastTime).TotalSeconds)
             $writeDiff = [Math]::Abs(($newFileInfo.LastWriteTime - $pastTime).TotalSeconds)
-            $accessDiff = [Math]::Abs(($newFileInfo.LastAccessTime - $pastTime).TotalSeconds)
 
-            $creationDiff | Should -BeLessThan 2 -Because 'Creation time should be preserved'
-            $writeDiff | Should -BeLessThan 2 -Because 'Last write time should be preserved'
-            $accessDiff | Should -BeLessThan 2 -Because 'Last access time should be preserved'
+            # Use platform-appropriate tolerance: Windows NTFS can have different precision than APFS/ext4
+            $tolerance = if ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) { 2 } else { 0.1 }
+            $creationDiff | Should -BeLessThan $tolerance -Because 'Creation time should be preserved'
+            $writeDiff | Should -BeLessThan $tolerance -Because 'Last write time should be preserved'
 
             # Verify content was actually converted
             $afterBytes = [System.IO.File]::ReadAllBytes($singleTestFile)
@@ -847,7 +844,6 @@ Describe 'Convert-LineEnding Integration Tests' {
             $fileInfo = Get-Item $singleTestFile
             $fileInfo.CreationTime = $pastTime
             $fileInfo.LastWriteTime = $pastTime
-            $fileInfo.LastAccessTime = $pastTime
 
             # Convert with PreserveTimestamps disabled
             $result = Convert-LineEnding -Path $singleTestFile -LineEnding 'LF' -PreserveTimestamps:$false -PassThru
@@ -896,7 +892,6 @@ Describe 'Convert-LineEnding Integration Tests' {
                 $fileInfo = Get-Item $file
                 $fileInfo.CreationTime = $pastTime
                 $fileInfo.LastWriteTime = $pastTime
-                $fileInfo.LastAccessTime = $pastTime
             }
 
             # Convert directory with default timestamp preservation
@@ -917,11 +912,11 @@ Describe 'Convert-LineEnding Integration Tests' {
                 # Verify timestamps are preserved (allow for filesystem precision differences)
                 $creationDiff = [Math]::Abs(($currentInfo.CreationTime - $pastTime).TotalSeconds)
                 $writeDiff = [Math]::Abs(($currentInfo.LastWriteTime - $pastTime).TotalSeconds)
-                $accessDiff = [Math]::Abs(($currentInfo.LastAccessTime - $pastTime).TotalSeconds)
 
-                $creationDiff | Should -BeLessThan 2 -Because 'Timestamps should be preserved with default settings'
-                $writeDiff | Should -BeLessThan 2 -Because 'Timestamps should be preserved with default settings'
-                $accessDiff | Should -BeLessThan 2 -Because 'Timestamps should be preserved with default settings'
+                # Use platform-appropriate tolerance: Windows NTFS can have different precision than APFS/ext4
+                $tolerance = if ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) { 2 } else { 0.1 }
+                $creationDiff | Should -BeLessThan $tolerance -Because 'Timestamps should be preserved with default settings'
+                $writeDiff | Should -BeLessThan $tolerance -Because 'Timestamps should be preserved with default settings'
             }
 
             # Clean up

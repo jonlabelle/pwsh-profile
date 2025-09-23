@@ -79,7 +79,7 @@ function Convert-LineEnding
         editors expect text files to end with a newline character.
 
     .PARAMETER PreserveTimestamps
-        Preserves the original file timestamps (creation time, last write time, and last access time)
+        Preserves the original file timestamps (creation time and last write time)
         when files are modified. This is the default behavior. When set to $false, modified files
         will have updated timestamps reflecting the time of conversion.
 
@@ -295,8 +295,8 @@ function Convert-LineEnding
         processing.
 
         TIMESTAMP PRESERVATION:
-        By default, the function preserves original file timestamps (creation time, last write time,
-        and last access time) when files are modified. This maintains the original file history and
+        By default, the function preserves original file timestamps (creation time and last write time)
+        when files are modified. This maintains the original file history and
         makes the conversion process transparent to file system monitoring tools. Files that are
         skipped (no conversion needed) are never touched, so their timestamps are naturally preserved.
         Set -PreserveTimestamps to $false to allow modified files to receive new timestamps
@@ -1026,7 +1026,6 @@ function Convert-LineEnding
                     $originalTimestamps = @{
                         CreationTime = $fileInfo.CreationTime
                         LastWriteTime = $fileInfo.LastWriteTime
-                        LastAccessTime = $fileInfo.LastAccessTime
                     }
                     Write-Verbose "Captured original timestamps for '$FilePath'"
                 }
@@ -1216,7 +1215,6 @@ function Convert-LineEnding
                             $fileInfo = Get-Item -Path $FilePath
                             $fileInfo.CreationTime = $originalTimestamps.CreationTime
                             $fileInfo.LastWriteTime = $originalTimestamps.LastWriteTime
-                            $fileInfo.LastAccessTime = $originalTimestamps.LastAccessTime
                             Write-Verbose "Restored original timestamps for '$FilePath'"
                         }
                         catch
@@ -1345,12 +1343,6 @@ function Convert-LineEnding
 
                 foreach ($file in $files)
                 {
-                    if (Test-BinaryFile -FilePath $file.FullName)
-                    {
-                        Write-Warning "Skipping binary file: $($file.FullName)"
-                        continue
-                    }
-
                     # Capture original timestamps BEFORE any file analysis to prevent access time changes
                     $originalTimestamps = $null
                     if ($PreserveTimestamps)
@@ -1361,7 +1353,6 @@ function Convert-LineEnding
                             $originalTimestamps = @{
                                 CreationTime = $fileInfo.CreationTime
                                 LastWriteTime = $fileInfo.LastWriteTime
-                                LastAccessTime = $fileInfo.LastAccessTime
                             }
                             Write-Verbose "Captured original timestamps for '$($file.FullName)' before analysis"
                         }
@@ -1370,6 +1361,12 @@ function Convert-LineEnding
                             Write-Verbose "Failed to capture timestamps for '$($file.FullName)': $($_.Exception.Message)"
                             $originalTimestamps = $null
                         }
+                    }
+
+                    if (Test-BinaryFile -FilePath $file.FullName)
+                    {
+                        Write-Warning "Skipping binary file: $($file.FullName)"
+                        continue
                     }
 
                     # Pre-check if conversion is needed (even for WhatIf to provide accurate preview)
@@ -1457,12 +1454,6 @@ function Convert-LineEnding
             else
             {
                 # Process single file
-                if (Test-BinaryFile -FilePath $resolvedPath)
-                {
-                    Write-Warning "Skipping binary file: $resolvedPath"
-                    continue
-                }
-
                 # Capture original timestamps BEFORE any file analysis to prevent access time changes
                 $originalTimestamps = $null
                 if ($PreserveTimestamps)
@@ -1473,7 +1464,6 @@ function Convert-LineEnding
                         $originalTimestamps = @{
                             CreationTime = $fileInfo.CreationTime
                             LastWriteTime = $fileInfo.LastWriteTime
-                            LastAccessTime = $fileInfo.LastAccessTime
                         }
                         Write-Verbose "Captured original timestamps for '$resolvedPath' before analysis"
                     }
@@ -1482,6 +1472,12 @@ function Convert-LineEnding
                         Write-Verbose "Failed to capture timestamps for '$resolvedPath': $($_.Exception.Message)"
                         $originalTimestamps = $null
                     }
+                }
+
+                if (Test-BinaryFile -FilePath $resolvedPath)
+                {
+                    Write-Warning "Skipping binary file: $resolvedPath"
+                    continue
                 }
 
                 # Pre-check if conversion is needed (even for WhatIf to provide accurate preview)
