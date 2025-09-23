@@ -998,7 +998,8 @@ function Convert-LineEnding
                 [System.Text.Encoding]$TargetEncoding = $null,
                 [Boolean]$ConvertLineEndings = $true,
                 [Boolean]$EnsureEndingNewline = $false,
-                [Boolean]$PreserveTimestamps = $true
+                [Boolean]$PreserveTimestamps = $true,
+                [Hashtable]$OriginalTimestamps = $null
             )
 
             $tempFilePath = "$FilePath.tmp"
@@ -1011,9 +1012,13 @@ function Convert-LineEnding
             # Check if file originally ends with newline (before any conversion)
             $originallyEndsWithNewline = Test-FileEndsWithNewline -FilePath $FilePath
 
-            # Capture original file timestamps if preservation is requested
-            $originalTimestamps = $null
-            if ($PreserveTimestamps)
+            # Use pre-captured timestamps if provided, otherwise capture them now
+            if ($OriginalTimestamps)
+            {
+                $originalTimestamps = $OriginalTimestamps
+                Write-Verbose "Using pre-captured timestamps for '$FilePath'"
+            }
+            elseif ($PreserveTimestamps)
             {
                 try
                 {
@@ -1030,6 +1035,10 @@ function Convert-LineEnding
                     Write-Verbose "Failed to capture timestamps for '$FilePath': $($_.Exception.Message)"
                     $originalTimestamps = $null
                 }
+            }
+            else
+            {
+                $originalTimestamps = $null
             }
 
             # Use source encoding if no target encoding specified
@@ -1342,6 +1351,27 @@ function Convert-LineEnding
                         continue
                     }
 
+                    # Capture original timestamps BEFORE any file analysis to prevent access time changes
+                    $originalTimestamps = $null
+                    if ($PreserveTimestamps)
+                    {
+                        try
+                        {
+                            $fileInfo = Get-Item -Path $file.FullName
+                            $originalTimestamps = @{
+                                CreationTime = $fileInfo.CreationTime
+                                LastWriteTime = $fileInfo.LastWriteTime
+                                LastAccessTime = $fileInfo.LastAccessTime
+                            }
+                            Write-Verbose "Captured original timestamps for '$($file.FullName)' before analysis"
+                        }
+                        catch
+                        {
+                            Write-Verbose "Failed to capture timestamps for '$($file.FullName)': $($_.Exception.Message)"
+                            $originalTimestamps = $null
+                        }
+                    }
+
                     # Pre-check if conversion is needed (even for WhatIf to provide accurate preview)
                     $needsLineEndingConversion = Test-LineEndingConversionNeeded -FilePath $file.FullName -TargetLineEnding $targetLineEnding
 
@@ -1372,7 +1402,7 @@ function Convert-LineEnding
 
                             # Only use target encoding if encoding conversion is needed
                             $actualTargetEncoding = if ($needsEncodingConversion) { $targetEncoding } else { $null }
-                            $result = Convert-SingleFileLineEnding -FilePath $file.FullName -TargetLineEnding $targetLineEnding -SourceEncoding $sourceEncoding -TargetEncoding $actualTargetEncoding -ConvertLineEndings $needsLineEndingConversion -EnsureEndingNewline $EnsureEndingNewline.IsPresent -PreserveTimestamps $PreserveTimestamps
+                            $result = Convert-SingleFileLineEnding -FilePath $file.FullName -TargetLineEnding $targetLineEnding -SourceEncoding $sourceEncoding -TargetEncoding $actualTargetEncoding -ConvertLineEndings $needsLineEndingConversion -EnsureEndingNewline $EnsureEndingNewline.IsPresent -PreserveTimestamps $PreserveTimestamps -OriginalTimestamps $originalTimestamps
 
                             if ($PassThru)
                             {
@@ -1392,6 +1422,9 @@ function Convert-LineEnding
                     }
                     else
                     {
+                        # Determine the target encoding name for display purposes
+                        $targetEncodingName = if ($Encoding -eq 'Auto') { 'Auto' } else { $Encoding }
+
                         if ($PSCmdlet.ShouldProcess($file.FullName, "Skip file - already has correct line endings ($LineEnding), encoding ($targetEncodingName), and ending newline"))
                         {
                             Write-Verbose "Skipping '$($file.FullName)' - already has correct line endings, encoding, and ending newline"
@@ -1430,6 +1463,27 @@ function Convert-LineEnding
                     continue
                 }
 
+                # Capture original timestamps BEFORE any file analysis to prevent access time changes
+                $originalTimestamps = $null
+                if ($PreserveTimestamps)
+                {
+                    try
+                    {
+                        $fileInfo = Get-Item -Path $resolvedPath
+                        $originalTimestamps = @{
+                            CreationTime = $fileInfo.CreationTime
+                            LastWriteTime = $fileInfo.LastWriteTime
+                            LastAccessTime = $fileInfo.LastAccessTime
+                        }
+                        Write-Verbose "Captured original timestamps for '$resolvedPath' before analysis"
+                    }
+                    catch
+                    {
+                        Write-Verbose "Failed to capture timestamps for '$resolvedPath': $($_.Exception.Message)"
+                        $originalTimestamps = $null
+                    }
+                }
+
                 # Pre-check if conversion is needed (even for WhatIf to provide accurate preview)
                 $needsLineEndingConversion = Test-LineEndingConversionNeeded -FilePath $resolvedPath -TargetLineEnding $targetLineEnding
 
@@ -1460,7 +1514,7 @@ function Convert-LineEnding
 
                         # Only use target encoding if encoding conversion is needed
                         $actualTargetEncoding = if ($needsEncodingConversion) { $targetEncoding } else { $null }
-                        $result = Convert-SingleFileLineEnding -FilePath $resolvedPath -TargetLineEnding $targetLineEnding -SourceEncoding $sourceEncoding -TargetEncoding $actualTargetEncoding -ConvertLineEndings $needsLineEndingConversion -EnsureEndingNewline $EnsureEndingNewline.IsPresent -PreserveTimestamps $PreserveTimestamps
+                        $result = Convert-SingleFileLineEnding -FilePath $resolvedPath -TargetLineEnding $targetLineEnding -SourceEncoding $sourceEncoding -TargetEncoding $actualTargetEncoding -ConvertLineEndings $needsLineEndingConversion -EnsureEndingNewline $EnsureEndingNewline.IsPresent -PreserveTimestamps $PreserveTimestamps -OriginalTimestamps $originalTimestamps
 
                         if ($PassThru)
                         {
@@ -1480,6 +1534,9 @@ function Convert-LineEnding
                 }
                 else
                 {
+                    # Determine the target encoding name for display purposes
+                    $targetEncodingName = if ($Encoding -eq 'Auto') { 'Auto' } else { $Encoding }
+
                     if ($PSCmdlet.ShouldProcess($resolvedPath, "Skip file - already has correct line endings ($LineEnding), encoding ($targetEncodingName), and ending newline"))
                     {
                         Write-Verbose "Skipping '$resolvedPath' - already has correct line endings, encoding, and ending newline"

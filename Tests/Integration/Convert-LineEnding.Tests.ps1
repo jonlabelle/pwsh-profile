@@ -817,9 +817,14 @@ Describe 'Convert-LineEnding Integration Tests' {
 
             # Verify timestamps were preserved
             $newFileInfo = Get-Item $singleTestFile
-            $newFileInfo.CreationTime | Should -Be $pastTime -Because 'Creation time should be preserved'
-            $newFileInfo.LastWriteTime | Should -Be $pastTime -Because 'Last write time should be preserved'
-            $newFileInfo.LastAccessTime | Should -Be $pastTime -Because 'Last access time should be preserved'
+            # Verify timestamps are preserved (allow for filesystem precision differences)
+            $creationDiff = [Math]::Abs(($newFileInfo.CreationTime - $pastTime).TotalSeconds)
+            $writeDiff = [Math]::Abs(($newFileInfo.LastWriteTime - $pastTime).TotalSeconds)
+            $accessDiff = [Math]::Abs(($newFileInfo.LastAccessTime - $pastTime).TotalSeconds)
+
+            $creationDiff | Should -BeLessThan 2 -Because 'Creation time should be preserved'
+            $writeDiff | Should -BeLessThan 2 -Because 'Last write time should be preserved'
+            $accessDiff | Should -BeLessThan 2 -Because 'Last access time should be preserved'
 
             # Verify content was actually converted
             $afterBytes = [System.IO.File]::ReadAllBytes($singleTestFile)
@@ -909,9 +914,14 @@ Describe 'Convert-LineEnding Integration Tests' {
             foreach ($result in $allResults)
             {
                 $currentInfo = Get-Item $result.FilePath
-                $currentInfo.CreationTime | Should -Be $pastTime -Because 'Timestamps should be preserved with default settings'
-                $currentInfo.LastWriteTime | Should -Be $pastTime -Because 'Timestamps should be preserved with default settings'
-                $currentInfo.LastAccessTime | Should -Be $pastTime -Because 'Timestamps should be preserved with default settings'
+                # Verify timestamps are preserved (allow for filesystem precision differences)
+                $creationDiff = [Math]::Abs(($currentInfo.CreationTime - $pastTime).TotalSeconds)
+                $writeDiff = [Math]::Abs(($currentInfo.LastWriteTime - $pastTime).TotalSeconds)
+                $accessDiff = [Math]::Abs(($currentInfo.LastAccessTime - $pastTime).TotalSeconds)
+
+                $creationDiff | Should -BeLessThan 2 -Because 'Timestamps should be preserved with default settings'
+                $writeDiff | Should -BeLessThan 2 -Because 'Timestamps should be preserved with default settings'
+                $accessDiff | Should -BeLessThan 2 -Because 'Timestamps should be preserved with default settings'
             }
 
             # Clean up

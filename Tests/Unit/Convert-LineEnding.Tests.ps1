@@ -1073,11 +1073,15 @@ Describe 'Convert-LineEnding' {
             # Convert to LF (should preserve timestamps)
             Convert-LineEnding -Path $script:TestFile -LineEnding 'LF'
 
-            # Verify timestamps are preserved
+            # Verify timestamps are preserved (allow for filesystem precision differences)
             $fileInfoAfter = Get-Item $script:TestFile
-            $fileInfoAfter.CreationTime | Should -Be $pastTime
-            $fileInfoAfter.LastWriteTime | Should -Be $pastTime
-            $fileInfoAfter.LastAccessTime | Should -Be $pastTime
+            $creationDiff = [Math]::Abs(($fileInfoAfter.CreationTime - $pastTime).TotalSeconds)
+            $writeDiff = [Math]::Abs(($fileInfoAfter.LastWriteTime - $pastTime).TotalSeconds)
+            $accessDiff = [Math]::Abs(($fileInfoAfter.LastAccessTime - $pastTime).TotalSeconds)
+
+            $creationDiff | Should -BeLessThan 2 -Because 'Creation time should be preserved (within 2 seconds for filesystem precision)'
+            $writeDiff | Should -BeLessThan 2 -Because 'Last write time should be preserved (within 2 seconds for filesystem precision)'
+            $accessDiff | Should -BeLessThan 2 -Because 'Last access time should be preserved (within 2 seconds for filesystem precision)'
 
             # Verify content was actually converted
             $newContent = Get-Content -Path $script:TestFile -Raw
@@ -1099,11 +1103,15 @@ Describe 'Convert-LineEnding' {
             # Convert to LF with explicit timestamp preservation
             Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -PreserveTimestamps $true
 
-            # Verify timestamps are preserved
+            # Verify timestamps are preserved (allow for filesystem precision differences)
             $fileInfoAfter = Get-Item $script:TestFile
-            $fileInfoAfter.CreationTime | Should -Be $pastTime
-            $fileInfoAfter.LastWriteTime | Should -Be $pastTime
-            $fileInfoAfter.LastAccessTime | Should -Be $pastTime
+            $creationDiff = [Math]::Abs(($fileInfoAfter.CreationTime - $pastTime).TotalSeconds)
+            $writeDiff = [Math]::Abs(($fileInfoAfter.LastWriteTime - $pastTime).TotalSeconds)
+            $accessDiff = [Math]::Abs(($fileInfoAfter.LastAccessTime - $pastTime).TotalSeconds)
+
+            $creationDiff | Should -BeLessThan 2 -Because 'Creation time should be preserved (within 2 seconds for filesystem precision)'
+            $writeDiff | Should -BeLessThan 2 -Because 'Last write time should be preserved (within 2 seconds for filesystem precision)'
+            $accessDiff | Should -BeLessThan 2 -Because 'Last access time should be preserved (within 2 seconds for filesystem precision)'
         }
 
         It 'Should update timestamps when PreserveTimestamps is false' {
@@ -1124,7 +1132,8 @@ Describe 'Convert-LineEnding' {
 
             # Verify timestamps were updated (should be close to current time)
             $fileInfoAfter = Get-Item $script:TestFile
-            $fileInfoAfter.CreationTime | Should -BeGreaterThan $pastTime
+            # Note: Creation time may not change on all filesystems when modifying files
+            # Only LastWriteTime is guaranteed to be updated when PreserveTimestamps is false
             $fileInfoAfter.LastWriteTime | Should -BeGreaterThan $pastTime
 
             # Allow some tolerance for timing differences (within 30 seconds)
@@ -1147,11 +1156,15 @@ Describe 'Convert-LineEnding' {
             # Try to convert to LF (should be skipped) with PreserveTimestamps false
             Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -PreserveTimestamps $false
 
-            # Verify timestamps are still preserved (file was skipped)
+            # Verify timestamps are still preserved (file was skipped, allow for small filesystem precision differences)
             $fileInfoAfter = Get-Item $script:TestFile
-            $fileInfoAfter.CreationTime | Should -Be $pastTime
-            $fileInfoAfter.LastWriteTime | Should -Be $pastTime
-            $fileInfoAfter.LastAccessTime | Should -Be $pastTime
+            $creationDiff = [Math]::Abs(($fileInfoAfter.CreationTime - $pastTime).TotalSeconds)
+            $writeDiff = [Math]::Abs(($fileInfoAfter.LastWriteTime - $pastTime).TotalSeconds)
+            $accessDiff = [Math]::Abs(($fileInfoAfter.LastAccessTime - $pastTime).TotalSeconds)
+
+            $creationDiff | Should -BeLessThan 2 -Because 'Creation time should be preserved for skipped files'
+            $writeDiff | Should -BeLessThan 2 -Because 'Last write time should be preserved for skipped files'
+            $accessDiff | Should -BeLessThan 2 -Because 'Last access time should be preserved for skipped files'
         }
 
         It 'Should preserve timestamps when converting encoding' {
@@ -1169,11 +1182,15 @@ Describe 'Convert-LineEnding' {
             # Convert encoding to UTF8 (should preserve timestamps)
             Convert-LineEnding -Path $script:TestFile -Encoding 'UTF8'
 
-            # Verify timestamps are preserved
+            # Verify timestamps are preserved (allow for filesystem precision differences)
             $fileInfoAfter = Get-Item $script:TestFile
-            $fileInfoAfter.CreationTime | Should -Be $pastTime
-            $fileInfoAfter.LastWriteTime | Should -Be $pastTime
-            $fileInfoAfter.LastAccessTime | Should -Be $pastTime
+            $creationDiff = [Math]::Abs(($fileInfoAfter.CreationTime - $pastTime).TotalSeconds)
+            $writeDiff = [Math]::Abs(($fileInfoAfter.LastWriteTime - $pastTime).TotalSeconds)
+            $accessDiff = [Math]::Abs(($fileInfoAfter.LastAccessTime - $pastTime).TotalSeconds)
+
+            $creationDiff | Should -BeLessThan 2 -Because 'Creation time should be preserved during encoding conversion'
+            $writeDiff | Should -BeLessThan 2 -Because 'Last write time should be preserved during encoding conversion'
+            $accessDiff | Should -BeLessThan 2 -Because 'Last access time should be preserved during encoding conversion'
 
             # Verify encoding was actually converted
             $bytes = [System.IO.File]::ReadAllBytes($script:TestFile)
@@ -1201,11 +1218,15 @@ Describe 'Convert-LineEnding' {
             $result.Success | Should -Be $true
             $result.Converted | Should -Be $true
 
-            # Verify timestamps are preserved
+            # Verify timestamps are preserved (allow for filesystem precision differences)
             $fileInfoAfter = Get-Item $script:TestFile
-            $fileInfoAfter.CreationTime | Should -Be $pastTime
-            $fileInfoAfter.LastWriteTime | Should -Be $pastTime
-            $fileInfoAfter.LastAccessTime | Should -Be $pastTime
+            $creationDiff = [Math]::Abs(($fileInfoAfter.CreationTime - $pastTime).TotalSeconds)
+            $writeDiff = [Math]::Abs(($fileInfoAfter.LastWriteTime - $pastTime).TotalSeconds)
+            $accessDiff = [Math]::Abs(($fileInfoAfter.LastAccessTime - $pastTime).TotalSeconds)
+
+            $creationDiff | Should -BeLessThan 2 -Because 'Creation time should be preserved with PassThru'
+            $writeDiff | Should -BeLessThan 2 -Because 'Last write time should be preserved with PassThru'
+            $accessDiff | Should -BeLessThan 2 -Because 'Last access time should be preserved with PassThru'
         }
 
         It 'Should handle timestamp preservation failure gracefully' {
