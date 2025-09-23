@@ -1,4 +1,4 @@
-function Show-ProfileCommand
+function Show-ProfileCommands
 {
     <#
     .SYNOPSIS
@@ -12,7 +12,7 @@ function Show-ProfileCommand
         Compatible with PowerShell Desktop 5.1+ on Windows, macOS, and Linux.
 
     .EXAMPLE
-        PS > Show-ProfileCommand
+        PS > Show-ProfileCommands
 
         - Get-CertificateDetails - Gets detailed information about a certificate
         - Get-CertificateExpiration - Checks certificate expiration dates
@@ -24,13 +24,14 @@ function Show-ProfileCommand
         System.String
         Formatted list of commands and descriptions
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding()]
     [OutputType([String])]
     param()
 
     begin
     {
-        Write-Verbose 'Starting Show-ProfileCommand'
+        Write-Verbose 'Starting Show-ProfileCommands'
 
         # Get the Functions directory path relative to the profile script
         $profilePath = $PROFILE
@@ -136,6 +137,6 @@ function Show-ProfileCommand
 
     end
     {
-        Write-Verbose 'Show-ProfileCommand completed'
+        Write-Verbose 'Show-ProfileCommands completed'
     }
 }

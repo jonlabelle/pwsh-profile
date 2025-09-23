@@ -92,16 +92,16 @@ The profile includes various utility commands organized by category:
 <details>
 <summary>📦 PowerShell Module Management</summary><br />
 
-- **[`Get-OutdatedModules`](Functions/Get-OutdatedModules.ps1)** — Gets information about installed PowerShell modules that have newer versions available
+- **[`Get-OutdatedModules`](Functions/Get-OutdatedModules.ps1)** — Check if any installed PowerShell modules have newer versions
 - **[`Remove-OldModules`](Functions/Remove-OldModules.ps1)** — Removes older versions of installed PowerShell modules
-- **[`Update-AllModules`](Functions/Update-AllModules.ps1)** — Updates all installed PowerShell modules to their latest versions
+- **[`Update-AllModules`](Functions/Update-AllModules.ps1)** — Updates all PowerShell modules to latest versions
 
 </details>
 
 <details>
 <summary>🛠️ Profile Management</summary><br />
 
-- **[`Show-ProfileCommand`](Functions/Show-ProfileCommand.ps1)** — Shows a bulleted list of all available commands in the PowerShell profile Functions folder
+- **[`Show-ProfileCommands`](Functions/Show-ProfileCommands.ps1)** — Show all commands available in this PowerShell profile
 - **[`Test-ProfileUpdate`](Functions/Test-ProfileUpdate.ps1)** — Checks for available profile updates from the GitHub repository
 
 </details>
@@ -110,14 +110,14 @@ The profile includes various utility commands organized by category:
 <summary>🎬 Media Processing</summary><br />
 
 - **[`Invoke-FFmpeg`](Functions/Invoke-FFmpeg.ps1)** — Converts video files using Samsung TV-friendly H.264/H.265 encoding
-- **[`Rename-VideoSeasonFile`](Functions/Rename-VideoSeasonFile.ps1)** — Batch renames video files with season/episode formatting
+- **[`Rename-VideoSeasonFile`](Functions/Rename-VideoSeasonFile.ps1)** — Batch renames TV show episode files to a consistent format
 
 </details>
 
 <details>
 <summary>🔧 Utilities</summary><br />
 
-- **[`Convert-LineEndings`](Functions/Convert-LineEndings.ps1)** — Converts line endings between LF and CRLF with optional file encoding conversion
+- **[`Convert-LineEndings`](Functions/Convert-LineEndings.ps1)** — Converts line endings between Unix and Windows
 - **[`Get-CommandAlias`](Functions/Get-CommandAlias.ps1)** — Displays aliases for PowerShell cmdlets
 - **[`Get-IPSubnet`](Functions/Get-IPSubnet.ps1)** — Calculates IP subnet information including network/broadcast addresses
 - **[`New-RandomString`](Functions/New-RandomString.ps1)** — Generates random strings, useful for passwords/tokens
