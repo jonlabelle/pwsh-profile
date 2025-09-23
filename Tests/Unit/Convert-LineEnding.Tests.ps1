@@ -1058,7 +1058,7 @@ Describe 'Convert-LineEnding' {
             }
         }
 
-        It 'Should preserve timestamps by default when converting line endings' {
+        It 'Should update timestamps by default when converting line endings' {
             # Create test file with CRLF content
             $content = "line1`r`nline2`r`nline3`r`n"
             Set-Content -Path $script:TestFile -Value $content -NoNewline -Encoding ASCII
@@ -1069,25 +1069,21 @@ Describe 'Convert-LineEnding' {
             $fileInfo.CreationTime = $pastTime
             $fileInfo.LastWriteTime = $pastTime
 
-            # Convert to LF (should preserve timestamps)
+            # Convert to LF (should update timestamps by default)
             Convert-LineEnding -Path $script:TestFile -LineEnding 'LF'
 
-            # Verify timestamps are preserved (allow for filesystem precision differences)
+            # Verify timestamps are updated (at least LastWriteTime should be updated)
             $fileInfoAfter = Get-Item $script:TestFile
-            $creationDiff = [Math]::Abs(($fileInfoAfter.CreationTime - $pastTime).TotalSeconds)
-            $writeDiff = [Math]::Abs(($fileInfoAfter.LastWriteTime - $pastTime).TotalSeconds)
+            $writeDiff = ($fileInfoAfter.LastWriteTime - $pastTime).TotalSeconds
 
-            # Use platform-appropriate tolerance: Windows NTFS can have different precision than APFS/ext4
-            $tolerance = if ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) { 2 } else { 0.1 }
-            $creationDiff | Should -BeLessThan $tolerance -Because 'Creation time should be preserved (filesystem precision varies by platform)'
-            $writeDiff | Should -BeLessThan $tolerance -Because 'Last write time should be preserved (filesystem precision varies by platform)'
+            $writeDiff | Should -BeGreaterThan 1 -Because 'Last write time should be updated by default (no -PreserveTimestamps)'
 
             # Verify content was actually converted
             $newContent = Get-Content -Path $script:TestFile -Raw
             $newContent | Should -Be "line1`nline2`nline3`n"
         }
 
-        It 'Should preserve timestamps when PreserveTimestamps is explicitly true' {
+        It 'Should preserve timestamps when PreserveTimestamps switch is specified' {
             # Create test file with CRLF content
             $content = "line1`r`nline2`r`nline3`r`n"
             Set-Content -Path $script:TestFile -Value $content -NoNewline -Encoding ASCII
@@ -1099,7 +1095,7 @@ Describe 'Convert-LineEnding' {
             $fileInfo.LastWriteTime = $pastTime
 
             # Convert to LF with explicit timestamp preservation
-            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -PreserveTimestamps $true
+            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -PreserveTimestamps
 
             # Verify timestamps are preserved (allow for filesystem precision differences)
             $fileInfoAfter = Get-Item $script:TestFile
@@ -1112,7 +1108,7 @@ Describe 'Convert-LineEnding' {
             $writeDiff | Should -BeLessThan $tolerance -Because 'Last write time should be preserved (filesystem precision varies by platform)'
         }
 
-        It 'Should update timestamps when PreserveTimestamps is false' {
+        It 'Should update timestamps when PreserveTimestamps is not specified' {
             # Create test file with CRLF content
             $content = "line1`r`nline2`r`nline3`r`n"
             Set-Content -Path $script:TestFile -Value $content -NoNewline -Encoding ASCII
@@ -1123,14 +1119,14 @@ Describe 'Convert-LineEnding' {
             $fileInfo.CreationTime = $pastTime
             $fileInfo.LastWriteTime = $pastTime
 
-            # Convert to LF without preserving timestamps
+            # Convert to LF without preserving timestamps (default behavior)
             $convertTime = Get-Date
-            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -PreserveTimestamps $false
+            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF'
 
             # Verify timestamps were updated (should be close to current time)
             $fileInfoAfter = Get-Item $script:TestFile
             # Note: Creation time may not change on all filesystems when modifying files
-            # Only LastWriteTime is guaranteed to be updated when PreserveTimestamps is false
+            # Only LastWriteTime is guaranteed to be updated when PreserveTimestamps is not specified
             $fileInfoAfter.LastWriteTime | Should -BeGreaterThan $pastTime
 
             # Allow some tolerance for timing differences (within 30 seconds)
@@ -1149,8 +1145,8 @@ Describe 'Convert-LineEnding' {
             $fileInfo.CreationTime = $pastTime
             $fileInfo.LastWriteTime = $pastTime
 
-            # Try to convert to LF (should be skipped) with PreserveTimestamps false
-            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -PreserveTimestamps $false
+            # Try to convert to LF (should be skipped) without PreserveTimestamps switch
+            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF'
 
             # Verify timestamps are still preserved (file was skipped, allow for small filesystem precision differences)
             $fileInfoAfter = Get-Item $script:TestFile
@@ -1174,8 +1170,8 @@ Describe 'Convert-LineEnding' {
             $fileInfo.CreationTime = $pastTime
             $fileInfo.LastWriteTime = $pastTime
 
-            # Convert encoding to UTF8 (should preserve timestamps)
-            Convert-LineEnding -Path $script:TestFile -Encoding 'UTF8'
+            # Convert encoding to UTF8 (with timestamp preservation)
+            Convert-LineEnding -Path $script:TestFile -Encoding 'UTF8' -PreserveTimestamps
 
             # Verify timestamps are preserved (allow for filesystem precision differences)
             $fileInfoAfter = Get-Item $script:TestFile
@@ -1204,8 +1200,8 @@ Describe 'Convert-LineEnding' {
             $fileInfo.CreationTime = $pastTime
             $fileInfo.LastWriteTime = $pastTime
 
-            # Convert to LF with PassThru
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -PassThru
+            # Convert to LF with PassThru and timestamp preservation
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -PreserveTimestamps -PassThru
 
             # Verify PassThru result
             $result | Should -Not -BeNullOrEmpty

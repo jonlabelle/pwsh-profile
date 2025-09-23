@@ -791,7 +791,7 @@ Describe 'Convert-LineEnding Integration Tests' {
             }
         }
 
-        It 'Should preserve timestamps for converted files and demonstrate default behavior' {
+        It 'Should preserve timestamps when PreserveTimestamps switch is specified' {
             # Create a single test file that we know will be converted
             $singleTestFile = Join-Path $script:TimestampTestDir 'timestamp-single-test.txt'
             $crlfContent = "Line 1`r`nLine 2`r`nLine 3`r`n"
@@ -804,8 +804,8 @@ Describe 'Convert-LineEnding Integration Tests' {
             $fileInfo.CreationTime = $pastTime
             $fileInfo.LastWriteTime = $pastTime
 
-            # Convert with default settings (PreserveTimestamps = true)
-            $result = Convert-LineEnding -Path $singleTestFile -LineEnding 'LF' -PassThru
+            # Convert with timestamp preservation enabled
+            $result = Convert-LineEnding -Path $singleTestFile -LineEnding 'LF' -PreserveTimestamps -PassThru
 
             # Verify the file was converted successfully
             $result.Success | Should -Be $true
@@ -832,7 +832,7 @@ Describe 'Convert-LineEnding Integration Tests' {
             Remove-Item $singleTestFile -Force -ErrorAction SilentlyContinue
         }
 
-        It 'Should not preserve timestamps when PreserveTimestamps is disabled' {
+        It 'Should update timestamps by default when not preserving timestamps' {
             # Create a single test file that we know will be converted
             $singleTestFile = Join-Path $script:TimestampTestDir 'no-preserve-test.txt'
             $crlfContent = "Test content`r`nLine 2`r`n"
@@ -845,8 +845,8 @@ Describe 'Convert-LineEnding Integration Tests' {
             $fileInfo.CreationTime = $pastTime
             $fileInfo.LastWriteTime = $pastTime
 
-            # Convert with PreserveTimestamps disabled
-            $result = Convert-LineEnding -Path $singleTestFile -LineEnding 'LF' -PreserveTimestamps:$false -PassThru
+            # Convert without PreserveTimestamps (default behavior)
+            $result = Convert-LineEnding -Path $singleTestFile -LineEnding 'LF' -PassThru
 
             # Verify the file was converted
             $result.Success | Should -Be $true
@@ -860,7 +860,7 @@ Describe 'Convert-LineEnding Integration Tests' {
             ($currentTime - $newFileInfo.LastWriteTime).TotalSeconds | Should -BeLessThan 30 -Because 'Last write time should be current when not preserving timestamps'
 
             # Should not be the original past time
-            $newFileInfo.LastWriteTime | Should -Not -Be $pastTime -Because 'Timestamp should have changed when PreserveTimestamps is false'
+            $newFileInfo.LastWriteTime | Should -Not -Be $pastTime -Because 'Timestamp should have changed when PreserveTimestamps is not specified'
 
             # Clean up
             Remove-Item $singleTestFile -Force -ErrorAction SilentlyContinue
@@ -927,8 +927,8 @@ Describe 'Convert-LineEnding Integration Tests' {
                 $fileInfo.LastWriteTime = $pastTime
             }
 
-            # Convert directory with default timestamp preservation
-            $results = Convert-LineEnding -Path $mixedTestDir -LineEnding 'LF' -Recurse -PassThru
+            # Convert directory with timestamp preservation enabled
+            $results = Convert-LineEnding -Path $mixedTestDir -LineEnding 'LF' -Recurse -PreserveTimestamps -PassThru
 
             # Verify we have both conversions and skips
             $convertedResults = @($results | Where-Object { $_.Converted -eq $true })
@@ -937,7 +937,7 @@ Describe 'Convert-LineEnding Integration Tests' {
             $convertedResults.Count | Should -Be 1 -Because 'One file should have been converted from CRLF to LF'
             $skippedResults.Count | Should -Be 1 -Because 'One file should have been skipped (already LF)'
 
-            # Both files should have preserved timestamps (default behavior)
+            # Both files should have preserved timestamps when -PreserveTimestamps is specified
             $allResults = @($convertedResults) + @($skippedResults)
             foreach ($result in $allResults)
             {
@@ -948,8 +948,8 @@ Describe 'Convert-LineEnding Integration Tests' {
 
                 # Use platform-appropriate tolerance: Windows NTFS can have different precision than APFS/ext4
                 $tolerance = if ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) { 2 } else { 0.1 }
-                $creationDiff | Should -BeLessThan $tolerance -Because 'Timestamps should be preserved with default settings'
-                $writeDiff | Should -BeLessThan $tolerance -Because 'Timestamps should be preserved with default settings'
+                $creationDiff | Should -BeLessThan $tolerance -Because 'Timestamps should be preserved when -PreserveTimestamps is specified'
+                $writeDiff | Should -BeLessThan $tolerance -Because 'Timestamps should be preserved when -PreserveTimestamps is specified'
             }
 
             # Clean up

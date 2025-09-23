@@ -79,9 +79,9 @@ function Convert-LineEnding
         editors expect text files to end with a newline character.
 
     .PARAMETER PreserveTimestamps
-        Preserves the original file timestamps (creation time and last write time)
-        when files are modified. This is the default behavior. When set to $false, modified files
-        will have updated timestamps reflecting the time of conversion.
+        When specified, preserves the original file timestamps (creation time and last write time)
+        when files are modified. By default, modified files will have updated timestamps
+        reflecting the time of conversion.
 
     .PARAMETER PassThru
         Returns information about the processed files.
@@ -178,19 +178,18 @@ function Convert-LineEnding
         had their line endings converted (filters out files that already had CRLF).
 
     .EXAMPLE
-        PS > Convert-LineEnding -Path 'legacy-file.txt' -LineEnding 'LF' -Encoding 'UTF8' -PreserveTimestamps:$false -PassThru
+        PS > Convert-LineEnding -Path 'legacy-file.txt' -LineEnding 'LF' -Encoding 'UTF8' -PassThru
 
-        Converts both line endings and encoding and allows the file timestamps to be updated to
-        the current time. By default, PreserveTimestamps is $true, so this example explicitly
-        disables timestamp preservation to show the new modification time after conversion.
+        Converts both line endings and encoding. The file timestamps will be updated to
+        the current time since -PreserveTimestamps is not specified.
 
     .EXAMPLE
         PS > Convert-LineEnding -Path 'project' -LineEnding 'LF' -Recurse -PreserveTimestamps -PassThru
 
         Converts all files in the project directory to Unix line endings while preserving their
-        original timestamps. This is the default behavior, but the parameter is shown explicitly
-        for clarity. Files that don't need conversion are never touched, so their timestamps
-        are naturally preserved.
+        original timestamps. Without -PreserveTimestamps, modified files would get new timestamps
+        reflecting the time of conversion. Files that don't need conversion are never touched,
+        so their timestamps are naturally preserved regardless of the -PreserveTimestamps setting.
 
     .EXAMPLE
         PS > Convert-LineEnding -Path 'legacy-file.txt' -LineEnding 'LF' -Encoding 'UTF8' -PassThru | Format-Table
@@ -295,12 +294,12 @@ function Convert-LineEnding
         processing.
 
         TIMESTAMP PRESERVATION:
-        By default, the function preserves original file timestamps (creation time and last write time)
-        when files are modified. This maintains the original file history and
-        makes the conversion process transparent to file system monitoring tools. Files that are
-        skipped (no conversion needed) are never touched, so their timestamps are naturally preserved.
-        Set -PreserveTimestamps to $false to allow modified files to receive new timestamps
-        reflecting the time of conversion.
+        By default, file timestamps are updated to reflect the time of conversion. Use the
+        -PreserveTimestamps switch to maintain original file timestamps (creation time and last write time)
+        when files are modified. This can be useful to maintain original file history and
+        make the conversion process transparent to file system monitoring tools. Files that are
+        skipped (no conversion needed) are never touched, so their timestamps are naturally preserved
+        regardless of the -PreserveTimestamps setting.
 
     .LINK
         https://jonlabelle.com/snippets/view/powershell/convert-line-endings-in-powershell
@@ -424,7 +423,7 @@ function Convert-LineEnding
         [Switch]$EnsureEndingNewline,
 
         [Parameter()]
-        [Bool]$PreserveTimestamps = $true,
+        [Switch]$PreserveTimestamps,
 
         [Parameter()]
         [Switch]$PassThru
@@ -998,7 +997,7 @@ function Convert-LineEnding
                 [System.Text.Encoding]$TargetEncoding = $null,
                 [Boolean]$ConvertLineEndings = $true,
                 [Boolean]$EnsureEndingNewline = $false,
-                [Boolean]$PreserveTimestamps = $true,
+                [Boolean]$PreserveTimestamps = $false,
                 [Hashtable]$OriginalTimestamps = $null
             )
 
@@ -1399,7 +1398,7 @@ function Convert-LineEnding
 
                             # Only use target encoding if encoding conversion is needed
                             $actualTargetEncoding = if ($needsEncodingConversion) { $targetEncoding } else { $null }
-                            $result = Convert-SingleFileLineEnding -FilePath $file.FullName -TargetLineEnding $targetLineEnding -SourceEncoding $sourceEncoding -TargetEncoding $actualTargetEncoding -ConvertLineEndings $needsLineEndingConversion -EnsureEndingNewline $EnsureEndingNewline.IsPresent -PreserveTimestamps $PreserveTimestamps -OriginalTimestamps $originalTimestamps
+                            $result = Convert-SingleFileLineEnding -FilePath $file.FullName -TargetLineEnding $targetLineEnding -SourceEncoding $sourceEncoding -TargetEncoding $actualTargetEncoding -ConvertLineEndings $needsLineEndingConversion -EnsureEndingNewline $EnsureEndingNewline.IsPresent -PreserveTimestamps $PreserveTimestamps.IsPresent -OriginalTimestamps $originalTimestamps
 
                             if ($PassThru)
                             {
@@ -1510,7 +1509,7 @@ function Convert-LineEnding
 
                         # Only use target encoding if encoding conversion is needed
                         $actualTargetEncoding = if ($needsEncodingConversion) { $targetEncoding } else { $null }
-                        $result = Convert-SingleFileLineEnding -FilePath $resolvedPath -TargetLineEnding $targetLineEnding -SourceEncoding $sourceEncoding -TargetEncoding $actualTargetEncoding -ConvertLineEndings $needsLineEndingConversion -EnsureEndingNewline $EnsureEndingNewline.IsPresent -PreserveTimestamps $PreserveTimestamps -OriginalTimestamps $originalTimestamps
+                        $result = Convert-SingleFileLineEnding -FilePath $resolvedPath -TargetLineEnding $targetLineEnding -SourceEncoding $sourceEncoding -TargetEncoding $actualTargetEncoding -ConvertLineEndings $needsLineEndingConversion -EnsureEndingNewline $EnsureEndingNewline.IsPresent -PreserveTimestamps $PreserveTimestamps.IsPresent -OriginalTimestamps $originalTimestamps
 
                         if ($PassThru)
                         {
