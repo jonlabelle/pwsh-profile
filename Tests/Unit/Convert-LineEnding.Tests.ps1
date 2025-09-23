@@ -3,10 +3,10 @@
 
 <#
 .SYNOPSIS
-    Unit tests for Convert-LineEnding function.
+    Unit tests for Convert-LineEndings function.
 
 .DESCRIPTION
-    Tests the Convert-LineEnding function which converts line endings between LF and CRLF formats
+    Tests the Convert-LineEndings function which converts line endings between LF and CRLF formats
     while preserving file encoding and automatically detecting binary files.
 
 .NOTES
@@ -21,7 +21,7 @@
 
 BeforeAll {
     # Import the function under test
-    . "$PSScriptRoot/../../Functions/Convert-LineEnding.ps1"
+    . "$PSScriptRoot/../../Functions/Convert-LineEndings.ps1"
 
     # Create a test directory
     $script:TestDir = Join-Path $TestDrive 'LineEndingTests'
@@ -36,16 +36,16 @@ AfterAll {
     }
 }
 
-Describe 'Convert-LineEnding' {
+Describe 'Convert-LineEndings' {
     Context 'Parameter Validation' {
         It 'Should have mandatory Path parameter' {
-            $command = Get-Command Convert-LineEnding
+            $command = Get-Command Convert-LineEndings
             $pathParam = $command.Parameters['Path']
             $pathParam.Attributes.Mandatory | Should -Contain $true
         }
 
         It 'Should have optional LineEnding parameter with default value' {
-            $command = Get-Command Convert-LineEnding
+            $command = Get-Command Convert-LineEndings
             $lineEndingParam = $command.Parameters['LineEnding']
             $lineEndingParam.Attributes.Mandatory | Should -Not -Contain $true
         }
@@ -53,7 +53,7 @@ Describe 'Convert-LineEnding' {
         It 'Should validate LineEnding values' {
             $testFile = Join-Path $script:TestDir 'validation-test.txt'
             'test' | Out-File -FilePath $testFile -NoNewline
-            { Convert-LineEnding -Path $testFile -LineEnding 'Invalid' -ErrorAction Stop } | Should -Throw
+            { Convert-LineEndings -Path $testFile -LineEnding 'Invalid' -ErrorAction Stop } | Should -Throw
         }
 
         It 'Should accept valid LineEnding values' {
@@ -61,16 +61,16 @@ Describe 'Convert-LineEnding' {
             $testFile = Join-Path $script:TestDir 'validation-test.txt'
             'test' | Out-File -FilePath $testFile -NoNewline
 
-            { Convert-LineEnding -Path $testFile -LineEnding 'Auto' -WhatIf } | Should -Not -Throw
-            { Convert-LineEnding -Path $testFile -LineEnding 'LF' -WhatIf } | Should -Not -Throw
-            { Convert-LineEnding -Path $testFile -LineEnding 'CRLF' -WhatIf } | Should -Not -Throw
+            { Convert-LineEndings -Path $testFile -LineEnding 'Auto' -WhatIf } | Should -Not -Throw
+            { Convert-LineEndings -Path $testFile -LineEnding 'LF' -WhatIf } | Should -Not -Throw
+            { Convert-LineEndings -Path $testFile -LineEnding 'CRLF' -WhatIf } | Should -Not -Throw
         }
 
         It 'Should work without specifying LineEnding parameter (defaults to Auto)' {
             $testFile = Join-Path $script:TestDir 'default-test.txt'
             'test content' | Out-File -FilePath $testFile -NoNewline
 
-            { Convert-LineEnding -Path $testFile -WhatIf } | Should -Not -Throw
+            { Convert-LineEndings -Path $testFile -WhatIf } | Should -Not -Throw
         }
     }
 
@@ -91,7 +91,7 @@ Describe 'Convert-LineEnding' {
             $content = "Line 1`r`nLine 2`r`nLine 3"
             [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
 
-            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF'
+            Convert-LineEndings -Path $script:TestFile -LineEnding 'LF'
 
             $result = [System.IO.File]::ReadAllText($script:TestFile)
             $result | Should -Be "Line 1`nLine 2`nLine 3"
@@ -103,7 +103,7 @@ Describe 'Convert-LineEnding' {
             $content = "Line 1`nLine 2`nLine 3"
             [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
 
-            Convert-LineEnding -Path $script:TestFile -LineEnding 'CRLF'
+            Convert-LineEndings -Path $script:TestFile -LineEnding 'CRLF'
 
             $result = [System.IO.File]::ReadAllText($script:TestFile)
             $result | Should -Be "Line 1`r`nLine 2`r`nLine 3"
@@ -115,7 +115,7 @@ Describe 'Convert-LineEnding' {
             $content = "Line 1`r`nLine 2`nLine 3`rLine 4"
             [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
 
-            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF'
+            Convert-LineEndings -Path $script:TestFile -LineEnding 'LF'
 
             $result = [System.IO.File]::ReadAllText($script:TestFile)
             $result | Should -Be "Line 1`nLine 2`nLine 3`nLine 4"
@@ -126,7 +126,7 @@ Describe 'Convert-LineEnding' {
             # Create empty file using specific method to ensure it's truly empty
             [System.IO.File]::WriteAllBytes($script:TestFile, @())
 
-            { Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' } | Should -Not -Throw
+            { Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' } | Should -Not -Throw
 
             # File should remain empty (or have only BOM if encoding requires it)
             $fileSize = (Get-Item $script:TestFile).Length
@@ -137,7 +137,7 @@ Describe 'Convert-LineEnding' {
             # Create file without line endings
             'Single line without newline' | Out-File -FilePath $script:TestFile -NoNewline
 
-            { Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' } | Should -Not -Throw
+            { Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' } | Should -Not -Throw
 
             $result = Get-Content -Path $script:TestFile -Raw
             $result | Should -Be 'Single line without newline'
@@ -160,7 +160,7 @@ Describe 'Convert-LineEnding' {
             $content = "Test with UTF-8: café, naïve, résumé`r`n"
             [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
 
-            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF'
+            Convert-LineEndings -Path $script:TestFile -LineEnding 'LF'
 
             $result = [System.IO.File]::ReadAllText($script:TestFile, [System.Text.Encoding]::UTF8)
             $result | Should -Be "Test with UTF-8: café, naïve, résumé`n"
@@ -171,7 +171,7 @@ Describe 'Convert-LineEnding' {
             $utf8WithBom = New-Object System.Text.UTF8Encoding($true)
             [System.IO.File]::WriteAllText($script:TestFile, $content, $utf8WithBom)
 
-            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF'
+            Convert-LineEndings -Path $script:TestFile -LineEnding 'LF'
 
             # Verify BOM is still present
             $bytes = [System.IO.File]::ReadAllBytes($script:TestFile)
@@ -189,7 +189,7 @@ Describe 'Convert-LineEnding' {
             $originalBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
             $originalBytes[0] | Should -Not -Be 0xEF
 
-            Convert-LineEnding -Path $script:TestFile -LineEnding 'CRLF'
+            Convert-LineEndings -Path $script:TestFile -LineEnding 'CRLF'
 
             # Verify BOM is still NOT present after conversion
             $convertedBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
@@ -204,7 +204,7 @@ Describe 'Convert-LineEnding' {
             $content = "Simple ASCII text`r`n"
             [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::ASCII)
 
-            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF'
+            Convert-LineEndings -Path $script:TestFile -LineEnding 'LF'
 
             $result = [System.IO.File]::ReadAllText($script:TestFile, [System.Text.Encoding]::ASCII)
             $result | Should -Be "Simple ASCII text`n"
@@ -224,7 +224,7 @@ Describe 'Convert-LineEnding' {
         }
 
         It 'Should accept valid encoding parameter values' {
-            $command = Get-Command Convert-LineEnding
+            $command = Get-Command Convert-LineEndings
             $encodingParam = $command.Parameters['Encoding']
             $validEncodings = $encodingParam.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] } | Select-Object -ExpandProperty ValidValues
 
@@ -245,7 +245,7 @@ Describe 'Convert-LineEnding' {
             $originalBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
             $originalBytes[0] | Should -Not -Be 0xEF
 
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8BOM' -PassThru
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8BOM' -PassThru
 
             # Verify conversion occurred
             $result.SourceEncoding | Should -Be 'Unicode (UTF-8)'
@@ -268,7 +268,7 @@ Describe 'Convert-LineEnding' {
             $originalBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
             $originalBytes[0] | Should -Be 0xEF
 
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8' -PassThru
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8' -PassThru
 
             # Verify conversion occurred
             $result.SourceEncoding | Should -Be 'Unicode (UTF-8)'
@@ -285,7 +285,7 @@ Describe 'Convert-LineEnding' {
             $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
             [System.IO.File]::WriteAllText($script:TestFile, $content, $utf8NoBom)
 
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF16LE' -PassThru
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF16LE' -PassThru
 
             # Verify conversion occurred
             $result.SourceEncoding | Should -Be 'Unicode (UTF-8)'
@@ -307,7 +307,7 @@ Describe 'Convert-LineEnding' {
             $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
             [System.IO.File]::WriteAllText($script:TestFile, $content, $utf8NoBom)
 
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'ASCII' -PassThru
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -Encoding 'ASCII' -PassThru
 
             # Verify conversion occurred
             $result.SourceEncoding | Should -Be 'Unicode (UTF-8)'
@@ -324,7 +324,7 @@ Describe 'Convert-LineEnding' {
             $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
             [System.IO.File]::WriteAllText($script:TestFile, $content, $utf8NoBom)
 
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8' -PassThru
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8' -PassThru
 
             # Verify line ending conversion occurred but no encoding conversion
             $result.SourceEncoding | Should -Be 'Unicode (UTF-8)'
@@ -344,7 +344,7 @@ Describe 'Convert-LineEnding' {
             $originalBytes[0] | Should -Not -Be 0xEF
 
             # This should convert encoding even though line endings are already correct
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8BOM' -PassThru
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8BOM' -PassThru
 
             # Should NOT be skipped and should convert encoding
             $result.Skipped | Should -Be $false
@@ -365,7 +365,7 @@ Describe 'Convert-LineEnding' {
             $originalBytes[0] | Should -Not -Be 0xEF
 
             # This should convert encoding but not line endings since they're already correct
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8BOM' -PassThru
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8BOM' -PassThru
 
             # Should NOT be skipped and should convert encoding
             $result.Skipped | Should -Be $false
@@ -397,7 +397,7 @@ Describe 'Convert-LineEnding' {
             $originalContent | Should -Match "`r`n"
 
             # This should convert line endings but not encoding since it's already correct
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8BOM' -PassThru
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8BOM' -PassThru
 
             # Should NOT be skipped and should convert line endings but not encoding
             $result.Skipped | Should -Be $false
@@ -427,7 +427,7 @@ Describe 'Convert-LineEnding' {
             $originalBytes[0] | Should -Be 0xEF
 
             # This should skip the file entirely since both line endings and encoding are correct
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8BOM' -PassThru
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8BOM' -PassThru
 
             # Should return a skipped result
             $result.Skipped | Should -Be $true
@@ -453,7 +453,7 @@ Describe 'Convert-LineEnding' {
 
             foreach ($encoding in $encodings)
             {
-                { Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding $encoding -WhatIf } | Should -Not -Throw
+                { Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -Encoding $encoding -WhatIf } | Should -Not -Throw
             }
         }
     }
@@ -481,8 +481,8 @@ Describe 'Convert-LineEnding' {
             'fake content' | Out-File -FilePath $script:ExecutableFile -NoNewline
 
             # Should not process these files (function should skip them silently)
-            { Convert-LineEnding -Path $script:ImageFile -LineEnding 'LF' } | Should -Not -Throw
-            { Convert-LineEnding -Path $script:ExecutableFile -LineEnding 'LF' } | Should -Not -Throw
+            { Convert-LineEndings -Path $script:ImageFile -LineEnding 'LF' } | Should -Not -Throw
+            { Convert-LineEndings -Path $script:ExecutableFile -LineEnding 'LF' } | Should -Not -Throw
 
             # Files should remain unchanged
             $imageContent = Get-Content -Path $script:ImageFile -Raw
@@ -499,7 +499,7 @@ Describe 'Convert-LineEnding' {
 
             # Should not process this file and show verbose message about null bytes
             $verboseMessages = @()
-            Convert-LineEnding -Path $script:ContentBinaryFile -LineEnding 'LF' -Verbose 4>&1 | Tee-Object -Variable verboseMessages | Out-Null
+            Convert-LineEndings -Path $script:ContentBinaryFile -LineEnding 'LF' -Verbose 4>&1 | Tee-Object -Variable verboseMessages | Out-Null
             ($verboseMessages | Where-Object { $_ -match 'detected as binary.*null bytes' }) | Should -Not -BeNullOrEmpty
         }
 
@@ -510,7 +510,7 @@ Describe 'Convert-LineEnding' {
 
             # Should not process this file
             $verboseMessages = @()
-            Convert-LineEnding -Path $script:ContentBinaryFile -LineEnding 'LF' -Verbose 4>&1 | Tee-Object -Variable verboseMessages | Out-Null
+            Convert-LineEndings -Path $script:ContentBinaryFile -LineEnding 'LF' -Verbose 4>&1 | Tee-Object -Variable verboseMessages | Out-Null
             ($verboseMessages | Where-Object { $_ -match 'detected as binary.*printable character ratio' }) | Should -Not -BeNullOrEmpty
         }
     }
@@ -552,7 +552,7 @@ Describe 'Convert-LineEnding' {
         }
 
         It 'Should process all text files in directory' {
-            Convert-LineEnding -Path $script:TestDir -LineEnding 'LF'
+            Convert-LineEndings -Path $script:TestDir -LineEnding 'LF'
 
             # Check that text files were converted
             $result1 = Get-Content -Path (Join-Path $script:TestDir 'test1.txt') -Raw
@@ -563,7 +563,7 @@ Describe 'Convert-LineEnding' {
         }
 
         It 'Should process recursively when Recurse is specified' {
-            Convert-LineEnding -Path $script:TestDir -LineEnding 'LF' -Recurse
+            Convert-LineEndings -Path $script:TestDir -LineEnding 'LF' -Recurse
 
             # Check that file in subdirectory was also converted
             $result = Get-Content -Path (Join-Path $script:SubDir 'test2.txt') -Raw
@@ -571,7 +571,7 @@ Describe 'Convert-LineEnding' {
         }
 
         It 'Should not process recursively when Recurse is not specified' {
-            Convert-LineEnding -Path $script:TestDir -LineEnding 'LF'
+            Convert-LineEndings -Path $script:TestDir -LineEnding 'LF'
 
             # File in subdirectory should not be processed (still has CRLF)
             $result = Get-Content -Path (Join-Path $script:SubDir 'test2.txt') -Raw
@@ -579,7 +579,7 @@ Describe 'Convert-LineEnding' {
         }
 
         It 'Should respect Include patterns' {
-            Convert-LineEnding -Path $script:TestDir -LineEnding 'LF' -Include '*.ps1'
+            Convert-LineEndings -Path $script:TestDir -LineEnding 'LF' -Include '*.ps1'
 
             # Only .ps1 file should be converted
             $ps1Result = Get-Content -Path (Join-Path $script:TestDir 'test1.ps1') -Raw
@@ -591,7 +591,7 @@ Describe 'Convert-LineEnding' {
         }
 
         It 'Should respect Exclude patterns' {
-            Convert-LineEnding -Path $script:TestDir -LineEnding 'LF' -Exclude '*.txt'
+            Convert-LineEndings -Path $script:TestDir -LineEnding 'LF' -Exclude '*.txt'
 
             # .ps1 file should be converted
             $ps1Result = Get-Content -Path (Join-Path $script:TestDir 'test1.ps1') -Raw
@@ -619,7 +619,7 @@ Describe 'Convert-LineEnding' {
         It 'Should not modify files when WhatIf is specified' {
             $originalContent = Get-Content -Path $script:TestFile -Raw
 
-            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -WhatIf
+            Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -WhatIf
 
             $currentContent = Get-Content -Path $script:TestFile -Raw
             $currentContent | Should -Be $originalContent
@@ -628,7 +628,7 @@ Describe 'Convert-LineEnding' {
 
         It 'Should show what would be processed when WhatIf is specified' {
             # WhatIf should not throw and should not modify the file
-            { Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -WhatIf } | Should -Not -Throw
+            { Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -WhatIf } | Should -Not -Throw
 
             # Verify file was not actually modified (this is the key test)
             $content = Get-Content -Path $script:TestFile -Raw
@@ -650,7 +650,7 @@ Describe 'Convert-LineEnding' {
         }
 
         It 'Should return processing information when PassThru is specified' {
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -PassThru
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -PassThru
 
             $result | Should -Not -BeNullOrEmpty
             $result.FilePath | Should -Be $script:TestFile
@@ -660,7 +660,7 @@ Describe 'Convert-LineEnding' {
         }
 
         It 'Should return line ending counts' {
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'CRLF' -PassThru
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'CRLF' -PassThru
 
             # Should have counts of original and new line endings
             ($result.OriginalLF + $result.OriginalCRLF) | Should -BeGreaterThan 0
@@ -668,7 +668,7 @@ Describe 'Convert-LineEnding' {
         }
 
         It 'Should not return anything when PassThru is not specified' {
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF'
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF'
 
             $result | Should -BeNullOrEmpty
         }
@@ -679,7 +679,7 @@ Describe 'Convert-LineEnding' {
             $nonExistentFile = Join-Path $script:TestDir 'does-not-exist.txt'
 
             $errorMessages = @()
-            Convert-LineEnding -Path $nonExistentFile -LineEnding 'LF' -ErrorVariable errorMessages -ErrorAction SilentlyContinue
+            Convert-LineEndings -Path $nonExistentFile -LineEnding 'LF' -ErrorVariable errorMessages -ErrorAction SilentlyContinue
             $errorMessages | Should -Not -BeNullOrEmpty
             $errorMessages[0] | Should -Match 'Path not found'
         }
@@ -692,7 +692,7 @@ Describe 'Convert-LineEnding' {
             {
                 Set-ItemProperty -Path $script:ReadOnlyFile -Name IsReadOnly -Value $true
 
-                $result = Convert-LineEnding -Path $script:ReadOnlyFile -LineEnding 'LF' -PassThru -ErrorAction SilentlyContinue
+                $result = Convert-LineEndings -Path $script:ReadOnlyFile -LineEnding 'LF' -PassThru -ErrorAction SilentlyContinue
                 $result.Success | Should -Be $false
                 $result.Error | Should -Match 'read-only'
             }
@@ -715,7 +715,7 @@ Describe 'Convert-LineEnding' {
             {
                 Set-ItemProperty -Path $script:ReadOnlyFile -Name IsReadOnly -Value $true
 
-                $result = Convert-LineEnding -Path $script:ReadOnlyFile -LineEnding 'LF' -Force -PassThru
+                $result = Convert-LineEndings -Path $script:ReadOnlyFile -LineEnding 'LF' -Force -PassThru
                 $result.Success | Should -Be $true
 
                 # Verify conversion worked
@@ -756,7 +756,7 @@ Describe 'Convert-LineEnding' {
         }
 
         It 'Should accept pipeline input' {
-            { $script:PipelineFiles | Convert-LineEnding -LineEnding 'LF' } | Should -Not -Throw
+            { $script:PipelineFiles | Convert-LineEndings -LineEnding 'LF' } | Should -Not -Throw
 
             # Verify all files were processed
             foreach ($file in $script:PipelineFiles)
@@ -767,7 +767,7 @@ Describe 'Convert-LineEnding' {
         }
 
         It 'Should work with Get-ChildItem pipeline' {
-            { Get-ChildItem -Path $script:TestDir -Filter '*.txt' | Convert-LineEnding -LineEnding 'LF' } | Should -Not -Throw
+            { Get-ChildItem -Path $script:TestDir -Filter '*.txt' | Convert-LineEndings -LineEnding 'LF' } | Should -Not -Throw
 
             # Verify files were processed
             foreach ($file in $script:PipelineFiles)
@@ -791,7 +791,7 @@ Describe 'Convert-LineEnding' {
         }
 
         It 'Should have EnsureEndingNewline parameter' {
-            $command = Get-Command Convert-LineEnding
+            $command = Get-Command Convert-LineEndings
             $command.Parameters.Keys | Should -Contain 'EnsureEndingNewline'
             $command.Parameters['EnsureEndingNewline'].ParameterType | Should -Be ([Switch])
         }
@@ -801,7 +801,7 @@ Describe 'Convert-LineEnding' {
             $content = 'Line 1' + [char]13 + [char]10 + 'Line 2 without newline'
             [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
 
-            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline
+            Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline
 
             $result = [System.IO.File]::ReadAllText($script:TestFile)
             $expectedContent = 'Line 1' + [char]10 + 'Line 2 without newline' + [char]10
@@ -817,7 +817,7 @@ Describe 'Convert-LineEnding' {
             # Wait a moment to ensure timestamp would change if file is modified
             Start-Sleep -Milliseconds 100
 
-            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline
+            Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline
 
             $result = [System.IO.File]::ReadAllText($script:TestFile)
             $result | Should -Be "Line 1`nLine 2`n"
@@ -828,7 +828,7 @@ Describe 'Convert-LineEnding' {
             # Create file without ending newline
             [System.IO.File]::WriteAllText($script:TestFile, 'Test content', [System.Text.Encoding]::UTF8)
 
-            Convert-LineEnding -Path $script:TestFile -LineEnding 'CRLF' -EnsureEndingNewline
+            Convert-LineEndings -Path $script:TestFile -LineEnding 'CRLF' -EnsureEndingNewline
 
             $result = [System.IO.File]::ReadAllText($script:TestFile)
             $result | Should -Be "Test content`r`n"
@@ -839,7 +839,7 @@ Describe 'Convert-LineEnding' {
             # Create file without ending newline
             [System.IO.File]::WriteAllText($script:TestFile, 'Test content', [System.Text.Encoding]::UTF8)
 
-            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline
+            Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline
 
             $result = [System.IO.File]::ReadAllText($script:TestFile)
             $result | Should -Be "Test content`n"
@@ -851,7 +851,7 @@ Describe 'Convert-LineEnding' {
             # Create empty file
             [System.IO.File]::WriteAllText($script:TestFile, '', [System.Text.Encoding]::UTF8)
 
-            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline
+            Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline
 
             # Empty files should get a newline added when EnsureEndingNewline is specified
             $result = [System.IO.File]::ReadAllText($script:TestFile)
@@ -862,7 +862,7 @@ Describe 'Convert-LineEnding' {
             # Create file without ending newline
             [System.IO.File]::WriteAllText($script:TestFile, 'Test content', [System.Text.Encoding]::UTF8)
 
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline -PassThru
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline -PassThru
 
             $result.EndingNewlineAdded | Should -Be $true
             $result.Success | Should -Be $true
@@ -874,7 +874,7 @@ Describe 'Convert-LineEnding' {
             $content = 'Test content' + [char]10  # LF ending
             [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
 
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline -PassThru
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline -PassThru
 
             $result.EndingNewlineAdded | Should -Be $false
             $result.Success | Should -Be $true
@@ -885,7 +885,7 @@ Describe 'Convert-LineEnding' {
             [System.IO.File]::WriteAllText($script:TestFile, 'Test content', [System.Text.Encoding]::UTF8)
 
             # Should not throw and should not modify file
-            { Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline -WhatIf } | Should -Not -Throw
+            { Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline -WhatIf } | Should -Not -Throw
 
             $result = [System.IO.File]::ReadAllText($script:TestFile)
             $result | Should -Be 'Test content'  # Should be unchanged
@@ -896,7 +896,7 @@ Describe 'Convert-LineEnding' {
             $content = 'Line 1' + [char]10 + 'Line 2 no ending'
             [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
 
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline -PassThru
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline -PassThru
 
             $result.EndingNewlineAdded | Should -Be $true
             $result.Success | Should -Be $true
@@ -912,7 +912,7 @@ Describe 'Convert-LineEnding' {
             $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
             [System.IO.File]::WriteAllText($script:TestFile, 'Test content', $utf8NoBom)
 
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8' -EnsureEndingNewline -PassThru
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8' -EnsureEndingNewline -PassThru
 
             $result.EndingNewlineAdded | Should -Be $true
             $result.EncodingChanged | Should -Be $false
@@ -927,7 +927,7 @@ Describe 'Convert-LineEnding' {
             $content = 'Line 1' + [char]13 + [char]10 + 'Line 2' + [char]10 + 'Line 3 without ending'
             [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
 
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline -PassThru
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline -PassThru
 
             $result.EndingNewlineAdded | Should -Be $true
             $result.Success | Should -Be $true
@@ -941,7 +941,7 @@ Describe 'Convert-LineEnding' {
             $whitespaceContent = '   ' + [char]9 + '  '  # spaces + tab + spaces
             [System.IO.File]::WriteAllText($script:TestFile, $whitespaceContent, [System.Text.Encoding]::UTF8)
 
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline -PassThru
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline -PassThru
 
             $result.EndingNewlineAdded | Should -Be $true
             $result.Success | Should -Be $true
@@ -969,7 +969,7 @@ Describe 'Convert-LineEnding' {
             $content = "Line 1`r`nLine 2`r`nLine 3"
             [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
 
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'Auto' -PassThru
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'Auto' -PassThru
 
             # Platform detection logic (matches the function's logic)
             if ($PSVersionTable.PSVersion.Major -lt 6)
@@ -1004,7 +1004,7 @@ Describe 'Convert-LineEnding' {
             [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
 
             # Don't specify LineEnding parameter - should default to Auto
-            $result = Convert-LineEnding -Path $script:TestFile -PassThru
+            $result = Convert-LineEndings -Path $script:TestFile -PassThru
 
             # Should have processed the file (not skipped)
             $result.Skipped | Should -Be $false
@@ -1034,7 +1034,7 @@ Describe 'Convert-LineEnding' {
             'test content' | Out-File -FilePath $testFile -NoNewline
 
             # Use WhatIf to test without actually modifying files
-            $output = Convert-LineEnding -Path $testFile -LineEnding 'Auto' -Verbose -WhatIf 4>&1
+            $output = Convert-LineEndings -Path $testFile -LineEnding 'Auto' -Verbose -WhatIf 4>&1
 
             # Should contain verbose message about Auto mode resolution
             $verboseOutput = $output | Where-Object { $_ -is [System.Management.Automation.VerboseRecord] }
@@ -1070,7 +1070,7 @@ Describe 'Convert-LineEnding' {
             $fileInfo.LastWriteTime = $pastTime
 
             # Convert to LF (should update timestamps by default)
-            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF'
+            Convert-LineEndings -Path $script:TestFile -LineEnding 'LF'
 
             # Verify timestamps are updated (at least LastWriteTime should be updated)
             $fileInfoAfter = Get-Item $script:TestFile
@@ -1095,7 +1095,7 @@ Describe 'Convert-LineEnding' {
             $fileInfo.LastWriteTime = $pastTime
 
             # Convert to LF with explicit timestamp preservation
-            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -PreserveTimestamps
+            Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -PreserveTimestamps
 
             # Verify timestamps are preserved (allow for filesystem precision differences)
             $fileInfoAfter = Get-Item $script:TestFile
@@ -1121,7 +1121,7 @@ Describe 'Convert-LineEnding' {
 
             # Convert to LF without preserving timestamps (default behavior)
             $convertTime = Get-Date
-            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF'
+            Convert-LineEndings -Path $script:TestFile -LineEnding 'LF'
 
             # Verify timestamps were updated (should be close to current time)
             $fileInfoAfter = Get-Item $script:TestFile
@@ -1146,7 +1146,7 @@ Describe 'Convert-LineEnding' {
             $fileInfo.LastWriteTime = $pastTime
 
             # Try to convert to LF (should be skipped) without PreserveTimestamps switch
-            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF'
+            Convert-LineEndings -Path $script:TestFile -LineEnding 'LF'
 
             # Verify timestamps are still preserved (file was skipped, allow for small filesystem precision differences)
             $fileInfoAfter = Get-Item $script:TestFile
@@ -1171,7 +1171,7 @@ Describe 'Convert-LineEnding' {
             $fileInfo.LastWriteTime = $pastTime
 
             # Convert encoding to UTF8 (with timestamp preservation)
-            Convert-LineEnding -Path $script:TestFile -Encoding 'UTF8' -PreserveTimestamps
+            Convert-LineEndings -Path $script:TestFile -Encoding 'UTF8' -PreserveTimestamps
 
             # Verify timestamps are preserved (allow for filesystem precision differences)
             $fileInfoAfter = Get-Item $script:TestFile
@@ -1201,7 +1201,7 @@ Describe 'Convert-LineEnding' {
             $fileInfo.LastWriteTime = $pastTime
 
             # Convert to LF with PassThru and timestamp preservation
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -PreserveTimestamps -PassThru
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -PreserveTimestamps -PassThru
 
             # Verify PassThru result
             $result | Should -Not -BeNullOrEmpty
@@ -1232,7 +1232,7 @@ Describe 'Convert-LineEnding' {
             try
             {
                 # Should convert successfully even with read-only constraints
-                { Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' } | Should -Not -Throw
+                { Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' } | Should -Not -Throw
 
                 # Verify content was converted
                 $newContent = Get-Content -Path $script:TestFile -Raw

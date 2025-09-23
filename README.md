@@ -117,7 +117,7 @@ The profile includes various utility commands organized by category:
 <details>
 <summary>🔧 Utilities</summary><br />
 
-- **[`Convert-LineEnding`](Functions/Convert-LineEnding.ps1)** — Converts line endings between LF and CRLF with optional file encoding conversion
+- **[`Convert-LineEndings`](Functions/Convert-LineEndings.ps1)** — Converts line endings between LF and CRLF with optional file encoding conversion
 - **[`Get-CommandAlias`](Functions/Get-CommandAlias.ps1)** — Displays aliases for PowerShell cmdlets
 - **[`Get-IPSubnet`](Functions/Get-IPSubnet.ps1)** — Calculates IP subnet information including network/broadcast addresses
 - **[`New-RandomString`](Functions/New-RandomString.ps1)** — Generates random strings, useful for passwords/tokens
