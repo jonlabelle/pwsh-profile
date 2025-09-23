@@ -62,7 +62,7 @@ function Convert-LineEnding
 
     .OUTPUTS
         None by default.
-        [PSCustomObject] when PassThru is specified, containing file path, original and new line ending counts.
+        [System.Object[]] when PassThru is specified, containing file path, original and new line ending counts.
 
     .NOTES
         Version: 1.0.0
@@ -89,10 +89,13 @@ function Convert-LineEnding
 
     .LINK
         https://jonlabelle.com/snippets/view/powershell/convert-line-endings-in-powershell
+
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Convert-LineEnding.ps1
     #>
 
     [CmdletBinding(SupportsShouldProcess)]
-    [OutputType([PSCustomObject])]
+    [OutputType([System.Object[]])]
     param(
         [Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [Alias('FullName')]
@@ -181,17 +184,119 @@ function Convert-LineEnding
                         return $false  # Empty file is not binary
                     }
 
-                    # Check for null bytes (strong indicator of binary content)
+                    # Check for text encoding patterns first to avoid false positives
+                    $hasUtf16LeBom = $bytesRead -ge 2 -and $buffer[0] -eq 0xFF -and $buffer[1] -eq 0xFE
+                    $hasUtf16BeBom = $bytesRead -ge 2 -and $buffer[0] -eq 0xFE -and $buffer[1] -eq 0xFF
+
+                    # If we detect UTF-16 encoding (common with PowerShell Out-File), analyze accordingly
+                    if ($hasUtf16LeBom -or $hasUtf16BeBom)
+                    {
+                        Write-Verbose "File '$FilePath' has UTF-16 BOM, analyzing as UTF-16 text"
+                        # For UTF-16, check every other byte starting from position 2 (after BOM)
+                        $printableCount = 0
+                        $totalChars = 0
+                        $startPos = if ($hasUtf16LeBom -or $hasUtf16BeBom) { 2 } else { 0 }
+
+                        for ($i = $startPos; $i -lt $bytesRead - 1; $i += 2)
+                        {
+                            $char = if ($hasUtf16LeBom)
+                            {
+                                $buffer[$i] + ($buffer[$i + 1] * 256)
+                            }
+                            else
+                            {
+                                ($buffer[$i] * 256) + $buffer[$i + 1]
+                            }
+
+                            $totalChars++
+                            # Check if character is printable (including common whitespace)
+                            if (($char -ge 32 -and $char -le 126) -or $char -eq 9 -or $char -eq 10 -or $char -eq 13 -or ($char -ge 128 -and $char -le 255))
+                            {
+                                $printableCount++
+                            }
+                        }
+
+                        if ($totalChars -gt 0)
+                        {
+                            $printableRatio = $printableCount / $totalChars
+                            if ($printableRatio -lt 0.75)
+                            {
+                                Write-Verbose "File '$FilePath' detected as binary (low UTF-16 printable character ratio: $([math]::Round($printableRatio * 100, 1))%)"
+                                return $true
+                            }
+                        }
+                        return $false
+                    }
+
+                    # Check for potential UTF-16 without BOM (look for alternating null bytes pattern)
+                    if ($bytesRead -ge 4)
+                    {
+                        $nullByteCount = 0
+                        $alternatingNullPattern = $true
+
+                        # Check first 100 bytes for alternating null pattern (UTF-16 LE)
+                        $checkLength = [Math]::Min(100, $bytesRead)
+                        for ($i = 1; $i -lt $checkLength; $i += 2)
+                        {
+                            if ($buffer[$i] -eq 0)
+                            {
+                                $nullByteCount++
+                            }
+                            else
+                            {
+                                $alternatingNullPattern = $false
+                            }
+                        }
+
+                        # If more than 80% of even positions are null, likely UTF-16 LE
+                        if ($alternatingNullPattern -and $nullByteCount -gt ($checkLength / 2) * 0.8)
+                        {
+                            Write-Verbose "File '$FilePath' appears to be UTF-16 LE without BOM (alternating null pattern)"
+                            # Analyze as UTF-16 LE
+                            $printableCount = 0
+                            $totalChars = 0
+
+                            for ($i = 0; $i -lt $bytesRead - 1; $i += 2)
+                            {
+                                $char = $buffer[$i] + ($buffer[$i + 1] * 256)
+                                $totalChars++
+                                if (($char -ge 32 -and $char -le 126) -or $char -eq 9 -or $char -eq 10 -or $char -eq 13 -or ($char -ge 128 -and $char -le 255))
+                                {
+                                    $printableCount++
+                                }
+                            }
+
+                            if ($totalChars -gt 0)
+                            {
+                                $printableRatio = $printableCount / $totalChars
+                                if ($printableRatio -lt 0.75)
+                                {
+                                    Write-Verbose "File '$FilePath' detected as binary (low UTF-16 printable character ratio: $([math]::Round($printableRatio * 100, 1))%)"
+                                    return $true
+                                }
+                            }
+                            return $false
+                        }
+                    }
+
+                    # For other encodings, check for null bytes (but be more selective)
+                    $nullByteCount = 0
                     for ($i = 0; $i -lt $bytesRead; $i++)
                     {
                         if ($buffer[$i] -eq 0)
                         {
-                            Write-Verbose "File '$FilePath' detected as binary (contains null bytes)"
-                            return $true
+                            $nullByteCount++
                         }
                     }
 
-                    # Check ratio of printable characters
+                    # If more than 10% of bytes are null (and not UTF-16), likely binary
+                    if ($nullByteCount -gt ($bytesRead * 0.1))
+                    {
+                        Write-Verbose "File '$FilePath' detected as binary (contains $nullByteCount null bytes out of $bytesRead total)"
+                        return $true
+                    }
+
+                    # Check ratio of printable characters for non-UTF-16 files
                     $printableCount = 0
                     for ($i = 0; $i -lt $bytesRead; $i++)
                     {
