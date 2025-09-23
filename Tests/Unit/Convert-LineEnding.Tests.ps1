@@ -226,8 +226,6 @@ Describe 'Convert-LineEnding' {
             $validEncodings | Should -Contain 'UTF16BE'
             $validEncodings | Should -Contain 'UTF32'
             $validEncodings | Should -Contain 'ASCII'
-            $validEncodings | Should -Contain 'ANSI'
-            $validEncodings | Should -Contain 'OEM'
         }
 
         It 'Should convert UTF8 to UTF8BOM' {
@@ -245,7 +243,6 @@ Describe 'Convert-LineEnding' {
             $result.SourceEncoding | Should -Be 'Unicode (UTF-8)'
             $result.TargetEncoding | Should -Be 'Unicode (UTF-8)'
             $result.EncodingChanged | Should -Be $true
-            $result.Encoding | Should -Be 'Unicode (UTF-8)'  # Backward compatibility
 
             # Verify BOM was added
             $convertedBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
@@ -358,38 +355,10 @@ Describe 'Convert-LineEnding' {
             # Test each supported encoding can be resolved
             $encodings = @('UTF8', 'UTF8BOM', 'UTF16LE', 'UTF16BE', 'UTF32', 'ASCII')
 
-            if ($PSVersionTable.PSVersion.Major -lt 6)
-            {
-                # PowerShell Desktop - add Windows-specific encodings
-                $encodings += @('ANSI', 'OEM')
-            }
-
             foreach ($encoding in $encodings)
             {
                 { Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding $encoding -WhatIf } | Should -Not -Throw
             }
-        }
-
-        It 'Should handle ANSI encoding on Windows' -Skip:($PSVersionTable.PSVersion.Major -ge 6 -or $env:OS -ne 'Windows_NT') {
-            # This test only runs on PowerShell Desktop (Windows)
-            $content = "ANSI test content`r`n"  # CRLF content so conversion is needed
-            [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
-
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'ANSI' -PassThru
-
-            $result.SourceEncoding | Should -Be 'System.Text.UTF8Encoding'
-            $result.EncodingChanged | Should -Be $true
-        }
-
-        It 'Should handle OEM encoding on Windows' -Skip:($PSVersionTable.PSVersion.Major -ge 6 -or $env:OS -ne 'Windows_NT') {
-            # This test only runs on PowerShell Desktop (Windows)
-            $content = "OEM test content`r`n"  # CRLF content so conversion is needed
-            [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
-
-            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'OEM' -PassThru
-
-            $result.SourceEncoding | Should -Be 'System.Text.UTF8Encoding'
-            $result.EncodingChanged | Should -Be $true
         }
     }
 
@@ -590,7 +559,8 @@ Describe 'Convert-LineEnding' {
             $result | Should -Not -BeNullOrEmpty
             $result.FilePath | Should -Be $script:TestFile
             $result.Success | Should -Be $true
-            $result.Encoding | Should -Not -BeNullOrEmpty
+            $result.SourceEncoding | Should -Not -BeNullOrEmpty
+            $result.TargetEncoding | Should -Not -BeNullOrEmpty
         }
 
         It 'Should return line ending counts' {

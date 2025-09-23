@@ -257,7 +257,8 @@ Describe 'Convert-LineEnding Integration Tests' {
             $results | ForEach-Object {
                 $_.FilePath | Should -Not -BeNullOrEmpty
                 $_.Success | Should -Be $true
-                $_.Encoding | Should -Not -BeNullOrEmpty
+                $_.SourceEncoding | Should -Not -BeNullOrEmpty
+                $_.TargetEncoding | Should -Not -BeNullOrEmpty
             }
         }
     }

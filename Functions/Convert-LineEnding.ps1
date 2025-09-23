@@ -55,8 +55,6 @@ function Convert-LineEnding
         - UTF16BE: UTF-16 Big Endian with BOM
         - UTF32: UTF-32 with BOM
         - ASCII: 7-bit ASCII encoding
-        - ANSI: System default ANSI code page (Windows only)
-        - OEM: System default OEM code page (Windows only)
 
     .PARAMETER PassThru
         Returns information about the processed files.
@@ -96,7 +94,7 @@ function Convert-LineEnding
     .OUTPUTS
         None by default.
         [System.Object[]] when PassThru is specified, containing file path, original and new line ending counts,
-        source and target encoding information, and whether encoding was changed.
+        source encoding, target encoding, and whether encoding was changed.
 
     .NOTES
         Version: 1.0.0
@@ -118,8 +116,6 @@ function Convert-LineEnding
         - UTF-16 (Little and Big Endian)
         - UTF-32
         - ASCII
-        - ANSI (Windows only)
-        - OEM (Windows only)
 
         PERFORMANCE:
         Uses streaming operations to handle large files efficiently without loading
@@ -233,7 +229,7 @@ function Convert-LineEnding
         [Switch]$Force,
 
         [Parameter()]
-        [ValidateSet('Auto', 'UTF8', 'UTF8BOM', 'UTF16LE', 'UTF16BE', 'UTF32', 'ASCII', 'ANSI', 'OEM')]
+        [ValidateSet('Auto', 'UTF8', 'UTF8BOM', 'UTF16LE', 'UTF16BE', 'UTF32', 'ASCII')]
         [String]$Encoding = 'Auto',
 
         [Parameter()]
@@ -275,34 +271,6 @@ function Convert-LineEnding
                     'UTF16BE' { return [System.Text.Encoding]::BigEndianUnicode }
                     'UTF32' { return [System.Text.Encoding]::UTF32 }
                     'ASCII' { return [System.Text.Encoding]::ASCII }
-                    'ANSI'
-                    {
-                        # System default ANSI code page (Windows only)
-                        if ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows)
-                        {
-                            return [System.Text.Encoding]::Default
-                        }
-                        else
-                        {
-                            Write-Warning 'ANSI encoding is only supported on Windows. Using UTF-8 instead.'
-                            return New-Object System.Text.UTF8Encoding($false)
-                        }
-                    }
-                    'OEM'
-                    {
-                        # System default OEM code page (Windows only)
-                        if ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows)
-                        {
-                            # Get OEM code page
-                            $oemCodePage = [System.Text.Encoding]::GetEncoding([System.Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage)
-                            return $oemCodePage
-                        }
-                        else
-                        {
-                            Write-Warning 'OEM encoding is only supported on Windows. Using UTF-8 instead.'
-                            return New-Object System.Text.UTF8Encoding($false)
-                        }
-                    }
                     default
                     {
                         throw "Unsupported encoding: $EncodingName"
@@ -832,7 +800,6 @@ function Convert-LineEnding
                     OriginalCRLF = $originalCrlfCount
                     NewLF = $newLfCount
                     NewCRLF = $newCrlfCount
-                    Encoding = $outputEncoding.EncodingName  # Backward compatibility
                     SourceEncoding = $SourceEncoding.EncodingName
                     TargetEncoding = $outputEncoding.EncodingName
                     EncodingChanged = $SourceEncoding.ToString() -ne $outputEncoding.ToString() -or $SourceEncoding.GetPreamble().Length -ne $outputEncoding.GetPreamble().Length
