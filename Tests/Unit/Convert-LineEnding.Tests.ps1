@@ -203,6 +203,196 @@ Describe 'Convert-LineEnding' {
         }
     }
 
+    Context 'Encoding Conversion Parameter' {
+        BeforeEach {
+            $script:TestFile = Join-Path $script:TestDir 'encoding-conversion-test.txt'
+        }
+
+        AfterEach {
+            if (Test-Path $script:TestFile)
+            {
+                Remove-Item -Path $script:TestFile -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'Should accept valid encoding parameter values' {
+            $command = Get-Command Convert-LineEnding
+            $encodingParam = $command.Parameters['Encoding']
+            $validEncodings = $encodingParam.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] } | Select-Object -ExpandProperty ValidValues
+
+            $validEncodings | Should -Contain 'UTF8'
+            $validEncodings | Should -Contain 'UTF8BOM'
+            $validEncodings | Should -Contain 'UTF16LE'
+            $validEncodings | Should -Contain 'UTF16BE'
+            $validEncodings | Should -Contain 'UTF32'
+            $validEncodings | Should -Contain 'ASCII'
+            $validEncodings | Should -Contain 'ANSI'
+            $validEncodings | Should -Contain 'OEM'
+        }
+
+        It 'Should convert UTF8 to UTF8BOM' {
+            $content = "Test content: café`r`n"  # CRLF content so conversion is needed
+            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText($script:TestFile, $content, $utf8NoBom)
+
+            # Verify original has no BOM and CRLF
+            $originalBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $originalBytes[0] | Should -Not -Be 0xEF
+
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8BOM' -PassThru
+
+            # Verify conversion occurred
+            $result.SourceEncoding | Should -Be 'Unicode (UTF-8)'
+            $result.TargetEncoding | Should -Be 'Unicode (UTF-8)'
+            $result.EncodingChanged | Should -Be $true
+            $result.Encoding | Should -Be 'Unicode (UTF-8)'  # Backward compatibility
+
+            # Verify BOM was added
+            $convertedBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $convertedBytes[0] | Should -Be 0xEF
+            $convertedBytes[1] | Should -Be 0xBB
+            $convertedBytes[2] | Should -Be 0xBF
+        }
+
+        It 'Should convert UTF8BOM to UTF8' {
+            $content = "Test content: café`r`n"  # CRLF content so conversion is needed
+            $utf8WithBom = New-Object System.Text.UTF8Encoding($true)
+            [System.IO.File]::WriteAllText($script:TestFile, $content, $utf8WithBom)
+
+            # Verify original has BOM and CRLF
+            $originalBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $originalBytes[0] | Should -Be 0xEF
+
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8' -PassThru
+
+            # Verify conversion occurred
+            $result.SourceEncoding | Should -Be 'Unicode (UTF-8)'
+            $result.TargetEncoding | Should -Be 'Unicode (UTF-8)'
+            $result.EncodingChanged | Should -Be $true
+
+            # Verify BOM was removed
+            $convertedBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $convertedBytes[0] | Should -Not -Be 0xEF
+        }
+
+        It 'Should convert UTF8 to UTF16LE' {
+            $content = "Test UTF16: café`r`n"  # CRLF content so conversion is needed
+            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText($script:TestFile, $content, $utf8NoBom)
+
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF16LE' -PassThru
+
+            # Verify conversion occurred
+            $result.SourceEncoding | Should -Be 'Unicode (UTF-8)'
+            $result.TargetEncoding | Should -Be 'Unicode'
+            $result.EncodingChanged | Should -Be $true
+
+            # Verify UTF16LE BOM
+            $convertedBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $convertedBytes[0] | Should -Be 0xFF
+            $convertedBytes[1] | Should -Be 0xFE
+
+            # Verify content can be read correctly
+            $readContent = [System.IO.File]::ReadAllText($script:TestFile, [System.Text.Encoding]::Unicode)
+            $readContent | Should -Be "Test UTF16: café`n"
+        }
+
+        It 'Should convert UTF8 to ASCII (with special character replacement)' {
+            $content = "Test ASCII: hello world`r`n"  # CRLF content so conversion is needed
+            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText($script:TestFile, $content, $utf8NoBom)
+
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'ASCII' -PassThru
+
+            # Verify conversion occurred
+            $result.SourceEncoding | Should -Be 'Unicode (UTF-8)'
+            $result.TargetEncoding | Should -Be 'US-ASCII'
+            $result.EncodingChanged | Should -Be $true
+
+            # Verify content
+            $readContent = [System.IO.File]::ReadAllText($script:TestFile, [System.Text.Encoding]::ASCII)
+            $readContent | Should -Be "Test ASCII: hello world`n"
+        }
+
+        It 'Should not convert when target encoding matches source encoding' {
+            $content = "Test content`r`n"  # CRLF content so line ending conversion is needed
+            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText($script:TestFile, $content, $utf8NoBom)
+
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8' -PassThru
+
+            # Verify line ending conversion occurred but no encoding conversion
+            $result.SourceEncoding | Should -Be 'Unicode (UTF-8)'
+            $result.TargetEncoding | Should -Be 'Unicode (UTF-8)'
+            $result.EncodingChanged | Should -Be $false
+            $result.OriginalCRLF | Should -Be 1
+            $result.NewLF | Should -Be 1
+        }
+
+        It 'Should not convert encoding when line endings are already correct' {
+            $content = "Test content`n"  # LF content, already correct
+            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText($script:TestFile, $content, $utf8NoBom)
+
+            # Verify original has no BOM
+            $originalBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $originalBytes[0] | Should -Not -Be 0xEF
+
+            # This should skip the file entirely since line endings are already correct
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8BOM' -PassThru
+
+            # Should return a skipped result
+            $result.Skipped | Should -Be $true
+            $result.EncodingChanged | Should -Be $false
+
+            # Verify BOM was NOT added (file was skipped)
+            $finalBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $finalBytes[0] | Should -Not -Be 0xEF
+        }
+
+        It 'Should work with cross-platform encoding names' -Skip:($PSVersionTable.PSVersion.Major -lt 6 -and $IsWindows -eq $false) {
+            # This test ensures the Get-EncodingFromName function works across platforms
+            $content = "Cross-platform test`r`n"
+            [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
+
+            # Test each supported encoding can be resolved
+            $encodings = @('UTF8', 'UTF8BOM', 'UTF16LE', 'UTF16BE', 'UTF32', 'ASCII')
+
+            if ($PSVersionTable.PSVersion.Major -lt 6)
+            {
+                # PowerShell Desktop - add Windows-specific encodings
+                $encodings += @('ANSI', 'OEM')
+            }
+
+            foreach ($encoding in $encodings)
+            {
+                { Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding $encoding -WhatIf } | Should -Not -Throw
+            }
+        }
+
+        It 'Should handle ANSI encoding on Windows' -Skip:($PSVersionTable.PSVersion.Major -ge 6 -or $env:OS -ne 'Windows_NT') {
+            # This test only runs on PowerShell Desktop (Windows)
+            $content = "ANSI test content`r`n"  # CRLF content so conversion is needed
+            [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
+
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'ANSI' -PassThru
+
+            $result.SourceEncoding | Should -Be 'System.Text.UTF8Encoding'
+            $result.EncodingChanged | Should -Be $true
+        }
+
+        It 'Should handle OEM encoding on Windows' -Skip:($PSVersionTable.PSVersion.Major -ge 6 -or $env:OS -ne 'Windows_NT') {
+            # This test only runs on PowerShell Desktop (Windows)
+            $content = "OEM test content`r`n"  # CRLF content so conversion is needed
+            [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
+
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'OEM' -PassThru
+
+            $result.SourceEncoding | Should -Be 'System.Text.UTF8Encoding'
+            $result.EncodingChanged | Should -Be $true
+        }
+    }
+
     Context 'Binary File Detection' {
         BeforeEach {
             # Use different extensions to test different detection methods

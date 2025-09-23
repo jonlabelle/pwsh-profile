@@ -42,6 +42,20 @@ function Convert-LineEnding
     .PARAMETER Force
         Overwrites read-only files. Without this parameter, read-only files are skipped.
 
+    .PARAMETER Encoding
+        Specifies the target file encoding. When specified, files will be converted to this encoding.
+        When not specified, the original file encoding is preserved.
+
+        Valid values:
+        - UTF8: UTF-8 without BOM
+        - UTF8BOM: UTF-8 with BOM
+        - UTF16LE: UTF-16 Little Endian with BOM
+        - UTF16BE: UTF-16 Big Endian with BOM
+        - UTF32: UTF-32 with BOM
+        - ASCII: 7-bit ASCII encoding
+        - ANSI: System default ANSI code page (Windows only)
+        - OEM: System default OEM code page (Windows only)
+
     .PARAMETER PassThru
         Returns information about the processed files.
 
@@ -67,9 +81,20 @@ function Convert-LineEnding
 
         Converts files to Unix line endings while excluding minified JavaScript files and node_modules directories.
 
+    .EXAMPLE
+        PS > Convert-LineEnding -Path 'data.csv' -LineEnding 'CRLF' -Encoding 'UTF8BOM'
+
+        Converts a CSV file to Windows line endings and UTF-8 with BOM encoding.
+
+    .EXAMPLE
+        PS > Get-ChildItem '*.txt' | Convert-LineEnding -LineEnding 'LF' -Encoding 'UTF8' -PassThru
+
+        Converts all text files to Unix line endings and UTF-8 without BOM, returning processing information.
+
     .OUTPUTS
         None by default.
-        [System.Object[]] when PassThru is specified, containing file path, original and new line ending counts.
+        [System.Object[]] when PassThru is specified, containing file path, original and new line ending counts,
+        source and target encoding information, and whether encoding was changed.
 
     .NOTES
         Version: 1.0.0
@@ -84,11 +109,15 @@ function Convert-LineEnding
         - Files are skipped if determined to be binary to prevent corruption
 
         ENCODING PRESERVATION:
-        File encoding is detected and preserved during conversion:
+        File encoding is detected and preserved during conversion by default.
+        When the -Encoding parameter is specified, files are converted to the target encoding.
+        Supported encodings:
         - UTF-8 (with and without BOM)
         - UTF-16 (Little and Big Endian)
+        - UTF-32
         - ASCII
-        - Other encodings detected by .NET
+        - ANSI (Windows only)
+        - OEM (Windows only)
 
         PERFORMANCE:
         Uses streaming operations to handle large files efficiently without loading
@@ -202,6 +231,10 @@ function Convert-LineEnding
         [Switch]$Force,
 
         [Parameter()]
+        [ValidateSet('UTF8', 'UTF8BOM', 'UTF16LE', 'UTF16BE', 'UTF32', 'ASCII', 'ANSI', 'OEM')]
+        [String]$Encoding,
+
+        [Parameter()]
         [Switch]$PassThru
     )
 
@@ -217,6 +250,68 @@ function Convert-LineEnding
 
         $targetLineEnding = $lineEndings[$LineEnding]
         $processedFiles = [System.Collections.ArrayList]::new()
+
+        function Get-EncodingFromName
+        {
+            param(
+                [String]$EncodingName
+            )
+
+            if ([String]::IsNullOrEmpty($EncodingName))
+            {
+                return $null
+            }
+
+            try
+            {
+                switch ($EncodingName.ToUpper())
+                {
+                    'UTF8' { return New-Object System.Text.UTF8Encoding($false) }
+                    'UTF8BOM' { return New-Object System.Text.UTF8Encoding($true) }
+                    'UTF16LE' { return [System.Text.Encoding]::Unicode }
+                    'UTF16BE' { return [System.Text.Encoding]::BigEndianUnicode }
+                    'UTF32' { return [System.Text.Encoding]::UTF32 }
+                    'ASCII' { return [System.Text.Encoding]::ASCII }
+                    'ANSI'
+                    {
+                        # System default ANSI code page (Windows only)
+                        if ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows)
+                        {
+                            return [System.Text.Encoding]::Default
+                        }
+                        else
+                        {
+                            Write-Warning 'ANSI encoding is only supported on Windows. Using UTF-8 instead.'
+                            return New-Object System.Text.UTF8Encoding($false)
+                        }
+                    }
+                    'OEM'
+                    {
+                        # System default OEM code page (Windows only)
+                        if ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows)
+                        {
+                            # Get OEM code page
+                            $oemCodePage = [System.Text.Encoding]::GetEncoding([System.Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage)
+                            return $oemCodePage
+                        }
+                        else
+                        {
+                            Write-Warning 'OEM encoding is only supported on Windows. Using UTF-8 instead.'
+                            return New-Object System.Text.UTF8Encoding($false)
+                        }
+                    }
+                    default
+                    {
+                        throw "Unsupported encoding: $EncodingName"
+                    }
+                }
+            }
+            catch
+            {
+                Write-Error "Failed to create encoding '$EncodingName': $($_.Exception.Message)"
+                return $null
+            }
+        }
 
         function Test-BinaryFile
         {
@@ -617,7 +712,8 @@ function Convert-LineEnding
             param(
                 [String]$FilePath,
                 [String]$TargetLineEnding,
-                [System.Text.Encoding]$Encoding
+                [System.Text.Encoding]$SourceEncoding,
+                [System.Text.Encoding]$TargetEncoding = $null
             )
 
             $tempFilePath = "$FilePath.tmp"
@@ -626,11 +722,14 @@ function Convert-LineEnding
             $newLfCount = 0
             $newCrlfCount = 0
 
+            # Use source encoding if no target encoding specified
+            $outputEncoding = if ($TargetEncoding) { $TargetEncoding } else { $SourceEncoding }
+
             try
             {
                 # Create streams for reading and writing
-                $reader = New-Object System.IO.StreamReader($FilePath, $Encoding)
-                $writer = New-Object System.IO.StreamWriter($tempFilePath, $false, $Encoding)
+                $reader = New-Object System.IO.StreamReader($FilePath, $SourceEncoding)
+                $writer = New-Object System.IO.StreamWriter($tempFilePath, $false, $outputEncoding)
 
                 try
                 {
@@ -730,7 +829,10 @@ function Convert-LineEnding
                     OriginalCRLF = $originalCrlfCount
                     NewLF = $newLfCount
                     NewCRLF = $newCrlfCount
-                    Encoding = $Encoding.EncodingName
+                    Encoding = $outputEncoding.EncodingName  # Backward compatibility
+                    SourceEncoding = $SourceEncoding.EncodingName
+                    TargetEncoding = $outputEncoding.EncodingName
+                    EncodingChanged = $SourceEncoding.ToString() -ne $outputEncoding.ToString() -or $SourceEncoding.GetPreamble().Length -ne $outputEncoding.GetPreamble().Length
                     Success = $true
                     Error = $null
                 }
@@ -749,7 +851,9 @@ function Convert-LineEnding
                     OriginalCRLF = 0
                     NewLF = 0
                     NewCRLF = 0
-                    Encoding = $null
+                    SourceEncoding = if ($SourceEncoding) { $SourceEncoding.EncodingName } else { $null }
+                    TargetEncoding = if ($outputEncoding) { $outputEncoding.EncodingName } else { $null }
+                    EncodingChanged = $false
                     Success = $false
                     Error = $_.Exception.Message
                 }
@@ -840,8 +944,9 @@ function Convert-LineEnding
                         if ($PSCmdlet.ShouldProcess($file.FullName, "Convert line endings to $LineEnding"))
                         {
                             Write-Verbose "Processing file: $($file.FullName)"
-                            $encoding = Get-FileEncoding -FilePath $file.FullName
-                            $result = Convert-SingleFileLineEnding -FilePath $file.FullName -TargetLineEnding $targetLineEnding -Encoding $encoding
+                            $sourceEncoding = Get-FileEncoding -FilePath $file.FullName
+                            $targetEncoding = if ($Encoding) { Get-EncodingFromName -EncodingName $Encoding } else { $null }
+                            $result = Convert-SingleFileLineEnding -FilePath $file.FullName -TargetLineEnding $targetLineEnding -SourceEncoding $sourceEncoding -TargetEncoding $targetEncoding
 
                             if ($PassThru)
                             {
@@ -850,7 +955,8 @@ function Convert-LineEnding
 
                             if ($result.Success)
                             {
-                                Write-Verbose "Successfully converted '$($file.FullName)' (LF: $($result.OriginalLF)→$($result.NewLF), CRLF: $($result.OriginalCRLF)→$($result.NewCRLF))"
+                                $encodingInfo = if ($result.EncodingChanged) { " Encoding: $($result.SourceEncoding)→$($result.TargetEncoding)" } else { '' }
+                                Write-Verbose "Successfully converted '$($file.FullName)' (LF: $($result.OriginalLF)→$($result.NewLF), CRLF: $($result.OriginalCRLF)→$($result.NewCRLF))$encodingInfo"
                             }
                             else
                             {
@@ -867,14 +973,16 @@ function Convert-LineEnding
                             if ($PassThru)
                             {
                                 # Return info showing no changes were needed
-                                $encoding = Get-FileEncoding -FilePath $file.FullName
+                                $sourceEncoding = Get-FileEncoding -FilePath $file.FullName
                                 $result = [PSCustomObject]@{
                                     FilePath = $file.FullName
                                     OriginalLF = if ($LineEnding -eq 'LF') { 1 } else { 0 }
                                     OriginalCRLF = if ($LineEnding -eq 'CRLF') { 1 } else { 0 }
                                     NewLF = if ($LineEnding -eq 'LF') { 1 } else { 0 }
                                     NewCRLF = if ($LineEnding -eq 'CRLF') { 1 } else { 0 }
-                                    Encoding = $encoding.EncodingName
+                                    SourceEncoding = $sourceEncoding.EncodingName
+                                    TargetEncoding = $sourceEncoding.EncodingName
+                                    EncodingChanged = $false
                                     Success = $true
                                     Error = $null
                                     Skipped = $true
@@ -902,8 +1010,9 @@ function Convert-LineEnding
                     if ($PSCmdlet.ShouldProcess($resolvedPath, "Convert line endings to $LineEnding"))
                     {
                         Write-Verbose "Processing file: $resolvedPath"
-                        $encoding = Get-FileEncoding -FilePath $resolvedPath
-                        $result = Convert-SingleFileLineEnding -FilePath $resolvedPath -TargetLineEnding $targetLineEnding -Encoding $encoding
+                        $sourceEncoding = Get-FileEncoding -FilePath $resolvedPath
+                        $targetEncoding = if ($Encoding) { Get-EncodingFromName -EncodingName $Encoding } else { $null }
+                        $result = Convert-SingleFileLineEnding -FilePath $resolvedPath -TargetLineEnding $targetLineEnding -SourceEncoding $sourceEncoding -TargetEncoding $targetEncoding
 
                         if ($PassThru)
                         {
@@ -912,7 +1021,8 @@ function Convert-LineEnding
 
                         if ($result.Success)
                         {
-                            Write-Verbose "Successfully converted '$resolvedPath' (LF: $($result.OriginalLF)→$($result.NewLF), CRLF: $($result.OriginalCRLF)→$($result.NewCRLF))"
+                            $encodingInfo = if ($result.EncodingChanged) { " Encoding: $($result.SourceEncoding)→$($result.TargetEncoding)" } else { '' }
+                            Write-Verbose "Successfully converted '$resolvedPath' (LF: $($result.OriginalLF)→$($result.NewLF), CRLF: $($result.OriginalCRLF)→$($result.NewCRLF))$encodingInfo"
                         }
                         else
                         {
@@ -929,14 +1039,16 @@ function Convert-LineEnding
                         if ($PassThru)
                         {
                             # Return info showing no changes were needed
-                            $encoding = Get-FileEncoding -FilePath $resolvedPath
+                            $sourceEncoding = Get-FileEncoding -FilePath $resolvedPath
                             $result = [PSCustomObject]@{
                                 FilePath = $resolvedPath
                                 OriginalLF = if ($LineEnding -eq 'LF') { 1 } else { 0 }
                                 OriginalCRLF = if ($LineEnding -eq 'CRLF') { 1 } else { 0 }
                                 NewLF = if ($LineEnding -eq 'LF') { 1 } else { 0 }
                                 NewCRLF = if ($LineEnding -eq 'CRLF') { 1 } else { 0 }
-                                Encoding = $encoding.EncodingName
+                                SourceEncoding = $sourceEncoding.EncodingName
+                                TargetEncoding = $sourceEncoding.EncodingName
+                                EncodingChanged = $false
                                 Success = $true
                                 Error = $null
                                 Skipped = $true
