@@ -34,9 +34,9 @@ function Convert-LineEnding
         modified even if encoding conversion is needed.
 
         Valid values:
-        - Auto: Use platform default line endings (CRLF on Windows, LF on Unix/Linux/macOS) [Default]
-        - CRLF: Carriage Return + Line Feed (Windows: `r`n)
-        - LF: Line Feed only (Unix/Linux/macOS: `n)
+        - Auto or System: Use platform default line endings (CRLF on Windows, LF on Unix/Linux/macOS) [Default]
+        - CRLF or Windows: Carriage Return + Line Feed (Windows: `r`n)
+        - LF or Unix: Line Feed only (Unix/Linux/macOS: `n)
 
     .PARAMETER Recurse
         When processing directories, search recursively through all subdirectories.
@@ -317,7 +317,7 @@ function Convert-LineEnding
         [String[]]$Path,
 
         [Parameter()]
-        [ValidateSet('Auto', 'LF', 'CRLF')]
+        [ValidateSet('Auto', 'LF', 'CRLF', 'Unix', 'Windows', 'System')]
         [String]$LineEnding = 'Auto',
 
         [Parameter()]
@@ -431,6 +431,14 @@ function Convert-LineEnding
 
     begin
     {
+        # Map aliases to standard values
+        switch ($LineEnding)
+        {
+            'Windows' { $LineEnding = 'CRLF' }
+            'Unix' { $LineEnding = 'LF' }
+            'System' { $LineEnding = 'Auto' }
+        }
+
         # Resolve Auto line ending to platform default
         if ($LineEnding -eq 'Auto')
         {
