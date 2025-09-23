@@ -424,10 +424,10 @@ Describe 'Convert-LineEnding' {
             $script:SubDir = Join-Path $script:TestDir 'subdir'
             New-Item -Path $script:SubDir -ItemType Directory -Force | Out-Null
 
-            # Create test files
-            "Line 1`r`nLine 2" | Out-File -FilePath (Join-Path $script:TestDir 'test1.txt') -NoNewline
-            "Line A`r`nLine B" | Out-File -FilePath (Join-Path $script:TestDir 'test1.ps1') -NoNewline
-            "Line X`r`nLine Y" | Out-File -FilePath (Join-Path $script:SubDir 'test2.txt') -NoNewline
+            # Create test files with explicit CRLF line endings using direct file writing
+            [System.IO.File]::WriteAllText((Join-Path $script:TestDir 'test1.txt'), "Line 1`r`nLine 2", [System.Text.Encoding]::UTF8)
+            [System.IO.File]::WriteAllText((Join-Path $script:TestDir 'test1.ps1'), "Line A`r`nLine B", [System.Text.Encoding]::UTF8)
+            [System.IO.File]::WriteAllText((Join-Path $script:SubDir 'test2.txt'), "Line X`r`nLine Y", [System.Text.Encoding]::UTF8)
 
             # Create binary file that should be skipped
             [System.IO.File]::WriteAllBytes((Join-Path $script:TestDir 'binary.exe'), [byte[]](1, 2, 3, 0, 4, 5))
@@ -510,7 +510,7 @@ Describe 'Convert-LineEnding' {
     Context 'WhatIf Support' {
         BeforeEach {
             $script:TestFile = Join-Path $script:TestDir 'whatif-test.txt'
-            "Line 1`r`nLine 2" | Out-File -FilePath $script:TestFile -NoNewline
+            [System.IO.File]::WriteAllText($script:TestFile, "Line 1`r`nLine 2", [System.Text.Encoding]::UTF8)
         }
 
         AfterEach {
@@ -543,7 +543,7 @@ Describe 'Convert-LineEnding' {
     Context 'PassThru Functionality' {
         BeforeEach {
             $script:TestFile = Join-Path $script:TestDir 'passthru-test.txt'
-            "Line 1`r`nLine 2`nLine 3" | Out-File -FilePath $script:TestFile -NoNewline
+            [System.IO.File]::WriteAllText($script:TestFile, "Line 1`r`nLine 2`nLine 3", [System.Text.Encoding]::UTF8)
         }
 
         AfterEach {
@@ -590,7 +590,7 @@ Describe 'Convert-LineEnding' {
 
         It 'Should handle read-only files when Force is not specified' {
             $script:ReadOnlyFile = Join-Path $script:TestDir 'readonly.txt'
-            "Test content`r`n" | Out-File -FilePath $script:ReadOnlyFile -NoNewline
+            [System.IO.File]::WriteAllText($script:ReadOnlyFile, "Test content`r`n", [System.Text.Encoding]::UTF8)
 
             try
             {
@@ -613,7 +613,7 @@ Describe 'Convert-LineEnding' {
 
         It 'Should handle read-only files when Force is specified' {
             $script:ReadOnlyFile = Join-Path $script:TestDir 'readonly-force.txt'
-            "Test content`r`n" | Out-File -FilePath $script:ReadOnlyFile -NoNewline
+            [System.IO.File]::WriteAllText($script:ReadOnlyFile, "Test content`r`n", [System.Text.Encoding]::UTF8)
 
             try
             {
@@ -640,12 +640,12 @@ Describe 'Convert-LineEnding' {
 
     Context 'Pipeline Support' {
         BeforeEach {
-            # Create multiple test files
+            # Create multiple test files with explicit CRLF line endings
             $script:PipelineFiles = @()
             for ($i = 1; $i -le 3; $i++)
             {
                 $file = Join-Path $script:TestDir "pipeline-test$i.txt"
-                "Content $i`r`nLine 2" | Out-File -FilePath $file -NoNewline
+                [System.IO.File]::WriteAllText($file, "Content $i`r`nLine 2", [System.Text.Encoding]::UTF8)
                 $script:PipelineFiles += $file
             }
         }

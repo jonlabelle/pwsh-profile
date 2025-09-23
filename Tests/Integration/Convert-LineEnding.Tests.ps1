@@ -266,7 +266,7 @@ Describe 'Convert-LineEnding Integration Tests' {
     Context 'Real-World Error Scenarios' {
         It 'Should handle permission denied scenarios gracefully' {
             $permissionFile = Join-Path $script:TestDir 'permission-test.txt'
-            "Test content`r`n" | Out-File -FilePath $permissionFile -NoNewline
+            [System.IO.File]::WriteAllText($permissionFile, "Test content`r`n", [System.Text.Encoding]::UTF8)
 
             try
             {
@@ -293,7 +293,7 @@ Describe 'Convert-LineEnding Integration Tests' {
 
         It 'Should handle corrupted or inaccessible files' {
             $lockedFile = Join-Path $script:TestDir 'locked-test.txt'
-            "Test content`r`n" | Out-File -FilePath $lockedFile -NoNewline
+            [System.IO.File]::WriteAllText($lockedFile, "Test content`r`n", [System.Text.Encoding]::UTF8)
 
             try
             {
