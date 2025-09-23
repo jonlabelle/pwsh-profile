@@ -885,6 +885,39 @@ Describe 'Convert-LineEnding Integration Tests' {
             $lfBytes = [System.Text.Encoding]::UTF8.GetBytes($lfContent)
             [System.IO.File]::WriteAllBytes($skipFile, $lfBytes)
 
+            # Verify that files were created with correct line endings
+            $crlfVerifyBytes = [System.IO.File]::ReadAllBytes($convertFile)
+            $lfVerifyBytes = [System.IO.File]::ReadAllBytes($skipFile)
+
+            # CRLF file should contain byte sequence 0D 0A (CR LF)
+            $hasCrLf = $false
+            for ($i = 0; $i -lt $crlfVerifyBytes.Length - 1; $i++)
+            {
+                if ($crlfVerifyBytes[$i] -eq 13 -and $crlfVerifyBytes[$i + 1] -eq 10)
+                {
+                    $hasCrLf = $true
+                    break
+                }
+            }
+            $hasCrLf | Should -Be $true -Because 'CRLF test file should actually contain CRLF bytes'
+
+            # LF file should contain standalone LF (0A) without preceding CR
+            $hasStandaloneLf = $false
+            for ($i = 0; $i -lt $lfVerifyBytes.Length; $i++)
+            {
+                if ($lfVerifyBytes[$i] -eq 10)
+                {
+                    # LF
+                    if ($i -eq 0 -or $lfVerifyBytes[$i - 1] -ne 13)
+                    {
+                        # No preceding CR
+                        $hasStandaloneLf = $true
+                        break
+                    }
+                }
+            }
+            $hasStandaloneLf | Should -Be $true -Because 'LF test file should actually contain standalone LF bytes'
+
             # Set past timestamps on both files
             $pastTime = (Get-Date).AddDays(-7)
             foreach ($file in @($convertFile, $skipFile))
@@ -898,8 +931,8 @@ Describe 'Convert-LineEnding Integration Tests' {
             $results = Convert-LineEnding -Path $mixedTestDir -LineEnding 'LF' -Recurse -PassThru
 
             # Verify we have both conversions and skips
-            $convertedResults = $results | Where-Object { $_.Converted -eq $true }
-            $skippedResults = $results | Where-Object { $_.Skipped -eq $true }
+            $convertedResults = @($results | Where-Object { $_.Converted -eq $true })
+            $skippedResults = @($results | Where-Object { $_.Skipped -eq $true })
 
             $convertedResults.Count | Should -Be 1 -Because 'One file should have been converted from CRLF to LF'
             $skippedResults.Count | Should -Be 1 -Because 'One file should have been skipped (already LF)'
