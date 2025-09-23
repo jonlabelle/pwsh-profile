@@ -175,6 +175,8 @@ function Convert-LineEnding
 
             # Scripts and Shell Files
             '*.sh', '*.bat', '*.cmd', '*.profile', '*.zshrc', '*.bashrc', '*.vimrc',
+            '.zprofile', '.bash_profile', '.bash_logout', '.npmrc', '.nvmrc',
+            '.inputrc', '.curlrc', '.screenrc'
 
             # Version Control
             '*.gitignore', '*.gitattributes',
