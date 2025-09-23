@@ -14,7 +14,8 @@ function Convert-LineEnding
         their modification timestamps and avoiding unnecessary I/O operations.
 
         The function supports both individual files and directory processing with optional recursion.
-        It provides comprehensive WhatIf support to preview changes before execution.
+        It provides intelligent WhatIf support that analyzes files to show only those that would
+        actually be modified, rather than showing all files in scope.
 
     .PARAMETER Path
         The path to a file or directory to process.
@@ -57,7 +58,9 @@ function Convert-LineEnding
     .EXAMPLE
         PS > Get-ChildItem '*.md' | Convert-LineEnding -LineEnding 'LF' -WhatIf
 
-        Shows what would happen when converting all Markdown files to Unix line endings.
+        Shows which Markdown files would be converted to Unix line endings vs. which would be skipped.
+        Files needing conversion show "Convert line endings to LF" while files with correct endings
+        show "Skip file - already has correct line endings (LF)".
 
     .EXAMPLE
         PS > Convert-LineEnding -Path 'project' -LineEnding 'LF' -Exclude '*.min.js', 'node_modules' -Recurse
@@ -829,10 +832,35 @@ function Convert-LineEnding
                         continue
                     }
 
-                    if ($PSCmdlet.ShouldProcess($file.FullName, "Convert line endings to $LineEnding"))
+                    # Pre-check if conversion is needed (even for WhatIf to provide accurate preview)
+                    $needsConversion = Test-LineEndingConversionNeeded -FilePath $file.FullName -TargetLineEnding $targetLineEnding
+
+                    if ($needsConversion)
                     {
-                        # Quick pre-check to avoid unnecessary processing
-                        if (-not (Test-LineEndingConversionNeeded -FilePath $file.FullName -TargetLineEnding $targetLineEnding))
+                        if ($PSCmdlet.ShouldProcess($file.FullName, "Convert line endings to $LineEnding"))
+                        {
+                            Write-Verbose "Processing file: $($file.FullName)"
+                            $encoding = Get-FileEncoding -FilePath $file.FullName
+                            $result = Convert-SingleFileLineEnding -FilePath $file.FullName -TargetLineEnding $targetLineEnding -Encoding $encoding
+
+                            if ($PassThru)
+                            {
+                                $null = $processedFiles.Add($result)
+                            }
+
+                            if ($result.Success)
+                            {
+                                Write-Verbose "Successfully converted '$($file.FullName)' (LF: $($result.OriginalLF)→$($result.NewLF), CRLF: $($result.OriginalCRLF)→$($result.NewCRLF))"
+                            }
+                            else
+                            {
+                                Write-Error "Failed to convert '$($file.FullName)': $($result.Error)"
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if ($PSCmdlet.ShouldProcess($file.FullName, "Skip file - already has correct line endings ($LineEnding)"))
                         {
                             Write-Verbose "Skipping '$($file.FullName)' - already has correct line endings"
 
@@ -853,23 +881,6 @@ function Convert-LineEnding
                                 }
                                 $null = $processedFiles.Add($result)
                             }
-                            continue
-                        }
-
-                        Write-Verbose "Processing file: $($file.FullName)"
-                        $encoding = Get-FileEncoding -FilePath $file.FullName
-                        $result = Convert-SingleFileLineEnding -FilePath $file.FullName -TargetLineEnding $targetLineEnding -Encoding $encoding
-
-                        if ($PassThru)
-                        {
-                            $null = $processedFiles.Add($result)
-                        }                        if ($result.Success)
-                        {
-                            Write-Verbose "Successfully converted '$($file.FullName)' (LF: $($result.OriginalLF)→$($result.NewLF), CRLF: $($result.OriginalCRLF)→$($result.NewCRLF))"
-                        }
-                        else
-                        {
-                            Write-Error "Failed to convert '$($file.FullName)': $($result.Error)"
                         }
                     }
                 }
@@ -883,10 +894,35 @@ function Convert-LineEnding
                     continue
                 }
 
-                if ($PSCmdlet.ShouldProcess($resolvedPath, "Convert line endings to $LineEnding"))
+                # Pre-check if conversion is needed (even for WhatIf to provide accurate preview)
+                $needsConversion = Test-LineEndingConversionNeeded -FilePath $resolvedPath -TargetLineEnding $targetLineEnding
+
+                if ($needsConversion)
                 {
-                    # Quick pre-check to avoid unnecessary processing
-                    if (-not (Test-LineEndingConversionNeeded -FilePath $resolvedPath -TargetLineEnding $targetLineEnding))
+                    if ($PSCmdlet.ShouldProcess($resolvedPath, "Convert line endings to $LineEnding"))
+                    {
+                        Write-Verbose "Processing file: $resolvedPath"
+                        $encoding = Get-FileEncoding -FilePath $resolvedPath
+                        $result = Convert-SingleFileLineEnding -FilePath $resolvedPath -TargetLineEnding $targetLineEnding -Encoding $encoding
+
+                        if ($PassThru)
+                        {
+                            $null = $processedFiles.Add($result)
+                        }
+
+                        if ($result.Success)
+                        {
+                            Write-Verbose "Successfully converted '$resolvedPath' (LF: $($result.OriginalLF)→$($result.NewLF), CRLF: $($result.OriginalCRLF)→$($result.NewCRLF))"
+                        }
+                        else
+                        {
+                            Write-Error "Failed to convert '$resolvedPath': $($result.Error)"
+                        }
+                    }
+                }
+                else
+                {
+                    if ($PSCmdlet.ShouldProcess($resolvedPath, "Skip file - already has correct line endings ($LineEnding)"))
                     {
                         Write-Verbose "Skipping '$resolvedPath' - already has correct line endings"
 
@@ -907,25 +943,6 @@ function Convert-LineEnding
                             }
                             $null = $processedFiles.Add($result)
                         }
-                        continue
-                    }
-
-                    Write-Verbose "Processing file: $resolvedPath"
-                    $encoding = Get-FileEncoding -FilePath $resolvedPath
-                    $result = Convert-SingleFileLineEnding -FilePath $resolvedPath -TargetLineEnding $targetLineEnding -Encoding $encoding
-
-                    if ($PassThru)
-                    {
-                        $null = $processedFiles.Add($result)
-                    }
-
-                    if ($result.Success)
-                    {
-                        Write-Verbose "Successfully converted '$resolvedPath' (LF: $($result.OriginalLF)→$($result.NewLF), CRLF: $($result.OriginalCRLF)→$($result.NewCRLF))"
-                    }
-                    else
-                    {
-                        Write-Error "Failed to convert '$resolvedPath': $($result.Error)"
                     }
                 }
             }
