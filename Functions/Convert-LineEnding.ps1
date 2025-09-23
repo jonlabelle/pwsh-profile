@@ -9,6 +9,10 @@ function Convert-LineEnding
         while preserving the original file encoding. It uses streaming operations for optimal performance
         with large files and automatically detects and skips binary files to prevent corruption.
 
+        The function includes intelligent optimization that pre-scans files to detect their current line
+        ending format. Files that already have the correct line endings are skipped entirely, preserving
+        their modification timestamps and avoiding unnecessary I/O operations.
+
         The function supports both individual files and directory processing with optional recursion.
         It provides comprehensive WhatIf support to preview changes before execution.
 
@@ -85,7 +89,10 @@ function Convert-LineEnding
 
         PERFORMANCE:
         Uses streaming operations to handle large files efficiently without loading
-        entire file contents into memory.
+        entire file contents into memory. Includes intelligent pre-scanning that
+        samples the first 64KB of each file to detect current line ending format.
+        Files that already have the correct line endings are skipped entirely,
+        preserving modification timestamps and avoiding unnecessary processing.
 
     .LINK
         https://jonlabelle.com/snippets/view/powershell/convert-line-endings-in-powershell
@@ -406,6 +413,84 @@ function Convert-LineEnding
             {
                 Write-Verbose "Error analyzing file '$FilePath': $($_.Exception.Message)"
                 return $true  # Assume binary if we can't analyze
+            }
+        }
+
+        function Test-LineEndingConversionNeeded
+        {
+            param(
+                [String]$FilePath,
+                [String]$TargetLineEnding
+            )
+
+            try
+            {
+                $stream = [System.IO.File]::OpenRead($FilePath)
+                try
+                {
+                    if ($stream.Length -eq 0)
+                    {
+                        return $false  # Empty files don't need conversion
+                    }
+
+                    # Sample first 64KB for performance (most files are smaller)
+                    $sampleSize = [Math]::Min($stream.Length, 65536)
+                    $buffer = New-Object byte[] $sampleSize
+                    $bytesRead = $stream.Read($buffer, 0, $sampleSize)
+
+                    $hasLF = $false
+                    $hasCRLF = $false
+
+                    for ($i = 0; $i -lt $bytesRead; $i++)
+                    {
+                        if ($buffer[$i] -eq 13) # CR
+                        {
+                            if ($i + 1 -lt $bytesRead -and $buffer[$i + 1] -eq 10) # LF
+                            {
+                                $hasCRLF = $true
+                                $i++ # Skip next LF
+                            }
+                            else
+                            {
+                                $hasLF = $true # Standalone CR treated as line ending
+                            }
+                        }
+                        elseif ($buffer[$i] -eq 10) # Standalone LF
+                        {
+                            $hasLF = $true
+                        }
+
+                        # Early exit if we found mixed endings or the "wrong" type
+                        if ($TargetLineEnding -eq "`n" -and $hasCRLF)
+                        {
+                            return $true # Need conversion: found CRLF when targeting LF
+                        }
+                        elseif ($TargetLineEnding -eq "`r`n" -and $hasLF)
+                        {
+                            return $true # Need conversion: found LF when targeting CRLF
+                        }
+                    }
+
+                    # If we reached here without early exit, check final state
+                    if ($TargetLineEnding -eq "`n") # LF target
+                    {
+                        return $hasCRLF # Need conversion if any CRLF found
+                    }
+                    else # CRLF target
+                    {
+                        return $hasLF # Need conversion if any standalone LF/CR found
+                    }
+                }
+                finally
+                {
+                    $stream.Close()
+                }
+            }
+            catch
+            {
+                Write-Verbose "Error checking line endings for '$FilePath': $($_.Exception.Message)"
+                # If we can't determine, assume conversion is needed for safety
+                return $true
             }
         }
 
@@ -746,6 +831,31 @@ function Convert-LineEnding
 
                     if ($PSCmdlet.ShouldProcess($file.FullName, "Convert line endings to $LineEnding"))
                     {
+                        # Quick pre-check to avoid unnecessary processing
+                        if (-not (Test-LineEndingConversionNeeded -FilePath $file.FullName -TargetLineEnding $targetLineEnding))
+                        {
+                            Write-Verbose "Skipping '$($file.FullName)' - already has correct line endings"
+
+                            if ($PassThru)
+                            {
+                                # Return info showing no changes were needed
+                                $encoding = Get-FileEncoding -FilePath $file.FullName
+                                $result = [PSCustomObject]@{
+                                    FilePath = $file.FullName
+                                    OriginalLF = if ($LineEnding -eq 'LF') { 1 } else { 0 }
+                                    OriginalCRLF = if ($LineEnding -eq 'CRLF') { 1 } else { 0 }
+                                    NewLF = if ($LineEnding -eq 'LF') { 1 } else { 0 }
+                                    NewCRLF = if ($LineEnding -eq 'CRLF') { 1 } else { 0 }
+                                    Encoding = $encoding.EncodingName
+                                    Success = $true
+                                    Error = $null
+                                    Skipped = $true
+                                }
+                                $null = $processedFiles.Add($result)
+                            }
+                            continue
+                        }
+
                         Write-Verbose "Processing file: $($file.FullName)"
                         $encoding = Get-FileEncoding -FilePath $file.FullName
                         $result = Convert-SingleFileLineEnding -FilePath $file.FullName -TargetLineEnding $targetLineEnding -Encoding $encoding
@@ -775,6 +885,31 @@ function Convert-LineEnding
 
                 if ($PSCmdlet.ShouldProcess($resolvedPath, "Convert line endings to $LineEnding"))
                 {
+                    # Quick pre-check to avoid unnecessary processing
+                    if (-not (Test-LineEndingConversionNeeded -FilePath $resolvedPath -TargetLineEnding $targetLineEnding))
+                    {
+                        Write-Verbose "Skipping '$resolvedPath' - already has correct line endings"
+
+                        if ($PassThru)
+                        {
+                            # Return info showing no changes were needed
+                            $encoding = Get-FileEncoding -FilePath $resolvedPath
+                            $result = [PSCustomObject]@{
+                                FilePath = $resolvedPath
+                                OriginalLF = if ($LineEnding -eq 'LF') { 1 } else { 0 }
+                                OriginalCRLF = if ($LineEnding -eq 'CRLF') { 1 } else { 0 }
+                                NewLF = if ($LineEnding -eq 'LF') { 1 } else { 0 }
+                                NewCRLF = if ($LineEnding -eq 'CRLF') { 1 } else { 0 }
+                                Encoding = $encoding.EncodingName
+                                Success = $true
+                                Error = $null
+                                Skipped = $true
+                            }
+                            $null = $processedFiles.Add($result)
+                        }
+                        continue
+                    }
+
                     Write-Verbose "Processing file: $resolvedPath"
                     $encoding = Get-FileEncoding -FilePath $resolvedPath
                     $result = Convert-SingleFileLineEnding -FilePath $resolvedPath -TargetLineEnding $targetLineEnding -Encoding $encoding
