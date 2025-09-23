@@ -420,9 +420,11 @@ function Convert-LineEnding
         [String]$Encoding = 'Auto',
 
         [Parameter()]
+        [Alias('InsertFinalNewline', 'EnsureFinalNewline', 'FinalNewline')]
         [Switch]$EnsureEndingNewline,
 
         [Parameter()]
+        [Alias('KeepTimestamps')]
         [Switch]$PreserveTimestamps,
 
         [Parameter()]
