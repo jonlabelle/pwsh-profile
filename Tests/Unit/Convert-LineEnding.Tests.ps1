@@ -1045,4 +1045,197 @@ Describe 'Convert-LineEnding' {
             $autoMessage | Should -Not -BeNullOrEmpty
         }
     }
+
+    Context 'Timestamp Preservation' {
+        BeforeEach {
+            $script:TestFile = Join-Path $script:TestDir 'timestamp-test.txt'
+        }
+
+        AfterEach {
+            if (Test-Path $script:TestFile)
+            {
+                Remove-Item -Path $script:TestFile -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'Should preserve timestamps by default when converting line endings' {
+            # Create test file with CRLF content
+            $content = "line1`r`nline2`r`nline3`r`n"
+            Set-Content -Path $script:TestFile -Value $content -NoNewline -Encoding ASCII
+
+            # Set specific timestamps (in the past)
+            $pastTime = (Get-Date).AddDays(-10)
+            $fileInfo = Get-Item $script:TestFile
+            $fileInfo.CreationTime = $pastTime
+            $fileInfo.LastWriteTime = $pastTime
+            $fileInfo.LastAccessTime = $pastTime
+
+            # Convert to LF (should preserve timestamps)
+            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF'
+
+            # Verify timestamps are preserved
+            $fileInfoAfter = Get-Item $script:TestFile
+            $fileInfoAfter.CreationTime | Should -Be $pastTime
+            $fileInfoAfter.LastWriteTime | Should -Be $pastTime
+            $fileInfoAfter.LastAccessTime | Should -Be $pastTime
+
+            # Verify content was actually converted
+            $newContent = Get-Content -Path $script:TestFile -Raw
+            $newContent | Should -Be "line1`nline2`nline3`n"
+        }
+
+        It 'Should preserve timestamps when PreserveTimestamps is explicitly true' {
+            # Create test file with CRLF content
+            $content = "line1`r`nline2`r`nline3`r`n"
+            Set-Content -Path $script:TestFile -Value $content -NoNewline -Encoding ASCII
+
+            # Set specific timestamps (in the past)
+            $pastTime = (Get-Date).AddDays(-5)
+            $fileInfo = Get-Item $script:TestFile
+            $fileInfo.CreationTime = $pastTime
+            $fileInfo.LastWriteTime = $pastTime
+            $fileInfo.LastAccessTime = $pastTime
+
+            # Convert to LF with explicit timestamp preservation
+            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -PreserveTimestamps $true
+
+            # Verify timestamps are preserved
+            $fileInfoAfter = Get-Item $script:TestFile
+            $fileInfoAfter.CreationTime | Should -Be $pastTime
+            $fileInfoAfter.LastWriteTime | Should -Be $pastTime
+            $fileInfoAfter.LastAccessTime | Should -Be $pastTime
+        }
+
+        It 'Should update timestamps when PreserveTimestamps is false' {
+            # Create test file with CRLF content
+            $content = "line1`r`nline2`r`nline3`r`n"
+            Set-Content -Path $script:TestFile -Value $content -NoNewline -Encoding ASCII
+
+            # Set specific timestamps (in the past)
+            $pastTime = (Get-Date).AddDays(-5)
+            $fileInfo = Get-Item $script:TestFile
+            $fileInfo.CreationTime = $pastTime
+            $fileInfo.LastWriteTime = $pastTime
+            $fileInfo.LastAccessTime = $pastTime
+
+            # Convert to LF without preserving timestamps
+            $convertTime = Get-Date
+            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -PreserveTimestamps $false
+
+            # Verify timestamps were updated (should be close to current time)
+            $fileInfoAfter = Get-Item $script:TestFile
+            $fileInfoAfter.CreationTime | Should -BeGreaterThan $pastTime
+            $fileInfoAfter.LastWriteTime | Should -BeGreaterThan $pastTime
+
+            # Allow some tolerance for timing differences (within 30 seconds)
+            $timeDifference = ($fileInfoAfter.LastWriteTime - $convertTime).TotalSeconds
+            [Math]::Abs($timeDifference) | Should -BeLessThan 30
+        }
+
+        It 'Should preserve timestamps for skipped files regardless of PreserveTimestamps setting' {
+            # Create test file with LF content (already correct)
+            $content = "line1`nline2`nline3`n"
+            Set-Content -Path $script:TestFile -Value $content -NoNewline -Encoding ASCII
+
+            # Set specific timestamps (in the past)
+            $pastTime = (Get-Date).AddDays(-3)
+            $fileInfo = Get-Item $script:TestFile
+            $fileInfo.CreationTime = $pastTime
+            $fileInfo.LastWriteTime = $pastTime
+            $fileInfo.LastAccessTime = $pastTime
+
+            # Try to convert to LF (should be skipped) with PreserveTimestamps false
+            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -PreserveTimestamps $false
+
+            # Verify timestamps are still preserved (file was skipped)
+            $fileInfoAfter = Get-Item $script:TestFile
+            $fileInfoAfter.CreationTime | Should -Be $pastTime
+            $fileInfoAfter.LastWriteTime | Should -Be $pastTime
+            $fileInfoAfter.LastAccessTime | Should -Be $pastTime
+        }
+
+        It 'Should preserve timestamps when converting encoding' {
+            # Create test file with ASCII content
+            $content = "line1`nline2`nline3`n"
+            [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::ASCII)
+
+            # Set specific timestamps (in the past)
+            $pastTime = (Get-Date).AddDays(-7)
+            $fileInfo = Get-Item $script:TestFile
+            $fileInfo.CreationTime = $pastTime
+            $fileInfo.LastWriteTime = $pastTime
+            $fileInfo.LastAccessTime = $pastTime
+
+            # Convert encoding to UTF8 (should preserve timestamps)
+            Convert-LineEnding -Path $script:TestFile -Encoding 'UTF8'
+
+            # Verify timestamps are preserved
+            $fileInfoAfter = Get-Item $script:TestFile
+            $fileInfoAfter.CreationTime | Should -Be $pastTime
+            $fileInfoAfter.LastWriteTime | Should -Be $pastTime
+            $fileInfoAfter.LastAccessTime | Should -Be $pastTime
+
+            # Verify encoding was actually converted
+            $bytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            # UTF-8 without BOM should not start with BOM bytes
+            $bytes[0..2] | Should -Not -Be @(0xEF, 0xBB, 0xBF)
+        }
+
+        It 'Should preserve timestamps with PassThru output' {
+            # Create test file with CRLF content
+            $content = "line1`r`nline2`r`nline3`r`n"
+            Set-Content -Path $script:TestFile -Value $content -NoNewline -Encoding ASCII
+
+            # Set specific timestamps (in the past)
+            $pastTime = (Get-Date).AddDays(-1)
+            $fileInfo = Get-Item $script:TestFile
+            $fileInfo.CreationTime = $pastTime
+            $fileInfo.LastWriteTime = $pastTime
+            $fileInfo.LastAccessTime = $pastTime
+
+            # Convert to LF with PassThru
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -PassThru
+
+            # Verify PassThru result
+            $result | Should -Not -BeNullOrEmpty
+            $result.Success | Should -Be $true
+            $result.Converted | Should -Be $true
+
+            # Verify timestamps are preserved
+            $fileInfoAfter = Get-Item $script:TestFile
+            $fileInfoAfter.CreationTime | Should -Be $pastTime
+            $fileInfoAfter.LastWriteTime | Should -Be $pastTime
+            $fileInfoAfter.LastAccessTime | Should -Be $pastTime
+        }
+
+        It 'Should handle timestamp preservation failure gracefully' {
+            # Create test file
+            $content = "line1`r`nline2`r`nline3`r`n"
+            Set-Content -Path $script:TestFile -Value $content -NoNewline -Encoding ASCII
+
+            # Create a read-only test file to trigger potential access issues
+            $readOnlyFile = Join-Path $script:TestDir 'readonly-timestamp-test.txt'
+            Set-Content -Path $readOnlyFile -Value $content -NoNewline -Encoding ASCII
+            Set-ItemProperty -Path $readOnlyFile -Name IsReadOnly -Value $true
+
+            try
+            {
+                # Should convert successfully even with read-only constraints
+                { Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' } | Should -Not -Throw
+
+                # Verify content was converted
+                $newContent = Get-Content -Path $script:TestFile -Raw
+                $newContent | Should -Be "line1`nline2`nline3`n"
+            }
+            finally
+            {
+                # Clean up read-only file
+                if (Test-Path $readOnlyFile)
+                {
+                    Set-ItemProperty -Path $readOnlyFile -Name IsReadOnly -Value $false
+                    Remove-Item -Path $readOnlyFile -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+    }
 }

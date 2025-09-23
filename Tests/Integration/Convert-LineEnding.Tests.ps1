@@ -726,4 +726,197 @@ Describe 'Convert-LineEnding Integration Tests' {
             }
         }
     }
+
+    Context 'Timestamp Preservation in Real Scenarios' {
+        BeforeAll {
+            # Create test files with realistic content and timestamps
+            $script:TimestampTestDir = Join-Path $script:TestDir 'timestamp-tests'
+            New-Item -Path $script:TimestampTestDir -ItemType Directory -Force | Out-Null
+
+            # Create various file types that would be processed in a real project
+            $testFiles = @{
+                'config.json' = @{
+                    Content = "{\r\n  `"name`": `"test-project`",\r\n  `"version`": `"1.0.0`"\r\n}"
+                    Encoding = 'UTF8'
+                }
+                'README.md' = @{
+                    Content = '# Test Project\r\n\r\nThis is a test project.\r\n\r\n## Features\r\n\r\n- Feature 1\r\n- Feature 2\r\n'
+                    Encoding = 'UTF8'
+                }
+                'script.ps1' = @{
+                    Content = "# PowerShell script\r\nGet-Process | Where-Object { `$_.Name -like 'pwsh*' }\r\n"
+                    Encoding = 'UTF8BOM'
+                }
+                'LICENSE' = @{
+                    Content = 'MIT License\r\n\r\nCopyright (c) 2025 Test\r\n\r\nPermission is hereby granted...\r\n'
+                    Encoding = 'ASCII'
+                }
+            }
+
+            $script:TestFileInfo = @{}
+            foreach ($fileName in $testFiles.Keys)
+            {
+                $filePath = Join-Path $script:TimestampTestDir $fileName
+                $fileData = $testFiles[$fileName]
+
+                # Create file with specific encoding
+                switch ($fileData.Encoding)
+                {
+                    'UTF8' { [System.IO.File]::WriteAllText($filePath, $fileData.Content, [System.Text.UTF8Encoding]::new($false)) }
+                    'UTF8BOM' { [System.IO.File]::WriteAllText($filePath, $fileData.Content, [System.Text.UTF8Encoding]::new($true)) }
+                    'ASCII' { [System.IO.File]::WriteAllText($filePath, $fileData.Content, [System.Text.ASCIIEncoding]::new()) }
+                }
+
+                # Set timestamps to known values in the past
+                $fileNames = @($testFiles.Keys)
+                $pastTime = (Get-Date).AddDays(-30).AddHours(-$fileNames.IndexOf($fileName))
+                $fileInfo = Get-Item $filePath
+                $fileInfo.CreationTime = $pastTime
+                $fileInfo.LastWriteTime = $pastTime
+                $fileInfo.LastAccessTime = $pastTime
+
+                # Store original timestamps for verification
+                $script:TestFileInfo[$fileName] = @{
+                    Path = $filePath
+                    OriginalCreationTime = $pastTime
+                    OriginalLastWriteTime = $pastTime
+                    OriginalLastAccessTime = $pastTime
+                    OriginalEncoding = $fileData.Encoding
+                }
+            }
+        }
+
+        AfterAll {
+            if (Test-Path $script:TimestampTestDir)
+            {
+                Remove-Item -Path $script:TimestampTestDir -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'Should preserve timestamps for converted files and demonstrate default behavior' {
+            # Create a single test file that we know will be converted
+            $singleTestFile = Join-Path $script:TimestampTestDir 'timestamp-single-test.txt'
+            $crlfContent = "Line 1`r`nLine 2`r`nLine 3`r`n"
+            $crlfBytes = [System.Text.Encoding]::UTF8.GetBytes($crlfContent)
+            [System.IO.File]::WriteAllBytes($singleTestFile, $crlfBytes)
+
+            # Set a specific timestamp in the past
+            $pastTime = (Get-Date).AddDays(-10)
+            $fileInfo = Get-Item $singleTestFile
+            $fileInfo.CreationTime = $pastTime
+            $fileInfo.LastWriteTime = $pastTime
+            $fileInfo.LastAccessTime = $pastTime
+
+            # Convert with default settings (PreserveTimestamps = true)
+            $result = Convert-LineEnding -Path $singleTestFile -LineEnding 'LF' -PassThru
+
+            # Verify the file was converted successfully
+            $result.Success | Should -Be $true
+            $result.Converted | Should -Be $true
+            $result.Skipped | Should -Be $false
+
+            # Verify timestamps were preserved
+            $newFileInfo = Get-Item $singleTestFile
+            $newFileInfo.CreationTime | Should -Be $pastTime -Because 'Creation time should be preserved'
+            $newFileInfo.LastWriteTime | Should -Be $pastTime -Because 'Last write time should be preserved'
+            $newFileInfo.LastAccessTime | Should -Be $pastTime -Because 'Last access time should be preserved'
+
+            # Verify content was actually converted
+            $afterBytes = [System.IO.File]::ReadAllBytes($singleTestFile)
+            $hasCarriageReturn = $afterBytes -contains 13
+            $hasCarriageReturn | Should -Be $false -Because 'File should not contain CR bytes after LF conversion'
+
+            # Clean up
+            Remove-Item $singleTestFile -Force -ErrorAction SilentlyContinue
+        }
+
+        It 'Should not preserve timestamps when PreserveTimestamps is disabled' {
+            # Create a single test file that we know will be converted
+            $singleTestFile = Join-Path $script:TimestampTestDir 'no-preserve-test.txt'
+            $crlfContent = "Test content`r`nLine 2`r`n"
+            $crlfBytes = [System.Text.Encoding]::UTF8.GetBytes($crlfContent)
+            [System.IO.File]::WriteAllBytes($singleTestFile, $crlfBytes)
+
+            # Set a specific timestamp in the past
+            $pastTime = (Get-Date).AddDays(-5)
+            $fileInfo = Get-Item $singleTestFile
+            $fileInfo.CreationTime = $pastTime
+            $fileInfo.LastWriteTime = $pastTime
+            $fileInfo.LastAccessTime = $pastTime
+
+            # Convert with PreserveTimestamps disabled
+            $result = Convert-LineEnding -Path $singleTestFile -LineEnding 'LF' -PreserveTimestamps:$false -PassThru
+
+            # Verify the file was converted
+            $result.Success | Should -Be $true
+            $result.Converted | Should -Be $true
+
+            # Verify timestamps were NOT preserved (should be current time)
+            $newFileInfo = Get-Item $singleTestFile
+            $currentTime = Get-Date
+
+            # Timestamps should be recent (within last 30 seconds)
+            ($currentTime - $newFileInfo.LastWriteTime).TotalSeconds | Should -BeLessThan 30 -Because 'Last write time should be current when not preserving timestamps'
+
+            # Should not be the original past time
+            $newFileInfo.LastWriteTime | Should -Not -Be $pastTime -Because 'Timestamp should have changed when PreserveTimestamps is false'
+
+            # Clean up
+            Remove-Item $singleTestFile -Force -ErrorAction SilentlyContinue
+        }
+
+        It 'Should handle mixed scenarios with some files converted and some skipped' {
+            # Create a fresh subdirectory for this test to avoid interference
+            $mixedTestDir = Join-Path $script:TimestampTestDir 'mixed-test'
+            New-Item -Path $mixedTestDir -ItemType Directory -Force | Out-Null
+
+            # Create files with different line endings
+            $convertFile = Join-Path $mixedTestDir 'convert-me.txt'
+            $skipFile = Join-Path $mixedTestDir 'skip-me.txt'
+
+            # File that needs conversion (CRLF)
+            $crlfContent = "Convert this`r`nFile with CRLF`r`n"
+            $crlfBytes = [System.Text.Encoding]::UTF8.GetBytes($crlfContent)
+            [System.IO.File]::WriteAllBytes($convertFile, $crlfBytes)
+
+            # File that should be skipped (already LF)
+            $lfContent = "Skip this`nFile with LF`n"
+            $lfBytes = [System.Text.Encoding]::UTF8.GetBytes($lfContent)
+            [System.IO.File]::WriteAllBytes($skipFile, $lfBytes)
+
+            # Set past timestamps on both files
+            $pastTime = (Get-Date).AddDays(-7)
+            foreach ($file in @($convertFile, $skipFile))
+            {
+                $fileInfo = Get-Item $file
+                $fileInfo.CreationTime = $pastTime
+                $fileInfo.LastWriteTime = $pastTime
+                $fileInfo.LastAccessTime = $pastTime
+            }
+
+            # Convert directory with default timestamp preservation
+            $results = Convert-LineEnding -Path $mixedTestDir -LineEnding 'LF' -Recurse -PassThru
+
+            # Verify we have both conversions and skips
+            $convertedResults = $results | Where-Object { $_.Converted -eq $true }
+            $skippedResults = $results | Where-Object { $_.Skipped -eq $true }
+
+            $convertedResults.Count | Should -Be 1 -Because 'One file should have been converted from CRLF to LF'
+            $skippedResults.Count | Should -Be 1 -Because 'One file should have been skipped (already LF)'
+
+            # Both files should have preserved timestamps (default behavior)
+            $allResults = @($convertedResults) + @($skippedResults)
+            foreach ($result in $allResults)
+            {
+                $currentInfo = Get-Item $result.FilePath
+                $currentInfo.CreationTime | Should -Be $pastTime -Because 'Timestamps should be preserved with default settings'
+                $currentInfo.LastWriteTime | Should -Be $pastTime -Because 'Timestamps should be preserved with default settings'
+                $currentInfo.LastAccessTime | Should -Be $pastTime -Because 'Timestamps should be preserved with default settings'
+            }
+
+            # Clean up
+            Remove-Item $mixedTestDir -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item $convertFile, $skipFile -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
