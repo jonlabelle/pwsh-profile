@@ -34,9 +34,12 @@ function Convert-LineEndings
         modified even if encoding conversion is needed.
 
         Valid values:
-        - Auto or System: Use platform default line endings (CRLF on Windows, LF on Unix/Linux/macOS) [Default]
-        - CRLF or Windows: Carriage Return + Line Feed (Windows: `r`n)
-        - LF or Unix: Line Feed only (Unix/Linux/macOS: `n)
+        - Auto (or System): Use platform default line endings (CRLF on Windows, LF on Unix/Linux/macOS) [Default]
+        - CRLF (or Windows): Carriage Return + Line Feed (Windows: \r\n)
+        - LF (or Unix): Line Feed only (Unix/Linux/macOS: \n)
+
+        Note that the single CR (/r) line ending (used by old Mac systems) is not supported.
+        There's simply no practical reason to convert files to/from this obsolete format anymore.
 
     .PARAMETER Recurse
         When processing directories, search recursively through all subdirectories.
@@ -261,14 +264,18 @@ function Convert-LineEndings
         License: MIT
 
         BINARY FILE DETECTION:
+
         The function automatically detects binary files using multiple methods:
+
         - File extension patterns (executables, images, archives, etc.)
         - Content analysis for null bytes and high ratio of non-printable characters
         - Files are skipped if determined to be binary to prevent corruption
 
         ENCODING PRESERVATION:
+
         File encoding is detected and preserved during conversion by default.
         When the -Encoding parameter is specified, files are converted to the target encoding.
+
         Supported encodings:
         - UTF-8 (with and without BOM)
         - UTF-16 (Little and Big Endian)
@@ -276,14 +283,18 @@ function Convert-LineEndings
         - ASCII
 
         INTELLIGENT CONVERSION:
+
         The function analyzes each file to determine what conversions are actually needed:
+
         - Line ending conversion only if current format differs from target
         - Encoding conversion only if current encoding differs from target
         - Both conversions if both differ from targets
         - Skip file entirely if both line endings and encoding are already correct
+
         This optimization minimizes file modifications and preserves timestamps when possible.
 
         PERFORMANCE:
+
         Uses streaming operations to handle large files efficiently without loading
         entire file contents into memory. Includes intelligent pre-scanning that
         samples the first 64KB of each file to detect current line ending format
@@ -294,6 +305,7 @@ function Convert-LineEndings
         processing.
 
         TIMESTAMP PRESERVATION:
+
         By default, file timestamps are updated to reflect the time of conversion. Use the
         -PreserveTimestamps switch to maintain original file timestamps (creation time and last write time)
         when files are modified. This can be useful to maintain original file history and
