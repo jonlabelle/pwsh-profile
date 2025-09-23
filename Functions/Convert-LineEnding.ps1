@@ -423,7 +423,7 @@ function Convert-LineEnding
                 {
                     if ($stream.Length -eq 0)
                     {
-                        return [System.Text.Encoding]::UTF8  # Default for empty files
+                        return New-Object System.Text.UTF8Encoding($false)  # UTF-8 without BOM for empty files
                     }
 
                     # Read up to 4 bytes for BOM detection
@@ -433,7 +433,7 @@ function Convert-LineEnding
                     # Check for BOM patterns
                     if ($bomBytesRead -ge 3 -and $bomBuffer[0] -eq 0xEF -and $bomBuffer[1] -eq 0xBB -and $bomBuffer[2] -eq 0xBF)
                     {
-                        return [System.Text.Encoding]::UTF8
+                        return New-Object System.Text.UTF8Encoding($true)  # UTF-8 with BOM
                     }
                     elseif ($bomBytesRead -ge 2 -and $bomBuffer[0] -eq 0xFF -and $bomBuffer[1] -eq 0xFE)
                     {
@@ -459,15 +459,15 @@ function Convert-LineEnding
 
                     if ($sampleBytesRead -eq 0)
                     {
-                        return [System.Text.Encoding]::UTF8  # Default for empty files
+                        return New-Object System.Text.UTF8Encoding($false)  # UTF-8 without BOM for empty files
                     }
 
                     # Check if it's valid UTF-8 using the sample
                     try
                     {
-                        $utf8 = [System.Text.Encoding]::UTF8
-                        $decoded = $utf8.GetString($sampleBuffer, 0, $sampleBytesRead)
-                        $reencoded = $utf8.GetBytes($decoded)
+                        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+                        $decoded = $utf8NoBom.GetString($sampleBuffer, 0, $sampleBytesRead)
+                        $reencoded = $utf8NoBom.GetBytes($decoded)
 
                         # If reencoding produces the same bytes, it's likely UTF-8
                         if ($sampleBytesRead -eq $reencoded.Length)
@@ -483,7 +483,7 @@ function Convert-LineEnding
                             }
                             if ($match)
                             {
-                                return $utf8
+                                return $utf8NoBom  # UTF-8 without BOM
                             }
                         }
                     }
@@ -510,7 +510,7 @@ function Convert-LineEnding
                     }
 
                     # Default to UTF-8 without BOM for other cases
-                    return [System.Text.Encoding]::UTF8
+                    return New-Object System.Text.UTF8Encoding($false)
                 }
                 finally
                 {
@@ -520,7 +520,7 @@ function Convert-LineEnding
             catch
             {
                 Write-Verbose "Error detecting encoding for '$FilePath': $($_.Exception.Message)"
-                return [System.Text.Encoding]::UTF8
+                return New-Object System.Text.UTF8Encoding($false)  # UTF-8 without BOM as fallback
             }
         }
 

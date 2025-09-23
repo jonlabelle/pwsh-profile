@@ -172,6 +172,26 @@ Describe 'Convert-LineEnding' {
             $bytes[2] | Should -Be 0xBF
         }
 
+        It 'Should preserve UTF-8 without BOM' {
+            $content = "Test UTF-8 without BOM: café, naïve`r`n"
+            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText($script:TestFile, $content, $utf8NoBom)
+
+            # Verify original file has no BOM
+            $originalBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $originalBytes[0] | Should -Not -Be 0xEF
+
+            Convert-LineEnding -Path $script:TestFile -LineEnding 'CRLF'
+
+            # Verify BOM is still NOT present after conversion
+            $convertedBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $convertedBytes[0] | Should -Not -Be 0xEF
+
+            # Verify content is correct
+            $result = [System.IO.File]::ReadAllText($script:TestFile, $utf8NoBom)
+            $result | Should -Be "Test UTF-8 without BOM: café, naïve`r`n"
+        }
+
         It 'Should preserve ASCII encoding' {
             $content = "Simple ASCII text`r`n"
             [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::ASCII)
