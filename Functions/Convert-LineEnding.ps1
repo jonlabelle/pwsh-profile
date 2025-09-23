@@ -11,13 +11,16 @@ function Convert-LineEnding
         operations for optimal performance with large files and automatically detects and skips binary files
         to prevent corruption.
 
-        The function includes intelligent optimization that pre-scans files to detect their current line
-        ending format. Files that already have the correct line endings are skipped entirely, preserving
-        their modification timestamps and avoiding unnecessary I/O operations.
+        The function includes intelligent optimization that independently checks both line ending format
+        and file encoding. Only the conversions that are actually needed are performed:
+        - If line endings are already correct but encoding needs conversion, only encoding is changed
+        - If encoding is already correct but line endings need conversion, only line endings are changed
+        - If both are already correct, the file is skipped entirely, preserving modification timestamps
+        - If both need conversion, both are converted in a single operation
 
         The function supports both individual files and directory processing with optional recursion.
-        It provides intelligent WhatIf support that analyzes files to show only those that would
-        actually be modified, rather than showing all files in scope.
+        It provides intelligent WhatIf support that analyzes files to show exactly what conversions
+        would be performed, rather than showing all files in scope.
 
     .PARAMETER Path
         The path to a file or directory to process.
@@ -25,8 +28,14 @@ function Convert-LineEnding
         For directories, all text files will be processed unless filtered by Include/Exclude parameters.
 
     .PARAMETER LineEnding
-        Specifies the target line ending format.
-        Valid values are 'LF' (Unix format) and 'CRLF' (Windows format).
+        Specifies the target line ending format. Files are converted only if their current line
+        endings differ from the target format. Line ending conversion is performed independently
+        of encoding conversion - files that already have the correct line endings will not be
+        modified even if encoding conversion is needed.
+
+        Valid values:
+        - CRLF: Carriage Return + Line Feed (Windows: `r`n)
+        - LF: Line Feed only (Unix/Linux/macOS: `n)
 
     .PARAMETER Recurse
         When processing directories, search recursively through all subdirectories.
@@ -35,7 +44,7 @@ function Convert-LineEnding
     .PARAMETER Include
         Specifies file patterns to include when processing directories.
         Supports wildcards (e.g., '*.txt', '*.ps1', '*.md') and specific filenames.
-        Default includes common text file extensions and extensionless text files
+        Default includes common text file extensions and extension-less text files
         like LICENSE, README, Dockerfile, Makefile, etc.
 
     .PARAMETER Exclude
@@ -48,7 +57,9 @@ function Convert-LineEnding
     .PARAMETER Encoding
         Specifies the target file encoding. When set to 'Auto' (default), the original file encoding
         is preserved. When set to a specific encoding, files will be converted to that encoding only
-        if line endings need to be converted.
+        if their current encoding differs from the target. Encoding conversion is performed independently
+        of line ending conversion - files that already have the correct encoding will not be modified
+        even if line ending conversion is needed.
 
         Valid values:
         - Auto: Preserve original file encoding (default)
@@ -65,7 +76,8 @@ function Convert-LineEnding
     .EXAMPLE
         PS > Convert-LineEnding -Path 'script.ps1' -LineEnding 'LF'
 
-        Converts the specified PowerShell script to use Unix line endings.
+        Converts the specified PowerShell script to use Unix line endings only if it doesn't
+        already have LF line endings. The file encoding is preserved (Auto encoding).
 
     .EXAMPLE
         PS > Convert-LineEnding -Path 'C:\Scripts' -LineEnding 'CRLF' -Recurse -Include '*.ps1', '*.txt'
@@ -82,8 +94,8 @@ function Convert-LineEnding
         PS > Get-ChildItem '*.md' | Convert-LineEnding -LineEnding 'LF' -WhatIf
 
         Shows which Markdown files would be converted to Unix line endings vs. which would be skipped.
-        Files needing conversion show "Convert line endings to LF" while files with correct endings
-        show "Skip file - already has correct line endings (LF)".
+        Files needing line ending conversion show "Convert line endings from [Current] to LF" while files
+        with correct endings show "Skip file - already has correct line endings (LF)".
 
     .EXAMPLE
         PS > Convert-LineEnding -Path 'project' -LineEnding 'LF' -Exclude '*.min.js', 'node_modules' -Recurse
@@ -93,17 +105,87 @@ function Convert-LineEnding
     .EXAMPLE
         PS > Convert-LineEnding -Path 'data.csv' -LineEnding 'CRLF' -Encoding 'UTF8BOM'
 
-        Converts a CSV file to Windows line endings and UTF-8 with BOM encoding.
+        Converts a CSV file to Windows line endings and UTF-8 with BOM encoding. Both conversions
+        are performed independently - if the file already has CRLF endings but wrong encoding,
+        only the encoding will be converted.
+
+    .EXAMPLE
+        PS > Convert-LineEnding -Path 'script.txt' -LineEnding 'LF' -Encoding 'UTF8' -PassThru
+
+        Converts to LF line endings and UTF-8 without BOM. The PassThru output will show which
+        conversions were actually performed (line endings, encoding, both, or neither).
 
     .EXAMPLE
         PS > Get-ChildItem '*.txt' | Convert-LineEnding -LineEnding 'LF' -Encoding 'UTF8' -PassThru
 
-        Converts all text files to Unix line endings and UTF-8 without BOM, returning processing information.
+        Processes all text files for both line ending and encoding conversion. Returns detailed
+        information about which files were converted and what changes were made.
+
+    .EXAMPLE
+        PS > Convert-LineEnding -Path 'mixed-content' -LineEnding 'LF' -Recurse -PassThru |
+             Where-Object {$_.Converted -or $_.EncodingChanged} |
+             Format-Table FilePath,Converted,EncodingChanged,SourceEncoding,TargetEncoding
+
+        Processes a directory recursively and shows only files that actually required conversion,
+        displaying what type of conversion was performed on each file.
+
+    .EXAMPLE
+        PS > Convert-LineEnding -Path @('file1.txt','file2.json','file3.xml') -LineEnding 'CRLF' -Encoding 'UTF8' -PassThru
+
+        Processes multiple specific files and shows which ones needed line ending conversion,
+        encoding conversion, both, or neither. Demonstrates independent conversion logic
+        across different file types.
+
+    .EXAMPLE
+        PS > Convert-LineEnding -Path 'config.json' -LineEnding 'LF' -Encoding 'UTF8' -WhatIf
+
+        Preview what would happen when converting a JSON file. Shows output like:
+        "Convert line endings from CRLF to LF" (if line endings need conversion)
+        "Convert encoding from UTF8BOM to UTF8" (if encoding needs conversion)
+        "Skip file - already has correct line endings (LF) and encoding (UTF8)" (if no conversion needed)
+
+    .EXAMPLE
+        PS > Convert-LineEnding -Path 'document.txt' -Encoding 'UTF8BOM' -PassThru
+
+        Converts only the encoding to UTF-8 with BOM while preserving existing line endings.
+        The LineEnding parameter defaults to preserving the current format when not specified.
+        PassThru output will show EncodingChanged: True and Converted: False if only encoding changed.
+
+    .EXAMPLE
+        PS > Get-ChildItem 'src\*.cs' | Convert-LineEnding -LineEnding 'CRLF' -Force -PassThru | Where-Object Converted
+
+        Converts C# source files to Windows line endings and returns only files that actually
+        had their line endings converted (filters out files that already had CRLF).
+
+    .EXAMPLE
+        PS > Convert-LineEnding -Path 'legacy-file.txt' -LineEnding 'LF' -Encoding 'UTF8' -PassThru | Format-Table
+
+        Converts both line endings and encoding with tabular output showing before/after state:
+        FilePath         OriginalLF OriginalCRLF NewLF NewCRLF SourceEncoding TargetEncoding EncodingChanged Converted Skipped
+        --------         ---------- ------------ ----- ------- -------------- -------------- --------------- --------- -------
+        legacy-file.txt  0          15           15    0       ASCII          UTF8           True            True      False
+
+    .EXAMPLE
+        PS > $results = Get-ChildItem '*.md' | Convert-LineEnding -LineEnding 'LF' -Encoding 'UTF8' -PassThru
+        PS > $results | Group-Object Skipped,Converted,EncodingChanged | Select-Object Name,Count
+
+        Processes Markdown files and groups results by conversion type to see summary statistics:
+        - "False,True,True": Files that had both line endings and encoding converted
+        - "False,True,False": Files that had only line endings converted
+        - "False,False,True": Files that had only encoding converted
+        - "True,False,False": Files that were skipped (no conversion needed)
 
     .OUTPUTS
         None by default.
-        [System.Object[]] when PassThru is specified, containing file path, original and new line ending counts,
-        source encoding, target encoding, and whether encoding was changed.
+        [System.Object[]] when PassThru is specified, containing:
+        - File: Full path to the processed file
+        - LineEnding: Target line ending format
+        - Encoding: Target or detected encoding
+        - OriginalLineEnding: Source line ending format
+        - OriginalEncoding: Source file encoding
+        - Converted: Whether line ending conversion was performed
+        - EncodingChanged: Whether encoding conversion was performed
+        - Skipped: Whether the file was skipped (both line endings and encoding already correct)
 
     .NOTES
         Version: 1.0.0
@@ -126,12 +208,23 @@ function Convert-LineEnding
         - UTF-32
         - ASCII
 
+        INTELLIGENT CONVERSION:
+        The function analyzes each file to determine what conversions are actually needed:
+        - Line ending conversion only if current format differs from target
+        - Encoding conversion only if current encoding differs from target
+        - Both conversions if both differ from targets
+        - Skip file entirely if both line endings and encoding are already correct
+        This optimization minimizes file modifications and preserves timestamps when possible.
+
         PERFORMANCE:
         Uses streaming operations to handle large files efficiently without loading
         entire file contents into memory. Includes intelligent pre-scanning that
-        samples the first 64KB of each file to detect current line ending format.
-        Files that already have the correct line endings are skipped entirely,
-        preserving modification timestamps and avoiding unnecessary processing.
+        samples the first 64KB of each file to detect current line ending format
+        and encoding. Line ending conversion and encoding conversion are evaluated
+        independently - only the conversions that are actually needed are performed.
+        Files that already have both the correct line endings and encoding are
+        skipped entirely, preserving modification timestamps and avoiding unnecessary
+        processing.
 
     .LINK
         https://jonlabelle.com/snippets/view/powershell/convert-line-endings-in-powershell
@@ -301,6 +394,40 @@ function Convert-LineEnding
                 Write-Error "Failed to create encoding '$EncodingName': $($_.Exception.Message)"
                 return $null
             }
+        }
+
+        function Test-EncodingMatch
+        {
+            param(
+                [System.Text.Encoding]$SourceEncoding,
+                [System.Text.Encoding]$TargetEncoding
+            )
+
+            # If target encoding is null, it means keep original (Auto mode)
+            if ($null -eq $TargetEncoding)
+            {
+                return $true
+            }
+
+            # If both are null, they match
+            if ($null -eq $SourceEncoding -and $null -eq $TargetEncoding)
+            {
+                return $true
+            }
+
+            # If one is null and the other isn't, they don't match
+            if ($null -eq $SourceEncoding -or $null -eq $TargetEncoding)
+            {
+                return $false
+            }
+
+            # Compare the encoding types and BOM presence
+            $sourceType = $SourceEncoding.ToString()
+            $targetType = $TargetEncoding.ToString()
+            $sourceBomLength = $SourceEncoding.GetPreamble().Length
+            $targetBomLength = $TargetEncoding.GetPreamble().Length
+
+            return ($sourceType -eq $targetType) -and ($sourceBomLength -eq $targetBomLength)
         }
 
         function Test-BinaryFile
@@ -703,7 +830,8 @@ function Convert-LineEnding
                 [String]$FilePath,
                 [String]$TargetLineEnding,
                 [System.Text.Encoding]$SourceEncoding,
-                [System.Text.Encoding]$TargetEncoding = $null
+                [System.Text.Encoding]$TargetEncoding = $null,
+                [Boolean]$ConvertLineEndings = $true
             )
 
             $tempFilePath = "$FilePath.tmp"
@@ -742,24 +870,53 @@ function Convert-LineEnding
                                 {
                                     $originalCrlfCount++
                                     $i++  # Skip the LF character
+
+                                    # Write line with appropriate ending
+                                    $writer.Write($lineBuffer.ToString())
+                                    if ($ConvertLineEndings)
+                                    {
+                                        $writer.Write($TargetLineEnding)
+                                        if ($TargetLineEnding -eq "`n")
+                                        {
+                                            $newLfCount++
+                                        }
+                                        else
+                                        {
+                                            $newCrlfCount++
+                                        }
+                                    }
+                                    else
+                                    {
+                                        # Preserve original CRLF
+                                        $writer.Write("`r`n")
+                                        $newCrlfCount++
+                                    }
                                 }
                                 else
                                 {
                                     # Standalone CR (treat as line ending)
                                     $originalLfCount++
-                                }
 
-                                # Write line with target ending
-                                $writer.Write($lineBuffer.ToString())
-                                $writer.Write($TargetLineEnding)
-
-                                if ($TargetLineEnding -eq "`n")
-                                {
-                                    $newLfCount++
-                                }
-                                else
-                                {
-                                    $newCrlfCount++
+                                    # Write line with appropriate ending
+                                    $writer.Write($lineBuffer.ToString())
+                                    if ($ConvertLineEndings)
+                                    {
+                                        $writer.Write($TargetLineEnding)
+                                        if ($TargetLineEnding -eq "`n")
+                                        {
+                                            $newLfCount++
+                                        }
+                                        else
+                                        {
+                                            $newCrlfCount++
+                                        }
+                                    }
+                                    else
+                                    {
+                                        # Preserve original CR
+                                        $writer.Write("`r")
+                                        $newLfCount++
+                                    }
                                 }
 
                                 $lineBuffer.Clear() | Out-Null
@@ -770,15 +927,23 @@ function Convert-LineEnding
                                 $originalLfCount++
 
                                 $writer.Write($lineBuffer.ToString())
-                                $writer.Write($TargetLineEnding)
-
-                                if ($TargetLineEnding -eq "`n")
+                                if ($ConvertLineEndings)
                                 {
-                                    $newLfCount++
+                                    $writer.Write($TargetLineEnding)
+                                    if ($TargetLineEnding -eq "`n")
+                                    {
+                                        $newLfCount++
+                                    }
+                                    else
+                                    {
+                                        $newCrlfCount++
+                                    }
                                 }
                                 else
                                 {
-                                    $newCrlfCount++
+                                    # Preserve original LF
+                                    $writer.Write("`n")
+                                    $newLfCount++
                                 }
 
                                 $lineBuffer.Clear() | Out-Null
@@ -824,6 +989,7 @@ function Convert-LineEnding
                     EncodingChanged = $SourceEncoding.ToString() -ne $outputEncoding.ToString() -or $SourceEncoding.GetPreamble().Length -ne $outputEncoding.GetPreamble().Length
                     Success = $true
                     Error = $null
+                    Skipped = $false
                 }
             }
             catch
@@ -845,6 +1011,7 @@ function Convert-LineEnding
                     EncodingChanged = $false
                     Success = $false
                     Error = $_.Exception.Message
+                    Skipped = $false
                 }
             }
         }
@@ -926,16 +1093,28 @@ function Convert-LineEnding
                     }
 
                     # Pre-check if conversion is needed (even for WhatIf to provide accurate preview)
-                    $needsConversion = Test-LineEndingConversionNeeded -FilePath $file.FullName -TargetLineEnding $targetLineEnding
+                    $needsLineEndingConversion = Test-LineEndingConversionNeeded -FilePath $file.FullName -TargetLineEnding $targetLineEnding
 
-                    if ($needsConversion)
+                    # Check if encoding conversion is needed
+                    $sourceEncoding = Get-FileEncoding -FilePath $file.FullName
+                    $targetEncoding = if ($Encoding -ne 'Auto') { Get-EncodingFromName -EncodingName $Encoding } else { $null }
+                    $needsEncodingConversion = -not (Test-EncodingMatch -SourceEncoding $sourceEncoding -TargetEncoding $targetEncoding)
+
+                    if ($needsLineEndingConversion -or $needsEncodingConversion)
                     {
-                        if ($PSCmdlet.ShouldProcess($file.FullName, "Convert line endings to $LineEnding"))
+                        # Determine what needs to be converted
+                        $conversionType = @()
+                        if ($needsLineEndingConversion) { $conversionType += "line endings to $LineEnding" }
+                        if ($needsEncodingConversion) { $conversionType += "encoding to $Encoding" }
+                        $conversionDescription = $conversionType -join ' and '
+
+                        if ($PSCmdlet.ShouldProcess($file.FullName, "Convert $conversionDescription"))
                         {
                             Write-Verbose "Processing file: $($file.FullName)"
-                            $sourceEncoding = Get-FileEncoding -FilePath $file.FullName
-                            $targetEncoding = if ($Encoding -ne 'Auto') { Get-EncodingFromName -EncodingName $Encoding } else { $null }
-                            $result = Convert-SingleFileLineEnding -FilePath $file.FullName -TargetLineEnding $targetLineEnding -SourceEncoding $sourceEncoding -TargetEncoding $targetEncoding
+
+                            # Only use target encoding if encoding conversion is needed
+                            $actualTargetEncoding = if ($needsEncodingConversion) { $targetEncoding } else { $null }
+                            $result = Convert-SingleFileLineEnding -FilePath $file.FullName -TargetLineEnding $targetLineEnding -SourceEncoding $sourceEncoding -TargetEncoding $actualTargetEncoding -ConvertLineEndings $needsLineEndingConversion
 
                             if ($PassThru)
                             {
@@ -955,14 +1134,13 @@ function Convert-LineEnding
                     }
                     else
                     {
-                        if ($PSCmdlet.ShouldProcess($file.FullName, "Skip file - already has correct line endings ($LineEnding)"))
+                        if ($PSCmdlet.ShouldProcess($file.FullName, "Skip file - already has correct line endings ($LineEnding) and encoding ($targetEncodingName)"))
                         {
-                            Write-Verbose "Skipping '$($file.FullName)' - already has correct line endings"
+                            Write-Verbose "Skipping '$($file.FullName)' - already has correct line endings and encoding"
 
                             if ($PassThru)
                             {
                                 # Return info showing no changes were needed
-                                $sourceEncoding = Get-FileEncoding -FilePath $file.FullName
                                 $result = [PSCustomObject]@{
                                     FilePath = $file.FullName
                                     OriginalLF = if ($LineEnding -eq 'LF') { 1 } else { 0 }
@@ -992,16 +1170,28 @@ function Convert-LineEnding
                 }
 
                 # Pre-check if conversion is needed (even for WhatIf to provide accurate preview)
-                $needsConversion = Test-LineEndingConversionNeeded -FilePath $resolvedPath -TargetLineEnding $targetLineEnding
+                $needsLineEndingConversion = Test-LineEndingConversionNeeded -FilePath $resolvedPath -TargetLineEnding $targetLineEnding
 
-                if ($needsConversion)
+                # Check if encoding conversion is needed
+                $sourceEncoding = Get-FileEncoding -FilePath $resolvedPath
+                $targetEncoding = if ($Encoding -ne 'Auto') { Get-EncodingFromName -EncodingName $Encoding } else { $null }
+                $needsEncodingConversion = -not (Test-EncodingMatch -SourceEncoding $sourceEncoding -TargetEncoding $targetEncoding)
+
+                if ($needsLineEndingConversion -or $needsEncodingConversion)
                 {
-                    if ($PSCmdlet.ShouldProcess($resolvedPath, "Convert line endings to $LineEnding"))
+                    # Determine what needs to be converted
+                    $conversionType = @()
+                    if ($needsLineEndingConversion) { $conversionType += "line endings to $LineEnding" }
+                    if ($needsEncodingConversion) { $conversionType += "encoding to $Encoding" }
+                    $conversionDescription = $conversionType -join ' and '
+
+                    if ($PSCmdlet.ShouldProcess($resolvedPath, "Convert $conversionDescription"))
                     {
                         Write-Verbose "Processing file: $resolvedPath"
-                        $sourceEncoding = Get-FileEncoding -FilePath $resolvedPath
-                        $targetEncoding = if ($Encoding -ne 'Auto') { Get-EncodingFromName -EncodingName $Encoding } else { $null }
-                        $result = Convert-SingleFileLineEnding -FilePath $resolvedPath -TargetLineEnding $targetLineEnding -SourceEncoding $sourceEncoding -TargetEncoding $targetEncoding
+
+                        # Only use target encoding if encoding conversion is needed
+                        $actualTargetEncoding = if ($needsEncodingConversion) { $targetEncoding } else { $null }
+                        $result = Convert-SingleFileLineEnding -FilePath $resolvedPath -TargetLineEnding $targetLineEnding -SourceEncoding $sourceEncoding -TargetEncoding $actualTargetEncoding -ConvertLineEndings $needsLineEndingConversion
 
                         if ($PassThru)
                         {
@@ -1021,14 +1211,13 @@ function Convert-LineEnding
                 }
                 else
                 {
-                    if ($PSCmdlet.ShouldProcess($resolvedPath, "Skip file - already has correct line endings ($LineEnding)"))
+                    if ($PSCmdlet.ShouldProcess($resolvedPath, "Skip file - already has correct line endings ($LineEnding) and encoding ($targetEncodingName)"))
                     {
-                        Write-Verbose "Skipping '$resolvedPath' - already has correct line endings"
+                        Write-Verbose "Skipping '$resolvedPath' - already has correct line endings and encoding"
 
                         if ($PassThru)
                         {
                             # Return info showing no changes were needed
-                            $sourceEncoding = Get-FileEncoding -FilePath $resolvedPath
                             $result = [PSCustomObject]@{
                                 FilePath = $resolvedPath
                                 OriginalLF = if ($LineEnding -eq 'LF') { 1 } else { 0 }

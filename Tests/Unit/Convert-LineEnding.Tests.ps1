@@ -326,7 +326,7 @@ Describe 'Convert-LineEnding' {
             $result.NewLF | Should -Be 1
         }
 
-        It 'Should not convert encoding when line endings are already correct' {
+        It 'Should convert only encoding when line endings are already correct (legacy behavior)' {
             $content = "Test content`n"  # LF content, already correct
             $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
             [System.IO.File]::WriteAllText($script:TestFile, $content, $utf8NoBom)
@@ -335,16 +335,104 @@ Describe 'Convert-LineEnding' {
             $originalBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
             $originalBytes[0] | Should -Not -Be 0xEF
 
-            # This should skip the file entirely since line endings are already correct
+            # This should convert encoding even though line endings are already correct
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8BOM' -PassThru
+
+            # Should NOT be skipped and should convert encoding
+            $result.Skipped | Should -Be $false
+            $result.EncodingChanged | Should -Be $true
+
+            # Verify BOM was added
+            $finalBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $finalBytes[0] | Should -Be 0xEF
+        }
+
+        It 'Should convert only encoding when line endings are already correct' {
+            $content = "Test content`n"  # LF content, already correct
+            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText($script:TestFile, $content, $utf8NoBom)
+
+            # Verify original has no BOM
+            $originalBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $originalBytes[0] | Should -Not -Be 0xEF
+
+            # This should convert encoding but not line endings since they're already correct
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8BOM' -PassThru
+
+            # Should NOT be skipped and should convert encoding
+            $result.Skipped | Should -Be $false
+            $result.EncodingChanged | Should -Be $true
+            $result.SourceEncoding | Should -Be 'Unicode (UTF-8)'
+            $result.TargetEncoding | Should -Be 'Unicode (UTF-8)'
+
+            # Verify BOM was added
+            $finalBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $finalBytes[0] | Should -Be 0xEF
+            $finalBytes[1] | Should -Be 0xBB
+            $finalBytes[2] | Should -Be 0xBF
+
+            # Verify content is still correct
+            $finalContent = [System.IO.File]::ReadAllText($script:TestFile)
+            $finalContent | Should -Be "Test content`n"
+            $finalContent | Should -Not -Match "`r"
+        }
+
+        It 'Should convert only line endings when encoding is already correct' {
+            $content = "Test content`r`n"  # CRLF content, needs conversion
+            $utf8WithBom = New-Object System.Text.UTF8Encoding($true)
+            [System.IO.File]::WriteAllText($script:TestFile, $content, $utf8WithBom)
+
+            # Verify original has BOM and CRLF
+            $originalBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $originalBytes[0] | Should -Be 0xEF
+            $originalContent = [System.IO.File]::ReadAllText($script:TestFile)
+            $originalContent | Should -Match "`r`n"
+
+            # This should convert line endings but not encoding since it's already correct
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8BOM' -PassThru
+
+            # Should NOT be skipped and should convert line endings but not encoding
+            $result.Skipped | Should -Be $false
+            $result.EncodingChanged | Should -Be $false
+            $result.OriginalCRLF | Should -Be 1
+            $result.NewLF | Should -Be 1
+
+            # Verify BOM is still present
+            $finalBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $finalBytes[0] | Should -Be 0xEF
+            $finalBytes[1] | Should -Be 0xBB
+            $finalBytes[2] | Should -Be 0xBF
+
+            # Verify line endings were converted
+            $finalContent = [System.IO.File]::ReadAllText($script:TestFile)
+            $finalContent | Should -Be "Test content`n"
+            $finalContent | Should -Not -Match "`r"
+        }
+
+        It 'Should skip file entirely when both line endings and encoding are already correct' {
+            $content = "Test content`n"  # LF content, already correct
+            $utf8WithBom = New-Object System.Text.UTF8Encoding($true)
+            [System.IO.File]::WriteAllText($script:TestFile, $content, $utf8WithBom)
+
+            # Verify original has BOM and LF
+            $originalBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $originalBytes[0] | Should -Be 0xEF
+
+            # This should skip the file entirely since both line endings and encoding are correct
             $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8BOM' -PassThru
 
             # Should return a skipped result
             $result.Skipped | Should -Be $true
             $result.EncodingChanged | Should -Be $false
 
-            # Verify BOM was NOT added (file was skipped)
+            # Verify file is unchanged
             $finalBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
-            $finalBytes[0] | Should -Not -Be 0xEF
+            $finalBytes[0] | Should -Be 0xEF
+            $finalBytes[1] | Should -Be 0xBB
+            $finalBytes[2] | Should -Be 0xBF
+
+            $finalContent = [System.IO.File]::ReadAllText($script:TestFile)
+            $finalContent | Should -Be "Test content`n"
         }
 
         It 'Should work with cross-platform encoding names' -Skip:($PSVersionTable.PSVersion.Major -lt 6 -and $IsWindows -eq $false) {
