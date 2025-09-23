@@ -43,10 +43,12 @@ function Convert-LineEnding
         Overwrites read-only files. Without this parameter, read-only files are skipped.
 
     .PARAMETER Encoding
-        Specifies the target file encoding. When specified, files will be converted to this encoding.
-        When not specified, the original file encoding is preserved.
+        Specifies the target file encoding. When set to 'Auto' (default), the original file encoding
+        is preserved. When set to a specific encoding, files will be converted to that encoding only
+        if line endings need to be converted.
 
         Valid values:
+        - Auto: Preserve original file encoding (default)
         - UTF8: UTF-8 without BOM
         - UTF8BOM: UTF-8 with BOM
         - UTF16LE: UTF-16 Little Endian with BOM
@@ -231,8 +233,8 @@ function Convert-LineEnding
         [Switch]$Force,
 
         [Parameter()]
-        [ValidateSet('UTF8', 'UTF8BOM', 'UTF16LE', 'UTF16BE', 'UTF32', 'ASCII', 'ANSI', 'OEM')]
-        [String]$Encoding,
+        [ValidateSet('Auto', 'UTF8', 'UTF8BOM', 'UTF16LE', 'UTF16BE', 'UTF32', 'ASCII', 'ANSI', 'OEM')]
+        [String]$Encoding = 'Auto',
 
         [Parameter()]
         [Switch]$PassThru
@@ -266,6 +268,7 @@ function Convert-LineEnding
             {
                 switch ($EncodingName.ToUpper())
                 {
+                    'AUTO' { return $null }  # Return null to indicate keep original encoding
                     'UTF8' { return New-Object System.Text.UTF8Encoding($false) }
                     'UTF8BOM' { return New-Object System.Text.UTF8Encoding($true) }
                     'UTF16LE' { return [System.Text.Encoding]::Unicode }
@@ -945,7 +948,7 @@ function Convert-LineEnding
                         {
                             Write-Verbose "Processing file: $($file.FullName)"
                             $sourceEncoding = Get-FileEncoding -FilePath $file.FullName
-                            $targetEncoding = if ($Encoding) { Get-EncodingFromName -EncodingName $Encoding } else { $null }
+                            $targetEncoding = if ($Encoding -ne 'Auto') { Get-EncodingFromName -EncodingName $Encoding } else { $null }
                             $result = Convert-SingleFileLineEnding -FilePath $file.FullName -TargetLineEnding $targetLineEnding -SourceEncoding $sourceEncoding -TargetEncoding $targetEncoding
 
                             if ($PassThru)
@@ -1011,7 +1014,7 @@ function Convert-LineEnding
                     {
                         Write-Verbose "Processing file: $resolvedPath"
                         $sourceEncoding = Get-FileEncoding -FilePath $resolvedPath
-                        $targetEncoding = if ($Encoding) { Get-EncodingFromName -EncodingName $Encoding } else { $null }
+                        $targetEncoding = if ($Encoding -ne 'Auto') { Get-EncodingFromName -EncodingName $Encoding } else { $null }
                         $result = Convert-SingleFileLineEnding -FilePath $resolvedPath -TargetLineEnding $targetLineEnding -SourceEncoding $sourceEncoding -TargetEncoding $targetEncoding
 
                         if ($PassThru)
