@@ -2,12 +2,14 @@ function Convert-LineEnding
 {
     <#
     .SYNOPSIS
-        Converts line endings between LF and CRLF while preserving file encoding.
+        Converts line endings between LF and CRLF with optional file encoding conversion.
 
     .DESCRIPTION
         This function converts line endings in text files between Unix (LF) and Windows (CRLF) formats
-        while preserving the original file encoding. It uses streaming operations for optimal performance
-        with large files and automatically detects and skips binary files to prevent corruption.
+        with optional file encoding conversion. By default, the original file encoding is preserved, but
+        you can specify a target encoding to convert files during line ending processing. It uses streaming
+        operations for optimal performance with large files and automatically detects and skips binary files
+        to prevent corruption.
 
         The function includes intelligent optimization that pre-scans files to detect their current line
         ending format. Files that already have the correct line endings are skipped entirely, preserving
