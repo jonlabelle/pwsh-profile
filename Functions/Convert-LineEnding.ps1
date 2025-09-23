@@ -558,7 +558,7 @@ function Convert-LineEnding
 
                     # Images
                     '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.ico',
-                    '.svg', '.webp', '.heic', '.psd',
+                    '.svgz', '.webp', '.heic', '.psd',
 
                     # Audio/Video
                     '.mp3', '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv',
