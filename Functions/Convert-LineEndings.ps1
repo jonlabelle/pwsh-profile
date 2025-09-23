@@ -71,7 +71,8 @@ function Convert-LineEndings
         - UTF8BOM: UTF-8 with BOM
         - UTF16LE: UTF-16 Little Endian with BOM
         - UTF16BE: UTF-16 Big Endian with BOM
-        - UTF32: UTF-32 with BOM
+        - UTF32: UTF-32 Little Endian with BOM
+        - UTF32BE: UTF-32 Big Endian with BOM
         - ASCII: 7-bit ASCII encoding
         - ANSI: System default ANSI encoding (code page dependent)
 
@@ -138,6 +139,19 @@ function Convert-LineEndings
         Converts a legacy text file to Windows line endings and system default ANSI encoding.
         This is useful for older Windows applications that expect ANSI-encoded files with
         the system's default code page.
+
+    .EXAMPLE
+        PS > Convert-LineEndings -Path 'unicode-data.xml' -LineEnding 'LF' -Encoding 'UTF32'
+
+        Converts an XML file to Unix line endings and UTF-32 Little Endian encoding with BOM.
+        UTF-32 provides fixed-width encoding for all Unicode characters, useful for applications
+        that need predictable character indexing.
+
+    .EXAMPLE
+        PS > Convert-LineEndings -Path 'big-endian-file.txt' -LineEnding 'CRLF' -Encoding 'UTF32BE'
+
+        Converts a file to Windows line endings and UTF-32 Big Endian encoding. This might be
+        needed for interoperability with systems that prefer big-endian byte ordering.
 
     .EXAMPLE
         PS > Convert-LineEndings -Path 'script.txt' -LineEnding 'LF' -Encoding 'UTF8' -PassThru
@@ -287,7 +301,7 @@ function Convert-LineEndings
         Supported encodings:
         - UTF-8 (with and without BOM)
         - UTF-16 (Little and Big Endian)
-        - UTF-32
+        - UTF-32 (Little and Big Endian)
         - ASCII
         - ANSI (system default code page)
 
@@ -437,7 +451,7 @@ function Convert-LineEndings
         [Switch]$Force,
 
         [Parameter()]
-        [ValidateSet('Auto', 'UTF8', 'UTF8BOM', 'UTF16LE', 'UTF16BE', 'UTF32', 'ASCII', 'ANSI')]
+        [ValidateSet('Auto', 'UTF8', 'UTF8BOM', 'UTF16LE', 'UTF16BE', 'UTF32', 'UTF32BE', 'ASCII', 'ANSI')]
         [String]$Encoding = 'Auto',
 
         [Parameter()]
@@ -521,6 +535,7 @@ function Convert-LineEndings
                     'UTF16LE' { return [System.Text.Encoding]::Unicode }
                     'UTF16BE' { return [System.Text.Encoding]::BigEndianUnicode }
                     'UTF32' { return [System.Text.Encoding]::UTF32 }
+                    'UTF32BE' { return [System.Text.Encoding]::GetEncoding('utf-32BE') }
                     'ASCII' { return [System.Text.Encoding]::ASCII }
                     'ANSI' { return [System.Text.Encoding]::Default }
                     default
@@ -627,11 +642,56 @@ function Convert-LineEndings
                     }
 
                     # Check for text encoding patterns first to avoid false positives
-                    $hasUtf16LeBom = $bytesRead -ge 2 -and $buffer[0] -eq 0xFF -and $buffer[1] -eq 0xFE
+                    # UTF-32 LE BOM: FF FE 00 00 (check before UTF-16 LE to avoid conflict)
+                    $hasUtf32LeBom = $bytesRead -ge 4 -and $buffer[0] -eq 0xFF -and $buffer[1] -eq 0xFE -and $buffer[2] -eq 0x00 -and $buffer[3] -eq 0x00
+                    # UTF-32 BE BOM: 00 00 FE FF
+                    $hasUtf32BeBom = $bytesRead -ge 4 -and $buffer[0] -eq 0x00 -and $buffer[1] -eq 0x00 -and $buffer[2] -eq 0xFE -and $buffer[3] -eq 0xFF
+                    # UTF-16 LE BOM: FF FE (check after UTF-32 LE to avoid conflict)
+                    $hasUtf16LeBom = $bytesRead -ge 2 -and $buffer[0] -eq 0xFF -and $buffer[1] -eq 0xFE -and -not $hasUtf32LeBom
+                    # UTF-16 BE BOM: FE FF
                     $hasUtf16BeBom = $bytesRead -ge 2 -and $buffer[0] -eq 0xFE -and $buffer[1] -eq 0xFF
 
+                    # If we detect UTF-32 encoding, analyze accordingly
+                    if ($hasUtf32LeBom -or $hasUtf32BeBom)
+                    {
+                        Write-Verbose "File '$FilePath' has UTF-32 BOM, analyzing as UTF-32 text"
+                        # For UTF-32, check every 4 bytes starting from position 4 (after BOM)
+                        $printableCount = 0
+                        $totalChars = 0
+                        $startPos = 4
+
+                        for ($i = $startPos; $i -lt $bytesRead - 3; $i += 4)
+                        {
+                            $char = if ($hasUtf32LeBom)
+                            {
+                                $buffer[$i] + ($buffer[$i + 1] * 256) + ($buffer[$i + 2] * 65536) + ($buffer[$i + 3] * 16777216)
+                            }
+                            else
+                            {
+                                ($buffer[$i] * 16777216) + ($buffer[$i + 1] * 65536) + ($buffer[$i + 2] * 256) + $buffer[$i + 3]
+                            }
+
+                            $totalChars++
+                            # Check if character is printable (including common whitespace and extended Unicode)
+                            if (($char -ge 32 -and $char -le 126) -or $char -eq 9 -or $char -eq 10 -or $char -eq 13 -or ($char -ge 128 -and $char -le 0x10FFFF))
+                            {
+                                $printableCount++
+                            }
+                        }
+
+                        if ($totalChars -gt 0)
+                        {
+                            $printableRatio = $printableCount / $totalChars
+                            if ($printableRatio -lt 0.75)
+                            {
+                                Write-Verbose "File '$FilePath' detected as binary (low UTF-32 printable character ratio: $([math]::Round($printableRatio * 100, 1))%)"
+                                return $true
+                            }
+                        }
+                        return $false
+                    }
                     # If we detect UTF-16 encoding (common with PowerShell Out-File), analyze accordingly
-                    if ($hasUtf16LeBom -or $hasUtf16BeBom)
+                    elseif ($hasUtf16LeBom -or $hasUtf16BeBom)
                     {
                         Write-Verbose "File '$FilePath' has UTF-16 BOM, analyzing as UTF-16 text"
                         # For UTF-16, check every other byte starting from position 2 (after BOM)
@@ -926,22 +986,31 @@ function Convert-LineEndings
                     $bomBuffer = New-Object byte[] 4
                     $bomBytesRead = $stream.Read($bomBuffer, 0, 4)
 
-                    # Check for BOM patterns
-                    if ($bomBytesRead -ge 3 -and $bomBuffer[0] -eq 0xEF -and $bomBuffer[1] -eq 0xBB -and $bomBuffer[2] -eq 0xBF)
+                    # Check for BOM patterns - Order matters! Check longer BOMs first
+                    # UTF-32 LE BOM: FF FE 00 00 (4 bytes)
+                    if ($bomBytesRead -ge 4 -and $bomBuffer[0] -eq 0xFF -and $bomBuffer[1] -eq 0xFE -and $bomBuffer[2] -eq 0x00 -and $bomBuffer[3] -eq 0x00)
+                    {
+                        return [System.Text.Encoding]::UTF32  # UTF-32 LE
+                    }
+                    # UTF-32 BE BOM: 00 00 FE FF (4 bytes)
+                    elseif ($bomBytesRead -ge 4 -and $bomBuffer[0] -eq 0x00 -and $bomBuffer[1] -eq 0x00 -and $bomBuffer[2] -eq 0xFE -and $bomBuffer[3] -eq 0xFF)
+                    {
+                        return [System.Text.Encoding]::GetEncoding('utf-32BE')  # UTF-32 BE
+                    }
+                    # UTF-8 BOM: EF BB BF (3 bytes)
+                    elseif ($bomBytesRead -ge 3 -and $bomBuffer[0] -eq 0xEF -and $bomBuffer[1] -eq 0xBB -and $bomBuffer[2] -eq 0xBF)
                     {
                         return New-Object System.Text.UTF8Encoding($true)  # UTF-8 with BOM
                     }
+                    # UTF-16 LE BOM: FF FE (2 bytes) - Check after UTF-32 LE to avoid conflict
                     elseif ($bomBytesRead -ge 2 -and $bomBuffer[0] -eq 0xFF -and $bomBuffer[1] -eq 0xFE)
                     {
                         return [System.Text.Encoding]::Unicode  # UTF-16 LE
                     }
+                    # UTF-16 BE BOM: FE FF (2 bytes)
                     elseif ($bomBytesRead -ge 2 -and $bomBuffer[0] -eq 0xFE -and $bomBuffer[1] -eq 0xFF)
                     {
                         return [System.Text.Encoding]::BigEndianUnicode  # UTF-16 BE
-                    }
-                    elseif ($bomBytesRead -ge 4 -and $bomBuffer[0] -eq 0x00 -and $bomBuffer[1] -eq 0x00 -and $bomBuffer[2] -eq 0xFE -and $bomBuffer[3] -eq 0xFF)
-                    {
-                        return [System.Text.Encoding]::UTF32
                     }
 
                     # No BOM detected, read a sample to determine encoding

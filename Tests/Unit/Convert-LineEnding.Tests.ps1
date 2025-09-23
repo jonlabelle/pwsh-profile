@@ -233,7 +233,9 @@ Describe 'Convert-LineEndings' {
             $validEncodings | Should -Contain 'UTF16LE'
             $validEncodings | Should -Contain 'UTF16BE'
             $validEncodings | Should -Contain 'UTF32'
+            $validEncodings | Should -Contain 'UTF32BE'
             $validEncodings | Should -Contain 'ASCII'
+            $validEncodings | Should -Contain 'ANSI'
         }
 
         It 'Should convert UTF8 to UTF8BOM' {
@@ -449,12 +451,162 @@ Describe 'Convert-LineEndings' {
             [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
 
             # Test each supported encoding can be resolved
-            $encodings = @('UTF8', 'UTF8BOM', 'UTF16LE', 'UTF16BE', 'UTF32', 'ASCII')
+            $encodings = @('UTF8', 'UTF8BOM', 'UTF16LE', 'UTF16BE', 'UTF32', 'UTF32BE', 'ASCII', 'ANSI')
 
             foreach ($encoding in $encodings)
             {
                 { Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -Encoding $encoding -WhatIf } | Should -Not -Throw
             }
+        }
+
+        It 'Should convert UTF8 to UTF32LE' {
+            $content = "Unicode test: 🚀 café`r`n"
+            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText($script:TestFile, $content, $utf8NoBom)
+
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF32' -PassThru
+
+            # Verify conversion occurred
+            $result.EncodingChanged | Should -BeTrue
+            $result.Converted | Should -BeTrue
+            $result.SourceEncoding | Should -Match 'UTF-8'
+            $result.TargetEncoding | Should -Match 'UTF-32'
+
+            # Verify UTF-32 LE BOM is present (FF FE 00 00)
+            $bytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $bytes[0] | Should -Be 0xFF
+            $bytes[1] | Should -Be 0xFE
+            $bytes[2] | Should -Be 0x00
+            $bytes[3] | Should -Be 0x00
+
+            # Verify content with UTF-32 LE encoding
+            $utf32LE = [System.Text.Encoding]::UTF32
+            $resultContent = [System.IO.File]::ReadAllText($script:TestFile, $utf32LE)
+            $resultContent | Should -Be "Unicode test: 🚀 café`n"
+        }
+
+        It 'Should convert UTF8 to UTF32BE' {
+            $content = "Unicode test: 🚀 café`r`n"
+            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText($script:TestFile, $content, $utf8NoBom)
+
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF32BE' -PassThru
+
+            # Verify conversion occurred
+            $result.EncodingChanged | Should -BeTrue
+            $result.Converted | Should -BeTrue
+            $result.SourceEncoding | Should -Match 'UTF-8'
+            $result.TargetEncoding | Should -Match 'UTF-32'
+
+            # Verify UTF-32 BE BOM is present (00 00 FE FF)
+            $bytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $bytes[0] | Should -Be 0x00
+            $bytes[1] | Should -Be 0x00
+            $bytes[2] | Should -Be 0xFE
+            $bytes[3] | Should -Be 0xFF
+
+            # Verify content with UTF-32 BE encoding
+            $utf32BE = [System.Text.Encoding]::GetEncoding('utf-32BE')
+            $resultContent = [System.IO.File]::ReadAllText($script:TestFile, $utf32BE)
+            $resultContent | Should -Be "Unicode test: 🚀 café`n"
+        }
+
+        It 'Should convert UTF8 to ANSI' {
+            $content = "ASCII content only`r`n"  # Use ASCII-compatible content for ANSI test
+            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText($script:TestFile, $content, $utf8NoBom)
+
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -Encoding 'ANSI' -PassThru
+
+            # Verify conversion occurred
+            $result.EncodingChanged | Should -BeTrue
+            $result.Converted | Should -BeTrue
+            $result.SourceEncoding | Should -Match 'UTF-8'
+
+            # Verify content with system default encoding
+            $ansiEncoding = [System.Text.Encoding]::Default
+            $resultContent = [System.IO.File]::ReadAllText($script:TestFile, $ansiEncoding)
+            $resultContent | Should -Be "ASCII content only`n"
+        }
+
+        It 'Should detect UTF-32 LE BOM correctly' {
+            # Create file with UTF-32 LE BOM
+            $content = "UTF-32 LE test`n"
+            $utf32LE = [System.Text.Encoding]::UTF32
+            [System.IO.File]::WriteAllText($script:TestFile, $content, $utf32LE)
+
+            # Verify BOM is present
+            $bytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $bytes[0] | Should -Be 0xFF
+            $bytes[1] | Should -Be 0xFE
+            $bytes[2] | Should -Be 0x00
+            $bytes[3] | Should -Be 0x00
+
+            # Convert to CRLF (no encoding change, so should preserve UTF-32 LE)
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'CRLF' -PassThru
+
+            # Should not change encoding since we're not specifying -Encoding
+            $result.EncodingChanged | Should -BeFalse
+            $result.Converted | Should -BeTrue
+            $result.TargetEncoding | Should -Match 'UTF-32'
+
+            # Verify UTF-32 LE BOM is still present
+            $newBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $newBytes[0] | Should -Be 0xFF
+            $newBytes[1] | Should -Be 0xFE
+            $newBytes[2] | Should -Be 0x00
+            $newBytes[3] | Should -Be 0x00
+        }
+
+        It 'Should detect UTF-32 BE BOM correctly' {
+            # Create file with UTF-32 BE BOM
+            $content = "UTF-32 BE test`n"
+            $utf32BE = [System.Text.Encoding]::GetEncoding('utf-32BE')
+            [System.IO.File]::WriteAllText($script:TestFile, $content, $utf32BE)
+
+            # Verify BOM is present
+            $bytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $bytes[0] | Should -Be 0x00
+            $bytes[1] | Should -Be 0x00
+            $bytes[2] | Should -Be 0xFE
+            $bytes[3] | Should -Be 0xFF
+
+            # Convert to CRLF (no encoding change, so should preserve UTF-32 BE)
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'CRLF' -PassThru
+
+            # Should not change encoding since we're not specifying -Encoding
+            $result.EncodingChanged | Should -BeFalse
+            $result.Converted | Should -BeTrue
+            $result.TargetEncoding | Should -Match 'UTF-32'
+
+            # Verify UTF-32 BE BOM is still present
+            $newBytes = [System.IO.File]::ReadAllBytes($script:TestFile)
+            $newBytes[0] | Should -Be 0x00
+            $newBytes[1] | Should -Be 0x00
+            $newBytes[2] | Should -Be 0xFE
+            $newBytes[3] | Should -Be 0xFF
+        }
+
+        It 'Should distinguish UTF-32 LE from UTF-16 LE BOM' {
+            # This tests the critical fix for BOM detection order
+            # UTF-32 LE starts with FF FE 00 00
+            # UTF-16 LE starts with FF FE
+            # The function should detect UTF-32 LE, not UTF-16 LE
+
+            $content = "BOM order test`n"
+            $utf32LE = [System.Text.Encoding]::UTF32
+            [System.IO.File]::WriteAllText($script:TestFile, $content, $utf32LE)
+
+            # Function should detect as UTF-32 LE, not UTF-16 LE
+            $result = Convert-LineEndings -Path $script:TestFile -LineEnding 'CRLF' -PassThru
+
+            # Should preserve as UTF-32, not mistakenly convert to UTF-16
+            $result.TargetEncoding | Should -Match 'UTF-32'
+            $result.TargetEncoding | Should -Not -Match 'UTF-16'
+
+            # Content should be readable with UTF-32 LE encoding
+            $resultContent = [System.IO.File]::ReadAllText($script:TestFile, $utf32LE)
+            $resultContent | Should -Be "BOM order test`r`n"
         }
     }
 
