@@ -608,4 +608,122 @@ Describe 'Convert-LineEnding Integration Tests' {
             Test-Path $attributeTestFile | Should -Be $true
         }
     }
+
+    Context 'Auto LineEnding Integration Tests' {
+        BeforeAll {
+            # Create test files with various line endings for Auto testing
+            $script:AutoTestDir = Join-Path $script:TestDir 'auto-tests'
+            New-Item -Path $script:AutoTestDir -ItemType Directory -Force | Out-Null
+
+            # Mixed line endings file
+            $script:MixedFile = Join-Path $script:AutoTestDir 'mixed-endings.txt'
+            $mixedContent = "Line 1`r`nLine 2`nLine 3`r`nLine 4"
+            [System.IO.File]::WriteAllText($script:MixedFile, $mixedContent, [System.Text.Encoding]::UTF8)
+
+            # CRLF file
+            $script:CrlfFile = Join-Path $script:AutoTestDir 'crlf-file.txt'
+            $crlfContent = "Line 1`r`nLine 2`r`nLine 3`r`n"
+            [System.IO.File]::WriteAllText($script:CrlfFile, $crlfContent, [System.Text.Encoding]::UTF8)
+
+            # LF file
+            $script:LfFile = Join-Path $script:AutoTestDir 'lf-file.txt'
+            $lfContent = "Line 1`nLine 2`nLine 3`n"
+            [System.IO.File]::WriteAllText($script:LfFile, $lfContent, [System.Text.Encoding]::UTF8)
+        }
+
+        It 'Should process entire directory with Auto parameter (platform default)' {
+            # Test Auto parameter behavior - should use platform default
+            $results = Convert-LineEnding -Path $script:AutoTestDir -Recurse -PassThru
+
+            # Should have results for all files
+            $results | Should -Not -BeNullOrEmpty
+            $results | Should -HaveCount 3
+
+            # Platform detection logic
+            if ($PSVersionTable.PSVersion.Major -lt 6)
+            {
+                $script:IsWindowsPlatform = $true
+            }
+            else
+            {
+                $script:IsWindowsPlatform = $IsWindows
+            }
+
+            # Verify results based on platform - all should have the correct LineEnding
+            $results | ForEach-Object {
+                if ($script:IsWindowsPlatform)
+                {
+                    $_.LineEnding | Should -Be 'CRLF'
+                }
+                else
+                {
+                    $_.LineEnding | Should -Be 'LF'
+                }
+            }
+        }
+
+        It 'Should work with Auto parameter when no LineEnding specified' {
+            # Reset files to mixed state
+            $mixedContent = "Line 1`r`nLine 2`nLine 3`r`nLine 4"
+            [System.IO.File]::WriteAllText($script:MixedFile, $mixedContent, [System.Text.Encoding]::UTF8)
+
+            # Don't specify LineEnding - should default to Auto
+            $result = Convert-LineEnding -Path $script:MixedFile -PassThru
+
+            $result | Should -Not -BeNullOrEmpty
+            $result.Skipped | Should -Be $false
+
+            # Platform detection
+            if ($PSVersionTable.PSVersion.Major -lt 6)
+            {
+                $script:IsWindowsPlatform = $true
+            }
+            else
+            {
+                $script:IsWindowsPlatform = $IsWindows
+            }
+
+            if ($script:IsWindowsPlatform)
+            {
+                $result.LineEnding | Should -Be 'CRLF'
+                # Verify file content has CRLF
+                $finalContent = [System.IO.File]::ReadAllText($script:MixedFile)
+                $finalContent | Should -Match "`r`n"
+            }
+            else
+            {
+                $result.LineEnding | Should -Be 'LF'
+                # Verify file content has only LF
+                $finalContent = [System.IO.File]::ReadAllText($script:MixedFile)
+                $finalContent | Should -Not -Match "`r"
+            }
+        }
+
+        It 'Should show correct behavior when files already match platform default' {
+            # Platform detection
+            if ($PSVersionTable.PSVersion.Major -lt 6)
+            {
+                $script:IsWindowsPlatform = $true
+            }
+            else
+            {
+                $script:IsWindowsPlatform = $IsWindows
+            }
+
+            if ($script:IsWindowsPlatform)
+            {
+                # On Windows, CRLF file should be skipped when using Auto
+                $result = Convert-LineEnding -Path $script:CrlfFile -PassThru
+                $result.Skipped | Should -Be $true
+                $result.LineEnding | Should -Be 'CRLF'
+            }
+            else
+            {
+                # On Unix/Linux/macOS, LF file should be skipped when using Auto
+                $result = Convert-LineEnding -Path $script:LfFile -PassThru
+                $result.Skipped | Should -Be $true
+                $result.LineEnding | Should -Be 'LF'
+            }
+        }
+    }
 }

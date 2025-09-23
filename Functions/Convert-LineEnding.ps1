@@ -34,6 +34,7 @@ function Convert-LineEnding
         modified even if encoding conversion is needed.
 
         Valid values:
+        - Auto: Use platform default line endings (CRLF on Windows, LF on Unix/Linux/macOS) [Default]
         - CRLF: Carriage Return + Line Feed (Windows: `r`n)
         - LF: Line Feed only (Unix/Linux/macOS: `n)
 
@@ -85,6 +86,12 @@ function Convert-LineEnding
 
         Converts the specified PowerShell script to use Unix line endings only if it doesn't
         already have LF line endings. The file encoding is preserved (Auto encoding).
+
+    .EXAMPLE
+        PS > Convert-LineEnding -Path 'script.ps1'
+
+        Converts the specified PowerShell script to use platform default line endings
+        (CRLF on Windows, LF on Unix/Linux/macOS). The file encoding is preserved.
 
     .EXAMPLE
         PS > Convert-LineEnding -Path 'C:\Scripts' -LineEnding 'CRLF' -Recurse -Include '*.ps1', '*.txt'
@@ -154,9 +161,10 @@ function Convert-LineEnding
     .EXAMPLE
         PS > Convert-LineEnding -Path 'document.txt' -Encoding 'UTF8BOM' -PassThru
 
-        Converts only the encoding to UTF-8 with BOM while preserving existing line endings.
-        The LineEnding parameter defaults to preserving the current format when not specified.
-        PassThru output will show EncodingChanged: True and Converted: False if only encoding changed.
+        Converts only the encoding to UTF-8 with BOM while using platform default line endings.
+        When LineEnding is not specified, it defaults to 'Auto' which uses the current platform's
+        default line ending format. PassThru output will show EncodingChanged: True and line
+        ending information based on platform defaults.
 
     .EXAMPLE
         PS > Get-ChildItem 'src\*.cs' | Convert-LineEnding -LineEnding 'CRLF' -Force -PassThru | Where-Object Converted
@@ -181,6 +189,13 @@ function Convert-LineEnding
         - "False,True,False": Files that had only line endings converted
         - "False,False,True": Files that had only encoding converted
         - "True,False,False": Files that were skipped (no conversion needed)
+
+    .EXAMPLE
+        PS > Convert-LineEnding -Path 'project' -Recurse -PassThru
+
+        Converts all files in the project directory to platform default line endings using 'Auto' mode.
+        On Windows systems, files will be converted to CRLF; on Unix/Linux/macOS systems, files will
+        be converted to LF. Returns detailed information about processed files.
 
     .EXAMPLE
         PS > Convert-LineEnding -Path 'script.js' -LineEnding 'LF' -EnsureEndingNewline
@@ -274,9 +289,9 @@ function Convert-LineEnding
         [ValidateNotNullOrEmpty()]
         [String[]]$Path,
 
-        [Parameter(Mandatory)]
-        [ValidateSet('LF', 'CRLF')]
-        [String]$LineEnding,
+        [Parameter()]
+        [ValidateSet('Auto', 'LF', 'CRLF')]
+        [String]$LineEnding = 'Auto',
 
         [Parameter()]
         [Switch]$Recurse,
@@ -386,6 +401,33 @@ function Convert-LineEnding
 
     begin
     {
+        # Resolve Auto line ending to platform default
+        if ($LineEnding -eq 'Auto')
+        {
+            # Use cross-platform detection pattern from project instructions
+            if ($PSVersionTable.PSVersion.Major -lt 6)
+            {
+                # PowerShell 5.1 - Windows only
+                $script:IsWindowsPlatform = $true
+            }
+            else
+            {
+                # PowerShell Core - use built-in variables
+                $script:IsWindowsPlatform = $IsWindows
+            }
+
+            if ($script:IsWindowsPlatform)
+            {
+                $LineEnding = 'CRLF'
+                Write-Verbose 'Auto mode: Using Windows default line ending (CRLF)'
+            }
+            else
+            {
+                $LineEnding = 'LF'
+                Write-Verbose 'Auto mode: Using Unix/Linux/macOS default line ending (LF)'
+            }
+        }
+
         Write-Verbose "Starting line ending conversion to $LineEnding"
 
         # Define line ending strings
@@ -1112,6 +1154,7 @@ function Convert-LineEnding
 
                 return [PSCustomObject]@{
                     FilePath = $FilePath
+                    LineEnding = if ($TargetLineEnding -eq "`n") { 'LF' } elseif ($TargetLineEnding -eq "`r`n") { 'CRLF' } else { 'Unknown' }
                     OriginalLF = $originalLfCount
                     OriginalCRLF = $originalCrlfCount
                     NewLF = $newLfCount
@@ -1123,6 +1166,7 @@ function Convert-LineEnding
                     Success = $true
                     Error = $null
                     Skipped = $false
+                    Converted = $ConvertLineEndings
                 }
             }
             catch
@@ -1135,6 +1179,7 @@ function Convert-LineEnding
 
                 return [PSCustomObject]@{
                     FilePath = $FilePath
+                    LineEnding = if ($TargetLineEnding -eq "`n") { 'LF' } elseif ($TargetLineEnding -eq "`r`n") { 'CRLF' } else { 'Unknown' }
                     OriginalLF = 0
                     OriginalCRLF = 0
                     NewLF = 0
@@ -1146,6 +1191,7 @@ function Convert-LineEnding
                     Success = $false
                     Error = $_.Exception.Message
                     Skipped = $false
+                    Converted = $false
                 }
             }
         }
@@ -1285,6 +1331,7 @@ function Convert-LineEnding
                                 # Return info showing no changes were needed
                                 $result = [PSCustomObject]@{
                                     FilePath = $file.FullName
+                                    LineEnding = $LineEnding
                                     OriginalLF = if ($LineEnding -eq 'LF') { 1 } else { 0 }
                                     OriginalCRLF = if ($LineEnding -eq 'CRLF') { 1 } else { 0 }
                                     NewLF = if ($LineEnding -eq 'LF') { 1 } else { 0 }
@@ -1296,6 +1343,7 @@ function Convert-LineEnding
                                     Success = $true
                                     Error = $null
                                     Skipped = $true
+                                    Converted = $false
                                 }
                                 $null = $processedFiles.Add($result)
                             }
@@ -1371,6 +1419,7 @@ function Convert-LineEnding
                             # Return info showing no changes were needed
                             $result = [PSCustomObject]@{
                                 FilePath = $resolvedPath
+                                LineEnding = $LineEnding
                                 OriginalLF = if ($LineEnding -eq 'LF') { 1 } else { 0 }
                                 OriginalCRLF = if ($LineEnding -eq 'CRLF') { 1 } else { 0 }
                                 NewLF = if ($LineEnding -eq 'LF') { 1 } else { 0 }
@@ -1382,6 +1431,7 @@ function Convert-LineEnding
                                 Success = $true
                                 Error = $null
                                 Skipped = $true
+                                Converted = $false
                             }
                             $null = $processedFiles.Add($result)
                         }

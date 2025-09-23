@@ -44,10 +44,10 @@ Describe 'Convert-LineEnding' {
             $pathParam.Attributes.Mandatory | Should -Contain $true
         }
 
-        It 'Should have mandatory LineEnding parameter' {
+        It 'Should have optional LineEnding parameter with default value' {
             $command = Get-Command Convert-LineEnding
             $lineEndingParam = $command.Parameters['LineEnding']
-            $lineEndingParam.Attributes.Mandatory | Should -Contain $true
+            $lineEndingParam.Attributes.Mandatory | Should -Not -Contain $true
         }
 
         It 'Should validate LineEnding values' {
@@ -61,8 +61,16 @@ Describe 'Convert-LineEnding' {
             $testFile = Join-Path $script:TestDir 'validation-test.txt'
             'test' | Out-File -FilePath $testFile -NoNewline
 
+            { Convert-LineEnding -Path $testFile -LineEnding 'Auto' -WhatIf } | Should -Not -Throw
             { Convert-LineEnding -Path $testFile -LineEnding 'LF' -WhatIf } | Should -Not -Throw
             { Convert-LineEnding -Path $testFile -LineEnding 'CRLF' -WhatIf } | Should -Not -Throw
+        }
+
+        It 'Should work without specifying LineEnding parameter (defaults to Auto)' {
+            $testFile = Join-Path $script:TestDir 'default-test.txt'
+            'test content' | Out-File -FilePath $testFile -NoNewline
+
+            { Convert-LineEnding -Path $testFile -WhatIf } | Should -Not -Throw
         }
     }
 
@@ -941,6 +949,100 @@ Describe 'Convert-LineEnding' {
             $finalContent = [System.IO.File]::ReadAllText($script:TestFile)
             $expectedContent = $whitespaceContent + [char]10
             $finalContent | Should -Be $expectedContent
+        }
+    }
+
+    Context 'Auto LineEnding Parameter' {
+        BeforeEach {
+            $script:TestFile = Join-Path $script:TestDir 'auto-test.txt'
+        }
+
+        AfterEach {
+            if (Test-Path $script:TestFile)
+            {
+                Remove-Item -Path $script:TestFile -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'Should use platform default when LineEnding is Auto' {
+            # Create file with CRLF line endings
+            $content = "Line 1`r`nLine 2`r`nLine 3"
+            [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
+
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'Auto' -PassThru
+
+            # Platform detection logic (matches the function's logic)
+            if ($PSVersionTable.PSVersion.Major -lt 6)
+            {
+                $script:IsWindowsPlatform = $true
+            }
+            else
+            {
+                $script:IsWindowsPlatform = $IsWindows
+            }
+
+            if ($script:IsWindowsPlatform)
+            {
+                # On Windows, Auto should resolve to CRLF, so no conversion needed
+                $result.LineEnding | Should -Be 'CRLF'
+                $finalContent = [System.IO.File]::ReadAllText($script:TestFile)
+                $finalContent | Should -Match "`r`n"
+            }
+            else
+            {
+                # On Unix/Linux/macOS, Auto should resolve to LF, so conversion needed
+                $result.LineEnding | Should -Be 'LF'
+                $result.Converted | Should -Be $true
+                $finalContent = [System.IO.File]::ReadAllText($script:TestFile)
+                $finalContent | Should -Not -Match "`r"
+            }
+        }
+
+        It 'Should use Auto as default when LineEnding parameter is not specified' {
+            # Create file with mixed line endings to ensure conversion occurs
+            $content = "Line 1`r`nLine 2`nLine 3"
+            [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
+
+            # Don't specify LineEnding parameter - should default to Auto
+            $result = Convert-LineEnding -Path $script:TestFile -PassThru
+
+            # Should have processed the file (not skipped)
+            $result.Skipped | Should -Be $false
+
+            # Platform detection logic
+            if ($PSVersionTable.PSVersion.Major -lt 6)
+            {
+                $script:IsWindowsPlatform = $true
+            }
+            else
+            {
+                $script:IsWindowsPlatform = $IsWindows
+            }
+
+            if ($script:IsWindowsPlatform)
+            {
+                $result.LineEnding | Should -Be 'CRLF'
+            }
+            else
+            {
+                $result.LineEnding | Should -Be 'LF'
+            }
+        }
+
+        It 'Should show Auto resolution in verbose output' {
+            $testFile = Join-Path $script:TestDir 'verbose-test.txt'
+            'test content' | Out-File -FilePath $testFile -NoNewline
+
+            # Use WhatIf to test without actually modifying files
+            $output = Convert-LineEnding -Path $testFile -LineEnding 'Auto' -Verbose -WhatIf 4>&1
+
+            # Should contain verbose message about Auto mode resolution
+            $verboseOutput = $output | Where-Object { $_ -is [System.Management.Automation.VerboseRecord] }
+            $verboseOutput | Should -Not -BeNullOrEmpty
+
+            # Should mention either Windows or Unix default
+            $autoMessage = $verboseOutput | Where-Object { $_.Message -like '*Auto mode*' }
+            $autoMessage | Should -Not -BeNullOrEmpty
         }
     }
 }
