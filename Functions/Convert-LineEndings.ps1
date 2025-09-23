@@ -73,6 +73,7 @@ function Convert-LineEndings
         - UTF16BE: UTF-16 Big Endian with BOM
         - UTF32: UTF-32 with BOM
         - ASCII: 7-bit ASCII encoding
+        - ANSI: System default ANSI encoding (code page dependent)
 
     .PARAMETER EnsureEndingNewline
         Ensures that each processed file ends with a newline character. If a file already ends
@@ -130,6 +131,13 @@ function Convert-LineEndings
         Converts a CSV file to Windows line endings and UTF-8 with BOM encoding. Both conversions
         are performed independently - if the file already has CRLF endings but wrong encoding,
         only the encoding will be converted.
+
+    .EXAMPLE
+        PS > Convert-LineEndings -Path 'legacy-file.txt' -LineEnding 'CRLF' -Encoding 'ANSI'
+
+        Converts a legacy text file to Windows line endings and system default ANSI encoding.
+        This is useful for older Windows applications that expect ANSI-encoded files with
+        the system's default code page.
 
     .EXAMPLE
         PS > Convert-LineEndings -Path 'script.txt' -LineEnding 'LF' -Encoding 'UTF8' -PassThru
@@ -281,6 +289,7 @@ function Convert-LineEndings
         - UTF-16 (Little and Big Endian)
         - UTF-32
         - ASCII
+        - ANSI (system default code page)
 
         INTELLIGENT CONVERSION:
 
@@ -428,7 +437,7 @@ function Convert-LineEndings
         [Switch]$Force,
 
         [Parameter()]
-        [ValidateSet('Auto', 'UTF8', 'UTF8BOM', 'UTF16LE', 'UTF16BE', 'UTF32', 'ASCII')]
+        [ValidateSet('Auto', 'UTF8', 'UTF8BOM', 'UTF16LE', 'UTF16BE', 'UTF32', 'ASCII', 'ANSI')]
         [String]$Encoding = 'Auto',
 
         [Parameter()]
@@ -513,6 +522,7 @@ function Convert-LineEndings
                     'UTF16BE' { return [System.Text.Encoding]::BigEndianUnicode }
                     'UTF32' { return [System.Text.Encoding]::UTF32 }
                     'ASCII' { return [System.Text.Encoding]::ASCII }
+                    'ANSI' { return [System.Text.Encoding]::Default }
                     default
                     {
                         throw "Unsupported encoding: $EncodingName"
