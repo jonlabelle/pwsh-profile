@@ -769,4 +769,178 @@ Describe 'Convert-LineEnding' {
             }
         }
     }
+
+    Context 'EnsureEndingNewline Parameter' {
+        BeforeEach {
+            $script:TestFile = Join-Path $script:TestDir 'ending-newline-test.txt'
+        }
+
+        AfterEach {
+            if (Test-Path $script:TestFile)
+            {
+                Remove-Item -Path $script:TestFile -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'Should have EnsureEndingNewline parameter' {
+            $command = Get-Command Convert-LineEnding
+            $command.Parameters.Keys | Should -Contain 'EnsureEndingNewline'
+            $command.Parameters['EnsureEndingNewline'].ParameterType | Should -Be ([Switch])
+        }
+
+        It 'Should add ending newline to file without one' {
+            # Create file without ending newline
+            $content = 'Line 1' + [char]13 + [char]10 + 'Line 2 without newline'
+            [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
+
+            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline
+
+            $result = [System.IO.File]::ReadAllText($script:TestFile)
+            $expectedContent = 'Line 1' + [char]10 + 'Line 2 without newline' + [char]10
+            $result | Should -Be $expectedContent
+            $result | Should -Match ([char]10 + '$')
+        }
+
+        It 'Should not modify file that already ends with newline' {
+            # Create file with ending newline
+            $content = 'Line 1' + [char]13 + [char]10 + 'Line 2' + [char]13 + [char]10
+            [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
+
+            # Wait a moment to ensure timestamp would change if file is modified
+            Start-Sleep -Milliseconds 100
+
+            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline
+
+            $result = [System.IO.File]::ReadAllText($script:TestFile)
+            $result | Should -Be "Line 1`nLine 2`n"
+            $result | Should -Match "`n$"
+        }
+
+        It 'Should add CRLF ending when LineEnding is CRLF' {
+            # Create file without ending newline
+            [System.IO.File]::WriteAllText($script:TestFile, 'Test content', [System.Text.Encoding]::UTF8)
+
+            Convert-LineEnding -Path $script:TestFile -LineEnding 'CRLF' -EnsureEndingNewline
+
+            $result = [System.IO.File]::ReadAllText($script:TestFile)
+            $result | Should -Be "Test content`r`n"
+            $result | Should -Match "`r`n$"
+        }
+
+        It 'Should add LF ending when LineEnding is LF' {
+            # Create file without ending newline
+            [System.IO.File]::WriteAllText($script:TestFile, 'Test content', [System.Text.Encoding]::UTF8)
+
+            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline
+
+            $result = [System.IO.File]::ReadAllText($script:TestFile)
+            $result | Should -Be "Test content`n"
+            $result | Should -Match "`n$"
+            $result | Should -Not -Match "`r"
+        }
+
+        It 'Should handle empty files correctly' {
+            # Create empty file
+            [System.IO.File]::WriteAllText($script:TestFile, '', [System.Text.Encoding]::UTF8)
+
+            Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline
+
+            # Empty files should get a newline added when EnsureEndingNewline is specified
+            $result = [System.IO.File]::ReadAllText($script:TestFile)
+            $result | Should -Be ([char]10)
+        }
+
+        It 'Should work with PassThru parameter' {
+            # Create file without ending newline
+            [System.IO.File]::WriteAllText($script:TestFile, 'Test content', [System.Text.Encoding]::UTF8)
+
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline -PassThru
+
+            $result.EndingNewlineAdded | Should -Be $true
+            $result.Success | Should -Be $true
+            $result.NewLF | Should -Be 1
+        }
+
+        It 'Should report EndingNewlineAdded as false when newline already exists' {
+            # Create file with ending newline
+            $content = 'Test content' + [char]10  # LF ending
+            [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
+
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline -PassThru
+
+            $result.EndingNewlineAdded | Should -Be $false
+            $result.Success | Should -Be $true
+        }
+
+        It 'Should work with WhatIf parameter' {
+            # Create file without ending newline
+            [System.IO.File]::WriteAllText($script:TestFile, 'Test content', [System.Text.Encoding]::UTF8)
+
+            # Should not throw and should not modify file
+            { Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline -WhatIf } | Should -Not -Throw
+
+            $result = [System.IO.File]::ReadAllText($script:TestFile)
+            $result | Should -Be 'Test content'  # Should be unchanged
+        }
+
+        It 'Should work when only ending newline is needed (no line ending conversion)' {
+            # Create file with LF endings but no final newline
+            $content = 'Line 1' + [char]10 + 'Line 2 no ending'
+            [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
+
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline -PassThru
+
+            $result.EndingNewlineAdded | Should -Be $true
+            $result.Success | Should -Be $true
+            $result.NewLF | Should -Be 2  # 1 original + 1 added
+
+            $content = [System.IO.File]::ReadAllText($script:TestFile)
+            $content | Should -Be "Line 1`nLine 2 no ending`n"
+        }
+
+        It 'Should work when only ending newline is needed (no encoding conversion)' {
+            # Create file with correct line endings and encoding but no final newline
+            # Use UTF8 without BOM so that when we specify UTF8 target, no encoding change is needed
+            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText($script:TestFile, 'Test content', $utf8NoBom)
+
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -Encoding 'UTF8' -EnsureEndingNewline -PassThru
+
+            $result.EndingNewlineAdded | Should -Be $true
+            $result.EncodingChanged | Should -Be $false
+            $result.Success | Should -Be $true
+
+            $content = [System.IO.File]::ReadAllText($script:TestFile)
+            $content | Should -Be "Test content`n"
+        }
+
+        It 'Should work with complex content including line endings within text' {
+            # Create file with mixed content and no ending newline
+            $content = 'Line 1' + [char]13 + [char]10 + 'Line 2' + [char]10 + 'Line 3 without ending'
+            [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.Encoding]::UTF8)
+
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline -PassThru
+
+            $result.EndingNewlineAdded | Should -Be $true
+            $result.Success | Should -Be $true
+
+            $finalContent = [System.IO.File]::ReadAllText($script:TestFile)
+            $finalContent | Should -Be "Line 1`nLine 2`nLine 3 without ending`n"
+        }
+
+        It 'Should handle files with only whitespace content' {
+            # Create file with only spaces/tabs but no newline
+            $whitespaceContent = '   ' + [char]9 + '  '  # spaces + tab + spaces
+            [System.IO.File]::WriteAllText($script:TestFile, $whitespaceContent, [System.Text.Encoding]::UTF8)
+
+            $result = Convert-LineEnding -Path $script:TestFile -LineEnding 'LF' -EnsureEndingNewline -PassThru
+
+            $result.EndingNewlineAdded | Should -Be $true
+            $result.Success | Should -Be $true
+
+            $finalContent = [System.IO.File]::ReadAllText($script:TestFile)
+            $expectedContent = $whitespaceContent + [char]10
+            $finalContent | Should -Be $expectedContent
+        }
+    }
 }

@@ -70,6 +70,13 @@ function Convert-LineEnding
         - UTF32: UTF-32 with BOM
         - ASCII: 7-bit ASCII encoding
 
+    .PARAMETER EnsureEndingNewline
+        Ensures that each processed file ends with a newline character. If a file already ends
+        with a newline (LF or CRLF), it will not be modified. If a file does not end with a
+        newline, one will be added using the specified LineEnding format. This parameter is
+        useful for ensuring consistent file formatting across projects, as many tools and
+        editors expect text files to end with a newline character.
+
     .PARAMETER PassThru
         Returns information about the processed files.
 
@@ -175,6 +182,31 @@ function Convert-LineEnding
         - "False,False,True": Files that had only encoding converted
         - "True,False,False": Files that were skipped (no conversion needed)
 
+    .EXAMPLE
+        PS > Convert-LineEnding -Path 'script.js' -LineEnding 'LF' -EnsureEndingNewline
+
+        Converts the JavaScript file to Unix line endings and ensures it ends with a newline.
+        If the file already ends with a newline, it won't be modified for that purpose.
+
+    .EXAMPLE
+        PS > Convert-LineEnding -Path 'config.json' -LineEnding 'CRLF' -EnsureEndingNewline -PassThru
+
+        Converts a JSON file to Windows line endings and ensures it ends with CRLF.
+        Returns detailed information showing whether an ending newline was added.
+
+    .EXAMPLE
+        PS > Get-ChildItem '*.cs' | Convert-LineEnding -LineEnding 'CRLF' -EnsureEndingNewline -PassThru |
+             Where-Object EndingNewlineAdded
+
+        Processes C# files and returns only those that had an ending newline added.
+        Useful for identifying files that didn't previously end with a newline.
+
+    .EXAMPLE
+        PS > Convert-LineEnding -Path 'src' -LineEnding 'LF' -EnsureEndingNewline -Recurse -Include '*.py' -WhatIf
+
+        Shows what would happen when processing Python files recursively - which files would
+        have line endings converted and which would have ending newlines added.
+
     .OUTPUTS
         None by default.
         [System.Object[]] when PassThru is specified, containing:
@@ -185,7 +217,8 @@ function Convert-LineEnding
         - OriginalEncoding: Source file encoding
         - Converted: Whether line ending conversion was performed
         - EncodingChanged: Whether encoding conversion was performed
-        - Skipped: Whether the file was skipped (both line endings and encoding already correct)
+        - EndingNewlineAdded: Whether an ending newline was added to the file
+        - Skipped: Whether the file was skipped (all conversions already correct)
 
     .NOTES
         Version: 1.0.0
@@ -343,6 +376,9 @@ function Convert-LineEnding
         [Parameter()]
         [ValidateSet('Auto', 'UTF8', 'UTF8BOM', 'UTF16LE', 'UTF16BE', 'UTF32', 'ASCII')]
         [String]$Encoding = 'Auto',
+
+        [Parameter()]
+        [Switch]$EnsureEndingNewline,
 
         [Parameter()]
         [Switch]$PassThru
@@ -709,6 +745,62 @@ function Convert-LineEnding
             }
         }
 
+        function Test-FileEndsWithNewline
+        {
+            param(
+                [String]$FilePath
+            )
+
+            try
+            {
+                $fileInfo = Get-Item -Path $FilePath
+                if ($fileInfo.Length -eq 0)
+                {
+                    # Empty files don't end with newline
+                    return $false
+                }
+
+                # Use streaming to read just the end of the file to check for line endings
+                $stream = [System.IO.FileStream]::new($FilePath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read)
+                try
+                {
+                    # Read the last few bytes to check for line endings
+                    $bytesToCheck = [Math]::Min(4, $fileInfo.Length)
+                    $stream.Seek(-$bytesToCheck, [System.IO.SeekOrigin]::End) | Out-Null
+
+                    $buffer = New-Object byte[] $bytesToCheck
+                    $bytesRead = $stream.Read($buffer, 0, $bytesToCheck)
+
+                    # Check if file ends with common line ending patterns
+                    # LF (0x0A), CRLF (0x0D 0x0A), or CR (0x0D)
+                    if ($bytesRead -gt 0)
+                    {
+                        $lastByte = $buffer[$bytesRead - 1]
+                        if ($lastByte -eq 0x0A)  # LF
+                        {
+                            return $true
+                        }
+                        elseif ($lastByte -eq 0x0D)  # CR
+                        {
+                            return $true
+                        }
+                    }
+
+                    return $false
+                }
+                finally
+                {
+                    $stream.Close()
+                }
+            }
+            catch
+            {
+                Write-Verbose "Error checking file ending for '$FilePath': $($_.Exception.Message)"
+                # If we can't determine, assume it doesn't end with newline for safety
+                return $false
+            }
+        }
+
         function Get-FileEncoding
         {
             param(
@@ -831,7 +923,8 @@ function Convert-LineEnding
                 [String]$TargetLineEnding,
                 [System.Text.Encoding]$SourceEncoding,
                 [System.Text.Encoding]$TargetEncoding = $null,
-                [Boolean]$ConvertLineEndings = $true
+                [Boolean]$ConvertLineEndings = $true,
+                [Boolean]$EnsureEndingNewline = $false
             )
 
             $tempFilePath = "$FilePath.tmp"
@@ -839,6 +932,10 @@ function Convert-LineEnding
             $originalCrlfCount = 0
             $newLfCount = 0
             $newCrlfCount = 0
+            $endingNewlineAdded = $false
+
+            # Check if file originally ends with newline (before any conversion)
+            $originallyEndsWithNewline = Test-FileEndsWithNewline -FilePath $FilePath
 
             # Use source encoding if no target encoding specified
             $outputEncoding = if ($TargetEncoding) { $TargetEncoding } else { $SourceEncoding }
@@ -960,6 +1057,41 @@ function Convert-LineEnding
                     {
                         $writer.Write($lineBuffer.ToString())
                     }
+
+                    # Add ending newline if requested and file doesn't already end with one
+                    if ($EnsureEndingNewline)
+                    {
+                        # Determine if we need to add an ending newline
+                        $needsEndingNewline = $false
+
+                        # If file originally didn't end with newline, we need to add one
+                        if (-not $originallyEndsWithNewline)
+                        {
+                            $needsEndingNewline = $true
+                        }
+                        # If file originally ended with newline but we have content in buffer,
+                        # it means the file didn't end with a line ending after our conversion
+                        elseif ($lineBuffer.Length -gt 0)
+                        {
+                            $needsEndingNewline = $true
+                        }
+
+                        if ($needsEndingNewline)
+                        {
+                            $writer.Write($TargetLineEnding)
+                            $endingNewlineAdded = $true
+
+                            # Update counts
+                            if ($TargetLineEnding -eq "`n")
+                            {
+                                $newLfCount++
+                            }
+                            else
+                            {
+                                $newCrlfCount++
+                            }
+                        }
+                    }
                 }
                 finally
                 {
@@ -987,6 +1119,7 @@ function Convert-LineEnding
                     SourceEncoding = $SourceEncoding.EncodingName
                     TargetEncoding = $outputEncoding.EncodingName
                     EncodingChanged = $SourceEncoding.ToString() -ne $outputEncoding.ToString() -or $SourceEncoding.GetPreamble().Length -ne $outputEncoding.GetPreamble().Length
+                    EndingNewlineAdded = $endingNewlineAdded
                     Success = $true
                     Error = $null
                     Skipped = $false
@@ -1009,6 +1142,7 @@ function Convert-LineEnding
                     SourceEncoding = if ($SourceEncoding) { $SourceEncoding.EncodingName } else { $null }
                     TargetEncoding = if ($outputEncoding) { $outputEncoding.EncodingName } else { $null }
                     EncodingChanged = $false
+                    EndingNewlineAdded = $false
                     Success = $false
                     Error = $_.Exception.Message
                     Skipped = $false
@@ -1100,12 +1234,20 @@ function Convert-LineEnding
                     $targetEncoding = if ($Encoding -ne 'Auto') { Get-EncodingFromName -EncodingName $Encoding } else { $null }
                     $needsEncodingConversion = -not (Test-EncodingMatch -SourceEncoding $sourceEncoding -TargetEncoding $targetEncoding)
 
-                    if ($needsLineEndingConversion -or $needsEncodingConversion)
+                    # Check if ending newline is needed
+                    $needsEndingNewline = $false
+                    if ($EnsureEndingNewline)
+                    {
+                        $needsEndingNewline = -not (Test-FileEndsWithNewline -FilePath $file.FullName)
+                    }
+
+                    if ($needsLineEndingConversion -or $needsEncodingConversion -or $needsEndingNewline)
                     {
                         # Determine what needs to be converted
                         $conversionType = @()
                         if ($needsLineEndingConversion) { $conversionType += "line endings to $LineEnding" }
                         if ($needsEncodingConversion) { $conversionType += "encoding to $Encoding" }
+                        if ($needsEndingNewline) { $conversionType += 'add ending newline' }
                         $conversionDescription = $conversionType -join ' and '
 
                         if ($PSCmdlet.ShouldProcess($file.FullName, "Convert $conversionDescription"))
@@ -1114,7 +1256,7 @@ function Convert-LineEnding
 
                             # Only use target encoding if encoding conversion is needed
                             $actualTargetEncoding = if ($needsEncodingConversion) { $targetEncoding } else { $null }
-                            $result = Convert-SingleFileLineEnding -FilePath $file.FullName -TargetLineEnding $targetLineEnding -SourceEncoding $sourceEncoding -TargetEncoding $actualTargetEncoding -ConvertLineEndings $needsLineEndingConversion
+                            $result = Convert-SingleFileLineEnding -FilePath $file.FullName -TargetLineEnding $targetLineEnding -SourceEncoding $sourceEncoding -TargetEncoding $actualTargetEncoding -ConvertLineEndings $needsLineEndingConversion -EnsureEndingNewline $EnsureEndingNewline.IsPresent
 
                             if ($PassThru)
                             {
@@ -1134,9 +1276,9 @@ function Convert-LineEnding
                     }
                     else
                     {
-                        if ($PSCmdlet.ShouldProcess($file.FullName, "Skip file - already has correct line endings ($LineEnding) and encoding ($targetEncodingName)"))
+                        if ($PSCmdlet.ShouldProcess($file.FullName, "Skip file - already has correct line endings ($LineEnding), encoding ($targetEncodingName), and ending newline"))
                         {
-                            Write-Verbose "Skipping '$($file.FullName)' - already has correct line endings and encoding"
+                            Write-Verbose "Skipping '$($file.FullName)' - already has correct line endings, encoding, and ending newline"
 
                             if ($PassThru)
                             {
@@ -1150,6 +1292,7 @@ function Convert-LineEnding
                                     SourceEncoding = $sourceEncoding.EncodingName
                                     TargetEncoding = $sourceEncoding.EncodingName
                                     EncodingChanged = $false
+                                    EndingNewlineAdded = $false
                                     Success = $true
                                     Error = $null
                                     Skipped = $true
@@ -1177,12 +1320,20 @@ function Convert-LineEnding
                 $targetEncoding = if ($Encoding -ne 'Auto') { Get-EncodingFromName -EncodingName $Encoding } else { $null }
                 $needsEncodingConversion = -not (Test-EncodingMatch -SourceEncoding $sourceEncoding -TargetEncoding $targetEncoding)
 
-                if ($needsLineEndingConversion -or $needsEncodingConversion)
+                # Check if ending newline is needed
+                $needsEndingNewline = $false
+                if ($EnsureEndingNewline)
+                {
+                    $needsEndingNewline = -not (Test-FileEndsWithNewline -FilePath $resolvedPath)
+                }
+
+                if ($needsLineEndingConversion -or $needsEncodingConversion -or $needsEndingNewline)
                 {
                     # Determine what needs to be converted
                     $conversionType = @()
                     if ($needsLineEndingConversion) { $conversionType += "line endings to $LineEnding" }
                     if ($needsEncodingConversion) { $conversionType += "encoding to $Encoding" }
+                    if ($needsEndingNewline) { $conversionType += 'add ending newline' }
                     $conversionDescription = $conversionType -join ' and '
 
                     if ($PSCmdlet.ShouldProcess($resolvedPath, "Convert $conversionDescription"))
@@ -1191,7 +1342,7 @@ function Convert-LineEnding
 
                         # Only use target encoding if encoding conversion is needed
                         $actualTargetEncoding = if ($needsEncodingConversion) { $targetEncoding } else { $null }
-                        $result = Convert-SingleFileLineEnding -FilePath $resolvedPath -TargetLineEnding $targetLineEnding -SourceEncoding $sourceEncoding -TargetEncoding $actualTargetEncoding -ConvertLineEndings $needsLineEndingConversion
+                        $result = Convert-SingleFileLineEnding -FilePath $resolvedPath -TargetLineEnding $targetLineEnding -SourceEncoding $sourceEncoding -TargetEncoding $actualTargetEncoding -ConvertLineEndings $needsLineEndingConversion -EnsureEndingNewline $EnsureEndingNewline.IsPresent
 
                         if ($PassThru)
                         {
@@ -1211,9 +1362,9 @@ function Convert-LineEnding
                 }
                 else
                 {
-                    if ($PSCmdlet.ShouldProcess($resolvedPath, "Skip file - already has correct line endings ($LineEnding) and encoding ($targetEncodingName)"))
+                    if ($PSCmdlet.ShouldProcess($resolvedPath, "Skip file - already has correct line endings ($LineEnding), encoding ($targetEncodingName), and ending newline"))
                     {
-                        Write-Verbose "Skipping '$resolvedPath' - already has correct line endings and encoding"
+                        Write-Verbose "Skipping '$resolvedPath' - already has correct line endings, encoding, and ending newline"
 
                         if ($PassThru)
                         {
@@ -1227,6 +1378,7 @@ function Convert-LineEnding
                                 SourceEncoding = $sourceEncoding.EncodingName
                                 TargetEncoding = $sourceEncoding.EncodingName
                                 EncodingChanged = $false
+                                EndingNewlineAdded = $false
                                 Success = $true
                                 Error = $null
                                 Skipped = $true

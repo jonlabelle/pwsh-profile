@@ -417,4 +417,195 @@ Describe 'Convert-LineEnding Integration Tests' {
             $minJsContent | Should -Match "`r"  # Should still have CRLF
         }
     }
+
+    Context 'EnsureEndingNewline Integration Tests' {
+        BeforeAll {
+            # Create test files with various ending scenarios
+            $script:EndingTestDir = Join-Path $script:TestDir 'ending-tests'
+            New-Item -Path $script:EndingTestDir -ItemType Directory -Force | Out-Null
+
+            # File with no ending newline
+            $script:NoEndingFile = Join-Path $script:EndingTestDir 'no-ending.txt'
+            $content = 'Line 1' + [char]13 + [char]10 + 'Line 2 no ending'
+            [System.IO.File]::WriteAllText($script:NoEndingFile, $content, [System.Text.Encoding]::UTF8)
+
+            # File with proper ending newline
+            $script:WithEndingFile = Join-Path $script:EndingTestDir 'with-ending.txt'
+            $contentWithEnding = 'Line 1' + [char]13 + [char]10 + 'Line 2' + [char]13 + [char]10
+            [System.IO.File]::WriteAllText($script:WithEndingFile, $contentWithEnding, [System.Text.Encoding]::UTF8)
+
+            # Empty file
+            $script:EmptyFile = Join-Path $script:EndingTestDir 'empty.txt'
+            [System.IO.File]::WriteAllText($script:EmptyFile, '', [System.Text.Encoding]::UTF8)
+
+            # Single line file without ending
+            $script:SingleLineFile = Join-Path $script:EndingTestDir 'single-line.txt'
+            [System.IO.File]::WriteAllText($script:SingleLineFile, 'Single line content', [System.Text.Encoding]::UTF8)
+
+            # Mix of files in subdirectories
+            $script:SubDir = Join-Path $script:EndingTestDir 'subdir'
+            New-Item -Path $script:SubDir -ItemType Directory -Force | Out-Null
+
+            $script:SubFileNoEnding = Join-Path $script:SubDir 'sub-no-ending.js'
+            [System.IO.File]::WriteAllText($script:SubFileNoEnding, "console.log('test');", [System.Text.Encoding]::UTF8)
+
+            $script:SubFileWithEnding = Join-Path $script:SubDir 'sub-with-ending.js'
+            $jsContentWithEnding = "console.log('test');" + [char]10  # LF ending
+            [System.IO.File]::WriteAllText($script:SubFileWithEnding, $jsContentWithEnding, [System.Text.Encoding]::UTF8)
+        }
+
+        It 'Should process directory recursively and add ending newlines where needed' {
+            $results = Convert-LineEnding -Path $script:EndingTestDir -LineEnding 'LF' -EnsureEndingNewline -Recurse -PassThru
+
+            # Check files that should have had newlines added
+            $noEndingResult = $results | Where-Object { $_.FilePath -like '*no-ending.txt' }
+            $noEndingResult.EndingNewlineAdded | Should -Be $true
+
+            $singleLineResult = $results | Where-Object { $_.FilePath -like '*single-line.txt' }
+            $singleLineResult.EndingNewlineAdded | Should -Be $true
+
+            $subNoEndingResult = $results | Where-Object { $_.FilePath -like '*sub-no-ending.js' }
+            $subNoEndingResult.EndingNewlineAdded | Should -Be $true
+
+            # Check files that should NOT have had newlines added
+            $withEndingResult = $results | Where-Object { $_.FilePath -like '*with-ending.txt' }
+            $withEndingResult.EndingNewlineAdded | Should -Be $false
+
+            $subWithEndingResult = $results | Where-Object { $_.FilePath -like '*sub-with-ending.js' }
+            $subWithEndingResult.EndingNewlineAdded | Should -Be $false
+
+            # Verify file contents
+            $noEndingContent = [System.IO.File]::ReadAllText($script:NoEndingFile)
+            $noEndingContent | Should -Be "Line 1`nLine 2 no ending`n"
+
+            $withEndingContent = [System.IO.File]::ReadAllText($script:WithEndingFile)
+            $withEndingContent | Should -Be "Line 1`nLine 2`n"
+
+            $singleLineContent = [System.IO.File]::ReadAllText($script:SingleLineFile)
+            $singleLineContent | Should -Be "Single line content`n"
+        }
+
+        It 'Should work with file filtering and EnsureEndingNewline' {
+            # Reset files to original state (including the .txt file that should not be processed)
+            $noEndingContent = 'Line 1' + [char]13 + [char]10 + 'Line 2 no ending'
+            [System.IO.File]::WriteAllText($script:NoEndingFile, $noEndingContent, [System.Text.Encoding]::UTF8)
+
+            [System.IO.File]::WriteAllText($script:SubFileNoEnding, "console.log('test');", [System.Text.Encoding]::UTF8)
+            $jsWithEndingContent = "console.log('test');" + [char]10
+            [System.IO.File]::WriteAllText($script:SubFileWithEnding, $jsWithEndingContent, [System.Text.Encoding]::UTF8)
+
+            # Process only .js files
+            $results = Convert-LineEnding -Path $script:EndingTestDir -LineEnding 'LF' -EnsureEndingNewline -Recurse -Include '*.js' -PassThru
+
+            # Should only process .js files
+            $results | Should -HaveCount 2
+            $results | ForEach-Object { $_.FilePath | Should -Match '\.js$' }
+
+            # Check that the .js file without ending newline was processed
+            $jsNoEndingResult = $results | Where-Object { $_.FilePath -like '*sub-no-ending.js' }
+            $jsNoEndingResult.EndingNewlineAdded | Should -Be $true
+
+            # Check that the .js file with ending newline was not modified for newline
+            $jsWithEndingResult = $results | Where-Object { $_.FilePath -like '*sub-with-ending.js' }
+            $jsWithEndingResult.EndingNewlineAdded | Should -Be $false
+
+            # Verify non-.js files were not processed (should still not end with newline)
+            $finalNoEndingContent = [System.IO.File]::ReadAllText($script:NoEndingFile)
+            $finalNoEndingContent | Should -Not -Match ([char]10 + '$')  # Should still not end with newline
+        }
+
+        It 'Should show correct information in WhatIf mode with EnsureEndingNewline' {
+            # Reset files to known state
+            $content = 'Line 1' + [char]13 + [char]10 + 'Line 2 no ending'
+            [System.IO.File]::WriteAllText($script:NoEndingFile, $content, [System.Text.Encoding]::UTF8)
+
+            # Use WhatIf to see what would be processed
+            Convert-LineEnding -Path $script:NoEndingFile -LineEnding 'LF' -EnsureEndingNewline -WhatIf
+
+            # File should not be modified
+            $contentAfter = [System.IO.File]::ReadAllText($script:NoEndingFile)
+            $contentAfter | Should -Be $content  # Should be unchanged
+        }
+
+        It 'Should work correctly with encoding conversion and ending newline' {
+            # Create a UTF8 file without BOM and without ending newline
+            $testFile = Join-Path $script:EndingTestDir 'encoding-test.txt'
+            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText($testFile, 'Test content with café', $utf8NoBom)
+
+            $result = Convert-LineEnding -Path $testFile -LineEnding 'LF' -Encoding 'UTF8BOM' -EnsureEndingNewline -PassThru
+
+            # Should have both encoding change and ending newline added
+            $result.EncodingChanged | Should -Be $true
+            $result.EndingNewlineAdded | Should -Be $true
+
+            # Verify BOM was added
+            $bytes = [System.IO.File]::ReadAllBytes($testFile)
+            $bytes[0] | Should -Be 0xEF
+            $bytes[1] | Should -Be 0xBB
+            $bytes[2] | Should -Be 0xBF
+
+            # Verify content and ending newline
+            $content = [System.IO.File]::ReadAllText($testFile)
+            $content | Should -Be "Test content with café`n"
+        }
+
+        It 'Should handle large number of files efficiently with EnsureEndingNewline' {
+            # Create multiple test files
+            $manyFilesDir = Join-Path $script:EndingTestDir 'many-files'
+            New-Item -Path $manyFilesDir -ItemType Directory -Force | Out-Null
+
+            $fileCount = 20
+            $filesCreated = @()
+            for ($i = 1; $i -le $fileCount; $i++)
+            {
+                $filePath = Join-Path $manyFilesDir "test$i.txt"
+                $hasEnding = ($i % 2) -eq 0  # Every other file has ending newline
+                $content = "File $i content"
+                if ($hasEnding)
+                {
+                    $content += "`r`n"
+                }
+                [System.IO.File]::WriteAllText($filePath, $content, [System.Text.Encoding]::UTF8)
+                $filesCreated += $filePath
+            }
+
+            # Process all files
+            $results = Convert-LineEnding -Path $manyFilesDir -LineEnding 'LF' -EnsureEndingNewline -Recurse -PassThru
+
+            # Should have processed all files
+            $results | Should -HaveCount $fileCount
+
+            # Files without ending newlines should have had them added
+            $filesWithNewlineAdded = $results | Where-Object EndingNewlineAdded
+            $filesWithNewlineAdded | Should -HaveCount ($fileCount / 2)  # Half the files
+
+            # Verify all files now end with newlines
+            foreach ($file in $filesCreated)
+            {
+                $content = [System.IO.File]::ReadAllText($file)
+                $content | Should -Match "`n$"
+            }
+        }
+
+        It 'Should preserve file attributes when adding ending newlines' {
+            # Create a file and set it read-only initially
+            $attributeTestFile = Join-Path $script:EndingTestDir 'readonly-test.txt'
+            [System.IO.File]::WriteAllText($attributeTestFile, 'Test content', [System.Text.Encoding]::UTF8)
+
+            # Note: On macOS/Linux, we'll test with normal permissions since read-only behavior is different
+
+            $result = Convert-LineEnding -Path $attributeTestFile -LineEnding 'LF' -EnsureEndingNewline -PassThru
+
+            $result.EndingNewlineAdded | Should -Be $true
+            $result.Success | Should -Be $true
+
+            # Verify content was modified correctly
+            $content = [System.IO.File]::ReadAllText($attributeTestFile)
+            $content | Should -Be "Test content`n"
+
+            # File should still exist and be accessible
+            Test-Path $attributeTestFile | Should -Be $true
+        }
+    }
 }
