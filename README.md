@@ -23,6 +23,8 @@
   - [Media Processing](#media-processing)
   - [Utilities](#utilities)
 - [Update](#update)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Install
 
@@ -122,7 +124,7 @@ The profile includes various utility commands organized by category:
 
 ## Update
 
-To manually pull in the latest updates from [this GitHub repo](https://github.com/jonlabelle/pwsh-profile):
+To manually pull in the latest updates from [this repo](https://github.com/jonlabelle/pwsh-profile):
 
 ```powershell
 Update-Profile
@@ -133,3 +135,19 @@ You can also check for available updates without applying them:
 ```powershell
 Test-ProfileUpdate
 ```
+
+## Contributing
+
+Contributions are welcome! Please follow these basic guidelines:
+
+- One function per file in Functions/ (Verb-Noun.ps1) — auto-loaded by the main profile.
+- Open a [pull request](https://github.com/jonlabelle/pwsh-profile/pulls) with a brief description and include basic verification steps (lint + quick functional test).
+- Keep changes cross-platform compatible per the project's conventions. See [./Functions](./Functions/) folder for examples.
+
+## Author
+
+[@jonlabelle](https://github.com/jonlabelle)
+
+## License
+
+[MIT License](LICENSE)
