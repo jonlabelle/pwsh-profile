@@ -111,22 +111,81 @@ function Convert-LineEnding
 
         [Parameter()]
         [String[]]$Include = @(
-            '*.txt', '*.md', '*.ps1', '*.psm1', '*.psd1', '*.ps1xml',
-            '*.xml', '*.json', '*.yml', '*.yaml', '*.ini', '*.cfg', '*.config',
+            # General Text Files
+            '*.txt', '*.md', '*.log',
+
+            # PowerShell Files
+            '*.ps1', '*.psm1', '*.psd1', '*.ps1xml',
+
+            # Configuration Files
+            '*.ini', '*.cfg', '*.config', '*.conf', '*.rc', '*.properties',
+            '*.toml', '*.env', '*.editorconfig', '*.htaccess',
+
+            # Data Formats
+            '*.xml', '*.json', '*.yml', '*.yaml', '*.csv', '*.tsv',
+            '*.po', '*.pot', '*.bib', '*.rst', '*.adoc',
+
+            # Programming Languages
             '*.cs', '*.vb', '*.cpp', '*.c', '*.h', '*.hpp',
+            '*.java', '*.go', '*.rs', '*.swift', '*.php', '*.py', '*.rb',
+            '*.pl', '*.tcl', '*.lua', '*.r', '*.tex', '*.sql',
+
+            # Web Development
             '*.js', '*.ts', '*.html', '*.htm', '*.css', '*.scss', '*.sass',
-            '*.py', '*.rb', '*.php', '*.java', '*.go', '*.rs', '*.swift',
-            '*.sql', '*.sh', '*.bat', '*.cmd', '*.log'
+            '*.svg', '*.xaml',
+
+            # Scripts and Shell Files
+            '*.sh', '*.bat', '*.cmd', '*.profile', '*.zshrc', '*.bashrc', '*.vimrc',
+
+            # Version Control
+            '*.gitignore', '*.gitattributes',
+
+            # Build and Make Files
+            '*.makefile', '*.cmake'
         ),
 
         [Parameter()]
         [String[]]$Exclude = @(
-            '*.exe', '*.dll', '*.so', '*.dylib', '*.a', '*.lib', '*.obj', '*.o',
-            '*.zip', '*.7z', '*.rar', '*.tar', '*.gz', '*.bz2', '*.xz',
+            # Executables and Libraries
+            '*.exe', '*.dll', '*.so', '*.dylib', '.a', '.lib', '*.obj', '*.o',
+
+            # Archives
+            '*.zip', '*.7z', '*.rar', '*.tar', '*.gz', '*.bz2', '.xz',
+
+            # Images
             '*.jpg', '*.jpeg', '*.png', '*.gif', '*.bmp', '*.tiff', '*.ico',
+
+            # Audio/Video
             '*.mp3', '*.mp4', '*.avi', '*.mkv', '*.mov', '*.wmv', '*.flv',
+
+            # Documents
             '*.pdf', '*.doc', '*.docx', '*.xls', '*.xlsx', '*.ppt', '*.pptx',
-            '*.min.js', '*.min.css', 'node_modules', '.git', '.vs', '.vscode'
+
+            # Dev Minified Files and Directories
+            '*.min.js', '*.min.css', 'node_modules', '.git', '.vs', '.vscode',
+
+            # Additional Archives and Binaries
+            '*.tgz', '*.tbz2', '*.txz', '*.cab', '*.msi', '*.dmg', '*.pkg',
+            '*.deb', '*.rpm',
+
+            # Compiled Code
+            '*.class', '*.jar', '*.pyc', '*.pyo', '*.pyd',
+
+            # Additional Media Formats
+            '*.flac', '*.wav', '*.aac', '*.ogg', '*.m4a', '*.m4v', '*.3gp', '*.webm',
+
+            # Additional Document Formats
+            '*.odt', '*.ods', '*.odp', '*.sqlite', '*.db', '*.mdb',
+
+            # Font Files
+            '*.ttf', '*.otf', '*.woff', '*.woff2',
+
+            # Version Control and Build Directories
+            '.svn', '.hg', '.bzr', '__pycache__', 'dist', 'build', 'target',
+            'bin', 'obj',
+
+            # System/Cache Files
+            '.DS_Store', 'Thumbs.db', '.cache'
         ),
 
         [Parameter()]
@@ -160,11 +219,32 @@ function Convert-LineEnding
                 # First check file extension
                 $extension = [System.IO.Path]::GetExtension($FilePath).ToLower()
                 $binaryExtensions = @(
+                    # Executables and Libraries
                     '.exe', '.dll', '.so', '.dylib', '.a', '.lib', '.obj', '.o',
+
+                    # Archives
                     '.zip', '.7z', '.rar', '.tar', '.gz', '.bz2', '.xz',
-                    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.ico', '.svg',
-                    '.mp3', '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm',
-                    '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'
+                    '.cab', '.iso', '.vhd', '.vhdx',
+
+                    # Images
+                    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.ico',
+                    '.svg', '.webp', '.heic', '.psd',
+
+                    # Audio/Video
+                    '.mp3', '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv',
+                    '.webm', '.flac', '.wav', '.m4a', '.m4v', '.3gp',
+
+                    # Documents
+                    '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.rtf',
+
+                    # Installers and Packages
+                    '.msi', '.dmg', '.pkg', '.deb', '.rpm', '.appimage', '.bin', '.jar',
+
+                    # Fonts
+                    '.ttf', '.otf', '.woff', '.woff2',
+
+                    # Databases and Compiled Files
+                    '.sqlite', '.db', '.pyc', '.class', '.swf'
                 )
 
                 if ($binaryExtensions -contains $extension)

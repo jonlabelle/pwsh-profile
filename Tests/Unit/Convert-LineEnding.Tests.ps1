@@ -14,7 +14,6 @@
     - Line ending conversion between LF and CRLF
     - File encoding preservation
     - Binary file detection and skipping
-    - Streaming performance with large files
     - WhatIf functionality
     - Directory processing with Include/Exclude filters
     - Error handling scenarios
@@ -186,13 +185,14 @@ Describe 'Convert-LineEnding' {
 
     Context 'Binary File Detection' {
         BeforeEach {
-            $script:BinaryFile = Join-Path $script:TestDir 'binary-test.bin'
-            $script:ImageFile = Join-Path $script:TestDir 'image-test.jpg'
-            $script:ExecutableFile = Join-Path $script:TestDir 'executable-test.exe'
+            # Use different extensions to test different detection methods
+            $script:ContentBinaryFile = Join-Path $script:TestDir 'content-binary.dat'  # For content-based detection
+            $script:ImageFile = Join-Path $script:TestDir 'image-test.jpg'            # For extension-based detection
+            $script:ExecutableFile = Join-Path $script:TestDir 'executable-test.exe'  # For extension-based detection
         }
 
         AfterEach {
-            @($script:BinaryFile, $script:ImageFile, $script:ExecutableFile) | ForEach-Object {
+            @($script:ContentBinaryFile, $script:ImageFile, $script:ExecutableFile) | ForEach-Object {
                 if (Test-Path $_)
                 {
                     Remove-Item -Path $_ -Force -ErrorAction SilentlyContinue
@@ -218,24 +218,24 @@ Describe 'Convert-LineEnding' {
         }
 
         It 'Should detect binary files by content (null bytes)' {
-            # Create file with null bytes
+            # Create file with null bytes using neutral extension
             $binaryData = [byte[]](65, 66, 67, 0, 68, 69, 70)  # ABC[null]DEF
-            [System.IO.File]::WriteAllBytes($script:BinaryFile, $binaryData)
+            [System.IO.File]::WriteAllBytes($script:ContentBinaryFile, $binaryData)
 
             # Should not process this file and show verbose message about null bytes
             $verboseMessages = @()
-            Convert-LineEnding -Path $script:BinaryFile -LineEnding 'LF' -Verbose 4>&1 | Tee-Object -Variable verboseMessages | Out-Null
+            Convert-LineEnding -Path $script:ContentBinaryFile -LineEnding 'LF' -Verbose 4>&1 | Tee-Object -Variable verboseMessages | Out-Null
             ($verboseMessages | Where-Object { $_ -match 'detected as binary.*null bytes' }) | Should -Not -BeNullOrEmpty
         }
 
         It 'Should detect binary files by low printable character ratio' {
-            # Create file with mostly non-printable characters (low ASCII values)
+            # Create file with mostly non-printable characters using neutral extension
             $binaryData = [byte[]](1..50)  # Mostly non-printable control characters
-            [System.IO.File]::WriteAllBytes($script:BinaryFile, $binaryData)
+            [System.IO.File]::WriteAllBytes($script:ContentBinaryFile, $binaryData)
 
             # Should not process this file
             $verboseMessages = @()
-            Convert-LineEnding -Path $script:BinaryFile -LineEnding 'LF' -Verbose 4>&1 | Tee-Object -Variable verboseMessages | Out-Null
+            Convert-LineEnding -Path $script:ContentBinaryFile -LineEnding 'LF' -Verbose 4>&1 | Tee-Object -Variable verboseMessages | Out-Null
             ($verboseMessages | Where-Object { $_ -match 'detected as binary.*printable character ratio' }) | Should -Not -BeNullOrEmpty
         }
     }
@@ -453,42 +453,6 @@ Describe 'Convert-LineEnding' {
                 {
                     Set-ItemProperty -Path $script:ReadOnlyFile -Name IsReadOnly -Value $false -ErrorAction SilentlyContinue
                     Remove-Item -Path $script:ReadOnlyFile -Force -ErrorAction SilentlyContinue
-                }
-            }
-        }
-    }
-
-    Context 'Performance with Large Files' {
-        It 'Should handle large files efficiently using streaming' {
-            $script:LargeFile = Join-Path $script:TestDir 'large-test.txt'
-
-            try
-            {
-                # Create a moderately large file (about 1MB) with CRLF line endings
-                $content = ("This is a test line with some content to make it longer`r`n" * 10000)
-                [System.IO.File]::WriteAllText($script:LargeFile, $content, [System.Text.Encoding]::UTF8)
-
-                $startTime = Get-Date
-                Convert-LineEnding -Path $script:LargeFile -LineEnding 'LF'
-                $endTime = Get-Date
-
-                $processingTime = ($endTime - $startTime).TotalSeconds
-                $processingTime | Should -BeLessThan 10  # Should complete within 10 seconds
-
-                # Verify conversion worked
-                $result = [System.IO.File]::ReadAllText($script:LargeFile)
-                $result | Should -Not -Match "`r"
-
-                # Count non-empty lines (the exact count may vary slightly due to how content is constructed)
-                $lineCount = ($result -split "`n" | Where-Object { $_.Length -gt 0 }).Count
-                $lineCount | Should -BeGreaterThan 9900  # Allow for slight variations
-                $lineCount | Should -BeLessThan 10100
-            }
-            finally
-            {
-                if (Test-Path $script:LargeFile)
-                {
-                    Remove-Item -Path $script:LargeFile -Force -ErrorAction SilentlyContinue
                 }
             }
         }

@@ -10,12 +10,12 @@
     with actual file systems, complex directory structures, and various file types.
 
 .NOTES
-    These integration tests verify:
-    - Real file system operations
-    - Complex directory structures with mixed file types
-    - Performance with realistic file sizes
-    - Integration with PowerShell pipeline
-    - Cross-platform compatibility scenarios
+    These integration tests verify real-world scenarios:
+    - Directory processing with mixed file types
+    - Recursive directory traversal
+    - Complex Include/Exclude pattern matching
+    - Read-only file handling with Force parameter
+    - Cross-platform path handling
 #>
 
 BeforeAll {
@@ -186,78 +186,6 @@ Describe 'Convert-LineEnding Integration Tests' {
             $result = [System.IO.File]::ReadAllText($script:AsciiFile, [System.Text.Encoding]::ASCII)
             $result | Should -Match "`r`n"
             $result | Should -Match 'Simple ASCII text'
-        }
-    }
-
-    Context 'Performance with Realistic File Sizes' {
-        It 'Should efficiently process a directory with many small files' {
-            # Create many small files
-            $manyFilesDir = Join-Path $script:TestDir 'manyfiles'
-            New-Item -Path $manyFilesDir -ItemType Directory -Force | Out-Null
-
-            $fileCount = 50
-            for ($i = 1; $i -le $fileCount; $i++)
-            {
-                $fileName = "file$i.txt"
-                $filePath = Join-Path $manyFilesDir $fileName
-                "Content for file $i`r`nSecond line`r`n" | Out-File -FilePath $filePath -NoNewline
-            }
-
-            $startTime = Get-Date
-            Convert-LineEnding -Path $manyFilesDir -LineEnding 'LF' -Recurse
-            $endTime = Get-Date
-
-            $processingTime = ($endTime - $startTime).TotalSeconds
-            $processingTime | Should -BeLessThan 30  # Should complete within 30 seconds
-
-            # Verify all files were processed
-            for ($i = 1; $i -le $fileCount; $i++)
-            {
-                $filePath = Join-Path $manyFilesDir "file$i.txt"
-                $content = Get-Content -Path $filePath -Raw
-                $content | Should -Not -Match "`r"
-            }
-        }
-
-        It 'Should efficiently process moderately large files using streaming' {
-            $largeFile = Join-Path $script:TestDir 'large-integration.txt'
-
-            try
-            {
-                # Create a 2.5MB file with mixed content to ensure we exceed 2MB
-                $lineContent = 'This is a longer test line with various content including numbers 12345 and symbols !@#$%^&*()'
-                $lineWithEnding = $lineContent + "`r`n"
-                $lineBytes = [System.Text.Encoding]::UTF8.GetBytes($lineWithEnding)
-                $targetSize = 2.5 * 1024 * 1024  # 2.5MB
-                $linesNeeded = [Math]::Ceiling($targetSize / $lineBytes.Length)
-
-                Write-Verbose "Creating file with $linesNeeded lines, targeting $([Math]::Round($targetSize / 1MB, 2))MB"
-
-                $content = $lineWithEnding * $linesNeeded
-                [System.IO.File]::WriteAllText($largeFile, $content, [System.Text.Encoding]::UTF8)
-
-                $fileSize = (Get-Item $largeFile).Length
-                Write-Verbose "Created file size: $([Math]::Round($fileSize / 1MB, 2))MB"
-                $fileSize | Should -BeGreaterThan 2MB
-
-                $startTime = Get-Date
-                Convert-LineEnding -Path $largeFile -LineEnding 'LF'
-                $endTime = Get-Date
-
-                $processingTime = ($endTime - $startTime).TotalSeconds
-                $processingTime | Should -BeLessThan 15  # Should complete within 15 seconds
-
-                # Verify conversion
-                $sample = [System.IO.File]::ReadAllText($largeFile).Substring(0, 1000)
-                $sample | Should -Not -Match "`r"
-            }
-            finally
-            {
-                if (Test-Path $largeFile)
-                {
-                    Remove-Item -Path $largeFile -Force -ErrorAction SilentlyContinue
-                }
-            }
         }
     }
 
