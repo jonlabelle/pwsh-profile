@@ -781,7 +781,46 @@ function Convert-LineEndings
                         }
                     }
 
-                    # For other encodings, check for null bytes (but be more selective)
+                    # For other encodings, first try to validate as UTF-8
+                    try
+                    {
+                        $utf8NoBom = New-Object System.Text.UTF8Encoding($false, $true) # Strict UTF-8 validation
+                        $decoded = $utf8NoBom.GetString($buffer, 0, $bytesRead)
+
+                        # If we successfully decoded as UTF-8, check the decoded string for printable characters
+                        $printableCount = 0
+                        foreach ($char in $decoded.ToCharArray())
+                        {
+                            $charCode = [int]$char
+                            # Printable Unicode characters: basic ASCII printable (32-126), common whitespace (9,10,13),
+                            # and other Unicode characters (128+, but exclude control characters 127-159)
+                            if (($charCode -ge 32 -and $charCode -le 126) -or
+                                $charCode -eq 9 -or $charCode -eq 10 -or $charCode -eq 13 -or
+                                ($charCode -ge 160)) # Unicode characters above control range
+                            {
+                                $printableCount++
+                            }
+                        }
+
+                        $printableRatio = if ($decoded.Length -gt 0) { $printableCount / $decoded.Length } else { 1.0 }
+                        if ($printableRatio -ge 0.75)
+                        {
+                            Write-Verbose "File '$FilePath' validated as UTF-8 text (printable character ratio: $([math]::Round($printableRatio * 100, 1))%)"
+                            return $false
+                        }
+                        else
+                        {
+                            Write-Verbose "File '$FilePath' is valid UTF-8 but has low printable character ratio: $([math]::Round($printableRatio * 100, 1))%"
+                        }
+                    }
+                    catch
+                    {
+                        # Not valid UTF-8, fall back to byte-level analysis
+                        Write-Verbose "File '$FilePath' is not valid UTF-8, performing byte-level analysis: $($_.Exception.Message)"
+                    }
+
+                    # Fall back to byte-level analysis for non-UTF-8 files
+                    # Check for null bytes (but be more selective)
                     $nullByteCount = 0
                     for ($i = 0; $i -lt $bytesRead; $i++)
                     {
@@ -798,22 +837,23 @@ function Convert-LineEndings
                         return $true
                     }
 
-                    # Check ratio of printable characters for non-UTF-16 files
+                    # Check ratio of printable characters for non-UTF-8 files (ASCII/ANSI)
                     $printableCount = 0
                     for ($i = 0; $i -lt $bytesRead; $i++)
                     {
                         $byte = $buffer[$i]
-                        # Printable ASCII (32-126), common whitespace (9,10,13), and extended ASCII
-                        if (($byte -ge 32 -and $byte -le 126) -or $byte -eq 9 -or $byte -eq 10 -or $byte -eq 13 -or ($byte -ge 128 -and $byte -le 255))
+                        # Only count ASCII printable and common whitespace for byte-level analysis
+                        # Don't assume extended ASCII (128-255) is printable without proper encoding context
+                        if (($byte -ge 32 -and $byte -le 126) -or $byte -eq 9 -or $byte -eq 10 -or $byte -eq 13)
                         {
                             $printableCount++
                         }
                     }
 
                     $printableRatio = $printableCount / $bytesRead
-                    if ($printableRatio -lt 0.75)
+                    if ($printableRatio -lt 0.60) # Lower threshold for ASCII-only analysis
                     {
-                        Write-Verbose "File '$FilePath' detected as binary (low printable character ratio: $([math]::Round($printableRatio * 100, 1))%)"
+                        Write-Verbose "File '$FilePath' detected as binary (low ASCII printable character ratio: $([math]::Round($printableRatio * 100, 1))%)"
                         return $true
                     }
 
