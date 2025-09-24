@@ -266,6 +266,14 @@ function Convert-LineEndings
         Shows what would happen when processing Python files recursively - which files would
         have line endings converted and which would have ending newlines added.
 
+    .EXAMPLE
+        PS > Measure-Command { Convert-LineEndings -Path 'large-project' -LineEnding 'LF' -Recurse }
+
+        Measures the performance of processing a large project directory. The optimized
+        implementation reduces I/O operations by combining file analysis (binary detection,
+        encoding detection, line ending analysis) into a single file read per file,
+        providing significant performance improvements over the previous implementation.
+
     .OUTPUTS
         None by default.
         [System.Object[]] when PassThru is specified, containing:
@@ -280,8 +288,8 @@ function Convert-LineEndings
         - Skipped: Whether the file was skipped (all conversions already correct)
 
     .NOTES
-        Version: 1.0.0
-        Date: September 22, 2025
+        Version: 1.1.0
+        Date: September 24, 2025
         Author: Jon LaBelle
         License: MIT
 
@@ -318,14 +326,20 @@ function Convert-LineEndings
 
         PERFORMANCE:
 
-        Uses streaming operations to handle large files efficiently without loading
-        entire file contents into memory. Includes intelligent pre-scanning that
-        samples the first 64KB of each file to detect current line ending format
-        and encoding. Line ending conversion and encoding conversion are evaluated
-        independently - only the conversions that are actually needed are performed.
-        Files that already have both the correct line endings and encoding are
-        skipped entirely, preserving modification timestamps and avoiding unnecessary
-        processing.
+        Optimized for high performance with large directory trees through several techniques:
+
+        - Combined file analysis reduces I/O operations from 4-5 file reads to 1-2 per file
+        - Optimized include/exclude filtering eliminates redundant array operations
+        - Uses existing FileInfo objects from Get-ChildItem to avoid redundant Get-Item calls
+        - Streaming operations handle large files efficiently without loading entire contents
+        - Intelligent pre-scanning samples the first 64KB for encoding and line ending detection
+        - Files are processed only if conversions are actually needed
+        - Binary files are detected early using both extension patterns and content analysis
+
+        The function evaluates line ending and encoding conversions independently - only
+        the conversions that are actually needed are performed. Files that already have
+        the correct line endings, encoding, and ending newline are skipped entirely,
+        preserving modification timestamps and avoiding unnecessary processing.
 
         TIMESTAMP PRESERVATION:
 
@@ -514,6 +528,441 @@ function Convert-LineEndings
         $targetLineEnding = $lineEndings[$LineEnding]
         $processedFiles = [System.Collections.ArrayList]::new()
 
+        function Get-FileAnalysis
+        {
+            <#
+            .SYNOPSIS
+                Performs combined file analysis to reduce multiple file I/O operations.
+
+            .DESCRIPTION
+                This function combines binary detection, line ending analysis, encoding detection,
+                and ending newline checking into a single file read operation for optimal performance.
+            #>
+            param(
+                [String]$FilePath,
+                [String]$TargetLineEnding,
+                [String]$TargetEncodingName,
+                [Boolean]$CheckEndingNewline
+            )
+
+            try
+            {
+                $fileInfo = Get-Item -Path $FilePath -ErrorAction Stop
+                if ($fileInfo.Length -eq 0)
+                {
+                    return @{
+                        IsBinary = $false
+                        SourceEncoding = [System.Text.Encoding]::UTF8
+                        NeedsLineEndingConversion = $false
+                        NeedsEncodingConversion = $false
+                        NeedsEndingNewline = $CheckEndingNewline
+                        Error = $null
+                    }
+                }
+
+                # First check file extension for obvious binary files
+                $extension = [System.IO.Path]::GetExtension($FilePath).ToLower()
+                $binaryExtensions = @(
+                    '.exe', '.dll', '.so', '.dylib', '.a', '.lib', '.obj', '.o',
+                    '.zip', '.7z', '.rar', '.tar', '.gz', '.bz2', '.xz', '.tgz', '.tbz2', '.txz',
+                    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.ico', '.webp',
+                    '.mp3', '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.flac', '.wav',
+                    '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+                    '.class', '.jar', '.pyc', '.pyo', '.pyd',
+                    '.ttf', '.otf', '.woff', '.woff2',
+                    '.sqlite', '.db', '.mdb'
+                )
+
+                if ($binaryExtensions -contains $extension)
+                {
+                    return @{
+                        IsBinary = $true
+                        SourceEncoding = $null
+                        NeedsLineEndingConversion = $false
+                        NeedsEncodingConversion = $false
+                        NeedsEndingNewline = $false
+                        Error = $null
+                    }
+                }
+
+                # Single file read operation for all analysis
+                $stream = [System.IO.File]::OpenRead($FilePath)
+                try
+                {
+                    # Read up to 64KB for analysis (same as original functions)
+                    $analysisSize = [Math]::Min($stream.Length, 65536)
+                    $analysisBuffer = New-Object byte[] $analysisSize
+                    $bytesRead = $stream.Read($analysisBuffer, 0, $analysisSize)
+
+                    # First, do encoding detection using BOM detection logic
+                    $sourceEncoding = $null
+                    $isUtf32 = $false
+                    $isUtf16 = $false
+
+                    if ($bytesRead -ge 4 -and $analysisBuffer[0] -eq 0xFF -and $analysisBuffer[1] -eq 0xFE -and $analysisBuffer[2] -eq 0x00 -and $analysisBuffer[3] -eq 0x00)
+                    {
+                        $sourceEncoding = [System.Text.Encoding]::UTF32
+                        $isUtf32 = $true
+                        Write-Verbose "File '$FilePath' detected as UTF-32 LE with BOM"
+                    }
+                    elseif ($bytesRead -ge 4 -and $analysisBuffer[0] -eq 0x00 -and $analysisBuffer[1] -eq 0x00 -and $analysisBuffer[2] -eq 0xFE -and $analysisBuffer[3] -eq 0xFF)
+                    {
+                        $sourceEncoding = New-Object System.Text.UTF32Encoding($true, $true)
+                        $isUtf32 = $true
+                        Write-Verbose "File '$FilePath' detected as UTF-32 BE with BOM"
+                    }
+                    elseif ($bytesRead -ge 3 -and $analysisBuffer[0] -eq 0xEF -and $analysisBuffer[1] -eq 0xBB -and $analysisBuffer[2] -eq 0xBF)
+                    {
+                        $sourceEncoding = New-Object System.Text.UTF8Encoding($true)
+                        Write-Verbose "File '$FilePath' detected as UTF-8 with BOM"
+                    }
+                    elseif ($bytesRead -ge 2 -and $analysisBuffer[0] -eq 0xFF -and $analysisBuffer[1] -eq 0xFE)
+                    {
+                        $sourceEncoding = [System.Text.Encoding]::Unicode
+                        $isUtf16 = $true
+                        Write-Verbose "File '$FilePath' detected as UTF-16 LE with BOM"
+                    }
+                    elseif ($bytesRead -ge 2 -and $analysisBuffer[0] -eq 0xFE -and $analysisBuffer[1] -eq 0xFF)
+                    {
+                        $sourceEncoding = [System.Text.Encoding]::BigEndianUnicode
+                        $isUtf16 = $true
+                        Write-Verbose "File '$FilePath' detected as UTF-16 BE with BOM"
+                    }
+                    else
+                    {
+                        # No BOM - try UTF-8 validation on sample
+                        try
+                        {
+                            $utf8Decoder = [System.Text.Encoding]::UTF8.GetDecoder()
+                            $utf8Decoder.Fallback = [System.Text.DecoderFallback]::ExceptionFallback
+                            $charBuffer = New-Object char[] ([System.Text.Encoding]::UTF8.GetMaxCharCount($bytesRead))
+                            $null = $utf8Decoder.GetChars($analysisBuffer, 0, $bytesRead, $charBuffer, 0)
+                            $sourceEncoding = New-Object System.Text.UTF8Encoding($false)
+                        }
+                        catch
+                        {
+                            # Check if all bytes are ASCII
+                            $isAscii = $true
+                            for ($i = 0; $i -lt $bytesRead; $i++)
+                            {
+                                if ($analysisBuffer[$i] -gt 127)
+                                {
+                                    $isAscii = $false
+                                    break
+                                }
+                            }
+                            $sourceEncoding = if ($isAscii) { [System.Text.Encoding]::ASCII } else { New-Object System.Text.UTF8Encoding($false) }
+                        }
+                    }
+
+                    # Now do binary detection (but skip for known text encodings)
+                    $isBinary = $false
+                    if (-not $isUtf32 -and -not $isUtf16)
+                    {
+                        # For non-UTF32/UTF16 files, do content-based binary detection
+                        $nullByteCount = 0
+                        $nonPrintableCount = 0
+
+                        for ($i = 0; $i -lt $bytesRead; $i++)
+                        {
+                            $byte = $analysisBuffer[$i]
+
+                            # Count null bytes for binary detection
+                            if ($byte -eq 0)
+                            {
+                                $nullByteCount++
+                            }
+
+                            # Count non-printable characters (excluding common whitespace)
+                            if ($byte -lt 32 -and $byte -ne 9 -and $byte -ne 10 -and $byte -ne 13)
+                            {
+                                $nonPrintableCount++
+                            }
+                        }
+
+                        if ($bytesRead -gt 0)
+                        {
+                            $nullByteRatio = $nullByteCount / $bytesRead
+                            $nonPrintableRatio = $nonPrintableCount / $bytesRead
+
+                            if ($nullByteCount -gt 0)
+                            {
+                                Write-Verbose "File '$FilePath' detected as binary due to null bytes (ratio: $nullByteRatio)"
+                                $isBinary = $nullByteRatio -gt 0.01
+                            }
+                            elseif ($nonPrintableRatio -gt 0.3)
+                            {
+                                Write-Verbose "File '$FilePath' detected as binary due to low printable character ratio ($nonPrintableRatio)"
+                                $isBinary = $true
+                            }
+                        }
+                    }
+
+                    if ($isBinary)
+                    {
+                        return @{
+                            IsBinary = $true
+                            SourceEncoding = $null
+                            NeedsLineEndingConversion = $false
+                            NeedsEncodingConversion = $false
+                            NeedsEndingNewline = $false
+                            Error = $null
+                        }
+                    }
+
+                    # Line ending detection (encoding-aware)
+                    $lfCount = 0
+                    $crlfCount = 0
+                    $crCount = 0
+
+                    if ($isUtf32)
+                    {
+                        # For UTF-32, look for line endings in 4-byte patterns
+                        # Start after BOM (4 bytes for UTF-32)
+                        $startPos = if ($sourceEncoding.GetPreamble().Length -gt 0) { 4 } else { 0 }
+                        for ($i = $startPos; $i -lt ($bytesRead - 3); $i += 4)
+                        {
+                            $preamble = $sourceEncoding.GetPreamble()
+                            $isBigEndian = $preamble.Length -eq 4 -and $preamble[0] -eq 0x00 -and $preamble[1] -eq 0x00 -and $preamble[2] -eq 0xFE -and $preamble[3] -eq 0xFF
+
+                            if ($isBigEndian)
+                            {
+                                # UTF-32 BE: look for 00 00 00 0A (LF) or 00 00 00 0D (CR)
+                                if ($analysisBuffer[$i] -eq 0x00 -and $analysisBuffer[$i + 1] -eq 0x00 -and $analysisBuffer[$i + 2] -eq 0x00)
+                                {
+                                    if ($analysisBuffer[$i + 3] -eq 0x0A) # LF
+                                    {
+                                        # Check if preceded by CR (0x00 0x00 0x00 0x0D pattern)
+                                        if ($i -ge ($startPos + 4) -and $analysisBuffer[$i - 4] -eq 0x00 -and $analysisBuffer[$i - 3] -eq 0x00 -and $analysisBuffer[$i - 2] -eq 0x00 -and $analysisBuffer[$i - 1] -eq 0x0D)
+                                        {
+                                            $crlfCount++
+                                        }
+                                        else
+                                        {
+                                            $lfCount++
+                                        }
+                                    }
+                                    elseif ($analysisBuffer[$i + 3] -eq 0x0D) # CR
+                                    {
+                                        # Check if not followed by LF
+                                        if ($i + 7 -lt $bytesRead -and -not ($analysisBuffer[$i + 4] -eq 0x00 -and $analysisBuffer[$i + 5] -eq 0x00 -and $analysisBuffer[$i + 6] -eq 0x00 -and $analysisBuffer[$i + 7] -eq 0x0A))
+                                        {
+                                            $crCount++
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                # UTF-32 LE: look for 0A 00 00 00 (LF) or 0D 00 00 00 (CR)
+                                if ($analysisBuffer[$i + 1] -eq 0x00 -and $analysisBuffer[$i + 2] -eq 0x00 -and $analysisBuffer[$i + 3] -eq 0x00)
+                                {
+                                    if ($analysisBuffer[$i] -eq 0x0A) # LF
+                                    {
+                                        # Check if preceded by CR
+                                        if ($i -ge ($startPos + 4) -and $analysisBuffer[$i - 4] -eq 0x0D)
+                                        {
+                                            $crlfCount++
+                                        }
+                                        else
+                                        {
+                                            $lfCount++
+                                        }
+                                    }
+                                    elseif ($analysisBuffer[$i] -eq 0x0D) # CR
+                                    {
+                                        # Check if not followed by LF
+                                        if ($i + 4 -lt $bytesRead -and -not ($analysisBuffer[$i + 4] -eq 0x0A))
+                                        {
+                                            $crCount++
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    elseif ($isUtf16)
+                    {
+                        # For UTF-16, look for line endings in 2-byte patterns
+                        # Start after BOM (2 bytes for UTF-16)
+                        $startPos = if ($sourceEncoding.GetPreamble().Length -gt 0) { 2 } else { 0 }
+                        for ($i = $startPos; $i -lt ($bytesRead - 1); $i += 2)
+                        {
+                            if ($sourceEncoding.ToString().Contains('BigEndian'))
+                            {
+                                # UTF-16 BE: look for 00 0A (LF) or 00 0D (CR)
+                                if ($analysisBuffer[$i] -eq 0x00)
+                                {
+                                    if ($analysisBuffer[$i + 1] -eq 0x0A) # LF
+                                    {
+                                        # Check if preceded by CR (0x00 0x0D pattern)
+                                        if ($i -ge 2 -and $analysisBuffer[$i - 2] -eq 0x00 -and $analysisBuffer[$i - 1] -eq 0x0D)
+                                        {
+                                            $crlfCount++
+                                        }
+                                        else
+                                        {
+                                            $lfCount++
+                                        }
+                                    }
+                                    elseif ($analysisBuffer[$i + 1] -eq 0x0D) # CR
+                                    {
+                                        # Check if not followed by LF
+                                        if ($i + 3 -lt $bytesRead -and -not ($analysisBuffer[$i + 2] -eq 0x00 -and $analysisBuffer[$i + 3] -eq 0x0A))
+                                        {
+                                            $crCount++
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                # UTF-16 LE: look for 0A 00 (LF) or 0D 00 (CR)
+                                if ($analysisBuffer[$i + 1] -eq 0x00)
+                                {
+                                    if ($analysisBuffer[$i] -eq 0x0A) # LF
+                                    {
+                                        # Check if preceded by CR
+                                        if ($i -ge 2 -and $analysisBuffer[$i - 2] -eq 0x0D)
+                                        {
+                                            $crlfCount++
+                                        }
+                                        else
+                                        {
+                                            $lfCount++
+                                        }
+                                    }
+                                    elseif ($analysisBuffer[$i] -eq 0x0D) # CR
+                                    {
+                                        # Check if not followed by LF
+                                        if ($i + 2 -lt $bytesRead -and -not ($analysisBuffer[$i + 2] -eq 0x0A))
+                                        {
+                                            $crCount++
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        # For UTF-8/ASCII, use standard byte-level detection
+                        # Start after BOM for UTF-8 (3 bytes), otherwise from beginning
+                        $startPos = if ($sourceEncoding.GetPreamble().Length -gt 0) { 3 } else { 0 }
+                        for ($i = $startPos; $i -lt $bytesRead; $i++)
+                        {
+                            $byte = $analysisBuffer[$i]
+
+                            if ($byte -eq 10) # LF
+                            {
+                                if ($i -gt $startPos -and $analysisBuffer[$i - 1] -eq 13) # Previous was CR
+                                {
+                                    $crlfCount++
+                                }
+                                else
+                                {
+                                    $lfCount++
+                                }
+                            }
+                            elseif ($byte -eq 13) # CR
+                            {
+                                if ($i -lt $bytesRead - 1 -and $analysisBuffer[$i + 1] -ne 10) # Next is not LF
+                                {
+                                    $crCount++
+                                }
+                            }
+                        }
+                    }
+
+                    # Determine if line ending conversion is needed
+                    $needsLineEndingConversion = $false
+                    if ($TargetLineEnding -eq "`n") # Target is LF
+                    {
+                        $needsLineEndingConversion = $crlfCount -gt 0 -or $crCount -gt 0
+                    }
+                    elseif ($TargetLineEnding -eq "`r`n") # Target is CRLF
+                    {
+                        $needsLineEndingConversion = $lfCount -gt 0 -or $crCount -gt 0
+                    }
+
+                    # Check encoding conversion need
+                    $targetEncoding = if ($TargetEncodingName -ne 'Auto') { Get-EncodingFromName -EncodingName $TargetEncodingName } else { $null }
+                    $needsEncodingConversion = -not (Test-EncodingMatch -SourceEncoding $sourceEncoding -TargetEncoding $targetEncoding)
+
+                    # Check ending newline if needed
+                    $needsEndingNewline = $false
+                    if ($CheckEndingNewline -and $stream.Length -gt 0)
+                    {
+                        # Check last few bytes for ending newline (encoding-aware)
+                        $bytesToCheck = if ($isUtf32) { 4 } elseif ($isUtf16) { 2 } else { 1 }
+                        $stream.Position = [Math]::Max(0, $stream.Length - ($bytesToCheck * 2))
+                        $endBuffer = New-Object byte[] ($bytesToCheck * 2)
+                        $endBytesRead = $stream.Read($endBuffer, 0, ($bytesToCheck * 2))
+
+                        if ($endBytesRead -gt 0)
+                        {
+                            if ($isUtf32)
+                            {
+                                # Check last 4 bytes for UTF-32 line ending
+                                $lastBytes = $endBuffer[($endBytesRead - 4)..($endBytesRead - 1)]
+                                if ($sourceEncoding.ToString().Contains('BigEndian'))
+                                {
+                                    $needsEndingNewline = -not ($lastBytes[0] -eq 0x00 -and $lastBytes[1] -eq 0x00 -and $lastBytes[2] -eq 0x00 -and ($lastBytes[3] -eq 0x0A -or $lastBytes[3] -eq 0x0D))
+                                }
+                                else
+                                {
+                                    $needsEndingNewline = -not (($lastBytes[0] -eq 0x0A -or $lastBytes[0] -eq 0x0D) -and $lastBytes[1] -eq 0x00 -and $lastBytes[2] -eq 0x00 -and $lastBytes[3] -eq 0x00)
+                                }
+                            }
+                            elseif ($isUtf16)
+                            {
+                                # Check last 2 bytes for UTF-16 line ending
+                                $lastBytes = $endBuffer[($endBytesRead - 2)..($endBytesRead - 1)]
+                                if ($sourceEncoding.ToString().Contains('BigEndian'))
+                                {
+                                    $needsEndingNewline = -not ($lastBytes[0] -eq 0x00 -and ($lastBytes[1] -eq 0x0A -or $lastBytes[1] -eq 0x0D))
+                                }
+                                else
+                                {
+                                    $needsEndingNewline = -not (($lastBytes[0] -eq 0x0A -or $lastBytes[0] -eq 0x0D) -and $lastBytes[1] -eq 0x00)
+                                }
+                            }
+                            else
+                            {
+                                # Check last byte for UTF-8/ASCII line ending
+                                $lastByte = $endBuffer[$endBytesRead - 1]
+                                $needsEndingNewline = $lastByte -ne 10 -and $lastByte -ne 13 # Not LF or CR
+                            }
+                        }
+                    }
+
+                    return @{
+                        IsBinary = $false
+                        SourceEncoding = $sourceEncoding
+                        NeedsLineEndingConversion = $needsLineEndingConversion
+                        NeedsEncodingConversion = $needsEncodingConversion
+                        NeedsEndingNewline = $needsEndingNewline
+                        Error = $null
+                    }
+                }
+                finally
+                {
+                    $stream.Close()
+                }
+            }
+            catch
+            {
+                return @{
+                    IsBinary = $true  # Assume binary if we can't analyze
+                    SourceEncoding = $null
+                    NeedsLineEndingConversion = $false
+                    NeedsEncodingConversion = $false
+                    NeedsEndingNewline = $false
+                    Error = $_.Exception.Message
+                }
+            }
+        }
+
         function Get-EncodingFromName
         {
             param(
@@ -641,13 +1090,17 @@ function Convert-LineEndings
                         return $false  # Empty file is not binary
                     }
 
-                    # Check for text encoding patterns first to avoid false positives
+                    # Perform checks for text encoding patterns first to avoid false positives
+
                     # UTF-32 LE BOM: FF FE 00 00 (check before UTF-16 LE to avoid conflict)
                     $hasUtf32LeBom = $bytesRead -ge 4 -and $buffer[0] -eq 0xFF -and $buffer[1] -eq 0xFE -and $buffer[2] -eq 0x00 -and $buffer[3] -eq 0x00
+
                     # UTF-32 BE BOM: 00 00 FE FF
                     $hasUtf32BeBom = $bytesRead -ge 4 -and $buffer[0] -eq 0x00 -and $buffer[1] -eq 0x00 -and $buffer[2] -eq 0xFE -and $buffer[3] -eq 0xFF
+
                     # UTF-16 LE BOM: FF FE (check after UTF-32 LE to avoid conflict)
                     $hasUtf16LeBom = $bytesRead -ge 2 -and $buffer[0] -eq 0xFF -and $buffer[1] -eq 0xFE -and -not $hasUtf32LeBom
+
                     # UTF-16 BE BOM: FE FF
                     $hasUtf16BeBom = $bytesRead -ge 2 -and $buffer[0] -eq 0xFE -and $buffer[1] -eq 0xFF
 
@@ -694,6 +1147,7 @@ function Convert-LineEndings
                     elseif ($hasUtf16LeBom -or $hasUtf16BeBom)
                     {
                         Write-Verbose "File '$FilePath' has UTF-16 BOM, analyzing as UTF-16 text"
+
                         # For UTF-16, check every other byte starting from position 2 (after BOM)
                         $printableCount = 0
                         $totalChars = 0
@@ -711,6 +1165,7 @@ function Convert-LineEndings
                             }
 
                             $totalChars++
+
                             # Check if character is printable (including common whitespace)
                             if (($char -ge 32 -and $char -le 126) -or $char -eq 9 -or $char -eq 10 -or $char -eq 13 -or ($char -ge 128 -and $char -le 255))
                             {
@@ -754,6 +1209,7 @@ function Convert-LineEndings
                         if ($alternatingNullPattern -and $nullByteCount -gt ($checkLength / 2) * 0.8)
                         {
                             Write-Verbose "File '$FilePath' appears to be UTF-16 LE without BOM (alternating null pattern)"
+
                             # Analyze as UTF-16 LE
                             $printableCount = 0
                             $totalChars = 0
@@ -1447,15 +1903,20 @@ function Convert-LineEndings
 
                 $files = Get-ChildItem @getChildItemParams
 
-                # Apply include filters
+                # Apply include filters (optimized)
                 if ($Include.Count -gt 0)
                 {
-                    $filteredFiles = @()
-                    foreach ($includePattern in $Include)
-                    {
-                        $filteredFiles += $files | Where-Object { $_.Name -like $includePattern }
+                    $files = $files | Where-Object {
+                        $fileName = $_.Name
+                        foreach ($pattern in $Include)
+                        {
+                            if ($fileName -like $pattern)
+                            {
+                                return $true
+                            }
+                        }
+                        return $false
                     }
-                    $files = $filteredFiles | Sort-Object FullName -Unique
                 }
 
                 # Apply exclude filters
@@ -1489,10 +1950,10 @@ function Convert-LineEndings
                     {
                         try
                         {
-                            $fileInfo = Get-Item -Path $file.FullName
+                            # Use existing FileInfo object from Get-ChildItem instead of redundant Get-Item call
                             $originalTimestamps = @{
-                                CreationTime = $fileInfo.CreationTime
-                                LastWriteTime = $fileInfo.LastWriteTime
+                                CreationTime = $file.CreationTime
+                                LastWriteTime = $file.LastWriteTime
                             }
                             Write-Verbose "Captured original timestamps for '$($file.FullName)' before analysis"
                         }
@@ -1503,26 +1964,27 @@ function Convert-LineEndings
                         }
                     }
 
-                    if (Test-BinaryFile -FilePath $file.FullName)
+                    # Perform combined file analysis for optimal performance (single file read)
+                    $analysis = Get-FileAnalysis -FilePath $file.FullName -TargetLineEnding $targetLineEnding -TargetEncodingName $Encoding -CheckEndingNewline $EnsureEndingNewline.IsPresent
+
+                    if ($analysis.Error)
+                    {
+                        Write-Warning "Error analyzing file '$($file.FullName)': $($analysis.Error)"
+                        continue
+                    }
+
+                    if ($analysis.IsBinary)
                     {
                         Write-Warning "Skipping binary file: $($file.FullName)"
                         continue
                     }
 
-                    # Pre-check if conversion is needed (even for WhatIf to provide accurate preview)
-                    $needsLineEndingConversion = Test-LineEndingConversionNeeded -FilePath $file.FullName -TargetLineEnding $targetLineEnding
-
-                    # Check if encoding conversion is needed
-                    $sourceEncoding = Get-FileEncoding -FilePath $file.FullName
-                    $targetEncoding = if ($Encoding -ne 'Auto') { Get-EncodingFromName -EncodingName $Encoding } else { $null }
-                    $needsEncodingConversion = -not (Test-EncodingMatch -SourceEncoding $sourceEncoding -TargetEncoding $targetEncoding)
-
-                    # Check if ending newline is needed
-                    $needsEndingNewline = $false
-                    if ($EnsureEndingNewline)
-                    {
-                        $needsEndingNewline = -not (Test-FileEndsWithNewline -FilePath $file.FullName)
-                    }
+                    # Extract analysis results
+                    $needsLineEndingConversion = $analysis.NeedsLineEndingConversion
+                    $needsEncodingConversion = $analysis.NeedsEncodingConversion
+                    $needsEndingNewline = $analysis.NeedsEndingNewline
+                    $sourceEncoding = $analysis.SourceEncoding
+                    $targetEncoding = if ($needsEncodingConversion) { Get-EncodingFromName -EncodingName $Encoding } else { $null }
 
                     if ($needsLineEndingConversion -or $needsEncodingConversion -or $needsEndingNewline)
                     {
@@ -1600,10 +2062,10 @@ function Convert-LineEndings
                 {
                     try
                     {
-                        $fileInfo = Get-Item -Path $resolvedPath
+                        # Use the existing item object instead of redundant Get-Item call
                         $originalTimestamps = @{
-                            CreationTime = $fileInfo.CreationTime
-                            LastWriteTime = $fileInfo.LastWriteTime
+                            CreationTime = $item.CreationTime
+                            LastWriteTime = $item.LastWriteTime
                         }
                         Write-Verbose "Captured original timestamps for '$resolvedPath' before analysis"
                     }
@@ -1614,26 +2076,27 @@ function Convert-LineEndings
                     }
                 }
 
-                if (Test-BinaryFile -FilePath $resolvedPath)
+                # Perform combined file analysis for optimal performance (single file read)
+                $analysis = Get-FileAnalysis -FilePath $resolvedPath -TargetLineEnding $targetLineEnding -TargetEncodingName $Encoding -CheckEndingNewline $EnsureEndingNewline.IsPresent
+
+                if ($analysis.Error)
+                {
+                    Write-Warning "Error analyzing file '$resolvedPath': $($analysis.Error)"
+                    continue
+                }
+
+                if ($analysis.IsBinary)
                 {
                     Write-Warning "Skipping binary file: $resolvedPath"
                     continue
                 }
 
-                # Pre-check if conversion is needed (even for WhatIf to provide accurate preview)
-                $needsLineEndingConversion = Test-LineEndingConversionNeeded -FilePath $resolvedPath -TargetLineEnding $targetLineEnding
-
-                # Check if encoding conversion is needed
-                $sourceEncoding = Get-FileEncoding -FilePath $resolvedPath
-                $targetEncoding = if ($Encoding -ne 'Auto') { Get-EncodingFromName -EncodingName $Encoding } else { $null }
-                $needsEncodingConversion = -not (Test-EncodingMatch -SourceEncoding $sourceEncoding -TargetEncoding $targetEncoding)
-
-                # Check if ending newline is needed
-                $needsEndingNewline = $false
-                if ($EnsureEndingNewline)
-                {
-                    $needsEndingNewline = -not (Test-FileEndsWithNewline -FilePath $resolvedPath)
-                }
+                # Extract analysis results
+                $needsLineEndingConversion = $analysis.NeedsLineEndingConversion
+                $needsEncodingConversion = $analysis.NeedsEncodingConversion
+                $needsEndingNewline = $analysis.NeedsEndingNewline
+                $sourceEncoding = $analysis.SourceEncoding
+                $targetEncoding = if ($needsEncodingConversion) { Get-EncodingFromName -EncodingName $Encoding } else { $null }
 
                 if ($needsLineEndingConversion -or $needsEncodingConversion -or $needsEndingNewline)
                 {
