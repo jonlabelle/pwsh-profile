@@ -9,7 +9,8 @@ function Start-KeepAlive
         a computer awake and prevent sleep, screensaver activation, or session timeout.
         By default, it sends an F15 key press every 1 minute for a specified duration.
 
-        PLATFORM COMPATIBILITY: This function only works on Windows platforms as it relies
+        PLATFORM COMPATIBILITY:
+        This function only works on Windows platforms as it relies
         on Windows-specific COM objects (WScript.Shell) for keystroke simulation. On macOS
         and Linux, use platform-specific alternatives:
 
@@ -81,12 +82,15 @@ function Start-KeepAlive
         Returns a background job object when starting a new keep-alive job.
 
     .NOTES
-        CLEANUP: Jobs are automatically cleaned up when they complete. For manual cleanup
+        CLEANUP:
+        Jobs are automatically cleaned up when they complete. For manual cleanup
         of orphaned jobs, use: Get-Job -Name $JobName | Remove-Job -Force
 
-        PLATFORM: Windows only - requires WScript.Shell COM object for keystroke simulation.
+        PLATFORM:
+        Windows only - requires WScript.Shell COM object for keystroke simulation.
 
-        VERSION COMPATIBILITY: Compatible with PowerShell 5.1+ on Windows systems.
+        VERSION COMPATIBILITY:
+        Compatible with PowerShell 5.1+ on Windows systems.
     #>
     #
     [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingEmptyCatchBlock', '', Justification = '')]

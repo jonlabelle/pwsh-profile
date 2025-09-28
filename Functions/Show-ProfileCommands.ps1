@@ -64,9 +64,7 @@ function Show-ProfileCommands
                 return
             }
 
-            # Write-Host "`nAvailable Profile Commands:" -ForegroundColor Cyan
-            # Write-Host ('=' * 50) -ForegroundColor Cyan
-            Write-Host ''
+            Write-Host '' # Blank line for spacing
 
             foreach ($file in $functionFiles)
             {
