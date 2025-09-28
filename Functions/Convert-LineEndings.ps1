@@ -26,6 +26,7 @@ function Convert-LineEndings
         The path to a file or directory to process.
         Accepts an array of paths and supports pipeline input.
         For directories, all text files will be processed unless filtered by Include/Exclude parameters.
+        If not provided, defaults to the current working directory.
 
     .PARAMETER LineEnding
         Specifies the target line ending format. Files are converted only if their current line
@@ -237,7 +238,7 @@ function Convert-LineEndings
     .EXAMPLE
         PS > Convert-LineEndings -Path 'project' -Recurse -PassThru
 
-        Converts all files in the project directory to platform default line endings using 'Auto' mode.
+        Converts all files in the current working directory to platform default line endings using 'Auto' mode.
         On Windows systems, files will be converted to CRLF; on Unix/Linux/macOS systems, files will
         be converted to LF. Returns detailed information about processed files.
 
@@ -360,10 +361,10 @@ function Convert-LineEndings
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([System.Object[]])]
     param(
-        [Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [Alias('FullName')]
         [ValidateNotNullOrEmpty()]
-        [String[]]$Path,
+        [String[]]$Path = (Get-Location).Path,
 
         [Parameter()]
         [ValidateSet('Auto', 'LF', 'CRLF', 'Unix', 'Windows', 'System')]

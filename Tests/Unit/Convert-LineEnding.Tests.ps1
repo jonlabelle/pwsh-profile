@@ -38,10 +38,10 @@ AfterAll {
 
 Describe 'Convert-LineEndings' {
     Context 'Parameter Validation' {
-        It 'Should have mandatory Path parameter' {
+        It 'Should have optional Path parameter' {
             $command = Get-Command Convert-LineEndings
             $pathParam = $command.Parameters['Path']
-            $pathParam.Attributes.Mandatory | Should -Contain $true
+            $pathParam.Attributes.Mandatory | Should -Not -Contain $true
         }
 
         It 'Should have optional LineEnding parameter with default value' {
@@ -71,6 +71,28 @@ Describe 'Convert-LineEndings' {
             'test content' | Out-File -FilePath $testFile -NoNewline
 
             { Convert-LineEndings -Path $testFile -WhatIf } | Should -Not -Throw
+        }
+
+        It 'Should use current working directory when Path parameter is not provided' {
+            # Create a test file in the current working directory (which is the test directory)
+            $testFileName = 'cwd-test.txt'
+            $testFile = Join-Path $script:TestDir $testFileName
+            'test content with CRLF' + "`r`n" + 'second line' | Out-File -FilePath $testFile -NoNewline
+
+            # Change to the test directory (should already be there, but ensure it)
+            Push-Location $script:TestDir
+
+            # Run the function without Path parameter - should process current working directory
+            $results = Convert-LineEndings -LineEnding 'LF' -PassThru
+
+            # Should have processed the file in the current working directory
+            $results | Should -Not -BeNullOrEmpty
+            $results.FilePath | Should -Contain $testFile
+
+            # Verify the file was converted
+            $content = [System.IO.File]::ReadAllText($testFile)
+            $content | Should -Not -Match "`r"
+            $content | Should -Match 'test content with CRLF'
         }
     }
 

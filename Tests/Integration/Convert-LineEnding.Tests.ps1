@@ -135,6 +135,46 @@ Describe 'Convert-LineEndings Integration Tests' {
             Write-Verbose "Node modules content preserved: $($nodeContent.Length) characters"
             # The actual line ending check depends on whether the exclude worked
         }
+
+        It 'Should process current working directory when Path parameter is not provided' {
+            # Create test files in the test directory (which will be the current working directory)
+            $cwdTestFile1 = Join-Path $script:TestDir 'cwd-integration-test1.txt'
+            $cwdTestFile2 = Join-Path $script:TestDir 'cwd-integration-test2.ps1'
+
+            try
+            {
+                # Create files with CRLF line endings
+                "File 1 content`r`nSecond line" | Out-File -FilePath $cwdTestFile1 -NoNewline
+                "Write-Host 'Hello'`r`nWrite-Host 'World'" | Out-File -FilePath $cwdTestFile2 -NoNewline
+
+                # Ensure we're in the test directory
+                Push-Location $script:TestDir
+
+                # Run the function without Path parameter
+                $results = Convert-LineEndings -LineEnding 'LF' -PassThru
+
+                # Should have processed files in the current working directory
+                $results | Should -Not -BeNullOrEmpty
+                $processedFiles = $results.FilePath
+                $processedFiles | Should -Contain $cwdTestFile1
+                $processedFiles | Should -Contain $cwdTestFile2
+
+                # Verify files were converted to LF
+                $content1 = [System.IO.File]::ReadAllText($cwdTestFile1)
+                $content1 | Should -Not -Match "`r"
+                $content1 | Should -Match 'File 1 content'
+
+                $content2 = [System.IO.File]::ReadAllText($cwdTestFile2)
+                $content2 | Should -Not -Match "`r"
+                $content2 | Should -Match "Write-Host 'Hello'"
+            }
+            finally
+            {
+                Pop-Location
+                if (Test-Path $cwdTestFile1) { Remove-Item $cwdTestFile1 -Force }
+                if (Test-Path $cwdTestFile2) { Remove-Item $cwdTestFile2 -Force }
+            }
+        }
     }
 
     Context 'Cross-Platform File Processing' {
