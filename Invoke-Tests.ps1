@@ -191,7 +191,7 @@ if ($IsPester5OrHigher -and ([System.Management.Automation.PSTypeName]'PesterCon
     # This is used by CI/CD systems for test reporting and visualization
     $PesterConfiguration.TestResult.Enabled = $true
     $PesterConfiguration.TestResult.OutputFormat = 'NUnitXml'
-    $PesterConfiguration.TestResult.OutputPath = './testresults.xml'
+    $PesterConfiguration.TestResult.OutputPath = (Join-Path -Path $PSScriptRoot -ChildPath 'testresults.xml')
 
     # Run tests
     $oldProgressPreference = $global:ProgressPreference
@@ -258,7 +258,7 @@ else
     # Pester 4.x uses different parameter names for test results
     if ($PesterVersion -and $PesterVersion.Major -ge 4)
     {
-        $PesterParams.OutputFile = './testresults.xml'
+        $PesterParams.OutputFile = (Join-Path -Path $PSScriptRoot -ChildPath 'testresults.xml')
         $PesterParams.OutputFormat = 'NUnitXml'
     }
 
