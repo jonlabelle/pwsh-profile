@@ -75,15 +75,34 @@ param(
 )
 
 # Ensure we're in the script directory
-$ScriptRoot = $PSScriptRoot
-if (-not $ScriptRoot)
+$ScriptDirectory = $PSScriptRoot
+if (-not $ScriptDirectory)
 {
-    $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+    $ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 }
-Set-Location $ScriptRoot
+Set-Location $ScriptDirectory
+
+# ---- Path helpers (PowerShell 5.1-safe) ----
+function Join-Parts
+{
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
+    param(
+        [Parameter(Mandatory)] [string]$BasePath,
+        [Parameter(Mandatory)] [string[]]$PathSegments
+    )
+    $path = $BasePath
+    foreach ($segment in $PathSegments)
+    {
+        $path = Join-Path -Path $path -ChildPath $segment
+    }
+    return $path
+}
+
+$UnitTestsPath = Join-Parts -BasePath $ScriptDirectory -PathSegments @('Tests', 'Unit')
+$IntegrationTestsPath = Join-Parts -BasePath $ScriptDirectory -PathSegments @('Tests', 'Integration')
+$NUnitResultsPath = Join-Path -Path $ScriptDirectory -ChildPath 'testresults.xml'
 
 # Import Pester if not already loaded
-# This ensures Pester is available before attempting to use it
 if (-not (Get-Module Pester -ListAvailable))
 {
     Write-Error 'Pester module is not installed. Please install Pester 5.x first: Install-Module Pester -Force'
@@ -91,57 +110,54 @@ if (-not (Get-Module Pester -ListAvailable))
 }
 
 # Ensure we're using Pester 4+ by importing the latest available version
-$PesterModules = Get-Module Pester -ListAvailable | Sort-Object Version -Descending
-$LatestPester = $PesterModules[0]
+$availablePesterModules = Get-Module Pester -ListAvailable | Sort-Object Version -Descending
+$latestPesterModule = $availablePesterModules[0]
 
-if ($LatestPester.Version.Major -lt 4)
+if ($latestPesterModule.Version.Major -lt 4)
 {
     Write-Error @"
-The latest available Pester version ($($LatestPester.Version.ToString())) is too old.
+The latest available Pester version ($($latestPesterModule.Version.ToString())) is too old.
 
 This test suite requires Pester 4.0 or higher. Please update Pester:
     Install-Module -Name Pester -Force -SkipPublisherCheck
 
 Available Pester versions:
-$($PesterModules | ForEach-Object { "  - $($_.Version.ToString()) at $($_.ModuleBase)" } | Out-String)
+$($availablePesterModules | ForEach-Object { "  - $($_.Version.ToString()) at $($_.ModuleBase)" } | Out-String)
 "@
     exit 1
 }
 
 # Import the latest compatible Pester version
-Import-Module Pester -RequiredVersion $LatestPester.Version -Force
+Import-Module Pester -RequiredVersion $latestPesterModule.Version -Force
 
 # Determine which tests to run based on TestType parameter
-# Maps the user-friendly test type names to actual directory paths
-$TestPaths = switch ($TestType)
+$testPathsToRun = switch ($TestType)
 {
-    'Unit' { @('./Tests/Unit') }
-    'Integration' { @('./Tests/Integration') }
-    'All' { @('./Tests/Unit', './Tests/Integration') }
+    'Unit' { @($UnitTestsPath) }
+    'Integration' { @($IntegrationTestsPath) }
+    'All' { @($UnitTestsPath, $IntegrationTestsPath) }
 }
 
 # Filter paths to only existing directories
-# This prevents errors if one of the test directories doesn't exist
-$TestPaths = $TestPaths | Where-Object { Test-Path $_ }
+$testPathsToRun = $testPathsToRun | Where-Object { Test-Path $_ }
 
-if (-not $TestPaths)
+if (-not $testPathsToRun)
 {
     Write-Warning "No test directories found for test type: $TestType"
     exit 1
 }
 
-Write-Host "Running $TestType tests from: $($TestPaths -join ', ')" -ForegroundColor Green
+Write-Host "Running $TestType tests from: $($testPathsToRun -join ', ')" -ForegroundColor Green
 
 # Check Pester version and configure accordingly
-# This enables cross-version compatibility between Pester 4.x and 5+
-$PesterVersion = (Get-Module Pester).Version
-$IsPester5OrHigher = $PesterVersion -and $PesterVersion.Major -ge 5
+$installedPesterVersion = (Get-Module Pester).Version
+$isPesterVersion5OrHigher = $installedPesterVersion -and $installedPesterVersion.Major -ge 5
 
 # Check for Pester 3.x which is not supported
-if ($PesterVersion -and $PesterVersion.Major -lt 4)
+if ($installedPesterVersion -and $installedPesterVersion.Major -lt 4)
 {
     Write-Error @"
-Pester version $($PesterVersion.ToString()) is not supported.
+Pester version $($installedPesterVersion.ToString()) is not supported.
 
 This test suite requires Pester 4.0 or higher due to the following features:
 
@@ -155,52 +171,49 @@ Please update Pester:
 
     Install-Module -Name Pester -Force -SkipPublisherCheck
 
-Current Pester installation: $($LatestPester.ModuleBase)
+Current Pester installation: $($latestPesterModule.ModuleBase)
 "@
     exit 1
 }
 
 # Validate and map OutputFormat based on Pester version capabilities
-$ValidOutputFormats = if ($IsPester5OrHigher)
+$ValidOutputFormats = if ($isPesterVersion5OrHigher)
 {
     @('Normal', 'Detailed', 'Diagnostic')
 }
 else
 {
-    @('Normal', 'Detailed')  # Pester 4.x may not support 'Diagnostic'
+    @('Normal', 'Detailed')
 }
 
 if ($OutputFormat -notin $ValidOutputFormats)
 {
-    Write-Error "Invalid OutputFormat '$OutputFormat'. Valid values for Pester $($PesterVersion.ToString()) are: $($ValidOutputFormats -join ', ')"
+    Write-Error "Invalid OutputFormat '$OutputFormat'. Valid values for Pester $($installedPesterVersion.ToString()) are: $($ValidOutputFormats -join ', ')"
     exit 1
 }
 
 # Determine which Pester syntax to use based on version and available types
-if ($IsPester5OrHigher -and ([System.Management.Automation.PSTypeName]'PesterConfiguration').Type)
+if ($isPesterVersion5OrHigher -and ([System.Management.Automation.PSTypeName]'PesterConfiguration').Type)
 {
-    # Pester 5+ syntax - uses configuration object for advanced features
-    Write-Verbose "Using Pester $($PesterVersion.ToString()) with configuration object syntax"
+    # Pester 5+ syntax
+    Write-Verbose "Using Pester $($installedPesterVersion.ToString()) with configuration object syntax"
     $PesterConfiguration = [PesterConfiguration]::Default
-    $PesterConfiguration.Run.Path = $TestPaths
+    $PesterConfiguration.Run.Path = $testPathsToRun
     $PesterConfiguration.Run.Exit = $false
     $PesterConfiguration.Run.PassThru = $true
     $PesterConfiguration.Output.Verbosity = $OutputFormat
 
-    # Configure test results output in NUnit XML format
-    # This is used by CI/CD systems for test reporting and visualization
+    # NUnit XML results
     $PesterConfiguration.TestResult.Enabled = $true
     $PesterConfiguration.TestResult.OutputFormat = 'NUnitXml'
-    $PesterConfiguration.TestResult.OutputPath = (Join-Path -Path $PSScriptRoot -ChildPath 'testresults.xml')
+    $PesterConfiguration.TestResult.OutputPath = $NUnitResultsPath
 
     # Run tests
-    $oldProgressPreference = $global:ProgressPreference
+    $previousProgressPreference = $global:ProgressPreference
     try
     {
-        # Disable progress bars for cleaner output
         $global:ProgressPreference = 'SilentlyContinue'
-
-        $TestResults = Invoke-Pester -Configuration $PesterConfiguration
+        $pesterTestResults = Invoke-Pester -Configuration $PesterConfiguration
     }
     catch
     {
@@ -209,67 +222,61 @@ if ($IsPester5OrHigher -and ([System.Management.Automation.PSTypeName]'PesterCon
     }
     finally
     {
-        $global:ProgressPreference = $oldProgressPreference
+        $global:ProgressPreference = $previousProgressPreference
     }
 }
 else
 {
-    # Pester 4.x syntax - uses traditional parameter-based approach
-    Write-Verbose "Using Pester $($PesterVersion.ToString()) with parameter-based syntax"
-    $PesterParams = @{
-        Path = $TestPaths
+    # Pester 4.x syntax
+    Write-Verbose "Using Pester $($installedPesterVersion.ToString()) with parameter-based syntax"
+    $invokePesterParams = @{
+        Path = $testPathsToRun
         PassThru = $true
     }
 
-    # Handle OutputFormat for Pester 4.x
-    # Some older versions may not support OutputFormat parameter or have limited options
-    if ($PesterVersion -and $PesterVersion.Major -ge 4)
+    # Handle OutputFormat for Pester 4.x when available
+    if ($installedPesterVersion -and $installedPesterVersion.Major -ge 4)
     {
         try
         {
-            # Test if OutputFormat parameter accepts our value by attempting to get command metadata
-            $pesterCommand = Get-Command Invoke-Pester -Module Pester
-            $outputFormatParam = $pesterCommand.Parameters['OutputFormat']
-            if ($outputFormatParam -and $outputFormatParam.Attributes.ValidateSet)
+            $invokePesterCommand = Get-Command Invoke-Pester -Module Pester
+            $outputFormatParameter = $invokePesterCommand.Parameters['OutputFormat']
+            if ($outputFormatParameter -and $outputFormatParameter.Attributes.ValidateSet)
             {
-                $validSet = $outputFormatParam.Attributes.ValidateSet.ValidValues
-                if ($OutputFormat -in $validSet)
+                $validOutputFormatSet = $outputFormatParameter.Attributes.ValidateSet.ValidValues
+                if ($OutputFormat -in $validOutputFormatSet)
                 {
-                    $PesterParams.OutputFormat = $OutputFormat
+                    $invokePesterParams.OutputFormat = $OutputFormat
                 }
                 else
                 {
-                    Write-Warning "OutputFormat '$OutputFormat' not supported in Pester $($PesterVersion.ToString()). Valid values: $($validSet -join ', '). Using default."
+                    Write-Warning "OutputFormat '$OutputFormat' not supported in Pester $($installedPesterVersion.ToString()). Valid values: $($validOutputFormatSet -join ', '). Using default."
                 }
             }
-            elseif ($outputFormatParam)
+            elseif ($outputFormatParameter)
             {
-                # Parameter exists but no ValidateSet, try to use it
-                $PesterParams.OutputFormat = $OutputFormat
+                $invokePesterParams.OutputFormat = $OutputFormat
             }
         }
         catch
         {
-            Write-Warning "Could not determine OutputFormat support in Pester $($PesterVersion.ToString()). Using default output format."
+            Write-Warning "Could not determine OutputFormat support in Pester $($installedPesterVersion.ToString()). Using default output format."
         }
     }
 
-    # Add test results output for Pester 4.x
-    # Pester 4.x uses different parameter names for test results
-    if ($PesterVersion -and $PesterVersion.Major -ge 4)
+    # NUnit XML results (Pester 4.x)
+    if ($installedPesterVersion -and $installedPesterVersion.Major -ge 4)
     {
-        $PesterParams.OutputFile = (Join-Path -Path $PSScriptRoot -ChildPath 'testresults.xml')
-        $PesterParams.OutputFormat = 'NUnitXml'
+        $invokePesterParams.OutputFile = $NUnitResultsPath
+        $invokePesterParams.OutputFormat = 'NUnitXml'
     }
 
     # Run tests
-    $oldProgressPreference = $global:ProgressPreference
+    $previousProgressPreference = $global:ProgressPreference
     try
     {
-        # Disable progress bars for cleaner output
         $global:ProgressPreference = 'SilentlyContinue'
-
-        $TestResults = Invoke-Pester @PesterParams
+        $pesterTestResults = Invoke-Pester @invokePesterParams
     }
     catch
     {
@@ -278,38 +285,34 @@ else
     }
     finally
     {
-        $global:ProgressPreference = $oldProgressPreference
+        $global:ProgressPreference = $previousProgressPreference
     }
 }
 
 # Output results summary
-# Display test results in a user-friendly format
 Write-Host ''
 Write-Host 'Test Results Summary:' -ForegroundColor Yellow
-Write-Host "  Total Tests: $($TestResults.TotalCount)" -ForegroundColor White
-Write-Host "  Passed: $($TestResults.PassedCount)" -ForegroundColor Green
-Write-Host "  Failed: $($TestResults.FailedCount)" -ForegroundColor Red
-Write-Host "  Skipped: $($TestResults.SkippedCount)" -ForegroundColor Yellow
-Write-Host "  Duration: $($TestResults.Duration)" -ForegroundColor White
+Write-Host "  Total Tests: $($pesterTestResults.TotalCount)" -ForegroundColor White
+Write-Host "  Passed: $($pesterTestResults.PassedCount)" -ForegroundColor Green
+Write-Host "  Failed: $($pesterTestResults.FailedCount)" -ForegroundColor Red
+Write-Host "  Skipped: $($pesterTestResults.SkippedCount)" -ForegroundColor Yellow
+Write-Host "  Duration: $($pesterTestResults.Duration)" -ForegroundColor White
 
 # Show failed tests if any
-if ($TestResults.FailedCount -gt 0)
+if ($pesterTestResults.FailedCount -gt 0)
 {
     Write-Host ''
     Write-Host 'Failed Tests:' -ForegroundColor Red
-    $TestResults.Failed | ForEach-Object {
+    $pesterTestResults.Failed | ForEach-Object {
         Write-Host "  - $($_.Name)" -ForegroundColor Red
     }
 }
 
 # Return results if requested
-# This allows the script to be used programmatically in CI/CD pipelines or other automation
-# When -PassThru is specified, the function returns the PesterResults object instead of just displaying output
 if ($PassThru)
 {
-    return $TestResults
+    return $pesterTestResults
 }
 
 # Exit with appropriate code
-# 0 for success, non-zero for failures (useful for CI/CD)
-exit $TestResults.FailedCount
+exit $pesterTestResults.FailedCount
