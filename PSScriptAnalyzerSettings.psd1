@@ -1,10 +1,11 @@
 # PSScriptAnalyzerSettings.psd1
 #
-# Settings for PSScriptAnalyzer invocation.
-# All default rules are also enabled.
+# This file is used to configure the behavior of PSScriptAnalyzer,
+# a static code checker for PowerShell scripts.
 #
 # Example usage:
 # Invoke-ScriptAnalyzer -Settings PSScriptAnalyzerSettings.psd1 -Path . -Recurse
+
 @{
   # Exclude specific rules globally
   ExcludeRules = @(
@@ -16,13 +17,14 @@
     'PSAvoidUsingConvertToSecureStringWithPlainText' # Acceptable in test scripts
   )
 
+  # Enable specific rules globally
   Rules = @{
     PSUseCompatibleSyntax = @{
 
       # This turns the rule on (setting it to false will turn it off)
       Enable = $true
 
-      # Simply list the targeted versions of PowerShell here
+      # List of targeted PowerShell versions
       TargetVersions = @(
         '5.1',  # Windows PowerShell (legacy)
         '6.1',  # PowerShell Core (first stable)
