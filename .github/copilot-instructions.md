@@ -59,13 +59,18 @@ function Verb-Noun {
     <#
     .SYNOPSIS
         Brief description
+
     .DESCRIPTION
         Detailed description with cross-platform notes
+
     .PARAMETER Name
         Parameter description
+
     .EXAMPLE
         PS > Verb-Noun -Name 'example'
+
         Usage example with expected output
+
     .OUTPUTS
         Return type description
     #>
