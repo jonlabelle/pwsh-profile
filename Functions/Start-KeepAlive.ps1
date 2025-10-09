@@ -2,20 +2,21 @@ function Start-KeepAlive
 {
     <#
     .SYNOPSIS
-        Prevents system inactivity timeout by simulating key-presses at regular intervals.
+        Prevents system inactivity timeout and sleep by keeping the system active.
 
     .DESCRIPTION
-        This function runs a background job that simulates key-press activity to keep
-        a computer awake and prevent sleep, screensaver activation, or session timeout.
-        By default, it sends an F15 key press every 1 minute for a specified duration.
+        This function runs a background job that prevents system sleep, screensaver activation,
+        and session timeout by keeping the system active. Works cross-platform with automatic
+        platform detection.
 
         PLATFORM COMPATIBILITY:
-        This function only works on Windows platforms as it relies
-        on Windows-specific COM objects (WScript.Shell) for keystroke simulation. On macOS
-        and Linux, use platform-specific alternatives:
+        This function works cross-platform with different implementations:
 
-        - macOS: 'caffeinate -d' (prevent display sleep) or 'caffeinate -i' (prevent system sleep)
-        - Linux: 'xset s off', 'xdotool', or 'systemd-inhibit' for similar functionality
+        - Windows: Uses WScript.Shell COM objects to simulate F15 key presses (default: every 60 seconds)
+        - macOS: Uses the built-in 'caffeinate' command to prevent system sleep
+        - Linux: Uses 'systemd-inhibit' if available, otherwise falls back to 'xdotool' for mouse activity simulation
+
+        The function automatically detects the platform and uses the appropriate method.
 
     .PARAMETER KeepAliveHours
         The number of hours the keep-alive job will run.
@@ -41,41 +42,58 @@ function Start-KeepAlive
         Cannot be combined with other operational parameters.
 
     .PARAMETER KeyToPress
-        The key to simulate pressing. Uses WScript.Shell SendKeys syntax.
+        (Windows only) The key to simulate pressing. Uses WScript.Shell SendKeys syntax.
         Common options: '^' (Ctrl), '{TAB}', '{F15}' (non-interfering function key)
         Default is '{F15}' (F15 key - least likely to interfere with applications).
         Note that the {F15} key simulation is handled entirely by software, not hardware. The WScript.Shell.SendKeys() method sends a virtual keystroke to Windows, which doesn't require the physical key to exist.
+        This parameter is ignored on macOS and Linux platforms.
         Reference: https://docs.microsoft.com/en-us/office/vba/language/reference/user-interface-help/sendkeys-statement
 
     .EXAMPLE
         PS > Start-KeepAlive
 
-        Starts a keep-alive job that will run for 12 hours, pressing the F15 key every 1 minute.
+        Starts a keep-alive job that will run for 12 hours.
+        On Windows: Simulates F15 key presses every 60 seconds
+        On macOS: Uses caffeinate to prevent sleep
+        On Linux: Uses systemd-inhibit or xdotool for activity simulation
 
     .EXAMPLE
         PS > Start-KeepAlive -KeepAliveHours 3 -SleepSeconds 300
 
-        Starts a keep-alive job that will run for 3 hours, pressing the F15 key every 5 minutes.
+        Starts a keep-alive job for 3 hours with activity every 5 minutes.
+        Note: SleepSeconds is only used on Windows and Linux (with xdotool).
+        macOS and Linux (with systemd-inhibit) run continuously.
 
     .EXAMPLE
         PS > Start-KeepAlive -KeyToPress '{TAB}'
 
-        Starts a keep-alive job that simulates pressing the Tab key instead of F15.
+        (Windows only) Starts a keep-alive job that simulates Tab key instead of F15.
+        This parameter is ignored on macOS and Linux.
 
     .EXAMPLE
         PS > Start-KeepAlive -Query
 
         Displays the status of the current keep-alive job without starting a new one.
+        Works on all platforms.
 
     .EXAMPLE
         PS > Start-KeepAlive -EndJob
 
         Stops the running keep-alive job and removes it from the job queue.
+        Properly cleans up platform-specific processes (caffeinate on macOS,
+        systemd-inhibit on Linux, COM objects on Windows).
 
     .EXAMPLE
         PS > Start-KeepAlive -JobName 'LongDownload' -KeepAliveHours 8
 
         Starts a custom-named keep-alive job for an 8-hour period.
+        Useful when running multiple keep-alive jobs for different purposes.
+
+    .EXAMPLE
+        PS > Start-KeepAlive -KeepAliveHours 2 -Verbose
+
+        Starts a keep-alive job with verbose output showing platform detection
+        and initialization details. Useful for troubleshooting.
 
     .OUTPUTS
         System.Management.Automation.Job
@@ -86,11 +104,16 @@ function Start-KeepAlive
         Jobs are automatically cleaned up when they complete. For manual cleanup
         of orphaned jobs, use: Get-Job -Name $JobName | Remove-Job -Force
 
-        PLATFORM:
-        Windows only - requires WScript.Shell COM object for keystroke simulation.
+        PLATFORM REQUIREMENTS:
+        - Windows: No additional requirements (uses built-in WScript.Shell COM object)
+        - macOS: Uses built-in 'caffeinate' command (no additional installation required)
+        - Linux: Requires either 'systemd-inhibit' (systemd-based systems) or 'xdotool' (X11 systems)
+          Install on Debian/Ubuntu: sudo apt-get install xdotool
+          Install on RHEL/Fedora: sudo dnf install xdotool
+          Install on Arch: sudo pacman -S xdotool
 
         VERSION COMPATIBILITY:
-        Compatible with PowerShell 5.1+ on Windows systems.
+        Compatible with PowerShell 5.1+ on Windows, PowerShell Core 6.2+ on macOS and Linux.
     #>
     #
     [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingEmptyCatchBlock', '', Justification = '')]
@@ -145,24 +168,46 @@ function Start-KeepAlive
             $script:IsLinuxPlatform = $IsLinux
         }
 
-        # Validate Windows platform requirement
-        if (-not $script:IsWindowsPlatform)
+        # Validate platform-specific requirements
+        if ($PSCmdlet.ParameterSetName -eq 'Start')
         {
-            $platformName = if ($script:IsMacOSPlatform)
+            if ($script:IsLinuxPlatform)
             {
-                'macOS - try: caffeinate -d (prevent display sleep) or caffeinate -i (prevent system sleep)'
-            }
-            elseif ($script:IsLinuxPlatform)
-            {
-                'Linux - try: xset s off, systemd-inhibit, or xdotool for similar functionality'
-            }
-            else
-            {
-                'this platform'
-            }
+                # Check for required Linux tools
+                $hasSystemdInhibit = $null -ne (Get-Command systemd-inhibit -ErrorAction SilentlyContinue)
+                $hasXdotool = $null -ne (Get-Command xdotool -ErrorAction SilentlyContinue)
 
-            $errorMessage = "Start-KeepAlive requires Windows due to dependency on WScript.Shell COM objects. Current platform: $platformName"
-            Write-Error $errorMessage -Category NotImplemented -ErrorAction Stop
+                if (-not $hasSystemdInhibit -and -not $hasXdotool)
+                {
+                    Write-Error "Linux platform requires either 'systemd-inhibit' or 'xdotool' to be installed. Install with: sudo apt-get install xdotool (Debian/Ubuntu) or sudo dnf install xdotool (RHEL/Fedora)" -Category NotInstalled -ErrorAction Stop
+                }
+
+                Write-Verbose "Linux keep-alive method: $(if ($hasSystemdInhibit) { 'systemd-inhibit' } else { 'xdotool' })"
+            }
+            elseif ($script:IsMacOSPlatform)
+            {
+                # macOS has caffeinate built-in, verify it's available
+                if ($null -eq (Get-Command caffeinate -ErrorAction SilentlyContinue))
+                {
+                    Write-Error "macOS 'caffeinate' command not found. This should be built-in to macOS." -Category NotInstalled -ErrorAction Stop
+                }
+                Write-Verbose 'macOS keep-alive method: caffeinate'
+            }
+            elseif ($script:IsWindowsPlatform)
+            {
+                # Windows - validate COM object availability
+                try
+                {
+                    Write-Verbose 'Testing WScript.Shell COM object availability'
+                    $testCOM = New-Object -ComObject WScript.Shell
+                    [System.Runtime.Interopservices.Marshal]::ReleaseComObject($testCOM) | Out-Null
+                    Write-Verbose 'Windows keep-alive method: WScript.Shell COM object'
+                }
+                catch
+                {
+                    Write-Error "WScript.Shell COM object not available: $($_.Exception.Message)" -ErrorAction Stop
+                }
+            }
         }
 
         # Calculate end time for Start parameter set
@@ -171,7 +216,7 @@ function Start-KeepAlive
             $endTime = (Get-Date).AddHours($KeepAliveHours)
             Write-Verbose "Keep-alive job will run until: $endTime"
         }
-    } # end begin
+    }
 
     process
     {
@@ -300,39 +345,74 @@ function Start-KeepAlive
                     }
                 }
 
-                # Validate COM object availability before starting job
-                try
-                {
-                    Write-Verbose 'Testing WScript.Shell COM object availability'
-                    $testCOM = New-Object -ComObject WScript.Shell
-                    [System.Runtime.Interopservices.Marshal]::ReleaseComObject($testCOM) | Out-Null
-                    Write-Verbose 'COM object test successful'
-                }
-                catch
-                {
-                    Write-Error "WScript.Shell COM object not available: $($_.Exception.Message)" -ErrorAction Stop
-                }
-
                 # Create the background job script
                 $jobScript = {
-                    param ($EndTime, $SleepSeconds, $JobName, $KeyToPress)
+                    param ($EndTime, $SleepSeconds, $JobName, $KeyToPress, $PlatformIsWindows, $PlatformIsMacOS, $PlatformIsLinux)
 
                     try
                     {
                         Write-Output "Keep-alive job '$JobName' started at: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
                         Write-Output "Job will end at: $(Get-Date $EndTime -Format 'yyyy-MM-dd HH:mm:ss')"
-                        Write-Output "Key simulation interval: $SleepSeconds seconds"
-                        Write-Output "Key to simulate: $KeyToPress`n"
+
+                        # Platform-specific initialization
+                        if ($PlatformIsWindows)
+                        {
+                            Write-Output 'Platform: Windows (using WScript.Shell for keystroke simulation)'
+                            Write-Output "Key simulation interval: $SleepSeconds seconds"
+                            Write-Output "Key to simulate: $KeyToPress`n"
+
+                            # Create COM object once and reuse it (more efficient and reliable)
+                            $wshell = New-Object -ComObject WScript.Shell
+                        }
+                        elseif ($PlatformIsMacOS)
+                        {
+                            Write-Output 'Platform: macOS (using caffeinate to prevent sleep)'
+                            Write-Output "Note: caffeinate runs continuously, no interval needed`n"
+
+                            # Start caffeinate in the background
+                            # -d prevents display sleep, -i prevents system idle sleep
+                            $caffeinateProcess = Start-Process -FilePath 'caffeinate' -ArgumentList '-di' -PassThru -NoNewWindow
+                        }
+                        elseif ($PlatformIsLinux)
+                        {
+                            # Check which method is available
+                            $hasSystemdInhibit = $null -ne (Get-Command systemd-inhibit -ErrorAction SilentlyContinue)
+                            $hasXdotool = $null -ne (Get-Command xdotool -ErrorAction SilentlyContinue)
+
+                            if ($hasSystemdInhibit)
+                            {
+                                Write-Output 'Platform: Linux (using systemd-inhibit to prevent sleep)'
+                                Write-Output "Note: systemd-inhibit runs continuously, no interval needed`n"
+
+                                # Start systemd-inhibit to block idle and sleep
+                                # We'll run 'sleep' for the duration with systemd-inhibit
+                                $durationSeconds = [Math]::Ceiling(($EndTime - (Get-Date)).TotalSeconds)
+                                $inhibitProcess = Start-Process -FilePath 'systemd-inhibit' -ArgumentList @(
+                                    '--what=idle:sleep',
+                                    '--who=PowerShell',
+                                    '--why=Keep-alive job active',
+                                    'sleep',
+                                    $durationSeconds
+                                ) -PassThru -NoNewWindow
+                            }
+                            elseif ($hasXdotool)
+                            {
+                                Write-Output 'Platform: Linux (using xdotool for mouse movement simulation)'
+                                Write-Output "Activity simulation interval: $SleepSeconds seconds`n"
+                                $useXdotool = $true
+                            }
+                            else
+                            {
+                                throw "Linux platform requires either 'systemd-inhibit' or 'xdotool' to be installed"
+                            }
+                        }
 
                         $iterationCount = 0
 
-                        # Create COM object once and reuse it (more efficient and reliable)
-                        $wshell = New-Object -ComObject WScript.Shell
-
+                        # Main keep-alive loop
                         while ((Get-Date) -le $EndTime)
                         {
-                            # Wait SleepSeconds before pressing key (should be less than screensaver timeout)
-                            # This matches the original behavior where sleep happens before each keystroke
+                            # Wait SleepSeconds before next activity (for methods that need periodic activity)
                             Start-Sleep -Seconds $SleepSeconds
 
                             $current = Get-Date
@@ -344,14 +424,46 @@ function Start-KeepAlive
                                 Write-Output "$(Get-Date -Format 'HH:mm:ss') - Iteration $($iterationCount + 1), $remaining minutes remaining"
                             }
 
-                            # Send the keystroke using the existing COM object
+                            # Platform-specific activity simulation
                             try
                             {
-                                $wshell.SendKeys($KeyToPress)
+                                if ($PlatformIsWindows)
+                                {
+                                    # Send keystroke using COM object
+                                    $wshell.SendKeys($KeyToPress)
+                                }
+                                elseif ($PlatformIsMacOS)
+                                {
+                                    # caffeinate runs continuously, just check if it's still running
+                                    if ($caffeinateProcess.HasExited)
+                                    {
+                                        Write-Error 'caffeinate process has unexpectedly exited'
+                                        break
+                                    }
+                                }
+                                elseif ($PlatformIsLinux)
+                                {
+                                    if ($hasSystemdInhibit)
+                                    {
+                                        # systemd-inhibit runs continuously, check if it's still running
+                                        if ($inhibitProcess.HasExited)
+                                        {
+                                            Write-Error 'systemd-inhibit process has unexpectedly exited'
+                                            break
+                                        }
+                                    }
+                                    elseif ($useXdotool)
+                                    {
+                                        # Simulate minimal mouse movement (move cursor 1 pixel and back)
+                                        # This is less intrusive than key presses
+                                        $null = & xdotool mousemove_relative --sync -- 1 0
+                                        $null = & xdotool mousemove_relative --sync -- -1 0
+                                    }
+                                }
                             }
                             catch
                             {
-                                Write-Error "Failed to send keystroke: $($_.Exception.Message)"
+                                Write-Error "Failed to simulate activity: $($_.Exception.Message)"
                                 break
                             }
 
@@ -359,7 +471,18 @@ function Start-KeepAlive
                         }
 
                         Write-Output "`nKeep-alive job '$JobName' completed successfully at: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
-                        Write-Output "Total keystrokes sent: $iterationCount"
+                        if ($PlatformIsWindows)
+                        {
+                            Write-Output "Total keystrokes sent: $iterationCount"
+                        }
+                        elseif ($PlatformIsLinux -and $useXdotool)
+                        {
+                            Write-Output "Total activity simulations: $iterationCount"
+                        }
+                        else
+                        {
+                            Write-Output "Total iterations: $iterationCount"
+                        }
                     }
                     catch
                     {
@@ -368,16 +491,52 @@ function Start-KeepAlive
                     }
                     finally
                     {
-                        # Clean up COM object
-                        if ($wshell)
+                        # Platform-specific cleanup
+                        if ($PlatformIsWindows)
                         {
-                            try
+                            # Clean up COM object
+                            if ($wshell)
                             {
-                                [System.Runtime.Interopservices.Marshal]::ReleaseComObject($wshell) | Out-Null
+                                try
+                                {
+                                    [System.Runtime.Interopservices.Marshal]::ReleaseComObject($wshell) | Out-Null
+                                }
+                                catch
+                                {
+                                    # Ignore cleanup errors
+                                }
                             }
-                            catch
+                        }
+                        elseif ($PlatformIsMacOS)
+                        {
+                            # Stop caffeinate process
+                            if ($caffeinateProcess -and -not $caffeinateProcess.HasExited)
                             {
-                                # Ignore cleanup errors
+                                try
+                                {
+                                    $caffeinateProcess.Kill()
+                                    $caffeinateProcess.WaitForExit(5000)  # Wait up to 5 seconds
+                                }
+                                catch
+                                {
+                                    # Ignore cleanup errors
+                                }
+                            }
+                        }
+                        elseif ($PlatformIsLinux)
+                        {
+                            # Stop systemd-inhibit process if it's still running
+                            if ($inhibitProcess -and -not $inhibitProcess.HasExited)
+                            {
+                                try
+                                {
+                                    $inhibitProcess.Kill()
+                                    $inhibitProcess.WaitForExit(5000)  # Wait up to 5 seconds
+                                }
+                                catch
+                                {
+                                    # Ignore cleanup errors
+                                }
                             }
                         }
                     }
@@ -386,14 +545,33 @@ function Start-KeepAlive
                 # Start the background job
                 try
                 {
-                    $job = Start-Job -ScriptBlock $jobScript -Name $JobName -ArgumentList $endTime, $SleepSeconds, $JobName, $KeyToPress
+                    $job = Start-Job -ScriptBlock $jobScript -Name $JobName -ArgumentList $endTime, $SleepSeconds, $JobName, $KeyToPress, $script:IsWindowsPlatform, $script:IsMacOSPlatform, $script:IsLinuxPlatform
 
                     Write-Host "Keep-alive job '$JobName' started successfully." -ForegroundColor Green
                     Write-Host "  Job ID: $($job.Id)" -ForegroundColor Cyan
                     Write-Host "  Duration: $KeepAliveHours hours" -ForegroundColor Cyan
                     Write-Host "  End time: $(Get-Date $endTime -Format 'yyyy-MM-dd h:mm:ss tt')" -ForegroundColor Cyan
-                    Write-Host "  Interval: $SleepSeconds seconds" -ForegroundColor Cyan
-                    Write-Host "  Key: $KeyToPress" -ForegroundColor Cyan
+
+                    if ($script:IsWindowsPlatform)
+                    {
+                        Write-Host '  Platform: Windows' -ForegroundColor Cyan
+                        Write-Host "  Interval: $SleepSeconds seconds" -ForegroundColor Cyan
+                        Write-Host "  Key: $KeyToPress" -ForegroundColor Cyan
+                    }
+                    elseif ($script:IsMacOSPlatform)
+                    {
+                        Write-Host '  Platform: macOS (using caffeinate)' -ForegroundColor Cyan
+                    }
+                    elseif ($script:IsLinuxPlatform)
+                    {
+                        $method = if (Get-Command systemd-inhibit -ErrorAction SilentlyContinue) { 'systemd-inhibit' } else { 'xdotool' }
+                        Write-Host "  Platform: Linux (using $method)" -ForegroundColor Cyan
+                        if ($method -eq 'xdotool')
+                        {
+                            Write-Host "  Interval: $SleepSeconds seconds" -ForegroundColor Cyan
+                        }
+                    }
+
                     Write-Host "`nUse 'Start-KeepAlive -Query -JobName $JobName' to check status" -ForegroundColor Yellow
 
                     return $job
@@ -406,6 +584,7 @@ function Start-KeepAlive
             }
         }
     }
+
     end
     {
         Write-Verbose 'Start-KeepAlive function completed'

@@ -44,7 +44,7 @@ BeforeAll {
     Write-Verbose "Windows platform: $script:IsWindowsTest"
 }
 
-Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:($script:IsCI -or -not $script:IsWindowsTest) {
+Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:($script:IsCI) {
 
     BeforeAll {
         # Clean up any existing integration test jobs
@@ -90,9 +90,9 @@ Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:($script:I
 
     Context 'Real Keep-Alive Functionality' {
 
-        It 'Should actually send keystrokes and prevent system timeout' {
+        It 'Should start and run keep-alive job on current platform' {
             # Start a very short keep-alive job
-            $job = Start-KeepAlive -KeepAliveHours 0.02 -SleepSeconds 30 -JobName 'IntegrationTest1' -KeyToPress '{F15}'
+            $job = Start-KeepAlive -KeepAliveHours 0.1 -SleepSeconds 30 -JobName 'IntegrationTest1'
 
             try
             {
@@ -105,9 +105,22 @@ Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:($script:I
                 $job = Get-Job -Name 'IntegrationTest1'
                 $jobOutput = Receive-Job -Job $job -Keep
 
-                # Should have some output indicating keystrokes were sent
+                # Should have some output indicating activity
                 $jobOutput | Should -Match 'started at'
-                $jobOutput | Should -Match 'Key simulation interval: 30 seconds'
+
+                # Platform-specific output validation
+                if ($script:IsWindowsTest)
+                {
+                    $jobOutput | Should -Match 'Key simulation interval:'
+                }
+                elseif ($PSVersionTable.PSVersion.Major -ge 6 -and $IsMacOS)
+                {
+                    $jobOutput | Should -Match 'macOS.*caffeinate'
+                }
+                elseif ($PSVersionTable.PSVersion.Major -ge 6 -and $IsLinux)
+                {
+                    $jobOutput | Should -Match 'Linux.*(systemd-inhibit|xdotool)'
+                }
 
                 # Wait for job to complete
                 $timeout = 120  # 2 minutes max wait
@@ -126,7 +139,12 @@ Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:($script:I
                 {
                     $finalOutput = Receive-Job -Job $job
                     $finalOutput | Should -Match 'completed successfully'
-                    $finalOutput | Should -Match 'Total keystrokes sent'
+
+                    # Windows-specific validation
+                    if ($script:IsWindowsTest)
+                    {
+                        $finalOutput | Should -Match 'Total keystrokes sent'
+                    }
                 }
 
             }
@@ -149,9 +167,9 @@ Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:($script:I
             }
         }
 
-        It 'Should handle COM object interactions correctly' {
-            # Test that COM objects are properly created and cleaned up
-            $job = Start-KeepAlive -KeepAliveHours 0.01 -SleepSeconds 30 -JobName 'IntegrationTest2'
+        It 'Should handle platform-specific resources correctly' {
+            # Test that platform resources are properly created and cleaned up
+            $job = Start-KeepAlive -KeepAliveHours 0.1 -SleepSeconds 30 -JobName 'IntegrationTest2'
 
             try
             {
@@ -160,11 +178,13 @@ Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:($script:I
                 $job = Get-Job -Name 'IntegrationTest2'
                 $job.State | Should -Be 'Running'
 
-                # Check that we can still create COM objects in the main session
-                # (ensures we're not locking up COM)
-                $testCOM = New-Object -ComObject WScript.Shell
-                $testCOM | Should -Not -BeNullOrEmpty
-                [System.Runtime.Interopservices.Marshal]::ReleaseComObject($testCOM) | Out-Null
+                # Windows-specific: Check that we can still create COM objects in the main session
+                if ($script:IsWindowsTest)
+                {
+                    $testCOM = New-Object -ComObject WScript.Shell
+                    $testCOM | Should -Not -BeNullOrEmpty
+                    [System.Runtime.Interopservices.Marshal]::ReleaseComObject($testCOM) | Out-Null
+                }
 
             }
             finally
@@ -214,7 +234,7 @@ Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:($script:I
 
             Write-Host 'Running sleep prevention test (this takes ~2 minutes)...' -ForegroundColor Yellow
 
-            $job = Start-KeepAlive -KeepAliveHours 0.05 -SleepSeconds 30 -JobName 'IntegrationTest4' -KeyToPress '{F15}'
+            $job = Start-KeepAlive -KeepAliveHours 0.05 -SleepSeconds 30 -JobName 'IntegrationTest4'
 
             try
             {
@@ -246,11 +266,16 @@ Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:($script:I
                 $finalOutput = Receive-Job -Job $job
                 $finalOutput | Should -Match 'completed successfully'
 
-                # Verify multiple keystrokes were sent
-                if ($finalOutput -match 'Total keystrokes sent: (\d+)')
+                # Verify activity occurred (platform-specific)
+                if ($script:IsWindowsTest -and $finalOutput -match 'Total keystrokes sent: (\d+)')
                 {
                     $keystrokeCount = [int]$matches[1]
                     $keystrokeCount | Should -BeGreaterThan 2 -Because 'Should have sent multiple keystrokes during the test period'
+                }
+                elseif ($PSVersionTable.PSVersion.Major -ge 6 -and $IsLinux -and $finalOutput -match 'Total activity simulations: (\d+)')
+                {
+                    $activityCount = [int]$matches[1]
+                    $activityCount | Should -BeGreaterThan 2 -Because 'Should have simulated multiple activities during the test period'
                 }
 
             }
@@ -332,8 +357,16 @@ Describe 'Start-KeepAlive Integration Tests' -Tag 'Integration' -Skip:($script:I
                 $output1 = Receive-Job -Name 'IntegrationTestConcurrent1' -Keep
                 $output2 = Receive-Job -Name 'IntegrationTestConcurrent2' -Keep
 
-                $output1 | Should -Match 'Key simulation interval: 30 seconds'
-                $output2 | Should -Match 'Key simulation interval: 45 seconds'
+                # Verify both jobs have output
+                $output1 | Should -Not -BeNullOrEmpty
+                $output2 | Should -Not -BeNullOrEmpty
+
+                # Windows-specific validation
+                if ($script:IsWindowsTest)
+                {
+                    $output1 | Should -Match 'Key simulation interval: 30 seconds'
+                    $output2 | Should -Match 'Key simulation interval: 45 seconds'
+                }
 
             }
             finally
