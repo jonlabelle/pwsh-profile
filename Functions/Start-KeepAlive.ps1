@@ -2,7 +2,7 @@ function Start-KeepAlive
 {
     <#
     .SYNOPSIS
-        Prevents system inactivity timeout and sleep by keeping the system active.
+        Prevents the system and display from sleeping.
 
     .DESCRIPTION
         This function runs a background job that prevents system sleep, screensaver activation,
@@ -545,7 +545,26 @@ function Start-KeepAlive
                 # Start the background job
                 try
                 {
-                    $job = Start-Job -ScriptBlock $jobScript -Name $JobName -ArgumentList $endTime, $SleepSeconds, $JobName, $KeyToPress, $script:IsWindowsPlatform, $script:IsMacOSPlatform, $script:IsLinuxPlatform
+                    # Store current location to use in job initialization
+                    $currentLocation = Get-Location
+
+                    # Initialization script to set working directory to a known-good location
+                    $initScript = {
+                        param($WorkingDir)
+                        # Set to user's home directory to avoid directory-not-found errors
+                        # This is safer than using the current directory which may be temporary
+                        try
+                        {
+                            Set-Location -Path ([Environment]::GetFolderPath('UserProfile')) -ErrorAction Stop
+                        }
+                        catch
+                        {
+                            # Fallback to root if home directory fails
+                            Set-Location -Path ([System.IO.Path]::GetPathRoot($PWD)) -ErrorAction SilentlyContinue
+                        }
+                    }
+
+                    $job = Start-Job -ScriptBlock $jobScript -Name $JobName -InitializationScript $initScript -ArgumentList $endTime, $SleepSeconds, $JobName, $KeyToPress, $script:IsWindowsPlatform, $script:IsMacOSPlatform, $script:IsLinuxPlatform
 
                     Write-Host "Keep-alive job '$JobName' started successfully." -ForegroundColor Green
                     Write-Host "  Job ID: $($job.Id)" -ForegroundColor Cyan

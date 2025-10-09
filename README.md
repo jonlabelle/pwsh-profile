@@ -85,7 +85,7 @@ The profile includes various utility commands organized by category:
 - **[`Get-DotNetVersion`](Functions/Get-DotNetVersion.ps1)** — Retrieves installed .NET Framework and .NET Core versions
 - **[`Invoke-ElevatedCommand`](Functions/Invoke-ElevatedCommand.ps1)** — Executes commands with elevated privileges (Run as Administrator)
 - **[`Set-TlsSecurityProtocol`](Functions/Set-TlsSecurityProtocol.ps1)** — Configures TLS security protocol settings for secure network connections
-- **[`Start-KeepAlive`](Functions/Start-KeepAlive.ps1)** — Prevents system sleep/timeout by simulating keypress activity
+- **[`Start-KeepAlive`](Functions/Start-KeepAlive.ps1)** — Prevents the system and display from sleeping
 - **[`Test-Admin`](Functions/Test-Admin.ps1)** — Checks if the current PowerShell session is running as Administrator
 - **[`Test-PendingReboot`](Functions/Test-PendingReboot.ps1)** — Checks if the system has pending reboot requirements
 

@@ -1,3 +1,5 @@
+#Requires -Modules Pester
+
 BeforeAll {
     # Import the function for testing
     . "$PSScriptRoot\..\..\Functions\Set-TlsSecurityProtocol.ps1"
