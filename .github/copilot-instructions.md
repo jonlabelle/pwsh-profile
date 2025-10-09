@@ -1,5 +1,8 @@
 # PowerShell Profile Codebase Instructions
 
+- Do NOT create summaries of work performed in Markdown files.
+- Be sure to cleanup any temporary files created during tasks.
+
 ## Architecture Overview
 
 This is a **cross-platform PowerShell profile system** that provides utility functions for Windows, macOS, and Linux. Functions are auto-loaded via dot-sourcing from the `Functions/` directory.
