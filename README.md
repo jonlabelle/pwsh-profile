@@ -88,6 +88,7 @@ The profile includes various utility commands organized by category:
 - **[`Start-KeepAlive`](Functions/Start-KeepAlive.ps1)** — Prevents the system and display from sleeping
 - **[`Test-Admin`](Functions/Test-Admin.ps1)** — Checks if the current PowerShell session is running as Administrator
 - **[`Test-PendingReboot`](Functions/Test-PendingReboot.ps1)** — Checks if the system has pending reboot requirements
+- **[`Get-SystemInfo`](Functions/Get-SystemInfo.ps1)** — Gets basic system information from local or remote computers
 
 ### Security
 
