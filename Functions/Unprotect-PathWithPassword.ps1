@@ -18,6 +18,9 @@
         CROSS-PLATFORM COMPATIBILITY: This function works on PowerShell 5.1+ across Windows, macOS, and Linux
         by using .NET cryptographic classes for maximum portability.
 
+        ALIASES:
+        decrypt, Decrypt-PathWithPassword
+
     .PARAMETER Path
         The encrypted file or directory path to decrypt. Accepts both relative and absolute paths.
         For files: Should typically have .enc extension (but not required).
@@ -408,3 +411,4 @@ function Invoke-FileDecryption
 }
 
 New-Alias -Name 'Decrypt-PathWithPassword' -Value 'Unprotect-PathWithPassword' -Force
+New-Alias -Name 'decrypt' -Value 'Unprotect-PathWithPassword' -Force

@@ -19,6 +19,9 @@
         This function works on PowerShell 5.1+ across Windows, macOS, and Linux
         by using .NET cryptographic classes instead of platform-specific APIs.
 
+        ALIASES:
+        encrypt, Encrypt-PathWithPassword
+
     .PARAMETER Path
         The file or directory path to encrypt. Accepts both relative and absolute paths.
         Supports pipeline input from Get-ChildItem and other cmdlets.
@@ -385,3 +388,4 @@ function Invoke-FileEncryption
 }
 
 New-Alias -Name 'Encrypt-PathWithPassword' -Value 'Protect-PathWithPassword' -Force
+New-Alias -Name 'encrypt' -Value 'Protect-PathWithPassword' -Force
