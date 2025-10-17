@@ -40,7 +40,10 @@ function Get-SystemInfo
         CPULogicalProcessors : 12
         CPUSpeedMHz          :
         TotalMemoryGB        : 24
-        FreeMemoryGB         : 0.07
+        FreeMemoryGB         : 10.33
+        SystemDriveTotalGB   : 460.43
+        SystemDriveUsedGB    : 11.21
+        SystemDriveFreeGB    : 324.07
         Manufacturer         : Apple Inc.
         Model                : Mac16,8
         SerialNumber         : XXXXXXXXXXX
@@ -89,6 +92,9 @@ function Get-SystemInfo
         - CPUSpeedMHz: Processor speed in MHz
         - TotalMemoryGB: Total physical memory in GB
         - FreeMemoryGB: Available physical memory in GB
+        - SystemDriveTotalGB: Total system drive capacity in GB
+        - SystemDriveUsedGB: Used space on system drive in GB
+        - SystemDriveFreeGB: Free space on system drive in GB
         - Manufacturer: Computer manufacturer
         - Model: Computer model
         - SerialNumber: Computer serial number (when available)
@@ -186,6 +192,9 @@ function Get-SystemInfo
                         CPUSpeedMHz = $null
                         TotalMemoryGB = $null
                         FreeMemoryGB = $null
+                        SystemDriveTotalGB = $null
+                        SystemDriveUsedGB = $null
+                        SystemDriveFreeGB = $null
                         Manufacturer = $null
                         Model = $null
                         SerialNumber = $null
@@ -231,6 +240,22 @@ function Get-SystemInfo
                             $systemInfo.FreeMemoryGB = [Math]::Round($os.FreePhysicalMemory / 1MB, 2)
                             $systemInfo.LastBootTime = $os.LastBootUpTime
                             $systemInfo.Uptime = (Get-Date) - $os.LastBootUpTime
+
+                            # Get system drive information (Windows)
+                            try
+                            {
+                                $systemDrive = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='$($env:SystemDrive)'" -ErrorAction Stop
+                                if ($systemDrive)
+                                {
+                                    $systemInfo.SystemDriveTotalGB = [Math]::Round($systemDrive.Size / 1GB, 2)
+                                    $systemInfo.SystemDriveFreeGB = [Math]::Round($systemDrive.FreeSpace / 1GB, 2)
+                                    $systemInfo.SystemDriveUsedGB = [Math]::Round(($systemDrive.Size - $systemDrive.FreeSpace) / 1GB, 2)
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve system drive information: $($_.Exception.Message)"
+                            }
 
                             # Get processor information
                             $cpu = Get-CimInstance -ClassName Win32_Processor -ErrorAction Stop | Select-Object -First 1
@@ -330,17 +355,55 @@ function Get-SystemInfo
                             $totalMem = sysctl -n hw.memsize 2>$null
                             if ($totalMem) { $systemInfo.TotalMemoryGB = [Math]::Round([int64]$totalMem / 1GB, 2) }
 
-                            # Get free memory using vm_stat
+                            # Get available memory using vm_stat
+                            # On macOS, "available" memory includes free + inactive + speculative + purgeable pages
                             $vmStat = vm_stat 2>$null
                             if ($vmStat)
                             {
-                                $pageSize = 4096  # Default page size
-                                $freePagesLine = $vmStat | Select-String 'Pages free'
-                                if ($freePagesLine)
+                                # Get actual page size from vm_stat output
+                                $pageSizeLine = $vmStat | Select-String 'page size of (\d+) bytes'
+                                $pageSize = if ($pageSizeLine -and $pageSizeLine.Matches.Groups.Count -gt 1)
                                 {
-                                    $freePages = [int]($freePagesLine -replace '[^\d]', '')
-                                    $systemInfo.FreeMemoryGB = [Math]::Round(($freePages * $pageSize) / 1GB, 2)
+                                    [int64]$pageSizeLine.Matches.Groups[1].Value
                                 }
+                                else
+                                {
+                                    16384  # Default for Apple Silicon, 4096 for Intel
+                                }
+
+                                # Parse memory page counts
+                                $freePages = 0
+                                $inactivePages = 0
+                                $speculativePages = 0
+                                $purgeablePages = 0
+
+                                $freePagesLine = $vmStat | Select-String 'Pages free:\s+(\d+)'
+                                if ($freePagesLine -and $freePagesLine.Matches.Groups.Count -gt 1)
+                                {
+                                    $freePages = [int64]$freePagesLine.Matches.Groups[1].Value
+                                }
+
+                                $inactivePagesLine = $vmStat | Select-String 'Pages inactive:\s+(\d+)'
+                                if ($inactivePagesLine -and $inactivePagesLine.Matches.Groups.Count -gt 1)
+                                {
+                                    $inactivePages = [int64]$inactivePagesLine.Matches.Groups[1].Value
+                                }
+
+                                $speculativePagesLine = $vmStat | Select-String 'Pages speculative:\s+(\d+)'
+                                if ($speculativePagesLine -and $speculativePagesLine.Matches.Groups.Count -gt 1)
+                                {
+                                    $speculativePages = [int64]$speculativePagesLine.Matches.Groups[1].Value
+                                }
+
+                                $purgeablePagesLine = $vmStat | Select-String 'Pages purgeable:\s+(\d+)'
+                                if ($purgeablePagesLine -and $purgeablePagesLine.Matches.Groups.Count -gt 1)
+                                {
+                                    $purgeablePages = [int64]$purgeablePagesLine.Matches.Groups[1].Value
+                                }
+
+                                # Calculate available memory (free + inactive + speculative + purgeable)
+                                $availablePages = $freePages + $inactivePages + $speculativePages + $purgeablePages
+                                $systemInfo.FreeMemoryGB = [Math]::Round(($availablePages * $pageSize) / 1GB, 2)
                             }
 
                             # Get hardware model
@@ -364,6 +427,31 @@ function Get-SystemInfo
                                 $bootEpoch = [int64]$matches[1]
                                 $systemInfo.LastBootTime = [DateTimeOffset]::FromUnixTimeSeconds($bootEpoch).LocalDateTime
                                 $systemInfo.Uptime = (Get-Date) - $systemInfo.LastBootTime
+                            }
+
+                            # Get system drive information (macOS)
+                            try
+                            {
+                                $dfOutput = df -k / 2>$null | Select-Object -Skip 1
+                                if ($dfOutput)
+                                {
+                                    # Parse df output: Filesystem 1K-blocks Used Available Capacity iused ifree %iused Mounted
+                                    $parts = $dfOutput -split '\s+' | Where-Object { $_ }
+                                    if ($parts.Count -ge 4)
+                                    {
+                                        $totalKB = [int64]$parts[1]
+                                        $usedKB = [int64]$parts[2]
+                                        $availKB = [int64]$parts[3]
+
+                                        $systemInfo.SystemDriveTotalGB = [Math]::Round($totalKB / 1MB, 2)
+                                        $systemInfo.SystemDriveUsedGB = [Math]::Round($usedKB / 1MB, 2)
+                                        $systemInfo.SystemDriveFreeGB = [Math]::Round($availKB / 1MB, 2)
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve system drive information: $($_.Exception.Message)"
                             }
 
                             # Get time zone using .NET (cross-platform, no admin required)
@@ -497,6 +585,31 @@ function Get-SystemInfo
                                 }
                             }
 
+                            # Get system drive information (Linux)
+                            try
+                            {
+                                $dfOutput = df -k / 2>$null | Select-Object -Skip 1
+                                if ($dfOutput)
+                                {
+                                    # Parse df output: Filesystem 1K-blocks Used Available Use% Mounted
+                                    $parts = $dfOutput -split '\s+' | Where-Object { $_ }
+                                    if ($parts.Count -ge 4)
+                                    {
+                                        $totalKB = [int64]$parts[1]
+                                        $usedKB = [int64]$parts[2]
+                                        $availKB = [int64]$parts[3]
+
+                                        $systemInfo.SystemDriveTotalGB = [Math]::Round($totalKB / 1MB, 2)
+                                        $systemInfo.SystemDriveUsedGB = [Math]::Round($usedKB / 1MB, 2)
+                                        $systemInfo.SystemDriveFreeGB = [Math]::Round($availKB / 1MB, 2)
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve system drive information: $($_.Exception.Message)"
+                            }
+
                             # Get time zone using .NET (cross-platform, consistent with other platforms)
                             try
                             {
@@ -563,6 +676,9 @@ function Get-SystemInfo
                             CPUSpeedMHz = $null
                             TotalMemoryGB = $null
                             FreeMemoryGB = $null
+                            SystemDriveTotalGB = $null
+                            SystemDriveUsedGB = $null
+                            SystemDriveFreeGB = $null
                             Manufacturer = $null
                             Model = $null
                             SerialNumber = $null
@@ -602,6 +718,22 @@ function Get-SystemInfo
                             $systemInfo.FreeMemoryGB = [Math]::Round($os.FreePhysicalMemory / 1MB, 2)
                             $systemInfo.LastBootTime = $os.LastBootUpTime
                             $systemInfo.Uptime = (Get-Date) - $os.LastBootUpTime
+
+                            # Get system drive information (Windows remote)
+                            try
+                            {
+                                $systemDrive = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='$($env:SystemDrive)'" -ErrorAction Stop
+                                if ($systemDrive)
+                                {
+                                    $systemInfo.SystemDriveTotalGB = [Math]::Round($systemDrive.Size / 1GB, 2)
+                                    $systemInfo.SystemDriveFreeGB = [Math]::Round($systemDrive.FreeSpace / 1GB, 2)
+                                    $systemInfo.SystemDriveUsedGB = [Math]::Round(($systemDrive.Size - $systemDrive.FreeSpace) / 1GB, 2)
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve system drive information: $($_.Exception.Message)"
+                            }
 
                             # Get processor information
                             $cpu = Get-CimInstance -ClassName Win32_Processor -ErrorAction Stop | Select-Object -First 1
