@@ -47,7 +47,7 @@ function Get-SystemInfo
         Manufacturer         : Apple Inc.
         Model                : Mac16,8
         SerialNumber         : XXXXXXXXXXX
-        BIOSVersion          :
+        BIOSVersion          : 13822.1.2
         TimeZone             : (UTC-05:00) Eastern Time (New York)
         LastBootTime         : 1/1/2025 5:42:29 PM
         Uptime               : 17:39:59.8442180
@@ -348,8 +348,13 @@ function Get-SystemInfo
                             $cpuLogical = sysctl -n hw.logicalcpu 2>$null
                             if ($cpuLogical) { $systemInfo.CPULogicalProcessors = [int]$cpuLogical }
 
+                            # CPU frequency: Only available on Intel Macs via hw.cpufrequency
+                            # Apple Silicon Macs use dynamic frequency scaling and don't expose a fixed value
                             $cpuFreq = sysctl -n hw.cpufrequency 2>$null
-                            if ($cpuFreq) { $systemInfo.CPUSpeedMHz = [Math]::Round([int]$cpuFreq / 1MB, 0) }
+                            if ($cpuFreq -and $cpuFreq -match '^\d+$')
+                            {
+                                $systemInfo.CPUSpeedMHz = [Math]::Round([int64]$cpuFreq / 1MB, 0)
+                            }
 
                             # Get memory information (in bytes, convert to GB)
                             $totalMem = sysctl -n hw.memsize 2>$null
@@ -413,11 +418,20 @@ function Get-SystemInfo
                             # Get system manufacturer (Apple)
                             $systemInfo.Manufacturer = 'Apple Inc.'
 
-                            # Get serial number
-                            $serial = system_profiler SPHardwareDataType 2>$null | Select-String 'Serial Number'
+                            # Get serial number and firmware version from system_profiler
+                            $hardwareProfile = system_profiler SPHardwareDataType 2>$null
+
+                            $serial = $hardwareProfile | Select-String 'Serial Number'
                             if ($serial)
                             {
                                 $systemInfo.SerialNumber = ($serial -replace '.*:\s*', '').Trim()
+                            }
+
+                            # Get firmware version (macOS equivalent of BIOS version)
+                            $firmware = $hardwareProfile | Select-String 'System Firmware Version'
+                            if ($firmware)
+                            {
+                                $systemInfo.BIOSVersion = ($firmware -replace '.*:\s*', '').Trim()
                             }
 
                             # Get boot time
