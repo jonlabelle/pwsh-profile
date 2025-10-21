@@ -163,6 +163,25 @@ function Get-SystemInfo
 
     process
     {
+        # Helper function to translate Windows CPU architecture codes
+        function ConvertFrom-CpuArchitectureCode
+        {
+            param([int]$Code)
+
+            switch ($Code)
+            {
+                0 { 'x86' }
+                1 { 'MIPS' }
+                2 { 'Alpha' }
+                3 { 'PowerPC' }
+                5 { 'ARM' }
+                6 { 'ia64' }
+                9 { 'x64' }
+                12 { 'ARM64' }
+                default { "Unknown ($Code)" }
+            }
+        }
+
         foreach ($computer in $ComputerName)
         {
             Write-Verbose "Processing computer: $computer"
@@ -259,7 +278,7 @@ function Get-SystemInfo
 
                             # Get processor information
                             $cpu = Get-CimInstance -ClassName Win32_Processor -ErrorAction Stop | Select-Object -First 1
-                            $systemInfo.CPUArchitecture = $cpu.Architecture
+                            $systemInfo.CPUArchitecture = ConvertFrom-CpuArchitectureCode -Code $cpu.Architecture
                             $systemInfo.CPUName = $cpu.Name.Trim()
                             $systemInfo.CPUCores = $cpu.NumberOfCores
                             $systemInfo.CPULogicalProcessors = $cpu.NumberOfLogicalProcessors
@@ -751,7 +770,21 @@ function Get-SystemInfo
 
                             # Get processor information
                             $cpu = Get-CimInstance -ClassName Win32_Processor -ErrorAction Stop | Select-Object -First 1
-                            $systemInfo.CPUArchitecture = $cpu.Architecture
+                            # Translate CPU architecture code to readable string
+                            $cpuArchCode = $cpu.Architecture
+                            $cpuArchString = switch ($cpuArchCode)
+                            {
+                                0 { 'x86' }
+                                1 { 'MIPS' }
+                                2 { 'Alpha' }
+                                3 { 'PowerPC' }
+                                5 { 'ARM' }
+                                6 { 'ia64' }
+                                9 { 'x64' }
+                                12 { 'ARM64' }
+                                default { "Unknown ($cpuArchCode)" }
+                            }
+                            $systemInfo.CPUArchitecture = $cpuArchString
                             $systemInfo.CPUName = $cpu.Name.Trim()
                             $systemInfo.CPUCores = $cpu.NumberOfCores
                             $systemInfo.CPULogicalProcessors = $cpu.NumberOfLogicalProcessors
