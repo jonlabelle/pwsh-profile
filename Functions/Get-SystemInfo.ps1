@@ -304,8 +304,20 @@ function Get-SystemInfo
                             $systemInfo.SerialNumber = $bios.SerialNumber
                             $systemInfo.BIOSVersion = $bios.SMBIOSBIOSVersion
 
-                            # Get time zone
-                            $systemInfo.TimeZone = (Get-TimeZone).Id
+                            # Get time zone with DST awareness
+                            $timeZone = [System.TimeZoneInfo]::Local
+                            $isDst = $timeZone.IsDaylightSavingTime((Get-Date))
+                            $offset = $timeZone.GetUtcOffset((Get-Date))
+                            $offsetString = if ($offset.TotalHours -ge 0) { "+$($offset.Hours)" } else { "$($offset.Hours)" }
+
+                            if ($isDst -and $timeZone.DaylightName)
+                            {
+                                $systemInfo.TimeZone = "$($timeZone.DaylightName) (UTC$offsetString)"
+                            }
+                            else
+                            {
+                                $systemInfo.TimeZone = "$($timeZone.StandardName) (UTC$offsetString)"
+                            }
                         }
                         catch
                         {
@@ -490,7 +502,19 @@ function Get-SystemInfo
                             # Get time zone using .NET (cross-platform, no admin required)
                             try
                             {
-                                $systemInfo.TimeZone = [System.TimeZoneInfo]::Local.DisplayName
+                                $timeZone = [System.TimeZoneInfo]::Local
+                                $isDst = $timeZone.IsDaylightSavingTime((Get-Date))
+                                $offset = $timeZone.GetUtcOffset((Get-Date))
+                                $offsetString = if ($offset.TotalHours -ge 0) { "+$($offset.Hours)" } else { "$($offset.Hours)" }
+
+                                if ($isDst -and $timeZone.DaylightName)
+                                {
+                                    $systemInfo.TimeZone = "$($timeZone.DaylightName) (UTC$offsetString)"
+                                }
+                                else
+                                {
+                                    $systemInfo.TimeZone = "$($timeZone.StandardName) (UTC$offsetString)"
+                                }
                             }
                             catch
                             {
@@ -646,7 +670,19 @@ function Get-SystemInfo
                             # Get time zone using .NET (cross-platform, consistent with other platforms)
                             try
                             {
-                                $systemInfo.TimeZone = [System.TimeZoneInfo]::Local.DisplayName
+                                $timeZone = [System.TimeZoneInfo]::Local
+                                $isDst = $timeZone.IsDaylightSavingTime((Get-Date))
+                                $offset = $timeZone.GetUtcOffset((Get-Date))
+                                $offsetString = if ($offset.TotalHours -ge 0) { "+$($offset.Hours)" } else { "$($offset.Hours)" }
+
+                                if ($isDst -and $timeZone.DaylightName)
+                                {
+                                    $systemInfo.TimeZone = "$($timeZone.DaylightName) (UTC$offsetString)"
+                                }
+                                else
+                                {
+                                    $systemInfo.TimeZone = "$($timeZone.StandardName) (UTC$offsetString)"
+                                }
                             }
                             catch
                             {
@@ -810,8 +846,20 @@ function Get-SystemInfo
                             $systemInfo.SerialNumber = $bios.SerialNumber
                             $systemInfo.BIOSVersion = $bios.SMBIOSBIOSVersion
 
-                            # Get time zone
-                            $systemInfo.TimeZone = (Get-TimeZone).Id
+                            # Get time zone with DST awareness
+                            $timeZone = [System.TimeZoneInfo]::Local
+                            $isDst = $timeZone.IsDaylightSavingTime((Get-Date))
+                            $offset = $timeZone.GetUtcOffset((Get-Date))
+                            $offsetString = if ($offset.TotalHours -ge 0) { "+$($offset.Hours)" } else { "$($offset.Hours)" }
+
+                            if ($isDst -and $timeZone.DaylightName)
+                            {
+                                $systemInfo.TimeZone = "$($timeZone.DaylightName) (UTC$offsetString)"
+                            }
+                            else
+                            {
+                                $systemInfo.TimeZone = "$($timeZone.StandardName) (UTC$offsetString)"
+                            }
                         }
                         catch
                         {
