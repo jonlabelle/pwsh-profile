@@ -163,12 +163,7 @@ function Remove-DotNetBuildArtifacts
             if (-not $projectFiles -or $projectFiles.Count -eq 0)
             {
                 Write-Host 'No .NET project files found in the specified path.' -ForegroundColor Yellow
-                return [PSCustomObject]@{
-                    TotalProjectsFound = 0
-                    FoldersRemoved = 0
-                    TotalSpaceFreed = 0
-                    Errors = 0
-                }
+                return
             }
 
             $stats.ProjectsFound = $projectFiles.Count
