@@ -16,6 +16,7 @@
 - [Available Commands](#available-commands)
   - [Network and DNS](#network-and-dns)
   - [System Administration](#system-administration)
+  - [Developer](#developer)
   - [Security](#security)
   - [Active Directory](#active-directory)
   - [PowerShell Module Management](#powershell-module-management)
@@ -89,6 +90,10 @@ The profile includes various utility commands organized by category:
 - **[`Test-Admin`](Functions/Test-Admin.ps1)** — Checks if the current PowerShell session is running as Administrator
 - **[`Test-PendingReboot`](Functions/Test-PendingReboot.ps1)** — Checks if the system has pending reboot requirements
 - **[`Get-SystemInfo`](Functions/Get-SystemInfo.ps1)** — Gets basic system information from local or remote computers
+
+### Developer
+
+- **`[`Remove-DotNetBuildArtifacts`](Functions/Remove-DotNetBuildArtifacts.ps1)** — Cleans up .NET build artifacts from a project directory
 
 ### Security
 
