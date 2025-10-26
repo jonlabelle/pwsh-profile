@@ -8,18 +8,26 @@
 
 ```plaintext
 Tests/
-├── Unit/                                 # Unit tests for individual functions
-│   ├── New-RandomString.Tests.ps1        # String generation utility tests
-│   ├── Get-CommandAlias.Tests.ps1        # Command alias lookup tests
-│   ├── Get-IPSubnet.Tests.ps1            # IP subnet calculation tests
-│   ├── Test-DnsNameResolution.Tests.ps1  # DNS resolution tests
-│   ├── Test-Port.Tests.ps1               # Network port testing tests
-│   └── Get-DotNetVersion.Tests.ps1       # .NET version detection tests
-├── Integration/                          # Integration and cross-system tests
-│   └── Test-Port.Tests.ps1               # Real-world port testing scenarios
-├── TestCleanupUtilities.ps1              # Robust cleanup functions for tests
-├── PesterConfiguration.psd1              # Pester configuration file
-└── README.md                             # This file
+├── Unit/                                           # Unit tests for individual functions
+│   ├── Convert-LineEnding.Tests.ps1                # Line ending conversion tests
+│   ├── Get-CommandAlias.Tests.ps1                  # Command alias lookup tests
+│   ├── Get-DotNetVersion.Tests.ps1                 # .NET version detection tests
+│   ├── Get-IPSubnet.Tests.ps1                      # IP subnet calculation tests
+│   ├── New-RandomString.Tests.ps1                  # String generation utility tests
+│   ├── Protect-PathWithPassword.Tests.ps1          # File encryption tests
+│   ├── Set-TlsSecurityProtocol.Tests.ps1           # TLS protocol configuration tests
+│   ├── Start-KeepAlive.Tests.ps1                   # System sleep prevention tests
+│   ├── Test-DnsNameResolution.Tests.ps1            # DNS resolution tests
+│   ├── Test-Port.Tests.ps1                         # Network port testing tests
+│   └── Unprotect-PathWithPassword.Tests.ps1        # File decryption tests
+├── Integration/                                    # Integration and cross-system tests
+│   ├── Convert-LineEnding.Tests.ps1                # Real-world line ending scenarios
+│   ├── Protect-PathWithPassword.Tests.ps1          # End-to-end encryption workflows
+│   ├── Start-KeepAlive.Tests.ps1                   # System sleep prevention integration
+│   └── Test-Port.Tests.ps1                         # Real-world port testing scenarios
+├── TestCleanupUtilities.ps1                        # Robust cleanup functions for tests
+├── PesterConfiguration.psd1                        # Pester configuration file
+└── README.md                                       # This file
 ```
 
 ## Running Tests

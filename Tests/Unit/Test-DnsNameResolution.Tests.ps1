@@ -15,7 +15,7 @@
 
 BeforeAll {
     # Import the function under test
-    . "$PSScriptRoot/../../Functions/Test-DnsNameResolution.ps1"
+    . "$PSScriptRoot/../../Functions/NetworkAndDns/Test-DnsNameResolution.ps1"
 }
 
 Describe 'Test-DnsNameResolution' {

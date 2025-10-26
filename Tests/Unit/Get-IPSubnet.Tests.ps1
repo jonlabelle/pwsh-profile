@@ -15,7 +15,7 @@
 
 BeforeAll {
     # Import the function under test
-    . "$PSScriptRoot/../../Functions/Get-IPSubnet.ps1"
+    . "$PSScriptRoot/../../Functions/Utilities/Get-IPSubnet.ps1"
 }
 
 Describe 'Get-IPSubnet' {

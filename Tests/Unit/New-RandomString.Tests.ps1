@@ -15,7 +15,7 @@
 
 BeforeAll {
     # Import the function under test
-    . "$PSScriptRoot/../../Functions/New-RandomString.ps1"
+    . "$PSScriptRoot/../../Functions/Utilities/New-RandomString.ps1"
 }
 
 Describe 'New-RandomString' {

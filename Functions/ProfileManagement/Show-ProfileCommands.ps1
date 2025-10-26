@@ -55,8 +55,8 @@ function Show-ProfileCommands
     {
         try
         {
-            # Get all PowerShell files in the Functions directory
-            $functionFiles = Get-ChildItem -Path $functionsPath -Filter '*.ps1' -File | Sort-Object Name
+            # Get all PowerShell files in the Functions directory and subdirectories
+            $functionFiles = Get-ChildItem -Path $functionsPath -Filter '*.ps1' -File -Recurse | Sort-Object Name
 
             if (-not $functionFiles)
             {

@@ -21,7 +21,7 @@
 
 BeforeAll {
     # Import the function under test
-    . "$PSScriptRoot\..\..\Functions\Start-KeepAlive.ps1"
+    . "$PSScriptRoot/../../Functions/SystemAdministration/Start-KeepAlive.ps1"
 
     # Detect if we're in a CI environment, we won't run integration tests here
     $script:IsCI = $env:CI -eq 'true' -or
