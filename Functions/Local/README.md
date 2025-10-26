@@ -10,14 +10,14 @@ This directory is for **machine-local functions** that you don't want to commit 
 
 ## How It Works
 
-Any PowerShell function file (matching the pattern `*-*.ps1`, e.g. `Get-DoSomethingForMe.ps1`) placed in this directory will be **automatically loaded** by your profile, just like the built-in functions.
+Any PowerShell function file (matching the pattern `*-*.ps1`, e.g. `Get-Something.ps1`) placed in this directory will be **automatically loaded** by your profile, just like the built-in functions.
 
 **The entire `Functions/Local/` directory is git-ignored**, so your functions will never be accidentally committed to the repository.
 
 ## Usage
 
 1. Create a new `.ps1` file in this directory following PowerShell naming conventions (e.g., `Get-MyData.ps1`, `Invoke-CustomTool.ps1`)
-2. Write your function using the same patterns as other functions in this profile
+2. Write your function using the same patterns as [other functions](../) in this profile
 3. Restart PowerShell or reload your profile
 4. Your function is now available!
 
