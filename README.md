@@ -93,7 +93,7 @@ The profile includes various utility commands organized by category:
 
 ### Developer
 
-- **`[`Remove-DotNetBuildArtifacts`](Functions/Remove-DotNetBuildArtifacts.ps1)** — Cleans up .NET build artifacts from a project directory
+- **[`Remove-DotNetBuildArtifacts`](Functions/Remove-DotNetBuildArtifacts.ps1)** — Cleans up .NET build artifacts from a project directory
 
 ### Security
 
