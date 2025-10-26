@@ -124,6 +124,7 @@ The profile includes various utility commands organized by category:
 ### Utilities
 
 - **[`Convert-LineEndings`](Functions/Convert-LineEndings.ps1)** — Converts line endings between Unix and Windows
+- **[`Copy-DirectoryWithExclusions`](Functions/Copy-DirectoryWithExclusions.ps1)** — Copies directories recursively with the ability to exclude specific directories
 - **[`Get-CommandAlias`](Functions/Get-CommandAlias.ps1)** — Displays aliases for PowerShell cmdlets
 - **[`Get-IPSubnet`](Functions/Get-IPSubnet.ps1)** — Calculates IP subnet information including network/broadcast addresses
 - **[`New-RandomString`](Functions/New-RandomString.ps1)** — Generates random strings, useful for passwords/tokens
