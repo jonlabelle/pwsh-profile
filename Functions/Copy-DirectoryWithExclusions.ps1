@@ -55,6 +55,7 @@ function Copy-DirectoryWithExclusions
         Cross-platform compatible with PowerShell 5.1+ and PowerShell Core 6.2+.
         Uses .NET methods for path resolution to ensure cross-platform compatibility.
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([PSCustomObject])]
     param(
