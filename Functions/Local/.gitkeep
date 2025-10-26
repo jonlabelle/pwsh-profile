@@ -1,0 +1,2 @@
+# This file ensures the Local directory is tracked by git
+# User PowerShell files (*.ps1, *.psm1, *.psd1) in this directory are ignored

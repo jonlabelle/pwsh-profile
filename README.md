@@ -63,6 +63,7 @@ git clone 'https://github.com/jonlabelle/pwsh-profile.git' $HOME\Documents\Power
 - **Cross-platform compatibility** - Works on Windows, macOS, and Linux
 - **Auto-loading functions** - All functions in the `Functions/` directory and its subdirectories are automatically loaded
 - **Organized by category** - Functions are organized into logical subdirectories for easy navigation
+- **Local functions support** - Add your own machine-local functions in `Functions/Local/` without committing them to the repository
 - **Custom prompt** - Clean, colored PowerShell prompt
 - **Utility functions** - Collection of helpful PowerShell functions for daily tasks
 
@@ -129,6 +130,19 @@ The profile includes various utility commands organized by category:
 - **[`Get-CommandAlias`](Functions/Utilities/Get-CommandAlias.ps1)** — Displays aliases for PowerShell cmdlets
 - **[`Get-IPSubnet`](Functions/Utilities/Get-IPSubnet.ps1)** — Calculates IP subnet information including network/broadcast addresses
 - **[`New-RandomString`](Functions/Utilities/New-RandomString.ps1)** — Generates random strings, useful for passwords/tokens
+
+### Local Functions
+
+The `Functions/Local/` directory is available for your **machine-local functions** that you don't want to commit to the repository. This is perfect for:
+
+- Work-specific utilities
+- Personal helper functions
+- Experimental functions you're testing
+- Machine-specific automations
+
+Any `.ps1` file placed in `Functions/Local/` will be automatically loaded, just like the built-in functions. The entire directory is git-ignored, so your functions will never be accidentally committed.
+
+**See [Functions/Local/README.md](Functions/Local/README.md) for detailed usage instructions, templates, and examples.**
 
 ## Update
 
