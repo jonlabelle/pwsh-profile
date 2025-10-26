@@ -23,8 +23,10 @@
   - [Profile Management](#profile-management)
   - [Media Processing](#media-processing)
   - [Utilities](#utilities)
+  - [Local Functions](#local-functions)
 - [Update](#update)
 - [Contributing](#contributing)
+- [Author](#author)
 - [License](#license)
 
 ## Install
