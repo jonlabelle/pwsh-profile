@@ -131,7 +131,7 @@
         - Use -UseElevation on Windows to automatically handle privilege elevation
         - Use -SkipPublisherCheck to bypass digital signature verification issues (requires PowerShellGet 2.0+)
         - Use -Interactive for fine-grained control over which modules to update
-        - The Invoke-ElevatedCommand function must be available for elevation support
+        - The Invoke-ElevatedCommand function (Functions/SystemAdministration/Invoke-ElevatedCommand.ps1) function must be available for elevation support
 
         SECURITY CONSIDERATIONS:
         - The -SkipPublisherCheck parameter bypasses PowerShell's built-in security that validates
