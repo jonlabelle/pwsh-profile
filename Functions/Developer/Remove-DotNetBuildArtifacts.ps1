@@ -125,6 +125,12 @@ function Remove-DotNetBuildArtifacts
                 ErrorAction = 'SilentlyContinue'
             }
 
+            # Disable progress bar for recursive file search (PowerShell 7.4+)
+            if ($PSVersionTable.PSVersion.Major -ge 7 -and $PSVersionTable.PSVersion.Minor -ge 4)
+            {
+                $getChildItemParams['ProgressAction'] = 'SilentlyContinue'
+            }
+
             # Add exclusions if specified
             if ($ExcludeDirectory -and $ExcludeDirectory.Count -gt 0)
             {
@@ -198,7 +204,18 @@ function Remove-DotNetBuildArtifacts
                                 # Calculate size for reporting
                                 try
                                 {
-                                    $folderSize = (Get-ChildItem -Path $folder.FullName -Recurse -File -ErrorAction SilentlyContinue |
+                                    $getSizeParams = @{
+                                        Path = $folder.FullName
+                                        Recurse = $true
+                                        File = $true
+                                        ErrorAction = 'SilentlyContinue'
+                                    }
+                                    # Disable progress bar when calculating folder size
+                                    if ($PSVersionTable.PSVersion.Major -ge 7 -and $PSVersionTable.PSVersion.Minor -ge 4)
+                                    {
+                                        $getSizeParams['ProgressAction'] = 'SilentlyContinue'
+                                    }
+                                    $folderSize = (Get-ChildItem @getSizeParams |
                                         Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
                                     if ($null -eq $folderSize) { $folderSize = 0 }
                                 }
@@ -209,7 +226,18 @@ function Remove-DotNetBuildArtifacts
                                 }
 
                                 # Remove the folder
-                                Remove-Item -Path $folder.FullName -Recurse -Force -ErrorAction Stop
+                                $removeParams = @{
+                                    Path = $folder.FullName
+                                    Recurse = $true
+                                    Force = $true
+                                    ErrorAction = 'Stop'
+                                }
+                                # Disable progress bar during recursive folder deletion
+                                if ($PSVersionTable.PSVersion.Major -ge 7 -and $PSVersionTable.PSVersion.Minor -ge 4)
+                                {
+                                    $removeParams['ProgressAction'] = 'SilentlyContinue'
+                                }
+                                Remove-Item @removeParams
                                 Write-Host "Removed: $($folder.FullName)" -ForegroundColor Green
 
                                 $stats.FoldersRemoved++
