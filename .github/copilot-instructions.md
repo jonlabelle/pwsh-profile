@@ -24,16 +24,24 @@ This is a **cross-platform PowerShell profile system** that provides utility fun
 ### Platform Detection Pattern
 
 ```powershell
-if ($PSVersionTable.PSVersion.Major -lt 6) {
+if ($PSVersionTable.PSVersion.Major -lt 6)
+{
     # PowerShell 5.1 - Windows only
     $script:IsWindowsPlatform = $true
-} else {
+}
+else
+{
     # PowerShell Core - use built-in variables
     $script:IsWindowsPlatform = $IsWindows
     $script:IsMacOSPlatform = $IsMacOS
     $script:IsLinuxPlatform = $IsLinux
 }
 ```
+
+### Variable Naming Conventions
+
+- Use TitleCase for main function variables: `$OutputPath`, `$DnsResult`, `$Path`; or `-OutputPath`, `-DnsName`, `-Path`
+- Use camelCase variables for internal logic: `$tempFile`, `$dnsEntries`, `$isValid`
 
 ### Cross-Platform Considerations
 
@@ -85,9 +93,18 @@ function Verb-Noun {
         [String]$Name
     )
 
-    begin { Write-Verbose 'Starting function' }
-    process { # Main logic here }
-    end { Write-Verbose 'Function completed' }
+    begin
+    {
+        Write-Verbose 'Starting function'
+    }
+    process
+    {
+        # Main logic here
+    }
+    end
+    {
+        Write-Verbose 'Function completed'
+    }
 }
 ```
 

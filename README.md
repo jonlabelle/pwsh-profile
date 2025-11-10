@@ -130,6 +130,7 @@ The profile includes various utility commands organized by category:
 - **[`Get-CommandAlias`](Functions/Utilities/Get-CommandAlias.ps1)** — Displays aliases for PowerShell cmdlets
 - **[`Get-IPSubnet`](Functions/Utilities/Get-IPSubnet.ps1)** — Calculates IP subnet information including network/broadcast addresses
 - **[`New-RandomString`](Functions/Utilities/New-RandomString.ps1)** — Generates random strings, useful for passwords/tokens
+- **[`Sync-Directory`](Functions/Utilities/Sync-Directory.ps1)** — Synchronizes directories using native platform tools (rsync/robocopy)
 
 ### Local Functions
 
