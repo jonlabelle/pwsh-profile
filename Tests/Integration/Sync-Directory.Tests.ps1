@@ -80,8 +80,8 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
                 # Verify
                 $Result.Success | Should -BeTrue
                 Test-Path (Join-Path $Dest 'root.txt') | Should -BeTrue
-                Test-Path (Join-Path $Dest 'subdir1' 'level1.txt') | Should -BeTrue
-                Test-Path (Join-Path $Dest 'subdir1' 'subdir2' 'level2.txt') | Should -BeTrue
+                Test-Path (Join-Path (Join-Path $Dest 'subdir1') 'level1.txt') | Should -BeTrue
+                Test-Path (Join-Path (Join-Path (Join-Path $Dest 'subdir1') 'subdir2') 'level2.txt') | Should -BeTrue
             }
             finally
             {
