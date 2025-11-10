@@ -15,7 +15,7 @@
 
 BeforeAll {
     # Import the function under test
-    . "$PSScriptRoot/../../Functions/SystemAdministration/Get-DotNetVersion.ps1"
+    . "$PSScriptRoot/../../Functions/Developer/Get-DotNetVersion.ps1"
 }
 
 Describe 'Get-DotNetVersion' {

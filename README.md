@@ -90,7 +90,6 @@ The profile includes various utility commands organized by category:
 
 ### System Administration
 
-- **[`Get-DotNetVersion`](Functions/SystemAdministration/Get-DotNetVersion.ps1)** — Retrieves installed .NET Framework and .NET Core versions
 - **[`Invoke-ElevatedCommand`](Functions/SystemAdministration/Invoke-ElevatedCommand.ps1)** — Executes commands with elevated privileges (Run as Administrator)
 - **[`Set-TlsSecurityProtocol`](Functions/SystemAdministration/Set-TlsSecurityProtocol.ps1)** — Configures TLS security protocol settings for secure network connections
 - **[`Start-KeepAlive`](Functions/SystemAdministration/Start-KeepAlive.ps1)** — Prevents the system and display from sleeping
@@ -100,6 +99,7 @@ The profile includes various utility commands organized by category:
 
 ### Developer
 
+- **[`Get-DotNetVersion`](Functions/Developer/Get-DotNetVersion.ps1)** — Retrieves installed .NET Framework and .NET Core versions
 - **[`Remove-DotNetBuildArtifacts`](Functions/Developer/Remove-DotNetBuildArtifacts.ps1)** — Cleans up .NET build artifacts from a project directory
 - **[`Remove-NodeModules`](Functions/Developer/Remove-NodeModules.ps1)** — Removes node_modules folders from Node.js project directories
 

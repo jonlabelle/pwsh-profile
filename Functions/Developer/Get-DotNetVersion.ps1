@@ -109,7 +109,7 @@ function Get-DotNetVersion
         https://jonlabelle.com/snippets/view/powershell/get-installed-net-versions-in-powershell
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Get-DotNetVersion.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Get-DotNetVersion.ps1
     #>
     [CmdletBinding(DefaultParameterSetName = 'All', ConfirmImpact = 'Low')]
     [OutputType([System.Object[]])]
