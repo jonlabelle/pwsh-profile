@@ -24,6 +24,7 @@
     "acodec",
     "adoc",
     "ADSI",
+    "afilias",
     "appimage",
     "automations",
     "badssl",
@@ -31,10 +32,12 @@
     "BSTR",
     "caffeinate",
     "ciphertext",
+    "cira",
     "cpufrequency",
     "curlrc",
     "decryptor",
     "DMARC",
+    "DNSSEC",
     "Dont",
     "dylib",
     "encryptor",
@@ -107,6 +110,7 @@
     "vimrc",
     "wctp",
     "webp",
+    "WHOIS",
     "wshell",
     "xset"
   ]
