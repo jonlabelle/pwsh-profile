@@ -194,39 +194,39 @@ function Sync-Directory
                 #region Windows - robocopy
 
                 # Check if robocopy is available
-                $RobocopyPath = Get-Command -Name 'robocopy.exe' -ErrorAction SilentlyContinue
-                if (-not $RobocopyPath)
+                $robocopyPath = Get-Command -Name 'robocopy.exe' -ErrorAction SilentlyContinue
+                if (-not $robocopyPath)
                 {
                     throw 'robocopy.exe not found. This should be available on Windows Vista and later.'
                 }
 
                 # Build robocopy arguments
-                $RobocopyArgs = @()
+                $robocopyArgs = @()
 
                 # Source and destination (robocopy doesn't use trailing slashes)
-                $RobocopyArgs += "`"$Source`""
-                $RobocopyArgs += "`"$Destination`""
+                $robocopyArgs += "`"$Source`""
+                $robocopyArgs += "`"$Destination`""
 
                 # Copy all files and subdirectories, including empty directories
-                $RobocopyArgs += '/E'
+                $robocopyArgs += '/E'
 
                 # Mirror mode (includes /E plus deletes files in dest not in source)
                 if ($Delete)
                 {
-                    $RobocopyArgs += '/MIR'
+                    $robocopyArgs += '/MIR'
                 }
 
                 # Show progress
-                $RobocopyArgs += '/NP' # No percentage in output (cleaner for PowerShell)
-                $RobocopyArgs += '/NDL' # No directory list (less verbose)
-                $RobocopyArgs += '/NFL' # No file list (less verbose, use /V for verbose)
+                $robocopyArgs += '/NP' # No percentage in output (cleaner for PowerShell)
+                $robocopyArgs += '/NDL' # No directory list (less verbose)
+                $robocopyArgs += '/NFL' # No file list (less verbose, use /V for verbose)
 
                 # Copy file data, attributes, and timestamps
-                $RobocopyArgs += '/COPY:DAT'
+                $robocopyArgs += '/COPY:DAT'
 
                 # Retry settings (1 retry, 1 second wait)
-                $RobocopyArgs += '/R:1'
-                $RobocopyArgs += '/W:1'
+                $robocopyArgs += '/R:1'
+                $robocopyArgs += '/W:1'
 
                 # Handle exclusions
                 foreach ($Pattern in $Exclude)
@@ -235,46 +235,46 @@ function Sync-Directory
                     if ($Pattern -match '[\\/]$' -or $Pattern -notmatch '\.')
                     {
                         # Likely a directory
-                        $RobocopyArgs += '/XD'
-                        $RobocopyArgs += "`"$Pattern`""
+                        $robocopyArgs += '/XD'
+                        $robocopyArgs += "`"$Pattern`""
                     }
                     else
                     {
                         # Likely a file pattern
-                        $RobocopyArgs += '/XF'
-                        $RobocopyArgs += "`"$Pattern`""
+                        $robocopyArgs += '/XF'
+                        $robocopyArgs += "`"$Pattern`""
                     }
                 }
 
                 # Add extra options
                 if ($ExtraOptions.Count -gt 0)
                 {
-                    $RobocopyArgs += $ExtraOptions
+                    $robocopyArgs += $ExtraOptions
                 }
 
                 # Dry run
                 if ($DryRun)
                 {
-                    $RobocopyArgs += '/L' # List only, don't copy
+                    $robocopyArgs += '/L' # List only, don't copy
                 }
 
-                $CommandString = "robocopy $($RobocopyArgs -join ' ')"
-                $Result.Command = $CommandString
-                Write-Verbose "Executing: $CommandString"
+                $commandString = "robocopy $($robocopyArgs -join ' ')"
+                $Result.Command = $commandString
+                Write-Verbose "Executing: $commandString"
 
                 if ($PSCmdlet.ShouldProcess($Destination, "Synchronize from $Source using robocopy"))
                 {
                     # Execute robocopy
-                    $ProcessArgs = @{
+                    $processArgs = @{
                         FilePath = 'robocopy.exe'
-                        ArgumentList = $RobocopyArgs
+                        ArgumentList = $robocopyArgs
                         NoNewWindow = $true
                         Wait = $true
                         PassThru = $true
                     }
 
-                    $Process = Start-Process @ProcessArgs
-                    $Result.ExitCode = $Process.ExitCode
+                    $process = Start-Process @processArgs
+                    $Result.ExitCode = $process.ExitCode
 
                     # robocopy exit codes:
                     # 0 = No files copied (no changes needed)
@@ -284,10 +284,10 @@ function Sync-Directory
                     # 8 = Some files or directories could not be copied (copy errors)
                     # 16 = Serious error (robocopy did not copy any files)
 
-                    if ($Process.ExitCode -lt 8)
+                    if ($process.ExitCode -lt 8)
                     {
                         $Result.Success = $true
-                        $Result.Message = switch ($Process.ExitCode)
+                        $Result.Message = switch ($process.ExitCode)
                         {
                             0 { 'No files needed to be copied (already synchronized)' }
                             1 { 'Files copied successfully' }
@@ -297,17 +297,17 @@ function Sync-Directory
                             5 { 'Files copied with some mismatches' }
                             6 { 'Extra files and mismatches detected' }
                             7 { 'Files copied with extra files and mismatches' }
-                            default { "Completed with exit code $($Process.ExitCode)" }
+                            default { "Completed with exit code $($process.ExitCode)" }
                         }
                     }
                     else
                     {
                         $Result.Success = $false
-                        $Result.Message = switch ($Process.ExitCode)
+                        $Result.Message = switch ($process.ExitCode)
                         {
                             8 { 'Some files or directories could not be copied (copy errors occurred)' }
                             16 { 'Serious error: robocopy did not copy any files' }
-                            default { "Failed with exit code $($Process.ExitCode)" }
+                            default { "Failed with exit code $($process.ExitCode)" }
                         }
                     }
                 }
@@ -319,71 +319,71 @@ function Sync-Directory
                 #region macOS/Linux - rsync
 
                 # Check if rsync is available
-                $RsyncPath = Get-Command -Name 'rsync' -ErrorAction SilentlyContinue
-                if (-not $RsyncPath)
+                $rsyncPath = Get-Command -Name 'rsync' -ErrorAction SilentlyContinue
+                if (-not $rsyncPath)
                 {
                     throw 'rsync not found. Please install rsync (e.g., apt-get install rsync, yum install rsync, or brew install rsync)'
                 }
 
                 # Build rsync arguments
-                $RsyncArgs = @()
+                $rsyncArgs = @()
 
                 # Archive mode (recursive, preserve permissions, timestamps, etc.)
-                $RsyncArgs += '-a'
+                $rsyncArgs += '-a'
 
                 # Verbose output
-                $RsyncArgs += '-v'
+                $rsyncArgs += '-v'
 
                 # Show progress
-                $RsyncArgs += '--progress'
+                $rsyncArgs += '--progress'
 
                 # Human-readable output
-                $RsyncArgs += '-h'
+                $rsyncArgs += '-h'
 
                 # Delete files in destination not in source
                 if ($Delete)
                 {
-                    $RsyncArgs += '--delete'
+                    $rsyncArgs += '--delete'
                 }
 
                 # Dry run
                 if ($DryRun)
                 {
-                    $RsyncArgs += '--dry-run'
+                    $rsyncArgs += '--dry-run'
                 }
 
                 # Handle exclusions
                 foreach ($Pattern in $Exclude)
                 {
-                    $RsyncArgs += "--exclude=$Pattern"
+                    $rsyncArgs += "--exclude=$Pattern"
                 }
 
                 # Add extra options
                 if ($ExtraOptions.Count -gt 0)
                 {
-                    $RsyncArgs += $ExtraOptions
+                    $rsyncArgs += $ExtraOptions
                 }
 
                 # Source and destination
                 # Add trailing slash to source to copy CONTENTS (matching robocopy behavior)
                 # Without trailing slash, rsync would copy the directory itself into dest
-                $SourcePath = $Source
-                if (-not $SourcePath.EndsWith([System.IO.Path]::DirectorySeparatorChar))
+                $sourcePath = $Source
+                if (-not $sourcePath.EndsWith([System.IO.Path]::DirectorySeparatorChar))
                 {
-                    $SourcePath += [System.IO.Path]::DirectorySeparatorChar
+                    $sourcePath += [System.IO.Path]::DirectorySeparatorChar
                 }
 
                 # Quote paths that contain spaces for the command string display
-                $QuotedSource = if ($SourcePath -match '\s') { "'$SourcePath'" } else { $SourcePath }
-                $QuotedDest = if ($Destination -match '\s') { "'$Destination'" } else { $Destination }
+                $quotedSource = if ($sourcePath -match '\s') { "'$sourcePath'" } else { $sourcePath }
+                $quotedDest = if ($Destination -match '\s') { "'$Destination'" } else { $Destination }
 
                 # Add to args array (Start-Process handles these correctly)
-                $RsyncArgs += $SourcePath
-                $RsyncArgs += $Destination
+                $rsyncArgs += $sourcePath
+                $rsyncArgs += $Destination
 
-                $CommandString = "rsync $($RsyncArgs[0..($RsyncArgs.Count - 3)] -join ' ') $QuotedSource $QuotedDest"
-                $Result.Command = $CommandString
-                Write-Verbose "Executing: $CommandString"
+                $commandString = "rsync $($rsyncArgs[0..($rsyncArgs.Count - 3)] -join ' ') $quotedSource $quotedDest"
+                $Result.Command = $commandString
+                Write-Verbose "Executing: $commandString"
 
                 if ($PSCmdlet.ShouldProcess($Destination, "Synchronize from $Source using rsync"))
                 {
@@ -392,7 +392,7 @@ function Sync-Directory
                     {
                         $Result.ExitCode = & {
                             # Capture exit code using $LASTEXITCODE
-                            & 'rsync' @RsyncArgs 2>&1 | Out-Null
+                            & 'rsync' @rsyncArgs 2>&1 | Out-Null
                             return $LASTEXITCODE
                         }
                     }
