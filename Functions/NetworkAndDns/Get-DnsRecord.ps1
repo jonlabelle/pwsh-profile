@@ -80,6 +80,16 @@ function Get-DnsRecord
 
         Retrieves SRV (service) records.
 
+    .EXAMPLE
+        PS > Get-DnsRecord -Name 'github.com' -UseDNS
+
+        Use native DNS resolution instead of DoH (useful if firewall does not allow DNS-over-HTTPS, but limited to A/AAAA records).
+
+    .EXAMPLE
+        PS > Get-DnsRecord -Name 'example.com' -Type MX -Server quad9
+
+        Query MX records using Quad9's DoH service as an alternative to Cloudflare.
+
     .OUTPUTS
         System.Management.Automation.PSCustomObject
         Returns objects with Name, Type, TTL, and Data properties for each DNS record found.
@@ -102,8 +112,11 @@ function Get-DnsRecord
         - Google: https://dns.google/resolve
         - Quad9: https://dns.quad9.net/dns-query
 
-        Note: This function requires internet connectivity to reach DoH providers.
-        For air-gapped environments, use -UseDNS flag with limited record type support.
+        Network Requirements:
+        - Requires internet connectivity to reach DoH providers
+        - If DoH is blocked, use -UseDNS flag for native DNS resolution (A/AAAA records only)
+
+        For air-gapped or restricted environments, use -UseDNS flag with limited record type support.
     #>
     [CmdletBinding(DefaultParameterSetName = 'DoH')]
     [OutputType([System.Management.Automation.PSCustomObject])]
@@ -136,17 +149,7 @@ function Get-DnsRecord
         # Ensure TLS 1.2+ is enabled for HTTPS connections
         Set-TlsSecurityProtocol -MinimumVersion Tls12
 
-        # Detect platform
-        if ($PSVersionTable.PSVersion.Major -lt 6)
-        {
-            $script:IsWindowsPlatform = $true
-        }
-        else
-        {
-            $script:IsWindowsPlatform = $IsWindows
-        }
-
-        # DNS-over-HTTPS endpoints
+        # DNS-over-HTTPS (DoH) endpoints
         $dohEndpoints = @{
             cloudflare = 'https://cloudflare-dns.com/dns-query'
             google = 'https://dns.google/resolve'
@@ -213,18 +216,8 @@ function Get-DnsRecord
                 $dohUrl = $dohEndpoints[$Server]
                 Write-Verbose "Using DNS-over-HTTPS: $dohUrl"
 
-                # Prepare HTTP client with TLS 1.2+ support
-                # On Windows, HttpClient requires explicit handler configuration for SSL/TLS
-                if ($script:IsWindowsPlatform)
-                {
-                    $handler = [System.Net.Http.HttpClientHandler]::new()
-                    $handler.SslProtocols = [System.Security.Authentication.SslProtocols]::Tls12 -bor [System.Security.Authentication.SslProtocols]::Tls11
-                    $httpClient = [System.Net.Http.HttpClient]::new($handler)
-                }
-                else
-                {
-                    $httpClient = [System.Net.Http.HttpClient]::new()
-                }
+                # Prepare HTTP client
+                $httpClient = [System.Net.Http.HttpClient]::new()
                 $httpClient.Timeout = [TimeSpan]::FromSeconds($Timeout)
                 $httpClient.DefaultRequestHeaders.Accept.Add([System.Net.Http.Headers.MediaTypeWithQualityHeaderValue]::new('application/dns-json'))
 
@@ -334,6 +327,10 @@ function Get-DnsRecord
         catch [System.Net.Http.HttpRequestException]
         {
             Write-Verbose "HTTP request exception: $($_.Exception.Message)"
+            if ($_.Exception.InnerException)
+            {
+                Write-Verbose "Inner exception: $($_.Exception.InnerException.Message)"
+            }
             Write-Error "DNS-over-HTTPS request failed for '$Name': $($_.Exception.Message)"
         }
         catch
