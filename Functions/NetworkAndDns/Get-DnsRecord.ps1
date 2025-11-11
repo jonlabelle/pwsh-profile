@@ -216,8 +216,13 @@ function Get-DnsRecord
                 $dohUrl = $dohEndpoints[$Server]
                 Write-Verbose "Using DNS-over-HTTPS: $dohUrl"
 
-                # Prepare HTTP client
-                $httpClient = [System.Net.Http.HttpClient]::new()
+                # Prepare HTTP client with retry logic for proxy failures
+                $handler = [System.Net.Http.HttpClientHandler]::new()
+                $handler.UseProxy = $true
+                $handler.Proxy = [System.Net.WebRequest]::GetSystemWebProxy()
+                $handler.Proxy.Credentials = [System.Net.CredentialCache]::DefaultCredentials
+
+                $httpClient = [System.Net.Http.HttpClient]::new($handler)
                 $httpClient.Timeout = [TimeSpan]::FromSeconds($Timeout)
                 $httpClient.DefaultRequestHeaders.Accept.Add([System.Net.Http.Headers.MediaTypeWithQualityHeaderValue]::new('application/dns-json'))
 
@@ -226,8 +231,45 @@ function Get-DnsRecord
                 $queryUrl = "${dohUrl}?name=${Name}&type=${recordTypeCode}"
                 Write-Verbose "Query URL: $queryUrl"
 
-                # Send request
-                $response = $httpClient.GetAsync($queryUrl).GetAwaiter().GetResult()
+                # Send request with proxy retry logic
+                $response = $null
+                $proxyRetryNeeded = $false
+
+                try
+                {
+                    $response = $httpClient.GetAsync($queryUrl).GetAwaiter().GetResult()
+                }
+                catch [System.Net.Http.HttpRequestException]
+                {
+                    # Check if it's a proxy tunnel failure (407 or similar proxy errors)
+                    if ($_.Exception.Message -match 'proxy.*failed|tunnel.*failed|407')
+                    {
+                        Write-Verbose "Proxy tunnel failed, retrying without proxy: $($_.Exception.Message)"
+                        $proxyRetryNeeded = $true
+                    }
+                    else
+                    {
+                        throw
+                    }
+                }
+
+                # Retry without proxy if proxy tunnel failed
+                if ($proxyRetryNeeded)
+                {
+                    $httpClient.Dispose()
+                    $handler.Dispose()
+
+                    # Create new client without proxy
+                    $handler = [System.Net.Http.HttpClientHandler]::new()
+                    $handler.UseProxy = $false
+
+                    $httpClient = [System.Net.Http.HttpClient]::new($handler)
+                    $httpClient.Timeout = [TimeSpan]::FromSeconds($Timeout)
+                    $httpClient.DefaultRequestHeaders.Accept.Add([System.Net.Http.Headers.MediaTypeWithQualityHeaderValue]::new('application/dns-json'))
+
+                    Write-Verbose 'Retrying request without proxy'
+                    $response = $httpClient.GetAsync($queryUrl).GetAwaiter().GetResult()
+                }
 
                 if ($response.IsSuccessStatusCode)
                 {
@@ -315,8 +357,10 @@ function Get-DnsRecord
                     Write-Error "DNS-over-HTTPS request failed with status code: $($response.StatusCode)"
                 }
 
-                $response.Dispose()
-                $httpClient.Dispose()
+                # Cleanup
+                if ($response) { $response.Dispose() }
+                if ($httpClient) { $httpClient.Dispose() }
+                if ($handler) { $handler.Dispose() }
             }
         }
         catch [System.Net.Sockets.SocketException]
