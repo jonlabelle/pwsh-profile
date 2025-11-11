@@ -136,6 +136,16 @@ function Get-DnsRecord
         # Ensure TLS 1.2+ is enabled for HTTPS connections
         Set-TlsSecurityProtocol -MinimumVersion Tls12
 
+        # Detect platform
+        if ($PSVersionTable.PSVersion.Major -lt 6)
+        {
+            $script:IsWindowsPlatform = $true
+        }
+        else
+        {
+            $script:IsWindowsPlatform = $IsWindows
+        }
+
         # DNS-over-HTTPS endpoints
         $dohEndpoints = @{
             cloudflare = 'https://cloudflare-dns.com/dns-query'
@@ -203,8 +213,18 @@ function Get-DnsRecord
                 $dohUrl = $dohEndpoints[$Server]
                 Write-Verbose "Using DNS-over-HTTPS: $dohUrl"
 
-                # Prepare HTTP client
-                $httpClient = [System.Net.Http.HttpClient]::new()
+                # Prepare HTTP client with TLS 1.2+ support
+                # On Windows, HttpClient requires explicit handler configuration for SSL/TLS
+                if ($script:IsWindowsPlatform)
+                {
+                    $handler = [System.Net.Http.HttpClientHandler]::new()
+                    $handler.SslProtocols = [System.Security.Authentication.SslProtocols]::Tls12 -bor [System.Security.Authentication.SslProtocols]::Tls11
+                    $httpClient = [System.Net.Http.HttpClient]::new($handler)
+                }
+                else
+                {
+                    $httpClient = [System.Net.Http.HttpClient]::new()
+                }
                 $httpClient.Timeout = [TimeSpan]::FromSeconds($Timeout)
                 $httpClient.DefaultRequestHeaders.Accept.Add([System.Net.Http.Headers.MediaTypeWithQualityHeaderValue]::new('application/dns-json'))
 
