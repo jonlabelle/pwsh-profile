@@ -216,11 +216,9 @@ function Get-DnsRecord
                 $dohUrl = $dohEndpoints[$Server]
                 Write-Verbose "Using DNS-over-HTTPS: $dohUrl"
 
-                # Prepare HTTP client with retry logic for proxy failures
+                # Prepare HTTP client without proxy (try direct connection first)
                 $handler = [System.Net.Http.HttpClientHandler]::new()
-                $handler.UseProxy = $true
-                $handler.Proxy = [System.Net.WebRequest]::GetSystemWebProxy()
-                $handler.Proxy.Credentials = [System.Net.CredentialCache]::DefaultCredentials
+                $handler.UseProxy = $false
 
                 $httpClient = [System.Net.Http.HttpClient]::new($handler)
                 $httpClient.Timeout = [TimeSpan]::FromSeconds($Timeout)
@@ -241,10 +239,10 @@ function Get-DnsRecord
                 }
                 catch [System.Net.Http.HttpRequestException]
                 {
-                    # Check if it's a proxy tunnel failure (407 or similar proxy errors)
-                    if ($_.Exception.Message -match 'proxy.*failed|tunnel.*failed|407')
+                    # Check if it's a proxy-related error or connection failure that might need proxy
+                    if ($_.Exception.Message -match 'proxy.*required|407|connection.*refused|unable to connect')
                     {
-                        Write-Verbose "Proxy tunnel failed, retrying without proxy: $($_.Exception.Message)"
+                        Write-Verbose "Direct connection failed, retrying with system proxy: $($_.Exception.Message)"
                         $proxyRetryNeeded = $true
                     }
                     else
@@ -253,21 +251,24 @@ function Get-DnsRecord
                     }
                 }
 
-                # Retry without proxy if proxy tunnel failed
+                # Retry with system proxy if direct connection failed
                 if ($proxyRetryNeeded)
                 {
+                    # Dispose previous client and handler
                     $httpClient.Dispose()
                     $handler.Dispose()
 
-                    # Create new client without proxy
+                    # Create new client with system proxy enabled
                     $handler = [System.Net.Http.HttpClientHandler]::new()
-                    $handler.UseProxy = $false
+                    $handler.UseProxy = $true
+                    $handler.Proxy = [System.Net.WebRequest]::GetSystemWebProxy()
+                    $handler.Proxy.Credentials = [System.Net.CredentialCache]::DefaultCredentials
 
                     $httpClient = [System.Net.Http.HttpClient]::new($handler)
                     $httpClient.Timeout = [TimeSpan]::FromSeconds($Timeout)
                     $httpClient.DefaultRequestHeaders.Accept.Add([System.Net.Http.Headers.MediaTypeWithQualityHeaderValue]::new('application/dns-json'))
 
-                    Write-Verbose 'Retrying request without proxy'
+                    Write-Verbose 'Retrying request with system proxy'
                     $response = $httpClient.GetAsync($queryUrl).GetAwaiter().GetResult()
                 }
 
