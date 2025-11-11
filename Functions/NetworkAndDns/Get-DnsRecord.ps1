@@ -25,7 +25,7 @@ function Get-DnsRecord
     .PARAMETER Server
         The DNS server to use for queries. Supports standard DNS servers and DNS-over-HTTPS endpoints.
         Default is 'cloudflare' which uses Cloudflare's 1.1.1.1 DoH service.
-        Other options: 'google' (8.8.8.8), 'quad9' (9.9.9.9), or specify a custom DoH URL.
+        Other options: 'google' (8.8.8.8), or specify a custom DoH URL.
 
     .PARAMETER UseDNS
         Use native DNS resolution instead of DNS-over-HTTPS.
@@ -86,9 +86,9 @@ function Get-DnsRecord
         Use native DNS resolution instead of DoH (useful if firewall does not allow DNS-over-HTTPS, but limited to A/AAAA records).
 
     .EXAMPLE
-        PS > Get-DnsRecord -Name 'example.com' -Type MX -Server quad9
+        PS > Get-DnsRecord -Name 'example.com' -Type MX
 
-        Query MX records using Quad9's DoH service as an alternative to Cloudflare.
+        Query MX records using an alternative DoH provider.
 
     .OUTPUTS
         System.Management.Automation.PSCustomObject
@@ -110,7 +110,6 @@ function Get-DnsRecord
         DNS-over-HTTPS Providers:
         - Cloudflare: https://cloudflare-dns.com/dns-query
         - Google: https://dns.google/resolve
-        - Quad9: https://dns.quad9.net/dns-query
 
         Network Requirements:
         - Requires internet connectivity to reach DoH providers
@@ -131,7 +130,7 @@ function Get-DnsRecord
         [String]$Type = 'A',
 
         [Parameter(ParameterSetName = 'DoH')]
-        [ValidateSet('cloudflare', 'google', 'quad9')]
+        [ValidateSet('cloudflare', 'google')]
         [String]$Server = 'cloudflare',
 
         [Parameter(ParameterSetName = 'Native')]
@@ -153,7 +152,6 @@ function Get-DnsRecord
         $dohEndpoints = @{
             cloudflare = 'https://cloudflare-dns.com/dns-query'
             google = 'https://dns.google/resolve'
-            quad9 = 'https://dns.quad9.net/dns-query'
         }
 
         # DNS record type numeric codes (for DoH API)
