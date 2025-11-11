@@ -94,6 +94,9 @@ function Get-DnsRecord
         Author: Jon LaBelle
         Date: November 9, 2025
 
+        Dependencies:
+        - Set-TlsSecurityProtocol (for HTTPS/TLS 1.2+ support)
+
         DNS-over-HTTPS Providers:
         - Cloudflare: https://cloudflare-dns.com/dns-query
         - Google: https://dns.google/resolve
@@ -130,6 +133,9 @@ function Get-DnsRecord
     {
         Write-Verbose 'Initializing DNS query'
 
+        # Ensure TLS 1.2+ is enabled for HTTPS connections
+        Set-TlsSecurityProtocol -MinimumVersion Tls12
+
         # DNS-over-HTTPS endpoints
         $dohEndpoints = @{
             cloudflare = 'https://cloudflare-dns.com/dns-query'
@@ -150,12 +156,6 @@ function Get-DnsRecord
             SRV = 33
             CAA = 257
             ANY = 255
-        }
-
-        # Enable TLS for PowerShell 5.1
-        if ($PSVersionTable.PSVersion.Major -lt 6)
-        {
-            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor [System.Net.SecurityProtocolType]::Tls11 -bor [System.Net.SecurityProtocolType]::Tls
         }
     }
 
