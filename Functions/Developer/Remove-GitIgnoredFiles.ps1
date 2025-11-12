@@ -18,7 +18,19 @@ function Remove-GitIgnoredFiles
 
     .PARAMETER Path
         The root path of the Git repository to clean. Defaults to the current directory.
-        Supports ~ for home directory expansion. Must be within a Git repository.
+        Supports ~ for home directory expansion.
+
+        Without -Recurse: Must be within a Git repository (cleans that repository).
+        With -Recurse: Can be any directory (searches for Git repositories within).
+
+    .PARAMETER Recurse
+        Searches for Git repositories recursively within the specified Path and cleans each one.
+        Useful for workspace directories containing multiple Git repositories.
+
+        WARNING: This will clean ALL Git repositories found within the specified path.
+        Use -WhatIf first to see what repositories would be cleaned.
+
+        Example use case: Clean ignored files from all projects in ~/Projects
 
     .PARAMETER IncludeUntracked
         Also removes untracked files (files not in .gitignore but not tracked by Git).
@@ -40,6 +52,18 @@ function Remove-GitIgnoredFiles
 
         Removes all ignored files from the Git repository in the current directory,
         showing the total space freed.
+
+    .EXAMPLE
+        PS > Remove-GitIgnoredFiles -Recurse -WhatIf
+
+        Shows what would be removed from all Git repositories found in the current directory
+        and its subdirectories without actually removing anything.
+
+    .EXAMPLE
+        PS > Remove-GitIgnoredFiles -Path ~/Projects -Recurse
+
+        Finds all Git repositories within ~/Projects and cleans ignored files from each one.
+        Useful for cleaning up an entire workspace with multiple projects.
 
     .EXAMPLE
         PS > Remove-GitIgnoredFiles -IncludeUntracked
@@ -69,6 +93,7 @@ function Remove-GitIgnoredFiles
     .OUTPUTS
         [PSCustomObject]
         Returns an object with summary information about the operation:
+        - RepositoriesProcessed: Number of Git repositories processed (when using -Recurse)
         - FilesRemoved: Number of files successfully removed
         - DirectoriesRemoved: Number of directories successfully removed
         - TotalSpaceFreed: Total disk space freed (unless -NoSizeCalculation is specified)
@@ -81,6 +106,8 @@ function Remove-GitIgnoredFiles
         - Does NOT remove unstaged changes to tracked files
         - Respects -WhatIf and -Confirm parameters for safety
         - Uses 'git clean' internally with appropriate flags
+        - With -Recurse: Finds .git directories to locate repositories, then cleans each one
+        - With -Recurse: Use -WhatIf first to preview which repositories will be cleaned
 
     .LINK
         https://git-scm.com/docs/git-clean
@@ -92,6 +119,9 @@ function Remove-GitIgnoredFiles
         [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [ValidateNotNullOrEmpty()]
         [String]$Path = (Get-Location).Path,
+
+        [Parameter()]
+        [Switch]$Recurse,
 
         [Parameter()]
         [Switch]$IncludeUntracked,
@@ -106,6 +136,7 @@ function Remove-GitIgnoredFiles
 
         # Statistics tracking
         $stats = @{
+            RepositoriesProcessed = 0
             FilesRemoved = 0
             DirectoriesRemoved = 0
             TotalSpaceFreed = [int64]0
@@ -135,143 +166,243 @@ function Remove-GitIgnoredFiles
                 return
             }
 
-            Write-Verbose "Checking Git repository in: $resolvedPath"
+            Write-Verbose "Searching for Git repositories in: $resolvedPath"
 
-            # Check if the path is within a Git repository
-            $gitCheckResult = & git -C $resolvedPath rev-parse --git-dir 2>&1
-            if ($LASTEXITCODE -ne 0)
+            # Find Git repositories
+            $repositories = @()
+
+            if ($Recurse)
             {
-                Write-Error "Path is not within a Git repository: $resolvedPath"
-                return
-            }
+                # Find all .git directories recursively
+                Write-Verbose 'Searching recursively for Git repositories...'
 
-            $gitDir = $gitCheckResult
-            Write-Verbose "Git repository found: $gitDir"
-
-            # Determine what files would be removed
-            # -n = dry run, -d = include directories, -X = ignored files only, -x = ignored + untracked
-            $cleanFlag = if ($IncludeUntracked) { '-x' } else { '-X' }
-            $dryRunOutput = & git -C $resolvedPath clean -n -d $cleanFlag 2>&1
-
-            if ($LASTEXITCODE -ne 0)
-            {
-                Write-Error "Git clean failed: $dryRunOutput"
-                $stats.Errors++
-                return
-            }
-
-            # Parse the output to get list of files/directories
-            $itemsToRemove = @()
-            foreach ($line in $dryRunOutput)
-            {
-                if ($line -match '^Would remove (.+)$')
-                {
-                    $itemPath = $matches[1]
-                    $fullPath = Join-Path -Path $resolvedPath -ChildPath $itemPath
-                    if (Test-Path -Path $fullPath)
-                    {
-                        $itemsToRemove += Get-Item -Path $fullPath -Force
-                    }
+                $getChildItemParams = @{
+                    Path = $resolvedPath
+                    Filter = '.git'
+                    Directory = $true
+                    Recurse = $true
+                    Force = $true
+                    ErrorAction = 'SilentlyContinue'
                 }
-            }
 
-            if ($itemsToRemove.Count -eq 0)
-            {
-                Write-Host 'No ignored files found to remove.' -ForegroundColor Yellow
-                return
-            }
-
-            $fileTypeMessage = if ($IncludeUntracked) { 'ignored and untracked' } else { 'ignored' }
-            Write-Host "Found $($itemsToRemove.Count) $fileTypeMessage item(s) to remove" -ForegroundColor Cyan
-
-            # Calculate sizes before removal (unless disabled)
-            if (-not $NoSizeCalculation)
-            {
-                Write-Verbose 'Calculating total size of items to remove...'
-                foreach ($item in $itemsToRemove)
+                # Disable progress bar for recursive directory search (PowerShell 7.4+)
+                if ($PSVersionTable.PSVersion.Major -ge 7 -and $PSVersionTable.PSVersion.Minor -ge 4)
                 {
-                    try
-                    {
-                        if ($item.PSIsContainer)
-                        {
-                            $getSizeParams = @{
-                                Path = $item.FullName
-                                Recurse = $true
-                                File = $true
-                                Force = $true
-                                ErrorAction = 'SilentlyContinue'
-                            }
-                            # Disable progress bar when calculating folder size
-                            if ($PSVersionTable.PSVersion.Major -ge 7 -and $PSVersionTable.PSVersion.Minor -ge 4)
-                            {
-                                $getSizeParams['ProgressAction'] = 'SilentlyContinue'
-                            }
-                            $itemSize = (Get-ChildItem @getSizeParams |
-                                Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
-                            if ($null -eq $itemSize) { $itemSize = 0 }
-                            $stats.TotalSpaceFreed += $itemSize
-                        }
-                        else
-                        {
-                            $stats.TotalSpaceFreed += $item.Length
-                        }
-                    }
-                    catch
-                    {
-                        Write-Verbose "Could not calculate size for: $($item.FullName)"
-                    }
+                    $getChildItemParams['ProgressAction'] = 'SilentlyContinue'
                 }
-            }
 
-            # Perform the actual cleanup
-            if ($PSCmdlet.ShouldProcess($resolvedPath, "Remove $fileTypeMessage files using 'git clean -f -d $cleanFlag'"))
-            {
-                Write-Verbose "Executing: git clean -f -d $cleanFlag"
-                $cleanOutput = & git -C $resolvedPath clean -f -d $cleanFlag 2>&1
+                $gitDirs = Get-ChildItem @getChildItemParams
 
-                if ($LASTEXITCODE -ne 0)
+                foreach ($gitDir in $gitDirs)
                 {
-                    Write-Error "Git clean failed: $cleanOutput"
-                    $stats.Errors++
+                    # The repository root is the parent of the .git directory
+                    $repoPath = $gitDir.Parent.FullName
+                    $repositories += $repoPath
+                    Write-Verbose "Found repository: $repoPath"
+                }
+
+                if ($repositories.Count -eq 0)
+                {
+                    Write-Host 'No Git repositories found in the specified path.' -ForegroundColor Yellow
                     return
                 }
 
-                # Parse output to count removed items
-                foreach ($line in $cleanOutput)
-                {
-                    if ($line -match '^Removing (.+)$')
-                    {
-                        $removedItem = $matches[1]
-                        Write-Host "Removed: $removedItem" -ForegroundColor Green
-
-                        # Determine if it was a file or directory
-                        if ($removedItem -match '/$')
-                        {
-                            $stats.DirectoriesRemoved++
-                        }
-                        else
-                        {
-                            $stats.FilesRemoved++
-                        }
-                    }
-                }
+                Write-Host "Found $($repositories.Count) Git repositor$(if ($repositories.Count -eq 1) { 'y' } else { 'ies' })" -ForegroundColor Cyan
             }
             else
             {
-                Write-Host "WhatIf: Would remove $($itemsToRemove.Count) $fileTypeMessage item(s) from $resolvedPath" -ForegroundColor Yellow
-
-                # Show what would be removed
-                foreach ($item in $itemsToRemove)
+                # Single repository mode - verify it's a Git repository
+                $gitCheckResult = & git -C $resolvedPath rev-parse --git-dir 2>&1
+                if ($LASTEXITCODE -ne 0)
                 {
-                    $relativePath = $item.FullName.Substring($resolvedPath.Length).TrimStart([System.IO.Path]::DirectorySeparatorChar)
-                    Write-Host "  Would remove: $relativePath" -ForegroundColor Yellow
+                    Write-Error "Path is not within a Git repository: $resolvedPath`nUse -Recurse to search for repositories within this path."
+                    return
+                }
+
+                Write-Verbose "Git repository found: $gitCheckResult"
+                $repositories += $resolvedPath
+            }
+
+            # Process each repository
+            foreach ($repoPath in $repositories)
+            {
+                try
+                {
+                    if ($Recurse)
+                    {
+                        Write-Host "`nProcessing: $repoPath" -ForegroundColor Cyan
+                    }
+
+                    # Determine what files would be removed
+                    # -n = dry run, -d = include directories, -X = ignored files only, -x = ignored + untracked
+                    $cleanFlag = if ($IncludeUntracked) { '-x' } else { '-X' }
+                    $dryRunOutput = & git -C $repoPath clean -n -d $cleanFlag 2>&1
+
+                    if ($LASTEXITCODE -ne 0)
+                    {
+                        Write-Warning "Git clean failed for $repoPath : $dryRunOutput"
+                        $stats.Errors++
+                        continue
+                    }
+
+                    # Parse the output to get list of files/directories
+                    $itemsToRemove = @()
+                    foreach ($line in $dryRunOutput)
+                    {
+                        if ($line -match '^Would remove (.+)$')
+                        {
+                            $itemPath = $matches[1]
+                            $fullPath = Join-Path -Path $repoPath -ChildPath $itemPath
+                            if (Test-Path -Path $fullPath)
+                            {
+                                $itemsToRemove += Get-Item -Path $fullPath -Force
+                            }
+                        }
+                    }
+
+                    if ($itemsToRemove.Count -eq 0)
+                    {
+                        if ($Recurse)
+                        {
+                            Write-Host '  No ignored files to remove' -ForegroundColor DarkGray
+                        }
+                        else
+                        {
+                            Write-Host 'No ignored files found to remove.' -ForegroundColor Yellow
+                        }
+                        continue
+                    }
+
+                    $fileTypeMessage = if ($IncludeUntracked) { 'ignored and untracked' } else { 'ignored' }
+                    if ($Recurse)
+                    {
+                        Write-Host "  Found $($itemsToRemove.Count) $fileTypeMessage item(s)" -ForegroundColor White
+                    }
+                    else
+                    {
+                        Write-Host "Found $($itemsToRemove.Count) $fileTypeMessage item(s) to remove" -ForegroundColor Cyan
+                    }
+
+                    # Calculate sizes before removal (unless disabled)
+                    if (-not $NoSizeCalculation)
+                    {
+                        Write-Verbose 'Calculating total size of items to remove...'
+                        foreach ($item in $itemsToRemove)
+                        {
+                            try
+                            {
+                                if ($item.PSIsContainer)
+                                {
+                                    $getSizeParams = @{
+                                        Path = $item.FullName
+                                        Recurse = $true
+                                        File = $true
+                                        Force = $true
+                                        ErrorAction = 'SilentlyContinue'
+                                    }
+                                    # Disable progress bar when calculating folder size
+                                    if ($PSVersionTable.PSVersion.Major -ge 7 -and $PSVersionTable.PSVersion.Minor -ge 4)
+                                    {
+                                        $getSizeParams['ProgressAction'] = 'SilentlyContinue'
+                                    }
+                                    $itemSize = (Get-ChildItem @getSizeParams |
+                                        Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
+                                    if ($null -eq $itemSize) { $itemSize = 0 }
+                                    $stats.TotalSpaceFreed += $itemSize
+                                }
+                                else
+                                {
+                                    $stats.TotalSpaceFreed += $item.Length
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not calculate size for: $($item.FullName)"
+                            }
+                        }
+                    }
+
+                    # Perform the actual cleanup
+                    $repoDisplayPath = if ($Recurse) { $repoPath } else { $repoPath }
+                    if ($PSCmdlet.ShouldProcess($repoDisplayPath, "Remove $fileTypeMessage files using 'git clean -f -d $cleanFlag'"))
+                    {
+                        Write-Verbose "Executing: git clean -f -d $cleanFlag in $repoPath"
+                        $cleanOutput = & git -C $repoPath clean -f -d $cleanFlag 2>&1
+
+                        if ($LASTEXITCODE -ne 0)
+                        {
+                            Write-Warning "Git clean failed for $repoPath : $cleanOutput"
+                            $stats.Errors++
+                            continue
+                        }
+
+                        # Parse output to count removed items
+                        foreach ($line in $cleanOutput)
+                        {
+                            if ($line -match '^Removing (.+)$')
+                            {
+                                $removedItem = $matches[1]
+                                if ($Recurse)
+                                {
+                                    Write-Host "  Removed: $removedItem" -ForegroundColor Green
+                                }
+                                else
+                                {
+                                    Write-Host "Removed: $removedItem" -ForegroundColor Green
+                                }
+
+                                # Determine if it was a file or directory
+                                if ($removedItem -match '/$')
+                                {
+                                    $stats.DirectoriesRemoved++
+                                }
+                                else
+                                {
+                                    $stats.FilesRemoved++
+                                }
+                            }
+                        }
+
+                        $stats.RepositoriesProcessed++
+                    }
+                    else
+                    {
+                        if ($Recurse)
+                        {
+                            Write-Host "  WhatIf: Would remove $($itemsToRemove.Count) $fileTypeMessage item(s)" -ForegroundColor Yellow
+                        }
+                        else
+                        {
+                            Write-Host "WhatIf: Would remove $($itemsToRemove.Count) $fileTypeMessage item(s) from $repoPath" -ForegroundColor Yellow
+                        }
+
+                        # Show what would be removed
+                        foreach ($item in $itemsToRemove)
+                        {
+                            $relativePath = $item.FullName.Substring($repoPath.Length).TrimStart([System.IO.Path]::DirectorySeparatorChar)
+                            if ($Recurse)
+                            {
+                                Write-Host "    Would remove: $relativePath" -ForegroundColor Yellow
+                            }
+                            else
+                            {
+                                Write-Host "  Would remove: $relativePath" -ForegroundColor Yellow
+                            }
+                        }
+                    }
+                }
+                catch
+                {
+                    $stats.Errors++
+                    Write-Warning "Error processing repository $repoPath : $($_.Exception.Message)"
+                    Write-Verbose "Error details: $($_.Exception)"
                 }
             }
         }
         catch
         {
             $stats.Errors++
-            Write-Error "Error processing repository: $($_.Exception.Message)"
+            Write-Error "Error processing path: $($_.Exception.Message)"
             Write-Verbose "Error details: $($_.Exception)"
         }
     }
@@ -312,6 +443,12 @@ function Remove-GitIgnoredFiles
 
         # Display summary
         Write-Host "`nCleanup Summary:" -ForegroundColor Cyan
+
+        if ($Recurse)
+        {
+            Write-Host "  Repositories processed: $($stats.RepositoriesProcessed)" -ForegroundColor White
+        }
+
         Write-Host "  Files removed: $($stats.FilesRemoved)" -ForegroundColor White
         Write-Host "  Directories removed: $($stats.DirectoriesRemoved)" -ForegroundColor White
 
@@ -329,6 +466,7 @@ function Remove-GitIgnoredFiles
 
         # Return statistics object
         return [PSCustomObject]@{
+            RepositoriesProcessed = $stats.RepositoriesProcessed
             FilesRemoved = $stats.FilesRemoved
             DirectoriesRemoved = $stats.DirectoriesRemoved
             TotalSpaceFreed = $spaceFreedFormatted
