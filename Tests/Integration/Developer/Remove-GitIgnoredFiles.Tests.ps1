@@ -1,9 +1,9 @@
 BeforeAll {
     # Load the function
-    . "$PSScriptRoot/../../Functions/Developer/Remove-GitIgnoredFiles.ps1"
+    . "$PSScriptRoot/../../../Functions/Developer/Remove-GitIgnoredFiles.ps1"
 
     # Import test utilities
-    . "$PSScriptRoot/../TestCleanupUtilities.ps1"
+    . "$PSScriptRoot/../../TestCleanupUtilities.ps1"
 
     # Check if Git is available
     $script:GitAvailable = $null -ne (Get-Command 'git' -ErrorAction SilentlyContinue)

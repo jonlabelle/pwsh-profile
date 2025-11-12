@@ -18,9 +18,12 @@
 #>
 
 BeforeAll {
-    # Import the functions to test
-    . "$PSScriptRoot/../../Functions/Security/Protect-PathWithPassword.ps1"
-    . "$PSScriptRoot/../../Functions/Security/Unprotect-PathWithPassword.ps1"
+    # Load the functions
+    . "$PSScriptRoot/../../../Functions/Security/Protect-PathWithPassword.ps1"
+    . "$PSScriptRoot/../../../Functions/Security/Unprotect-PathWithPassword.ps1"
+
+    # Import test utilities
+    . "$PSScriptRoot/../../TestCleanupUtilities.ps1"
 }
 
 Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Tests' {

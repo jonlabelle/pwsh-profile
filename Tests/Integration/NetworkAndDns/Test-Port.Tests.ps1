@@ -20,7 +20,7 @@
 
 BeforeAll {
     # Import the function under test
-    . "$PSScriptRoot/../../Functions/NetworkAndDns/Test-Port.ps1"
+    . "$PSScriptRoot/../../../Functions/NetworkAndDns/Test-Port.ps1"
 }
 
 Describe 'Test-Port Integration Tests' {

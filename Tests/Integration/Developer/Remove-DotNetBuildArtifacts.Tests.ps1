@@ -1,9 +1,9 @@
 BeforeAll {
     # Load the function
-    . "$PSScriptRoot/../../Functions/Developer/Remove-DotNetBuildArtifacts.ps1"
+    . "$PSScriptRoot/../../../Functions/Developer/Remove-DotNetBuildArtifacts.ps1"
 
     # Import test utilities
-    . "$PSScriptRoot/../TestCleanupUtilities.ps1"
+    . "$PSScriptRoot/../../TestCleanupUtilities.ps1"
 }
 
 Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {

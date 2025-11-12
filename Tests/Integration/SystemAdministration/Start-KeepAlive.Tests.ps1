@@ -20,15 +20,18 @@
 #>
 
 BeforeAll {
-    # Import the function under test
-    . "$PSScriptRoot/../../Functions/SystemAdministration/Start-KeepAlive.ps1"
+    # Load the function
+    . "$PSScriptRoot/../../../Functions/SystemAdministration/Start-KeepAlive.ps1"
 
-    # Detect if we're in a CI environment, we won't run integration tests here
+    # Import test utilities
+    . "$PSScriptRoot/../../TestCleanupUtilities.ps1"
+
+    # Detect if we're in a CI environment
     $script:IsCI = $env:CI -eq 'true' -or
-    $env:GITHUB_ACTIONS -eq 'true' -or
-    $env:APPVEYOR -eq 'True' -or
-    $env:AZURE_PIPELINES -eq 'True' -or
-    $env:TF_BUILD -eq 'True'
+        $env:GITHUB_ACTIONS -eq 'true' -or
+        $env:APPVEYOR -eq 'True' -or
+        $env:AZURE_PIPELINES -eq 'True' -or
+        $env:TF_BUILD -eq 'True'
 
     # Platform detection for cross-platform compatibility
     $script:IsWindowsTest = if ($PSVersionTable.PSVersion.Major -lt 6)

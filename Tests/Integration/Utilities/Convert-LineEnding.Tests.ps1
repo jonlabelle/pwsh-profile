@@ -18,8 +18,8 @@
 #>
 
 BeforeAll {
-    # Import the function under test
-    . "$PSScriptRoot/../../Functions/Utilities/Convert-LineEndings.ps1"
+    # Load the function
+    . "$PSScriptRoot/../../../Functions/Utilities/Convert-LineEndings.ps1"
 
     # Create a comprehensive test directory structure
     $script:TestDir = Join-Path $TestDrive 'LineEndingIntegrationTests'

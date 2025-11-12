@@ -14,8 +14,8 @@
 #>
 
 BeforeAll {
-    # Import the function under test
-    . "$PSScriptRoot/../../Functions/Utilities/Get-CommandAlias.ps1"
+    # Load the function under test
+    . "$PSScriptRoot/../../../Functions/Utilities/Get-CommandAlias.ps1"
 }
 
 Describe 'Get-CommandAlias' {

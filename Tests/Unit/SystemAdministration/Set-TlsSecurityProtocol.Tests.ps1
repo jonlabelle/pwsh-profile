@@ -1,8 +1,8 @@
 #Requires -Modules Pester
 
 BeforeAll {
-    # Import the function for testing
-    . "$PSScriptRoot/../../Functions/SystemAdministration/Set-TlsSecurityProtocol.ps1"
+    # Load the function
+    . "$PSScriptRoot/../../../Functions/SystemAdministration/Set-TlsSecurityProtocol.ps1"
 
     # Save the original security protocol for restoration
     $script:OriginalSecurityProtocol = [Net.ServicePointManager]::SecurityProtocol
@@ -194,7 +194,7 @@ Describe 'Set-TlsSecurityProtocol' {
         It 'Should handle ServicePointManager access errors gracefully' {
             # This is difficult to test directly, but we can verify the function structure
             # The function should catch and re-throw errors with meaningful messages
-            $functionContent = Get-Content "$PSScriptRoot/../../Functions/SystemAdministration/Set-TlsSecurityProtocol.ps1" -Raw
+            $functionContent = Get-Content "$PSScriptRoot/../../../Functions/SystemAdministration/Set-TlsSecurityProtocol.ps1" -Raw
             $functionContent | Should -Match 'try\s*\{'
             $functionContent | Should -Match 'catch\s*\{'
             $functionContent | Should -Match 'Write-Error'

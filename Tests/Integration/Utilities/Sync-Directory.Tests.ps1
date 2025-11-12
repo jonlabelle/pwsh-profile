@@ -1,9 +1,9 @@
 BeforeAll {
     # Load the function
-    . "$PSScriptRoot/../../Functions/Utilities/Sync-Directory.ps1"
+    . "$PSScriptRoot/../../../Functions/Utilities/Sync-Directory.ps1"
 
     # Import test utilities
-    . "$PSScriptRoot/../TestCleanupUtilities.ps1"
+    . "$PSScriptRoot/../../TestCleanupUtilities.ps1"
 }
 
 Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
