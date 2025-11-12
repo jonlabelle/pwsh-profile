@@ -32,7 +32,7 @@
   - [Profile Management](#profile-management)
   - [Media Processing](#media-processing)
   - [Utilities](#utilities)
-  - [Local Functions](#local-functions)
+- [Local Functions](#local-functions)
 - [Update](#update)
 - [Contributing](#contributing)
 - [Author](#author)
@@ -139,7 +139,7 @@ The profile includes various utility commands organized by category:
 - **[`New-RandomString`](Functions/Utilities/New-RandomString.ps1)** — Generates random strings, useful for passwords/tokens
 - **[`Sync-Directory`](Functions/Utilities/Sync-Directory.ps1)** — Synchronizes directories using native platform tools (rsync/robocopy)
 
-### Local Functions
+## Local Functions
 
 The [`Functions/Local/`](./Functions/Local/) directory is available for your **machine-local functions** that you don't want to commit to the repository. This is perfect for:
 
@@ -150,7 +150,7 @@ The [`Functions/Local/`](./Functions/Local/) directory is available for your **m
 
 Any PowerShell file placed in `Functions/Local/` will be automatically loaded, just like the built-in functions. The entire directory is git-ignored, so your functions will never be accidentally committed.
 
-**See [Functions/Local/README.md](Functions/Local/README.md) for detailed usage instructions, templates, and examples.**
+> See the [local functions README](Functions/Local/README.md) for detailed instructions, templates, and examples.
 
 ## Update
 
