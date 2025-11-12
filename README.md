@@ -22,6 +22,7 @@
   - [Windows](#windows)
     - [PowerShell Desktop](#powershell-desktop)
     - [PowerShell Core](#powershell-core)
+- [Update](#update)
 - [Available Commands](#available-commands)
   - [Network and DNS](#network-and-dns)
   - [System Administration](#system-administration)
@@ -33,7 +34,6 @@
   - [Media Processing](#media-processing)
   - [Utilities](#utilities)
 - [Local Functions](#local-functions)
-- [Update](#update)
 - [Contributing](#contributing)
 - [Author](#author)
 - [License](#license)
@@ -67,6 +67,20 @@ git clone 'https://github.com/jonlabelle/pwsh-profile.git' $HOME\Documents\Windo
 
 ```powershell
 git clone 'https://github.com/jonlabelle/pwsh-profile.git' $HOME\Documents\PowerShell
+```
+
+## Update
+
+To manually pull in the latest updates from [this repo](https://github.com/jonlabelle/pwsh-profile):
+
+```powershell
+Update-Profile
+```
+
+You can also check for available updates without applying them:
+
+```powershell
+Test-ProfileUpdate
 ```
 
 ## Available Commands
@@ -151,20 +165,6 @@ The [`Functions/Local/`](./Functions/Local/) directory is available for your **m
 Any PowerShell file placed in `Functions/Local/` will be automatically loaded, just like the built-in functions. The entire directory is git-ignored, so your functions will never be accidentally committed.
 
 > See the [local functions README](Functions/Local/README.md) for detailed instructions, templates, and examples.
-
-## Update
-
-To manually pull in the latest updates from [this repo](https://github.com/jonlabelle/pwsh-profile):
-
-```powershell
-Update-Profile
-```
-
-You can also check for available updates without applying them:
-
-```powershell
-Test-ProfileUpdate
-```
 
 ## Contributing
 
