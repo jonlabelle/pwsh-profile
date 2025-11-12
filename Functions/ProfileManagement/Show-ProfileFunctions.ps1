@@ -1,28 +1,28 @@
-function Show-ProfileCommands
+function Show-ProfileFunctions
 {
     <#
     .SYNOPSIS
-        Shows a bulleted list of all available commands in the PowerShell profile Functions folder.
+        Shows a bulleted list of all available functions in the PowerShell profile Functions folder.
 
     .DESCRIPTION
         This function scans the Functions folder and extracts the SYNOPSIS from each PowerShell function file
-        to display a simple bulleted list of available commands with their descriptions.
+        to display a simple bulleted list of available functions with their descriptions.
         Helps users discover what functions are available in their profile.
 
         Compatible with PowerShell Desktop 5.1+ on Windows, macOS, and Linux.
 
     .EXAMPLE
-        PS > Show-ProfileCommands
+        PS > Show-ProfileFunctions
 
         - Get-CertificateDetails - Gets detailed information about a certificate
         - Get-CertificateExpiration - Checks certificate expiration dates
         - Test-DnsNameResolution - Tests if a DNS name can be resolved
 
-        Displays all available profile commands with brief descriptions.
+        Displays all available profile functions with brief descriptions.
 
     .OUTPUTS
         System.String
-        Formatted list of commands and descriptions
+        Formatted list of functions and descriptions
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding()]
@@ -31,7 +31,7 @@ function Show-ProfileCommands
 
     begin
     {
-        Write-Verbose 'Starting Show-ProfileCommands'
+        Write-Verbose 'Starting Show-ProfileFunctions'
 
         # Get the Functions directory path relative to the profile script
         $profilePath = $PROFILE
@@ -110,19 +110,19 @@ function Show-ProfileCommands
                     $synopsis = 'Unable to read description'
                 }
 
-                # Format and display the command with description
+                # Format and display the function with description
                 Write-Host ' - ' -ForegroundColor Yellow -NoNewline
                 Write-Host $functionName -ForegroundColor Green -NoNewline
                 Write-Host ' - ' -ForegroundColor Yellow -NoNewline
                 Write-Host $synopsis -ForegroundColor White
             }
 
-            # Write-Host "`nTotal commands: " -ForegroundColor Cyan -NoNewline
+            # Write-Host "`nTotal functions: " -ForegroundColor Cyan -NoNewline
             # Write-Host $functionFiles.Count -ForegroundColor White
 
             # Add helpful footer
-            Write-Host "`nFor full details about any command, use: " -ForegroundColor Gray -NoNewline
-            Write-Host 'Get-Help <Command-Name>' -ForegroundColor White
+            Write-Host "`nFor full details about any function, use: " -ForegroundColor Gray -NoNewline
+            Write-Host 'Get-Help <Function-Name>' -ForegroundColor White
             Write-Host 'Example: ' -ForegroundColor Gray -NoNewline
             Write-Host 'Get-Help Test-Port -Full' -ForegroundColor White
         }
@@ -135,6 +135,6 @@ function Show-ProfileCommands
 
     end
     {
-        Write-Verbose 'Show-ProfileCommands completed'
+        Write-Verbose 'Show-ProfileFunctions completed'
     }
 }

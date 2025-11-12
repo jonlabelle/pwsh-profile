@@ -129,7 +129,7 @@ The profile includes utility functions organized by category:
 
 ### Profile Management
 
-- **[`Show-ProfileCommands`](Functions/ProfileManagement/Show-ProfileCommands.ps1)** — Shows all functions available in this PowerShell profile
+- **[`Show-ProfileFunctions`](Functions/ProfileManagement/Show-ProfileFunctions.ps1)** — Shows all functions available in this PowerShell profile
 - **[`Test-ProfileUpdate`](Functions/ProfileManagement/Test-ProfileUpdate.ps1)** — Checks for available profile updates from the GitHub repository
 
 ### Media Processing
