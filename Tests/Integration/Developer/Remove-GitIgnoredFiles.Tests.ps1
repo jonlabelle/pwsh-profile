@@ -33,6 +33,7 @@ Describe 'Remove-GitIgnoredFiles Integration Tests' -Tag 'Integration' {
             $null = & git -C $script:RepoPath init 2>&1
             $null = & git -C $script:RepoPath config user.email 'test@example.com' 2>&1
             $null = & git -C $script:RepoPath config user.name 'Test User' 2>&1
+            $null = & git -C $script:RepoPath config core.autocrlf false 2>&1
 
             # Create .gitignore
             @'
@@ -209,6 +210,7 @@ temp/
                 $null = & git -C $repoPath init 2>&1
                 $null = & git -C $repoPath config user.email 'test@example.com' 2>&1
                 $null = & git -C $repoPath config user.name 'Test User' 2>&1
+                $null = & git -C $repoPath config core.autocrlf false 2>&1
 
                 # Create .gitignore
                 '*.log' | Set-Content (Join-Path $repoPath '.gitignore')
@@ -309,6 +311,7 @@ temp/
             $null = & git -C $script:RepoPath init 2>&1
             $null = & git -C $script:RepoPath config user.email 'test@example.com' 2>&1
             $null = & git -C $script:RepoPath config user.name 'Test User' 2>&1
+            $null = & git -C $script:RepoPath config core.autocrlf false 2>&1
 
             '*.log' | Set-Content (Join-Path $script:RepoPath '.gitignore')
             $null = & git -C $script:RepoPath add .gitignore 2>&1
