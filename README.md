@@ -7,7 +7,7 @@
 ## Features
 
 - **Cross-platform compatibility** - Works on Windows, macOS, and Linux
-- **Auto-loading functions** - All functions in the [`Functions/`](./Functions/) are auto-loaded with your profile
+- **Auto-loading functions** - All functions in the [`Functions/`](./Functions/) directory are auto-loaded with your profile
 - **Local functions support** - Add your own functions to [`Functions/Local/`](./Functions/Local/)
 - **Custom prompt** - Clean, colored PowerShell prompt
 
@@ -18,12 +18,8 @@
 ## Table of Contents
 
 - [Install](#install)
-  - [Linux/macOS](#linuxmacos)
-  - [Windows](#windows)
-    - [PowerShell Desktop](#powershell-desktop)
-    - [PowerShell Core](#powershell-core)
 - [Update](#update)
-- [Available Commands](#available-commands)
+- [Functions](#functions)
   - [Network and DNS](#network-and-dns)
   - [System Administration](#system-administration)
   - [Developer](#developer)
@@ -40,22 +36,19 @@
 
 ## Install
 
-~~Overlay~~ Overwrite your [PowerShell profile path](https://gist.github.com/jonlabelle/f2a4fdd989dbfe59e444e0beaf07bcc9) with the contents of this repository.
-
-Choose your appropriate platform:
-
-- [Linux/macOS](#linuxmacos)
-- [Windows](#windows)
-  - [PowerShell Desktop](#powershell-desktop)
-  - [PowerShell Core](#powershell-core)
+Clone this repository into your PowerShell profile directory to replace any existing configuration. Choose the correct target path for your platform and run the corresponding `git clone` command.
 
 ### Linux/macOS
+
+From a PowerShell session on Linux or macOS, run:
 
 ```powershell
 git clone 'https://github.com/jonlabelle/pwsh-profile.git' $HOME/.config/powershell
 ```
 
 ### Windows
+
+On Windows, select the appropriate PowerShell version and run the corresponding command.
 
 #### PowerShell Desktop
 
@@ -71,21 +64,21 @@ git clone 'https://github.com/jonlabelle/pwsh-profile.git' $HOME\Documents\Power
 
 ## Update
 
-To manually pull in the latest updates from [this repo](https://github.com/jonlabelle/pwsh-profile):
+To pull in the latest updates from the repository:
 
 ```powershell
 Update-Profile
 ```
 
-You can also check for available updates without applying them:
+You can check for available updates without applying them:
 
 ```powershell
 Test-ProfileUpdate
 ```
 
-## Available Commands
+## Functions
 
-The profile includes various utility commands organized by category:
+The profile includes utility functions organized by category:
 
 ### Network and DNS
 
@@ -126,17 +119,17 @@ The profile includes various utility commands organized by category:
 
 - **[`Invoke-GroupPolicyUpdate`](Functions/ActiveDirectory/Invoke-GroupPolicyUpdate.ps1)** — Forces an immediate Group Policy update on Windows systems
 - **[`Test-ADCredential`](Functions/ActiveDirectory/Test-ADCredential.ps1)** — Validates Active Directory user credentials
-- **[`Test-ADUserLocked`](Functions/ActiveDirectory/Test-ADUserLocked.ps1)** — Test if an Active Directory user account is locked out
+- **[`Test-ADUserLocked`](Functions/ActiveDirectory/Test-ADUserLocked.ps1)** — Tests if an Active Directory user account is locked out
 
 ### PowerShell Module Management
 
-- **[`Get-OutdatedModules`](Functions/ModuleManagement/Get-OutdatedModules.ps1)** — Check if any installed PowerShell modules have newer versions
+- **[`Get-OutdatedModules`](Functions/ModuleManagement/Get-OutdatedModules.ps1)** — Checks if any installed PowerShell modules have newer versions available
 - **[`Remove-OldModules`](Functions/ModuleManagement/Remove-OldModules.ps1)** — Removes older versions of installed PowerShell modules
-- **[`Update-AllModules`](Functions/ModuleManagement/Update-AllModules.ps1)** — Updates all PowerShell modules to latest versions
+- **[`Update-AllModules`](Functions/ModuleManagement/Update-AllModules.ps1)** — Updates all PowerShell modules to the latest versions
 
 ### Profile Management
 
-- **[`Show-ProfileCommands`](Functions/ProfileManagement/Show-ProfileCommands.ps1)** — Show all commands available in this PowerShell profile
+- **[`Show-ProfileCommands`](Functions/ProfileManagement/Show-ProfileCommands.ps1)** — Shows all functions available in this PowerShell profile
 - **[`Test-ProfileUpdate`](Functions/ProfileManagement/Test-ProfileUpdate.ps1)** — Checks for available profile updates from the GitHub repository
 
 ### Media Processing
@@ -147,10 +140,10 @@ The profile includes various utility commands organized by category:
 ### Utilities
 
 - **[`Convert-LineEndings`](Functions/Utilities/Convert-LineEndings.ps1)** — Converts line endings between Unix and Windows
-- **[`Copy-DirectoryWithExclusions`](Functions/Utilities/Copy-DirectoryWithExclusions.ps1)** — Copies directories recursively and exclude specific directories
+- **[`Copy-DirectoryWithExclusions`](Functions/Utilities/Copy-DirectoryWithExclusions.ps1)** — Copies directories recursively while excluding specific directories
 - **[`Get-CommandAlias`](Functions/Utilities/Get-CommandAlias.ps1)** — Displays aliases for PowerShell cmdlets
 - **[`Get-IPSubnet`](Functions/Utilities/Get-IPSubnet.ps1)** — Calculates IP subnet information including network/broadcast addresses
-- **[`New-RandomString`](Functions/Utilities/New-RandomString.ps1)** — Generates random strings, useful for passwords/tokens
+- **[`New-RandomString`](Functions/Utilities/New-RandomString.ps1)** — Generates random strings for passwords, tokens, and other uses
 - **[`Sync-Directory`](Functions/Utilities/Sync-Directory.ps1)** — Synchronizes directories using native platform tools (rsync/robocopy)
 
 ## Local Functions
@@ -162,17 +155,17 @@ The [`Functions/Local/`](./Functions/Local/) directory is available for your **m
 - Experimental functions you're testing
 - Machine-specific automations
 
-Any PowerShell file placed in `Functions/Local/` will be automatically loaded, just like the built-in functions. The entire directory is git-ignored, so your functions will never be accidentally committed.
+Any PowerShell file placed in `Functions/Local/` will be automatically loaded, just like the built-in functions. The entire directory is git-ignored, so your local functions are never accidentally committed and remain completely untouched when you run `Update-Profile` to pull the latest changes.
 
 > See the [local functions README](Functions/Local/README.md) for detailed instructions, templates, and examples.
 
 ## Contributing
 
-Contributions are welcome! Please follow these basic guidelines:
+Contributions are welcome! Please follow these guidelines:
 
-- One function per file in Functions/ (Verb-Noun.ps1) — auto-loaded by the main profile.
-- Open a [pull request](https://github.com/jonlabelle/pwsh-profile/pulls) with a brief description and include basic verification steps (lint + quick functional test).
-- Keep changes cross-platform compatible per the project's conventions. See [./Functions](./Functions/) folder for examples.
+- One function per file in `Functions/` (named `Verb-Noun.ps1`) — auto-loaded by the main profile
+- Open a [pull request](https://github.com/jonlabelle/pwsh-profile/pulls) with a clear description and basic verification steps (linting + functional testing)
+- Maintain cross-platform compatibility following the project's conventions (see [`./Functions`](./Functions/) for examples)
 
 ## Author
 
