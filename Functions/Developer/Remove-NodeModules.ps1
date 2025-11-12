@@ -19,10 +19,10 @@ function Remove-NodeModules
         Array of directory names to exclude from the search. Defaults to @('.git').
         These directories and their subdirectories will not be searched for Node.js projects.
 
-    .PARAMETER CalculateSize
-        Calculates the size of folders before removal. This provides detailed space freed information
-        but may significantly slow down execution for large directory structures. By default, size
-        calculation is skipped for better performance.
+    .PARAMETER NoSizeCalculation
+        Skips calculating the size of folders before removal. By default, folder sizes are calculated
+        to provide detailed space freed information. Use this switch for large directory structures
+        to significantly speed up execution.
 
     .PARAMETER WhatIf
         Shows what would be removed without actually removing anything.
@@ -33,12 +33,13 @@ function Remove-NodeModules
     .EXAMPLE
         PS > Remove-NodeModules
 
-        Removes all node_modules folders from Node.js projects in the current directory and subdirectories.
+        Removes all node_modules folders from Node.js projects in the current directory and subdirectories,
+        showing the total space freed.
 
     .EXAMPLE
-        PS > Remove-NodeModules -CalculateSize
+        PS > Remove-NodeModules -NoSizeCalculation
 
-        Removes node_modules folders and calculates the total space freed (slower but provides detailed statistics).
+        Removes node_modules folders without calculating space freed (faster for large directory structures).
 
     .EXAMPLE
         PS > Remove-NodeModules -Path ~/Projects -WhatIf
@@ -65,7 +66,7 @@ function Remove-NodeModules
         Returns an object with summary information about the operation:
         - TotalProjectsFound: Number of Node.js projects discovered
         - FoldersRemoved: Number of folders successfully removed
-        - TotalSpaceFreed: Total disk space freed (only calculated if -CalculateSize is specified)
+        - TotalSpaceFreed: Total disk space freed (unless -NoSizeCalculation is specified)
         - Errors: Number of errors encountered
 
     .NOTES
@@ -89,7 +90,7 @@ function Remove-NodeModules
         [String[]]$ExcludeDirectory = @('.git'),
 
         [Parameter()]
-        [Switch]$CalculateSize
+        [Switch]$NoSizeCalculation
     )
 
     begin
@@ -197,12 +198,12 @@ function Remove-NodeModules
 
                     try
                     {
-                        # Calculate folder size before removal (only if requested)
+                        # Calculate folder size before removal (unless disabled)
                         $folderSize = [int64]0
                         if ($PSCmdlet.ShouldProcess($folder.FullName, 'Remove node_modules folder'))
                         {
-                            # Calculate size for reporting (only if -CalculateSize is specified)
-                            if ($CalculateSize)
+                            # Calculate size for reporting (unless -NoSizeCalculation is specified)
+                            if (-not $NoSizeCalculation)
                             {
                                 try
                                 {
@@ -286,7 +287,7 @@ function Remove-NodeModules
         }
 
         # Format space freed for output and return object
-        $spaceFreedFormatted = if ($CalculateSize)
+        $spaceFreedFormatted = if (-not $NoSizeCalculation)
         {
             if ($stats.TotalSpaceFreed -gt 0)
             {
@@ -299,7 +300,7 @@ function Remove-NodeModules
         }
         else
         {
-            'Not calculated (use -CalculateSize for details)'
+            'Not calculated (use without -NoSizeCalculation for details)'
         }
 
         # Display summary
@@ -307,7 +308,7 @@ function Remove-NodeModules
         Write-Host "  Projects found: $($stats.ProjectsFound)" -ForegroundColor White
         Write-Host "  Folders removed: $($stats.FoldersRemoved)" -ForegroundColor White
 
-        if ($CalculateSize -and $stats.TotalSpaceFreed -gt 0)
+        if (-not $NoSizeCalculation -and $stats.TotalSpaceFreed -gt 0)
         {
             Write-Host "  Space freed: $spaceFreedFormatted" -ForegroundColor Green
         }
