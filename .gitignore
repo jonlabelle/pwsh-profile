@@ -36,9 +36,9 @@ node_modules
 .env.*.local
 
 # PowerShell profile parts
-Help/
-Modules/
-Scripts/
+/Help/
+/Modules/
+/Scripts/
 
 # Log files
 npm-debug.log*
