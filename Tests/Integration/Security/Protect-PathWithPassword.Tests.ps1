@@ -324,34 +324,43 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
 
     Context 'OpenSSL Interoperability' {
         BeforeAll {
-            # Check if the bash script and OpenSSL with KDF support are available
-            $BashScriptPath = Join-Path $PSScriptRoot 'scripts/pwsh-encrypt-compat.sh'
-            $script:BashScriptAvailable = (Test-Path $BashScriptPath) -and
-            ($null -ne (Get-Command bash -ErrorAction SilentlyContinue)) -and
-            ($null -ne (Get-Command openssl -ErrorAction SilentlyContinue))
-
-            if ($script:BashScriptAvailable)
+            # Skip on Windows PowerShell Desktop 5.1 due to external command output handling issues
+            if ($PSVersionTable.PSVersion.Major -eq 5)
             {
-                # Test if OpenSSL has KDF support (OpenSSL 3.0+)
-                try
-                {
-                    $kdfTest = bash -c 'openssl kdf -help 2>&1'
-                    $hasKdf = ($LASTEXITCODE -eq 0) -and ($kdfTest -match 'kdf|KDF')
-                    if (-not $hasKdf)
-                    {
-                        $script:BashScriptAvailable = $false
-                        $script:SkipReason = 'OpenSSL 3.0+ with KDF support required'
-                    }
-                }
-                catch
-                {
-                    $script:BashScriptAvailable = $false
-                    $script:SkipReason = 'Failed to test OpenSSL KDF support'
-                }
+                $script:BashScriptAvailable = $false
+                $script:SkipReason = 'Skipped on PowerShell Desktop 5.1 (external command compatibility issues)'
             }
             else
             {
-                $script:SkipReason = 'Bash script or OpenSSL not available'
+                # Check if the bash script and OpenSSL with KDF support are available
+                $BashScriptPath = Join-Path $PSScriptRoot 'scripts/pwsh-encrypt-compat.sh'
+                $script:BashScriptAvailable = (Test-Path $BashScriptPath) -and
+                ($null -ne (Get-Command bash -ErrorAction SilentlyContinue)) -and
+                ($null -ne (Get-Command openssl -ErrorAction SilentlyContinue))
+
+                if ($script:BashScriptAvailable)
+                {
+                    # Test if OpenSSL has KDF support (OpenSSL 3.0+)
+                    try
+                    {
+                        $kdfTest = bash -c 'openssl kdf -help 2>&1'
+                        $hasKdf = ($LASTEXITCODE -eq 0) -and ($kdfTest -match 'kdf|KDF')
+                        if (-not $hasKdf)
+                        {
+                            $script:BashScriptAvailable = $false
+                            $script:SkipReason = 'OpenSSL 3.0+ with KDF support required'
+                        }
+                    }
+                    catch
+                    {
+                        $script:BashScriptAvailable = $false
+                        $script:SkipReason = 'Failed to test OpenSSL KDF support'
+                    }
+                }
+                else
+                {
+                    $script:SkipReason = 'Bash script or OpenSSL not available'
+                }
             }
         }
 
