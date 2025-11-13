@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  ci:
+  powershell-core:
     name: Build on ${{ matrix.platform }} (pwsh)
     runs-on: ${{ matrix.platform }}
     strategy:
@@ -62,7 +62,7 @@ jobs:
           name: test-results-${{ matrix.platform }}
           path: testresults.xml
 
-  ci-powershell-desktop:
+  powershell-desktop:
     name: Build on windows-latest (powershell)
     runs-on: windows-latest
 
