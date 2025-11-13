@@ -71,6 +71,17 @@ check_dependencies() {
     echo "Please install: ${missing[*]}" >&2
     exit 1
   fi
+
+  # Check OpenSSL version - need 3.0+ for kdf command
+  local openssl_version=$(openssl version | awk '{print $2}')
+  local major_version=$(echo "$openssl_version" | cut -d. -f1)
+
+  if [ "$major_version" -lt 3 ]; then
+    echo "Error: OpenSSL 3.0 or higher is required for KDF support" >&2
+    echo "Current version: $openssl_version" >&2
+    echo "The 'openssl kdf' command is not available in OpenSSL 1.x" >&2
+    exit 1
+  fi
 }
 
 # Derive key using PBKDF2-HMAC-SHA256

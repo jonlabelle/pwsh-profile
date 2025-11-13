@@ -326,11 +326,11 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
         BeforeAll {
             # Check if the bash script and OpenSSL with KDF support are available
             $BashScriptPath = Join-Path $PSScriptRoot 'scripts/pwsh-encrypt-compat.sh'
-            $BashScriptAvailable = (Test-Path $BashScriptPath) -and
+            $script:BashScriptAvailable = (Test-Path $BashScriptPath) -and
             ($null -ne (Get-Command bash -ErrorAction SilentlyContinue)) -and
             ($null -ne (Get-Command openssl -ErrorAction SilentlyContinue))
 
-            if ($BashScriptAvailable)
+            if ($script:BashScriptAvailable)
             {
                 # Test if OpenSSL has KDF support (OpenSSL 3.0+)
                 try
@@ -339,23 +339,29 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
                     $hasKdf = ($LASTEXITCODE -eq 0) -and ($kdfTest -match 'kdf|KDF')
                     if (-not $hasKdf)
                     {
-                        $BashScriptAvailable = $false
-                        $SkipReason = 'OpenSSL 3.0+ with KDF support required'
+                        $script:BashScriptAvailable = $false
+                        $script:SkipReason = 'OpenSSL 3.0+ with KDF support required'
                     }
                 }
                 catch
                 {
-                    $BashScriptAvailable = $false
-                    $SkipReason = 'Failed to test OpenSSL KDF support'
+                    $script:BashScriptAvailable = $false
+                    $script:SkipReason = 'Failed to test OpenSSL KDF support'
                 }
             }
             else
             {
-                $SkipReason = 'Bash script or OpenSSL not available'
+                $script:SkipReason = 'Bash script or OpenSSL not available'
             }
         }
 
-        It 'Should decrypt files encrypted by the OpenSSL bash script' -Skip:(-not (Test-Path "$PSScriptRoot/scripts/pwsh-encrypt-compat.sh")) {
+        It 'Should decrypt files encrypted by the OpenSSL bash script' {
+            if (-not $script:BashScriptAvailable)
+            {
+                Set-ItResult -Skipped -Because $script:SkipReason
+                return
+            }
+
             $testFile = Join-Path $script:TestDir 'bash_encrypted.txt'
             $originalContent = 'Encrypted by bash, decrypted by PowerShell'
             $originalContent | Out-File -FilePath $testFile -Encoding UTF8 -NoNewline
@@ -384,7 +390,13 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             $content | Should -Be $originalContent
         }
 
-        It 'Should encrypt files that the OpenSSL bash script can decrypt' -Skip:(-not (Test-Path "$PSScriptRoot/scripts/pwsh-encrypt-compat.sh")) {
+        It 'Should encrypt files that the OpenSSL bash script can decrypt' {
+            if (-not $script:BashScriptAvailable)
+            {
+                Set-ItResult -Skipped -Because $script:SkipReason
+                return
+            }
+
             # Create test file with PowerShell
             $TestFile = Join-Path $script:TestDir 'test_roundtrip.txt'
             Set-Content -Path $TestFile -Value 'Testing PowerShell -> bash decryption'
@@ -422,7 +434,13 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             Remove-Item $decryptedFile -Force -ErrorAction SilentlyContinue
         }
 
-        It 'Should handle binary files with OpenSSL bash script' -Skip:(-not (Test-Path "$PSScriptRoot/scripts/pwsh-encrypt-compat.sh")) {
+        It 'Should handle binary files with OpenSSL bash script' {
+            if (-not $script:BashScriptAvailable)
+            {
+                Set-ItResult -Skipped -Because $script:SkipReason
+                return
+            }
+
             $testFile = Join-Path $script:TestDir 'binary_test.bin'
             $binaryData = [byte[]](0..255)
             [System.IO.File]::WriteAllBytes($testFile, $binaryData)
@@ -447,11 +465,7 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
         }
 
         It 'Should provide information about OpenSSL script availability' {
-            $BashScriptAvailable = (Test-Path "$PSScriptRoot/scripts/pwsh-encrypt-compat.sh") -and
-            ($null -ne (Get-Command bash -ErrorAction SilentlyContinue)) -and
-            ($null -ne (Get-Command openssl -ErrorAction SilentlyContinue))
-
-            if ($BashScriptAvailable)
+            if ($script:BashScriptAvailable)
             {
                 Write-Host 'OpenSSL bash script available and functional' -ForegroundColor Green
                 $opensslVersion = bash -c 'openssl version' 2>&1
@@ -460,11 +474,8 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             }
             else
             {
-                $SkipReason = if (-not (Test-Path "$PSScriptRoot/scripts/pwsh-encrypt-compat.sh")) { 'Bash script not found' }
-                elseif (-not (Get-Command bash -ErrorAction SilentlyContinue)) { 'Bash not available' }
-                elseif (-not (Get-Command openssl -ErrorAction SilentlyContinue)) { 'OpenSSL not available' }
-                else { 'Unknown reason' }
-                Write-Host "OpenSSL interoperability tests skipped: $SkipReason" -ForegroundColor Yellow
+                $reason = if ($script:SkipReason) { $script:SkipReason } else { 'Unknown reason' }
+                Write-Host "OpenSSL interoperability tests skipped: $reason" -ForegroundColor Yellow
                 Write-Host 'For full compatibility testing, install OpenSSL 3.0+ with KDF support' -ForegroundColor Yellow
                 $true | Should -Be $true
             }
