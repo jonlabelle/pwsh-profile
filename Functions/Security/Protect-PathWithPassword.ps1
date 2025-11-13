@@ -81,6 +81,26 @@
 
         Linux/macOS example: Encrypts all files in the documents directory recursively.
 
+    .EXAMPLE
+        # Cross-platform workflow: Encrypt on Windows, decrypt on Linux/macOS
+        # On Windows:
+        PS > Protect-PathWithPassword -Path "C:\data\secret.txt" -OutputPath "C:\share\secret.txt.enc"
+
+        # Transfer secret.txt.enc to Linux/macOS, then decrypt:
+        PS > Unprotect-PathWithPassword -Path "/mnt/share/secret.txt.enc"
+
+        Files encrypted by this function can be decrypted on any platform running PowerShell 5.1+.
+
+    .EXAMPLE
+        # OpenSSL-compatible encryption (bash/zsh) - requires OpenSSL 3.0+ with KDF support:
+        ./Tests/Integration/Security/scripts/pwsh-encrypt-compat.sh encrypt -i secret.txt -o secret.txt.enc -p "MyPassword123"
+
+        # Files encrypted with the pwsh-encrypt-compat.sh script can be decrypted by PowerShell:
+        PS > Unprotect-PathWithPassword -Path "secret.txt.enc"
+
+        See Tests/Integration/Security/scripts/pwsh-encrypt-compat.sh for a bash implementation using OpenSSL that creates
+        compatible encrypted files.
+
     .OUTPUTS
         System.Management.Automation.PSCustomObject
         Returns objects with OriginalPath, EncryptedPath, Success, and Error properties for each processed file.
@@ -92,6 +112,17 @@
 
         COMPATIBILITY:
         Requires .NET Framework 4.0+ or .NET Core 2.0+ for cryptographic functions.
+        Files can be encrypted on one platform and decrypted on another (Windows/macOS/Linux).
+
+        OPENSSL COMPATIBILITY:
+        OpenSSL's 'enc' command uses a different file format and is NOT directly compatible.
+        However, you can use OpenSSL's lower-level commands to create compatible files.
+
+        A reference bash script (Tests/Integration/Security/scripts/pwsh-encrypt-compat.sh) is provided that uses
+        OpenSSL's 'kdf' and 'enc' commands to create files compatible with these functions.
+        The script uses: OpenSSL KDF for PBKDF2, explicit key (-K) and IV (-iv) for AES-256-CBC.
+
+        Requirements: OpenSSL 3.0+ with KDF support, xxd (for hex conversion)
 
         PERFORMANCE:
         Large files are processed efficiently using streaming operations where possible.

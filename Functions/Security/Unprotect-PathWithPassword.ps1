@@ -81,6 +81,25 @@
 
         Linux/macOS example: Decrypts all .enc files in the encrypted directory recursively.
 
+    .EXAMPLE
+        # Cross-platform workflow: Files encrypted on any platform can be decrypted on any other
+        # Encrypted on macOS:
+        PS > Protect-PathWithPassword -Path "~/documents/secret.txt"
+
+        # Transfer secret.txt.enc to Windows, then decrypt:
+        PS > Unprotect-PathWithPassword -Path "C:\Users\user\Downloads\secret.txt.enc"
+
+        The same PowerShell functions work identically across Windows, macOS, and Linux.
+
+    .EXAMPLE
+        # OpenSSL-compatible decryption (bash/zsh) - requires OpenSSL 3.0+ with KDF support:
+        ./Tests/Integration/Security/scripts/pwsh-encrypt-compat.sh decrypt -i secret.txt.enc -o secret.txt -p "MyPassword123"
+
+        # Files encrypted by PowerShell can be decrypted using the provided bash script:
+        # This allows decryption on systems where PowerShell may not be available.
+
+        See Tests/Integration/Security/scripts/pwsh-encrypt-compat.sh for full implementation details.
+
     .OUTPUTS
         System.Management.Automation.PSCustomObject
         Returns objects with EncryptedPath, DecryptedPath, Success, and Error properties for each processed file.
@@ -92,6 +111,17 @@
 
         COMPATIBILITY:
         Requires .NET Framework 4.0+ or .NET Core 2.0+ for cryptographic functions.
+        Files encrypted on any platform can be decrypted on any other platform running PowerShell.
+
+        OPENSSL COMPATIBILITY:
+        OpenSSL's 'enc' command uses a different file format and is NOT directly compatible.
+        However, OpenSSL can be used to create and decrypt compatible files using lower-level commands.
+
+        A reference bash script (Tests/Integration/Security/scripts/pwsh-encrypt-compat.sh) demonstrates how to use
+        OpenSSL's 'kdf' command for PBKDF2 key derivation and 'enc' with explicit -K/-iv flags
+        to encrypt/decrypt files in the same format as these PowerShell functions.
+
+        This enables encryption/decryption on systems without PowerShell using only OpenSSL.
 
         ERROR HANDLING:
         Distinguishes between wrong passwords, corrupted files, and other errors.

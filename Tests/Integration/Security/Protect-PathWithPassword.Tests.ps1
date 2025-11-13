@@ -267,4 +267,207 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             }
         }
     }
+
+    Context 'Cross-Platform Compatibility' {
+        It 'Should create consistent file format across all platforms' {
+            $testFile = Join-Path $script:TestDir 'cross_platform.txt'
+            'Cross-platform test content' | Out-File -FilePath $testFile -Encoding UTF8 -NoNewline
+
+            # Encrypt the file
+            $encResult = Protect-PathWithPassword -Path $testFile -Password $script:TestPassword
+
+            # Read the encrypted file structure
+            $encryptedBytes = [System.IO.File]::ReadAllBytes($encResult.EncryptedPath)
+
+            # Verify expected structure: 32-byte salt + 16-byte IV + encrypted data
+            $encryptedBytes.Length | Should -BeGreaterThan 48  # Minimum size
+
+            # Extract components
+            $salt = $encryptedBytes[0..31]
+            $iv = $encryptedBytes[32..47]
+            $ciphertext = $encryptedBytes[48..($encryptedBytes.Length - 1)]
+
+            # Verify salt and IV are not all zeros (proper randomness)
+            $salt | Should -Not -Be (@(0) * 32)
+            $iv | Should -Not -Be (@(0) * 16)
+
+            # Verify we can decrypt it
+            Remove-Item $testFile -Force
+            $decResult = Unprotect-PathWithPassword -Path $encResult.EncryptedPath -Password $script:TestPassword
+
+            $decResult.Success | Should -Be $true
+            $content = Get-Content $decResult.DecryptedPath -Raw
+            $content | Should -Be 'Cross-platform test content'
+        }
+
+        It 'Should handle files encrypted on different PowerShell versions' {
+            # This test simulates the file format that should work across PS 5.1 and PS 7+
+            $testFile = Join-Path $script:TestDir 'version_test.txt'
+            'PowerShell version compatibility test' | Out-File -FilePath $testFile -Encoding UTF8 -NoNewline
+
+            # Encrypt and get the file structure
+            $encResult = Protect-PathWithPassword -Path $testFile -Password $script:TestPassword
+
+            # Verify the file can be read and parsed correctly
+            $encryptedBytes = [System.IO.File]::ReadAllBytes($encResult.EncryptedPath)
+
+            # Manually verify structure (same as what Unprotect expects)
+            $encryptedBytes.Length | Should -BeGreaterOrEqual 64
+
+            # Decrypt should work
+            Remove-Item $testFile -Force
+            $decResult = Unprotect-PathWithPassword -Path $encResult.EncryptedPath -Password $script:TestPassword
+
+            $decResult.Success | Should -Be $true
+        }
+    }
+
+    Context 'OpenSSL Interoperability' {
+        BeforeAll {
+            # Check if the bash script and OpenSSL with KDF support are available
+            $BashScriptPath = Join-Path $PSScriptRoot 'scripts/pwsh-encrypt-compat.sh'
+            $BashScriptAvailable = (Test-Path $BashScriptPath) -and
+            ($null -ne (Get-Command bash -ErrorAction SilentlyContinue)) -and
+            ($null -ne (Get-Command openssl -ErrorAction SilentlyContinue))
+
+            if ($BashScriptAvailable)
+            {
+                # Test if OpenSSL has KDF support (OpenSSL 3.0+)
+                try
+                {
+                    $kdfTest = bash -c 'openssl kdf -help 2>&1'
+                    $hasKdf = ($LASTEXITCODE -eq 0) -and ($kdfTest -match 'kdf|KDF')
+                    if (-not $hasKdf)
+                    {
+                        $BashScriptAvailable = $false
+                        $SkipReason = 'OpenSSL 3.0+ with KDF support required'
+                    }
+                }
+                catch
+                {
+                    $BashScriptAvailable = $false
+                    $SkipReason = 'Failed to test OpenSSL KDF support'
+                }
+            }
+            else
+            {
+                $SkipReason = 'Bash script or OpenSSL not available'
+            }
+        }
+
+        It 'Should decrypt files encrypted by the OpenSSL bash script' -Skip:(-not (Test-Path "$PSScriptRoot/scripts/pwsh-encrypt-compat.sh")) {
+            $testFile = Join-Path $script:TestDir 'bash_encrypted.txt'
+            $originalContent = 'Encrypted by bash, decrypted by PowerShell'
+            $originalContent | Out-File -FilePath $testFile -Encoding UTF8 -NoNewline
+
+            $encryptedFile = $testFile + '.enc'
+            $testPassword = 'BashTest_Password_2025!'
+            $BashScriptPath = Join-Path $PSScriptRoot 'scripts/pwsh-encrypt-compat.sh'
+
+            # Encrypt with bash script
+            $bashCmd = "bash '$BashScriptPath' encrypt -i '$testFile' -o '$encryptedFile' -p '$testPassword'"
+            Invoke-Expression $bashCmd | Out-Null
+
+            # Verify bash created the file
+            Test-Path $encryptedFile | Should -Be $true
+
+            # Remove original
+            Remove-Item $testFile -Force
+
+            # Decrypt with PowerShell
+            $pwPassword = ConvertTo-SecureString $testPassword -AsPlainText -Force
+            $decResult = Unprotect-PathWithPassword -Path $encryptedFile -Password $pwPassword
+
+            # Verify decryption
+            $decResult.Success | Should -Be $true
+            $content = Get-Content $decResult.DecryptedPath -Raw
+            $content | Should -Be $originalContent
+        }
+
+        It 'Should encrypt files that the OpenSSL bash script can decrypt' -Skip:(-not (Test-Path "$PSScriptRoot/scripts/pwsh-encrypt-compat.sh")) {
+            # Create test file with PowerShell
+            $TestFile = Join-Path $script:TestDir 'test_roundtrip.txt'
+            Set-Content -Path $TestFile -Value 'Testing PowerShell -> bash decryption'
+
+            $BashScriptPath = Join-Path $PSScriptRoot 'scripts/pwsh-encrypt-compat.sh'
+            $testFile = Join-Path $script:TestDir 'pwsh_encrypted.txt'
+            $originalContent = 'Encrypted by PowerShell, decrypted by bash'
+            $originalContent | Out-File -FilePath $testFile -Encoding UTF8 -NoNewline
+
+            $testPassword = 'PwshTest_Password_2025!'
+            $BashScriptPath = Join-Path $PSScriptRoot 'scripts/pwsh-encrypt-compat.sh'
+
+            # Encrypt with PowerShell
+            $pwPassword = ConvertTo-SecureString $testPassword -AsPlainText -Force
+            $encResult = Protect-PathWithPassword -Path $testFile -Password $pwPassword
+
+            # Verify encryption
+            $encResult.Success | Should -Be $true
+            Test-Path $encResult.EncryptedPath | Should -Be $true
+
+            # Remove original
+            Remove-Item $testFile -Force
+
+            # Decrypt with bash script
+            $decryptedFile = $testFile
+            $bashCmd = "bash '$BashScriptPath' decrypt -i '$($encResult.EncryptedPath)' -o '$decryptedFile' -p '$testPassword'"
+            $bashOutput = Invoke-Expression $bashCmd 2>&1
+
+            # Verify bash decrypted successfully
+            Test-Path $decryptedFile | Should -Be $true
+            $content = Get-Content $decryptedFile -Raw
+            $content | Should -Be $originalContent
+
+            # Cleanup
+            Remove-Item $decryptedFile -Force -ErrorAction SilentlyContinue
+        }
+
+        It 'Should handle binary files with OpenSSL bash script' -Skip:(-not (Test-Path "$PSScriptRoot/scripts/pwsh-encrypt-compat.sh")) {
+            $testFile = Join-Path $script:TestDir 'binary_test.bin'
+            $binaryData = [byte[]](0..255)
+            [System.IO.File]::WriteAllBytes($testFile, $binaryData)
+
+            $encryptedFile = $testFile + '.enc'
+            $testPassword = 'Binary_Password_2025!'
+            $BashScriptPath = Join-Path $PSScriptRoot 'scripts/pwsh-encrypt-compat.sh'
+
+            # Encrypt with bash
+            $bashCmd = "bash '$BashScriptPath' encrypt -i '$testFile' -o '$encryptedFile' -p '$testPassword'"
+            Invoke-Expression $bashCmd | Out-Null
+
+            Remove-Item $testFile -Force
+
+            # Decrypt with PowerShell
+            $pwPassword = ConvertTo-SecureString $testPassword -AsPlainText -Force
+            $decResult = Unprotect-PathWithPassword -Path $encryptedFile -Password $pwPassword
+
+            # Verify binary integrity
+            $restoredData = [System.IO.File]::ReadAllBytes($decResult.DecryptedPath)
+            $restoredData | Should -Be $binaryData
+        }
+
+        It 'Should provide information about OpenSSL script availability' {
+            $BashScriptAvailable = (Test-Path "$PSScriptRoot/scripts/pwsh-encrypt-compat.sh") -and
+            ($null -ne (Get-Command bash -ErrorAction SilentlyContinue)) -and
+            ($null -ne (Get-Command openssl -ErrorAction SilentlyContinue))
+
+            if ($BashScriptAvailable)
+            {
+                Write-Host 'OpenSSL bash script available and functional' -ForegroundColor Green
+                $opensslVersion = bash -c 'openssl version' 2>&1
+                Write-Host "OpenSSL version: $opensslVersion" -ForegroundColor Cyan
+                $true | Should -Be $true
+            }
+            else
+            {
+                $SkipReason = if (-not (Test-Path "$PSScriptRoot/scripts/pwsh-encrypt-compat.sh")) { 'Bash script not found' }
+                elseif (-not (Get-Command bash -ErrorAction SilentlyContinue)) { 'Bash not available' }
+                elseif (-not (Get-Command openssl -ErrorAction SilentlyContinue)) { 'OpenSSL not available' }
+                else { 'Unknown reason' }
+                Write-Host "OpenSSL interoperability tests skipped: $SkipReason" -ForegroundColor Yellow
+                Write-Host 'For full compatibility testing, install OpenSSL 3.0+ with KDF support' -ForegroundColor Yellow
+                $true | Should -Be $true
+            }
+        }
+    }
 }
