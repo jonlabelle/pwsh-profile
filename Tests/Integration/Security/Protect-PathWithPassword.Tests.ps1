@@ -371,8 +371,8 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             $BashScriptPath = Join-Path $PSScriptRoot 'scripts/pwsh-encrypt-compat.sh'
 
             # Encrypt with bash script
-            $bashCmd = "bash '$BashScriptPath' encrypt -i '$testFile' -o '$encryptedFile' -p '$testPassword'"
-            Invoke-Expression $bashCmd | Out-Null
+            $bashOutput = & bash $BashScriptPath encrypt -i $testFile -o $encryptedFile -p $testPassword 2>&1 | Out-String
+            Write-Verbose "Bash encrypt output: $bashOutput"
 
             # Verify bash created the file
             Test-Path $encryptedFile | Should -Be $true
@@ -422,8 +422,8 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
 
             # Decrypt with bash script
             $decryptedFile = $testFile
-            $bashCmd = "bash '$BashScriptPath' decrypt -i '$($encResult.EncryptedPath)' -o '$decryptedFile' -p '$testPassword'"
-            $bashOutput = Invoke-Expression $bashCmd 2>&1
+            $bashOutput = & bash $BashScriptPath decrypt -i $encResult.EncryptedPath -o $decryptedFile -p $testPassword 2>&1 | Out-String
+            Write-Verbose "Bash decrypt output: $bashOutput"
 
             # Verify bash decrypted successfully
             Test-Path $decryptedFile | Should -Be $true
@@ -450,8 +450,8 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             $BashScriptPath = Join-Path $PSScriptRoot 'scripts/pwsh-encrypt-compat.sh'
 
             # Encrypt with bash
-            $bashCmd = "bash '$BashScriptPath' encrypt -i '$testFile' -o '$encryptedFile' -p '$testPassword'"
-            Invoke-Expression $bashCmd | Out-Null
+            $bashOutput = & bash $BashScriptPath encrypt -i $testFile -o $encryptedFile -p $testPassword 2>&1 | Out-String
+            Write-Verbose "Bash encrypt output: $bashOutput"
 
             Remove-Item $testFile -Force
 
