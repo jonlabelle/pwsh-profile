@@ -46,6 +46,7 @@
     "Dont",
     "dylib",
     "encryptor",
+    "euid",
     "faststart",
     "Finalizers",
     "flac",
