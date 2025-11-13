@@ -82,21 +82,38 @@ function Test-ProfileUpdate
     {
         Write-Verbose 'Starting profile update check'
 
-        # Get the profile root directory - we need to go up one level from Functions
-        if ($PSScriptRoot -and (Split-Path -Leaf $PSScriptRoot) -eq 'Functions')
-        {
-            $profileRoot = Split-Path -Parent $PSScriptRoot
-        }
-        elseif ($PSScriptRoot)
+        # Get the profile root directory
+        # When dot-sourced, $PSScriptRoot points to the function's directory
+        # We need to navigate up to the repository root
+        if ($PSScriptRoot)
         {
             $profileRoot = $PSScriptRoot
+
+            # Navigate up the directory tree until we find the .git directory or reach root
+            while ($profileRoot -and -not (Test-Path (Join-Path $profileRoot '.git')))
+            {
+                $parent = Split-Path -Parent $profileRoot
+                if ($parent -eq $profileRoot)
+                {
+                    # We've reached the root without finding .git
+                    break
+                }
+                $profileRoot = $parent
+            }
         }
         elseif ($PSCommandPath)
         {
             $profileRoot = Split-Path -Parent $PSCommandPath
-            if ((Split-Path -Leaf $profileRoot) -eq 'Functions')
+
+            # Navigate up the directory tree until we find the .git directory
+            while ($profileRoot -and -not (Test-Path (Join-Path $profileRoot '.git')))
             {
-                $profileRoot = Split-Path -Parent $profileRoot
+                $parent = Split-Path -Parent $profileRoot
+                if ($parent -eq $profileRoot)
+                {
+                    break
+                }
+                $profileRoot = $parent
             }
         }
         else
