@@ -94,6 +94,9 @@ function Test-HttpResponse
     .NOTES
         Author: Jon LaBelle
         Date: November 9, 2025
+
+        Dependencies:
+        - Set-TlsSecurityProtocol (for HTTPS/TLS 1.2+ support)
     #>
     [CmdletBinding()]
     [OutputType([System.Management.Automation.PSCustomObject])]
@@ -132,12 +135,8 @@ function Test-HttpResponse
     {
         Write-Verbose 'Initializing HTTP client'
 
-        # Handle TLS protocols for PowerShell 5.1
-        if ($PSVersionTable.PSVersion.Major -lt 6)
-        {
-            # Enable modern TLS protocols
-            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor [System.Net.SecurityProtocolType]::Tls11 -bor [System.Net.SecurityProtocolType]::Tls
-        }
+        # Ensure TLS 1.2+ is enabled for HTTPS connections
+        Set-TlsSecurityProtocol -MinimumVersion Tls12
 
         # Create HTTP client handler
         $httpHandler = [System.Net.Http.HttpClientHandler]::new()

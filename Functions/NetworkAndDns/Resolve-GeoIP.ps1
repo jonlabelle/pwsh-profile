@@ -81,6 +81,9 @@ function Resolve-GeoIP
         Author: Jon LaBelle
         Date: November 9, 2025
 
+        Dependencies:
+        - Set-TlsSecurityProtocol (for HTTPS/TLS 1.2+ support)
+
         API Service Details:
         - ipapi.co: 1000 requests/day free, HTTPS, detailed data
         - ip-api.com: 45 requests/minute, no key required, comprehensive
@@ -117,11 +120,8 @@ function Resolve-GeoIP
     {
         Write-Verbose 'Initializing IP geolocation lookup'
 
-        # Enable TLS for PowerShell 5.1
-        if ($PSVersionTable.PSVersion.Major -lt 6)
-        {
-            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor [System.Net.SecurityProtocolType]::Tls11 -bor [System.Net.SecurityProtocolType]::Tls
-        }
+        # Ensure TLS 1.2+ is enabled for HTTPS connections
+        Set-TlsSecurityProtocol -MinimumVersion Tls12
 
         # API service configurations
         $services = @{

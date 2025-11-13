@@ -76,6 +76,9 @@ function Test-Bandwidth
         Author: Jon LaBelle
         Date: November 9, 2025
 
+        Dependencies:
+        - Set-TlsSecurityProtocol (for HTTPS/TLS 1.2+ support)
+
         Test servers used:
         - Default test files from publicly available CDN servers
         - Requires internet connectivity
@@ -134,11 +137,8 @@ function Test-Bandwidth
 
         Write-Verbose "Using test URL: $downloadUrl"
 
-        # Enable modern TLS protocols for PowerShell 5.1
-        if ($PSVersionTable.PSVersion.Major -lt 6)
-        {
-            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor [System.Net.SecurityProtocolType]::Tls11 -bor [System.Net.SecurityProtocolType]::Tls
-        }
+        # Ensure TLS 1.2+ is enabled for HTTPS connections
+        Set-TlsSecurityProtocol -MinimumVersion Tls12
     }
 
     process
