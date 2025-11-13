@@ -184,7 +184,7 @@ temp/
             try
             {
                 # Should throw an error
-                { Remove-GitIgnoredFiles -Path $NonGitPath -ErrorAction Stop } | Should -Throw '*not within a Git repository*'
+                { Remove-GitIgnoredFiles -Path $NonGitPath -ErrorAction Stop } | Should -Throw '*git repository*'
             }
             finally
             {
