@@ -32,8 +32,8 @@ function Test-DnsNameResolution
         PS > Test-DnsNameResolution -Name 'google.com' -Server '8.8.8.8','8.8.4.4'
         True
 
-        Tests whether google.com can be resolved. Note: Custom DNS servers are specified but system DNS will be used
-        for cross-platform compatibility.
+        Tests whether google.com can be resolved.
+        Note: Custom DNS servers are specified but system DNS will be used for cross-platform compatibility.
 
     .EXAMPLE
         PS > Test-DnsNameResolution -Name 'google.com' -Type 'AAAA' -Verbose

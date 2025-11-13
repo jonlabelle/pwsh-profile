@@ -37,6 +37,22 @@ function Resolve-GeoIP
     .EXAMPLE
         PS > Resolve-GeoIP
 
+        IP           : 201.XX.XX.XX
+        City         : Austin
+        Region       : Texas
+        RegionCode   : TX
+        Country      : United States
+        CountryCode  : US
+        Continent    : NA
+        Latitude     : 99.9999
+        Longitude    : -99.9999
+        Timezone     : America/Chicago
+        ISP          : CHARTER
+        Organization : CHARTER
+        ASN          : AS20115
+        PostalCode   : XXXXX
+        Service      : ipapi.co
+
         Gets geolocation information for your current public IP address.
 
     .EXAMPLE

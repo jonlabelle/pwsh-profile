@@ -48,6 +48,19 @@ function Invoke-Ping
     .EXAMPLE
         PS > Invoke-Ping -ComputerName 'google.com'
 
+        Host        : google.com
+        Sent        : 4
+        Received    : 4
+        Lost        : 0
+        LossPercent : 0
+        MinTime     : 49
+        MaxTime     : 75
+        AvgTime     : 60.75
+        BufferSize  : 32
+        Status      : Success
+        IPAddress   : 142.251.34.238
+        TTL         : 128
+
         Sends 4 ping requests to google.com and displays response details.
 
     .EXAMPLE

@@ -47,6 +47,12 @@ function Get-IPAddress
     .EXAMPLE
         PS > Get-IPAddress
 
+        IPAddress  AddressFamily
+        ---------  -------------
+        127.0.0.1  IPv4
+        ::1        IPv6
+        10.0.10.39 IPv4
+
         Gets all local IP addresses from all network interfaces.
 
     .EXAMPLE
@@ -67,10 +73,49 @@ function Get-IPAddress
     .EXAMPLE
         PS > Get-IPAddress -IncludeDetails
 
+        IPAddress     : 127.0.0.1
+        AddressFamily : IPv4
+        InterfaceName : lo0
+        Description   : lo0
+        Status        : Up
+        InterfaceType : Loopback
+        SubnetMask    : 255.0.0.0
+        PrefixLength  : 8
+
+        IPAddress     : ::1
+        AddressFamily : IPv6
+        InterfaceName : lo0
+        Description   : lo0
+        Status        : Up
+        InterfaceType : Loopback
+        PrefixLength  : 128
+
+        IPAddress     : 10.0.10.39
+        AddressFamily : IPv4
+        InterfaceName : en0
+        Description   : en0
+        Status        : Up
+        InterfaceType : Wireless80211
+        MACAddress    : 02:7F:40:AB:AF:64
+        SubnetMask    : 255.255.255.0
+        PrefixLength  : 24
+        Speed         : 146Mbps
+
         Gets local IP addresses with detailed interface information including MAC address and interface name.
 
     .EXAMPLE
         PS > Get-IPAddress -Public -Service ipinfo
+
+        IPAddress     : 24.XX.XX.XX
+        AddressFamily : IPv4
+        Service       : ipinfo
+        City          : Austin
+        Region        : Texas
+        Country       : US
+        Location      : XX.XXXX,-XX.XXXX
+        Organization  : AS20115 Charter Communications LLC
+        Timezone      : America/Chicago
+
 
         Gets public IP address using ipinfo.io service which includes geolocation data.
 

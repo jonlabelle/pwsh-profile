@@ -50,12 +50,32 @@ function Test-HttpResponse
         Default is "PowerShell/<version>".
 
     .EXAMPLE
-        PS > Test-HttpResponse -Uri 'https://www.google.com'
+        PS > Test-HttpResponse -Uri 'https://jonlabelle.com'
+
+        Uri               : https://jonlabelle.com
+        StatusCode        : 200
+        StatusDescription : OK
+        Success           : True
+        ResponseTime      : 00:00:00.2376194
+        ResponseTimeMs    : 237
+        ContentLength     : 4601
+        ContentType       : text/html; charset=UTF-8
 
         Tests Google's homepage and returns status code and response time.
 
     .EXAMPLE
         PS > Test-HttpResponse -Uri 'https://api.github.com/users/octocat' -IncludeHeaders
+
+        Uri               : https://www.google.com
+        StatusCode        : 200
+        StatusDescription : OK
+        Success           : True
+        ResponseTime      : 00:00:00.2473482
+        ResponseTimeMs    : 247
+        ContentLength     : 17741
+        ContentType       : text/html; charset=ISO-8859-1
+        Headers           : {[Vary, Accept-Encoding], [X-Frame-Options, SAMEORIGIN], [Cache-Control, max-age=0, private], [Accept-CH,
+                            Sec-CH-Prefers-Color-Scheme]...}
 
         Tests GitHub API endpoint and includes response headers.
 
@@ -66,6 +86,15 @@ function Test-HttpResponse
 
     .EXAMPLE
         PS > Test-HttpResponse -Uri 'https://httpbin.org/status/404'
+
+        Uri               : https://httpbin.org/status/404
+        StatusCode        : 404
+        StatusDescription : NOT FOUND
+        Success           : False
+        ResponseTime      : 00:00:01.4854014
+        ResponseTimeMs    : 1485
+        ContentLength     :
+        ContentType       : text/html; charset=utf-8
 
         Tests an endpoint that returns a 404 status code.
 

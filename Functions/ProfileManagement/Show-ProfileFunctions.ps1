@@ -14,9 +14,13 @@ function Show-ProfileFunctions
     .EXAMPLE
         PS > Show-ProfileFunctions
 
-        - Get-CertificateDetails - Gets detailed information about a certificate
-        - Get-CertificateExpiration - Checks certificate expiration dates
-        - Test-DnsNameResolution - Tests if a DNS name can be resolved
+        - Convert-LineEndings - Converts line endings between LF (Unix) and CRLF (Windows) with optional file...
+        - Copy-DirectoryWithExclusions - Copies a directory recursively with the ability to exclude specific directories.
+        - Get-CertificateDetails - Gets detailed SSL/TLS certificate information from remote hosts.
+        - Get-CertificateExpiration - Gets the expiration date of an SSL/TLS certificate from a remote host.
+        - Get-CommandAlias - Lists all aliases for the specified PowerShell command.
+        ...
+        ...
 
         Displays all available profile functions with brief descriptions.
 

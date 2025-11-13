@@ -39,6 +39,30 @@ function Get-DotNetVersion
     .EXAMPLE
         PS > Get-DotNetVersion
 
+        ComputerName : localhost
+        RuntimeType  : .NET Framework
+        Version      : Not installed
+        Release      :
+        InstallPath  :
+        IsLatest     :
+        Type         : Runtime
+
+        ComputerName : localhost
+        RuntimeType  : ASP.NET Core
+        Version      : 9.0.10
+        Release      :
+        InstallPath  : /usr/local/share/dotnet/shared/Microsoft.AspNetCore.App
+        IsLatest     : True
+        Type         : Runtime
+
+        ComputerName : localhost
+        RuntimeType  : .NET
+        Version      : 9.0.10
+        Release      :
+        InstallPath  : /usr/local/share/dotnet/shared/Microsoft.NETCore.App
+        IsLatest     : True
+        Type         : Runtime
+
         Gets the latest .NET Framework and .NET versions from the local computer.
 
     .EXAMPLE

@@ -38,15 +38,35 @@ function Get-DnsRecord
     .EXAMPLE
         PS > Get-DnsRecord -Name 'google.com'
 
+        Name       Type TTL Data
+        ----       ---- --- ----
+        google.com A     29 142.251.167.139
+        google.com A     29 142.251.167.101
+        google.com A     29 142.251.167.100
+        google.com A     29 142.251.167.102
+        google.com A     29 142.251.167.138
+        google.com A     29 142.251.167.113
+
         Retrieves A records for google.com using Cloudflare DoH.
 
     .EXAMPLE
         PS > Get-DnsRecord -Name 'google.com' -Type MX
 
+        Name       Type TTL Data
+        ----       ---- --- ----
+        google.com MX    85 10 smtp.google.com.
+
         Retrieves MX (mail exchange) records for google.com.
 
     .EXAMPLE
         PS > Get-DnsRecord -Name 'google.com' -Type TXT
+
+        Name       Type TTL Data
+        ----       ---- --- ----
+        google.com TXT  201 docusign=1b0a6754-49b1-4db5-8540-d2c12664b289
+        google.com TXT  201 onetrust-domain-verification=de01ed21f2fa4d8781cbc3ffb89cf4ef
+        ...
+        ...
 
         Retrieves TXT records (often used for SPF, DKIM, domain verification).
 
@@ -82,6 +102,10 @@ function Get-DnsRecord
 
     .EXAMPLE
         PS > Get-DnsRecord -Name 'github.com' -UseDNS
+
+        Name       Type TTL Data
+        ----       ---- --- ----
+        github.com A        140.82.114.3
 
         Use native DNS resolution instead of DoH (useful if firewall does not allow DNS-over-HTTPS, but limited to A/AAAA records).
 

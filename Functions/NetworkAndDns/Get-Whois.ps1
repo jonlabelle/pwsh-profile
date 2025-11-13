@@ -40,6 +40,20 @@ function Get-Whois
     .EXAMPLE
         PS > Get-Whois -Domain 'google.com'
 
+        Domain         : google.com
+        WhoisServer    : whois.markmonitor.com
+        Registrar      : MarkMonitor, Inc.
+        CreationDate   : 9/15/1997 12:00:00 AM
+        UpdatedDate    : 8/2/2024 12:00:00 AM
+        ExpirationDate : 9/13/2028 12:00:00 AM
+        Status         : {clientUpdateProhibited (https://www.icann.org/epp#clientUpdateProhibited), clientTransferProhibited
+                        (https://www.icann.org/epp#clientTransferProhibited), clientDeleteProhibited
+                        (https://www.icann.org/epp#clientDeleteProhibited), serverUpdateProhibited
+                        (https://www.icann.org/epp#serverUpdateProhibited)…}
+        NameServers    : {ns1.google.com, ns3.google.com, ns4.google.com, ns2.google.com}
+        ...
+        ...
+
         Performs a WHOIS lookup for google.com and returns parsed registration information.
 
     .EXAMPLE

@@ -36,6 +36,8 @@ function Get-CertificateExpiration
     .EXAMPLE
         PS > Get-CertificateExpiration -ComputerName 'google.com'
 
+        Monday, January 5, 2026 3:37:32 AM
+
         Gets the SSL certificate expiration date for google.com on port 443.
 
     .EXAMPLE
@@ -51,10 +53,28 @@ function Get-CertificateExpiration
     .EXAMPLE
         PS > Get-CertificateExpiration -ComputerName 'expired.badssl.com' -WarnIfExpiresSoon -DaysToWarn 90
 
+        WARNING: Certificate for expired.badssl.com:443 EXPIRED 3867 days ago on 2015-04-12 19:59:59
+
+        Sunday, April 12, 2015 7:59:59 PM
+
         Gets the certificate expiration date and warns if it expires within 90 days.
 
     .EXAMPLE
-        PS > Get-CertificateExpiration -ComputerName 'google.com' -IncludeCertificateDetails
+        PS > Get-CertificateExpiration -ComputerName 'jonlabelle.com' -IncludeCertificateDetails
+
+        ComputerName        : jonlabelle.com
+        Port                : 443
+        Subject             : CN=jonlabelle.com
+        Issuer              : CN=E7, O=Let's Encrypt, C=US
+        NotBefore           : 10/18/2025 11:04:17 PM
+        NotAfter            : 1/16/2026 10:04:16 PM
+        Thumbprint          : FF17282B73B22DF319B705F3197948CCABF6C5D7
+        SerialNumber        : 05366C8540C1118373AE7974C87C6B0DD64C
+        DaysUntilExpiration : 64
+        IsExpired           : False
+        SignatureAlgorithm  : sha384ECDSA
+        Version             : 3
+        HasPrivateKey       : False
 
         Gets detailed certificate information including expiration date, subject, issuer, and thumbprint.
 

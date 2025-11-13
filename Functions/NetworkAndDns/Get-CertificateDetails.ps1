@@ -31,7 +31,25 @@ function Get-CertificateDetails
         Key Usage, Extended Key Usage, and other X.509 extensions.
 
     .EXAMPLE
-        PS > Get-CertificateDetails -ComputerName 'google.com'
+        PS > Get-CertificateDetails -ComputerName 'jonlabelle.com'
+
+        ComputerName        : jonlabelle.com
+        Port                : 443
+        Subject             : CN=jonlabelle.com
+        Issuer              : CN=E7, O=Let's Encrypt, C=US
+        NotBefore           : 10/18/2025 11:04:17 PM
+        NotAfter            : 1/16/2026 10:04:16 PM
+        Thumbprint          : FF17282B73B22DF319B705F3197948CCABF6C5D7
+        SerialNumber        : 05366C8540C1118373AE7974C87C6B0DD64C
+        DaysUntilExpiration : 64
+        IsExpired           : False
+        SignatureAlgorithm  : sha384ECDSA
+        PublicKeyAlgorithm  : ECC
+        KeySize             :
+        Version             : 3
+        HasPrivateKey       : False
+        FriendlyName        :
+        Archived            : False
 
         Gets detailed SSL certificate information for google.com on port 443.
 
@@ -51,7 +69,28 @@ function Get-CertificateDetails
         Gets certificate details with a 5-second timeout and includes certificate chain information.
 
     .EXAMPLE
-        PS > Get-CertificateDetails -ComputerName 'api.service.com' -IncludeExtensions
+        PS > Get-CertificateDetails -ComputerName 'google.com' -IncludeExtensions
+
+        ComputerName        : jonlabelle.com
+        Port                : 443
+        Subject             : CN=jonlabelle.com
+        Issuer              : CN=E7, O=Let's Encrypt, C=US
+        NotBefore           : 10/18/2025 11:04:17 PM
+        NotAfter            : 1/16/2026 10:04:16 PM
+        Thumbprint          : FF17282B73B22DF319B705F3197948CCABF6C5D7
+        SerialNumber        : 05366C8540C1118373AE7974C87C6B0DD64C
+        DaysUntilExpiration : 64
+        IsExpired           : False
+        SignatureAlgorithm  : sha384ECDSA
+        PublicKeyAlgorithm  : ECC
+        KeySize             :
+        Version             : 3
+        HasPrivateKey       : False
+        FriendlyName        :
+        Archived            : False
+        Extensions          : {[X509v3 Basic Constraints, 3000], [X509v3 Subject Key Identifier,
+                            04146C3FD1BB47BA89B36B6807950DFDDB952C12CBF8], [2.5.29.32, 300A3008060667810C010201], [Authority
+                            Information Access, 3024302206082B060105050730028616687474703A2F2F65372E692E6C656E63722E6F72672F]…}
 
         Gets certificate details including X.509 extensions like Subject Alternative Names.
 
@@ -223,7 +262,12 @@ function Get-CertificateDetails
                     }
                     default
                     {
-                        $extensions[$extension.Oid.FriendlyName] = $extension.Format($false)
+                        # Use OID value if FriendlyName is null
+                        $keyName = if ($extension.Oid.FriendlyName) { $extension.Oid.FriendlyName } else { $extension.Oid.Value }
+                        if ($keyName)
+                        {
+                            $extensions[$keyName] = $extension.Format($false)
+                        }
                     }
                 }
             }

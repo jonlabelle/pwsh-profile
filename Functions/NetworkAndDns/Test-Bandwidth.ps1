@@ -48,6 +48,18 @@ function Test-Bandwidth
     .EXAMPLE
         PS > Test-Bandwidth -TestFileSize 50 -TestDuration 15
 
+        TestDate          : 11/12/2025 10:35:31 PM
+        DownloadSpeedMbps : 172.21
+        LatencyMs         : 135.8
+        MinLatencyMs      : 132
+        MaxLatencyMs      : 142
+        Jitter            : 3.54
+        PacketLoss        : 0%
+        TestDuration      : 15.12s
+        TestFileSize      : 50MB
+        TestServer        : http://ipv4.download.thinkbroadband.com/50MB.zip
+        Status            : Completed
+
         Tests bandwidth with a 50MB file over 15 seconds for more accurate results.
 
     .EXAMPLE
@@ -56,9 +68,36 @@ function Test-Bandwidth
         Tests only download speed without latency measurements.
 
     .EXAMPLE
-        PS > Test-Bandwidth -Detailed -Verbose
+        PS > Test-Bandwidth -Detailed
 
-        Runs a detailed test with verbose output showing progress.
+        Testing latency...
+        Latency: 131.2ms (Min: 127ms, Max: 135ms, Jitter: 3.19ms)
+        Testing download speed...
+        Progress: 1s - Current: 15.89 Mbps
+        Progress: 2s - Current: 50.39 Mbps
+        Progress: 3s - Current: 72.01 Mbps
+        Progress: 5s - Current: 91.28 Mbps
+        Progress: 6s - Current: 99.5 Mbps
+        Progress: 7s - Current: 107.27 Mbps
+        Progress: 8s - Current: 111.44 Mbps
+        Progress: 9s - Current: 116.54 Mbps
+        Progress: 10s - Current: 120.44 Mbps
+        Download Speed: 119.76 Mbps (14.28 MB/s)
+        Total Downloaded: 143.53 MB in 10.05 seconds
+
+        TestDate          : 11/12/2025 10:36:48 PM
+        DownloadSpeedMbps : 119.76
+        LatencyMs         : 131.2
+        MinLatencyMs      : 127
+        MaxLatencyMs      : 135
+        Jitter            : 3.19
+        PacketLoss        : 0%
+        TestDuration      : 10.05s
+        TestFileSize      : 10MB
+        TestServer        : http://ipv4.download.thinkbroadband.com/10MB.zip
+        Status            : Completed
+
+        Runs a detailed test showing progress.
 
     .EXAMPLE
         PS > Test-Bandwidth -PingCount 10

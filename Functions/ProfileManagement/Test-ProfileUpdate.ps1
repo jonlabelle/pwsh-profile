@@ -27,17 +27,17 @@ function Test-ProfileUpdate
         Reserved for future use. Currently has no effect.
 
     .EXAMPLE
-        PS > Test-ProfileUpdates
+        PS > Test-ProfileUpdate
 
         Performs a synchronous check for profile updates.
 
     .EXAMPLE
-        PS > Test-ProfileUpdates -Async
+        PS > Test-ProfileUpdate -Async
 
         Starts a background job to check for profile updates without blocking.
 
     .EXAMPLE
-        PS > Test-ProfileUpdates -ShowChanges
+        PS > Test-ProfileUpdate -ShowChanges
 
         Checks for updates and displays available changes if updates are found.
 

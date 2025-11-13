@@ -47,7 +47,8 @@ function Send-TcpRequest
         Test if a web server is accessible.
 
     .EXAMPLE
-        PS > $httpRequest = @"
+        PS >
+        $httpRequest = @"
             GET / HTTP/1.1
             Host: www.example.com
             Connection: close

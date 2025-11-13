@@ -31,17 +31,52 @@ function Test-Port
         Use this switch to test UDP ports.
 
     .EXAMPLE
-        PS > Test-Port -ComputerName 'server' -Port 80
+        PS > Test-Port -ComputerName 'google.com' -Port 80
 
-        Tests if TCP port 80 is open on server 'server'.
+        Server       : google.com
+        Port         : 80
+        Protocol     : TCP
+        Open         : True
+        Status       : Connection successful
+        ResponseTime : 35
+
+        Tests if TCP port 80 is open on 'google.com'.
 
     .EXAMPLE
         PS > 80 | Test-Port
+
+        Server       : localhost
+        Port         : 80
+        Protocol     : TCP
+        Open         : False
+        Status       : Connection refused
+        ResponseTime : 2
 
         Tests if TCP port 80 is open on localhost using pipeline input for the port.
 
     .EXAMPLE
         PS > 22,80,443 | Test-Port
+
+        Server       : localhost
+        Port         : 22
+        Protocol     : TCP
+        Open         : False
+        Status       : Connection refused
+        ResponseTime : 1
+
+        Server       : localhost
+        Port         : 80
+        Protocol     : TCP
+        Open         : False
+        Status       : Connection refused
+        ResponseTime : 1
+
+        Server       : localhost
+        Port         : 443
+        Protocol     : TCP
+        Open         : False
+        Status       : Connection refused
+        ResponseTime : 0
 
         Tests if TCP ports 22, 80, and 443 are open on localhost using pipeline input.
 
