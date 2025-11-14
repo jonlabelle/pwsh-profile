@@ -110,10 +110,14 @@ Describe 'Get-WhichCommand' -Tag 'Unit' {
         It 'Should find platform-specific commands' {
             if ($PSVersionTable.PSVersion.Major -lt 6)
             {
-                $IsWindows = $true
+                $isWindowsPlatform = $true
+            }
+            else
+            {
+                $isWindowsPlatform = $IsWindows
             }
 
-            if ($IsWindows)
+            if ($isWindowsPlatform)
             {
                 $result = Get-WhichCommand -Name 'cmd'
                 $result | Should -Not -BeNullOrEmpty
