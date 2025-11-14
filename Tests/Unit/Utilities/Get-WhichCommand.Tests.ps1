@@ -104,7 +104,7 @@ Describe 'Get-WhichCommand' -Tag 'Unit' {
             $result | Should -Not -BeNullOrEmpty
             $result | Should -BeOfType [PSCustomObject]
             $result.CommandType | Should -Be 'Application'
-            $result.Name | Should -Be 'pwsh'
+            $result.Name | Should -Match '^pwsh(\.exe)?$'
             $result.Source | Should -Match 'pwsh'
         }
 
