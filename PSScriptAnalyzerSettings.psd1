@@ -15,6 +15,7 @@
     'PSReviewUnusedParameter', # This rule is broken and reports false positives
     'PSAvoidUsingComputerNameHardcoded' # Acceptable in test scripts
     'PSAvoidUsingConvertToSecureStringWithPlainText' # Acceptable in test scripts
+    'PSAvoidUsingBrokenHashAlgorithms' # SHA1 and MD5 still have plenty of legitimate use cases
   )
 
   # Enable specific rules globally
