@@ -16,8 +16,7 @@ function Get-WhichCommand
         Supports multiple command names and pipeline input.
 
         Aliases:
-        The 'which' and 'where' aliases are created only if they don't already exist in the
-        current environment (i.e., no native commands with those names are found in PATH).
+        The 'which' alias is created only if it doesn't already exist in the current environment.
 
     .PARAMETER Name
         The name of the command(s) to locate. Accepts multiple values and pipeline input.
@@ -192,11 +191,12 @@ function Get-WhichCommand
 # Create 'which' alias only if the native which command doesn't exist
 if (-not (Get-Command -Name 'which' -CommandType Application -ErrorAction SilentlyContinue))
 {
-    Set-Alias -Name 'which' -Value 'Get-WhichCommand' -Scope Global
-}
-
-# Create 'where' (Windows command-prompt) alias only if the native where command doesn't exist
-if (-not (Get-Command -Name 'where' -CommandType Application -ErrorAction SilentlyContinue))
-{
-    Set-Alias -Name 'where' -Value 'Get-WhichCommand' -Scope Global
+    try
+    {
+        Set-Alias -Name 'which' -Value 'Get-WhichCommand' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Get-WhichCommand: Could not create 'which' alias: $($_.Exception.Message)"
+    }
 }
