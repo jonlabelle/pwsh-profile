@@ -23,6 +23,7 @@ function Get-WhichCommand
 
     .PARAMETER All
         Display all matches instead of just the first one found.
+        By default, only the first match is returned (mimics POSIX 'which' behavior).
 
     .PARAMETER Simple
         Return only the path for executables (mimics POSIX which behavior).
@@ -109,7 +110,8 @@ function Get-WhichCommand
                     continue
                 }
 
-                # If not using -All, take only the first match
+                # If not using -All, take only the first match (default behavior)
+                # This mimics POSIX 'which' which returns the first executable found in PATH
                 if (-not $All)
                 {
                     $commands = @($commands)[0]
