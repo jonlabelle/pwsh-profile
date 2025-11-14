@@ -19,7 +19,7 @@
         by using .NET cryptographic classes for maximum portability.
 
         ALIASES:
-        decrypt, Decrypt-PathWithPassword
+        The 'decrypt' and 'Decrypt-PathWithPassword' aliases are created only if they don't already exist in the current environment.
 
     .PARAMETER Path
         The encrypted file or directory path to decrypt. Accepts both relative and absolute paths.
@@ -440,5 +440,28 @@ function Invoke-FileDecryption
     }
 }
 
-New-Alias -Name 'Decrypt-PathWithPassword' -Value 'Unprotect-PathWithPassword' -Force
-New-Alias -Name 'decrypt' -Value 'Unprotect-PathWithPassword' -Force
+# Create 'decrypt' alias only if it doesn't already exist
+if (-not (Get-Command -Name 'decrypt' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Set-Alias -Name 'decrypt' -Value 'Unprotect-PathWithPassword' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Unprotect-PathWithPassword: Could not create 'decrypt' alias: $($_.Exception.Message)"
+    }
+}
+
+# Create 'Decrypt-PathWithPassword' alias only if it doesn't already exist
+if (-not (Get-Command -Name 'Decrypt-PathWithPassword' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Set-Alias -Name 'Decrypt-PathWithPassword' -Value 'Unprotect-PathWithPassword' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Unprotect-PathWithPassword: Could not create 'Decrypt-PathWithPassword' alias: $($_.Exception.Message)"
+    }
+}

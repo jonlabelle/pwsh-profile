@@ -20,7 +20,7 @@
         by using .NET cryptographic classes instead of platform-specific APIs.
 
         ALIASES:
-        encrypt, Encrypt-PathWithPassword
+        The 'encrypt' and 'Encrypt-PathWithPassword' aliases are created only if they don't already exist in the current environment.
 
     .PARAMETER Path
         The file or directory path to encrypt. Accepts both relative and absolute paths.
@@ -418,5 +418,28 @@ function Invoke-FileEncryption
     }
 }
 
-New-Alias -Name 'Encrypt-PathWithPassword' -Value 'Protect-PathWithPassword' -Force
-New-Alias -Name 'encrypt' -Value 'Protect-PathWithPassword' -Force
+# Create 'encrypt' alias only if it doesn't already exist
+if (-not (Get-Command -Name 'encrypt' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Set-Alias -Name 'encrypt' -Value 'Protect-PathWithPassword' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Protect-PathWithPassword: Could not create 'encrypt' alias: $($_.Exception.Message)"
+    }
+}
+
+# Create 'Encrypt-PathWithPassword' alias only if it doesn't already exist
+if (-not (Get-Command -Name 'Encrypt-PathWithPassword' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Set-Alias -Name 'Encrypt-PathWithPassword' -Value 'Protect-PathWithPassword' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Protect-PathWithPassword: Could not create 'Encrypt-PathWithPassword' alias: $($_.Exception.Message)"
+    }
+}
