@@ -24,10 +24,16 @@ function Get-WhichCommand
     .PARAMETER All
         Display all matches instead of just the first one found.
 
+    .PARAMETER Simple
+        Return only the path for executables (mimics POSIX which behavior).
+        Only applies to Application and ExternalScript command types.
+
     .EXAMPLE
         PS > Get-WhichCommand git
 
-        C:\Program Files\Git\cmd\git.exe
+        CommandType     Name                           Definition
+        -----------     ----                           ----------
+        Application     git                            C:\Program Files\Git\cmd\git.exe
 
         Locates the git executable in PATH.
 
@@ -48,13 +54,22 @@ function Get-WhichCommand
     .EXAMPLE
         PS > Get-WhichCommand python -All
 
-        C:\Python39\python.exe
-        C:\Python310\python.exe
+        CommandType     Name                           Definition
+        -----------     ----                           ----------
+        Application     python                         C:\Python39\python.exe
+        Application     python                         C:\Python310\python.exe
 
         Shows all python executables found in PATH.
 
+    .EXAMPLE
+        PS > Get-WhichCommand git -Simple
+
+        C:\Program Files\Git\cmd\git.exe
+
+        Returns just the path string (POSIX which behavior).
+
     .OUTPUTS
-        PSCustomObject with command details, or string for simple executable paths.
+        PSCustomObject with command details, or String when using -Simple switch.
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject], [String])]
@@ -64,7 +79,10 @@ function Get-WhichCommand
         [String[]]$Name,
 
         [Parameter()]
-        [Switch]$All
+        [Switch]$All,
+
+        [Parameter()]
+        [Switch]$Simple
     )
 
     begin
@@ -149,13 +167,31 @@ function Get-WhichCommand
                         }
                         'Application'
                         {
-                            # For executables, just return the path (like POSIX which)
-                            $cmd.Source
+                            if ($Simple)
+                            {
+                                $cmd.Source
+                            }
+                            else
+                            {
+                                [PSCustomObject]@{
+                                    CommandType = 'Application'
+                                    Name = $cmd.Name
+                                    Definition = $cmd.Source
+                                    Source = $cmd.Source
+                                }
+                            }
                         }
                         'ExternalScript'
                         {
-                            # PowerShell scripts
-                            $cmd.Source
+                            if ($Simple)
+                            {
+                                $cmd.Source
+                            }
+                            else
+                            {
+                                # PowerShell scripts
+                                $cmd.Source
+                            }
                         }
                         default
                         {
