@@ -25,6 +25,10 @@ Describe 'Get-WhichCommand' -Tag 'Unit' {
         It 'Should accept All switch parameter' {
             { Get-WhichCommand -Name 'Get-Process' -All -ErrorAction SilentlyContinue } | Should -Not -Throw
         }
+
+        It 'Should accept Simple switch parameter' {
+            { Get-WhichCommand -Name 'pwsh' -Simple -ErrorAction SilentlyContinue } | Should -Not -Throw
+        }
     }
 
     Context 'PowerShell Cmdlets' {
@@ -98,13 +102,16 @@ Describe 'Get-WhichCommand' -Tag 'Unit' {
         It 'Should find pwsh executable' {
             $result = Get-WhichCommand -Name 'pwsh'
             $result | Should -Not -BeNullOrEmpty
-            $result | Should -BeOfType [String]
-            $result | Should -Match 'pwsh'
+            $result | Should -BeOfType [PSCustomObject]
+            $result.CommandType | Should -Be 'Application'
+            $result.Name | Should -Be 'pwsh'
+            $result.Source | Should -Match 'pwsh'
         }
 
         It 'Should return full path for executables' {
             $result = Get-WhichCommand -Name 'pwsh'
-            [System.IO.Path]::IsPathRooted($result) | Should -Be $true
+            $result.Source | Should -Not -BeNullOrEmpty
+            [System.IO.Path]::IsPathRooted($result.Source) | Should -Be $true
         }
 
         It 'Should find platform-specific commands' {
@@ -205,15 +212,38 @@ Describe 'Get-WhichCommand' -Tag 'Unit' {
             $result.PSObject.Properties.Name | Should -Contain 'Definition'
         }
 
-        It 'Should return string path for executables' {
+        It 'Should return PSCustomObject for executables' {
             $result = Get-WhichCommand -Name 'pwsh'
-            $result | Should -BeOfType [String]
+            $result | Should -BeOfType [PSCustomObject]
+            $result.PSObject.Properties.Name | Should -Contain 'CommandType'
+            $result.PSObject.Properties.Name | Should -Contain 'Source'
         }
 
         It 'Should return PSCustomObject for cmdlets' {
             $result = Get-WhichCommand -Name 'Get-Process'
             $result | Should -BeOfType [PSCustomObject]
             $result.PSObject.Properties.Name | Should -Contain 'CommandType'
+        }
+    }
+
+    Context 'Simple Switch (POSIX-like behavior)' {
+        It 'Should return string path with -Simple switch' {
+            $result = Get-WhichCommand -Name 'pwsh' -Simple
+            $result | Should -BeOfType [String]
+            $result | Should -Match 'pwsh'
+        }
+
+        It 'Should return full path string with -Simple switch' {
+            $result = Get-WhichCommand -Name 'pwsh' -Simple
+            [System.IO.Path]::IsPathRooted($result) | Should -Be $true
+        }
+
+        It 'Should work with -All and -Simple together' {
+            $results = Get-WhichCommand -Name 'pwsh' -All -Simple
+            foreach ($result in $results)
+            {
+                $result | Should -BeOfType [String]
+            }
         }
     }
 
