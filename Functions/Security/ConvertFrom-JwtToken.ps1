@@ -35,11 +35,42 @@ function ConvertFrom-JwtToken
         If specified, includes the raw signature component in the output.
         The signature is returned as-is (Base64URL encoded) without validation.
 
+    .PARAMETER Pretty
+        If specified, displays the decoded token in a formatted, human-readable format
+        with colored output instead of returning a PSCustomObject. This is useful for
+        quick inspection but the output cannot be assigned to a variable for further processing.
+
     .EXAMPLE
         PS > $token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
         PS > ConvertFrom-JwtToken -Token $token
 
         Decodes a JWT token and displays the header and payload.
+
+    .EXAMPLE
+        PS > ConvertFrom-JwtToken -Token $token -Pretty
+
+        ═══════════════════════════════════════════════════════════════
+        JWT TOKEN DECODED
+        ═══════════════════════════════════════════════════════════════
+
+        HEADER
+        ──────────────────────────────────────────────────────────────
+        alg                 : RS256
+        typ                 : JWT
+
+        PAYLOAD
+        ──────────────────────────────────────────────────────────────
+        sub                 : user123
+        name                : Jane Smith
+        email               : jane@example.com
+        exp                 : 1735689600 (12/31/2024 19:00:00)
+        iat                 : 1704067200 (12/31/2023 19:00:00)
+        iss                 : https://example.com
+        aud                 : api://default
+
+        ═══════════════════════════════════════════════════════════════
+
+        Decodes a JWT token and displays it in a formatted, readable output with colors.
 
     .EXAMPLE
         PS > $jwt = ConvertFrom-JwtToken -Token $token
@@ -83,7 +114,10 @@ function ConvertFrom-JwtToken
         [String]$Token,
 
         [Parameter()]
-        [Switch]$IncludeSignature
+        [Switch]$IncludeSignature,
+
+        [Parameter()]
+        [Switch]$Pretty
     )
 
     begin
@@ -154,7 +188,58 @@ function ConvertFrom-JwtToken
             }
 
             Write-Verbose 'JWT token decoded successfully'
-            return $result
+
+            # Display pretty formatted output if requested
+            if ($Pretty)
+            {
+                Write-Host ''
+                Write-Host '═══════════════════════════════════════════════════════════════' -ForegroundColor Cyan
+                Write-Host '  JWT TOKEN DECODED' -ForegroundColor Cyan
+                Write-Host '═══════════════════════════════════════════════════════════════' -ForegroundColor Cyan
+                Write-Host ''
+
+                Write-Host 'HEADER' -ForegroundColor Green
+                Write-Host '──────────────────────────────────────────────────────────────' -ForegroundColor DarkGray
+                $header.PSObject.Properties | ForEach-Object {
+                    Write-Host "  $($_.Name.PadRight(20)): " -NoNewline -ForegroundColor Yellow
+                    Write-Host $_.Value -ForegroundColor White
+                }
+                Write-Host ''
+
+                Write-Host 'PAYLOAD' -ForegroundColor Green
+                Write-Host '──────────────────────────────────────────────────────────────' -ForegroundColor DarkGray
+                $payload.PSObject.Properties | ForEach-Object {
+                    Write-Host "  $($_.Name.PadRight(20)): " -NoNewline -ForegroundColor Yellow
+
+                    # Special handling for timestamps (iat, exp, nbf)
+                    if ($_.Name -in @('iat', 'exp', 'nbf') -and $_.Value -is [long])
+                    {
+                        $timestamp = [DateTimeOffset]::FromUnixTimeSeconds($_.Value).LocalDateTime
+                        Write-Host "$($_.Value) " -NoNewline -ForegroundColor White
+                        Write-Host "($timestamp)" -ForegroundColor DarkGray
+                    }
+                    else
+                    {
+                        Write-Host $_.Value -ForegroundColor White
+                    }
+                }
+
+                if ($IncludeSignature)
+                {
+                    Write-Host ''
+                    Write-Host 'SIGNATURE' -ForegroundColor Green
+                    Write-Host '──────────────────────────────────────────────────────────────' -ForegroundColor DarkGray
+                    Write-Host "  $($parts[2])" -ForegroundColor White
+                }
+
+                Write-Host ''
+                Write-Host '═══════════════════════════════════════════════════════════════' -ForegroundColor Cyan
+                Write-Host ''
+            }
+            else
+            {
+                Write-Output $result
+            }
         }
         catch
         {

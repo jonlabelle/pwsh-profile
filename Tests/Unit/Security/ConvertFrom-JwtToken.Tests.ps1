@@ -246,4 +246,24 @@ Describe 'ConvertFrom-JwtToken Unit Tests' {
             $results[1].Payload.name | Should -Be 'Jane Smith'
         }
     }
+
+    Context 'Pretty Output Format' {
+        It 'Should not return object when -Pretty is used' {
+            $result = ConvertFrom-JwtToken -Token $script:ValidToken -Pretty
+
+            $result | Should -BeNullOrEmpty
+        }
+
+        It 'Should return object when -Pretty is not used' {
+            $result = ConvertFrom-JwtToken -Token $script:ValidToken
+
+            $result | Should -Not -BeNullOrEmpty
+            $result | Should -BeOfType [PSCustomObject]
+        }
+
+        It 'Should support both -Pretty and -IncludeSignature together' {
+            # This should not throw and should produce pretty output with signature
+            { ConvertFrom-JwtToken -Token $script:ValidToken -Pretty -IncludeSignature } | Should -Not -Throw
+        }
+    }
 }
