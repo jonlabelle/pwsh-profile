@@ -290,60 +290,52 @@ function Remove-OldFiles
         {
             if ($file.LastWriteTime -lt $cutoffDate)
             {
-                try
+                $fileSize = $file.Length
+                $fileName = $file.FullName
+
+                # Track parent directory for potential cleanup (before removal)
+                if ($RemoveEmptyDirectories)
                 {
-                    $fileSize = $file.Length
-                    $fileName = $file.FullName
-
-                    # Track parent directory for potential cleanup (before removal)
-                    if ($RemoveEmptyDirectories)
+                    $parentDir = [System.IO.Path]::GetDirectoryName($fileName)
+                    if ($parentDir)
                     {
-                        $parentDir = [System.IO.Path]::GetDirectoryName($fileName)
-                        if ($parentDir)
-                        {
-                            [void]$processedDirectories.Add($parentDir)
-                        }
+                        [void]$processedDirectories.Add($parentDir)
                     }
+                }
 
-                    if ($PSCmdlet.ShouldProcess($fileName, 'Remove file'))
+                if ($PSCmdlet.ShouldProcess($fileName, 'Remove file'))
+                {
+                    try
                     {
-                        try
+                        if ($Force)
                         {
-                            if ($Force)
-                            {
-                                Remove-Item -LiteralPath $fileName -Force -ErrorAction Stop
-                            }
-                            else
-                            {
-                                Remove-Item -LiteralPath $fileName -ErrorAction Stop
-                            }
-                            $filesRemoved++
-                            $totalSpaceFreed += $fileSize
-                            Write-Verbose "Removed: $fileName ($(Format-FileSize $fileSize))"
+                            Remove-Item -LiteralPath $fileName -Force -ErrorAction Stop
                         }
-                        catch [System.UnauthorizedAccessException]
+                        else
                         {
-                            if ($Force)
-                            {
-                                Write-Error "Failed to remove file '$fileName': $($_.Exception.Message)"
-                                $errorCount++
-                            }
-                            else
-                            {
-                                Write-Verbose "Skipping read-only or protected file: $fileName (use -Force to remove)"
-                            }
+                            Remove-Item -LiteralPath $fileName -ErrorAction Stop
                         }
-                        catch
+                        $filesRemoved++
+                        $totalSpaceFreed += $fileSize
+                        Write-Verbose "Removed: $fileName ($(Format-FileSize $fileSize))"
+                    }
+                    catch [System.UnauthorizedAccessException]
+                    {
+                        if ($Force)
                         {
                             Write-Error "Failed to remove file '$fileName': $($_.Exception.Message)"
                             $errorCount++
                         }
+                        else
+                        {
+                            Write-Verbose "Skipping read-only or protected file: $fileName (use -Force to remove)"
+                        }
                     }
-                }
-                catch
-                {
-                    Write-Error "Failed to process file '$($file.FullName)': $($_.Exception.Message)"
-                    $errorCount++
+                    catch
+                    {
+                        Write-Error "Failed to remove file '$fileName': $($_.Exception.Message)"
+                        $errorCount++
+                    }
                 }
             }
         }
