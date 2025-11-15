@@ -405,13 +405,13 @@ Describe 'Remove-OldFiles Integration Tests' {
         }
 
         It 'Should accept pipeline input' {
-            $results = @($script:pipelineDir1, $script:pipelineDir2) |
-            Remove-OldFiles -OlderThan 7 -Confirm:$false
+            $result = @($script:pipelineDir1, $script:pipelineDir2) |
+                Remove-OldFiles -OlderThan 7 -Confirm:$false
 
-            # Should process both directories
-            $results.Count | Should -BeGreaterOrEqual 1
-            $totalFilesRemoved = ($results | Measure-Object -Property FilesRemoved -Sum).Sum
-            $totalFilesRemoved | Should -Be 4
+            # Should process both directories and return a single summary
+            $result | Should -Not -BeNullOrEmpty
+            $result.FilesRemoved | Should -Be 4
+            $result.Errors | Should -Be 0
         }
     }
 

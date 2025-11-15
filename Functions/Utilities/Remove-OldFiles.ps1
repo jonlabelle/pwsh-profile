@@ -203,7 +203,7 @@ function Remove-OldFiles
         # Resolve path (handles ~, relative paths, etc.)
         try
         {
-            $resolvedPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
+            $resolvedPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
 
             # Ensure we got a valid path back
             if ([String]::IsNullOrWhiteSpace($resolvedPath))
