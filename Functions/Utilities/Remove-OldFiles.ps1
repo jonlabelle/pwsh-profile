@@ -109,7 +109,7 @@ function Remove-OldFiles
     param(
         [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [ValidateNotNullOrEmpty()]
-        [String]$Path = '.',
+        [String]$Path = (Get-Location).Path,
 
         [Parameter(Mandatory)]
         [ValidateRange(1, [Int32]::MaxValue)]
@@ -202,7 +202,7 @@ function Remove-OldFiles
         {
             Write-Error "Failed to resolve path '$Path': $($_.Exception.Message)"
             $errorCount++
-            return
+            continue
         }
 
         # Verify path exists
@@ -210,7 +210,7 @@ function Remove-OldFiles
         {
             Write-Error "Path not found: $resolvedPath"
             $errorCount++
-            return
+            continue
         }
 
         Write-Verbose "Processing path: $resolvedPath"
@@ -224,8 +224,8 @@ function Remove-OldFiles
             ErrorAction = 'SilentlyContinue'
         }
 
-        # Get all files
-        $files = Get-ChildItem @getChildItemParams
+        # Get all files (wrap in array to ensure it's always an array)
+        $files = @(Get-ChildItem @getChildItemParams)
 
         # Filter by Include patterns if specified (manual filtering for PS 5.1 compatibility)
         if ($Include)
@@ -298,7 +298,7 @@ function Remove-OldFiles
                     # Track parent directory for potential cleanup (before removal)
                     if ($RemoveEmptyDirectories)
                     {
-                        $parentDir = Split-Path -LiteralPath $fileName -Parent
+                        $parentDir = [System.IO.Path]::GetDirectoryName($fileName)
                         if ($parentDir)
                         {
                             [void]$processedDirectories.Add($parentDir)
@@ -307,15 +307,42 @@ function Remove-OldFiles
 
                     if ($PSCmdlet.ShouldProcess($fileName, 'Remove file'))
                     {
-                        Remove-Item -LiteralPath $fileName -Force:$Force -ErrorAction Stop
-                        $filesRemoved++
-                        $totalSpaceFreed += $fileSize
-                        Write-Verbose "Removed: $fileName ($(Format-FileSize $fileSize))"
+                        try
+                        {
+                            if ($Force)
+                            {
+                                Remove-Item -LiteralPath $fileName -Force -ErrorAction Stop
+                            }
+                            else
+                            {
+                                Remove-Item -LiteralPath $fileName -ErrorAction Stop
+                            }
+                            $filesRemoved++
+                            $totalSpaceFreed += $fileSize
+                            Write-Verbose "Removed: $fileName ($(Format-FileSize $fileSize))"
+                        }
+                        catch [System.UnauthorizedAccessException]
+                        {
+                            if ($Force)
+                            {
+                                Write-Error "Failed to remove file '$fileName': $($_.Exception.Message)"
+                                $errorCount++
+                            }
+                            else
+                            {
+                                Write-Verbose "Skipping read-only or protected file: $fileName (use -Force to remove)"
+                            }
+                        }
+                        catch
+                        {
+                            Write-Error "Failed to remove file '$fileName': $($_.Exception.Message)"
+                            $errorCount++
+                        }
                     }
                 }
                 catch
                 {
-                    Write-Error "Failed to remove file '$($file.FullName)': $($_.Exception.Message)"
+                    Write-Error "Failed to process file '$($file.FullName)': $($_.Exception.Message)"
                     $errorCount++
                 }
             }
@@ -357,7 +384,7 @@ function Remove-OldFiles
                                     Write-Verbose "Removed empty directory: $dir"
 
                                     # Track parent for potential cleanup
-                                    $parentDir = Split-Path -LiteralPath $dir -Parent
+                                    $parentDir = [System.IO.Path]::GetDirectoryName($dir)
                                     if ($parentDir -and -not $processedDirectories.Contains($parentDir))
                                     {
                                         [void]$processedDirectories.Add($parentDir)
