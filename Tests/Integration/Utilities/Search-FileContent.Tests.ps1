@@ -377,13 +377,13 @@ Line with backslash: \PATTERN\
         }
 
         It 'Should handle bracket patterns with literal matching' {
-            $results = Search-FileContent -Pattern '[PATTERN]' -Path $script:specialDir -Simple -Literal
+            $results = @(Search-FileContent -Pattern '[PATTERN]' -Path $script:specialDir -Simple -Literal)
             $results.Count | Should -Be 1
             $results[0].Line | Should -BeLike '*[PATTERN]*'
         }
 
         It 'Should handle regex special characters properly' {
-            $results = Search-FileContent -Pattern '\[PATTERN\]' -Path $script:specialDir -Simple
+            $results = @(Search-FileContent -Pattern '\[PATTERN\]' -Path $script:specialDir -Simple)
             $results.Count | Should -Be 1
         }
     }

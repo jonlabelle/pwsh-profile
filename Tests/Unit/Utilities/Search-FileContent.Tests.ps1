@@ -168,7 +168,7 @@ No matches
         }
 
         It 'Should respect case sensitivity by default' {
-            $results = Search-FileContent -Pattern 'PATTERN' -Path $script:testDir -Simple
+            $results = @(Search-FileContent -Pattern 'PATTERN' -Path $script:testDir -Simple)
             $results.Count | Should -Be 1
         }
 
@@ -201,7 +201,7 @@ function Get-Item
         }
 
         It 'Should treat pattern as literal when -Literal is used' {
-            $results = Search-FileContent -Pattern 'test.file' -Path $script:testDir -Simple -Literal
+            $results = @(Search-FileContent -Pattern 'test.file' -Path $script:testDir -Simple -Literal)
             $results.Count | Should -Be 1
             $results[0].Line | Should -Be 'test.file.name'
         }
@@ -293,9 +293,9 @@ Line 9
         }
 
         It 'Should filter files with -Include parameter' {
-            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Include '*.txt'
+            $results = @(Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Include '*.txt')
             $results.Count | Should -Be 1
-            $results[0].Path | Should -BeLike '*file1.txt'
+            $results[0].Path | Should -Match 'file1\.txt$'
         }
 
         It 'Should support multiple include patterns' {
@@ -425,9 +425,9 @@ Final line
         }
 
         It 'Should not search recursively with -NoRecurse' {
-            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -NoRecurse
+            $results = @(Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -NoRecurse)
             $results.Count | Should -Be 1
-            $results[0].Path | Should -BeLike '*root.txt'
+            $results[0].Path | Should -Match 'root\.txt$'
         }
 
         It 'Should respect MaxDepth parameter' {
@@ -471,7 +471,7 @@ Final line
         }
 
         It 'Should skip binary files' {
-            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple
+            $results = @(Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple)
             # Should only find the text file, not the binary file
             $results.Count | Should -Be 1
             $results[0].Path | Should -BeLike '*text.txt'
