@@ -12,6 +12,9 @@ function Replace-StringInFile
         By default, performs case-sensitive literal string replacement. Use -Regex for
         pattern matching and -CaseInsensitive for case-insensitive matching.
 
+        ALIASES:
+        The 'sarep' alias is created only if it doesn't already exist in the current environment.
+
     .PARAMETER Path
         The path to the file(s) to process. Accepts wildcards and pipeline input.
         Can be a single file, multiple files, or a wildcard pattern.
@@ -292,5 +295,18 @@ function Replace-StringInFile
     end
     {
         Write-Verbose 'Replace-StringInFile completed'
+    }
+}
+
+# Create 'sarep' alias only if it doesn't already exist
+if (-not (Get-Command -Name 'sarep' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Set-Alias -Name 'sarep' -Value 'Replace-StringInFile' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Replace-StringInFile: Could not create 'sarep' alias: $($_.Exception.Message)"
     }
 }
