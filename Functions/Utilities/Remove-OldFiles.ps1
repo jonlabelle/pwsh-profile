@@ -320,6 +320,21 @@ function Remove-OldFiles
                         Write-Verbose "Removed: $fileName ($(Format-FileSize $fileSize))"
                     }
                     catch [System.UnauthorizedAccessException]
+                {
+                    if ($Force)
+                    {
+                        Write-Error "Failed to remove file '$fileName': $($_.Exception.Message)"
+                        $errorCount++
+                    }
+                    else
+                    {
+                        Write-Verbose "Skipping read-only or protected file: $fileName (use -Force to remove)"
+                    }
+                }
+                catch [System.IO.IOException]
+                {
+                    # On Unix systems, permission errors may manifest as IOException
+                    if ($_.Exception.Message -match 'access rights|permission|read only')
                     {
                         if ($Force)
                         {
@@ -331,11 +346,17 @@ function Remove-OldFiles
                             Write-Verbose "Skipping read-only or protected file: $fileName (use -Force to remove)"
                         }
                     }
-                    catch
+                    else
                     {
                         Write-Error "Failed to remove file '$fileName': $($_.Exception.Message)"
                         $errorCount++
                     }
+                }
+                catch
+                {
+                    Write-Error "Failed to remove file '$fileName': $($_.Exception.Message)"
+                    $errorCount++
+                }
                 }
             }
         }
