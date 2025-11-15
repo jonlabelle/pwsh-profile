@@ -405,10 +405,16 @@ function Search-FileContent
                 {
                     $files = $files | Where-Object {
                         $fileName = $_.Name
-                        $IncludePatterns | ForEach-Object {
-                            if ($fileName -like $_) { return $true }
+                        $shouldInclude = $false
+                        foreach ($pattern in $IncludePatterns)
+                        {
+                            if ($fileName -like $pattern)
+                            {
+                                $shouldInclude = $true
+                                break
+                            }
                         }
-                        return $false
+                        $shouldInclude
                     }
                 }
 
