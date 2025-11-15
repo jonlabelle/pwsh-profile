@@ -224,18 +224,44 @@ function Remove-OldFiles
             ErrorAction = 'SilentlyContinue'
         }
 
-        if ($Include)
-        {
-            $getChildItemParams['Include'] = $Include
-        }
-
-        if ($Exclude)
-        {
-            $getChildItemParams['Exclude'] = $Exclude
-        }
-
         # Get all files
         $files = Get-ChildItem @getChildItemParams
+
+        # Filter by Include patterns if specified (manual filtering for PS 5.1 compatibility)
+        if ($Include)
+        {
+            $files = $files | Where-Object {
+                $fileName = $_.Name
+                $matched = $false
+                foreach ($pattern in $Include)
+                {
+                    if ($fileName -like $pattern)
+                    {
+                        $matched = $true
+                        break
+                    }
+                }
+                $matched
+            }
+        }
+
+        # Filter by Exclude patterns if specified (manual filtering for PS 5.1 compatibility)
+        if ($Exclude)
+        {
+            $files = $files | Where-Object {
+                $fileName = $_.Name
+                $excluded = $false
+                foreach ($pattern in $Exclude)
+                {
+                    if ($fileName -like $pattern)
+                    {
+                        $excluded = $true
+                        break
+                    }
+                }
+                -not $excluded
+            }
+        }
 
         # Filter by excluded directories if specified
         if ($ExcludeDirectory)
