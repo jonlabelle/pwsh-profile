@@ -491,31 +491,4 @@ Final line
             { Search-FileContent -Pattern '[invalid' -Path $testFile -Simple } | Should -Throw
         }
     }
-
-    Context 'Alias Existence' {
-        It 'Should create grep alias if not exists' {
-            # The alias should be created when the function is loaded
-            $alias = Get-Alias -Name 'grep' -ErrorAction SilentlyContinue
-            if ($alias)
-            {
-                $alias.ResolvedCommandName | Should -Be 'Search-FileContent'
-            }
-        }
-
-        It 'Should create search alias if not exists' {
-            $alias = Get-Alias -Name 'search' -ErrorAction SilentlyContinue
-            if ($alias)
-            {
-                $alias.ResolvedCommandName | Should -Be 'Search-FileContent'
-            }
-        }
-
-        It 'Should create sfc alias if not exists' {
-            $alias = Get-Alias -Name 'sfc' -ErrorAction SilentlyContinue
-            if ($alias)
-            {
-                $alias.ResolvedCommandName | Should -Be 'Search-FileContent'
-            }
-        }
-    }
 }

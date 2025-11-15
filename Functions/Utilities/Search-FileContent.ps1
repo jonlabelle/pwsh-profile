@@ -23,7 +23,7 @@ function Search-FileContent
         - Performance optimizations for large file sets
 
         ALIASES:
-        The 'grep', 'search' and 'sfc' aliases are created only if they don't already exist.
+        The 'grep' and 'search' aliases are created only if they don't already exist.
 
     .PARAMETER Pattern
         The search pattern. Supports regular expressions by default.
@@ -692,18 +692,28 @@ function Search-FileContent
     }
 }
 
-# Create aliases if they don't exist
-if (-not (Get-Alias -Name 'grep' -ErrorAction SilentlyContinue))
+# Create 'grep' alias only if it doesn't already exist
+if (-not (Get-Command -Name 'grep' -ErrorAction SilentlyContinue))
 {
-    New-Alias -Name 'grep' -Value 'Search-FileContent' -Description 'Alias for Search-FileContent' -Force
+    try
+    {
+        Set-Alias -Name 'grep' -Value 'Search-FileContent' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Search-FileContent: Could not create 'grep' alias: $($_.Exception.Message)"
+    }
 }
 
-if (-not (Get-Alias -Name 'search' -ErrorAction SilentlyContinue))
+# Create 'search' alias only if it doesn't already exist
+if (-not (Get-Command -Name 'search' -ErrorAction SilentlyContinue))
 {
-    New-Alias -Name 'search' -Value 'Search-FileContent' -Description 'Alias for Search-FileContent' -Force
-}
-
-if (-not (Get-Alias -Name 'sfc' -ErrorAction SilentlyContinue))
-{
-    New-Alias -Name 'sfc' -Value 'Search-FileContent' -Description 'Alias for Search-FileContent' -Force
+    try
+    {
+        Set-Alias -Name 'search' -Value 'Search-FileContent' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Search-FileContent: Could not create 'search' alias: $($_.Exception.Message)"
+    }
 }
