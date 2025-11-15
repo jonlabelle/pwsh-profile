@@ -19,6 +19,11 @@ function ConvertFrom-JwtToken
         - Payload: Contains claims (user data, expiration, issuer, etc.)
         - Signature: Cryptographic signature (not validated by this function)
 
+        TIMESTAMP HANDLING:
+        JWT timestamps (iat, exp, nbf) are stored as Unix epoch seconds in UTC per RFC 7519.
+        When displaying formatted output, these are automatically converted to your local timezone
+        with proper daylight saving time adjustment.
+
         CROSS-PLATFORM COMPATIBILITY:
         This function works on PowerShell 5.1+ across Windows, macOS, and Linux
         by using .NET Base64 conversion and JSON parsing.
@@ -35,19 +40,19 @@ function ConvertFrom-JwtToken
         If specified, includes the raw signature component in the output.
         The signature is returned as-is (Base64URL encoded) without validation.
 
-    .PARAMETER Pretty
-        If specified, displays the decoded token in a formatted, human-readable format
-        with colored output instead of returning a PSCustomObject. This is useful for
-        quick inspection but the output cannot be assigned to a variable for further processing.
+    .PARAMETER AsObject
+        If specified, returns the decoded token as a PSCustomObject instead of displaying
+        formatted output. Use this when you need to process the token programmatically or
+        assign it to a variable for further processing.
+
+    .PARAMETER NoLocalTimeConversion
+        If specified, displays timestamps in UTC instead of converting to local time.
+        By default, JWT timestamps (iat, exp, nbf) are converted from UTC to your local
+        timezone with DST adjustment. Use this to see the original UTC values.
 
     .EXAMPLE
         PS > $token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
         PS > ConvertFrom-JwtToken -Token $token
-
-        Decodes a JWT token and displays the header and payload.
-
-    .EXAMPLE
-        PS > ConvertFrom-JwtToken -Token $token -Pretty
 
         ═══════════════════════════════════════════════════════════════
         JWT TOKEN DECODED
@@ -55,46 +60,87 @@ function ConvertFrom-JwtToken
 
         HEADER
         ──────────────────────────────────────────────────────────────
-        alg                 : RS256
-        typ                 : JWT
+        alg                 : HS256  # Signing algorithm
+        typ                 : JWT  # Token type
 
         PAYLOAD
         ──────────────────────────────────────────────────────────────
-        sub                 : user123
-        name                : Jane Smith
-        email               : jane@example.com
-        exp                 : 1735689600 (12/31/2024 19:00:00)
-        iat                 : 1704067200 (12/31/2023 19:00:00)
-        iss                 : https://example.com
-        aud                 : api://default
+        sub                 : 1234567890  # Subject
+        name                : John Doe  # Full name
+        iat                 : 1516239022 (1/17/2018 8:30:22 PM)  # Issued at
 
         ═══════════════════════════════════════════════════════════════
 
-        Decodes a JWT token and displays it in a formatted, readable output with colors.
-
-    .EXAMPLE
-        PS > $jwt = ConvertFrom-JwtToken -Token $token
-        PS > $jwt.Payload.exp
-
-        Decodes a token and accesses the expiration claim.
+        Decodes a JWT token and displays it in formatted output with claim descriptions.
 
     .EXAMPLE
         PS > Get-Clipboard | ConvertFrom-JwtToken
 
-        Decodes a JWT token from the clipboard.
+        Decodes a JWT token from the clipboard and displays it with claim descriptions (default).
+
+    .EXAMPLE
+        PS > $jwt = ConvertFrom-JwtToken -Token $token -AsObject
+        PS > $jwt.Payload.iat
+
+        1516239022
+
+        Decodes a token as an object and accesses the expiration claim.
 
     .EXAMPLE
         PS > ConvertFrom-JwtToken -Token $token -IncludeSignature
 
-        Decodes the token and includes the signature component.
+        ═══════════════════════════════════════════════════════════════
+        JWT TOKEN DECODED
+        ═══════════════════════════════════════════════════════════════
+
+        HEADER
+        ──────────────────────────────────────────────────────────────
+        alg                 : HS256  # Signing algorithm
+        typ                 : JWT  # Token type
+
+        PAYLOAD
+        ──────────────────────────────────────────────────────────────
+        sub                 : 1234567890  # Subject
+        name                : John Doe  # Full name
+        iat                 : 1516239022 (1/17/2018 8:30:22 PM)  # Issued at
+
+        SIGNATURE
+        ──────────────────────────────────────────────────────────────
+        SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+
+        ═══════════════════════════════════════════════════════════════
+
+        Decodes the token and includes the signature in the formatted output.
 
     .EXAMPLE
-        PS > $decoded = ConvertFrom-JwtToken -Token $token
+        PS > ConvertFrom-JwtToken -Token $token -NoLocalTimeConversion
+
+        ═══════════════════════════════════════════════════════════════
+        JWT TOKEN DECODED
+        ═══════════════════════════════════════════════════════════════
+
+        HEADER
+        ──────────────────────────────────────────────────────────────
+        alg                 : HS256  # Signing algorithm
+        typ                 : JWT  # Token type
+
+        PAYLOAD
+        ──────────────────────────────────────────────────────────────
+        sub                 : 1234567890  # Subject
+        name                : John Doe  # Full name
+        iat                 : 1516239022 (1/18/2018 1:30:22 AM UTC)  # Issued at
+
+        ═══════════════════════════════════════════════════════════════
+
+        Decodes the token and displays timestamps in UTC instead of local time.
+
+    .EXAMPLE
+        PS > $decoded = ConvertFrom-JwtToken -Token $token -AsObject
         PS > $decoded.Header.alg
         PS > $decoded.Payload.sub
         PS > $decoded.Payload.name
 
-        Decodes a token and accesses specific header and payload properties.
+        Decodes a token as an object for programmatic access to properties.
 
     .OUTPUTS
         PSCustomObject with properties:
@@ -117,12 +163,66 @@ function ConvertFrom-JwtToken
         [Switch]$IncludeSignature,
 
         [Parameter()]
-        [Switch]$Pretty
+        [Switch]$AsObject,
+
+        [Parameter()]
+        [Switch]$NoLocalTimeConversion
     )
 
     begin
     {
         Write-Verbose 'Starting JWT token decoding'
+
+        # Define standard JWT claim descriptions (kept short to avoid line wrapping)
+        $script:ClaimDescriptions = @{
+            # Standard header claims
+            'alg' = 'Signing algorithm'
+            'typ' = 'Token type'
+            'kid' = 'Key ID'
+            'cty' = 'Content type'
+
+            # Standard payload claims (RFC 7519)
+            'iss' = 'Issuer'
+            'sub' = 'Subject'
+            'aud' = 'Audience'
+            'exp' = 'Expiration time'
+            'nbf' = 'Not valid before'
+            'iat' = 'Issued at'
+            'jti' = 'JWT ID'
+
+            # Common custom claims
+            'name' = 'Full name'
+            'given_name' = 'First name'
+            'family_name' = 'Last name'
+            'email' = 'Email address'
+            'email_verified' = 'Email verified'
+            'phone_number' = 'Phone number'
+            'phone_number_verified' = 'Phone verified'
+            'preferred_username' = 'Username'
+            'nickname' = 'Nickname'
+            'picture' = 'Picture URL'
+            'website' = 'Website'
+            'gender' = 'Gender'
+            'birthdate' = 'Birthdate'
+            'zoneinfo' = 'Timezone'
+            'locale' = 'Locale'
+            'updated_at' = 'Updated at'
+            'roles' = 'Roles'
+            'scope' = 'Scope'
+            'azp' = 'Authorized party'
+            'nonce' = 'Nonce'
+            'auth_time' = 'Auth time'
+            'acr' = 'Auth context'
+            'amr' = 'Auth methods'
+            'sid' = 'Session ID'
+            'tenant' = 'Tenant'
+            'tid' = 'Tenant ID'
+            'oid' = 'Object ID'
+            'upn' = 'User principal name'
+            'unique_name' = 'Unique name'
+            'appid' = 'App ID'
+            'ver' = 'Version'
+        }
     }
 
     process
@@ -189,9 +289,14 @@ function ConvertFrom-JwtToken
 
             Write-Verbose 'JWT token decoded successfully'
 
-            # Display pretty formatted output if requested
-            if ($Pretty)
+            # Return as object if requested, otherwise display formatted output (default)
+            if ($AsObject)
             {
+                Write-Output $result
+            }
+            else
+            {
+                # Display pretty formatted output (default behavior)
                 Write-Host ''
                 Write-Host '═══════════════════════════════════════════════════════════════' -ForegroundColor Cyan
                 Write-Host '  JWT TOKEN DECODED' -ForegroundColor Cyan
@@ -202,7 +307,16 @@ function ConvertFrom-JwtToken
                 Write-Host '──────────────────────────────────────────────────────────────' -ForegroundColor DarkGray
                 $header.PSObject.Properties | ForEach-Object {
                     Write-Host "  $($_.Name.PadRight(20)): " -NoNewline -ForegroundColor Yellow
-                    Write-Host $_.Value -ForegroundColor White
+                    Write-Host $_.Value -NoNewline -ForegroundColor White
+
+                    if ($script:ClaimDescriptions.ContainsKey($_.Name))
+                    {
+                        Write-Host "  # $($script:ClaimDescriptions[$_.Name])" -ForegroundColor DarkGray
+                    }
+                    else
+                    {
+                        Write-Host ''
+                    }
                 }
                 Write-Host ''
 
@@ -214,13 +328,43 @@ function ConvertFrom-JwtToken
                     # Special handling for timestamps (iat, exp, nbf)
                     if ($_.Name -in @('iat', 'exp', 'nbf') -and $_.Value -is [long])
                     {
-                        $timestamp = [DateTimeOffset]::FromUnixTimeSeconds($_.Value).LocalDateTime
+                        if ($NoLocalTimeConversion)
+                        {
+                            # Display in UTC without conversion
+                            $utcTime = [DateTimeOffset]::FromUnixTimeSeconds($_.Value).UtcDateTime
+                            $formattedTime = $utcTime.ToString('M/d/yyyy h:mm:ss tt') + ' UTC'
+                        }
+                        else
+                        {
+                            # Convert to local time with proper timezone handling (including DST)
+                            $localTime = [DateTimeOffset]::FromUnixTimeSeconds($_.Value).ToLocalTime().DateTime
+                            $formattedTime = $localTime.ToString('M/d/yyyy h:mm:ss tt')
+                        }
+
                         Write-Host "$($_.Value) " -NoNewline -ForegroundColor White
-                        Write-Host "($timestamp)" -ForegroundColor DarkGray
+                        Write-Host "($formattedTime)" -NoNewline -ForegroundColor DarkGray
+
+                        if ($script:ClaimDescriptions.ContainsKey($_.Name))
+                        {
+                            Write-Host "  # $($script:ClaimDescriptions[$_.Name])" -ForegroundColor DarkGray
+                        }
+                        else
+                        {
+                            Write-Host ''
+                        }
                     }
                     else
                     {
-                        Write-Host $_.Value -ForegroundColor White
+                        Write-Host $_.Value -NoNewline -ForegroundColor White
+
+                        if ($script:ClaimDescriptions.ContainsKey($_.Name))
+                        {
+                            Write-Host "  # $($script:ClaimDescriptions[$_.Name])" -ForegroundColor DarkGray
+                        }
+                        else
+                        {
+                            Write-Host ''
+                        }
                     }
                 }
 
@@ -235,10 +379,6 @@ function ConvertFrom-JwtToken
                 Write-Host ''
                 Write-Host '═══════════════════════════════════════════════════════════════' -ForegroundColor Cyan
                 Write-Host ''
-            }
-            else
-            {
-                Write-Output $result
             }
         }
         catch

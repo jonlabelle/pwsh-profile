@@ -38,7 +38,7 @@ Describe 'ConvertFrom-JwtToken Unit Tests' {
         }
 
         It 'Should accept token from pipeline' {
-            $result = $script:ValidToken | ConvertFrom-JwtToken
+            $result = $script:ValidToken | ConvertFrom-JwtToken -AsObject
             $result | Should -Not -BeNullOrEmpty
             $result.Header | Should -Not -BeNullOrEmpty
             $result.Payload | Should -Not -BeNullOrEmpty
@@ -63,9 +63,9 @@ Describe 'ConvertFrom-JwtToken Unit Tests' {
     }
 
     Context 'JWT Decoding - Standard Token' {
-        It 'Should decode a valid JWT token successfully (Example: ConvertFrom-JwtToken -Token $token)' {
+        It 'Should decode a valid JWT token successfully (Example: ConvertFrom-JwtToken -Token $token -AsObject)' {
             # Test basic JWT decoding functionality as shown in documentation
-            $result = ConvertFrom-JwtToken -Token $script:ValidToken
+            $result = ConvertFrom-JwtToken -Token $script:ValidToken -AsObject
 
             $result | Should -Not -BeNullOrEmpty
             $result.Header | Should -Not -BeNullOrEmpty
@@ -73,14 +73,14 @@ Describe 'ConvertFrom-JwtToken Unit Tests' {
         }
 
         It 'Should decode header correctly' {
-            $result = ConvertFrom-JwtToken -Token $script:ValidToken
+            $result = ConvertFrom-JwtToken -Token $script:ValidToken -AsObject
 
             $result.Header.alg | Should -Be 'HS256'
             $result.Header.typ | Should -Be 'JWT'
         }
 
         It 'Should decode payload correctly' {
-            $result = ConvertFrom-JwtToken -Token $script:ValidToken
+            $result = ConvertFrom-JwtToken -Token $script:ValidToken -AsObject
 
             $result.Payload.sub | Should -Be '1234567890'
             $result.Payload.name | Should -Be 'John Doe'
@@ -88,15 +88,15 @@ Describe 'ConvertFrom-JwtToken Unit Tests' {
         }
 
         It 'Should not include signature by default' {
-            $result = ConvertFrom-JwtToken -Token $script:ValidToken
+            $result = ConvertFrom-JwtToken -Token $script:ValidToken -AsObject
 
             $result.PSObject.Properties.Name | Should -Not -Contain 'Signature'
         }
 
-        It 'Should handle tokens with whitespace (Example: Get-Clipboard | ConvertFrom-JwtToken)' {
+        It 'Should handle tokens with whitespace (Example: Get-Clipboard | ConvertFrom-JwtToken -AsObject)' {
             # Simulate clipboard content with leading/trailing whitespace
             $tokenWithWhitespace = "  $script:ValidToken  "
-            $result = ConvertFrom-JwtToken -Token $tokenWithWhitespace
+            $result = ConvertFrom-JwtToken -Token $tokenWithWhitespace -AsObject
 
             $result.Payload.name | Should -Be 'John Doe'
         }
@@ -104,7 +104,7 @@ Describe 'ConvertFrom-JwtToken Unit Tests' {
 
     Context 'JWT Decoding - Complex Token' {
         It 'Should decode token with multiple claims (Example: $jwt.Payload.exp)' {
-            $result = ConvertFrom-JwtToken -Token $script:ComplexToken
+            $result = ConvertFrom-JwtToken -Token $script:ComplexToken -AsObject
 
             $result.Payload.sub | Should -Be 'user123'
             $result.Payload.name | Should -Be 'Jane Smith'
@@ -116,36 +116,36 @@ Describe 'ConvertFrom-JwtToken Unit Tests' {
         }
 
         It 'Should decode RS256 algorithm in header' {
-            $result = ConvertFrom-JwtToken -Token $script:ComplexToken
+            $result = ConvertFrom-JwtToken -Token $script:ComplexToken -AsObject
 
             $result.Header.alg | Should -Be 'RS256'
             $result.Header.typ | Should -Be 'JWT'
         }
 
         It 'Should allow accessing specific payload properties (Example: $decoded.Payload.sub)' {
-            $decoded = ConvertFrom-JwtToken -Token $script:ComplexToken
+            $decoded = ConvertFrom-JwtToken -Token $script:ComplexToken -AsObject
 
             $decoded.Payload.sub | Should -Be 'user123'
             $decoded.Payload.name | Should -Be 'Jane Smith'
         }
 
         It 'Should allow accessing header properties (Example: $decoded.Header.alg)' {
-            $decoded = ConvertFrom-JwtToken -Token $script:ComplexToken
+            $decoded = ConvertFrom-JwtToken -Token $script:ComplexToken -AsObject
 
             $decoded.Header.alg | Should -Be 'RS256'
         }
     }
 
     Context 'Signature Handling' {
-        It 'Should include signature when -IncludeSignature is specified (Example: ConvertFrom-JwtToken -Token $token -IncludeSignature)' {
-            $result = ConvertFrom-JwtToken -Token $script:ValidToken -IncludeSignature
+        It 'Should include signature when -IncludeSignature is specified (Example: ConvertFrom-JwtToken -Token $token -IncludeSignature -AsObject)' {
+            $result = ConvertFrom-JwtToken -Token $script:ValidToken -IncludeSignature -AsObject
 
             $result.PSObject.Properties.Name | Should -Contain 'Signature'
             $result.Signature | Should -Be 'SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c'
         }
 
         It 'Should return signature as string' {
-            $result = ConvertFrom-JwtToken -Token $script:ValidToken -IncludeSignature
+            $result = ConvertFrom-JwtToken -Token $script:ValidToken -IncludeSignature -AsObject
 
             $result.Signature | Should -BeOfType [String]
             $result.Signature | Should -Not -BeNullOrEmpty
@@ -159,7 +159,7 @@ Describe 'ConvertFrom-JwtToken Unit Tests' {
             # Payload: {"test":"value-with_special"} -> eyJ0ZXN0IjoidmFsdWUtd2l0aF9zcGVjaWFsIn0
             $specialToken = 'eyJhbGciOiJIUzI1NiJ9.eyJ0ZXN0IjoidmFsdWUtd2l0aF9zcGVjaWFsIn0.sig'
 
-            $result = ConvertFrom-JwtToken -Token $specialToken
+            $result = ConvertFrom-JwtToken -Token $specialToken -AsObject
 
             $result.Header.alg | Should -Be 'HS256'
             $result.Payload.test | Should -Be 'value-with_special'
@@ -167,7 +167,7 @@ Describe 'ConvertFrom-JwtToken Unit Tests' {
 
         It 'Should handle Base64URL padding correctly' {
             # JWT tokens don't have padding, but the function should add it correctly
-            $result = ConvertFrom-JwtToken -Token $script:ValidToken
+            $result = ConvertFrom-JwtToken -Token $script:ValidToken -AsObject
 
             # If padding was handled incorrectly, this would fail
             $result.Header | Should -Not -BeNullOrEmpty
@@ -177,26 +177,26 @@ Describe 'ConvertFrom-JwtToken Unit Tests' {
 
     Context 'Output Format' {
         It 'Should return PSCustomObject' {
-            $result = ConvertFrom-JwtToken -Token $script:ValidToken
+            $result = ConvertFrom-JwtToken -Token $script:ValidToken -AsObject
 
             $result | Should -BeOfType [PSCustomObject]
         }
 
         It 'Should have Header and Payload properties' {
-            $result = ConvertFrom-JwtToken -Token $script:ValidToken
+            $result = ConvertFrom-JwtToken -Token $script:ValidToken -AsObject
 
             $result.PSObject.Properties.Name | Should -Contain 'Header'
             $result.PSObject.Properties.Name | Should -Contain 'Payload'
         }
 
         It 'Should have exactly 2 properties without -IncludeSignature' {
-            $result = ConvertFrom-JwtToken -Token $script:ValidToken
+            $result = ConvertFrom-JwtToken -Token $script:ValidToken -AsObject
 
             $result.PSObject.Properties.Name.Count | Should -Be 2
         }
 
         It 'Should have exactly 3 properties with -IncludeSignature' {
-            $result = ConvertFrom-JwtToken -Token $script:ValidToken -IncludeSignature
+            $result = ConvertFrom-JwtToken -Token $script:ValidToken -IncludeSignature -AsObject
 
             $result.PSObject.Properties.Name.Count | Should -Be 3
         }
@@ -232,14 +232,14 @@ Describe 'ConvertFrom-JwtToken Unit Tests' {
 
     Context 'Pipeline Support' {
         It 'Should process token from pipeline' {
-            $result = $script:ValidToken | ConvertFrom-JwtToken
+            $result = $script:ValidToken | ConvertFrom-JwtToken -AsObject
 
             $result.Payload.name | Should -Be 'John Doe'
         }
 
         It 'Should process multiple tokens from pipeline' {
             $tokens = @($script:ValidToken, $script:ComplexToken)
-            $results = $tokens | ConvertFrom-JwtToken
+            $results = $tokens | ConvertFrom-JwtToken -AsObject
 
             $results.Count | Should -Be 2
             $results[0].Payload.name | Should -Be 'John Doe'
@@ -248,22 +248,27 @@ Describe 'ConvertFrom-JwtToken Unit Tests' {
     }
 
     Context 'Pretty Output Format' {
-        It 'Should not return object when -Pretty is used' {
-            $result = ConvertFrom-JwtToken -Token $script:ValidToken -Pretty
+        It 'Should not return object by default (formatted output)' {
+            $result = ConvertFrom-JwtToken -Token $script:ValidToken
 
             $result | Should -BeNullOrEmpty
         }
 
-        It 'Should return object when -Pretty is not used' {
-            $result = ConvertFrom-JwtToken -Token $script:ValidToken
+        It 'Should return object when -AsObject is used' {
+            $result = ConvertFrom-JwtToken -Token $script:ValidToken -AsObject
 
             $result | Should -Not -BeNullOrEmpty
             $result | Should -BeOfType [PSCustomObject]
         }
 
-        It 'Should support both -Pretty and -IncludeSignature together' {
-            # This should not throw and should produce pretty output with signature
-            { ConvertFrom-JwtToken -Token $script:ValidToken -Pretty -IncludeSignature } | Should -Not -Throw
+        It 'Should support -IncludeSignature with formatted output' {
+            # This should not throw and should produce formatted output with signature
+            { ConvertFrom-JwtToken -Token $script:ValidToken -IncludeSignature } | Should -Not -Throw
+        }
+
+        It 'Should support -AsObject with -IncludeSignature' {
+            # This should not throw and should return object with signature
+            { ConvertFrom-JwtToken -Token $script:ValidToken -AsObject -IncludeSignature } | Should -Not -Throw
         }
     }
 }
