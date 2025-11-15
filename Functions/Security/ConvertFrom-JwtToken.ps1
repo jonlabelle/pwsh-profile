@@ -32,6 +32,9 @@ function ConvertFrom-JwtToken
         This function ONLY decodes the token - it does NOT validate the signature.
         Do not use decoded tokens for authentication without proper signature verification.
 
+        Aliases:
+        The alias 'jwt-decode' is created for this function if it does not already exist.
+
     .PARAMETER Token
         The JWT token string to decode. Can be provided as a string or via pipeline.
         Must be in the standard three-part format: header.payload.signature
@@ -391,5 +394,18 @@ function ConvertFrom-JwtToken
     end
     {
         Write-Verbose 'JWT token decoding completed'
+    }
+}
+
+# Create 'jwt-decode' alias only if it doesn't already exist
+if (-not (Get-Command -Name 'jwt-decode' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Set-Alias -Name 'jwt-decode' -Value 'ConvertFrom-JwtToken' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "ConvertFrom-JwtToken: Could not create 'jwt-decode' alias: $($_.Exception.Message)"
     }
 }
