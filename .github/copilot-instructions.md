@@ -51,12 +51,14 @@ else
 - **Path Resolution:** For arbitrary strings/variables (and to normalize to an absolute path without requiring the path to exist), including the `~` symbol:
 
   ```powershell
-  $OutputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
-
-  # If you're inside an advanced function, you can also use:
+  # Inside advanced functions (with [CmdletBinding()]) - PREFERRED for PS 5.1 compatibility:
   $OutputPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
 
+  # In regular functions or scripts:
+  $OutputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
+
   # Note: Does NOT require the target to exist.
+  # Note: Use $PSCmdlet version in advanced functions for better pipeline/PS 5.1 compatibility.
   ```
 
 - **Network Testing:** Prefer .NET Socket classes over Windows-specific cmdlets
