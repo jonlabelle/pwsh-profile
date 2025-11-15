@@ -260,9 +260,9 @@ function Search-FileContent
         if (-not $Simple -and -not $FilesOnly)
         {
             $colorReset = "`e[0m"
-            $colorFile = "`e[35m"      # Magenta for file paths
-            $colorLineNum = "`e[32m"   # Green for line numbers
-            $colorMatch = "`e[91m"     # Bright red for matches
+            $colorFile = "`e[90m"      # Dark gray for file paths
+            $colorLineNum = "`e[90m"   # Dark gray for line numbers
+            $colorMatch = "`e[96m"     # Bright cyan for matches
             $colorContext = "`e[90m"   # Gray for context
         }
 
