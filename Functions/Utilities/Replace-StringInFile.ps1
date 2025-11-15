@@ -164,7 +164,16 @@ function Replace-StringInFile
                     # Check if file is binary
                     try
                     {
-                        $testBytes = Get-Content -Path $file.FullName -AsByteStream -TotalCount 8000 -ErrorAction Stop
+                        # PowerShell 5.1 uses -Encoding Byte, PowerShell Core 6+ uses -AsByteStream
+                        if ($PSVersionTable.PSVersion.Major -ge 6)
+                        {
+                            $testBytes = Get-Content -Path $file.FullName -AsByteStream -TotalCount 8000 -ErrorAction Stop
+                        }
+                        else
+                        {
+                            $testBytes = Get-Content -Path $file.FullName -Encoding Byte -TotalCount 8000 -ErrorAction Stop
+                        }
+
                         $nullBytes = ($testBytes | Where-Object { $_ -eq 0 }).Count
                         if ($nullBytes -gt 0)
                         {
