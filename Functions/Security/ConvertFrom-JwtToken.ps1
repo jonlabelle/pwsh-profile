@@ -176,6 +176,19 @@ function ConvertFrom-JwtToken
     {
         Write-Verbose 'Starting JWT token decoding'
 
+        # Detect if we're on Windows PowerShell Desktop 5.1 (use ASCII-only box chars for CI compatibility)
+        $useAsciiBoxChars = $PSVersionTable.PSVersion.Major -lt 6
+        if ($useAsciiBoxChars)
+        {
+            $script:DoubleLineChar = '='
+            $script:SingleLineChar = '-'
+        }
+        else
+        {
+            $script:DoubleLineChar = '═'
+            $script:SingleLineChar = '─'
+        }
+
         # Define standard JWT claim descriptions (kept short to avoid line wrapping)
         $script:ClaimDescriptions = @{
             # Standard header claims
@@ -301,13 +314,13 @@ function ConvertFrom-JwtToken
             {
                 # Display pretty formatted output (default behavior)
                 Write-Host ''
-                Write-Host '═══════════════════════════════════════════════════════════════' -ForegroundColor Cyan
+                Write-Host ($script:DoubleLineChar * 63) -ForegroundColor Cyan
                 Write-Host '  JWT TOKEN DECODED' -ForegroundColor Cyan
-                Write-Host '═══════════════════════════════════════════════════════════════' -ForegroundColor Cyan
+                Write-Host ($script:DoubleLineChar * 63) -ForegroundColor Cyan
                 Write-Host ''
 
                 Write-Host 'HEADER' -ForegroundColor Green
-                Write-Host '──────────────────────────────────────────────────────────────' -ForegroundColor DarkGray
+                Write-Host ($script:SingleLineChar * 62) -ForegroundColor DarkGray
                 $header.PSObject.Properties | ForEach-Object {
                     Write-Host "  $($_.Name.PadRight(20)): " -NoNewline -ForegroundColor Yellow
                     Write-Host $_.Value -NoNewline -ForegroundColor White
@@ -324,7 +337,7 @@ function ConvertFrom-JwtToken
                 Write-Host ''
 
                 Write-Host 'PAYLOAD' -ForegroundColor Green
-                Write-Host '──────────────────────────────────────────────────────────────' -ForegroundColor DarkGray
+                Write-Host ($script:SingleLineChar * 62) -ForegroundColor DarkGray
                 $payload.PSObject.Properties | ForEach-Object {
                     Write-Host "  $($_.Name.PadRight(20)): " -NoNewline -ForegroundColor Yellow
 
@@ -375,12 +388,12 @@ function ConvertFrom-JwtToken
                 {
                     Write-Host ''
                     Write-Host 'SIGNATURE' -ForegroundColor Green
-                    Write-Host '──────────────────────────────────────────────────────────────' -ForegroundColor DarkGray
+                    Write-Host ($script:SingleLineChar * 62) -ForegroundColor DarkGray
                     Write-Host "  $($parts[2])" -ForegroundColor White
                 }
 
                 Write-Host ''
-                Write-Host '═══════════════════════════════════════════════════════════════' -ForegroundColor Cyan
+                Write-Host ($script:DoubleLineChar * 63) -ForegroundColor Cyan
                 Write-Host ''
             }
         }
