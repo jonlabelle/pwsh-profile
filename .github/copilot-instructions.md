@@ -2,6 +2,7 @@
 
 - Do NOT create summaries of work performed in Markdown files.
 - Be sure to cleanup any temporary files created during tasks.
+- Use the _tmp_ directory of the repository for temporary files during tests, not system temp directories (e.g. not the `/tmp` directory).
 
 ## Architecture Overview
 
