@@ -35,10 +35,14 @@
         Reserved for future use. Currently behaves like the default run.
 
     .EXAMPLE
-        irm https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1 |
-            pwsh -NoProfile -ExecutionPolicy Bypass - -Verbose
+        PS > irm https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1 | pwsh -NoProfile -ExecutionPolicy Bypass - -Verbose
 
         Downloads and runs the installer with PowerShell Core, producing verbose output.
+
+    .EXAMPLE
+        PS > irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' | powershell -NoProfile -ExecutionPolicy Bypass -
+
+        Downloads and runs the installer for PowerShell Desktop.
 
     .EXAMPLE
         pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -LocalSourcePath (Get-Location)
@@ -102,6 +106,7 @@ Set-StrictMode -Version Latest
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
+$SessionRestartMessage = 'Please exit your current PowerShell session and start a new one to load the updated profile.'
 
 function Resolve-ProviderPath
 {
@@ -343,6 +348,7 @@ try
 
         Restore-FromBackup -BackupSource $resolvedRestorePath -Destination $resolvedProfileRoot
         Write-Host "Profile restored from $resolvedRestorePath"
+        Write-Host $SessionRestartMessage -ForegroundColor Yellow
         return
     }
 
@@ -392,6 +398,7 @@ try
     {
         Write-Host "Backup stored at $backupLocation"
     }
+    Write-Host $SessionRestartMessage -ForegroundColor Yellow
 }
 catch
 {

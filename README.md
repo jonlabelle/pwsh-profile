@@ -46,17 +46,15 @@ Use the provided [`install.ps1`](install.ps1) script to automate backups, preser
 
 ```powershell
 irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' |
-  pwsh -NoProfile -ExecutionPolicy Bypass -
+    pwsh -NoProfile -ExecutionPolicy Bypass -
 ```
 
-#### Windows PowerShell 5.1
+#### Windows PowerShell Desktop 5.1
 
 ```powershell
 irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' |
-  powershell -NoProfile -ExecutionPolicy Bypass -
+    powershell -NoProfile -ExecutionPolicy Bypass -
 ```
-
-> Prefer `Invoke-RestMethod` (`irm`) for piping scripts because it returns the response body as plain text; `Invoke-WebRequest` (`iwr`) emits a rich object whose properties (like `StatusCode`) otherwise print and break the pipeline.
 
 ### Run install.ps1 Locally
 
