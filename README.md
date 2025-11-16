@@ -45,14 +45,18 @@ Use the provided [`install.ps1`](install.ps1) script to automate backups, preser
 #### PowerShell Core (pwsh)
 
 ```powershell
-iwr 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' -UseBasicParsing | pwsh -NoProfile -ExecutionPolicy Bypass -
+irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' |
+  pwsh -NoProfile -ExecutionPolicy Bypass -
 ```
 
 #### Windows PowerShell 5.1
 
 ```powershell
-iwr 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' -UseBasicParsing | powershell -NoProfile -ExecutionPolicy Bypass -
+irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' |
+  powershell -NoProfile -ExecutionPolicy Bypass -
 ```
+
+> Prefer `Invoke-RestMethod` (`irm`) for piping scripts because it returns the response body as plain text; `Invoke-WebRequest` (`iwr`) emits a rich object whose properties (like `StatusCode`) otherwise print and break the pipeline.
 
 ### Run install.ps1 Locally
 
@@ -67,7 +71,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -Verbose
 `install.ps1` can restore a previous snapshot created during installation. Provide the full path to the backup directory (for example, `C:\Users\you\Documents\WindowsPowerShell-backup-20251116-110000`).
 
 ```powershell
-iwr 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' -UseBasicParsing | pwsh -NoProfile -ExecutionPolicy Bypass - -RestorePath 'C:\Path\To\Backup'
+irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' | pwsh -NoProfile -ExecutionPolicy Bypass - -RestorePath 'C:\Path\To\Backup'
 ```
 
 ### Optional Parameters

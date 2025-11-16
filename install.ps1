@@ -35,7 +35,8 @@
         Reserved for future use. Currently behaves like the default run.
 
     .EXAMPLE
-        iwr https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1 -UseBasicParsing | pwsh -NoProfile -ExecutionPolicy Bypass - -Verbose
+        irm https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1 |
+            pwsh -NoProfile -ExecutionPolicy Bypass - -Verbose
 
         Downloads and runs the installer with PowerShell Core, producing verbose output.
 
