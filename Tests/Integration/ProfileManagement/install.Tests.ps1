@@ -25,9 +25,18 @@ Describe 'install.ps1 integration tests' {
                 Test-Path (Join-Path $profileRoot 'Microsoft.PowerShell_profile.ps1') | Should -BeTrue
                 $gitConfigPath = Join-Path $profileRoot '.git/config'
                 Test-Path $gitConfigPath | Should -BeTrue
-                $originPattern = [regex]::Escape($script:repoRoot)
                 $gitConfigContent = Get-Content $gitConfigPath -Raw
-                $gitConfigContent | Should -Match $originPattern
+                $originMatch = [regex]::Match(
+                    $gitConfigContent,
+                    '^\s*url\s*=\s*(.+)$',
+                    [System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor [System.Text.RegularExpressions.RegexOptions]::Multiline
+                )
+                $originMatch.Success | Should -BeTrue -Because 'git clone should record the remote origin URL'
+
+                $originUrl = [regex]::Unescape($originMatch.Groups[1].Value.Trim())
+                $resolvedOrigin = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($originUrl)
+                $resolvedRepoRoot = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($script:repoRoot)
+                $resolvedOrigin | Should -Be $resolvedRepoRoot
 
                 $profileParent = Split-Path -Parent $profileRoot
                 $profileLeaf = Split-Path -Leaf $profileRoot
