@@ -7,6 +7,11 @@
         backs up the existing contents, preserves the `Help`, `Modules`, and `Scripts` folders by default, and then deploys the latest profile
         files from this repository (via `git clone`) or from a local path. You can also point the script at a previous backup to restore it.
 
+        Backups are created in the parent directory of your profile with the format: `{ProfileDirectory}-backup-{yyyyMMdd-HHmmss}`
+        Example: `C:\Users\YourName\Documents\WindowsPowerShell-backup-20250116-143022`
+
+        To restore from a backup, use: `pwsh -NoProfile -File ./install.ps1 -RestorePath 'path\to\backup'`
+
     .PARAMETER ProfileRoot
         Overrides the detected profile root directory (defaults to `Split-Path -Parent $PROFILE`).
 
@@ -60,6 +65,13 @@
         Installs without creating a backup while only preserving the `Modules` directory.
 
     .EXAMPLE
+        # List available backups
+        Get-ChildItem -Path (Split-Path -Parent $PROFILE) -Filter '*-backup-*' | Sort-Object Name -Descending
+
+        # Restore from the most recent backup
+        pwsh -NoProfile -File ./install.ps1 -RestorePath 'C:\Users\YourName\Documents\WindowsPowerShell-backup-20250116-143022'
+
+    .EXAMPLE
         pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -LocalSourcePath (Get-Location) -WhatIf -Verbose
 
         Performs a dry run that shows which directories would be removed, backed up, preserved, or copied without actually changing anything.
@@ -106,7 +118,9 @@ Set-StrictMode -Version Latest
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
-$SessionRestartMessage = 'Please exit your current PowerShell session and start a new one to load the updated profile.'
+
+# Determine the appropriate PowerShell executable name
+$psExecutable = if ($PSVersionTable.PSVersion.Major -lt 6) { 'powershell' } else { 'pwsh' }
 
 function Resolve-ProviderPath
 {
@@ -347,8 +361,11 @@ try
         }
 
         Restore-FromBackup -BackupSource $resolvedRestorePath -Destination $resolvedProfileRoot
-        Write-Host "Profile restored from $resolvedRestorePath"
-        Write-Host $SessionRestartMessage -ForegroundColor Yellow
+        Write-Host ''
+        Write-Host 'Profile successfully restored from:' -ForegroundColor Green
+        Write-Host "  $resolvedRestorePath" -ForegroundColor Cyan
+        Write-Host ''
+        Write-Host 'Please restart your PowerShell session to load the restored profile.' -ForegroundColor Yellow
         return
     }
 
@@ -393,12 +410,30 @@ try
         Restore-PreservedDirectories -PreservationData $preservationData -DestinationRoot $resolvedProfileRoot
     }
 
-    Write-Host "PowerShell profile installed at $resolvedProfileRoot"
+    Write-Host ''
+    Write-Host 'PowerShell profile installed successfully at:' -ForegroundColor Green
+    Write-Host "  $resolvedProfileRoot" -ForegroundColor Cyan
+    Write-Host ''
+
     if ($backupLocation)
     {
-        Write-Host "Backup stored at $backupLocation"
+        Write-Host 'Your previous profile was backed up to:' -ForegroundColor Yellow
+        Write-Host "  $backupLocation" -ForegroundColor Cyan
+        Write-Host ''
+        Write-Host 'To restore from this backup:' -ForegroundColor Yellow
+        Write-Host "  $psExecutable -NoProfile -File ./install.ps1 -RestorePath '$backupLocation'" -ForegroundColor Gray
+        Write-Host ''
+        Write-Host 'Or manually copy contents from the backup directory to:' -ForegroundColor Yellow
+        Write-Host "  $resolvedProfileRoot" -ForegroundColor Gray
+        Write-Host ''
     }
-    Write-Host $SessionRestartMessage -ForegroundColor Yellow
+    else
+    {
+        Write-Host 'No backup was created (profile directory did not exist or -SkipBackup was used).' -ForegroundColor Gray
+        Write-Host ''
+    }
+
+    Write-Host 'Please restart your PowerShell session to load the updated profile.' -ForegroundColor Yellow
 }
 catch
 {
