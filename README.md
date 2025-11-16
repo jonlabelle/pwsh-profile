@@ -36,27 +36,67 @@
 
 ## Install
 
-Clone this repository into your PowerShell profile directory to replace any existing configuration. Choose the correct target path for your platform and run the corresponding `git clone` command.
+Use the provided [`install.ps1`](install.ps1) script to automate backups, preserve your existing `Help`, `Modules`, and `Scripts` directories, and deploy the latest profile files. The script requires `git` and works on PowerShell Desktop 5.1 and PowerShell Core 6+.
 
-### Linux/macOS
+### Quick Install (one-liner)
 
-From a PowerShell session on Linux or macOS, run:
+> The script is downloaded and piped directly into PowerShell. If you prefer to [inspect it first](install.ps1), [download it to disk](https://raw.githubusercontent.com/jonlabelle/pwsh-profile/refs/heads/main/install.ps1) and run it via `-File`.
+
+#### PowerShell Core (pwsh)
+
+```powershell
+iwr 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' -UseBasicParsing | pwsh -NoProfile -ExecutionPolicy Bypass -
+```
+
+#### Windows PowerShell 5.1
+
+```powershell
+iwr 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' -UseBasicParsing | powershell -NoProfile -ExecutionPolicy Bypass -
+```
+
+### Run install.ps1 Locally
+
+If you already cloned this repository (or downloaded `install.ps1`), run it from the repo root:
+
+```bash
+pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -Verbose
+```
+
+### Restore from a Backup
+
+`install.ps1` can restore a previous snapshot created during installation. Provide the full path to the backup directory (for example, `C:\Users\you\Documents\WindowsPowerShell-backup-20251116-110000`).
+
+```powershell
+iwr 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' -UseBasicParsing | pwsh -NoProfile -ExecutionPolicy Bypass - -RestorePath 'C:\Path\To\Backup'
+```
+
+### Optional Parameters
+
+- `-SkipBackup` — install without creating a backup of the existing profile directory
+- `-SkipPreserveDirectories` — do not restore the `Help`, `Modules`, and `Scripts` directories after installation
+- `-PreserveDirectories @('Dir1','Dir2')` — override the default directories that are restored
+- `-LocalSourcePath <path>` — copy profile files from an existing local clone instead of running `git clone`
+- `-ProfileRoot <path>` — override the detected profile directory (defaults to `Split-Path -Parent $PROFILE`)
+
+For more examples, see the [install.ps1 documentation](install.ps1).
+
+### Manual Install (fallback)
+
+If you prefer to install manually, clone this repository directly into your profile directory.
+
+#### Linux/macOS
 
 ```powershell
 git clone 'https://github.com/jonlabelle/pwsh-profile.git' $HOME/.config/powershell
 ```
 
-### Windows
-
-On Windows, select the appropriate PowerShell version and run the corresponding command.
-
-#### PowerShell Desktop
+#### Windows PowerShell Desktop
 
 ```powershell
 git clone 'https://github.com/jonlabelle/pwsh-profile.git' $HOME\Documents\WindowsPowerShell
 ```
 
-#### PowerShell Core
+#### Windows PowerShell Core
 
 ```powershell
 git clone 'https://github.com/jonlabelle/pwsh-profile.git' $HOME\Documents\PowerShell
