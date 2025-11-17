@@ -28,13 +28,13 @@ function Update-Profile
     if (-not $gitCommand)
     {
         $psExecutable = if ($PSVersionTable.PSVersion.Major -lt 6) { 'powershell' } else { 'pwsh' }
-        $installScriptPath = Join-Path -Path $PSScriptRoot -ChildPath 'install.ps1'
 
         Write-Host ''
         Write-Host 'Git is not installed or not found in PATH.' -ForegroundColor Yellow
         Write-Host 'To update your profile without Git, use the install.ps1 script:' -ForegroundColor Yellow
         Write-Host ''
-        Write-Host "  $psExecutable -NoProfile -File '$installScriptPath'" -ForegroundColor Cyan
+        Write-Host "  irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' |" -ForegroundColor Cyan
+        Write-Host "      $psExecutable -NoProfile -ExecutionPolicy Bypass -" -ForegroundColor Cyan
         Write-Host ''
         Write-Host 'This will download and install the latest profile version.' -ForegroundColor Gray
         return

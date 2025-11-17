@@ -73,7 +73,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1
 
 ```powershell
 irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' |
-    pwsh -NoProfile -ExecutionPolicy Bypass - -RestorePath 'C:\Path\To\Backup'
+    pwsh -NoProfile -ExecutionPolicy Bypass - -RestorePath 'C:\Users\you\Documents\WindowsPowerShell-backup-20251116-110000'
 ```
 
 ### Optional Parameters
