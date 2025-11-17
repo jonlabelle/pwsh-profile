@@ -1,4 +1,4 @@
-﻿function Protect-PathWithPassword
+function Protect-PathWithPassword
 {
     <#
     .SYNOPSIS

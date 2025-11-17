@@ -1,4 +1,4 @@
-﻿function Unprotect-PathWithPassword
+function Unprotect-PathWithPassword
 {
     <#
     .SYNOPSIS

@@ -1,4 +1,4 @@
-﻿function Invoke-FFmpeg
+function Invoke-FFmpeg
 {
     <#
     .SYNOPSIS

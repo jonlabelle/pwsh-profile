@@ -1,4 +1,4 @@
-﻿function New-RandomString
+function New-RandomString
 {
     <#
     .SYNOPSIS
