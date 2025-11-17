@@ -4,7 +4,7 @@
 
     .DESCRIPTION
         `install.ps1` detects the active PowerShell profile directory (Windows PowerShell 5.1 or PowerShell Core on macOS, Linux, and Windows),
-        backs up the existing contents, preserves the `Help`, `Modules`, `PSReadLine`, and `Scripts` folders by default, and then deploys the
+        backs up the existing contents, preserves the `Functions/Local`, `Help`, `Modules`, `PSReadLine`, and `Scripts` folders by default, and then deploys the
         latest profile files from this repository (via `git clone`) or from a local path. You can also point the script at a previous backup to restore it.
 
         When installing from a remote repository, the script will use `git clone` if Git is available. If Git is not installed, it will
@@ -31,10 +31,10 @@
         Prevents the script from backing up the current profile directory before installing or restoring.
 
     .PARAMETER SkipPreserveDirectories
-        Skips saving and restoring the `Help`, `Modules`, `PSReadLine`, and `Scripts` directories during installation.
+        Skips saving and restoring the `Functions/Local`, `Help`, `Modules`, `PSReadLine`, and `Scripts` directories during installation.
 
     .PARAMETER PreserveDirectories
-        Overrides the list of directories to preserve/restore (defaults to `Help`, `Modules`, `PSReadLine`, `Scripts`).
+        Overrides the list of directories to preserve/restore (defaults to `Functions/Local`, `Help`, `Modules`, `PSReadLine`, `Scripts`).
 
     .PARAMETER RestorePath
         When supplied, skips installation and restores the profile from the provided backup directory.
@@ -116,7 +116,7 @@ param(
 
     [Parameter()]
     [ValidateNotNullOrEmpty()]
-    [string[]]$PreserveDirectories = @('Help', 'Modules', 'PSReadLine', 'Scripts'),
+    [string[]]$PreserveDirectories = @('Functions/Local', 'Help', 'Modules', 'PSReadLine', 'Scripts'),
 
     [Parameter()]
     [string]$RestorePath,

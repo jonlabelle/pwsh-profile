@@ -59,7 +59,7 @@ Describe 'install.ps1 integration tests' {
             $profileRoot = Join-Path $testRoot 'ProfileRoot'
             New-Item -ItemType Directory -Path $profileRoot -Force | Out-Null
 
-            foreach ($name in @('Help', 'Modules', 'PSReadLine', 'Scripts'))
+            foreach ($name in @('Functions/Local', 'Help', 'Modules', 'PSReadLine', 'Scripts'))
             {
                 $dirPath = Join-Path $profileRoot $name
                 New-Item -ItemType Directory -Path $dirPath -Force | Out-Null
@@ -74,7 +74,7 @@ Describe 'install.ps1 integration tests' {
 
                 Test-Path (Join-Path $profileRoot 'Microsoft.PowerShell_profile.ps1') | Should -BeTrue
 
-                foreach ($name in @('Help', 'Modules', 'PSReadLine', 'Scripts'))
+                foreach ($name in @('Functions/Local', 'Help', 'Modules', 'PSReadLine', 'Scripts'))
                 {
                     $preservedFile = Join-Path (Join-Path $profileRoot $name) 'original.txt'
                     Test-Path $preservedFile | Should -BeTrue
@@ -140,7 +140,7 @@ Describe 'install.ps1 integration tests' {
             $profileRoot = Join-Path $testRoot 'ProfileRoot'
             New-Item -ItemType Directory -Path $profileRoot -Force | Out-Null
 
-            foreach ($name in @('Help', 'Modules', 'PSReadLine', 'Scripts'))
+            foreach ($name in @('Functions/Local', 'Help', 'Modules', 'PSReadLine', 'Scripts'))
             {
                 $dirPath = Join-Path $profileRoot $name
                 New-Item -ItemType Directory -Path $dirPath -Force | Out-Null
@@ -156,7 +156,7 @@ Describe 'install.ps1 integration tests' {
                 $backupPattern = "$profileLeaf-backup-*"
                 (Get-ChildItem -Path $profileParent -Directory -Filter $backupPattern -ErrorAction SilentlyContinue).Count | Should -Be 0
 
-                foreach ($name in @('Help', 'Modules', 'PSReadLine', 'Scripts'))
+                foreach ($name in @('Functions/Local', 'Help', 'Modules', 'PSReadLine', 'Scripts'))
                 {
                     $preservedFile = Join-Path (Join-Path $profileRoot $name) 'original.txt'
                     Test-Path $preservedFile | Should -BeFalse
@@ -199,7 +199,7 @@ Describe 'install.ps1 integration tests' {
             $profileRoot = Join-Path $testRoot 'ProfileRoot'
             New-Item -ItemType Directory -Path $profileRoot -Force | Out-Null
 
-            foreach ($name in @('Help', 'Modules', 'PSReadLine', 'Scripts'))
+            foreach ($name in @('Functions/Local', 'Help', 'Modules', 'PSReadLine', 'Scripts'))
             {
                 $dirPath = Join-Path $profileRoot $name
                 New-Item -ItemType Directory -Path $dirPath -Force | Out-Null
@@ -210,6 +210,11 @@ Describe 'install.ps1 integration tests' {
             {
                 & $script:installScript -ProfileRoot $profileRoot -LocalSourcePath $script:repoRoot -SkipBackup -SkipPreserveDirectories -Verbose:$false
 
+                # Functions/Local exists in the repo, so check if user files were NOT preserved
+                $funcLocalTestFile = Join-Path (Join-Path $profileRoot 'Functions/Local') 'test.txt'
+                Test-Path $funcLocalTestFile | Should -BeFalse
+
+                # These directories should not exist at all
                 foreach ($name in @('Help', 'Modules', 'PSReadLine', 'Scripts'))
                 {
                     Test-Path (Join-Path $profileRoot $name) | Should -BeFalse
@@ -312,7 +317,7 @@ Describe 'install.ps1 integration tests' {
             $profileRoot = Join-Path $testRoot 'ProfileRoot'
             New-Item -ItemType Directory -Path $profileRoot -Force | Out-Null
 
-            foreach ($name in @('Help', 'Modules', 'PSReadLine', 'Scripts'))
+            foreach ($name in @('Functions/Local', 'Help', 'Modules', 'PSReadLine', 'Scripts'))
             {
                 $dirPath = Join-Path $profileRoot $name
                 New-Item -ItemType Directory -Path $dirPath -Force | Out-Null
@@ -368,7 +373,7 @@ Describe 'install.ps1 integration tests' {
             $profileRoot = Join-Path $testRoot 'ProfileRoot'
             New-Item -ItemType Directory -Path $profileRoot -Force | Out-Null
 
-            foreach ($name in @('Help', 'Modules', 'PSReadLine', 'Scripts'))
+            foreach ($name in @('Functions/Local', 'Help', 'Modules', 'PSReadLine', 'Scripts'))
             {
                 $dirPath = Join-Path $profileRoot $name
                 New-Item -ItemType Directory -Path $dirPath -Force | Out-Null
@@ -383,7 +388,7 @@ Describe 'install.ps1 integration tests' {
                 $profileLeaf = Split-Path -Leaf $profileRoot
                 (Get-ChildItem -Path $profileParent -Directory -Filter "$profileLeaf-backup-*").Count | Should -Be 0
 
-                foreach ($name in @('Help', 'Modules', 'PSReadLine', 'Scripts'))
+                foreach ($name in @('Functions/Local', 'Help', 'Modules', 'PSReadLine', 'Scripts'))
                 {
                     $preservedFile = Join-Path (Join-Path $profileRoot $name) 'keep.txt'
                     Test-Path $preservedFile | Should -BeFalse

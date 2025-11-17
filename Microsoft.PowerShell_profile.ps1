@@ -41,7 +41,7 @@ function Update-Profile
     }
 
     # CD to this script's directory and update
-    Push-Location -Path $PSScriptRoot
+    Push-Location -Path $PSScriptRoot -ErrorAction 'Stop'
 
     try
     {
