@@ -432,7 +432,7 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
         $resolvedProfileRoot = if ($ProfileRoot) { Resolve-ProviderPath -PathToResolve $ProfileRoot } else { Get-DefaultProfileRoot }
         Write-Verbose "Using profile root: $resolvedProfileRoot"
 
-        # Safety check: Warn if current directory is inside the profile directory that will be removed
+        # Safety check: If current directory is inside the profile directory that will be removed, switch to home directory
         if (-not $RestorePath -and (Test-Path -Path $resolvedProfileRoot))
         {
             $currentLocation = $PWD.Path
@@ -441,15 +441,10 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
 
             if ($isInsideProfile)
             {
-                Write-Host ''
-                Write-Host 'WARNING: Your current directory is inside the profile directory that will be removed.' -ForegroundColor Yellow
-                Write-Host "Current location: $resolvedCurrent" -ForegroundColor Yellow
-                Write-Host "Profile root: $resolvedProfileRoot" -ForegroundColor Yellow
-                Write-Host ''
-                Write-Host 'Please change to a different directory before continuing.' -ForegroundColor Yellow
-                Write-Host "Example: Set-Location -Path (Split-Path -Parent '$resolvedProfileRoot')" -ForegroundColor Cyan
-                Write-Host ''
-                throw 'Installation aborted: Current directory is inside the profile directory.'
+                $originalLocation = $currentLocation
+                $homeDirectory = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::UserProfile)
+                Write-Verbose "Current directory is inside profile directory. Temporarily switching to: $homeDirectory"
+                Set-Location -Path $homeDirectory
             }
         }
 
@@ -497,7 +492,30 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
         if (Test-Path -Path $resolvedProfileRoot)
         {
             Write-Verbose "Removing existing profile directory $resolvedProfileRoot"
-            Remove-Item -Path $resolvedProfileRoot -Recurse -Force
+            try
+            {
+                Remove-Item -Path $resolvedProfileRoot -Recurse -Force -ErrorAction Stop
+            }
+            catch
+            {
+                # Check if the error is due to files being in use
+                if ($_.Exception.Message -match 'being used by another process|cannot access|is in use')
+                {
+                    Write-Host ''
+                    Write-Host 'ERROR: Cannot remove profile directory because files are currently in use.' -ForegroundColor Red
+                    Write-Host ''
+                    Write-Host 'This may be caused by:' -ForegroundColor Yellow
+                    Write-Host '  - Files open in an editor (VS Code, Vim, etc.)' -ForegroundColor Gray
+                    Write-Host '  - PowerShell sessions loading functions from the profile' -ForegroundColor Gray
+                    Write-Host '  - Antivirus or backup software scanning the directory' -ForegroundColor Gray
+                    Write-Host ''
+                    Write-Host 'Please close any open files in the profile directory and try again.' -ForegroundColor Yellow
+                    Write-Host ''
+                    throw
+                }
+                # Re-throw other errors
+                throw
+            }
         }
 
         if ($LocalSourcePath)
@@ -549,5 +567,12 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
     {
         $ErrorActionPreference = $savedErrorActionPreference
         $ProgressPreference = $savedProgressPreference
+
+        # Restore original location if it was changed
+        if ($originalLocation -and (Test-Path -Path $originalLocation))
+        {
+            Write-Verbose "Restoring original location: $originalLocation"
+            Set-Location -Path $originalLocation
+        }
     }
 }
