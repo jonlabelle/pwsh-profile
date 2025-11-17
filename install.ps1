@@ -137,6 +137,9 @@ $ProgressPreference = 'SilentlyContinue'
 # Determine the appropriate PowerShell executable name
 $psExecutable = if ($PSVersionTable.PSVersion.Major -lt 6) { 'powershell' } else { 'pwsh' }
 
+# Used to restore the working directory after installation
+$originalLocation = $null
+
 function Resolve-ProviderPath
 {
     param(
