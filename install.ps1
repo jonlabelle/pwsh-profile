@@ -295,7 +295,17 @@ function Invoke-RepositoryDownload
     {
         Write-Verbose "Git found, cloning $Repository into $Destination"
         $gitExecutable = $gitCommand.Definition
-        & $gitExecutable clone --depth 1 $Repository $Destination 2>&1 | Write-Verbose
+        # Temporarily suppress error action to prevent Git's stderr from terminating in PS Desktop 5.1
+        $previousErrorAction = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        $gitOutput = & $gitExecutable clone --depth 1 $Repository $Destination 2>&1
+        $ErrorActionPreference = $previousErrorAction
+
+        if ($LASTEXITCODE -ne 0)
+        {
+            throw "Git clone failed with exit code $LASTEXITCODE"
+        }
+        $gitOutput | ForEach-Object { Write-Verbose $_ }
     }
     else
     {
