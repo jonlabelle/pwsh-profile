@@ -127,6 +127,10 @@ param(
 
 Set-StrictMode -Version Latest
 
+# Save current preferences and set error/progress preferences for the script
+$savedErrorActionPreference = $ErrorActionPreference
+$savedProgressPreference = $ProgressPreference
+
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
@@ -540,5 +544,10 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
     {
         Write-Error $_
         throw
+    }
+    finally
+    {
+        $ErrorActionPreference = $savedErrorActionPreference
+        $ProgressPreference = $savedProgressPreference
     }
 }
