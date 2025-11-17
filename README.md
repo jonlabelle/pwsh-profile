@@ -36,11 +36,11 @@
 
 ## Install
 
-Use the provided [`install.ps1`](install.ps1) script to automate backups, preserve your existing `Help`, `Modules`, and `Scripts` directories, and deploy the latest profile files. The script requires `git` and works on PowerShell Desktop 5.1 and PowerShell Core 6+.
+Use the provided [install.ps1](install.ps1) script to automate backups, preserve your existing `Help`, `Modules`, and `Scripts` directories, and deploy the latest profile files. The script requires `git` and works on PowerShell Desktop 5.1 and PowerShell Core 6+.
 
 ### Quick Install (one-liner)
 
-> The script is downloaded and piped directly into PowerShell. If you prefer to [inspect it first](install.ps1), [download it to disk](https://raw.githubusercontent.com/jonlabelle/pwsh-profile/refs/heads/main/install.ps1) and run it via `-File`.
+> The script is downloaded and piped directly into PowerShell. If you prefer to [inspect it](install.ps1) first, [download it to disk](https://raw.githubusercontent.com/jonlabelle/pwsh-profile/refs/heads/main/install.ps1) and run it via `-File`.
 
 #### PowerShell Core (pwsh)
 
@@ -49,7 +49,7 @@ irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1'
     pwsh -NoProfile -ExecutionPolicy Bypass -
 ```
 
-#### Windows PowerShell Desktop 5.1
+#### Windows PowerShell Desktop 5.1 (powershell)
 
 ```powershell
 irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' |
@@ -58,10 +58,10 @@ irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1'
 
 ### Run install.ps1 Locally
 
-If you already cloned this repository (or downloaded `install.ps1`), run it from the repo root:
+If you already cloned [this repository](https://github.com/jonlabelle/pwsh-profile) (or downloaded [install.ps1](install.ps1)), run it from the repo root:
 
 ```bash
-pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -Verbose
+pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1
 ```
 
 ### Restore from a Backup
@@ -69,7 +69,8 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -Verbose
 `install.ps1` can restore a previous snapshot created during installation. Provide the full path to the backup directory (for example, `C:\Users\you\Documents\WindowsPowerShell-backup-20251116-110000`).
 
 ```powershell
-irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' | pwsh -NoProfile -ExecutionPolicy Bypass - -RestorePath 'C:\Path\To\Backup'
+irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' |
+    pwsh -NoProfile -ExecutionPolicy Bypass - -RestorePath 'C:\Path\To\Backup'
 ```
 
 ### Optional Parameters
@@ -80,7 +81,7 @@ irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1'
 - `-LocalSourcePath <path>` — copy profile files from an existing local clone instead of running `git clone`
 - `-ProfileRoot <path>` — override the detected profile directory (defaults to `Split-Path -Parent $PROFILE`)
 
-For more examples, see the [install.ps1 documentation](install.ps1).
+For more examples, see the [install.ps1](install.ps1) script documentation.
 
 ### Manual Install (fallback)
 
@@ -89,19 +90,19 @@ If you prefer to install manually, clone this repository directly into your prof
 #### Linux/macOS
 
 ```powershell
-git clone 'https://github.com/jonlabelle/pwsh-profile.git' $HOME/.config/powershell
+git clone 'https://github.com/jonlabelle/pwsh-profile.git' "$HOME/.config/powershell"
 ```
 
-#### Windows PowerShell Desktop
+#### Windows PowerShell Desktop 5.1
 
 ```powershell
-git clone 'https://github.com/jonlabelle/pwsh-profile.git' $HOME\Documents\WindowsPowerShell
+git clone 'https://github.com/jonlabelle/pwsh-profile.git' "$HOME\Documents\WindowsPowerShell"
 ```
 
 #### Windows PowerShell Core
 
 ```powershell
-git clone 'https://github.com/jonlabelle/pwsh-profile.git' $HOME\Documents\PowerShell
+git clone 'https://github.com/jonlabelle/pwsh-profile.git' "$HOME\Documents\PowerShell"
 ```
 
 ## Update
