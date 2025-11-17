@@ -533,6 +533,10 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
             Write-Host "  $resolvedRestorePath" -ForegroundColor Cyan
             Write-Host ''
             Write-Host 'Please restart your PowerShell session to load the restored profile.' -ForegroundColor Yellow
+            Write-Host ''
+            Write-Host 'If you encounter an execution policy error when PowerShell starts, run:' -ForegroundColor Yellow
+            Write-Host '  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser' -ForegroundColor Gray
+            Write-Host ''
             return
         }
 
@@ -624,6 +628,10 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
         }
 
         Write-Host 'Please restart your PowerShell session to load the updated profile.' -ForegroundColor Yellow
+        Write-Host ''
+        Write-Host 'If you encounter an execution policy error when PowerShell starts, run:' -ForegroundColor Yellow
+        Write-Host '  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser' -ForegroundColor Gray
+        Write-Host ''
     }
     catch
     {

@@ -19,6 +19,7 @@
 
 - [Install](#install)
 - [Update](#update)
+- [Troubleshooting](#troubleshooting)
 - [Functions](#functions)
   - [Network and DNS](#network-and-dns)
   - [System Administration](#system-administration)
@@ -38,8 +39,7 @@
 
 Use the provided [install.ps1](install.ps1) script to automate backups, preserve your existing `Functions/Local`, `Help`, `Modules`, `PSReadLine`, and `Scripts` directories, and deploy the latest profile files. The script works on PowerShell Desktop 5.1 and PowerShell Core 6+.
 
-> [!Note]
-> **Git is optional:** If Git is available, the script clones the repository. Otherwise, it automatically downloads and extracts the repository as a zip file from GitHub.
+> [!Note] > **Git is optional:** If Git is available, the script clones the repository. Otherwise, it automatically downloads and extracts the repository as a zip file from GitHub.
 
 ### Quick Install (one-liner)
 
@@ -121,6 +121,41 @@ You can check for available updates without applying them:
 ```powershell
 Test-ProfileUpdate
 ```
+
+## Troubleshooting
+
+<details>
+<summary><strong>Execution Policy Error</strong></summary>
+
+If you encounter an error like this when PowerShell starts:
+
+```console
+Microsoft.PowerShell_profile.ps1 cannot be loaded because running
+scripts is disabled on this system.
+
+For more information, see about_Execution_Policies at
+https:/go.microsoft.com/fwlink/?LinkID=135170.
+```
+
+This means your system's execution policy is preventing the profile from loading. To fix this, run PowerShell as Administrator and execute:
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+This allows locally created scripts to run while still requiring downloaded scripts to be signed. For more restrictive environments where you can't change the execution policy, you may need to contact your system administrator.
+
+**Alternative:** If you can't run as Administrator, try setting the policy for just your user:
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+```
+
+**Verification:** After setting the execution policy, restart PowerShell. Your profile should load without errors.
+
+For more information about execution policies, see [about_Execution_Policies](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies).
+
+</details>
 
 ## Functions
 
