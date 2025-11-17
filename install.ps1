@@ -88,6 +88,13 @@
         The script will use `git` when available for cloning, otherwise it downloads the repository as a zip file.
         Run with `-Verbose` to see detailed progress, especially when preserving directories or restoring backups.
 
+        Parameter Conflicts:
+        The following parameter combinations are not allowed and will produce clear error messages:
+        - RestorePath cannot be used with LocalSourcePath or RepositoryUrl (restore vs. install)
+        - LocalSourcePath cannot be used with RepositoryUrl (choose one installation source)
+        - SkipPreserveDirectories cannot be used with PreserveDirectories (contradictory options)
+        - RestorePath cannot be used with PreserveDirectories or SkipPreserveDirectories (restore doesn't preserve selectively)
+
     .LINK
         https://github.com/jonlabelle/pwsh-profile
 #>
@@ -139,6 +146,57 @@ $psExecutable = if ($PSVersionTable.PSVersion.Major -lt 6) { 'powershell' } else
 
 # Used to restore the working directory after installation
 $originalLocation = $null
+
+function Test-ParameterConflicts
+{
+    <#
+    .SYNOPSIS
+        Validates that mutually exclusive parameters are not used together.
+
+    .DESCRIPTION
+        Checks for conflicting parameter combinations and throws clear error messages
+        when incompatible parameters are used together.
+    #>
+    param()
+
+    if ($RestorePath -and $LocalSourcePath)
+    {
+        Write-Error 'Cannot use both RestorePath and LocalSourcePath parameters together. Use RestorePath to restore from a backup, or LocalSourcePath to install from a local directory.'
+        return $false
+    }
+
+    if ($RestorePath -and $RepositoryUrl -and $PSBoundParameters.ContainsKey('RepositoryUrl'))
+    {
+        Write-Error 'Cannot use both RestorePath and RepositoryUrl parameters together. Use RestorePath to restore from a backup, or RepositoryUrl to install from a Git repository.'
+        return $false
+    }
+
+    if ($LocalSourcePath -and $RepositoryUrl -and $PSBoundParameters.ContainsKey('RepositoryUrl'))
+    {
+        Write-Error 'Cannot use both LocalSourcePath and RepositoryUrl parameters together. Use LocalSourcePath to install from a local directory, or RepositoryUrl to clone from a Git repository.'
+        return $false
+    }
+
+    if ($SkipPreserveDirectories -and $PreserveDirectories -and $PSBoundParameters.ContainsKey('PreserveDirectories'))
+    {
+        Write-Error 'Cannot use both SkipPreserveDirectories and PreserveDirectories parameters together. Use SkipPreserveDirectories to skip preservation entirely, or PreserveDirectories to specify custom directories to preserve.'
+        return $false
+    }
+
+    if ($RestorePath -and $PreserveDirectories -and $PSBoundParameters.ContainsKey('PreserveDirectories'))
+    {
+        Write-Error 'Cannot use both RestorePath and PreserveDirectories parameters together. RestorePath restores the entire backup directory without selective preservation.'
+        return $false
+    }
+
+    if ($RestorePath -and $SkipPreserveDirectories)
+    {
+        Write-Error 'Cannot use both RestorePath and SkipPreserveDirectories parameters together. RestorePath restores the entire backup directory without selective preservation.'
+        return $false
+    }
+
+    return $true
+}
 
 function Resolve-ProviderPath
 {
@@ -432,6 +490,12 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
 {
     try
     {
+        # Validate parameter combinations
+        if (-not (Test-ParameterConflicts))
+        {
+            return
+        }
+
         $resolvedProfileRoot = if ($ProfileRoot) { Resolve-ProviderPath -PathToResolve $ProfileRoot } else { Get-DefaultProfileRoot }
         Write-Verbose "Using profile root: $resolvedProfileRoot"
 
