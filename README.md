@@ -36,7 +36,10 @@
 
 ## Install
 
-Use the provided [install.ps1](install.ps1) script to automate backups, preserve your existing `Help`, `Modules`, and `Scripts` directories, and deploy the latest profile files. The script requires `git` and works on PowerShell Desktop 5.1 and PowerShell Core 6+.
+Use the provided [install.ps1](install.ps1) script to automate backups, preserve your existing `Help`, `Modules`, and `Scripts` directories, and deploy the latest profile files. The script works on PowerShell Desktop 5.1 and PowerShell Core 6+.
+
+> [!Note]
+> **Git is optional:** If Git is available, the script clones the repository. Otherwise, it automatically downloads and extracts the repository as a zip file from GitHub.
 
 ### Quick Install (one-liner)
 

@@ -16,6 +16,7 @@
     'PSAvoidUsingComputerNameHardcoded' # Acceptable in test scripts
     'PSAvoidUsingConvertToSecureStringWithPlainText' # Acceptable in test scripts
     'PSAvoidUsingBrokenHashAlgorithms' # SHA1 and MD5 still have plenty of legitimate use cases
+    'PSUseBOMForUnicodeEncodedFile' # Disabled to avoid BOM insertion in existing files
   )
 
   # Enable specific rules globally

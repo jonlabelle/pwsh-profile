@@ -7,6 +7,9 @@
         backs up the existing contents, preserves the `Help`, `Modules`, and `Scripts` folders by default, and then deploys the latest profile
         files from this repository (via `git clone`) or from a local path. You can also point the script at a previous backup to restore it.
 
+        When installing from a remote repository, the script will use `git clone` if Git is available. If Git is not installed, it will
+        automatically fall back to downloading and extracting the repository as a zip file from GitHub.
+
         Backups are created in the parent directory of your profile with the format: `{ProfileDirectory}-backup-{yyyyMMdd-HHmmss}`
         Example: `C:\Users\YourName\Documents\WindowsPowerShell-backup-20250116-143022`
 
@@ -50,35 +53,43 @@
         Downloads and runs the installer for PowerShell Desktop.
 
     .EXAMPLE
-        pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -LocalSourcePath (Get-Location)
+        PS > pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -Verbose
+
+        Installs from the GitHub repository. Uses git clone if Git is available, otherwise downloads and extracts as a zip file.
+
+    .EXAMPLE
+        PS > pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -LocalSourcePath (Get-Location)
 
         Installs the profile from an already-cloned local repository.
 
     .EXAMPLE
-        pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -RestorePath 'C:\Backups\WindowsPowerShell-backup-20250101-120000'
+        PS > pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -RestorePath 'C:\Backups\WindowsPowerShell-backup-20250101-120000'
 
         Restores a previously backed-up profile directory.
 
     .EXAMPLE
-        pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -SkipBackup -SkipPreserveDirectories -PreserveDirectories @('Modules')
+        PS > pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -SkipBackup -SkipPreserveDirectories -PreserveDirectories @('Modules')
 
         Installs without creating a backup while only preserving the `Modules` directory.
 
     .EXAMPLE
         # List available backups
-        Get-ChildItem -Path (Split-Path -Parent $PROFILE) -Filter '*-backup-*' | Sort-Object Name -Descending
+        PS > Get-ChildItem -Path (Split-Path -Parent $PROFILE) -Filter '*-backup-*' | Sort-Object Name -Descending
 
         # Restore from the most recent backup
-        pwsh -NoProfile -File ./install.ps1 -RestorePath 'C:\Users\YourName\Documents\WindowsPowerShell-backup-20250116-143022'
+        PS > pwsh -NoProfile -File ./install.ps1 -RestorePath 'C:\Users\YourName\Documents\WindowsPowerShell-backup-20250116-143022'
 
     .EXAMPLE
-        pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -LocalSourcePath (Get-Location) -WhatIf -Verbose
+        PS > pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -LocalSourcePath (Get-Location) -WhatIf -Verbose
 
         Performs a dry run that shows which directories would be removed, backed up, preserved, or copied without actually changing anything.
 
     .NOTES
-        The script requires `git` when cloning from the remote repository.
+        The script will use `git` when available for cloning, otherwise it downloads the repository as a zip file.
         Run with `-Verbose` to see detailed progress, especially when preserving directories or restoring backups.
+
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
@@ -266,7 +277,7 @@ function Ensure-DirectoryExists
     }
 }
 
-function Invoke-GitClone
+function Invoke-RepositoryDownload
 {
     param(
         [Parameter(Mandatory)]
@@ -276,19 +287,73 @@ function Invoke-GitClone
         [string]$Destination
     )
 
-    $gitCommand = Get-Command -Name git -ErrorAction SilentlyContinue
-    if (-not $gitCommand)
-    {
-        throw 'git is required but was not found in PATH.'
-    }
-
-    $gitExecutable = $gitCommand.Definition
-
     $parentDirectory = Split-Path -Parent $Destination
     Ensure-DirectoryExists -Path $parentDirectory
 
-    Write-Verbose "Cloning $Repository into $Destination"
-    & $gitExecutable clone --depth 1 $Repository $Destination | Write-Verbose
+    $gitCommand = Get-Command -Name git -ErrorAction SilentlyContinue
+    if ($gitCommand)
+    {
+        Write-Verbose "Git found, cloning $Repository into $Destination"
+        $gitExecutable = $gitCommand.Definition
+        & $gitExecutable clone --depth 1 $Repository $Destination 2>&1 | Write-Verbose
+    }
+    else
+    {
+        Write-Verbose 'Git not found, downloading repository as zip archive'
+        Invoke-ZipDownload -Repository $Repository -Destination $Destination
+    }
+}
+
+function Invoke-ZipDownload
+{
+    param(
+        [Parameter(Mandatory)]
+        [string]$Repository,
+
+        [Parameter(Mandatory)]
+        [string]$Destination
+    )
+
+    # Convert GitHub repository URL to zip download URL
+    # https://github.com/user/repo.git -> https://github.com/user/repo/archive/refs/heads/main.zip
+    $zipUrl = $Repository -replace '\.git$', '' -replace '$', '/archive/refs/heads/main.zip'
+
+    $tempZip = Join-Path ([System.IO.Path]::GetTempPath()) "pwsh-profile-$([guid]::NewGuid().ToString('N')).zip"
+
+    try
+    {
+        Write-Verbose "Downloading from $zipUrl"
+        Invoke-WebRequest -Uri $zipUrl -OutFile $tempZip -UseBasicParsing
+
+        Write-Verbose 'Extracting to temporary location'
+        $tempExtract = Join-Path ([System.IO.Path]::GetTempPath()) "pwsh-profile-extract-$([guid]::NewGuid().ToString('N'))"
+        Expand-Archive -Path $tempZip -DestinationPath $tempExtract -Force
+
+        # GitHub zip archives contain a single top-level directory named {repo}-{branch}
+        $extractedDir = Get-ChildItem -Path $tempExtract -Directory | Select-Object -First 1
+
+        if (-not $extractedDir)
+        {
+            throw 'Failed to find extracted content in zip archive'
+        }
+
+        Write-Verbose "Moving extracted content to $Destination"
+        Ensure-DirectoryExists -Path $Destination
+
+        Get-ChildItem -Path $extractedDir.FullName -Force | ForEach-Object {
+            Copy-Item -Path $_.FullName -Destination $Destination -Recurse -Force
+        }
+
+        # Cleanup
+        Remove-Item -Path $tempExtract -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    finally
+    {
+        if (Test-Path -Path $tempZip)
+        {
+            Remove-Item -Path $tempZip -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 function Copy-LocalSource
@@ -343,100 +408,127 @@ function Restore-FromBackup
     }
 }
 
-try
+# Only execute installation if the script is being run directly (not dot-sourced).
+# This allows the script to be dot-sourced for testing individual functions without
+# triggering the installation process.
+if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*\.\s+')
 {
-    $resolvedProfileRoot = if ($ProfileRoot) { Resolve-ProviderPath -PathToResolve $ProfileRoot } else { Get-DefaultProfileRoot }
-    Write-Verbose "Using profile root: $resolvedProfileRoot"
-
-    if ($RestorePath)
+    try
     {
-        $resolvedRestorePath = Resolve-ProviderPath -PathToResolve $RestorePath
-        if (-not $SkipBackup -and (Test-Path -Path $resolvedProfileRoot))
+        $resolvedProfileRoot = if ($ProfileRoot) { Resolve-ProviderPath -PathToResolve $ProfileRoot } else { Get-DefaultProfileRoot }
+        Write-Verbose "Using profile root: $resolvedProfileRoot"
+
+        # Safety check: Warn if current directory is inside the profile directory that will be removed
+        if (-not $RestorePath -and (Test-Path -Path $resolvedProfileRoot))
         {
-            $createdBackup = New-ProfileBackup -SourcePath $resolvedProfileRoot -DestinationPath $BackupPath
-            if ($createdBackup)
+            $currentLocation = $PWD.Path
+            $resolvedCurrent = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($currentLocation)
+            $isInsideProfile = $resolvedCurrent -eq $resolvedProfileRoot -or $resolvedCurrent.StartsWith($resolvedProfileRoot + [System.IO.Path]::DirectorySeparatorChar)
+
+            if ($isInsideProfile)
             {
-                Write-Host "Profile backup created at $createdBackup"
+                Write-Host ''
+                Write-Host 'WARNING: Your current directory is inside the profile directory that will be removed.' -ForegroundColor Yellow
+                Write-Host "Current location: $resolvedCurrent" -ForegroundColor Yellow
+                Write-Host "Profile root: $resolvedProfileRoot" -ForegroundColor Yellow
+                Write-Host ''
+                Write-Host 'Please change to a different directory before continuing.' -ForegroundColor Yellow
+                Write-Host "Example: Set-Location -Path (Split-Path -Parent '$resolvedProfileRoot')" -ForegroundColor Cyan
+                Write-Host ''
+                throw 'Installation aborted: Current directory is inside the profile directory.'
             }
         }
 
-        Restore-FromBackup -BackupSource $resolvedRestorePath -Destination $resolvedProfileRoot
-        Write-Host ''
-        Write-Host 'Profile successfully restored from:' -ForegroundColor Green
-        Write-Host "  $resolvedRestorePath" -ForegroundColor Cyan
-        Write-Host ''
-        Write-Host 'Please restart your PowerShell session to load the restored profile.' -ForegroundColor Yellow
-        return
-    }
+        if ($RestorePath)
+        {
+            $resolvedRestorePath = Resolve-ProviderPath -PathToResolve $RestorePath
+            if (-not $SkipBackup -and (Test-Path -Path $resolvedProfileRoot))
+            {
+                $createdBackup = New-ProfileBackup -SourcePath $resolvedProfileRoot -DestinationPath $BackupPath
+                if ($createdBackup)
+                {
+                    Write-Host "Profile backup created at $createdBackup"
+                }
+            }
 
-    $preservationData = $null
-    if (-not $SkipPreserveDirectories -and (Test-Path -Path $resolvedProfileRoot))
-    {
-        $preservationData = Save-PreservedDirectories -SourceRoot $resolvedProfileRoot -DirectoriesToPreserve $PreserveDirectories
+            Restore-FromBackup -BackupSource $resolvedRestorePath -Destination $resolvedProfileRoot
+            Write-Host ''
+            Write-Host 'Profile successfully restored from:' -ForegroundColor Green
+            Write-Host "  $resolvedRestorePath" -ForegroundColor Cyan
+            Write-Host ''
+            Write-Host 'Please restart your PowerShell session to load the restored profile.' -ForegroundColor Yellow
+            return
+        }
+
+        $preservationData = $null
+        if (-not $SkipPreserveDirectories -and (Test-Path -Path $resolvedProfileRoot))
+        {
+            $preservationData = Save-PreservedDirectories -SourceRoot $resolvedProfileRoot -DirectoriesToPreserve $PreserveDirectories
+            if ($preservationData)
+            {
+                Write-Host "Preserved directories: $($preservationData.Items.Name -join ', ')"
+            }
+        }
+
+        $backupLocation = $null
+        if (-not $SkipBackup -and (Test-Path -Path $resolvedProfileRoot))
+        {
+            $backupLocation = New-ProfileBackup -SourcePath $resolvedProfileRoot -DestinationPath $BackupPath
+            if ($backupLocation)
+            {
+                Write-Host "Profile backup created at $backupLocation"
+            }
+        }
+
+        if (Test-Path -Path $resolvedProfileRoot)
+        {
+            Write-Verbose "Removing existing profile directory $resolvedProfileRoot"
+            Remove-Item -Path $resolvedProfileRoot -Recurse -Force
+        }
+
+        if ($LocalSourcePath)
+        {
+            $resolvedLocalSource = Resolve-ProviderPath -PathToResolve $LocalSourcePath
+            Copy-LocalSource -SourcePath $resolvedLocalSource -DestinationPath $resolvedProfileRoot
+        }
+        else
+        {
+            Invoke-RepositoryDownload -Repository $RepositoryUrl -Destination $resolvedProfileRoot
+        }
+
         if ($preservationData)
         {
-            Write-Host "Preserved directories: $($preservationData.Items.Name -join ', ')"
+            Restore-PreservedDirectories -PreservationData $preservationData -DestinationRoot $resolvedProfileRoot
         }
-    }
 
-    $backupLocation = $null
-    if (-not $SkipBackup -and (Test-Path -Path $resolvedProfileRoot))
-    {
-        $backupLocation = New-ProfileBackup -SourcePath $resolvedProfileRoot -DestinationPath $BackupPath
+        Write-Host ''
+        Write-Host 'PowerShell profile installed successfully at:' -ForegroundColor Green
+        Write-Host "  $resolvedProfileRoot" -ForegroundColor Cyan
+        Write-Host ''
+
         if ($backupLocation)
         {
-            Write-Host "Profile backup created at $backupLocation"
+            Write-Host 'Your previous profile was backed up to:' -ForegroundColor Yellow
+            Write-Host "  $backupLocation" -ForegroundColor Cyan
+            Write-Host ''
+            Write-Host 'To restore from this backup:' -ForegroundColor Yellow
+            Write-Host "  $psExecutable -NoProfile -File ./install.ps1 -RestorePath '$backupLocation'" -ForegroundColor Gray
+            Write-Host ''
+            Write-Host 'Or manually copy contents from the backup directory to:' -ForegroundColor Yellow
+            Write-Host "  $resolvedProfileRoot" -ForegroundColor Gray
+            Write-Host ''
         }
-    }
+        else
+        {
+            Write-Host 'No backup was created (profile directory did not exist or -SkipBackup was used).' -ForegroundColor Gray
+            Write-Host ''
+        }
 
-    if (Test-Path -Path $resolvedProfileRoot)
-    {
-        Write-Verbose "Removing existing profile directory $resolvedProfileRoot"
-        Remove-Item -Path $resolvedProfileRoot -Recurse -Force
+        Write-Host 'Please restart your PowerShell session to load the updated profile.' -ForegroundColor Yellow
     }
-
-    if ($LocalSourcePath)
+    catch
     {
-        $resolvedLocalSource = Resolve-ProviderPath -PathToResolve $LocalSourcePath
-        Copy-LocalSource -SourcePath $resolvedLocalSource -DestinationPath $resolvedProfileRoot
+        Write-Error $_
+        throw
     }
-    else
-    {
-        Invoke-GitClone -Repository $RepositoryUrl -Destination $resolvedProfileRoot
-    }
-
-    if ($preservationData)
-    {
-        Restore-PreservedDirectories -PreservationData $preservationData -DestinationRoot $resolvedProfileRoot
-    }
-
-    Write-Host ''
-    Write-Host 'PowerShell profile installed successfully at:' -ForegroundColor Green
-    Write-Host "  $resolvedProfileRoot" -ForegroundColor Cyan
-    Write-Host ''
-
-    if ($backupLocation)
-    {
-        Write-Host 'Your previous profile was backed up to:' -ForegroundColor Yellow
-        Write-Host "  $backupLocation" -ForegroundColor Cyan
-        Write-Host ''
-        Write-Host 'To restore from this backup:' -ForegroundColor Yellow
-        Write-Host "  $psExecutable -NoProfile -File ./install.ps1 -RestorePath '$backupLocation'" -ForegroundColor Gray
-        Write-Host ''
-        Write-Host 'Or manually copy contents from the backup directory to:' -ForegroundColor Yellow
-        Write-Host "  $resolvedProfileRoot" -ForegroundColor Gray
-        Write-Host ''
-    }
-    else
-    {
-        Write-Host 'No backup was created (profile directory did not exist or -SkipBackup was used).' -ForegroundColor Gray
-        Write-Host ''
-    }
-
-    Write-Host 'Please restart your PowerShell session to load the updated profile.' -ForegroundColor Yellow
-}
-catch
-{
-    Write-Error $_
-    throw
 }

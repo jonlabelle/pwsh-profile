@@ -23,6 +23,23 @@ function Update-Profile
 
     Write-Host 'Updating PowerShell profile...' -ForegroundColor Cyan
 
+    # Check if Git is available
+    $gitCommand = Get-Command -Name git -ErrorAction SilentlyContinue
+    if (-not $gitCommand)
+    {
+        $psExecutable = if ($PSVersionTable.PSVersion.Major -lt 6) { 'powershell' } else { 'pwsh' }
+        $installScriptPath = Join-Path -Path $PSScriptRoot -ChildPath 'install.ps1'
+
+        Write-Host ''
+        Write-Host 'Git is not installed or not found in PATH.' -ForegroundColor Yellow
+        Write-Host 'To update your profile without Git, use the install.ps1 script:' -ForegroundColor Yellow
+        Write-Host ''
+        Write-Host "  $psExecutable -NoProfile -File '$installScriptPath'" -ForegroundColor Cyan
+        Write-Host ''
+        Write-Host 'This will download and install the latest profile version.' -ForegroundColor Gray
+        return
+    }
+
     # CD to this script's directory and update
     Push-Location -Path $PSScriptRoot
 
