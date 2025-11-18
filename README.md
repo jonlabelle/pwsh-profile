@@ -60,7 +60,8 @@ irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1'
     powershell -NoProfile -ExecutionPolicy Bypass -
 ```
 
-### Run install.ps1 Locally
+<details>
+<summary><strong>Run install.ps1 Locally</strong></summary>
 
 If you already cloned [this repository](https://github.com/jonlabelle/pwsh-profile) (or downloaded [install.ps1](install.ps1)), run it from the repo root:
 
@@ -68,7 +69,10 @@ If you already cloned [this repository](https://github.com/jonlabelle/pwsh-profi
 pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1
 ```
 
-### Restore from a Backup
+</details>
+
+<details>
+<summary><strong>Restore from a Backup</strong></summary>
 
 `install.ps1` can restore a previous snapshot created during installation. Provide the full path to the backup directory (for example, `C:\Users\you\Documents\WindowsPowerShell-backup-20251116-110000`).
 
@@ -77,7 +81,10 @@ irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1'
     pwsh -NoProfile -ExecutionPolicy Bypass - -RestorePath 'C:\Users\you\Documents\WindowsPowerShell-backup-20251116-110000'
 ```
 
-### Optional Parameters
+</details>
+
+<details>
+<summary><strong>Optional Parameters</strong></summary>
 
 - `-SkipBackup` — install without creating a backup of the existing profile directory
 - `-SkipPreserveDirectories` — do not restore the `Functions/Local`, `Help`, `Modules`, `PSReadLine`, and `Scripts` directories after installation
@@ -87,7 +94,10 @@ irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1'
 
 For more examples, see the [install.ps1](install.ps1) script documentation.
 
-### Manual Install (fallback)
+</details>
+
+<details>
+<summary><strong>Manual Install (fallback)</strong></summary>
 
 If you prefer to install manually, clone this repository directly into your profile directory.
 
@@ -108,6 +118,8 @@ git clone 'https://github.com/jonlabelle/pwsh-profile.git' "$HOME\Documents\Wind
 ```powershell
 git clone 'https://github.com/jonlabelle/pwsh-profile.git' "$HOME\Documents\PowerShell"
 ```
+
+</details>
 
 ## Update
 
