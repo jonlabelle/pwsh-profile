@@ -39,6 +39,7 @@ node_modules
 /Help/
 /Modules/
 /Scripts/
+/PSReadLine/
 
 # Log files
 npm-debug.log*
