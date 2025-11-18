@@ -66,6 +66,8 @@ irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1'
 <details>
 <summary><strong>Run install.ps1 Locally</strong></summary>
 
+#### Run install.ps1 Locally
+
 If you already cloned [this repository](https://github.com/jonlabelle/pwsh-profile) (or downloaded [install.ps1](install.ps1)), run it from the repo root:
 
 ```bash
@@ -76,6 +78,8 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1
 
 <details>
 <summary><strong>Restore from a Backup</strong></summary>
+
+#### Restore from a Backup
 
 `install.ps1` can restore a previous snapshot created during installation. Provide the full path to the backup directory (for example, `C:\Users\you\Documents\WindowsPowerShell-backup-20251116-110000`).
 
@@ -88,6 +92,8 @@ irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1'
 
 <details>
 <summary><strong>Optional Install Parameters</strong></summary>
+
+#### Optional Install Parameters
 
 - `-SkipBackup` — install without creating a backup of the existing profile directory
 - `-SkipPreserveDirectories` — do not restore the `Functions/Local`, `Help`, `Modules`, `PSReadLine`, and `Scripts` directories after installation
@@ -102,6 +108,8 @@ For more examples, see the [install.ps1](install.ps1) script documentation.
 <details>
 <summary><strong>Manual Install (fallback)</strong></summary>
 
+#### Manual Install (fallback)
+
 If you prefer to install manually, clone this repository directly into your profile directory.
 
 ```powershell
@@ -114,6 +122,8 @@ git clone 'https://github.com/jonlabelle/pwsh-profile.git' (Get-Item $PROFILE).D
 
 <details>
 <summary><strong>Execution Policy Error (Windows Only)</strong></summary>
+
+#### Execution Policy Error (Windows Only)
 
 > **Note:** Execution policies are **only enforced on Windows**. macOS and Linux systems do not enforce execution policies and will not encounter this error.
 
@@ -203,6 +213,8 @@ Any PowerShell file placed in `Functions/Local` will be automatically loaded, ju
 
 <details>
 <summary><strong>PowerShell profiles don't load automatically in remote sessions—click to see how to load them</strong></summary>
+
+#### Loading Profiles in Remote Sessions
 
 PowerShell profiles don't load automatically in remote sessions (via `Enter-PSSession`, `New-PSSession`, or `Invoke-Command`). This behavior is consistent across all platforms—Windows, macOS, and Linux—whether you're using WinRM (Windows-only) or SSH-based remoting (cross-platform).
 
