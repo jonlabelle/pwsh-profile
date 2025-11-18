@@ -399,7 +399,7 @@ API_ENDPOINT="${API_BASE}/${API_VERSION}"
             $env:ESCAPED | Should -Match "Line 1`nLine 2"
             $env:INLINE | Should -Be 'value'
             $env:EXPORTED | Should -Be 'exported_value'
-            $env:EMPTY | Should -Be ''
+            $env:EMPTY | Should -BeNullOrEmpty
             $env:EQUALS | Should -Be 'key=value=another'
             $env:EXPANDED | Should -Be 'base_expanded'
 

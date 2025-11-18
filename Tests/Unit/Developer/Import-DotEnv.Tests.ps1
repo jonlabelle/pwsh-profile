@@ -613,7 +613,7 @@ ANOTHER_VALID=valid2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:EMPTY_VAR | Should -Be ''
+            $env:EMPTY_VAR | Should -BeNullOrEmpty
         }
 
         It 'Should handle values containing equals signs' {

@@ -59,7 +59,7 @@ function Import-DotEnv
         PS > Import-DotEnv -Path .env -PassThru
 
         FileName      : .env
-        VariableCount : 5
+        VariableCount : 4
         Variables     : {DATABASE_URL, API_KEY, DEBUG, APP_NAME}
         Skipped       : {PATH}
 
