@@ -2,7 +2,7 @@ function Import-DotEnv
 {
     <#
     .SYNOPSIS
-        Loads environment variables from dotenv (.env) files into the current session.
+        Loads environment variables from dotenv (.env) files.
 
     .DESCRIPTION
         Parses dotenv files and imports environment variables into the current PowerShell session.
@@ -48,37 +48,84 @@ function Import-DotEnv
     .EXAMPLE
         PS > Import-DotEnv
 
-        Loads environment variables from .env in the current directory.
+        Loads environment variables from the .env file in the current directory.
 
     .EXAMPLE
         PS > Import-DotEnv -Path ~/project/.env
+        PS > $env:DATABASE_URL
+        postgresql://user:pass@localhost:5432/mydb
 
-        Loads environment variables from a specific .env file.
+        Loads environment variables from a specific .env file, then accesses one of the loaded variables.
 
     .EXAMPLE
         PS > Import-DotEnv -Path .env -PassThru
 
         FileName      : .env
+        FullPath      : /Users/jon/project/.env
         VariableCount : 4
         Variables     : {DATABASE_URL, API_KEY, DEBUG, APP_NAME}
         Skipped       : {PATH}
+        Scope         : Process
 
-        Loads variables and returns a summary of what was loaded.
+        Loads variables and returns a summary object showing what was loaded and skipped.
 
     .EXAMPLE
         PS > Import-DotEnv -Path .env.local -Force
+        PS > $env:API_KEY
+        sk-prod-abc123xyz789
 
-        Loads variables from .env.local, overwriting any existing environment variables.
+        Loads variables from .env.local, overwriting any existing environment variables with -Force.
 
     .EXAMPLE
-        PS > Import-DotEnv -Unload
+        PS > Import-DotEnv -Path .env
+        PS > $env:__DOTENV_LOADED_VARS -eq $null # APP_NAME|APP_ENV|APP_DEBUG|APP_URL
+        False
 
-        Removes all environment variables that were previously loaded by Import-DotEnv.
+        PS > Import-DotEnv -Unload
+        PS > $env:__DOTENV_LOADED_VARS -eq $null
+        True
+
+        Loads environment variables then inspects the tracking variable that stores loaded variable names.
+        Finally, environment variables are unloaded and again the tracking variable is checked to confirm removal.
+
+    .EXAMPLE
+        PS > Import-DotEnv -Unload -PassThru
+
+        VariableCount : 4
+        Variables     : {DATABASE_URL, API_KEY, DEBUG, APP_NAME}
+
+        Removes all environment variables that were previously loaded and shows what was unloaded.
+
+    .EXAMPLE
+        PS > dotenv -Path .env.development
+        PS > $env:NODE_ENV
+        development
+
+        Uses the 'dotenv' alias to load environment variables from .env.development file.
 
     .EXAMPLE
         PS > Import-DotEnv -Path .env -Scope User
 
         Loads variables persistently for the current user (Windows only).
+
+    .EXAMPLE
+        PS > Get-ChildItem .env.* | Import-DotEnv -PassThru
+
+        FileName      : .env.local
+        FullPath      : /Users/jon/project/.env.local
+        VariableCount : 2
+        Variables     : {LOCAL_VAR, DEBUG_MODE}
+        Skipped       : {}
+        Scope         : Process
+
+        FileName      : .env.test
+        FullPath      : /Users/jon/project/.env.test
+        VariableCount : 3
+        Variables     : {TEST_DB, TEST_USER, TEST_PASS}
+        Skipped       : {}
+        Scope         : Process
+
+        Loads multiple .env files via pipeline input and displays summary for each file.
 
     .OUTPUTS
         None by default. With -PassThru, returns a PSCustomObject with load/unload details.
