@@ -79,22 +79,6 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1
 </details>
 
 <details>
-<summary><strong>Restore from a Backup</strong></summary>
-
-#### Restore from a Backup
-
-`install.ps1` can restore a previous snapshot created during installation. Provide the full path to the backup directory (for example, `C:\Users\you\Documents\WindowsPowerShell-backup-20251116-110000`).
-
-```powershell
-irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' |
-    pwsh -NoProfile -ExecutionPolicy Bypass - -RestorePath 'C:\Users\you\Documents\WindowsPowerShell-backup-20251116-110000'
-```
-
----
-
-</details>
-
-<details>
 <summary><strong>Optional Install Parameters</strong></summary>
 
 #### Optional Install Parameters
@@ -106,6 +90,22 @@ irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1'
 - `-ProfileRoot <path>` — override the detected profile directory (defaults to `Split-Path -Parent $PROFILE`)
 
 For more examples, see the [install.ps1](install.ps1) script documentation.
+
+---
+
+</details>
+
+<details>
+<summary><strong>Restore from a Backup</strong></summary>
+
+#### Restore from a Backup
+
+`install.ps1` can restore a previous snapshot created during installation. Provide the full path to the backup directory (for example, `C:\Users\you\Documents\WindowsPowerShell-backup-20251116-110000`).
+
+```powershell
+irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' |
+    pwsh -NoProfile -ExecutionPolicy Bypass - -RestorePath 'C:\Users\you\Documents\WindowsPowerShell-backup-20251116-110000'
+```
 
 ---
 
