@@ -104,22 +104,8 @@ For more examples, see the [install.ps1](install.ps1) script documentation.
 
 If you prefer to install manually, clone this repository directly into your profile directory.
 
-#### Linux/macOS
-
 ```powershell
-git clone 'https://github.com/jonlabelle/pwsh-profile.git' "$HOME/.config/powershell"
-```
-
-#### Windows PowerShell Desktop 5.1
-
-```powershell
-git clone 'https://github.com/jonlabelle/pwsh-profile.git' "$HOME\Documents\WindowsPowerShell"
-```
-
-#### Windows PowerShell Core
-
-```powershell
-git clone 'https://github.com/jonlabelle/pwsh-profile.git' "$HOME\Documents\PowerShell"
+git clone 'https://github.com/jonlabelle/pwsh-profile.git' (Get-Item $PROFILE).Directory.FullName
 ```
 
 </details>
