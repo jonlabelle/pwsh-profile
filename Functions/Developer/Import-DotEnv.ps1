@@ -31,6 +31,11 @@ function Import-DotEnv
         If specified, removes environment variables that were previously loaded by this function.
         Uses tracking metadata stored in $env:__DOTENV_LOADED_VARS to identify which variables to remove.
 
+    .PARAMETER ShowLoaded
+        Displays the names of environment variables that were previously loaded by Import-DotEnv.
+        This is a standalone operation that does not load any new files.
+        Shows only variable names without values for security.
+
     .PARAMETER Scope
         Specifies the scope for environment variables. Valid values:
         - Process (default): Sets variables for the current process only
@@ -68,6 +73,21 @@ function Import-DotEnv
         Scope         : Process
 
         Loads variables and returns a summary object showing what was loaded and skipped.
+
+    .EXAMPLE
+        PS > Import-DotEnv -ShowLoaded
+        Environment variables loaded by Import-DotEnv (4 total):
+        APP_NAME, APP_ENV, APP_DEBUG, APP_URL
+
+        Displays all environment variable names that were previously loaded by Import-DotEnv.
+
+    .EXAMPLE
+        PS > Import-DotEnv -ShowLoaded -PassThru
+
+        VariableCount : 4
+        Variables     : {APP_NAME, APP_ENV, APP_DEBUG, APP_URL}
+
+        Shows loaded variables and returns a structured object for scripting.
 
     .EXAMPLE
         PS > Import-DotEnv -Path .env.local -Force
@@ -147,6 +167,9 @@ function Import-DotEnv
         [Parameter(Mandatory, ParameterSetName = 'Unload')]
         [Switch]$Unload,
 
+        [Parameter(Mandatory, ParameterSetName = 'ShowLoaded')]
+        [Switch]$ShowLoaded,
+
         [Parameter(ParameterSetName = 'Load')]
         [ValidateSet('Process', 'User', 'Machine')]
         [String]$Scope = 'Process',
@@ -203,6 +226,47 @@ function Import-DotEnv
 
     process
     {
+        if ($ShowLoaded)
+        {
+            Write-Verbose 'Displaying previously loaded environment variables'
+
+            # Get tracking variable
+            $trackedVars = $env:__DOTENV_LOADED_VARS
+
+            if ([String]::IsNullOrEmpty($trackedVars))
+            {
+                Write-Host 'No environment variables have been loaded by Import-DotEnv.' -ForegroundColor Yellow
+
+                if ($PassThru)
+                {
+                    $result = [PSCustomObject]@{
+                        VariableCount = 0
+                        Variables = @()
+                    }
+                    $result.PSObject.TypeNames.Insert(0, 'DotEnv.ShowLoadedResult')
+                    return $result
+                }
+                return
+            }
+
+            # Parse pipe-delimited variable names
+            $varsLoaded = $trackedVars -split '\|' | Where-Object { -not [String]::IsNullOrWhiteSpace($_) }
+
+            Write-Host "Environment variables loaded by Import-DotEnv ($($varsLoaded.Count) total):" -ForegroundColor Cyan
+            Write-Host ($varsLoaded -join ', ') -ForegroundColor Green
+
+            if ($PassThru)
+            {
+                $result = [PSCustomObject]@{
+                    VariableCount = $varsLoaded.Count
+                    Variables = $varsLoaded
+                }
+                $result.PSObject.TypeNames.Insert(0, 'DotEnv.ShowLoadedResult')
+                return $result
+            }
+            return
+        }
+
         if ($Unload)
         {
             Write-Verbose 'Unloading environment variables from previous Import-DotEnv session'
