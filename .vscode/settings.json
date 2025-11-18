@@ -108,6 +108,7 @@
     "PRIVMSG",
     "Procfile",
     "purgeable",
+    "PWDPROT",
     "pwsh",
     "pycache",
     "Rakefile",

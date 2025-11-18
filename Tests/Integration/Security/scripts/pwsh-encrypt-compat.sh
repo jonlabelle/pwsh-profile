@@ -122,9 +122,14 @@ encrypt_file() {
     exit 1
   fi
 
-  # Encrypt the file using AES-256-CBC
+  # Add magic header (8 bytes: PWDPROT1) to the data before encryption
+  local magic_header_hex=$(echo -n "PWDPROT1" | xxd -p -c 256 | tr -d '\n')
+  local input_data_hex=$(xxd -p -c 256 <"$input" | tr -d '\n')
+  local data_with_header_hex="${magic_header_hex}${input_data_hex}"
+
+  # Encrypt the file with header using AES-256-CBC
   echo "Encrypting file..." >&2
-  local encrypted_hex=$(openssl enc -aes-256-cbc -in "$input" -K "$key_hex" -iv "$iv_hex" -e | xxd -p -c 256 | tr -d '\n')
+  local encrypted_hex=$(echo -n "$data_with_header_hex" | xxd -r -p | openssl enc -aes-256-cbc -K "$key_hex" -iv "$iv_hex" -e | xxd -p -c 256 | tr -d '\n')
 
   # Combine: salt (32 bytes) + IV (16 bytes) + encrypted data
   echo -n "${salt_hex}${iv_hex}${encrypted_hex}" | xxd -r -p >"$output"
@@ -172,11 +177,28 @@ decrypt_file() {
 
   # Decrypt the data
   echo "Decrypting file..." >&2
-  if ! echo -n "$encrypted_hex" | xxd -r -p | openssl enc -aes-256-cbc -d -K "$key_hex" -iv "$iv_hex" >"$output" 2>/dev/null; then
+  local decrypted_hex
+  if ! decrypted_hex=$(echo -n "$encrypted_hex" | xxd -r -p | openssl enc -aes-256-cbc -d -K "$key_hex" -iv "$iv_hex" 2>/dev/null | xxd -p -c 256 | tr -d '\n'); then
     echo "Error: Decryption failed. Invalid password or corrupted file." >&2
     rm -f "$output"
     exit 1
   fi
+
+  # Validate magic header (8 bytes: PWDPROT1 = 16 hex chars)
+  local expected_header_hex=$(echo -n "PWDPROT1" | xxd -p -c 256 | tr -d '\n')
+  local actual_header_hex="${decrypted_hex:0:16}"
+
+  if [ "$actual_header_hex" != "$expected_header_hex" ]; then
+    echo "Error: Decryption failed. Invalid password or corrupted file." >&2
+    rm -f "$output"
+    exit 1
+  fi
+
+  # Remove magic header from decrypted data (skip first 16 hex chars = 8 bytes)
+  local actual_data_hex="${decrypted_hex:16}"
+
+  # Write decrypted data to output file
+  echo -n "$actual_data_hex" | xxd -r -p >"$output"
 
   echo "Successfully decrypted '$input' -> '$output'" >&2
   echo "File size: $(stat -f%z "$output" 2>/dev/null || stat -c%s "$output" 2>/dev/null) bytes" >&2

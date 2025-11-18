@@ -12,7 +12,8 @@ function Unprotect-PathWithPassword
         DECRYPTION DETAILS:
         - Reads encrypted file format: [Salt:32][IV:16][EncryptedData:Variable]
         - Uses AES-256-CBC decryption with the same PBKDF2 parameters as encryption
-        - Validates file format and detects corruption or wrong passwords
+        - Validates 8-byte magic header 'PWDPROT1' to detect wrong passwords reliably
+        - Detects file corruption and authentication failures
         - Automatically removes .enc extension to restore original filenames
 
         CROSS-PLATFORM COMPATIBILITY: This function works on PowerShell 5.1+ across Windows, macOS, and Linux
@@ -248,20 +249,23 @@ function Unprotect-PathWithPassword
                 if ($Recurse)
                 {
                     Get-ChildItem -Path $item.FullName -File -Filter '*.enc' -Recurse | ForEach-Object {
-                        Invoke-FileDecryption -FilePath $_.FullName -Password $Password -OutputPath $OutputPath -Force:$Force -KeepEncrypted:$KeepEncrypted
+                        $result = Invoke-FileDecryption -FilePath $_.FullName -Password $Password -OutputPath $OutputPath -Force:$Force -KeepEncrypted:$KeepEncrypted
+                        Write-Output $result
                     }
                 }
                 else
                 {
                     Get-ChildItem -Path $item.FullName -File -Filter '*.enc' | ForEach-Object {
-                        Invoke-FileDecryption -FilePath $_.FullName -Password $Password -OutputPath $OutputPath -Force:$Force -KeepEncrypted:$KeepEncrypted
+                        $result = Invoke-FileDecryption -FilePath $_.FullName -Password $Password -OutputPath $OutputPath -Force:$Force -KeepEncrypted:$KeepEncrypted
+                        Write-Output $result
                     }
                 }
             }
             else
             {
                 Write-Verbose "Processing file: $($item.FullName)"
-                Invoke-FileDecryption -FilePath $item.FullName -Password $Password -OutputPath $OutputPath -Force:$Force -KeepEncrypted:$KeepEncrypted
+                $result = Invoke-FileDecryption -FilePath $item.FullName -Password $Password -OutputPath $OutputPath -Force:$Force -KeepEncrypted:$KeepEncrypted
+                Write-Output $result
             }
         }
         catch
@@ -399,8 +403,32 @@ function Invoke-FileDecryption
                 [Array]::Clear($key, 0, $key.Length)
             }
 
+            # Validate magic header (8 bytes: PWDPROT1)
+            if ($decryptedBytes.Length -lt 8)
+            {
+                throw 'Decryption failed. Invalid password or corrupted file.'
+            }
+            $magicHeader = [System.Text.Encoding]::ASCII.GetBytes('PWDPROT1')
+            $headerMatch = $true
+            for ($i = 0; $i -lt 8; $i++)
+            {
+                if ($decryptedBytes[$i] -ne $magicHeader[$i])
+                {
+                    $headerMatch = $false
+                    break
+                }
+            }
+            if (-not $headerMatch)
+            {
+                throw 'Decryption failed. Invalid password or corrupted file.'
+            }
+
+            # Remove magic header from decrypted data
+            $actualData = New-Object byte[] ($decryptedBytes.Length - 8)
+            [System.Buffer]::BlockCopy($decryptedBytes, 8, $actualData, 0, $actualData.Length)
+
             # Write decrypted file
-            [System.IO.File]::WriteAllBytes($outputFile, $decryptedBytes)
+            [System.IO.File]::WriteAllBytes($outputFile, $actualData)
 
             # Remove encrypted file if requested
             if (-not $KeepEncrypted)

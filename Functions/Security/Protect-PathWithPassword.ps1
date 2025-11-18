@@ -14,6 +14,7 @@ function Protect-PathWithPassword
         - Key Derivation: PBKDF2 with SHA-256, 100,000 iterations
         - Random salt (32 bytes) and initialization vector (16 bytes) per file
         - File format: [Salt:32][IV:16][EncryptedData:Variable]
+        - Encrypted data includes 8-byte magic header 'PWDPROT1' for password validation
 
         CROSS-PLATFORM COMPATIBILITY:
         This function works on PowerShell 5.1+ across Windows, macOS, and Linux
@@ -359,6 +360,12 @@ function Invoke-FileEncryption
             # Read input file
             $inputBytes = [System.IO.File]::ReadAllBytes($FilePath)
 
+            # Add magic header for password validation (8 bytes: PWDPROT1)
+            $magicHeader = [System.Text.Encoding]::ASCII.GetBytes('PWDPROT1')
+            $dataToEncrypt = New-Object byte[] ($magicHeader.Length + $inputBytes.Length)
+            [System.Buffer]::BlockCopy($magicHeader, 0, $dataToEncrypt, 0, $magicHeader.Length)
+            [System.Buffer]::BlockCopy($inputBytes, 0, $dataToEncrypt, $magicHeader.Length, $inputBytes.Length)
+
             # Encrypt using AES
             $aes = [System.Security.Cryptography.Aes]::Create()
             $aes.Key = $key
@@ -367,7 +374,7 @@ function Invoke-FileEncryption
             $aes.Padding = [System.Security.Cryptography.PaddingMode]::PKCS7
 
             $encryptor = $aes.CreateEncryptor()
-            $encryptedBytes = $encryptor.TransformFinalBlock($inputBytes, 0, $inputBytes.Length)
+            $encryptedBytes = $encryptor.TransformFinalBlock($dataToEncrypt, 0, $dataToEncrypt.Length)
 
             # Clean up
             $encryptor.Dispose()
