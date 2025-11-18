@@ -348,6 +348,7 @@ The profile includes utility functions organized by category:
 Contributions are welcome! Please follow these guidelines:
 
 - One function per file in `Functions/{Category}` (named `Verb-Noun.ps1`) — auto-loaded by the main profile
+- Include Pester tests for new functions — both unit and integration tests where applicable (see [`Tests/README.md`](Tests/README.md) for test structure and examples)
 - Open a [pull request](https://github.com/jonlabelle/pwsh-profile/pulls) with a clear description and basic verification steps (linting + functional testing)
 - Maintain cross-platform compatibility following the project's conventions (see [`./Functions`](./Functions/) for examples)
 
