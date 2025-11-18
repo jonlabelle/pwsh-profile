@@ -5,15 +5,20 @@ function Get-CommandAlias
         Lists all aliases for the specified PowerShell command.
 
     .DESCRIPTION
-        This function retrieves and displays all defined aliases that reference a specific command.
+        This function retrieves and displays all defined aliases that reference a specific command,
+        or resolves an alias to its underlying command definition.
         It helps users discover alternative shorthand ways to call frequently used commands.
         Supports wildcard patterns for flexible command name matching.
 
         Compatible with PowerShell Desktop 5.1+ on Windows, macOS, and Linux.
 
     .PARAMETER Name
-        The name of the command to find aliases for. Can be a partial name (wildcards are supported).
+        The name of the command to find aliases for, or the alias name to resolve (when using -Reverse).
+        Can be a partial name (wildcards are supported).
         This parameter is mandatory and supports pipeline input.
+
+    .PARAMETER Reverse
+        When specified, resolves the alias to its command definition instead of finding aliases for a command.
 
     .EXAMPLE
         PS > Get-CommandAlias -Name Get-ChildItem
@@ -47,6 +52,26 @@ function Get-CommandAlias
 
         Gets aliases for multiple commands using pipeline input.
 
+    .EXAMPLE
+        PS > Get-CommandAlias -Name ls -Reverse
+
+        CommandType Name          Definition
+        ----------- ----          ----------
+        Alias       ls            Get-ChildItem
+
+        Resolves the 'ls' alias to show it points to Get-ChildItem.
+
+    .EXAMPLE
+        PS > 'gci', 'ps', 'gsv' | Get-CommandAlias -Reverse
+
+        CommandType Name Definition
+        ----------- ---- ----------
+        Alias       gci  Get-ChildItem
+        Alias       ps   Get-Process
+        Alias       gsv  Get-Service
+
+        Resolves multiple aliases using pipeline input.
+
     .OUTPUTS
         System.Object
         A formatted table showing the command definition and its corresponding aliases.
@@ -69,42 +94,80 @@ function Get-CommandAlias
         [Parameter(Mandatory, ValueFromPipeline, Position = 0)]
         [ValidateNotNullOrEmpty()]
         [String]
-        $Name
+        $Name,
+
+        [Parameter()]
+        [Switch]
+        $Reverse
     )
 
     begin
     {
-        Write-Verbose 'Starting cmdlet alias lookup'
+        if ($Reverse)
+        {
+            Write-Verbose 'Starting alias resolution'
+        }
+        else
+        {
+            Write-Verbose 'Starting cmdlet alias lookup'
+        }
     }
 
     process
     {
-        Write-Verbose "Looking up aliases for cmdlet: '$Name'"
-
         try
         {
-            $aliases = Get-Alias | Where-Object -FilterScript { $_.Definition -like "$Name" }
-
-            if ($aliases)
+            if ($Reverse)
             {
-                Write-Verbose "Found $($aliases.Count) alias(es) for '$Name'"
-                $aliases | Format-Table -Property Definition, Name -AutoSize
+                Write-Verbose "Resolving alias: '$Name'"
+
+                $resolvedAlias = Get-Alias -Name $Name -ErrorAction SilentlyContinue
+
+                if ($resolvedAlias)
+                {
+                    Write-Verbose "Alias '$Name' resolves to: $($resolvedAlias.Definition)"
+                    $resolvedAlias | Format-Table -Property CommandType, Name, Definition -AutoSize
+                }
+                else
+                {
+                    Write-Verbose "No alias found with name: '$Name'"
+                    Write-Warning "No alias found with name: '$Name'"
+                }
             }
             else
             {
-                Write-Verbose "No aliases found for cmdlet: '$Name'"
-                Write-Warning "No aliases found for cmdlet: '$Name'"
+                Write-Verbose "Looking up aliases for cmdlet: '$Name'"
+
+                $aliases = Get-Alias | Where-Object -FilterScript { $_.Definition -like "$Name" }
+
+                if ($aliases)
+                {
+                    Write-Verbose "Found $($aliases.Count) alias(es) for '$Name'"
+                    $aliases | Format-Table -Property Definition, Name -AutoSize
+                }
+                else
+                {
+                    Write-Verbose "No aliases found for cmdlet: '$Name'"
+                    Write-Warning "No aliases found for cmdlet: '$Name'"
+                }
             }
         }
         catch
         {
-            Write-Verbose "Error occurred while looking up aliases: $($_.Exception.Message)"
+            Write-Verbose "Error occurred: $($_.Exception.Message)"
             throw $_
         }
     }
 
     end
     {
-        Write-Verbose 'Cmdlet alias lookup completed'
+        if ($Reverse)
+        {
+            Write-Verbose 'Alias resolution completed'
+        }
+        else
+        {
+            Write-Verbose 'Cmdlet alias lookup completed'
+        }
     }
 }
