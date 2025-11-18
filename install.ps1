@@ -88,6 +88,15 @@
         The script will use `git` when available for cloning, otherwise it downloads the repository as a zip file.
         Run with `-Verbose` to see detailed progress, especially when preserving directories or restoring backups.
 
+        Execution Policy (Windows only):
+        On Windows, you may need to set the execution policy to load profile scripts. macOS and Linux do not enforce
+        execution policies. If you encounter an execution policy error on Windows after installation, run this command
+        in a regular PowerShell window (no administrator privileges required):
+
+        PS > Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+        The CurrentUser scope affects only your user account and does not require administrator privileges.
+
         Parameter Conflicts:
         The following parameter combinations are not allowed and will produce clear error messages:
         - RestorePath cannot be used with LocalSourcePath or RepositoryUrl (restore vs. install)
@@ -534,9 +543,15 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
             Write-Host ''
             Write-Host 'Please restart your PowerShell session to load the restored profile.' -ForegroundColor Yellow
             Write-Host ''
-            Write-Host 'If you encounter an execution policy error when PowerShell starts, run:' -ForegroundColor Yellow
-            Write-Host '  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser' -ForegroundColor Gray
-            Write-Host ''
+
+            # Only show execution policy message on Windows
+            $isWindowsPlatform = if ($PSVersionTable.PSVersion.Major -lt 6) { $true } else { $IsWindows }
+            if ($isWindowsPlatform)
+            {
+                Write-Host 'If you encounter an execution policy error when PowerShell starts, run:' -ForegroundColor Yellow
+                Write-Host '  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser' -ForegroundColor Gray
+                Write-Host ''
+            }
             return
         }
 
@@ -629,9 +644,15 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
 
         Write-Host 'Please restart your PowerShell session to load the updated profile.' -ForegroundColor Yellow
         Write-Host ''
-        Write-Host 'If you encounter an execution policy error when PowerShell starts, run:' -ForegroundColor Yellow
-        Write-Host '  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser' -ForegroundColor Gray
-        Write-Host ''
+
+        # Only show execution policy message on Windows (macOS/Linux don't enforce execution policies)
+        $isWindowsPlatform = if ($PSVersionTable.PSVersion.Major -lt 6) { $true } else { $IsWindows }
+        if ($isWindowsPlatform)
+        {
+            Write-Host 'If you encounter an execution policy error when PowerShell starts, run:' -ForegroundColor Yellow
+            Write-Host '  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser' -ForegroundColor Gray
+            Write-Host ''
+        }
     }
     catch
     {

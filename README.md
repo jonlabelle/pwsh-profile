@@ -125,9 +125,11 @@ Test-ProfileUpdate
 ## Troubleshooting
 
 <details>
-<summary><strong>Execution Policy Error</strong></summary>
+<summary><strong>Execution Policy Error (Windows Only)</strong></summary>
 
-If you encounter an error like this when PowerShell starts:
+> **Note:** Execution policies are **only enforced on Windows**. macOS and Linux systems do not enforce execution policies and will not encounter this error.
+
+If you encounter an error like this when PowerShell starts on **Windows**:
 
 ```console
 Microsoft.PowerShell_profile.ps1 cannot be loaded because running
@@ -137,19 +139,21 @@ For more information, see about_Execution_Policies at
 https:/go.microsoft.com/fwlink/?LinkID=135170.
 ```
 
-This means your system's execution policy is preventing the profile from loading. To fix this, run PowerShell as Administrator and execute:
+This means your system's execution policy is preventing the profile from loading. To fix this, open a PowerShell window (no administrator privileges required) and execute:
 
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
-This allows locally created scripts to run while still requiring downloaded scripts to be signed. For more restrictive environments where you can't change the execution policy, you may need to contact your system administrator.
+This sets the execution policy for your user account only, allowing locally created scripts to run while still requiring downloaded scripts to be signed. **No administrator privileges are required** for the `CurrentUser` scope.
 
-**Alternative:** If you can't run as Administrator, try setting the policy for just your user:
+**Alternative (requires administrator privileges):** To set the execution policy for all users on the computer, run PowerShell as Administrator and execute:
 
 ```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope LocalMachine
 ```
+
+Note: The `CurrentUser` scope takes precedence over `LocalMachine`, so setting it for your user is usually sufficient.
 
 **Verification:** After setting the execution policy, restart PowerShell. Your profile should load without errors.
 
