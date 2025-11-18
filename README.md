@@ -19,6 +19,7 @@
 
 - [Install](#install)
 - [Update](#update)
+- [Using Profile in Remote Sessions](#using-profile-in-remote-sessions)
 - [Troubleshooting](#troubleshooting)
 - [Functions](#functions)
   - [Network and DNS](#network-and-dns)
@@ -121,6 +122,58 @@ You can check for available updates without applying them:
 ```powershell
 Test-ProfileUpdate
 ```
+
+## Using the Profile in Remote Sessions
+
+<details>
+<summary>PowerShell profiles don't load automatically in remote sessions—click to see how to load them</summary>
+
+PowerShell profiles don't load automatically in remote sessions (via `Enter-PSSession`, `New-PSSession`, or `Invoke-Command`). This behavior is consistent across all platforms—Windows, macOS, and Linux—whether you're using WinRM (Windows-only) or SSH-based remoting (cross-platform).
+
+> **Note:** SSH-based remoting requires PowerShell 6+ and SSH to be installed on both local and remote computers. For setup instructions, see [PowerShell remoting over SSH](https://learn.microsoft.com/en-us/powershell/scripting/security/remoting/ssh-remoting-in-powershell).
+
+To use your profile functions in a remote session, you have two options:
+
+### Load Your Local Profile in the Remote Session
+
+Use `Invoke-Command` to run your local profile script on the remote computer:
+
+```powershell
+$session = New-PSSession -HostName RemoteHost -UserName YourUser
+Invoke-Command -Session $session -FilePath $PROFILE
+```
+
+### Load the Remote Computer's Profile
+
+Dot-source the profile on the remote computer using its explicit path:
+
+```powershell
+$session = New-PSSession -HostName RemoteHost -UserName YourUser
+Invoke-Command -Session $session -ScriptBlock {
+    . "$HOME/.config/powershell/Microsoft.PowerShell_profile.ps1"
+}
+```
+
+After running either command, the profile's functions and aliases will be available in `$session`.
+
+For example, to use a profile function in the remote session:
+
+```powershell
+# Use a function from the loaded profile
+Invoke-Command -Session $session -ScriptBlock { Test-Port -ComputerName google.com -Port 443 }
+
+# Or enter the session interactively
+Enter-PSSession $session
+# Now you can use profile functions directly
+Test-DnsNameResolution -Name example.com
+Exit-PSSession
+```
+
+> **Note:** For Windows PowerShell Desktop 5.1, replace `.config/powershell` with `Documents\WindowsPowerShell` in the path.
+
+For more information, see Microsoft's documentation on [Profiles and Remote Sessions](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_profiles#profiles-and-remote-sessions).
+
+</details>
 
 ## Troubleshooting
 
