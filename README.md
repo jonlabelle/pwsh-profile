@@ -74,6 +74,8 @@ If you already cloned [this repository](https://github.com/jonlabelle/pwsh-profi
 pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1
 ```
 
+---
+
 </details>
 
 <details>
@@ -87,6 +89,8 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1
 irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' |
     pwsh -NoProfile -ExecutionPolicy Bypass - -RestorePath 'C:\Users\you\Documents\WindowsPowerShell-backup-20251116-110000'
 ```
+
+---
 
 </details>
 
@@ -103,6 +107,8 @@ irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1'
 
 For more examples, see the [install.ps1](install.ps1) script documentation.
 
+---
+
 </details>
 
 <details>
@@ -110,11 +116,24 @@ For more examples, see the [install.ps1](install.ps1) script documentation.
 
 #### Manual Install (fallback)
 
-If you prefer to install manually, clone this repository directly into your profile directory.
+If you prefer to install manually, you can clone this repository directly into your profile directory. This will back up any existing profile directory first:
 
 ```powershell
-git clone 'https://github.com/jonlabelle/pwsh-profile.git' (Get-Item $PROFILE).Directory.FullName
+# Resolve profile directory
+$profileDir = Split-Path -Path $PROFILE -Parent
+
+# Backup existing profile directory
+if (Test-Path -Path $profileDir) {
+    $backupPath = "$profileDir-backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+    Move-Item -Path $profileDir -Destination $backupPath
+    Write-Host "Existing profile backed up to: $backupPath" -ForegroundColor Yellow
+}
+
+# Clone the repository into the profile directory
+git clone 'https://github.com/jonlabelle/pwsh-profile.git' --depth 1 $profileDir
 ```
+
+---
 
 </details>
 
@@ -123,7 +142,7 @@ git clone 'https://github.com/jonlabelle/pwsh-profile.git' (Get-Item $PROFILE).D
 <details>
 <summary><strong>Execution Policy Error (Windows Only)</strong></summary>
 
-#### Execution Policy Error (Windows Only)
+### Execution Policy Error (Windows Only)
 
 > **Note:** Execution policies are **only enforced on Windows**. macOS and Linux systems do not enforce execution policies and will not encounter this error.
 
@@ -156,6 +175,8 @@ Note: The `CurrentUser` scope takes precedence over `LocalMachine`, so setting i
 **Verification:** After setting the execution policy, restart PowerShell. Your profile should load without errors.
 
 For more information about execution policies, see [about_Execution_Policies](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies).
+
+---
 
 </details>
 
@@ -214,7 +235,7 @@ Any PowerShell file placed in `Functions/Local` will be automatically loaded, ju
 <details>
 <summary><strong>PowerShell profiles don't load automatically in remote sessions—click to see how to load them</strong></summary>
 
-#### Loading Profiles in Remote Sessions
+### Loading Profiles in Remote Sessions
 
 PowerShell profiles don't load automatically in remote sessions (via `Enter-PSSession`, `New-PSSession`, or `Invoke-Command`). This behavior is consistent across all platforms—Windows, macOS, and Linux—whether you're using WinRM (Windows-only) or SSH-based remoting (cross-platform).
 
@@ -260,6 +281,8 @@ Exit-PSSession
 > **Note:** For Windows PowerShell Desktop 5.1, replace `.config/powershell` with `Documents\WindowsPowerShell` in the path.
 
 For more information, see Microsoft's documentation on [Profiles and Remote Sessions](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_profiles#profiles-and-remote-sessions).
+
+---
 
 </details>
 
