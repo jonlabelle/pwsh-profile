@@ -156,6 +156,10 @@ function Import-DotEnv
 
         Security Note: Be cautious with .env files containing sensitive data. Ensure
         appropriate file permissions and never commit them to version control.
+
+        Dependencies:
+        - Invoke-ElevatedCommand: Required when using -Scope Machine on Windows.
+          This function must be available in the session for Machine scope to work.
     #>
     [CmdletBinding(DefaultParameterSetName = 'Load')]
     [OutputType([System.Management.Automation.PSCustomObject])]
@@ -201,22 +205,6 @@ function Import-DotEnv
         if (-not $script:IsWindowsPlatform -and $Scope -ne 'Process')
         {
             throw "Scope '$Scope' is only supported on Windows. On macOS and Linux, only 'Process' scope is available."
-        }
-
-        # Check for admin rights if Machine scope is requested
-        if ($Scope -eq 'Machine')
-        {
-            $isAdmin = $false
-            if ($script:IsWindowsPlatform)
-            {
-                $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-                $isAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-            }
-
-            if (-not $isAdmin)
-            {
-                throw 'Machine scope requires administrator privileges. Run PowerShell as Administrator or use Process/User scope.'
-            }
         }
 
         $loadedVariables = [System.Collections.ArrayList]::new()
@@ -437,7 +425,11 @@ function Import-DotEnv
                         }
                         elseif ($Scope -eq 'Machine' -and $script:IsWindowsPlatform)
                         {
-                            [System.Environment]::SetEnvironmentVariable($varName, $varValue, [System.EnvironmentVariableTarget]::Machine)
+                            # Use Invoke-ElevatedCommand to set machine-level environment variable
+                            Invoke-ElevatedCommand -Scriptblock {
+                                param($VarName, $VarValue)
+                                [System.Environment]::SetEnvironmentVariable($VarName, $VarValue, [System.EnvironmentVariableTarget]::Machine)
+                            } -InputObject @($varName, $varValue) | Out-Null
                             # Also set in current session
                             [System.Environment]::SetEnvironmentVariable($varName, $varValue)
                         }
