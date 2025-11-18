@@ -4,23 +4,25 @@
 
 > Cross-platform PowerShell profile with auto-loading utility functions for network testing, system administration, and developer workflows.
 
-## Features
-
-- **Cross-platform compatibility** - Works on Windows, macOS, and Linux
-- **Auto-loading functions** - All functions in the [`Functions/`](./Functions/) directory are auto-loaded with your profile
-- **Local functions support** - Add your own functions to [`Functions/Local/`](./Functions/Local/)
-- **Custom prompt** - Clean, colored PowerShell prompt
-
 ## Screenshot
 
 ![PowerShell Profile in Windows Terminal](term-screen-shot.png)
 
+## Features
+
+- **Cross-platform compatibility** - Works on Windows, macOS, and Linux
+- **Auto-loading functions** - All functions in the [`Functions`](./Functions/) directory are auto-loaded with your profile
+- **Local functions support** - Add your own functions to [`Functions/Local`](./Functions/Local/)
+- **Custom prompt** - Clean, colored PowerShell prompt
+
 ## Table of Contents
 
 - [Install](#install)
-- [Update](#update)
-- [Using Profile in Remote Sessions](#using-profile-in-remote-sessions)
 - [Troubleshooting](#troubleshooting)
+- [Update](#update)
+- [Quick Start](#quick-start)
+- [Local Functions](#local-functions)
+- [Remote Sessions](#remote-sessions)
 - [Functions](#functions)
   - [Network and DNS](#network-and-dns)
   - [System Administration](#system-administration)
@@ -31,7 +33,6 @@
   - [Profile Management](#profile-management)
   - [Media Processing](#media-processing)
   - [Utilities](#utilities)
-- [Local Functions](#local-functions)
 - [Contributing](#contributing)
 - [Author](#author)
 - [License](#license)
@@ -60,6 +61,8 @@ irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1'
     powershell -NoProfile -ExecutionPolicy Bypass -
 ```
 
+### Alternative Install Methods
+
 <details>
 <summary><strong>Run install.ps1 Locally</strong></summary>
 
@@ -84,7 +87,7 @@ irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1'
 </details>
 
 <details>
-<summary><strong>Optional Parameters</strong></summary>
+<summary><strong>Optional Install Parameters</strong></summary>
 
 - `-SkipBackup` — install without creating a backup of the existing profile directory
 - `-SkipPreserveDirectories` — do not restore the `Functions/Local`, `Help`, `Modules`, `PSReadLine`, and `Scripts` directories after installation
@@ -121,6 +124,45 @@ git clone 'https://github.com/jonlabelle/pwsh-profile.git' "$HOME\Documents\Powe
 
 </details>
 
+## Troubleshooting
+
+<details>
+<summary><strong>Execution Policy Error (Windows Only)</strong></summary>
+
+> **Note:** Execution policies are **only enforced on Windows**. macOS and Linux systems do not enforce execution policies and will not encounter this error.
+
+If you encounter an error like this when PowerShell starts on **Windows**:
+
+```console
+Microsoft.PowerShell_profile.ps1 cannot be loaded because running
+scripts is disabled on this system.
+
+For more information, see about_Execution_Policies at
+https:/go.microsoft.com/fwlink/?LinkID=135170.
+```
+
+This means your system's execution policy is preventing the profile from loading. To fix this, open a PowerShell window (no administrator privileges required) and execute:
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+This sets the execution policy for your user account only, allowing locally created scripts to run while still requiring downloaded scripts to be signed. **No administrator privileges are required** for the `CurrentUser` scope.
+
+**Alternative (requires administrator privileges):** To set the execution policy for all users on the computer, run PowerShell as Administrator and execute:
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope LocalMachine
+```
+
+Note: The `CurrentUser` scope takes precedence over `LocalMachine`, so setting it for your user is usually sufficient.
+
+**Verification:** After setting the execution policy, restart PowerShell. Your profile should load without errors.
+
+For more information about execution policies, see [about_Execution_Policies](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies).
+
+</details>
+
 ## Update
 
 To pull in the latest updates from the repository:
@@ -135,10 +177,46 @@ You can check for available updates without applying them:
 Test-ProfileUpdate
 ```
 
-## Using the Profile in Remote Sessions
+## Quick Start
+
+After installation, try these commands to explore what the profile offers:
+
+```powershell
+# View all available functions
+Show-ProfileFunctions
+
+# Test network connectivity
+Test-Port -ComputerName google.com -Port 443
+
+# Get your public IP with geolocation
+Get-IPAddress
+
+# Check DNS resolution
+Test-DnsNameResolution -Name github.com
+
+# Get SSL certificate expiration
+Get-CertificateExpiration -ComputerName github.com
+```
+
+Explore the full list of functions in the [Functions](#functions) section below.
+
+## Local Functions
+
+The [`Functions/Local`](./Functions/Local/) directory is available for your **machine-local functions** that you don't want to commit to the repository. This is perfect for:
+
+- Work-specific utilities
+- Personal helper functions
+- Experimental functions you're testing
+- Machine-specific automations
+
+Any PowerShell file placed in `Functions/Local` will be automatically loaded, just like the built-in functions. The entire directory is git-ignored, so your local functions are never accidentally committed and remain completely untouched when you run `Update-Profile` to pull the latest changes.
+
+> See the [local functions README](Functions/Local/README.md) for detailed instructions, templates, and examples.
+
+## Remote Sessions
 
 <details>
-<summary>PowerShell profiles don't load automatically in remote sessions—click to see how to load them</summary>
+<summary><strong>PowerShell profiles don't load automatically in remote sessions—click to see how to load them</strong></summary>
 
 PowerShell profiles don't load automatically in remote sessions (via `Enter-PSSession`, `New-PSSession`, or `Invoke-Command`). This behavior is consistent across all platforms—Windows, macOS, and Linux—whether you're using WinRM (Windows-only) or SSH-based remoting (cross-platform).
 
@@ -184,45 +262,6 @@ Exit-PSSession
 > **Note:** For Windows PowerShell Desktop 5.1, replace `.config/powershell` with `Documents\WindowsPowerShell` in the path.
 
 For more information, see Microsoft's documentation on [Profiles and Remote Sessions](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_profiles#profiles-and-remote-sessions).
-
-</details>
-
-## Troubleshooting
-
-<details>
-<summary><strong>Execution Policy Error (Windows Only)</strong></summary>
-
-> **Note:** Execution policies are **only enforced on Windows**. macOS and Linux systems do not enforce execution policies and will not encounter this error.
-
-If you encounter an error like this when PowerShell starts on **Windows**:
-
-```console
-Microsoft.PowerShell_profile.ps1 cannot be loaded because running
-scripts is disabled on this system.
-
-For more information, see about_Execution_Policies at
-https:/go.microsoft.com/fwlink/?LinkID=135170.
-```
-
-This means your system's execution policy is preventing the profile from loading. To fix this, open a PowerShell window (no administrator privileges required) and execute:
-
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-
-This sets the execution policy for your user account only, allowing locally created scripts to run while still requiring downloaded scripts to be signed. **No administrator privileges are required** for the `CurrentUser` scope.
-
-**Alternative (requires administrator privileges):** To set the execution policy for all users on the computer, run PowerShell as Administrator and execute:
-
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope LocalMachine
-```
-
-Note: The `CurrentUser` scope takes precedence over `LocalMachine`, so setting it for your user is usually sufficient.
-
-**Verification:** After setting the execution policy, restart PowerShell. Your profile should load without errors.
-
-For more information about execution policies, see [about_Execution_Policies](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies).
 
 </details>
 
@@ -304,24 +343,11 @@ The profile includes utility functions organized by category:
 - **[`Search-FileContent`](Functions/Utilities/Search-FileContent.ps1)** — Search files with regex, context, filtering, and colorized output
 - **[`Sync-Directory`](Functions/Utilities/Sync-Directory.ps1)** — Synchronizes directories using native platform tools (rsync/robocopy)
 
-## Local Functions
-
-The [`Functions/Local/`](./Functions/Local/) directory is available for your **machine-local functions** that you don't want to commit to the repository. This is perfect for:
-
-- Work-specific utilities
-- Personal helper functions
-- Experimental functions you're testing
-- Machine-specific automations
-
-Any PowerShell file placed in `Functions/Local/` will be automatically loaded, just like the built-in functions. The entire directory is git-ignored, so your local functions are never accidentally committed and remain completely untouched when you run `Update-Profile` to pull the latest changes.
-
-> See the [local functions README](Functions/Local/README.md) for detailed instructions, templates, and examples.
-
 ## Contributing
 
 Contributions are welcome! Please follow these guidelines:
 
-- One function per file in `Functions/` (named `Verb-Noun.ps1`) — auto-loaded by the main profile
+- One function per file in `Functions/{Category}` (named `Verb-Noun.ps1`) — auto-loaded by the main profile
 - Open a [pull request](https://github.com/jonlabelle/pwsh-profile/pulls) with a clear description and basic verification steps (linting + functional testing)
 - Maintain cross-platform compatibility following the project's conventions (see [`./Functions`](./Functions/) for examples)
 
