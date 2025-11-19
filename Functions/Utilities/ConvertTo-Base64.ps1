@@ -148,8 +148,8 @@ function ConvertTo-Base64
     }
 }
 
-# Create 'base64-encode' alias if it doesn't already exist
-if (-not (Get-Alias -Name 'base64-encode' -ErrorAction SilentlyContinue))
+# Create 'base64-encode' alias only if it doesn't already exist
+if (-not (Get-Command -Name 'base64-encode' -ErrorAction SilentlyContinue))
 {
     try
     {

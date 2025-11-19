@@ -147,6 +147,40 @@ pwsh -NoProfile -Command ". ./Functions/YourFunction.ps1; Test-YourFunction -Ver
 
 ## Project-Specific Conventions
 
+### Creating Aliases
+
+Aliases for functions should go at the very end of the function, in the same file. The active environment must be checked to ensure existing command or alias names are not overwritten.
+
+This example is from `Get-WhichCommand` that will create the alias `which` only if it does not already exist:
+
+```powershell
+# Create 'which' alias only if the native which command doesn't exist
+if (-not (Get-Command -Name 'which' -CommandType Application -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Set-Alias -Name 'which' -Value 'Get-WhichCommand' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Get-WhichCommand: Could not create 'which' alias: $($_.Exception.Message)"
+    }
+}
+```
+
+> [!Important]
+> We use `Get-Command` (instead of `Get-Alias`) to check for native `which` commands (e.g., on Linux or macOS). If such commands exist, the alias will not be created, preventing conflicts.
+
+`Get-Command` searches for all command types in PowerShell:
+
+- `Alias` - Existing aliases
+- `Function` - PowerShell functions (including profile functions)
+- `Cmdlet` - Built-in PowerShell cmdlets
+- `Application` - Native executables in PATH (like which, base64, etc.)
+- `ExternalScript` - PowerShell script files (.ps1)
+- `Filter` - PowerShell filters
+- `Configuration` - DSC configurations
+
 ### Suppressed PSScriptAnalyzer Rules
 
 - `PSAvoidUsingWriteHost` - Allow `Write-Host` for user-facing output

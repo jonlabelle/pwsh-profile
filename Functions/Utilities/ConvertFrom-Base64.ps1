@@ -168,8 +168,8 @@ function ConvertFrom-Base64
     }
 }
 
-# Create 'base64-decode' alias if it doesn't already exist
-if (-not (Get-Alias -Name 'base64-decode' -ErrorAction SilentlyContinue))
+# Create 'base64-decode' alias only if it doesn't already exist
+if (-not (Get-Command -Name 'base64-decode' -ErrorAction SilentlyContinue))
 {
     try
     {
