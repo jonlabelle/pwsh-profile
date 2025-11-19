@@ -11,6 +11,9 @@ function ConvertTo-Base64
 
         Cross-platform compatible with PowerShell 5.1+ and PowerShell Core.
 
+        Aliases:
+        The 'base64-encode' alias is created only if it doesn't already exist in the current environment.
+
     .PARAMETER InputObject
         The string to encode. Can be provided via pipeline.
 
@@ -142,5 +145,18 @@ function ConvertTo-Base64
             Write-Output ($results -join [Environment]::NewLine)
         }
         Write-Verbose 'Base64 encoding completed'
+    }
+}
+
+# Create 'base64-encode' alias if it doesn't already exist
+if (-not (Get-Alias -Name 'base64-encode' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Set-Alias -Name 'base64-encode' -Value 'ConvertTo-Base64' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "ConvertTo-Base64: Could not create 'base64-encode' alias: $($_.Exception.Message)"
     }
 }
