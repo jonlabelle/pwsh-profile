@@ -117,7 +117,9 @@ irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1'
 
 #### Manual Install (fallback)
 
-If you prefer to install manually, you can clone this repository directly into your profile directory. This will back up any existing profile directory first:
+> **Strongly Recommended:** Use [install.ps1](install.ps1) instead of manually cloning the repository. The install script provides automatic backups, preserves your local directories (`Help`, `Modules`, `PSReadLine`, `Scripts`), and includes easy restoration capabilities that manual installation does not.
+
+If you still prefer to install manually, you can clone this repository directly into your profile directory. **Warning:** This approach does not preserve your local directories and requires manual restoration if something goes wrong:
 
 ```powershell
 # Resolve profile directory
@@ -133,6 +135,18 @@ if (Test-Path -Path $profileDir) {
 # Clone the repository into the profile directory
 git clone 'https://github.com/jonlabelle/pwsh-profile.git' --depth 1 $profileDir
 ```
+
+**To restore from a manual backup:**
+
+```powershell
+# Remove the new installation
+Remove-Item -Path $profileDir -Recurse -Force
+
+# Restore from backup (replace the timestamp with your actual backup)
+Move-Item -Path "$profileDir-backup-20250118-120000" -Destination $profileDir
+```
+
+**Better alternative:** Use [install.ps1](install.ps1) with the `-RestorePath` parameter for safer restoration with validation and error handling.
 
 ---
 
