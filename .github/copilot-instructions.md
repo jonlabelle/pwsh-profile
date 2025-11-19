@@ -2,17 +2,17 @@
 
 - Do NOT create summaries of work performed in Markdown files.
 - Be sure to cleanup any temporary files created during tasks.
-- Use the _tmp_ directory of the repository for temporary files during tests, not system temp directories (e.g. not the `/tmp` directory).
+- Use the _tmp_ directory of the repository for temporary files during tests, not system-level temp directories (e.g. e.g the `/tmp` directory).
 - Under no circumstances should you ever commit changes directly to the repository. Ever!
 
 ## Architecture Overview
 
-This is a **cross-platform PowerShell profile system** that provides utility functions for Windows, macOS, and Linux. Functions are auto-loaded via dot-sourcing from the `Functions/` directory.
+This is a **cross-platform PowerShell profile system** that provides utility functions for Windows, macOS, and Linux. Functions are auto-loaded via dot-sourcing from the `Functions/{Category}` directory.
 
 **Core Structure:**
 
 - `Microsoft.PowerShell_profile.ps1` - Main profile that dot-sources all functions
-- `Functions/` - Individual utility functions (one per file)
+- `Functions/{Category}` - Individual functions (one per file)
 - `PSScriptAnalyzerSettings.psd1` - Linting configuration
 - `.github/workflows/ci.yml` - Cross-platform CI testing
 
@@ -188,7 +188,7 @@ if (-not (Get-Command -Name 'which' -CommandType Application -ErrorAction Silent
 
 ### File Organization
 
-- One function per file in `Functions/`
+- One function per file in `Functions/{Category}`
 - File naming: `Verb-Noun.ps1` (matches function name)
 - Auto-loaded by profile via dot-sourcing pattern
 
