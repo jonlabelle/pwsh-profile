@@ -91,6 +91,7 @@ function Replace-StringInFile
         - Binary files are automatically skipped
         - In regex mode, remember to escape special characters like . * + ? etc.
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '')]
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     [OutputType([PSCustomObject])]
     param(
