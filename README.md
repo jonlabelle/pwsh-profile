@@ -200,7 +200,7 @@ For more information about execution policies, see [about_Execution_Policies](ht
 
 ### Enable Verbose Logging for Troubleshooting
 
-If you're experiencing issues with the profile loading or want to see which functions are being loaded, you can enable verbose logging. Since the profile immediately starts loading functions when it runs, you need to set the verbose preference **before** PowerShell loads the profile.
+If you're experiencing issues with the profile loading or want to see which functions are being loaded, you can enable verbose logging. Since the profile [immediately starts loading functions](https://github.com/jonlabelle/pwsh-profile/blob/main/Microsoft.PowerShell_profile.ps1#L3) when it runs, you need to set the verbose preference **before** PowerShell loads the profile.
 
 #### Option 1: Start PowerShell with Verbose Output
 
