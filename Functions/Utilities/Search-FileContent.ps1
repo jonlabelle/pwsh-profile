@@ -697,6 +697,7 @@ if (-not (Get-Command -Name 'grep' -ErrorAction SilentlyContinue))
 {
     try
     {
+        Write-Verbose "Creating 'grep' alias for Search-FileContent"
         Set-Alias -Name 'grep' -Value 'Search-FileContent' -Force -ErrorAction Stop
     }
     catch
@@ -710,6 +711,7 @@ if (-not (Get-Command -Name 'search' -ErrorAction SilentlyContinue))
 {
     try
     {
+        Write-Verbose "Creating 'search' alias for Search-FileContent"
         Set-Alias -Name 'search' -Value 'Search-FileContent' -Force -ErrorAction Stop
     }
     catch

@@ -173,6 +173,7 @@ if (-not (Get-Command -Name 'base64-decode' -ErrorAction SilentlyContinue))
 {
     try
     {
+        Write-Verbose "Creating 'base64-decode' alias for ConvertFrom-Base64"
         Set-Alias -Name 'base64-decode' -Value 'ConvertFrom-Base64' -Force -ErrorAction Stop
     }
     catch

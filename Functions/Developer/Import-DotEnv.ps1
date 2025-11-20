@@ -496,6 +496,7 @@ if (-not (Get-Alias -Name 'dotenv' -ErrorAction SilentlyContinue))
 {
     try
     {
+        Write-Verbose "Creating 'dotenv' alias for Import-DotEnv"
         Set-Alias -Name 'dotenv' -Value 'Import-DotEnv' -Force -ErrorAction Stop
     }
     catch

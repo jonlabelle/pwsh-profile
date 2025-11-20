@@ -430,6 +430,7 @@ if (-not (Get-Command -Name 'encrypt' -ErrorAction SilentlyContinue))
 {
     try
     {
+        Write-Verbose "Creating 'encrypt' alias for Protect-PathWithPassword"
         Set-Alias -Name 'encrypt' -Value 'Protect-PathWithPassword' -Force -ErrorAction Stop
     }
     catch
@@ -443,6 +444,7 @@ if (-not (Get-Command -Name 'Encrypt-PathWithPassword' -ErrorAction SilentlyCont
 {
     try
     {
+        Write-Verbose "Creating 'Encrypt-PathWithPassword' alias for Protect-PathWithPassword"
         Set-Alias -Name 'Encrypt-PathWithPassword' -Value 'Protect-PathWithPassword' -Force -ErrorAction Stop
     }
     catch

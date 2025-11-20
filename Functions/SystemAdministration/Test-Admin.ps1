@@ -212,5 +212,28 @@ function Test-Admin
     return $false
 }
 
-Set-Alias -Name Test-Root -Value Test-Admin -Force
-Set-Alias -Name Test-Sudo -Value Test-Admin -Force
+if (-not (Get-Command -Name 'Test-Root' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Write-Verbose "Creating 'Test-Root' alias for Test-Admin"
+        Set-Alias -Name 'Test-Root' -Value 'Test-Admin' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Failed to create 'Test-Root' alias: $($_.Exception.Message)"
+    }
+}
+
+if (-not (Get-Command -Name 'Test-Sudo' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Write-Verbose "Creating 'Test-Sudo' alias for Test-Admin"
+        Set-Alias -Name 'Test-Sudo' -Value 'Test-Admin' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Failed to create 'Test-Sudo' alias: $($_.Exception.Message)"
+    }
+}

@@ -402,6 +402,7 @@ if (-not (Get-Command -Name 'jwt-decode' -ErrorAction SilentlyContinue))
 {
     try
     {
+        Write-Verbose "Creating 'jwt-decode' alias for ConvertFrom-JwtToken"
         Set-Alias -Name 'jwt-decode' -Value 'ConvertFrom-JwtToken' -Force -ErrorAction Stop
     }
     catch

@@ -303,6 +303,7 @@ if (-not (Get-Command -Name 'sarep' -ErrorAction SilentlyContinue))
 {
     try
     {
+        Write-Verbose "Creating 'sarep' alias for Replace-StringInFile"
         Set-Alias -Name 'sarep' -Value 'Replace-StringInFile' -Force -ErrorAction Stop
     }
     catch

@@ -473,6 +473,7 @@ if (-not (Get-Command -Name 'decrypt' -ErrorAction SilentlyContinue))
 {
     try
     {
+        Write-Verbose "Creating 'decrypt' alias for Unprotect-PathWithPassword"
         Set-Alias -Name 'decrypt' -Value 'Unprotect-PathWithPassword' -Force -ErrorAction Stop
     }
     catch

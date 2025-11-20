@@ -231,6 +231,7 @@ if (-not (Get-Command -Name 'which' -CommandType Application -ErrorAction Silent
 {
     try
     {
+        Write-Verbose "Creating 'which' alias for Get-WhichCommand"
         Set-Alias -Name 'which' -Value 'Get-WhichCommand' -Force -ErrorAction Stop
     }
     catch
