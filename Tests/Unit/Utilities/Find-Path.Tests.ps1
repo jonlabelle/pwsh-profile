@@ -269,7 +269,7 @@ Describe 'Find-Path Unit Tests' -Tag 'Unit' {
 
         It 'Should handle paths with special characters' {
             $specialPath = Join-Path $TestDrive 'test [brackets].txt'
-            Set-Content -Path $specialPath -Value 'test'
+            Set-Content -LiteralPath $specialPath -Value 'test'
             $result = Find-Path -Path $TestDrive -Name 'test [brackets].txt' -Simple
             $result | Should -Not -BeNullOrEmpty
         }

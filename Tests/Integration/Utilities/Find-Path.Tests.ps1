@@ -296,7 +296,7 @@ Describe 'Find-Path Integration Tests' -Tag 'Integration' {
 
         It 'Should handle special characters in filenames' {
             $specialFile = Join-Path $TestRoot 'special[chars].txt'
-            Set-Content -Path $specialFile -Value 'test'
+            Set-Content -LiteralPath $specialFile -Value 'test'
 
             $result = Find-Path -Path $TestRoot -Name 'special[chars].txt' -Simple
             $result | Should -Contain $specialFile

@@ -426,8 +426,17 @@ function Find-Path
             {
                 Write-Verbose "Evaluating: $($item.FullName)"
 
-                # Calculate depth
-                $itemDepth = ($item.FullName.Substring($resolvedPath.Length) -split [IO.Path]::DirectorySeparatorChar).Count - 1
+                # Calculate depth relative to search root
+                $relativePath = $item.FullName.Substring($resolvedPath.Length).TrimStart([IO.Path]::DirectorySeparatorChar)
+                if ([string]::IsNullOrEmpty($relativePath))
+                {
+                    # Item is the root itself
+                    $itemDepth = 0
+                }
+                else
+                {
+                    $itemDepth = ($relativePath -split [regex]::Escape([IO.Path]::DirectorySeparatorChar)).Count
+                }
 
                 # Apply depth filters
                 if ($PSBoundParameters.ContainsKey('MinDepth') -and $itemDepth -lt $MinDepth)
