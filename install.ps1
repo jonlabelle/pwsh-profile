@@ -351,6 +351,49 @@ function Ensure-DirectoryExists
     }
 }
 
+function Test-ExecutionPolicyRequiresAction
+{
+    param()
+
+    $isWindowsPlatform = if ($PSVersionTable.PSVersion.Major -lt 6) { $true } else { $IsWindows }
+    if (-not $isWindowsPlatform)
+    {
+        return $false
+    }
+
+    try
+    {
+        $currentPolicy = Get-ExecutionPolicy -Scope CurrentUser -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Verbose "Unable to determine CurrentUser execution policy: $($_.Exception.Message)"
+        return $true
+    }
+
+    if ([string]::IsNullOrEmpty($currentPolicy) -or $currentPolicy -eq 'Undefined')
+    {
+        return $true
+    }
+
+    $permissivePolicies = @('RemoteSigned', 'Unrestricted', 'Bypass')
+    return -not ($permissivePolicies -contains $currentPolicy)
+}
+
+function Show-ExecutionPolicyGuidance
+{
+    param()
+
+    if (-not (Test-ExecutionPolicyRequiresAction))
+    {
+        return
+    }
+
+    Write-Host 'If you encounter an execution policy error when PowerShell starts, run:' -ForegroundColor Yellow
+    Write-Host '  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser' -ForegroundColor Gray
+    Write-Host ''
+}
+
 function Invoke-RepositoryDownload
 {
     param(
@@ -544,14 +587,9 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
             Write-Host 'Please restart your PowerShell session to load the restored profile.' -ForegroundColor Yellow
             Write-Host ''
 
-            # Only show execution policy message on Windows
-            $isWindowsPlatform = if ($PSVersionTable.PSVersion.Major -lt 6) { $true } else { $IsWindows }
-            if ($isWindowsPlatform)
-            {
-                Write-Host 'If you encounter an execution policy error when PowerShell starts, run:' -ForegroundColor Yellow
-                Write-Host '  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser' -ForegroundColor Gray
-                Write-Host ''
-            }
+            # Only show execution policy guidance when action is required
+            Show-ExecutionPolicyGuidance
+
             return
         }
 
@@ -645,14 +683,8 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
         Write-Host 'Please restart your PowerShell session to load the updated profile.' -ForegroundColor Yellow
         Write-Host ''
 
-        # Only show execution policy message on Windows (macOS/Linux don't enforce execution policies)
-        $isWindowsPlatform = if ($PSVersionTable.PSVersion.Major -lt 6) { $true } else { $IsWindows }
-        if ($isWindowsPlatform)
-        {
-            Write-Host 'If you encounter an execution policy error when PowerShell starts, run:' -ForegroundColor Yellow
-            Write-Host '  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser' -ForegroundColor Gray
-            Write-Host ''
-        }
+        # Only show execution policy guidance when action is required (macOS/Linux don't enforce execution policies)
+        Show-ExecutionPolicyGuidance
     }
     catch
     {
