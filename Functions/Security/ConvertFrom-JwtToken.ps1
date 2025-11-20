@@ -145,6 +145,20 @@ function ConvertFrom-JwtToken
 
         Decodes a token as an object for programmatic access to properties.
 
+    .EXAMPLE
+        PS > $bearer = (Invoke-RestMethod -Uri 'https://dev.example.com/token').access_token
+        PS > $claims = ConvertFrom-JwtToken -Token $bearer -AsObject
+        PS > $claims.Payload.scope
+
+        Pulls a bearer token from an OAuth test endpoint and inspects the granted scopes without pasting the token into external tools.
+
+    .EXAMPLE
+        PS > $jwt = Get-Content ./id_token.txt -Raw
+        PS > $exp = (ConvertFrom-JwtToken -Token $jwt -AsObject).Payload.exp
+        PS > [DateTimeOffset]::FromUnixTimeSeconds($exp).UtcDateTime
+
+        Extracts the expiration timestamp from a stored ID token to automate refresh logic in CI/CD scripts.
+
     .OUTPUTS
         PSCustomObject with properties:
         - Header: Decoded JWT header as a PowerShell object

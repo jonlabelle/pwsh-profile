@@ -97,6 +97,12 @@ function Import-DotEnv
         Loads variables from .env.local, overwriting any existing environment variables with -Force.
 
     .EXAMPLE
+        PS > Import-DotEnv -Path @('.env', '.env.development') -Force
+        PS > npm run dev
+
+        Layered load similar to Next.js tooling: base .env first, then environment-specific overrides before starting the dev server.
+
+    .EXAMPLE
         PS > Import-DotEnv -Path .env
         PS > $env:__DOTENV_LOADED_VARS -eq $null # APP_NAME|APP_ENV|APP_DEBUG|APP_URL
         False
@@ -115,6 +121,12 @@ function Import-DotEnv
         Variables     : {DATABASE_URL, API_KEY, DEBUG, APP_NAME}
 
         Removes all environment variables that were previously loaded and shows what was unloaded.
+
+    .EXAMPLE
+        PS > Import-DotEnv -Path '.env.ci' -PassThru | Out-Null
+        PS > Invoke-Pester -Configuration ./Tests/PesterConfiguration.psd1
+
+        Loads CI-specific secrets immediately before running the test suite so the pipeline remains self-contained.
 
     .EXAMPLE
         PS > dotenv -Path .env.development

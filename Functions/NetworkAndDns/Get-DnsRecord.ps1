@@ -114,6 +114,11 @@ function Get-DnsRecord
 
         Query MX records using an alternative DoH provider.
 
+    .EXAMPLE
+        PS > $env:DOMAIN | Get-DnsRecord -Type TXT -Server cloudflare | Where-Object { $_.Name -like '_acme-challenge*' }
+
+        Verifies that ACME TXT challenges have propagated before letting an automated certificate renewal continue.
+
     .OUTPUTS
         System.Management.Automation.PSCustomObject
         Returns objects with Name, Type, TTL, and Data properties for each DNS record found.

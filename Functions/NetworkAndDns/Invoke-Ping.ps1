@@ -88,6 +88,11 @@ function Invoke-Ping
 
         Pings all hosts listed in a text file.
 
+    .EXAMPLE
+        PS > if (-not (Invoke-Ping -ComputerName 'db.internal' -Quiet -Timeout 1000)) { throw 'Database not reachable' }
+
+        Uses the Quiet switch to gate a deployment step until a dependency responds to ICMP.
+
     .OUTPUTS
         System.Management.Automation.PSCustomObject
         Returns objects with detailed ping statistics including Host, Sent, Received, Lost,

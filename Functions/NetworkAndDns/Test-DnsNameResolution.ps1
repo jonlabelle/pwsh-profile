@@ -41,6 +41,12 @@ function Test-DnsNameResolution
 
         Tests whether google.com has an IPv6 (AAAA) record with verbose output.
 
+    .EXAMPLE
+        PS > 'api.internal.contoso.com','db.internal.contoso.com' | Test-DnsNameResolution -Verbose
+        True
+
+        Streams a list of internal service endpoints from the pipeline so a deployment job can fail fast if DNS records are missing.
+
     .OUTPUTS
         System.Boolean
         Returns $true if the DNS name can be resolved, otherwise $false.

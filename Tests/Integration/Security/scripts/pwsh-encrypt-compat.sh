@@ -91,7 +91,7 @@ derive_key() {
   local iterations=100000
 
   # Convert password to hex
-  local password_hex=$(echo -n "$password" | xxd -p -c 256 | tr -d '\n')
+  local password_hex=$(echo -n "${password}" | xxd -p -c 256 | tr -d '\n')
 
   # Use OpenSSL to derive the key
   openssl kdf -binary -keylen 32 \
@@ -134,7 +134,7 @@ encrypt_file() {
   # Combine: salt (32 bytes) + IV (16 bytes) + encrypted data
   echo -n "${salt_hex}${iv_hex}${encrypted_hex}" | xxd -r -p >"${output}"
 
-  echo "Successfully encrypted '$input' -> '$output'" >&2
+  echo "Successfully encrypted '${input}' -> '${output}'" >&2
   echo "File size: $(stat -f%z "${output}" 2>/dev/null || stat -c%s "${output}" 2>/dev/null) bytes" >&2
 }
 
@@ -180,7 +180,7 @@ decrypt_file() {
   local decrypted_hex
   if ! decrypted_hex=$(echo -n "${encrypted_hex}" | xxd -r -p | openssl enc -aes-256-cbc -d -K "$key_hex" -iv "$iv_hex" 2>/dev/null | xxd -p -c 256 | tr -d '\n'); then
     echo "Error: Decryption failed. Invalid password or corrupted file." >&2
-    rm -f "$output"
+    rm -f "${output}"
     exit 1
   fi
 
@@ -201,7 +201,7 @@ decrypt_file() {
   echo -n "${actual_data_hex}" | xxd -r -p >"${output}"
 
   echo "Successfully decrypted '${input}' -> '${output}'" >&2
-  echo "File size: $(stat -f%z "$output" 2>/dev/null || stat -c%s "$output" 2>/dev/null) bytes" >&2
+  echo "File size: $(stat -f%z "${output}" 2>/dev/null || stat -c%s "${output}" 2>/dev/null) bytes" >&2
 }
 
 # Parse arguments
@@ -217,12 +217,12 @@ fi
 ACTION="$1"
 shift
 
-if [[ "$ACTION" != "encrypt" ]] && [ "$ACTION" != "decrypt" ]; then
+if [[ "${ACTION}" != "encrypt" ]] && [[ "${ACTION}" != "decrypt" ]]; then
   echo "Error: First argument must be 'encrypt' or 'decrypt'" >&2
   usage
 fi
 
-while [ $# -gt 0 ]; do
+while [[ $# -gt 0 ]]; do
   case "$1" in
   -i)
     INPUT="$2"
@@ -244,22 +244,22 @@ while [ $# -gt 0 ]; do
 done
 
 # Validate required arguments
-if [ -z "$INPUT" ] || [ -z "$OUTPUT" ]; then
+if [[ -z "${INPUT}" ]] || [[ -z "${OUTPUT}" ]]; then
   echo "Error: Both -i (input) and -o (output) are required" >&2
   usage
 fi
 
-if [ ! -f "$INPUT" ]; then
-  echo "Error: Input file not found: $INPUT" >&2
+if [[ ! -f "${INPUT}" ]]; then
+  echo "Error: Input file not found: ${INPUT}" >&2
   exit 1
 fi
 
 # Prompt for password if not provided
-if [ -z "$PASSWORD" ]; then
+if [[ -z "${PASSWORD}" ]]; then
   echo -n "Enter password: " >&2
   read -r -s PASSWORD
   echo >&2
-  if [ -z "$PASSWORD" ]; then
+  if [[ -z "${PASSWORD}" ]]; then
     echo "Error: Password cannot be empty" >&2
     exit 1
   fi
@@ -269,8 +269,8 @@ fi
 check_dependencies
 
 # Perform action
-if [ "$ACTION" = "encrypt" ]; then
-  encrypt_file "$INPUT" "$OUTPUT" "$PASSWORD"
+if [[ "${ACTION}" = "encrypt" ]]; then
+  encrypt_file "${INPUT}" "${OUTPUT}" "${PASSWORD}"
 else
-  decrypt_file "$INPUT" "$OUTPUT" "$PASSWORD"
+  decrypt_file "${INPUT}" "${OUTPUT}" "${PASSWORD}"
 fi

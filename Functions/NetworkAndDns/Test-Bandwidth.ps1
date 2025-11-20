@@ -104,6 +104,12 @@ function Test-Bandwidth
 
         Runs bandwidth test with 10 ping requests for latency averaging.
 
+    .EXAMPLE
+        PS > $result = Test-Bandwidth -TestDuration 20 -TestFileSize 50
+        PS > if ($result.DownloadSpeedMbps -lt 50) { throw "Link too slow: $($result.DownloadSpeedMbps) Mbps" }
+
+        Automates a sanity check before copying multi-gigabyte artifacts over a VPN.
+
     .OUTPUTS
         System.Management.Automation.PSCustomObject
         Returns an object with DownloadSpeedMbps, LatencyMs, Jitter, PacketLoss, and TestDuration properties.

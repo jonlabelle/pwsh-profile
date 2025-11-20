@@ -83,6 +83,12 @@ function Get-CertificateExpiration
 
         Gets certificate expiration with a 5-second timeout for internal servers.
 
+    .EXAMPLE
+        PS > $hosts = kubectl get ingress --all-namespaces -o json | ConvertFrom-Json | % { $_.spec.rules.host }
+        PS > $hosts | Get-CertificateExpiration -WarnIfExpiresSoon -DaysToWarn 21 | Out-String | Send-TeamMessage -Channel '#alerts'
+
+        Pulls hostnames from Kubernetes ingress objects, checks for certificates expiring within 21 days, and posts the results to a team chat.
+
     .OUTPUTS
         System.DateTime
         Returns the certificate expiration date when IncludeCertificateDetails is not specified.

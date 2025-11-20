@@ -81,6 +81,11 @@ function Get-Whois
 
         Performs a WHOIS lookup for a country-code TLD domain.
 
+    .EXAMPLE
+        PS > 'api.example.com','cdn.example.com' | Get-Whois | Select-Object Domain,ExpirationDate | Sort-Object ExpirationDate
+
+        Audits multiple domains from automation to ensure registrations won't lapse before renewing TLS certificates.
+
     .OUTPUTS
         System.Management.Automation.PSCustomObject
         Returns an object with Domain, Registrar, CreationDate, ExpirationDate, NameServers, and RawResponse properties.

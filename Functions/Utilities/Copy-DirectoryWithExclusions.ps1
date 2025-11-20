@@ -47,6 +47,12 @@ function Copy-DirectoryWithExclusions
         Copies the Code directory from Documents to Backup, excluding version control and build directories.
         Uses tilde expansion which works cross-platform.
 
+    .EXAMPLE
+        PS > Copy-DirectoryWithExclusions -Source './app' -Destination './staging/app' -ExcludeDirectories '.git', '.github', 'node_modules', 'tests'
+        PS > Compress-Archive -Path './staging/app/*' -DestinationPath './artifacts/app.zip' -Force
+
+        Prepares a clean deployable archive by copying only runtime assets before zipping for release.
+
     .OUTPUTS
         System.Management.Automation.PSCustomObject
         Returns an object with TotalFiles, TotalDirectories, ExcludedDirectories, and Duration properties.

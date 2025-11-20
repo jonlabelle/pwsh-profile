@@ -53,6 +53,20 @@ function ConvertFrom-Base64
 
         Decodes Base64 text from stdin/pipeline.
 
+    .EXAMPLE
+        PS > $token = ConvertTo-Base64 -InputObject 'client-id:client-secret'
+        PS > ConvertFrom-Base64 -InputObject $token
+        client-id:client-secret
+
+        Quickly inspects what was placed inside an HTTP Basic authorization header.
+
+    .EXAMPLE
+        PS > $dataUri = Get-Content './image.txt'
+        PS > $base64 = $dataUri -replace '^data:image/[^;]+;base64,', ''
+        PS > ConvertFrom-Base64 -InputObject $base64 -OutputPath './restored.png'
+
+        Strips the prefix from a data URI and writes the decoded image back to disk.
+
     .OUTPUTS
         System.String
         The decoded text (when OutputPath is not specified).

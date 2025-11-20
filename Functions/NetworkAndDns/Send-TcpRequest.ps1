@@ -162,6 +162,12 @@ function Send-TcpRequest
         Connect to IRC server and send messages.
 
     .EXAMPLE
+        PS > $redis = @("PING", "ECHO deploy-check") | ForEach-Object { "*1`r`n$($_.Length)`r`n$_`r`n" }
+        PS > Send-TcpRequest -ComputerName 'cache.internal' -Port 6379 -InputObject $redis
+
+        Smokes-tests a Redis instance from a build agent by sending RESP commands without needing redis-cli installed.
+
+    .EXAMPLE
         PS > $timeRequest = [byte[]](0x1B) + [System.Text.Encoding]::ASCII.GetBytes(" ") * 47
 
         PS > Send-TcpRequest -ComputerName "time.nist.gov" -Port 37 -Test

@@ -94,6 +94,19 @@ function Get-StringHash
 
         Stores the result and accesses the Hash property directly.
 
+    .EXAMPLE
+        PS > Invoke-WebRequest -Uri $releaseUrl -OutFile './download.zip'
+        PS > (Get-StringHash -InputObject (Get-Content ./download.zip -Raw) -Algorithm SHA512).Hash
+        8A7E...
+
+        Verifies the SHA512 checksum of a downloaded release artifact without needing external tools.
+
+    .EXAMPLE
+        PS > $hash = Get-StringHash -InputObject (Get-Content ./config.json -Raw)
+        PS > $cacheKey = "config::" + $hash.Hash.Substring(0, 12)
+
+        Generates a deterministic cache key or version token based on the contents of a configuration file.
+
     .OUTPUTS
         PSCustomObject
         Returns an object with the following properties:

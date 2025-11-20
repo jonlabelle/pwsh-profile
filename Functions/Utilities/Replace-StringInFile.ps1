@@ -76,6 +76,12 @@ function Replace-StringInFile
 
         Uses regex with capture groups to replace "5 apples" with "5 oranges", etc.
 
+    .EXAMPLE
+        PS > $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+        PS > Replace-StringInFile -Path package.json -OldString "\"version\": \"$version\"" -NewString "\"version\": \"2.0.0\""
+
+        Performs an automated version bump in package.json during a release script without pulling in external tooling.
+
     .OUTPUTS
         PSCustomObject with details about each file processed, including the number of replacements made.
 

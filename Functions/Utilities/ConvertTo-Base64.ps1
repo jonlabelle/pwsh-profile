@@ -48,10 +48,37 @@ function ConvertTo-Base64
         Encodes the content of a file to Base64.
 
     .EXAMPLE
+        PS > $base64 = ConvertTo-Base64 -Path './logo.png'
+        PS > $imgSrc = "data:image/png;base64,$base64"
+        PS > "<img src='$imgSrc' alt='Logo' />"
+
+        Creates a data URI for a PNG so it can be embedded directly in an HTML img tag.
+
+    .EXAMPLE
         PS > Get-Content './data.txt' | ConvertTo-Base64
         VGVzdCBkYXRh
 
         Encodes text from stdin/pipeline.
+
+    .EXAMPLE
+        PS > $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><circle cx="20" cy="20" r="18" fill="red"/></svg>'
+        PS > $base64 = ConvertTo-Base64 -InputObject $svg
+        PS > $svgSrc = "data:image/svg+xml;base64,$base64"
+        PS > "<img src='$svgSrc' alt='Badge' />"
+
+        Encodes inline SVG markup for embedding as an HTML image source.
+
+    .EXAMPLE
+        PS > $token = ConvertTo-Base64 -InputObject 'client-id:client-secret'
+        PS > Invoke-RestMethod -Uri $api -Headers @{ Authorization = "Basic $token" }
+
+        Generates an HTTP Basic authorization header without relying on external tooling.
+
+    .EXAMPLE
+        PS > $payload = Get-Content './config.json' -Raw | ConvertTo-Base64
+        PS > Invoke-RestMethod -Method Post -Uri $api -Body @{ config = $payload }
+
+        Packs a JSON configuration file into Base64 so it can be shipped in an API request body.
 
     .OUTPUTS
         System.String

@@ -94,6 +94,11 @@ function Get-CertificateDetails
 
         Gets certificate details including X.509 extensions like Subject Alternative Names.
 
+    .EXAMPLE
+        PS > Get-Content ./hosts.txt | Get-CertificateDetails | Where-Object { $_.DaysUntilExpiration -lt 14 }
+
+        Reads a list of customer domains from a file and surfaces any certificates expiring within two weeks for proactive renewals.
+
     .OUTPUTS
         System.Management.Automation.PSCustomObject
         Returns detailed certificate information including subject, issuer, dates, thumbprint, and other properties.

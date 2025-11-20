@@ -80,6 +80,11 @@ function Resolve-GeoIP
 
         Gets geolocation for an IPv6 address.
 
+    .EXAMPLE
+        PS > Get-Content ./failed-logins.txt | Resolve-GeoIP -Service ipwhois | Select-Object IP,Country,ISP
+
+        Enriches a list of suspicious IPs captured from application logs before blocking them in a firewall rule.
+
     .OUTPUTS
         System.Management.Automation.PSCustomObject
         Returns objects with IP, City, Region, Country, Latitude, Longitude, Timezone, ISP, and other properties.

@@ -102,6 +102,19 @@ function Protect-PathWithPassword
         See Tests/Integration/Security/scripts/pwsh-encrypt-compat.sh for a bash implementation using OpenSSL that creates
         compatible encrypted files.
 
+    .EXAMPLE
+        PS > $password = ConvertTo-SecureString $env:BUILD_SECRET -AsPlainText -Force
+        PS > Compress-Archive -Path './dist/*' -DestinationPath './artifacts/app.zip'
+        PS > Protect-PathWithPassword -Path './artifacts/app.zip' -Password $password -OutputPath './artifacts/app.zip.enc' -RemoveOriginal
+
+        CI/CD pipeline example: packages build output, encrypts it with a secret pulled from the environment, and deletes the plain artifact before publishing.
+
+    .EXAMPLE
+        PS > $password = Read-Host -AsSecureString -Prompt 'Enter vault password'
+        PS > Get-ChildItem ./config/*.env | Protect-PathWithPassword -Password $password -OutputPath './secure-config' -Force
+
+        Bulk-encrypts multiple configuration files into a secure directory, overwriting any existing encrypted copies.
+
     .OUTPUTS
         System.Management.Automation.PSCustomObject
         Returns objects with OriginalPath, EncryptedPath, Success, and Error properties for each processed file.

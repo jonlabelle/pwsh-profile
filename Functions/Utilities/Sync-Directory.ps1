@@ -99,6 +99,11 @@ function Sync-Directory
 
         Sync web server files using custom rsync exclusions for socket files and cache directories.
 
+    .EXAMPLE
+        PS > Sync-Directory -Source './src/' -Destination '/mnt/wsl/projects/app/' -Exclude '.git', '.vscode', 'node_modules'
+
+        Mirrors the working tree into a mounted WSL path so Linux-specific tooling sees the latest code without committing.
+
     .OUTPUTS
         System.Management.Automation.PSCustomObject
         Returns an object with Platform, Command, ExitCode, Success, and Message properties.

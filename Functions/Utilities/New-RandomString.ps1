@@ -96,6 +96,18 @@ function New-RandomString
 
         Returns a 10-character string with custom characters, excluding potentially confusing characters.
 
+    .EXAMPLE
+        PS > $secret = New-RandomString -Length 48 -IncludeSymbols -Secure
+        PS > dotnet user-secrets set 'Api:SharedSecret' $secret
+
+        Generates a cryptographically strong API secret and stuffs it directly into the ASP.NET Core user secrets store so it never touches disk.
+
+    .EXAMPLE
+        PS > $suffix = New-RandomString -Length 6 -ExcludeAmbiguous
+        PS > az storage account create --name "app$suffix" --resource-group Dev
+
+        Uses a short random suffix to produce unique resource names when scripting deployments in Azure.
+
     .OUTPUTS
         System.String
         Returns a string of random characters based on the specified parameters.

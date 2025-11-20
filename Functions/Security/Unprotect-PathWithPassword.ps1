@@ -101,6 +101,19 @@ function Unprotect-PathWithPassword
 
         See Tests/Integration/Security/scripts/pwsh-encrypt-compat.sh for full implementation details.
 
+    .EXAMPLE
+        PS > $password = ConvertTo-SecureString $env:BUILD_SECRET -AsPlainText -Force
+        PS > Unprotect-PathWithPassword -Path './artifacts/app.zip.enc' -Password $password -OutputPath './staging/app.zip'
+        PS > Expand-Archive './staging/app.zip' -DestinationPath './dist'
+
+        Release pipeline example: decrypts an encrypted artifact using a CI secret and unpacks it for deployment.
+
+    .EXAMPLE
+        PS > $password = Read-Host -AsSecureString -Prompt 'Enter vault password'
+        PS > Get-ChildItem './secure-config/*.enc' | Unprotect-PathWithPassword -Password $password -OutputPath './config' -Force -KeepEncrypted
+
+        Restores multiple encrypted configuration files before running local integration tests, keeping the encrypted originals for later reuse.
+
     .OUTPUTS
         System.Management.Automation.PSCustomObject
         Returns objects with EncryptedPath, DecryptedPath, Success, and Error properties for each processed file.

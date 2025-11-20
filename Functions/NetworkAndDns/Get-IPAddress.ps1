@@ -129,6 +129,12 @@ function Get-IPAddress
 
         Gets only your public IPv4 address.
 
+    .EXAMPLE
+        PS > $ip = (Get-IPAddress -Public -Service ipify).IPAddress
+        PS > az network public-ip update --resource-group Edge --name Gateway --dns-settings "{ fqdn: 'edge.example.com', reverseFqdn: $ip }"
+
+        Captures the current public IP and feeds it into an automation step that syncs Azure DNS entries.
+
     .OUTPUTS
         System.Management.Automation.PSCustomObject
         For local IPs: Returns objects with IPAddress, AddressFamily, and optionally InterfaceName, Description, etc.

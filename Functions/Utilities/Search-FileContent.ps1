@@ -130,6 +130,11 @@ function Search-FileContent
 
         Searches multiple directories for literal string 'test' (not regex).
 
+    .EXAMPLE
+        PS > Search-FileContent -Pattern 'console\.log' -Path ./src -Include '*.ts' -FilesOnly | ForEach-Object { Write-Host "Remove logging in $($_.Path)" }
+
+        Quickly enumerates files that still contain debug logging before promoting a build.
+
     .OUTPUTS
         PSCustomObject (when -Simple is used)
         Returns objects with properties: Path, LineNumber, Line, Match
