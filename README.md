@@ -262,7 +262,6 @@ All functions in this profile include their own verbose logging. After the profi
 # See verbose output from a specific function
 Get-WhichCommand git -Verbose
 Test-Port localhost -Port 80 -Verbose
-Find-Path . -Name "*.ps1" -Verbose
 ```
 
 ---
@@ -445,7 +444,6 @@ The profile includes utility functions organized by category:
 - **[`ConvertFrom-Base64`](Functions/Utilities/ConvertFrom-Base64.ps1)** — Decodes Base64-encoded strings or files with URL-safe support
 - **[`ConvertTo-Base64`](Functions/Utilities/ConvertTo-Base64.ps1)** — Encodes strings or files to Base64 with URL-safe support
 - **[`Copy-DirectoryWithExclusions`](Functions/Utilities/Copy-DirectoryWithExclusions.ps1)** — Copies directories recursively while excluding specific directories
-- **[`Find-Path`](Functions/Utilities/Find-Path.ps1)** — Cross-platform file and directory finder with advanced filtering
 - **[`Get-CommandAlias`](Functions/Utilities/Get-CommandAlias.ps1)** — Displays aliases for PowerShell cmdlets
 - **[`Get-IPSubnet`](Functions/Utilities/Get-IPSubnet.ps1)** — Calculates IP subnet information including network/broadcast addresses
 - **[`Get-StringHash`](Functions/Utilities/Get-StringHash.ps1)** — Computes hash values for strings (like `Get-FileHash` but for strings)
