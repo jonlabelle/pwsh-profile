@@ -408,15 +408,9 @@ function Find-Path
                 }
             }
 
-            # Get items based on type
-            if ($Type -eq 'File')
-            {
-                $getChildItemParams['File'] = $true
-            }
-            elseif ($Type -eq 'Directory')
-            {
-                $getChildItemParams['Directory'] = $true
-            }
+            # Note: We don't use -File or -Directory parameters here because on Windows,
+            # Get-ChildItem with -File may not return hidden files even with -Force.
+            # Instead, we filter by type manually below.
 
             # Get items
             $items = Get-ChildItem @getChildItemParams
@@ -425,6 +419,21 @@ function Find-Path
             foreach ($item in $items)
             {
                 Write-Verbose "Evaluating: $($item.FullName)"
+
+                # Filter by type (file vs directory)
+                # Note: We do this manually instead of using -File/-Directory parameters
+                # because on Windows, Get-ChildItem with -File may not return hidden files
+                # even when -Force is specified.
+                if ($Type -eq 'File' -and $item.PSIsContainer)
+                {
+                    Write-Verbose "Skipping (directory, want file): $($item.Name)"
+                    continue
+                }
+                elseif ($Type -eq 'Directory' -and -not $item.PSIsContainer)
+                {
+                    Write-Verbose "Skipping (file, want directory): $($item.Name)"
+                    continue
+                }
 
                 # Calculate depth relative to search root
                 $relativePath = $item.FullName.Substring($resolvedPath.Length).TrimStart([IO.Path]::DirectorySeparatorChar)
@@ -642,7 +651,6 @@ function Find-Path
             {
                 $isHidden = $item.Attributes -match 'Hidden'
                 $isReadOnly = $item.Attributes -match 'ReadOnly'
-                $itemType = if ($item.PSIsContainer) { 'Directory' } else { 'File' }
 
                 # Build color prefix
                 $colorPrefix = if ($item.PSIsContainer)
