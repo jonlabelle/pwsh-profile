@@ -368,7 +368,7 @@ function Search-FileContent
                 [Bool]$Recurse
             )
 
-            $resolvedPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($SearchPath)
+            $resolvedPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($SearchPath)
 
             # Check if path exists
             if (-not (Test-Path -LiteralPath $resolvedPath))

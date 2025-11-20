@@ -384,7 +384,7 @@ function Find-Path
             Write-Verbose "Processing path: $searchPath"
 
             # Resolve path
-            $resolvedPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($searchPath)
+            $resolvedPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($searchPath)
 
             if (-not (Test-Path -LiteralPath $resolvedPath))
             {

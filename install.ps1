@@ -512,7 +512,7 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
         if (-not $RestorePath -and (Test-Path -Path $resolvedProfileRoot))
         {
             $currentLocation = $PWD.Path
-            $resolvedCurrent = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($currentLocation)
+            $resolvedCurrent = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($currentLocation)
             $isInsideProfile = $resolvedCurrent -eq $resolvedProfileRoot -or $resolvedCurrent.StartsWith($resolvedProfileRoot + [System.IO.Path]::DirectorySeparatorChar)
 
             if ($isInsideProfile)

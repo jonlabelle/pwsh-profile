@@ -161,8 +161,8 @@ function Sync-Directory
         Write-Verbose "Platform: $(if ($IsWindowsPlatform) { 'Windows' } else { 'macOS/Linux' })"
 
         # Resolve paths to absolute paths (cross-platform compatible)
-        $Source = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Source)
-        $Destination = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Destination)
+        $Source = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Source)
+        $Destination = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Destination)
 
         Write-Verbose "Resolved source path: $Source"
         Write-Verbose "Resolved destination path: $Destination"

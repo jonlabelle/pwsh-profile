@@ -158,7 +158,7 @@ function Remove-GitIgnoredFiles
         try
         {
             # Resolve and validate the path
-            $resolvedPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
+            $resolvedPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
 
             if (-not (Test-Path -Path $resolvedPath -PathType Container))
             {

@@ -306,14 +306,7 @@ function Import-DotEnv
         foreach ($envFile in $Path)
         {
             # Resolve path with ~ expansion
-            if ($PSCmdlet.SessionState)
-            {
-                $resolvedPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($envFile)
-            }
-            else
-            {
-                $resolvedPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($envFile)
-            }
+            $resolvedPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($envFile)
 
             Write-Verbose "Processing .env file: $resolvedPath"
 

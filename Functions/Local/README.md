@@ -96,6 +96,10 @@ Use .NET methods for cross-platform path handling:
 
 ```powershell
 # Get absolute path (including ~) without requiring path to exist
+# In advanced functions with [CmdletBinding()]:
+$OutputPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
+
+# In regular scripts or test files (without [CmdletBinding()]):
 $OutputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
 
 # Join paths
