@@ -448,13 +448,33 @@ function Find-Path
                 # Name filter (wildcard)
                 if ($Name)
                 {
-                    $matchResult = if ($CaseSensitive)
+                    # Determine if the name contains wildcard characters (* or ?)
+                    # Note: We check for actual wildcards, not [ which can be part of literal filenames
+                    $hasWildcards = ($Name.IndexOfAny([char[]]@('*', '?')) -ge 0)
+
+                    if ($hasWildcards)
                     {
-                        $item.Name -clike $Name
+                        # Use -like for wildcard pattern matching
+                        $matchResult = if ($CaseSensitive)
+                        {
+                            $item.Name -clike $Name
+                        }
+                        else
+                        {
+                            $item.Name -like $Name
+                        }
                     }
                     else
                     {
-                        $item.Name -like $Name
+                        # Use -eq for exact literal matching (handles [ ] correctly)
+                        $matchResult = if ($CaseSensitive)
+                        {
+                            $item.Name -ceq $Name
+                        }
+                        else
+                        {
+                            $item.Name -eq $Name
+                        }
                     }
 
                     if (-not $matchResult)

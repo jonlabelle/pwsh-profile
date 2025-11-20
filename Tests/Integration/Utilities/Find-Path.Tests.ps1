@@ -213,7 +213,7 @@ Describe 'Find-Path Integration Tests' -Tag 'Integration' {
             $result = Find-Path -Path $TestRoot -MinDepth 2 -Type File -Simple
             $result | ForEach-Object {
                 $relativePath = $_.Substring($TestRoot.Length).TrimStart([IO.Path]::DirectorySeparatorChar)
-                $depth = ($relativePath -split [regex]::Escape([IO.Path]::DirectorySeparatorChar)).Count - 1
+                $depth = ($relativePath -split [regex]::Escape([IO.Path]::DirectorySeparatorChar)).Count
                 $depth | Should -BeGreaterOrEqual 2
             }
         }
