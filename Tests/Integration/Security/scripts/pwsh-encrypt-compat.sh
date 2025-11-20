@@ -32,7 +32,7 @@ SCRIPT_NAME=$(basename "$0")
 
 usage() {
   cat <<EOF
-Usage: $SCRIPT_NAME <encrypt|decrypt> -i <input> -o <output> [-p <password>]
+Usage: ${SCRIPT_NAME} <encrypt|decrypt> -i <input> -o <output> [-p <password>]
 
 Encrypt or decrypt files using the same format as PowerShell's Protect-PathWithPassword.
 
@@ -45,13 +45,13 @@ Options:
 
 Examples:
     # Encrypt a file
-    $SCRIPT_NAME encrypt -i secret.txt -o secret.txt.enc -p "MyPassword123"
+    ${SCRIPT_NAME} encrypt -i secret.txt -o secret.txt.enc -p "MyPassword123"
 
     # Decrypt a file
-    $SCRIPT_NAME decrypt -i secret.txt.enc -o secret.txt -p "MyPassword123"
+    ${SCRIPT_NAME} decrypt -i secret.txt.enc -o secret.txt -p "MyPassword123"
 
     # Encrypt without password in command (prompts securely)
-    $SCRIPT_NAME encrypt -i secret.txt -o secret.txt.enc
+    ${SCRIPT_NAME} encrypt -i secret.txt -o secret.txt.enc
 
 EOF
   exit 1
@@ -61,12 +61,12 @@ EOF
 check_dependencies() {
   local missing=()
   for cmd in openssl xxd; do
-    if ! command -v "$cmd" &>/dev/null; then
-      missing+=("$cmd")
+    if ! command -v "${cmd}" &>/dev/null; then
+      missing+=("${cmd}")
     fi
   done
 
-  if [ ${#missing[@]} -gt 0 ]; then
+  if [[ ${#missing[@]} -gt 0 ]]; then
     echo "Error: Missing required commands: ${missing[*]}" >&2
     echo "Please install: ${missing[*]}" >&2
     exit 1
@@ -74,11 +74,11 @@ check_dependencies() {
 
   # Check OpenSSL version - need 3.0+ for kdf command
   local openssl_version=$(openssl version | awk '{print $2}')
-  local major_version=$(echo "$openssl_version" | cut -d. -f1)
+  local major_version=$(echo "${openssl_version}" | cut -d. -f1)
 
-  if [ "$major_version" -lt 3 ]; then
+  if [[ "${major_version}" -lt 3 ]]; then
     echo "Error: OpenSSL 3.0 or higher is required for KDF support" >&2
-    echo "Current version: $openssl_version" >&2
+    echo "Current version: ${openssl_version}" >&2
     echo "The 'openssl kdf' command is not available in OpenSSL 1.x" >&2
     exit 1
   fi
@@ -115,27 +115,27 @@ encrypt_file() {
 
   # Derive key using PBKDF2
   echo "Deriving encryption key using PBKDF2-HMAC-SHA256 (100,000 iterations)..." >&2
-  local key_hex=$(derive_key "$password" "$salt_hex")
+  local key_hex=$(derive_key "${password}" "${salt_hex}")
 
-  if [ -z "$key_hex" ]; then
+  if [[ -z "${key_hex}" ]]; then
     echo "Error: Failed to derive encryption key" >&2
     exit 1
   fi
 
   # Add magic header (8 bytes: PWDPROT1) to the data before encryption
   local magic_header_hex=$(echo -n "PWDPROT1" | xxd -p -c 256 | tr -d '\n')
-  local input_data_hex=$(xxd -p -c 256 <"$input" | tr -d '\n')
+  local input_data_hex=$(xxd -p -c 256 <"${input}" | tr -d '\n')
   local data_with_header_hex="${magic_header_hex}${input_data_hex}"
 
   # Encrypt the file with header using AES-256-CBC
   echo "Encrypting file..." >&2
-  local encrypted_hex=$(echo -n "$data_with_header_hex" | xxd -r -p | openssl enc -aes-256-cbc -K "$key_hex" -iv "$iv_hex" -e | xxd -p -c 256 | tr -d '\n')
+  local encrypted_hex=$(echo -n "${data_with_header_hex}" | xxd -r -p | openssl enc -aes-256-cbc -K "${key_hex}" -iv "${iv_hex}" -e | xxd -p -c 256 | tr -d '\n')
 
   # Combine: salt (32 bytes) + IV (16 bytes) + encrypted data
-  echo -n "${salt_hex}${iv_hex}${encrypted_hex}" | xxd -r -p >"$output"
+  echo -n "${salt_hex}${iv_hex}${encrypted_hex}" | xxd -r -p >"${output}"
 
   echo "Successfully encrypted '$input' -> '$output'" >&2
-  echo "File size: $(stat -f%z "$output" 2>/dev/null || stat -c%s "$output" 2>/dev/null) bytes" >&2
+  echo "File size: $(stat -f%z "${output}" 2>/dev/null || stat -c%s "${output}" 2>/dev/null) bytes" >&2
 }
 
 decrypt_file() {
@@ -144,13 +144,13 @@ decrypt_file() {
   local password="$3"
 
   # Read the encrypted file
-  local file_hex=$(xxd -p -c 256 "$input" | tr -d '\n')
+  local file_hex=$(xxd -p -c 256 "${input}" | tr -d '\n')
   local file_size=$((${#file_hex} / 2))
 
   echo "Reading encrypted file (${file_size} bytes)..." >&2
 
   # Validate minimum file size (32 + 16 + at least 16 bytes of encrypted data)
-  if [ $file_size -lt 64 ]; then
+  if [[ ${file_size} -lt 64 ]]; then
     echo "Error: File too small to be valid encrypted file (minimum 64 bytes)" >&2
     exit 1
   fi
@@ -168,9 +168,9 @@ decrypt_file() {
 
   # Derive key using PBKDF2
   echo "Deriving decryption key using PBKDF2-HMAC-SHA256 (100,000 iterations)..." >&2
-  local key_hex=$(derive_key "$password" "$salt_hex")
+  local key_hex=$(derive_key "${password}" "${salt_hex}")
 
-  if [ -z "$key_hex" ]; then
+  if [[ -z "${key_hex}" ]]; then
     echo "Error: Failed to derive decryption key" >&2
     exit 1
   fi
@@ -178,7 +178,7 @@ decrypt_file() {
   # Decrypt the data
   echo "Decrypting file..." >&2
   local decrypted_hex
-  if ! decrypted_hex=$(echo -n "$encrypted_hex" | xxd -r -p | openssl enc -aes-256-cbc -d -K "$key_hex" -iv "$iv_hex" 2>/dev/null | xxd -p -c 256 | tr -d '\n'); then
+  if ! decrypted_hex=$(echo -n "${encrypted_hex}" | xxd -r -p | openssl enc -aes-256-cbc -d -K "$key_hex" -iv "$iv_hex" 2>/dev/null | xxd -p -c 256 | tr -d '\n'); then
     echo "Error: Decryption failed. Invalid password or corrupted file." >&2
     rm -f "$output"
     exit 1
@@ -188,9 +188,9 @@ decrypt_file() {
   local expected_header_hex=$(echo -n "PWDPROT1" | xxd -p -c 256 | tr -d '\n')
   local actual_header_hex="${decrypted_hex:0:16}"
 
-  if [ "$actual_header_hex" != "$expected_header_hex" ]; then
+  if [[ "${actual_header_hex}" != "${expected_header_hex}" ]]; then
     echo "Error: Decryption failed. Invalid password or corrupted file." >&2
-    rm -f "$output"
+    rm -f "${output}"
     exit 1
   fi
 
@@ -198,9 +198,9 @@ decrypt_file() {
   local actual_data_hex="${decrypted_hex:16}"
 
   # Write decrypted data to output file
-  echo -n "$actual_data_hex" | xxd -r -p >"$output"
+  echo -n "${actual_data_hex}" | xxd -r -p >"${output}"
 
-  echo "Successfully decrypted '$input' -> '$output'" >&2
+  echo "Successfully decrypted '${input}' -> '${output}'" >&2
   echo "File size: $(stat -f%z "$output" 2>/dev/null || stat -c%s "$output" 2>/dev/null) bytes" >&2
 }
 
@@ -210,14 +210,14 @@ INPUT=""
 OUTPUT=""
 PASSWORD=""
 
-if [ $# -eq 0 ]; then
+if [[ $# -eq 0 ]]; then
   usage
 fi
 
 ACTION="$1"
 shift
 
-if [ "$ACTION" != "encrypt" ] && [ "$ACTION" != "decrypt" ]; then
+if [[ "$ACTION" != "encrypt" ]] && [ "$ACTION" != "decrypt" ]; then
   echo "Error: First argument must be 'encrypt' or 'decrypt'" >&2
   usage
 fi
