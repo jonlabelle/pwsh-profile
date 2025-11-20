@@ -195,6 +195,80 @@ For more information about execution policies, see [about_Execution_Policies](ht
 
 </details>
 
+<details>
+<summary><strong>Enable Verbose Logging for Troubleshooting</strong></summary>
+
+### Enable Verbose Logging for Troubleshooting
+
+If you're experiencing issues with the profile loading or want to see which functions are being loaded, you can enable verbose logging. Since the profile immediately starts loading functions when it runs, you need to set the verbose preference **before** PowerShell loads the profile.
+
+#### Option 1: Start PowerShell with Verbose Output
+
+Launch PowerShell with the `-Verbose` parameter (not available in all PowerShell hosts):
+
+```powershell
+# PowerShell Core (pwsh)
+pwsh -NoLogo -Command "`$VerbosePreference = 'Continue'; . `$PROFILE"
+
+# Windows PowerShell Desktop (powershell)
+powershell -NoLogo -Command "`$VerbosePreference = 'Continue'; . `$PROFILE"
+```
+
+#### Option 2: Temporarily Enable Verbose Preference
+
+Start PowerShell with `-NoProfile`, then manually set the verbose preference and load the profile:
+
+```powershell
+# Start without profile
+pwsh -NoProfile
+
+# Enable verbose output
+$VerbosePreference = 'Continue'
+
+# Manually load the profile
+. $PROFILE
+
+# Reset verbose preference when done (optional)
+$VerbosePreference = 'SilentlyContinue'
+```
+
+#### What You'll See
+
+When verbose logging is enabled, you'll see output like:
+
+```console
+VERBOSE: Loading function: /Users/username/.config/powershell/Functions/Developer/Get-DotNetVersion.ps1
+VERBOSE: Loading function: /Users/username/.config/powershell/Functions/Developer/Import-DotEnv.ps1
+VERBOSE: Creating 'dotenv' alias for Import-DotEnv
+VERBOSE: Loading function: /Users/username/.config/powershell/Functions/Developer/Remove-DotNetBuildArtifacts.ps1
+VERBOSE: Loading function: /Users/username/.config/powershell/Functions/Security/ConvertFrom-JwtToken.ps1
+...
+VERBOSE: User profile loaded:
+VERBOSE: /Users/username/.config/powershell/Microsoft.PowerShell_profile.ps1
+```
+
+This shows each function file being dot-sourced, which is helpful for:
+
+- Identifying which function file is causing errors
+- Verifying all functions are being loaded
+- Debugging function loading order issues
+- Confirming the profile path and location
+
+#### For Individual Functions
+
+All functions in this profile include their own verbose logging. After the profile loads, you can use the `-Verbose` parameter on individual functions:
+
+```powershell
+# See verbose output from a specific function
+Get-WhichCommand git -Verbose
+Test-Port localhost -Port 80 -Verbose
+Find-Path . -Name "*.ps1" -Verbose
+```
+
+---
+
+</details>
+
 ## Update
 
 To pull in the latest updates from the repository:
