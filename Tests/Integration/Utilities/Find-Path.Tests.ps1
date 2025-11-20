@@ -175,8 +175,10 @@ Describe 'Find-Path Integration Tests' -Tag 'Integration' {
 
         It 'Should exclude multiple directories' {
             $result = Find-Path -Path $TestRoot -ExcludeDirectory '.git', 'node_modules' -Type File -Simple
-            $result | Should -Not -BeLike '*.git*'
-            $result | Should -Not -BeLike '*node_modules*'
+            # Results should not contain files FROM .git or node_modules directories
+            # Use path separator to ensure we're checking directory containment, not just filename matches
+            $result | Should -Not -BeLike "*$([IO.Path]::DirectorySeparatorChar).git$([IO.Path]::DirectorySeparatorChar)*"
+            $result | Should -Not -BeLike "*$([IO.Path]::DirectorySeparatorChar)node_modules$([IO.Path]::DirectorySeparatorChar)*"
         }
 
         It 'Should find files in excluded directories when override is used' {
