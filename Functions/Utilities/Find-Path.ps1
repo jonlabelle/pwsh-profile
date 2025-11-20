@@ -394,13 +394,22 @@ function Find-Path
 
             # Build Get-ChildItem parameters
             $getChildItemParams = @{
-                LiteralPath = $resolvedPath
                 Force = $true
                 ErrorAction = 'SilentlyContinue'
             }
 
-            if (-not $NoRecurse)
+            # When -NoRecurse is used, we need to append a wildcard to list directory contents
+            # Otherwise Get-ChildItem returns info about the directory itself, not its contents
+            # We use -Path (not -LiteralPath) here because we need wildcard support
+            if ($NoRecurse)
             {
+                # Append appropriate path separator and wildcard for the platform
+                $searchPattern = Join-Path -Path $resolvedPath -ChildPath '*'
+                $getChildItemParams['Path'] = $searchPattern
+            }
+            else
+            {
+                $getChildItemParams['LiteralPath'] = $resolvedPath
                 $getChildItemParams['Recurse'] = $true
                 if ($PSBoundParameters.ContainsKey('MaxDepth'))
                 {
