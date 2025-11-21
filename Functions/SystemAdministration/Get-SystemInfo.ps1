@@ -38,8 +38,8 @@ function Get-SystemInfo
 
     .PARAMETER NoPII
         Excludes private and personally identifiable information from the output. When specified, the following
-        properties will be omitted: ComputerName, HostName, Domain, IPAddresses, SerialNumber, BIOSVersion,
-        TimeZone, LastBootTime, and Uptime.
+        properties will be omitted: ComputerName, HostName, Domain, IPAddresses, Username, SerialNumber,
+        BIOSVersion, TimeZone, LastBootTime, and Uptime.
 
     .PARAMETER NoEmptyProps
         Excludes properties with null or empty values from the output. This provides cleaner results by only
@@ -139,6 +139,7 @@ function Get-SystemInfo
         - HostName: Fully qualified domain name or hostname
         - Domain: Domain name (Windows only, null for workgroup or non-Windows)
         - IPAddresses: Array of IP addresses assigned to the computer
+        - Username: Current logged-in username
         - OperatingSystem: Operating system name and version
         - OSArchitecture: Operating system architecture (32-bit/64-bit)
         - CPUArchitecture: Processor architecture
@@ -273,6 +274,7 @@ function Get-SystemInfo
                         HostName = $null
                         Domain = $null
                         IPAddresses = $null
+                        Username = $null
                         OperatingSystem = $null
                         OSArchitecture = $null
                         CPUArchitecture = $null
@@ -321,6 +323,16 @@ function Get-SystemInfo
                     catch
                     {
                         Write-Verbose "Could not retrieve hostname or IP addresses: $($_.Exception.Message)"
+                    }
+
+                    # Get current username (cross-platform)
+                    try
+                    {
+                        $systemInfo.Username = [System.Environment]::UserName
+                    }
+                    catch
+                    {
+                        Write-Verbose "Could not retrieve username: $($_.Exception.Message)"
                     }
 
                     # Get OS information
@@ -1705,6 +1717,7 @@ function Get-SystemInfo
                         $systemInfo.PSObject.Properties.Remove('HostName')
                         $systemInfo.PSObject.Properties.Remove('Domain')
                         $systemInfo.PSObject.Properties.Remove('IPAddresses')
+                        $systemInfo.PSObject.Properties.Remove('Username')
                         $systemInfo.PSObject.Properties.Remove('SerialNumber')
                         $systemInfo.PSObject.Properties.Remove('BIOSVersion')
                         $systemInfo.PSObject.Properties.Remove('TimeZone')
@@ -1767,6 +1780,7 @@ function Get-SystemInfo
 
                     $remoteResults = Invoke-Command -Session $session -ScriptBlock {
                         $systemInfo = [PSCustomObject]@{
+                            Username = $null
                             PSTypeName = 'SystemInfo.Result'
                             ComputerName = $env:COMPUTERNAME
                             HostName = $null
@@ -2171,6 +2185,7 @@ function Get-SystemInfo
                         # Apply privacy filter if requested
                         if ($NoPII)
                         {
+                            $remoteResults.PSObject.Properties.Remove('Username')
                             $remoteResults.PSObject.Properties.Remove('ComputerName')
                             $remoteResults.PSObject.Properties.Remove('HostName')
                             $remoteResults.PSObject.Properties.Remove('Domain')
