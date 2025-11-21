@@ -6,15 +6,18 @@ function Get-SystemInfo
 
     .DESCRIPTION
         Retrieves comprehensive system information including CPU architecture, processor speed,
-        operating system details, computer model and name, memory information, GPU/video card
-        details, physical disk specifications, audio devices, monitor/display information,
-        input devices (keyboard and mouse), network adapters, and other hardware specifications.
-        Supports both local and remote computer queries.
+        temperature (when available), operating system details, computer model and name, memory
+        information, page file/swap usage, GPU/video card details, physical disk specifications,
+        audio devices, monitor/display information, input devices (keyboard and mouse), network
+        adapters, battery status (for laptops), virtualization detection, system load metrics,
+        process and thread counts, and other hardware specifications. Supports both local and
+        remote computer queries.
 
         Remote computer queries are only available on Windows systems via PowerShell remoting (WinRM).
         On macOS and Linux, only local computer queries are supported.
 
-        Hardware information includes:
+        Hardware and system information includes:
+        - CPU details with temperature monitoring (when available)
         - GPU/Video card name and memory
         - Physical disks (embedded drives only, excludes USB and removable media)
         - Audio devices
@@ -22,6 +25,11 @@ function Get-SystemInfo
         - Keyboard devices
         - Mouse/pointing devices
         - Network adapters (physical adapters only)
+        - Battery status and charge level (laptops only)
+        - Virtualization detection (VM type identification)
+        - System load average (macOS and Linux)
+        - Memory and page file/swap usage
+        - Process and thread counts
 
         Compatible with PowerShell Desktop 5.1 and PowerShell Core 6.2+ on Windows, macOS, and Linux.
 
@@ -148,6 +156,7 @@ function Get-SystemInfo
         - CPULogicalProcessors: Number of logical processors
         - HyperthreadingEnabled: Whether hyperthreading/SMT is enabled
         - CPUSpeedMHz: Processor speed in MHz
+        - CPUTemperatureCelsius: CPU temperature in Celsius (when available, requires admin on some platforms)
         - GPUName: GPU/video card name(s)
         - GPUMemoryGB: Total GPU memory in GB (when available)
         - Monitors: Monitor/display information with resolution
@@ -156,6 +165,8 @@ function Get-SystemInfo
         - NetworkAdapters: Network adapter information (physical adapters only)
         - TotalMemoryGB: Total physical memory in GB
         - FreeMemoryGB: Available physical memory in GB
+        - PageFileTotalGB: Total page file/swap space in GB
+        - PageFileUsedGB: Used page file/swap space in GB
         - SystemDriveTotalGB: Total system drive capacity in GB
         - SystemDriveUsedGB: Used space on system drive in GB
         - SystemDriveFreeGB: Free space on system drive in GB
@@ -165,6 +176,14 @@ function Get-SystemInfo
         - Model: Computer model
         - SerialNumber: Computer serial number (when available)
         - BIOSVersion: BIOS version
+        - IsVirtualMachine: Boolean indicating if running in a virtual machine
+        - VirtualizationType: Type of virtualization (Hyper-V, VMware, VirtualBox, etc.)
+        - SystemLoadAverage: System load average (1m, 5m, 15m) - macOS and Linux only
+        - ProcessCount: Total number of running processes
+        - ThreadCount: Total number of threads
+        - BatteryStatus: Battery status (Charging, Discharging, Fully Charged, etc.) - laptops only
+        - BatteryChargePercent: Battery charge percentage - laptops only
+        - BatteryEstimatedRuntime: Estimated battery runtime - Windows laptops only
         - TimeZone: System time zone
         - LastBootTime: Last system boot time
         - Uptime: System uptime as a timespan
@@ -283,6 +302,7 @@ function Get-SystemInfo
                         CPULogicalProcessors = $null
                         HyperthreadingEnabled = $null
                         CPUSpeedMHz = $null
+                        CPUTemperatureCelsius = $null
                         GPUName = $null
                         GPUMemoryGB = $null
                         Monitors = $null
@@ -291,6 +311,8 @@ function Get-SystemInfo
                         NetworkAdapters = $null
                         TotalMemoryGB = $null
                         FreeMemoryGB = $null
+                        PageFileTotalGB = $null
+                        PageFileUsedGB = $null
                         SystemDriveTotalGB = $null
                         SystemDriveUsedGB = $null
                         SystemDriveFreeGB = $null
@@ -300,6 +322,14 @@ function Get-SystemInfo
                         Model = $null
                         SerialNumber = $null
                         BIOSVersion = $null
+                        IsVirtualMachine = $null
+                        VirtualizationType = $null
+                        SystemLoadAverage = $null
+                        ProcessCount = $null
+                        ThreadCount = $null
+                        BatteryStatus = $null
+                        BatteryChargePercent = $null
+                        BatteryEstimatedRuntime = $null
                         TimeZone = $null
                         LastBootTime = $null
                         Uptime = $null
@@ -351,6 +381,41 @@ function Get-SystemInfo
                             $systemInfo.FreeMemoryGB = [Math]::Round($os.FreePhysicalMemory / 1MB, 2)
                             $systemInfo.LastBootTime = $os.LastBootUpTime
                             $systemInfo.Uptime = (Get-Date) - $os.LastBootUpTime
+                            $systemInfo.ProcessCount = $os.NumberOfProcesses
+
+                            # Get page file information
+                            try
+                            {
+                                $pageFiles = Get-CimInstance -ClassName Win32_PageFileUsage -ErrorAction Stop
+                                if ($pageFiles)
+                                {
+                                    $totalPageFileMB = ($pageFiles | Measure-Object -Property AllocatedBaseSize -Sum).Sum
+                                    $usedPageFileMB = ($pageFiles | Measure-Object -Property CurrentUsage -Sum).Sum
+                                    if ($totalPageFileMB -gt 0)
+                                    {
+                                        $systemInfo.PageFileTotalGB = [Math]::Round($totalPageFileMB / 1KB, 2)
+                                        $systemInfo.PageFileUsedGB = [Math]::Round($usedPageFileMB / 1KB, 2)
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve page file information: $($_.Exception.Message)"
+                            }
+
+                            # Get thread count
+                            try
+                            {
+                                $threads = Get-CimInstance -ClassName Win32_PerfFormattedData_PerfProc_Thread -ErrorAction Stop
+                                if ($threads)
+                                {
+                                    $systemInfo.ThreadCount = $threads.Count
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve thread count: $($_.Exception.Message)"
+                            }
 
                             # Get system drive information (Windows)
                             try
@@ -387,10 +452,90 @@ function Get-SystemInfo
 
                             $systemInfo.CPUSpeedMHz = $cpu.MaxClockSpeed
 
+                            # Get CPU temperature (Windows - requires Admin/specific hardware support)
+                            try
+                            {
+                                $tempSensors = Get-CimInstance -Namespace root/WMI -ClassName MSAcpi_ThermalZoneTemperature -ErrorAction SilentlyContinue
+                                if ($tempSensors)
+                                {
+                                    # Convert from tenths of Kelvin to Celsius
+                                    $avgTemp = ($tempSensors | Measure-Object -Property CurrentTemperature -Average).Average
+                                    if ($avgTemp -gt 0)
+                                    {
+                                        $systemInfo.CPUTemperatureCelsius = [Math]::Round(($avgTemp / 10) - 273.15, 1)
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve CPU temperature: $($_.Exception.Message)"
+                            }
+
                             # Get computer system information
                             $cs = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction Stop
                             $systemInfo.Manufacturer = $cs.Manufacturer
                             $systemInfo.Model = $cs.Model
+
+                            # Detect virtualization
+                            try
+                            {
+                                $systemInfo.IsVirtualMachine = $false
+                                $systemInfo.VirtualizationType = $null
+
+                                # Check manufacturer and model for VM indicators
+                                $vmIndicators = @{
+                                    'Microsoft Corporation' = 'Hyper-V'
+                                    'VMware' = 'VMware'
+                                    'innotek GmbH' = 'VirtualBox'
+                                    'QEMU' = 'QEMU/KVM'
+                                    'Xen' = 'Xen'
+                                    'Parallels' = 'Parallels'
+                                }
+
+                                foreach ($indicator in $vmIndicators.Keys)
+                                {
+                                    if ($cs.Manufacturer -like "*$indicator*" -or $cs.Model -like "*$indicator*")
+                                    {
+                                        $systemInfo.IsVirtualMachine = $true
+                                        $systemInfo.VirtualizationType = $vmIndicators[$indicator]
+                                        break
+                                    }
+                                }
+
+                                # Check BIOS version for additional indicators
+                                if (-not $systemInfo.IsVirtualMachine)
+                                {
+                                    $bios = Get-CimInstance -ClassName Win32_BIOS -ErrorAction SilentlyContinue
+                                    if ($bios)
+                                    {
+                                        if ($bios.Version -like '*VBOX*')
+                                        {
+                                            $systemInfo.IsVirtualMachine = $true
+                                            $systemInfo.VirtualizationType = 'VirtualBox'
+                                        }
+                                        elseif ($bios.Version -like '*Hyper-V*')
+                                        {
+                                            $systemInfo.IsVirtualMachine = $true
+                                            $systemInfo.VirtualizationType = 'Hyper-V'
+                                        }
+                                    }
+                                }
+
+                                # Check for specific VM registry keys or services as additional verification
+                                if (-not $systemInfo.IsVirtualMachine)
+                                {
+                                    $vmwareService = Get-Service -Name 'VMTools' -ErrorAction SilentlyContinue
+                                    if ($vmwareService)
+                                    {
+                                        $systemInfo.IsVirtualMachine = $true
+                                        $systemInfo.VirtualizationType = 'VMware'
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not detect virtualization: $($_.Exception.Message)"
+                            }
 
                             # Get domain information (null if workgroup)
                             if ($cs.PartOfDomain)
@@ -426,7 +571,7 @@ function Get-SystemInfo
                             try
                             {
                                 $videoCards = Get-CimInstance -ClassName Win32_VideoController -ErrorAction Stop |
-                                Where-Object { $_.Status -eq 'OK' -or $_.Status -eq $null }
+                                Where-Object { $_.Status -eq 'OK' -or $null -eq $_.Status }
 
                                 if ($videoCards)
                                 {
@@ -497,7 +642,7 @@ function Get-SystemInfo
                             try
                             {
                                 $audioDevices = Get-CimInstance -ClassName Win32_SoundDevice -ErrorAction Stop |
-                                Where-Object { $_.Status -eq 'OK' -or $_.Status -eq $null }
+                                Where-Object { $_.Status -eq 'OK' -or $null -eq $_.Status }
 
                                 if ($audioDevices)
                                 {
@@ -662,6 +807,45 @@ function Get-SystemInfo
                             {
                                 Write-Verbose "Could not retrieve network adapter information: $($_.Exception.Message)"
                             }
+
+                            # Get battery information (laptops/portable devices)
+                            try
+                            {
+                                $batteries = Get-CimInstance -ClassName Win32_Battery -ErrorAction Stop
+                                if ($batteries)
+                                {
+                                    $battery = $batteries | Select-Object -First 1
+
+                                    # Battery status codes: 1=Discharging, 2=AC, 3=Fully Charged, 4=Low, 5=Critical
+                                    $statusMap = @{
+                                        1 = 'Discharging'
+                                        2 = 'Charging (AC)'
+                                        3 = 'Fully Charged'
+                                        4 = 'Low'
+                                        5 = 'Critical'
+                                        6 = 'Charging'
+                                        7 = 'Charging (High)'
+                                        8 = 'Charging (Low)'
+                                        9 = 'Charging (Critical)'
+                                        10 = 'Undefined'
+                                        11 = 'Partially Charged'
+                                    }
+
+                                    $systemInfo.BatteryStatus = $statusMap[$battery.BatteryStatus]
+                                    $systemInfo.BatteryChargePercent = $battery.EstimatedChargeRemaining
+
+                                    # Calculate estimated runtime in hours
+                                    if ($battery.EstimatedRunTime -and $battery.EstimatedRunTime -lt 71582788)
+                                    {
+                                        $runtimeHours = [Math]::Round($battery.EstimatedRunTime / 60, 1)
+                                        $systemInfo.BatteryEstimatedRuntime = "$runtimeHours hours"
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve battery information: $($_.Exception.Message)"
+                            }
                         }
                         catch
                         {
@@ -750,6 +934,40 @@ function Get-SystemInfo
                             $totalMem = sysctl -n hw.memsize 2>$null
                             if ($totalMem) { $systemInfo.TotalMemoryGB = [Math]::Round([int64]$totalMem / 1GB, 2) }
 
+                            # Get system load average (macOS)
+                            try
+                            {
+                                $loadAvg = sysctl -n vm.loadavg 2>$null
+                                if ($loadAvg)
+                                {
+                                    # Output format: { 1.23 1.45 1.67 }
+                                    $loadValues = $loadAvg -replace '[{}]', '' -split '\s+' | Where-Object { $_ -match '^\d' }
+                                    if ($loadValues.Count -ge 3)
+                                    {
+                                        $systemInfo.SystemLoadAverage = "$($loadValues[0]) (1m), $($loadValues[1]) (5m), $($loadValues[2]) (15m)"
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve system load average: $($_.Exception.Message)"
+                            }
+
+                            # Get process and thread count
+                            try
+                            {
+                                $processCount = ps -A 2>$null | Measure-Object | Select-Object -ExpandProperty Count
+                                if ($processCount)
+                                {
+                                    # Subtract 1 for the header line
+                                    $systemInfo.ProcessCount = $processCount - 1
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve process count: $($_.Exception.Message)"
+                            }
+
                             # Get available memory using vm_stat
                             # On macOS, "available" memory includes free + inactive + speculative + purgeable pages
                             $vmStat = vm_stat 2>$null
@@ -801,6 +1019,35 @@ function Get-SystemInfo
                                 $systemInfo.FreeMemoryGB = [Math]::Round(($availablePages * $pageSize) / 1GB, 2)
                             }
 
+                            # Get swap space information
+                            try
+                            {
+                                $swapUsage = sysctl -n vm.swapusage 2>$null
+                                if ($swapUsage)
+                                {
+                                    # Format: total = 1024.00M  used = 256.50M  free = 767.50M  (encrypted)
+                                    if ($swapUsage -match 'total = ([\d.]+)([MG])' -and $swapUsage -match 'used = ([\d.]+)([MG])')
+                                    {
+                                        $totalValue = [double]$matches[1]
+                                        $totalUnit = $matches[2]
+                                        $swapUsage -match 'used = ([\d.]+)([MG])' | Out-Null
+                                        $usedValue = [double]$matches[1]
+                                        $usedUnit = $matches[2]
+
+                                        # Convert to GB
+                                        $totalGB = if ($totalUnit -eq 'G') { $totalValue } else { $totalValue / 1KB }
+                                        $usedGB = if ($usedUnit -eq 'G') { $usedValue } else { $usedValue / 1KB }
+
+                                        $systemInfo.PageFileTotalGB = [Math]::Round($totalGB, 2)
+                                        $systemInfo.PageFileUsedGB = [Math]::Round($usedGB, 2)
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve swap space information: $($_.Exception.Message)"
+                            }
+
                             # Get hardware model
                             $model = sysctl -n hw.model 2>$null
                             $systemInfo.Model = $model
@@ -822,6 +1069,60 @@ function Get-SystemInfo
                             if ($firmware)
                             {
                                 $systemInfo.BIOSVersion = ($firmware -replace '.*:\s*', '').Trim()
+                            }
+
+                            # Detect virtualization (macOS)
+                            try
+                            {
+                                $systemInfo.IsVirtualMachine = $false
+                                $systemInfo.VirtualizationType = $null
+
+                                # Check manufacturer and model
+                                if ($model -like '*VMware*')
+                                {
+                                    $systemInfo.IsVirtualMachine = $true
+                                    $systemInfo.VirtualizationType = 'VMware'
+                                }
+                                elseif ($model -like '*VirtualBox*')
+                                {
+                                    $systemInfo.IsVirtualMachine = $true
+                                    $systemInfo.VirtualizationType = 'VirtualBox'
+                                }
+                                elseif ($model -like '*Parallels*')
+                                {
+                                    $systemInfo.IsVirtualMachine = $true
+                                    $systemInfo.VirtualizationType = 'Parallels'
+                                }
+
+                                # Check for hypervisor using sysctl
+                                $hypervisor = sysctl -n kern.hv_support 2>$null
+                                if ($hypervisor -eq '1' -and -not $systemInfo.IsVirtualMachine)
+                                {
+                                    # Running on a system with hypervisor support, check for specific VM indicators
+                                    $hvVendor = sysctl -n machdep.cpu.brand_string 2>$null
+                                    if ($hvVendor -like '*QEMU*' -or $hvVendor -like '*Virtual*')
+                                    {
+                                        $systemInfo.IsVirtualMachine = $true
+                                        $systemInfo.VirtualizationType = 'QEMU/KVM'
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not detect virtualization: $($_.Exception.Message)"
+                            }
+
+                            # Get CPU temperature (macOS - requires third-party tools or specific hardware)
+                            try
+                            {
+                                # Try using powermetrics (requires sudo for detailed info, but basic temp might work)
+                                # This is not reliable without admin, so we'll skip it in standard usage
+                                # Most macOS systems require specialized tools like iStats or SMC readers
+                                Write-Verbose 'CPU temperature monitoring on macOS typically requires third-party tools'
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve CPU temperature: $($_.Exception.Message)"
                             }
 
                             # Get boot time
@@ -945,7 +1246,6 @@ function Get-SystemInfo
                                     $diskInfo = @()
 
                                     # Parse disk list to find physical disks (disk0, disk1, etc., but not external)
-                                    $currentDisk = $null
                                     foreach ($line in $diskList)
                                     {
                                         # Match disk identifiers like /dev/disk0
@@ -957,7 +1257,6 @@ function Get-SystemInfo
                                             # Skip external/removable drives
                                             if ($diskType -notmatch 'external|removable')
                                             {
-                                                $currentDisk = $diskId
 
                                                 # Get detailed disk info
                                                 $diskInfo_detailed = diskutil info $diskId 2>$null
@@ -1192,6 +1491,62 @@ function Get-SystemInfo
                             {
                                 Write-Verbose "Could not retrieve network adapter information: $($_.Exception.Message)"
                             }
+
+                            # Get battery information (macOS laptops)
+                            try
+                            {
+                                $batteryInfo = system_profiler SPPowerDataType 2>$null
+                                if ($batteryInfo)
+                                {
+                                    # Check if battery information exists
+                                    $batteryInstalled = $batteryInfo | Select-String 'Battery Information:'
+                                    if ($batteryInstalled)
+                                    {
+                                        # Get charging status
+                                        $chargingStatus = $batteryInfo | Select-String 'Charging:\s*(.*)' | Select-Object -First 1
+                                        if ($chargingStatus -and $chargingStatus.Matches.Groups.Count -gt 1)
+                                        {
+                                            $isCharging = $chargingStatus.Matches.Groups[1].Value.Trim()
+                                            if ($isCharging -eq 'Yes')
+                                            {
+                                                $systemInfo.BatteryStatus = 'Charging (AC)'
+                                            }
+                                            else
+                                            {
+                                                # Check if fully charged
+                                                $fullyCharged = $batteryInfo | Select-String 'Fully Charged:\s*(.*)' | Select-Object -First 1
+                                                if ($fullyCharged -and $fullyCharged.Matches.Groups.Count -gt 1)
+                                                {
+                                                    $isFullyCharged = $fullyCharged.Matches.Groups[1].Value.Trim()
+                                                    if ($isFullyCharged -eq 'Yes')
+                                                    {
+                                                        $systemInfo.BatteryStatus = 'Fully Charged'
+                                                    }
+                                                    else
+                                                    {
+                                                        $systemInfo.BatteryStatus = 'Discharging'
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    $systemInfo.BatteryStatus = 'Discharging'
+                                                }
+                                            }
+                                        }
+
+                                        # Get charge percentage
+                                        $chargeInfo = $batteryInfo | Select-String 'State of Charge \(%\):\s*(\d+)'
+                                        if ($chargeInfo -and $chargeInfo.Matches.Groups.Count -gt 1)
+                                        {
+                                            $systemInfo.BatteryChargePercent = [int]$chargeInfo.Matches.Groups[1].Value
+                                        }
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve battery information: $($_.Exception.Message)"
+                            }
                         }
                         catch
                         {
@@ -1271,6 +1626,61 @@ function Get-SystemInfo
                             # Remove duplicate CPU cores calculation
                             # Already handled above with PowerShell 5.1 compatible syntax
 
+                            # Get system load average (Linux)
+                            try
+                            {
+                                if (Test-Path '/proc/loadavg')
+                                {
+                                    $loadAvg = Get-Content '/proc/loadavg' -ErrorAction SilentlyContinue
+                                    if ($loadAvg)
+                                    {
+                                        $loadValues = $loadAvg -split '\s+'
+                                        if ($loadValues.Count -ge 3)
+                                        {
+                                            $systemInfo.SystemLoadAverage = "$($loadValues[0]) (1m), $($loadValues[1]) (5m), $($loadValues[2]) (15m)"
+                                        }
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve system load average: $($_.Exception.Message)"
+                            }
+
+                            # Get process and thread count
+                            try
+                            {
+                                $processCount = ps -A 2>$null | Measure-Object | Select-Object -ExpandProperty Count
+                                if ($processCount)
+                                {
+                                    # Subtract 1 for the header line
+                                    $systemInfo.ProcessCount = $processCount - 1
+                                }
+
+                                # Get thread count from /proc
+                                if (Test-Path '/proc')
+                                {
+                                    $threadCount = Get-ChildItem -Path '/proc' -Directory -ErrorAction SilentlyContinue |
+                                    Where-Object { $_.Name -match '^\d+$' } |
+                                    ForEach-Object {
+                                        $taskDir = Join-Path $_.FullName 'task'
+                                        if (Test-Path $taskDir)
+                                        {
+                                            (Get-ChildItem -Path $taskDir -Directory -ErrorAction SilentlyContinue).Count
+                                        }
+                                    } | Measure-Object -Sum | Select-Object -ExpandProperty Sum
+
+                                    if ($threadCount -gt 0)
+                                    {
+                                        $systemInfo.ThreadCount = $threadCount
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve process/thread count: $($_.Exception.Message)"
+                            }
+
                             # Get memory information from /proc/meminfo
                             if (Test-Path '/proc/meminfo')
                             {
@@ -1288,6 +1698,23 @@ function Get-SystemInfo
                                 {
                                     $availKb = [int64](($availMem -replace '[^\d]', '').Trim())
                                     $systemInfo.FreeMemoryGB = [Math]::Round($availKb / 1MB, 2)
+                                }
+
+                                # Get swap space information
+                                $swapTotal = $memInfo | Where-Object { $_ -match '^SwapTotal:' }
+                                if ($swapTotal)
+                                {
+                                    $swapTotalKB = [int64](($swapTotal -replace '[^\d]', '').Trim())
+                                    $systemInfo.PageFileTotalGB = [Math]::Round($swapTotalKB / 1MB, 2)
+                                }
+
+                                $swapFree = $memInfo | Where-Object { $_ -match '^SwapFree:' }
+                                if ($swapFree -and $swapTotal)
+                                {
+                                    $swapFreeKB = [int64](($swapFree -replace '[^\d]', '').Trim())
+                                    $swapTotalKB = [int64](($swapTotal -replace '[^\d]', '').Trim())
+                                    $swapUsedKB = $swapTotalKB - $swapFreeKB
+                                    $systemInfo.PageFileUsedGB = [Math]::Round($swapUsedKB / 1MB, 2)
                                 }
                             }
 
@@ -1313,6 +1740,100 @@ function Get-SystemInfo
                                 {
                                     Write-Verbose 'dmidecode commands require elevated privileges for full information'
                                 }
+                            }
+
+                            # Detect virtualization (Linux)
+                            try
+                            {
+                                $systemInfo.IsVirtualMachine = $false
+                                $systemInfo.VirtualizationType = $null
+
+                                # Check for systemd-detect-virt
+                                $detectVirt = Get-Command systemd-detect-virt -ErrorAction SilentlyContinue
+                                if ($detectVirt)
+                                {
+                                    $virtType = systemd-detect-virt 2>$null
+                                    if ($virtType -and $virtType -ne 'none')
+                                    {
+                                        $systemInfo.IsVirtualMachine = $true
+                                        $systemInfo.VirtualizationType = $virtType.Trim()
+                                    }
+                                }
+                                else
+                                {
+                                    # Fallback: Check manufacturer and model
+                                    if ($systemInfo.Manufacturer -or $systemInfo.Model)
+                                    {
+                                        $vmIndicators = @(
+                                            @{ Pattern = 'VMware'; Type = 'VMware' }
+                                            @{ Pattern = 'VirtualBox'; Type = 'VirtualBox' }
+                                            @{ Pattern = 'QEMU'; Type = 'QEMU/KVM' }
+                                            @{ Pattern = 'Microsoft'; Type = 'Hyper-V' }
+                                            @{ Pattern = 'Xen'; Type = 'Xen' }
+                                            @{ Pattern = 'KVM'; Type = 'KVM' }
+                                        )
+
+                                        foreach ($indicator in $vmIndicators)
+                                        {
+                                            if ($systemInfo.Manufacturer -like "*$($indicator.Pattern)*" -or
+                                                $systemInfo.Model -like "*$($indicator.Pattern)*")
+                                            {
+                                                $systemInfo.IsVirtualMachine = $true
+                                                $systemInfo.VirtualizationType = $indicator.Type
+                                                break
+                                            }
+                                        }
+                                    }
+
+                                    # Check /proc/cpuinfo for hypervisor flag
+                                    if (-not $systemInfo.IsVirtualMachine -and (Test-Path '/proc/cpuinfo'))
+                                    {
+                                        $cpuinfoContent = Get-Content '/proc/cpuinfo' -ErrorAction SilentlyContinue
+                                        if ($cpuinfoContent -match 'hypervisor')
+                                        {
+                                            $systemInfo.IsVirtualMachine = $true
+                                            $systemInfo.VirtualizationType = 'Unknown Hypervisor'
+                                        }
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not detect virtualization: $($_.Exception.Message)"
+                            }
+
+                            # Get CPU temperature (Linux)
+                            try
+                            {
+                                # Try reading from thermal zones
+                                $thermalZones = Get-ChildItem -Path '/sys/class/thermal/thermal_zone*' -ErrorAction SilentlyContinue
+                                if ($thermalZones)
+                                {
+                                    $temps = @()
+                                    foreach ($zone in $thermalZones)
+                                    {
+                                        $tempFile = Join-Path $zone.FullName 'temp'
+                                        if (Test-Path $tempFile)
+                                        {
+                                            $tempValue = Get-Content $tempFile -ErrorAction SilentlyContinue
+                                            if ($tempValue -and $tempValue -match '^\d+$')
+                                            {
+                                                # Temperature is in millidegrees Celsius
+                                                $temps += [int]$tempValue / 1000
+                                            }
+                                        }
+                                    }
+
+                                    if ($temps.Count -gt 0)
+                                    {
+                                        $avgTemp = ($temps | Measure-Object -Average).Average
+                                        $systemInfo.CPUTemperatureCelsius = [Math]::Round($avgTemp, 1)
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve CPU temperature: $($_.Exception.Message)"
                             }
 
                             # Get uptime
@@ -1703,6 +2224,67 @@ function Get-SystemInfo
                             {
                                 Write-Verbose "Could not retrieve network adapter information: $($_.Exception.Message)"
                             }
+
+                            # Get battery information (Linux laptops)
+                            try
+                            {
+                                $batteryPath = '/sys/class/power_supply/BAT0'
+                                if (-not (Test-Path $batteryPath))
+                                {
+                                    # Try BAT1 or other battery names
+                                    $batteries = Get-ChildItem -Path '/sys/class/power_supply' -Directory -ErrorAction SilentlyContinue |
+                                    Where-Object { $_.Name -like 'BAT*' }
+                                    if ($batteries)
+                                    {
+                                        $batteryPath = $batteries[0].FullName
+                                    }
+                                }
+
+                                if (Test-Path $batteryPath)
+                                {
+                                    # Get battery status
+                                    $statusFile = Join-Path $batteryPath 'status'
+                                    if (Test-Path $statusFile)
+                                    {
+                                        $status = (Get-Content $statusFile -ErrorAction SilentlyContinue).Trim()
+                                        if ($status -eq 'Charging')
+                                        {
+                                            $systemInfo.BatteryStatus = 'Charging (AC)'
+                                        }
+                                        elseif ($status -eq 'Discharging')
+                                        {
+                                            $systemInfo.BatteryStatus = 'Discharging'
+                                        }
+                                        elseif ($status -eq 'Full')
+                                        {
+                                            $systemInfo.BatteryStatus = 'Fully Charged'
+                                        }
+                                        elseif ($status -eq 'Not charging')
+                                        {
+                                            $systemInfo.BatteryStatus = 'Not Charging'
+                                        }
+                                        else
+                                        {
+                                            $systemInfo.BatteryStatus = $status
+                                        }
+                                    }
+
+                                    # Get battery capacity percentage
+                                    $capacityFile = Join-Path $batteryPath 'capacity'
+                                    if (Test-Path $capacityFile)
+                                    {
+                                        $capacity = Get-Content $capacityFile -ErrorAction SilentlyContinue
+                                        if ($capacity -and $capacity -match '^\d+$')
+                                        {
+                                            $systemInfo.BatteryChargePercent = [int]$capacity
+                                        }
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve battery information: $($_.Exception.Message)"
+                            }
                         }
                         catch
                         {
@@ -1794,6 +2376,7 @@ function Get-SystemInfo
                             CPULogicalProcessors = $null
                             HyperthreadingEnabled = $null
                             CPUSpeedMHz = $null
+                            CPUTemperatureCelsius = $null
                             GPUName = $null
                             GPUMemoryGB = $null
                             Monitors = $null
@@ -1802,6 +2385,8 @@ function Get-SystemInfo
                             NetworkAdapters = $null
                             TotalMemoryGB = $null
                             FreeMemoryGB = $null
+                            PageFileTotalGB = $null
+                            PageFileUsedGB = $null
                             SystemDriveTotalGB = $null
                             SystemDriveUsedGB = $null
                             SystemDriveFreeGB = $null
@@ -1811,6 +2396,14 @@ function Get-SystemInfo
                             Model = $null
                             SerialNumber = $null
                             BIOSVersion = $null
+                            IsVirtualMachine = $null
+                            VirtualizationType = $null
+                            SystemLoadAverage = $null
+                            ProcessCount = $null
+                            ThreadCount = $null
+                            BatteryStatus = $null
+                            BatteryChargePercent = $null
+                            BatteryEstimatedRuntime = $null
                             TimeZone = $null
                             LastBootTime = $null
                             Uptime = $null
@@ -1846,6 +2439,41 @@ function Get-SystemInfo
                             $systemInfo.FreeMemoryGB = [Math]::Round($os.FreePhysicalMemory / 1MB, 2)
                             $systemInfo.LastBootTime = $os.LastBootUpTime
                             $systemInfo.Uptime = (Get-Date) - $os.LastBootUpTime
+                            $systemInfo.ProcessCount = $os.NumberOfProcesses
+
+                            # Get page file information
+                            try
+                            {
+                                $pageFiles = Get-CimInstance -ClassName Win32_PageFileUsage -ErrorAction Stop
+                                if ($pageFiles)
+                                {
+                                    $totalPageFileMB = ($pageFiles | Measure-Object -Property AllocatedBaseSize -Sum).Sum
+                                    $usedPageFileMB = ($pageFiles | Measure-Object -Property CurrentUsage -Sum).Sum
+                                    if ($totalPageFileMB -gt 0)
+                                    {
+                                        $systemInfo.PageFileTotalGB = [Math]::Round($totalPageFileMB / 1KB, 2)
+                                        $systemInfo.PageFileUsedGB = [Math]::Round($usedPageFileMB / 1KB, 2)
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve page file information: $($_.Exception.Message)"
+                            }
+
+                            # Get thread count
+                            try
+                            {
+                                $threads = Get-CimInstance -ClassName Win32_PerfFormattedData_PerfProc_Thread -ErrorAction Stop
+                                if ($threads)
+                                {
+                                    $systemInfo.ThreadCount = $threads.Count
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve thread count: $($_.Exception.Message)"
+                            }
 
                             # Get system drive information (Windows remote)
                             try
@@ -1896,10 +2524,90 @@ function Get-SystemInfo
 
                             $systemInfo.CPUSpeedMHz = $cpu.MaxClockSpeed
 
+                            # Get CPU temperature (Windows - requires Admin/specific hardware support)
+                            try
+                            {
+                                $tempSensors = Get-CimInstance -Namespace root/WMI -ClassName MSAcpi_ThermalZoneTemperature -ErrorAction SilentlyContinue
+                                if ($tempSensors)
+                                {
+                                    # Convert from tenths of Kelvin to Celsius
+                                    $avgTemp = ($tempSensors | Measure-Object -Property CurrentTemperature -Average).Average
+                                    if ($avgTemp -gt 0)
+                                    {
+                                        $systemInfo.CPUTemperatureCelsius = [Math]::Round(($avgTemp / 10) - 273.15, 1)
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve CPU temperature: $($_.Exception.Message)"
+                            }
+
                             # Get computer system information
                             $cs = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction Stop
                             $systemInfo.Manufacturer = $cs.Manufacturer
                             $systemInfo.Model = $cs.Model
+
+                            # Detect virtualization
+                            try
+                            {
+                                $systemInfo.IsVirtualMachine = $false
+                                $systemInfo.VirtualizationType = $null
+
+                                # Check manufacturer and model for VM indicators
+                                $vmIndicators = @{
+                                    'Microsoft Corporation' = 'Hyper-V'
+                                    'VMware' = 'VMware'
+                                    'innotek GmbH' = 'VirtualBox'
+                                    'QEMU' = 'QEMU/KVM'
+                                    'Xen' = 'Xen'
+                                    'Parallels' = 'Parallels'
+                                }
+
+                                foreach ($indicator in $vmIndicators.Keys)
+                                {
+                                    if ($cs.Manufacturer -like "*$indicator*" -or $cs.Model -like "*$indicator*")
+                                    {
+                                        $systemInfo.IsVirtualMachine = $true
+                                        $systemInfo.VirtualizationType = $vmIndicators[$indicator]
+                                        break
+                                    }
+                                }
+
+                                # Check BIOS version for additional indicators
+                                if (-not $systemInfo.IsVirtualMachine)
+                                {
+                                    $bios = Get-CimInstance -ClassName Win32_BIOS -ErrorAction SilentlyContinue
+                                    if ($bios)
+                                    {
+                                        if ($bios.Version -like '*VBOX*')
+                                        {
+                                            $systemInfo.IsVirtualMachine = $true
+                                            $systemInfo.VirtualizationType = 'VirtualBox'
+                                        }
+                                        elseif ($bios.Version -like '*Hyper-V*')
+                                        {
+                                            $systemInfo.IsVirtualMachine = $true
+                                            $systemInfo.VirtualizationType = 'Hyper-V'
+                                        }
+                                    }
+                                }
+
+                                # Check for specific VM registry keys or services as additional verification
+                                if (-not $systemInfo.IsVirtualMachine)
+                                {
+                                    $vmwareService = Get-Service -Name 'VMTools' -ErrorAction SilentlyContinue
+                                    if ($vmwareService)
+                                    {
+                                        $systemInfo.IsVirtualMachine = $true
+                                        $systemInfo.VirtualizationType = 'VMware'
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not detect virtualization: $($_.Exception.Message)"
+                            }
 
                             # Get domain information (null if workgroup)
                             if ($cs.PartOfDomain)
@@ -1935,7 +2643,7 @@ function Get-SystemInfo
                             try
                             {
                                 $videoCards = Get-CimInstance -ClassName Win32_VideoController -ErrorAction Stop |
-                                Where-Object { $_.Status -eq 'OK' -or $_.Status -eq $null }
+                                Where-Object { $_.Status -eq 'OK' -or $null -eq $_.Status }
 
                                 if ($videoCards)
                                 {
@@ -2006,7 +2714,7 @@ function Get-SystemInfo
                             try
                             {
                                 $audioDevices = Get-CimInstance -ClassName Win32_SoundDevice -ErrorAction Stop |
-                                Where-Object { $_.Status -eq 'OK' -or $_.Status -eq $null }
+                                Where-Object { $_.Status -eq 'OK' -or $null -eq $_.Status }
 
                                 if ($audioDevices)
                                 {
@@ -2170,6 +2878,45 @@ function Get-SystemInfo
                             catch
                             {
                                 Write-Verbose "Could not retrieve network adapter information: $($_.Exception.Message)"
+                            }
+
+                            # Get battery information (laptops/portable devices)
+                            try
+                            {
+                                $batteries = Get-CimInstance -ClassName Win32_Battery -ErrorAction Stop
+                                if ($batteries)
+                                {
+                                    $battery = $batteries | Select-Object -First 1
+
+                                    # Battery status codes: 1=Discharging, 2=AC, 3=Fully Charged, 4=Low, 5=Critical
+                                    $statusMap = @{
+                                        1 = 'Discharging'
+                                        2 = 'Charging (AC)'
+                                        3 = 'Fully Charged'
+                                        4 = 'Low'
+                                        5 = 'Critical'
+                                        6 = 'Charging'
+                                        7 = 'Charging (High)'
+                                        8 = 'Charging (Low)'
+                                        9 = 'Charging (Critical)'
+                                        10 = 'Undefined'
+                                        11 = 'Partially Charged'
+                                    }
+
+                                    $systemInfo.BatteryStatus = $statusMap[$battery.BatteryStatus]
+                                    $systemInfo.BatteryChargePercent = $battery.EstimatedChargeRemaining
+
+                                    # Calculate estimated runtime in hours
+                                    if ($battery.EstimatedRunTime -and $battery.EstimatedRunTime -lt 71582788)
+                                    {
+                                        $runtimeHours = [Math]::Round($battery.EstimatedRunTime / 60, 1)
+                                        $systemInfo.BatteryEstimatedRuntime = "$runtimeHours hours"
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve battery information: $($_.Exception.Message)"
                             }
                         }
                         catch
