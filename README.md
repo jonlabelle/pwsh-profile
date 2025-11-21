@@ -46,7 +46,7 @@ Use the provided [install.ps1](install.ps1) script to automate backups, preserve
 
 ### Quick Install (one-liner)
 
-> The script is downloaded and piped directly into PowerShell. If you prefer to [inspect it](install.ps1) first, [download it to disk](https://raw.githubusercontent.com/jonlabelle/pwsh-profile/refs/heads/main/install.ps1) and run it via `-File`.
+> The script is downloaded and piped directly into PowerShell. If you prefer to [inspect](install.ps1) it first, [download](https://raw.githubusercontent.com/jonlabelle/pwsh-profile/refs/heads/main/install.ps1) it to disk and run it via `-File`.
 
 #### PowerShell Core (pwsh)
 
