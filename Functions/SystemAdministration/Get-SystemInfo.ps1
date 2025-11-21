@@ -352,7 +352,7 @@ function Get-SystemInfo
                     }
                     catch
                     {
-                        Write-Verbose "Could not retrieve hostname or IP addresses: $($_.Exception.Message)"
+                        Write-Verbose \"Could not retrieve hostname or IP addresses: $($_.Exception.Message)\"
                     }
 
                     # Get current username (cross-platform)
@@ -362,7 +362,7 @@ function Get-SystemInfo
                     }
                     catch
                     {
-                        Write-Verbose "Could not retrieve username: $($_.Exception.Message)"
+                        Write-Verbose \"Could not retrieve username: $($_.Exception.Message)\"
                     }
 
                     # Get OS information
@@ -452,17 +452,20 @@ function Get-SystemInfo
 
                             $systemInfo.CPUSpeedMHz = $cpu.MaxClockSpeed
 
-                            # Get CPU temperature (Windows - requires Admin/specific hardware support)
+                            # Get CPU temperature (Windows - using thermal zone information)
                             try
                             {
-                                $tempSensors = Get-CimInstance -Namespace root/WMI -ClassName MSAcpi_ThermalZoneTemperature -ErrorAction SilentlyContinue
-                                if ($tempSensors)
+                                $thermalZones = Get-CimInstance -ClassName Win32_PerfFormattedData_Counters_ThermalZoneInformation -ErrorAction SilentlyContinue
+                                if ($thermalZones)
                                 {
-                                    # Convert from tenths of Kelvin to Celsius
-                                    $avgTemp = ($tempSensors | Measure-Object -Property CurrentTemperature -Average).Average
-                                    if ($avgTemp -gt 0)
+                                    # Find the CPU thermal zone (typically named CPUZ)
+                                    $cpuZone = $thermalZones | Where-Object { $_.Name -like '*CPUZ*' } | Select-Object -First 1
+                                    if ($cpuZone -and $cpuZone.HighPrecisionTemperature)
                                     {
-                                        $systemInfo.CPUTemperatureCelsius = [Math]::Round(($avgTemp / 10) - 273.15, 1)
+                                        # HighPrecisionTemperature is in tenths of Kelvin, convert to Celsius
+                                        $tempKelvin = $cpuZone.HighPrecisionTemperature / 10
+                                        $systemInfo.CPUTemperatureCelsius = [Math]::Round($tempKelvin - 273.15, 1)
+                                        Write-Verbose "CPU temperature: $($systemInfo.CPUTemperatureCelsius)°C (from zone: $($cpuZone.Name))"
                                     }
                                 }
                             }
@@ -819,7 +822,7 @@ function Get-SystemInfo
                                     # Battery status codes: 1=Discharging, 2=AC, 3=Fully Charged, 4=Low, 5=Critical
                                     $statusMap = @{
                                         1 = 'Discharging'
-                                        2 = 'Charging (AC)'
+                                        2 = 'On AC Power'
                                         3 = 'Fully Charged'
                                         4 = 'Low'
                                         5 = 'Critical'
@@ -831,14 +834,29 @@ function Get-SystemInfo
                                         11 = 'Partially Charged'
                                     }
 
-                                    $systemInfo.BatteryStatus = $statusMap[$battery.BatteryStatus]
+                                    $systemInfo.BatteryStatus = $statusMap[[int]$battery.BatteryStatus]
                                     $systemInfo.BatteryChargePercent = $battery.EstimatedChargeRemaining
 
-                                    # Calculate estimated runtime in hours
-                                    if ($battery.EstimatedRunTime -and $battery.EstimatedRunTime -lt 71582788)
+                                    # Try to get more accurate runtime from WMI BatteryStatus class
+                                    try
                                     {
-                                        $runtimeHours = [Math]::Round($battery.EstimatedRunTime / 60, 1)
-                                        $systemInfo.BatteryEstimatedRuntime = "$runtimeHours hours"
+                                        $batteryStatus = Get-CimInstance -Namespace root/WMI -ClassName BatteryStatus -ErrorAction SilentlyContinue | Select-Object -First 1
+                                        if ($batteryStatus -and $batteryStatus.Discharging -and $batteryStatus.DischargeRate -gt 0)
+                                        {
+                                            # Calculate runtime based on remaining capacity and discharge rate
+                                            $runtimeHours = [Math]::Round($batteryStatus.RemainingCapacity / $batteryStatus.DischargeRate, 1)
+                                            $systemInfo.BatteryEstimatedRuntime = "$runtimeHours hours"
+                                        }
+                                        elseif ($battery.EstimatedRunTime -and $battery.EstimatedRunTime -lt 71582788)
+                                        {
+                                            # Fall back to Win32_Battery if WMI method not available or not discharging
+                                            $runtimeHours = [Math]::Round($battery.EstimatedRunTime / 60, 1)
+                                            $systemInfo.BatteryEstimatedRuntime = "$runtimeHours hours"
+                                        }
+                                    }
+                                    catch
+                                    {
+                                        Write-Verbose "Could not calculate battery runtime: $($_.Exception.Message)"
                                     }
                                 }
                             }
@@ -956,7 +974,7 @@ function Get-SystemInfo
                             # Get process and thread count
                             try
                             {
-                                $processCount = ps -A 2>$null | Measure-Object | Select-Object -ExpandProperty Count
+                                $processCount = Get-Process -A 2>$null | Measure-Object | Select-Object -ExpandProperty Count
                                 if ($processCount)
                                 {
                                     # Subtract 1 for the header line
@@ -1650,7 +1668,7 @@ function Get-SystemInfo
                             # Get process and thread count
                             try
                             {
-                                $processCount = ps -A 2>$null | Measure-Object | Select-Object -ExpandProperty Count
+                                $processCount = Get-Process -A 2>$null | Measure-Object | Select-Object -ExpandProperty Count
                                 if ($processCount)
                                 {
                                     # Subtract 1 for the header line
@@ -2524,17 +2542,20 @@ function Get-SystemInfo
 
                             $systemInfo.CPUSpeedMHz = $cpu.MaxClockSpeed
 
-                            # Get CPU temperature (Windows - requires Admin/specific hardware support)
+                            # Get CPU temperature (Windows - using thermal zone information)
                             try
                             {
-                                $tempSensors = Get-CimInstance -Namespace root/WMI -ClassName MSAcpi_ThermalZoneTemperature -ErrorAction SilentlyContinue
-                                if ($tempSensors)
+                                $thermalZones = Get-CimInstance -ClassName Win32_PerfFormattedData_Counters_ThermalZoneInformation -ErrorAction SilentlyContinue
+                                if ($thermalZones)
                                 {
-                                    # Convert from tenths of Kelvin to Celsius
-                                    $avgTemp = ($tempSensors | Measure-Object -Property CurrentTemperature -Average).Average
-                                    if ($avgTemp -gt 0)
+                                    # Find the CPU thermal zone (typically named CPUZ)
+                                    $cpuZone = $thermalZones | Where-Object { $_.Name -like '*CPUZ*' } | Select-Object -First 1
+                                    if ($cpuZone -and $cpuZone.HighPrecisionTemperature)
                                     {
-                                        $systemInfo.CPUTemperatureCelsius = [Math]::Round(($avgTemp / 10) - 273.15, 1)
+                                        # HighPrecisionTemperature is in tenths of Kelvin, convert to Celsius
+                                        $tempKelvin = $cpuZone.HighPrecisionTemperature / 10
+                                        $systemInfo.CPUTemperatureCelsius = [Math]::Round($tempKelvin - 273.15, 1)
+                                        Write-Verbose "CPU temperature: $($systemInfo.CPUTemperatureCelsius)°C (from zone: $($cpuZone.Name))"
                                     }
                                 }
                             }
@@ -2891,7 +2912,7 @@ function Get-SystemInfo
                                     # Battery status codes: 1=Discharging, 2=AC, 3=Fully Charged, 4=Low, 5=Critical
                                     $statusMap = @{
                                         1 = 'Discharging'
-                                        2 = 'Charging (AC)'
+                                        2 = 'On AC Power'
                                         3 = 'Fully Charged'
                                         4 = 'Low'
                                         5 = 'Critical'
@@ -2903,14 +2924,29 @@ function Get-SystemInfo
                                         11 = 'Partially Charged'
                                     }
 
-                                    $systemInfo.BatteryStatus = $statusMap[$battery.BatteryStatus]
+                                    $systemInfo.BatteryStatus = $statusMap[[int]$battery.BatteryStatus]
                                     $systemInfo.BatteryChargePercent = $battery.EstimatedChargeRemaining
 
-                                    # Calculate estimated runtime in hours
-                                    if ($battery.EstimatedRunTime -and $battery.EstimatedRunTime -lt 71582788)
+                                    # Try to get more accurate runtime from WMI BatteryStatus class
+                                    try
                                     {
-                                        $runtimeHours = [Math]::Round($battery.EstimatedRunTime / 60, 1)
-                                        $systemInfo.BatteryEstimatedRuntime = "$runtimeHours hours"
+                                        $batteryStatus = Get-CimInstance -Namespace root/WMI -ClassName BatteryStatus -ErrorAction SilentlyContinue | Select-Object -First 1
+                                        if ($batteryStatus -and $batteryStatus.Discharging -and $batteryStatus.DischargeRate -gt 0)
+                                        {
+                                            # Calculate runtime based on remaining capacity and discharge rate
+                                            $runtimeHours = [Math]::Round($batteryStatus.RemainingCapacity / $batteryStatus.DischargeRate, 1)
+                                            $systemInfo.BatteryEstimatedRuntime = "$runtimeHours hours"
+                                        }
+                                        elseif ($battery.EstimatedRunTime -and $battery.EstimatedRunTime -lt 71582788)
+                                        {
+                                            # Fall back to Win32_Battery if WMI method not available or not discharging
+                                            $runtimeHours = [Math]::Round($battery.EstimatedRunTime / 60, 1)
+                                            $systemInfo.BatteryEstimatedRuntime = "$runtimeHours hours"
+                                        }
+                                    }
+                                    catch
+                                    {
+                                        Write-Verbose "Could not calculate battery runtime: $($_.Exception.Message)"
                                     }
                                 }
                             }
