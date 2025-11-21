@@ -157,6 +157,7 @@ function Get-SystemInfo
         - HyperthreadingEnabled: Whether hyperthreading/SMT is enabled
         - CPUSpeedMHz: Processor speed in MHz
         - CPUTemperatureCelsius: CPU temperature in Celsius (when available, requires admin on some platforms)
+        - CPUTemperatureFahrenheit: CPU temperature in Fahrenheit (when available, requires admin on some platforms)
         - GPUName: GPU/video card name(s)
         - GPUMemoryGB: Total GPU memory in GB (when available)
         - Monitors: Monitor/display information with resolution
@@ -303,6 +304,7 @@ function Get-SystemInfo
                         HyperthreadingEnabled = $null
                         CPUSpeedMHz = $null
                         CPUTemperatureCelsius = $null
+                        CPUTemperatureFahrenheit = $null
                         GPUName = $null
                         GPUMemoryGB = $null
                         Monitors = $null
@@ -462,10 +464,12 @@ function Get-SystemInfo
                                     $cpuZone = $thermalZones | Where-Object { $_.Name -like '*CPUZ*' } | Select-Object -First 1
                                     if ($cpuZone -and $cpuZone.HighPrecisionTemperature)
                                     {
-                                        # HighPrecisionTemperature is in tenths of Kelvin, convert to Celsius
+                                        # HighPrecisionTemperature is in tenths of Kelvin, convert to Celsius and Fahrenheit
                                         $tempKelvin = $cpuZone.HighPrecisionTemperature / 10
-                                        $systemInfo.CPUTemperatureCelsius = [Math]::Round($tempKelvin - 273.15, 1)
-                                        Write-Verbose "CPU temperature: $($systemInfo.CPUTemperatureCelsius)°C (from zone: $($cpuZone.Name))"
+                                        $tempCelsius = $tempKelvin - 273.15
+                                        $systemInfo.CPUTemperatureCelsius = [Math]::Round($tempCelsius, 1)
+                                        $systemInfo.CPUTemperatureFahrenheit = [Math]::Round(($tempCelsius * 9 / 5) + 32, 1)
+                                        Write-Verbose "CPU temperature: $($systemInfo.CPUTemperatureCelsius)°C / $($systemInfo.CPUTemperatureFahrenheit)°F (from zone: $($cpuZone.Name))"
                                     }
                                 }
                             }
@@ -1846,6 +1850,7 @@ function Get-SystemInfo
                                     {
                                         $avgTemp = ($temps | Measure-Object -Average).Average
                                         $systemInfo.CPUTemperatureCelsius = [Math]::Round($avgTemp, 1)
+                                        $systemInfo.CPUTemperatureFahrenheit = [Math]::Round(($avgTemp * 9 / 5) + 32, 1)
                                     }
                                 }
                             }
@@ -2395,6 +2400,7 @@ function Get-SystemInfo
                             HyperthreadingEnabled = $null
                             CPUSpeedMHz = $null
                             CPUTemperatureCelsius = $null
+                            CPUTemperatureFahrenheit = $null
                             GPUName = $null
                             GPUMemoryGB = $null
                             Monitors = $null
@@ -2552,10 +2558,12 @@ function Get-SystemInfo
                                     $cpuZone = $thermalZones | Where-Object { $_.Name -like '*CPUZ*' } | Select-Object -First 1
                                     if ($cpuZone -and $cpuZone.HighPrecisionTemperature)
                                     {
-                                        # HighPrecisionTemperature is in tenths of Kelvin, convert to Celsius
+                                        # HighPrecisionTemperature is in tenths of Kelvin, convert to Celsius and Fahrenheit
                                         $tempKelvin = $cpuZone.HighPrecisionTemperature / 10
-                                        $systemInfo.CPUTemperatureCelsius = [Math]::Round($tempKelvin - 273.15, 1)
-                                        Write-Verbose "CPU temperature: $($systemInfo.CPUTemperatureCelsius)°C (from zone: $($cpuZone.Name))"
+                                        $tempCelsius = $tempKelvin - 273.15
+                                        $systemInfo.CPUTemperatureCelsius = [Math]::Round($tempCelsius, 1)
+                                        $systemInfo.CPUTemperatureFahrenheit = [Math]::Round(($tempCelsius * 9 / 5) + 32, 1)
+                                        Write-Verbose "CPU temperature: $($systemInfo.CPUTemperatureCelsius)°C / $($systemInfo.CPUTemperatureFahrenheit)°F (from zone: $($cpuZone.Name))"
                                     }
                                 }
                             }
