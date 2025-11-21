@@ -496,8 +496,8 @@ function Import-DotEnv
     }
 }
 
-# Create 'dotenv' alias if it doesn't already exist
-if (-not (Get-Alias -Name 'dotenv' -ErrorAction SilentlyContinue))
+# Create 'dotenv' alias only if it doesn't already exist
+if (-not (Get-Command -Name 'dotenv' -ErrorAction SilentlyContinue))
 {
     try
     {

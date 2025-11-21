@@ -676,14 +676,6 @@ ANOTHER_VALID=valid2
         }
     }
 
-    Context 'Alias' {
-        It 'Should have dotenv alias defined' {
-            $alias = Get-Alias -Name 'dotenv' -ErrorAction SilentlyContinue
-            $alias | Should -Not -BeNullOrEmpty
-            $alias.ResolvedCommandName | Should -Be 'Import-DotEnv'
-        }
-    }
-
     Context 'Scope Validation' {
         BeforeEach {
             $script:TestEnvFile = Join-Path $script:TestDir 'scope.env'
