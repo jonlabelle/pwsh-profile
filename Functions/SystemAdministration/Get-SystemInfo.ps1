@@ -6,11 +6,22 @@ function Get-SystemInfo
 
     .DESCRIPTION
         Retrieves comprehensive system information including CPU architecture, processor speed,
-        operating system details, computer model and name, memory information, and other
-        hardware specifications. Supports both local and remote computer queries.
+        operating system details, computer model and name, memory information, GPU/video card
+        details, physical disk specifications, audio devices, monitor/display information,
+        input devices (keyboard and mouse), network adapters, and other hardware specifications.
+        Supports both local and remote computer queries.
 
         Remote computer queries are only available on Windows systems via PowerShell remoting (WinRM).
         On macOS and Linux, only local computer queries are supported.
+
+        Hardware information includes:
+        - GPU/Video card name and memory
+        - Physical disks (embedded drives only, excludes USB and removable media)
+        - Audio devices
+        - Monitors/displays with resolution information
+        - Keyboard devices
+        - Mouse/pointing devices
+        - Network adapters (physical adapters only)
 
         Compatible with PowerShell Desktop 5.1 and PowerShell Core 6.2+ on Windows, macOS, and Linux.
 
@@ -24,6 +35,11 @@ function Get-SystemInfo
     .PARAMETER Credential
         Specifies credentials for remote computer access. Required for remote computers that need authentication.
         Only applicable on Windows systems with PowerShell remoting enabled.
+
+    .PARAMETER ExcludePrivateInfo
+        Excludes private and personally identifiable information from the output. When specified, the following
+        properties will be omitted: ComputerName, HostName, Domain, IPAddresses, SerialNumber, BIOSVersion,
+        TimeZone, LastBootTime, and Uptime.
 
     .EXAMPLE
         PS > Get-SystemInfo
@@ -49,7 +65,7 @@ function Get-SystemInfo
         SerialNumber         : XXXXXXXXXXX
         BIOSVersion          : 13822.1.2
         TimeZone             : (UTC-05:00) Eastern Time (New York)
-        LastBootTime         : 1/1/2025 5:42:29 PM
+        LastBootTime         : 1/1/2025 5:42:29 PM
         Uptime               : 17:39:59.8442180
 
         Gets system information from the local computer.
@@ -74,6 +90,35 @@ function Get-SystemInfo
 
         Gets system information and displays it in a formatted table.
 
+    .EXAMPLE
+        PS > Get-SystemInfo -ExcludePrivateInfo
+
+        OperatingSystem      : Microsoft Windows 11 Pro
+        OSArchitecture       : 64-bit
+        CPUArchitecture      : x64
+        CPUName              : Intel(R) Core(TM) i7-8665U CPU @ 1.90GHz
+        CPUCores             : 4
+        CPULogicalProcessors : 8
+        CPUSpeedMHz          : 2112
+        GPUName              : Intel(R) UHD Graphics 620 (1 GB)
+        GPUMemoryGB          : 1
+        Monitors             : IVO Unknown Monitor (1536x864)
+        Keyboard             : USB Input Device, Standard 101/102-Key or Microsoft Natural PS/2 Keyboard for HP Hotkey Support
+        Mouse                : HID-compliant mouse, Synaptics Pointing Device, USB Input Device, Synaptics HID ClickPad
+        NetworkAdapters      : Intel(R) Wi-Fi 6 AX200 160MHz (827 Mbps), Intel(R) Ethernet Connection (6) I219-LM (8796093022208 Mbps)
+        TotalMemoryGB        : 15.81
+        FreeMemoryGB         : 7.72
+        SystemDriveTotalGB   : 930.27
+        SystemDriveUsedGB    : 204.2
+        SystemDriveFreeGB    : 726.07
+        PhysicalDisks        : CT1000MX500SSD4 (931.51 GB, IDE)
+        AudioDevices         : Intel(R) Display Audio
+        Manufacturer         : HP
+        Model                : HP ZBook 15u G6
+
+        Gets system information while excluding private and personally identifiable information
+        such as computer name, hostname, IP addresses, serial number, and BIOS version.
+
     .OUTPUTS
         System.Object[]
 
@@ -90,11 +135,19 @@ function Get-SystemInfo
         - CPUCores: Number of processor cores
         - CPULogicalProcessors: Number of logical processors
         - CPUSpeedMHz: Processor speed in MHz
+        - GPUName: GPU/video card name(s)
+        - GPUMemoryGB: Total GPU memory in GB (when available)
+        - Monitors: Monitor/display information with resolution
+        - Keyboard: Keyboard device name(s)
+        - Mouse: Mouse/pointing device name(s)
+        - NetworkAdapters: Network adapter information (physical adapters only)
         - TotalMemoryGB: Total physical memory in GB
         - FreeMemoryGB: Available physical memory in GB
         - SystemDriveTotalGB: Total system drive capacity in GB
         - SystemDriveUsedGB: Used space on system drive in GB
         - SystemDriveFreeGB: Free space on system drive in GB
+        - PhysicalDisks: Physical disk information (embedded drives only, excludes USB/removable)
+        - AudioDevices: Audio device names
         - Manufacturer: Computer manufacturer
         - Model: Computer model
         - SerialNumber: Computer serial number (when available)
@@ -123,12 +176,15 @@ function Get-SystemInfo
     [CmdletBinding(ConfirmImpact = 'Low')]
     [OutputType([System.Object[]])]
     param(
-        [Parameter(Position = 0, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true, HelpMessage = 'Target computers to query')]
+        [Parameter(Position = 0, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]
         [Alias('Cn', 'PSComputerName', 'Server', 'Target')]
         [String[]]$ComputerName,
 
-        [Parameter(HelpMessage = 'Credentials for remote computer access')]
-        [PSCredential]$Credential
+        [Parameter()]
+        [PSCredential]$Credential,
+
+        [Parameter()]
+        [Switch]$ExcludePrivateInfo
     )
 
     begin
@@ -209,11 +265,19 @@ function Get-SystemInfo
                         CPUCores = $null
                         CPULogicalProcessors = $null
                         CPUSpeedMHz = $null
+                        GPUName = $null
+                        GPUMemoryGB = $null
+                        Monitors = $null
+                        Keyboard = $null
+                        Mouse = $null
+                        NetworkAdapters = $null
                         TotalMemoryGB = $null
                         FreeMemoryGB = $null
                         SystemDriveTotalGB = $null
                         SystemDriveUsedGB = $null
                         SystemDriveFreeGB = $null
+                        PhysicalDisks = $null
+                        AudioDevices = $null
                         Manufacturer = $null
                         Model = $null
                         SerialNumber = $null
@@ -317,6 +381,247 @@ function Get-SystemInfo
                             else
                             {
                                 $systemInfo.TimeZone = "$($timeZone.StandardName) (UTC$offsetString)"
+                            }
+
+                            # Get video card information
+                            try
+                            {
+                                $videoCards = Get-CimInstance -ClassName Win32_VideoController -ErrorAction Stop |
+                                Where-Object { $_.Status -eq 'OK' -or $_.Status -eq $null }
+
+                                if ($videoCards)
+                                {
+                                    $gpuInfo = @()
+                                    foreach ($gpu in $videoCards)
+                                    {
+                                        $gpuName = $gpu.Name
+                                        $gpuMemoryBytes = $gpu.AdapterRAM
+
+                                        if ($gpuMemoryBytes -and $gpuMemoryBytes -gt 0)
+                                        {
+                                            $gpuMemoryGB = [Math]::Round($gpuMemoryBytes / 1GB, 2)
+                                            $gpuInfo += "$gpuName ($gpuMemoryGB GB)"
+                                        }
+                                        else
+                                        {
+                                            $gpuInfo += $gpuName
+                                        }
+                                    }
+
+                                    $systemInfo.GPUName = $gpuInfo -join ', '
+
+                                    # Set GPUMemoryGB to total memory if available
+                                    $totalGpuMemory = ($videoCards | Where-Object { $_.AdapterRAM -gt 0 } |
+                                        Measure-Object -Property AdapterRAM -Sum).Sum
+                                    if ($totalGpuMemory -gt 0)
+                                    {
+                                        $systemInfo.GPUMemoryGB = [Math]::Round($totalGpuMemory / 1GB, 2)
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve video card information: $($_.Exception.Message)"
+                            }
+
+                            # Get physical disk information (embedded drives only - exclude USB/removable)
+                            try
+                            {
+                                $physicalDisks = Get-CimInstance -ClassName Win32_DiskDrive -ErrorAction Stop |
+                                Where-Object {
+                                    $_.MediaType -notmatch 'Removable' -and
+                                    $_.InterfaceType -notmatch 'USB' -and
+                                    $_.Size -gt 0
+                                }
+
+                                if ($physicalDisks)
+                                {
+                                    $diskInfo = @()
+                                    foreach ($disk in $physicalDisks)
+                                    {
+                                        $diskModel = $disk.Model
+                                        $diskSizeGB = [Math]::Round($disk.Size / 1GB, 2)
+                                        $diskInterface = $disk.InterfaceType
+
+                                        $diskInfo += "$diskModel ($diskSizeGB GB, $diskInterface)"
+                                    }
+
+                                    $systemInfo.PhysicalDisks = $diskInfo -join ', '
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve physical disk information: $($_.Exception.Message)"
+                            }
+
+                            # Get audio device information
+                            try
+                            {
+                                $audioDevices = Get-CimInstance -ClassName Win32_SoundDevice -ErrorAction Stop |
+                                Where-Object { $_.Status -eq 'OK' -or $_.Status -eq $null }
+
+                                if ($audioDevices)
+                                {
+                                    $audioInfo = @()
+                                    foreach ($audio in $audioDevices)
+                                    {
+                                        $audioInfo += $audio.Name
+                                    }
+
+                                    $systemInfo.AudioDevices = $audioInfo -join ', '
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve audio device information: $($_.Exception.Message)"
+                            }
+
+                            # Get monitor information
+                            try
+                            {
+                                $monitors = Get-CimInstance -Namespace root\wmi -ClassName WmiMonitorID -ErrorAction Stop
+
+                                if ($monitors)
+                                {
+                                    $monitorInfo = @()
+                                    foreach ($monitor in $monitors)
+                                    {
+                                        # Decode manufacturer name
+                                        $mfgName = if ($monitor.ManufacturerName)
+                                        {
+                                            -join ($monitor.ManufacturerName | Where-Object { $_ -ne 0 } | ForEach-Object { [char]$_ })
+                                        }
+                                        else { 'Unknown' }
+
+                                        # Decode user-friendly name
+                                        $monitorName = if ($monitor.UserFriendlyName)
+                                        {
+                                            -join ($monitor.UserFriendlyName | Where-Object { $_ -ne 0 } | ForEach-Object { [char]$_ })
+                                        }
+                                        else { 'Unknown Monitor' }
+
+                                        # Get resolution using WMI
+                                        try
+                                        {
+                                            Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+                                            $screen = [System.Windows.Forms.Screen]::AllScreens | Select-Object -First 1
+                                            $resolution = "$($screen.Bounds.Width)x$($screen.Bounds.Height)"
+                                        }
+                                        catch
+                                        {
+                                            $resolution = $null
+                                        }
+
+                                        if ($resolution)
+                                        {
+                                            $monitorInfo += "$mfgName $monitorName ($resolution)"
+                                        }
+                                        else
+                                        {
+                                            $monitorInfo += "$mfgName $monitorName"
+                                        }
+                                    }
+
+                                    $systemInfo.Monitors = $monitorInfo -join ', '
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve monitor information: $($_.Exception.Message)"
+                            }
+
+                            # Get keyboard information
+                            try
+                            {
+                                $keyboards = Get-CimInstance -ClassName Win32_Keyboard -ErrorAction Stop
+
+                                if ($keyboards)
+                                {
+                                    $keyboardInfo = @()
+                                    foreach ($kb in $keyboards)
+                                    {
+                                        if ($kb.Description)
+                                        {
+                                            $keyboardInfo += $kb.Description
+                                        }
+                                    }
+
+                                    if ($keyboardInfo.Count -gt 0)
+                                    {
+                                        $systemInfo.Keyboard = $keyboardInfo -join ', '
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve keyboard information: $($_.Exception.Message)"
+                            }
+
+                            # Get mouse information
+                            try
+                            {
+                                $mice = Get-CimInstance -ClassName Win32_PointingDevice -ErrorAction Stop
+
+                                if ($mice)
+                                {
+                                    $mouseInfo = @()
+                                    foreach ($mouse in $mice)
+                                    {
+                                        if ($mouse.Name)
+                                        {
+                                            $mouseInfo += $mouse.Name
+                                        }
+                                    }
+
+                                    if ($mouseInfo.Count -gt 0)
+                                    {
+                                        $systemInfo.Mouse = $mouseInfo -join ', '
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve mouse information: $($_.Exception.Message)"
+                            }
+
+                            # Get network adapter information (physical adapters only)
+                            try
+                            {
+                                $netAdapters = Get-CimInstance -ClassName Win32_NetworkAdapter -ErrorAction Stop |
+                                Where-Object {
+                                    $_.PhysicalAdapter -eq $true -and
+                                    $_.AdapterType -notmatch 'Tunnel|Loopback|Virtual' -and
+                                    $_.Name -notmatch 'Virtual|Bluetooth|TAP|VPN'
+                                }
+
+                                if ($netAdapters)
+                                {
+                                    $networkInfo = @()
+                                    foreach ($adapter in $netAdapters)
+                                    {
+                                        $adapterName = $adapter.Name
+                                        $speed = $adapter.Speed
+
+                                        if ($speed -and $speed -gt 0)
+                                        {
+                                            $speedMbps = [Math]::Round($speed / 1MB, 0)
+                                            $networkInfo += "$adapterName ($speedMbps Mbps)"
+                                        }
+                                        else
+                                        {
+                                            $networkInfo += $adapterName
+                                        }
+                                    }
+
+                                    if ($networkInfo.Count -gt 0)
+                                    {
+                                        $systemInfo.NetworkAdapters = $networkInfo -join ', '
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve network adapter information: $($_.Exception.Message)"
                             }
                         }
                         catch
@@ -520,6 +825,319 @@ function Get-SystemInfo
                             {
                                 Write-Verbose "Could not retrieve timezone: $($_.Exception.Message)"
                             }
+
+                            # Get GPU information using system_profiler
+                            try
+                            {
+                                $displayProfile = system_profiler SPDisplaysDataType 2>$null
+                                if ($displayProfile)
+                                {
+                                    # Parse GPU chipset model
+                                    $chipsetLines = $displayProfile | Select-String 'Chipset Model:'
+                                    if ($chipsetLines)
+                                    {
+                                        $gpuInfo = @()
+                                        foreach ($line in $chipsetLines)
+                                        {
+                                            $gpuName = ($line -replace '.*Chipset Model:\s*', '').Trim()
+
+                                            # Try to get VRAM for this GPU
+                                            # Find the line number and look for VRAM in subsequent lines
+                                            $lineIndex = [array]::IndexOf($displayProfile, $line.Line)
+                                            $vramLine = $displayProfile[($lineIndex + 1)..($lineIndex + 10)] |
+                                            Select-String 'VRAM.*:' | Select-Object -First 1
+
+                                            if ($vramLine)
+                                            {
+                                                $vramText = ($vramLine -replace '.*VRAM.*:\s*', '').Trim()
+                                                # Extract numeric value and convert to GB
+                                                if ($vramText -match '(\d+)\s*GB')
+                                                {
+                                                    $vramGB = [int]$matches[1]
+                                                    $gpuInfo += "$gpuName ($vramGB GB)"
+                                                }
+                                                elseif ($vramText -match '(\d+)\s*MB')
+                                                {
+                                                    $vramMB = [int]$matches[1]
+                                                    $vramGB = [Math]::Round($vramMB / 1024, 2)
+                                                    $gpuInfo += "$gpuName ($vramGB GB)"
+                                                }
+                                                else
+                                                {
+                                                    $gpuInfo += "$gpuName ($vramText)"
+                                                }
+                                            }
+                                            else
+                                            {
+                                                $gpuInfo += $gpuName
+                                            }
+                                        }
+
+                                        $systemInfo.GPUName = $gpuInfo -join ', '
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve GPU information: $($_.Exception.Message)"
+                            }
+
+                            # Get physical disk information using diskutil (embedded drives only)
+                            try
+                            {
+                                $diskList = diskutil list 2>$null
+                                if ($diskList)
+                                {
+                                    $diskInfo = @()
+
+                                    # Parse disk list to find physical disks (disk0, disk1, etc., but not external)
+                                    $currentDisk = $null
+                                    foreach ($line in $diskList)
+                                    {
+                                        # Match disk identifiers like /dev/disk0
+                                        if ($line -match '/dev/(disk\d+)\s+\(([^)]+)\)')
+                                        {
+                                            $diskId = $matches[1]
+                                            $diskType = $matches[2]
+
+                                            # Skip external/removable drives
+                                            if ($diskType -notmatch 'external|removable')
+                                            {
+                                                $currentDisk = $diskId
+
+                                                # Get detailed disk info
+                                                $diskInfo_detailed = diskutil info $diskId 2>$null
+                                                if ($diskInfo_detailed)
+                                                {
+                                                    $deviceName = $diskInfo_detailed | Select-String 'Device / Media Name:' |
+                                                    ForEach-Object { ($_ -replace '.*Device / Media Name:\s*', '').Trim() }
+
+                                                    $diskSize = $diskInfo_detailed | Select-String 'Disk Size:' |
+                                                    ForEach-Object { ($_ -replace '.*Disk Size:\s*', '').Trim() }
+
+                                                    $protocol = $diskInfo_detailed | Select-String 'Protocol:' |
+                                                    ForEach-Object { ($_ -replace '.*Protocol:\s*', '').Trim() }
+
+                                                    if ($deviceName -and $diskSize)
+                                                    {
+                                                        # Extract size in GB from the size string (e.g., "500.1 GB")
+                                                        if ($diskSize -match '([\d.]+)\s*GB')
+                                                        {
+                                                            $sizeGB = [Math]::Round([double]$matches[1], 2)
+                                                            if ($protocol)
+                                                            {
+                                                                $diskInfo += "$deviceName ($sizeGB GB, $protocol)"
+                                                            }
+                                                            else
+                                                            {
+                                                                $diskInfo += "$deviceName ($sizeGB GB)"
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    if ($diskInfo.Count -gt 0)
+                                    {
+                                        $systemInfo.PhysicalDisks = $diskInfo -join ', '
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve physical disk information: $($_.Exception.Message)"
+                            }
+
+                            # Get audio device information
+                            try
+                            {
+                                $audioProfile = system_profiler SPAudioDataType 2>$null
+                                if ($audioProfile)
+                                {
+                                    # Parse audio device names (look for device names under different categories)
+                                    $deviceLines = $audioProfile | Select-String '^\s{4}\w.*:$' |
+                                    Where-Object { $_ -notmatch 'Devices:|Audio ID' }
+
+                                    if ($deviceLines)
+                                    {
+                                        $audioInfo = @()
+                                        foreach ($line in $deviceLines)
+                                        {
+                                            $deviceName = ($line -replace ':\s*$', '').Trim()
+                                            if ($deviceName -and $deviceName -notmatch '^(Input|Output)')
+                                            {
+                                                $audioInfo += $deviceName
+                                            }
+                                        }
+
+                                        # Remove duplicates
+                                        $audioInfo = $audioInfo | Select-Object -Unique
+
+                                        if ($audioInfo.Count -gt 0)
+                                        {
+                                            $systemInfo.AudioDevices = $audioInfo -join ', '
+                                        }
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve audio device information: $($_.Exception.Message)"
+                            }
+
+                            # Get monitor/display information
+                            try
+                            {
+                                $displayProfile = system_profiler SPDisplaysDataType 2>$null
+                                if ($displayProfile)
+                                {
+                                    $monitorInfo = @()
+                                    # Parse display information
+                                    $displayLines = $displayProfile | Select-String '^\s{6}\w.*:$'
+
+                                    foreach ($line in $displayLines)
+                                    {
+                                        $displayName = ($line -replace ':\s*$', '').Trim()
+
+                                        # Get resolution for this display
+                                        $lineIndex = [array]::IndexOf($displayProfile, $line.Line)
+                                        $resolutionLine = $displayProfile[($lineIndex + 1)..($lineIndex + 10)] |
+                                        Select-String 'Resolution:' | Select-Object -First 1
+
+                                        if ($resolutionLine)
+                                        {
+                                            $resolution = ($resolutionLine -replace '.*Resolution:\s*', '').Trim()
+                                            $monitorInfo += "$displayName ($resolution)"
+                                        }
+                                        else
+                                        {
+                                            $monitorInfo += $displayName
+                                        }
+                                    }
+
+                                    if ($monitorInfo.Count -gt 0)
+                                    {
+                                        $systemInfo.Monitors = $monitorInfo -join ', '
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve monitor information: $($_.Exception.Message)"
+                            }
+
+                            # Get keyboard information
+                            try
+                            {
+                                $usbProfile = system_profiler SPUSBDataType 2>$null
+                                if ($usbProfile)
+                                {
+                                    $keyboardLines = $usbProfile | Select-String 'Keyboard'
+                                    if ($keyboardLines)
+                                    {
+                                        $keyboardInfo = @()
+                                        foreach ($line in $keyboardLines)
+                                        {
+                                            # Extract keyboard name
+                                            if ($line -match '([^:]+Keyboard[^:]*):')
+                                            {
+                                                $kbName = $matches[1].Trim()
+                                                if ($kbName -and $keyboardInfo -notcontains $kbName)
+                                                {
+                                                    $keyboardInfo += $kbName
+                                                }
+                                            }
+                                        }
+
+                                        if ($keyboardInfo.Count -gt 0)
+                                        {
+                                            $systemInfo.Keyboard = $keyboardInfo -join ', '
+                                        }
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve keyboard information: $($_.Exception.Message)"
+                            }
+
+                            # Get mouse/pointing device information
+                            try
+                            {
+                                $usbProfile = system_profiler SPUSBDataType 2>$null
+                                if ($usbProfile)
+                                {
+                                    $mouseLines = $usbProfile | Select-String 'Mouse|Trackpad|Pointing'
+                                    if ($mouseLines)
+                                    {
+                                        $mouseInfo = @()
+                                        foreach ($line in $mouseLines)
+                                        {
+                                            # Extract mouse/trackpad name
+                                            if ($line -match '([^:]+(?:Mouse|Trackpad|Pointing)[^:]*):')
+                                            {
+                                                $mouseName = $matches[1].Trim()
+                                                if ($mouseName -and $mouseInfo -notcontains $mouseName)
+                                                {
+                                                    $mouseInfo += $mouseName
+                                                }
+                                            }
+                                        }
+
+                                        if ($mouseInfo.Count -gt 0)
+                                        {
+                                            $systemInfo.Mouse = $mouseInfo -join ', '
+                                        }
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve mouse information: $($_.Exception.Message)"
+                            }
+
+                            # Get network adapter information
+                            try
+                            {
+                                $networkProfile = system_profiler SPNetworkDataType 2>$null
+                                if ($networkProfile)
+                                {
+                                    $networkInfo = @()
+                                    # Get Ethernet and Wi-Fi interfaces
+                                    $interfaceLines = $networkProfile | Select-String '^\s{4}(Ethernet|Wi-Fi|Thunderbolt).*:$'
+
+                                    foreach ($line in $interfaceLines)
+                                    {
+                                        $interfaceName = ($line -replace ':\s*$', '').Trim()
+
+                                        # Try to get hardware info
+                                        $lineIndex = [array]::IndexOf($networkProfile, $line.Line)
+                                        $hardwareLine = $networkProfile[($lineIndex + 1)..($lineIndex + 10)] |
+                                        Select-String 'Hardware:' | Select-Object -First 1
+
+                                        if ($hardwareLine)
+                                        {
+                                            $hardware = ($hardwareLine -replace '.*Hardware:\s*', '').Trim()
+                                            $networkInfo += "$interfaceName ($hardware)"
+                                        }
+                                        else
+                                        {
+                                            $networkInfo += $interfaceName
+                                        }
+                                    }
+
+                                    if ($networkInfo.Count -gt 0)
+                                    {
+                                        $systemInfo.NetworkAdapters = $networkInfo -join ', '
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve network adapter information: $($_.Exception.Message)"
+                            }
                         }
                         catch
                         {
@@ -688,11 +1306,355 @@ function Get-SystemInfo
                             {
                                 Write-Verbose "Could not retrieve timezone: $($_.Exception.Message)"
                             }
+
+                            # Get GPU information using lspci (requires pciutils package)
+                            try
+                            {
+                                $lspciAvailable = Get-Command lspci -ErrorAction SilentlyContinue
+                                if ($lspciAvailable)
+                                {
+                                    $gpuDevices = lspci 2>$null | Select-String 'VGA|3D|Display'
+                                    if ($gpuDevices)
+                                    {
+                                        $gpuInfo = @()
+                                        foreach ($gpu in $gpuDevices)
+                                        {
+                                            # Extract GPU name from lspci output
+                                            # Format: "00:02.0 VGA compatible controller: Intel Corporation Device"
+                                            if ($gpu -match ':\s*(.+)')
+                                            {
+                                                $gpuName = $matches[1].Trim()
+                                                # Clean up the name (remove "VGA compatible controller:" prefix)
+                                                $gpuName = $gpuName -replace '^(VGA compatible controller|3D controller|Display controller):\s*', ''
+                                                $gpuInfo += $gpuName
+                                            }
+                                        }
+
+                                        if ($gpuInfo.Count -gt 0)
+                                        {
+                                            $systemInfo.GPUName = $gpuInfo -join ', '
+                                        }
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve GPU information: $($_.Exception.Message)"
+                            }
+
+                            # Get physical disk information using lsblk (embedded drives only)
+                            try
+                            {
+                                $lsblkAvailable = Get-Command lsblk -ErrorAction SilentlyContinue
+                                if ($lsblkAvailable)
+                                {
+                                    # Get block devices that are disks (not partitions) and not removable
+                                    $diskList = lsblk -d -o NAME, SIZE, TYPE, TRAN, MODEL -n 2>$null |
+                                    Where-Object { $_ -match '\bdisk\b' -and $_ -notmatch '\busb\b' }
+
+                                    if ($diskList)
+                                    {
+                                        $diskInfo = @()
+                                        foreach ($disk in $diskList)
+                                        {
+                                            # Parse lsblk output: NAME SIZE TYPE TRAN MODEL
+                                            $parts = $disk -split '\s+' | Where-Object { $_ }
+                                            if ($parts.Count -ge 3)
+                                            {
+                                                $diskSize = $parts[1]
+                                                $diskTran = if ($parts.Count -ge 4) { $parts[3] } else { $null }
+                                                $diskModel = if ($parts.Count -ge 5) { $parts[4..($parts.Count - 1)] -join ' ' } else { 'Unknown' }
+
+                                                # Skip if transport is USB
+                                                if ($diskTran -eq 'usb')
+                                                {
+                                                    continue
+                                                }
+
+                                                if ($diskTran)
+                                                {
+                                                    $diskInfo += "$diskModel ($diskSize, $diskTran)"
+                                                }
+                                                else
+                                                {
+                                                    $diskInfo += "$diskModel ($diskSize)"
+                                                }
+                                            }
+                                        }
+
+                                        if ($diskInfo.Count -gt 0)
+                                        {
+                                            $systemInfo.PhysicalDisks = $diskInfo -join ', '
+                                        }
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve physical disk information: $($_.Exception.Message)"
+                            }
+
+                            # Get audio device information using aplay (ALSA)
+                            try
+                            {
+                                $aplayAvailable = Get-Command aplay -ErrorAction SilentlyContinue
+                                if ($aplayAvailable)
+                                {
+                                    $audioDevices = aplay -l 2>$null | Select-String 'card \d+:'
+                                    if ($audioDevices)
+                                    {
+                                        $audioInfo = @()
+                                        foreach ($device in $audioDevices)
+                                        {
+                                            # Parse output: "card 0: PCH [HDA Intel PCH], device 0: ..."
+                                            if ($device -match 'card \d+:\s*([^\[,]+)')
+                                            {
+                                                $audioName = $matches[1].Trim()
+                                                if ($audioName -and $audioInfo -notcontains $audioName)
+                                                {
+                                                    $audioInfo += $audioName
+                                                }
+                                            }
+                                        }
+
+                                        if ($audioInfo.Count -gt 0)
+                                        {
+                                            $systemInfo.AudioDevices = $audioInfo -join ', '
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    # Try PulseAudio as fallback
+                                    $pacmdAvailable = Get-Command pactl -ErrorAction SilentlyContinue
+                                    if ($pacmdAvailable)
+                                    {
+                                        $audioSinks = pactl list sinks short 2>$null
+                                        if ($audioSinks)
+                                        {
+                                            $audioInfo = @()
+                                            foreach ($sink in $audioSinks)
+                                            {
+                                                # Parse pactl output
+                                                $parts = $sink -split '\t' | Where-Object { $_ }
+                                                if ($parts.Count -ge 2)
+                                                {
+                                                    $sinkName = $parts[1]
+                                                    if ($sinkName -and $audioInfo -notcontains $sinkName)
+                                                    {
+                                                        $audioInfo += $sinkName
+                                                    }
+                                                }
+                                            }
+
+                                            if ($audioInfo.Count -gt 0)
+                                            {
+                                                $systemInfo.AudioDevices = $audioInfo -join ', '
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve audio device information: $($_.Exception.Message)"
+                            }
+
+                            # Get monitor/display information using xrandr
+                            try
+                            {
+                                $xrandrAvailable = Get-Command xrandr -ErrorAction SilentlyContinue
+                                if ($xrandrAvailable)
+                                {
+                                    $displayOutput = xrandr 2>$null
+                                    if ($displayOutput)
+                                    {
+                                        $monitorInfo = @()
+                                        $connectedDisplays = $displayOutput | Select-String ' connected'
+
+                                        foreach ($display in $connectedDisplays)
+                                        {
+                                            # Parse xrandr output: "HDMI-1 connected 1920x1080+0+0 ..."
+                                            if ($display -match '^(\S+)\s+connected\s+(?:primary\s+)?(\d+x\d+)')
+                                            {
+                                                $displayName = $matches[1]
+                                                $resolution = $matches[2]
+                                                $monitorInfo += "$displayName ($resolution)"
+                                            }
+                                            elseif ($display -match '^(\S+)\s+connected')
+                                            {
+                                                $displayName = $matches[1]
+                                                $monitorInfo += $displayName
+                                            }
+                                        }
+
+                                        if ($monitorInfo.Count -gt 0)
+                                        {
+                                            $systemInfo.Monitors = $monitorInfo -join ', '
+                                        }
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve monitor information: $($_.Exception.Message)"
+                            }
+
+                            # Get keyboard information
+                            try
+                            {
+                                $xinputAvailable = Get-Command xinput -ErrorAction SilentlyContinue
+                                if ($xinputAvailable)
+                                {
+                                    $inputDevices = xinput list 2>$null
+                                    if ($inputDevices)
+                                    {
+                                        $keyboardLines = $inputDevices | Select-String 'keyboard|Keyboard'
+                                        if ($keyboardLines)
+                                        {
+                                            $keyboardInfo = @()
+                                            foreach ($line in $keyboardLines)
+                                            {
+                                                # Parse xinput output: "↳ Keyboard Name    id=X [slave keyboard (Y)]"
+                                                if ($line -match '(?:↳\s+)?([^↳]+?)\s+id=\d+')
+                                                {
+                                                    $kbName = $matches[1].Trim()
+                                                    if ($kbName -and $kbName -notmatch 'Virtual|XTEST' -and $keyboardInfo -notcontains $kbName)
+                                                    {
+                                                        $keyboardInfo += $kbName
+                                                    }
+                                                }
+                                            }
+
+                                            if ($keyboardInfo.Count -gt 0)
+                                            {
+                                                $systemInfo.Keyboard = $keyboardInfo -join ', '
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve keyboard information: $($_.Exception.Message)"
+                            }
+
+                            # Get mouse/pointing device information
+                            try
+                            {
+                                $xinputAvailable = Get-Command xinput -ErrorAction SilentlyContinue
+                                if ($xinputAvailable)
+                                {
+                                    $inputDevices = xinput list 2>$null
+                                    if ($inputDevices)
+                                    {
+                                        $pointerLines = $inputDevices | Select-String 'pointer|Mouse|Touchpad|Trackpad'
+                                        if ($pointerLines)
+                                        {
+                                            $mouseInfo = @()
+                                            foreach ($line in $pointerLines)
+                                            {
+                                                # Parse xinput output
+                                                if ($line -match '(?:↳\s+)?([^↳]+?)\s+id=\d+')
+                                                {
+                                                    $mouseName = $matches[1].Trim()
+                                                    if ($mouseName -and $mouseName -notmatch 'Virtual|XTEST|pointer' -and $mouseInfo -notcontains $mouseName)
+                                                    {
+                                                        $mouseInfo += $mouseName
+                                                    }
+                                                }
+                                            }
+
+                                            if ($mouseInfo.Count -gt 0)
+                                            {
+                                                $systemInfo.Mouse = $mouseInfo -join ', '
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve mouse information: $($_.Exception.Message)"
+                            }
+
+                            # Get network adapter information
+                            try
+                            {
+                                $ipAvailable = Get-Command ip -ErrorAction SilentlyContinue
+                                if ($ipAvailable)
+                                {
+                                    # Get network interfaces
+                                    $interfaceOutput = ip link show 2>$null
+                                    if ($interfaceOutput)
+                                    {
+                                        $networkInfo = @()
+                                        $interfaces = $interfaceOutput | Select-String '^\d+:\s+(\w+):' | ForEach-Object {
+                                            if ($_ -match '^\d+:\s+(\w+):')
+                                            {
+                                                $matches[1]
+                                            }
+                                        }
+
+                                        foreach ($interface in $interfaces)
+                                        {
+                                            # Skip virtual, loopback, and docker interfaces
+                                            if ($interface -match '^(lo|docker|veth|br-|virbr)')
+                                            {
+                                                continue
+                                            }
+
+                                            # Get interface details
+                                            $ethtoolAvailable = Get-Command ethtool -ErrorAction SilentlyContinue
+                                            if ($ethtoolAvailable)
+                                            {
+                                                $speedInfo = ethtool $interface 2>$null | Select-String 'Speed:'
+                                                if ($speedInfo -and $speedInfo -match 'Speed:\s*(\d+)Mb/s')
+                                                {
+                                                    $speed = $matches[1]
+                                                    $networkInfo += "$interface ($speed Mbps)"
+                                                }
+                                                else
+                                                {
+                                                    $networkInfo += $interface
+                                                }
+                                            }
+                                            else
+                                            {
+                                                $networkInfo += $interface
+                                            }
+                                        }
+
+                                        if ($networkInfo.Count -gt 0)
+                                        {
+                                            $systemInfo.NetworkAdapters = $networkInfo -join ', '
+                                        }
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve network adapter information: $($_.Exception.Message)"
+                            }
                         }
                         catch
                         {
                             Write-Warning "Failed to retrieve some Linux system information: $($_.Exception.Message)"
                         }
+                    }
+
+                    # Apply privacy filter if requested
+                    if ($ExcludePrivateInfo)
+                    {
+                        $systemInfo.PSObject.Properties.Remove('ComputerName')
+                        $systemInfo.PSObject.Properties.Remove('HostName')
+                        $systemInfo.PSObject.Properties.Remove('Domain')
+                        $systemInfo.PSObject.Properties.Remove('IPAddresses')
+                        $systemInfo.PSObject.Properties.Remove('SerialNumber')
+                        $systemInfo.PSObject.Properties.Remove('BIOSVersion')
+                        $systemInfo.PSObject.Properties.Remove('TimeZone')
+                        $systemInfo.PSObject.Properties.Remove('LastBootTime')
+                        $systemInfo.PSObject.Properties.Remove('Uptime')
                     }
 
                     [void]$results.Add($systemInfo)
@@ -743,11 +1705,19 @@ function Get-SystemInfo
                             CPUCores = $null
                             CPULogicalProcessors = $null
                             CPUSpeedMHz = $null
+                            GPUName = $null
+                            GPUMemoryGB = $null
+                            Monitors = $null
+                            Keyboard = $null
+                            Mouse = $null
+                            NetworkAdapters = $null
                             TotalMemoryGB = $null
                             FreeMemoryGB = $null
                             SystemDriveTotalGB = $null
                             SystemDriveUsedGB = $null
                             SystemDriveFreeGB = $null
+                            PhysicalDisks = $null
+                            AudioDevices = $null
                             Manufacturer = $null
                             Model = $null
                             SerialNumber = $null
@@ -860,6 +1830,247 @@ function Get-SystemInfo
                             {
                                 $systemInfo.TimeZone = "$($timeZone.StandardName) (UTC$offsetString)"
                             }
+
+                            # Get video card information
+                            try
+                            {
+                                $videoCards = Get-CimInstance -ClassName Win32_VideoController -ErrorAction Stop |
+                                Where-Object { $_.Status -eq 'OK' -or $_.Status -eq $null }
+
+                                if ($videoCards)
+                                {
+                                    $gpuInfo = @()
+                                    foreach ($gpu in $videoCards)
+                                    {
+                                        $gpuName = $gpu.Name
+                                        $gpuMemoryBytes = $gpu.AdapterRAM
+
+                                        if ($gpuMemoryBytes -and $gpuMemoryBytes -gt 0)
+                                        {
+                                            $gpuMemoryGB = [Math]::Round($gpuMemoryBytes / 1GB, 2)
+                                            $gpuInfo += "$gpuName ($gpuMemoryGB GB)"
+                                        }
+                                        else
+                                        {
+                                            $gpuInfo += $gpuName
+                                        }
+                                    }
+
+                                    $systemInfo.GPUName = $gpuInfo -join ', '
+
+                                    # Set GPUMemoryGB to total memory if available
+                                    $totalGpuMemory = ($videoCards | Where-Object { $_.AdapterRAM -gt 0 } |
+                                        Measure-Object -Property AdapterRAM -Sum).Sum
+                                    if ($totalGpuMemory -gt 0)
+                                    {
+                                        $systemInfo.GPUMemoryGB = [Math]::Round($totalGpuMemory / 1GB, 2)
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve video card information: $($_.Exception.Message)"
+                            }
+
+                            # Get physical disk information (embedded drives only - exclude USB/removable)
+                            try
+                            {
+                                $physicalDisks = Get-CimInstance -ClassName Win32_DiskDrive -ErrorAction Stop |
+                                Where-Object {
+                                    $_.MediaType -notmatch 'Removable' -and
+                                    $_.InterfaceType -notmatch 'USB' -and
+                                    $_.Size -gt 0
+                                }
+
+                                if ($physicalDisks)
+                                {
+                                    $diskInfo = @()
+                                    foreach ($disk in $physicalDisks)
+                                    {
+                                        $diskModel = $disk.Model
+                                        $diskSizeGB = [Math]::Round($disk.Size / 1GB, 2)
+                                        $diskInterface = $disk.InterfaceType
+
+                                        $diskInfo += "$diskModel ($diskSizeGB GB, $diskInterface)"
+                                    }
+
+                                    $systemInfo.PhysicalDisks = $diskInfo -join ', '
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve physical disk information: $($_.Exception.Message)"
+                            }
+
+                            # Get audio device information
+                            try
+                            {
+                                $audioDevices = Get-CimInstance -ClassName Win32_SoundDevice -ErrorAction Stop |
+                                Where-Object { $_.Status -eq 'OK' -or $_.Status -eq $null }
+
+                                if ($audioDevices)
+                                {
+                                    $audioInfo = @()
+                                    foreach ($audio in $audioDevices)
+                                    {
+                                        $audioInfo += $audio.Name
+                                    }
+
+                                    $systemInfo.AudioDevices = $audioInfo -join ', '
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve audio device information: $($_.Exception.Message)"
+                            }
+
+                            # Get monitor information
+                            try
+                            {
+                                $monitors = Get-CimInstance -Namespace root\wmi -ClassName WmiMonitorID -ErrorAction Stop
+
+                                if ($monitors)
+                                {
+                                    $monitorInfo = @()
+                                    foreach ($monitor in $monitors)
+                                    {
+                                        # Decode manufacturer name
+                                        $mfgName = if ($monitor.ManufacturerName)
+                                        {
+                                            -join ($monitor.ManufacturerName | Where-Object { $_ -ne 0 } | ForEach-Object { [char]$_ })
+                                        }
+                                        else { 'Unknown' }
+
+                                        # Decode user-friendly name
+                                        $monitorName = if ($monitor.UserFriendlyName)
+                                        {
+                                            -join ($monitor.UserFriendlyName | Where-Object { $_ -ne 0 } | ForEach-Object { [char]$_ })
+                                        }
+                                        else { 'Unknown Monitor' }
+
+                                        # Get resolution using WMI
+                                        try
+                                        {
+                                            Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+                                            $screen = [System.Windows.Forms.Screen]::AllScreens | Select-Object -First 1
+                                            $resolution = "$($screen.Bounds.Width)x$($screen.Bounds.Height)"
+                                        }
+                                        catch
+                                        {
+                                            $resolution = $null
+                                        }
+
+                                        if ($resolution)
+                                        {
+                                            $monitorInfo += "$mfgName $monitorName ($resolution)"
+                                        }
+                                        else
+                                        {
+                                            $monitorInfo += "$mfgName $monitorName"
+                                        }
+                                    }
+
+                                    $systemInfo.Monitors = $monitorInfo -join ', '
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve monitor information: $($_.Exception.Message)"
+                            }
+
+                            # Get keyboard information
+                            try
+                            {
+                                $keyboards = Get-CimInstance -ClassName Win32_Keyboard -ErrorAction Stop
+
+                                if ($keyboards)
+                                {
+                                    $keyboardInfo = @()
+                                    foreach ($kb in $keyboards)
+                                    {
+                                        if ($kb.Description)
+                                        {
+                                            $keyboardInfo += $kb.Description
+                                        }
+                                    }
+
+                                    if ($keyboardInfo.Count -gt 0)
+                                    {
+                                        $systemInfo.Keyboard = $keyboardInfo -join ', '
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve keyboard information: $($_.Exception.Message)"
+                            }
+
+                            # Get mouse information
+                            try
+                            {
+                                $mice = Get-CimInstance -ClassName Win32_PointingDevice -ErrorAction Stop
+
+                                if ($mice)
+                                {
+                                    $mouseInfo = @()
+                                    foreach ($mouse in $mice)
+                                    {
+                                        if ($mouse.Name)
+                                        {
+                                            $mouseInfo += $mouse.Name
+                                        }
+                                    }
+
+                                    if ($mouseInfo.Count -gt 0)
+                                    {
+                                        $systemInfo.Mouse = $mouseInfo -join ', '
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve mouse information: $($_.Exception.Message)"
+                            }
+
+                            # Get network adapter information (physical adapters only)
+                            try
+                            {
+                                $netAdapters = Get-CimInstance -ClassName Win32_NetworkAdapter -ErrorAction Stop |
+                                Where-Object {
+                                    $_.PhysicalAdapter -eq $true -and
+                                    $_.AdapterType -notmatch 'Tunnel|Loopback|Virtual' -and
+                                    $_.Name -notmatch 'Virtual|Bluetooth|TAP|VPN'
+                                }
+
+                                if ($netAdapters)
+                                {
+                                    $networkInfo = @()
+                                    foreach ($adapter in $netAdapters)
+                                    {
+                                        $adapterName = $adapter.Name
+                                        $speed = $adapter.Speed
+
+                                        if ($speed -and $speed -gt 0)
+                                        {
+                                            $speedMbps = [Math]::Round($speed / 1MB, 0)
+                                            $networkInfo += "$adapterName ($speedMbps Mbps)"
+                                        }
+                                        else
+                                        {
+                                            $networkInfo += $adapterName
+                                        }
+                                    }
+
+                                    if ($networkInfo.Count -gt 0)
+                                    {
+                                        $systemInfo.NetworkAdapters = $networkInfo -join ', '
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve network adapter information: $($_.Exception.Message)"
+                            }
                         }
                         catch
                         {
@@ -871,6 +2082,20 @@ function Get-SystemInfo
 
                     if ($remoteResults)
                     {
+                        # Apply privacy filter if requested
+                        if ($ExcludePrivateInfo)
+                        {
+                            $remoteResults.PSObject.Properties.Remove('ComputerName')
+                            $remoteResults.PSObject.Properties.Remove('HostName')
+                            $remoteResults.PSObject.Properties.Remove('Domain')
+                            $remoteResults.PSObject.Properties.Remove('IPAddresses')
+                            $remoteResults.PSObject.Properties.Remove('SerialNumber')
+                            $remoteResults.PSObject.Properties.Remove('BIOSVersion')
+                            $remoteResults.PSObject.Properties.Remove('TimeZone')
+                            $remoteResults.PSObject.Properties.Remove('LastBootTime')
+                            $remoteResults.PSObject.Properties.Remove('Uptime')
+                        }
+
                         [void]$results.Add($remoteResults)
                     }
                 }
