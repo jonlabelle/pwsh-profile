@@ -50,20 +50,24 @@ Describe 'Test-TlsProtocol Integration Tests' {
             $result.Status | Should -Not -BeNullOrEmpty
         }
 
-        It 'Should detect that older TLS versions are not supported on modern endpoints' {
-            # Most modern endpoints have disabled TLS 1.0 and 1.1
+        It 'Should test multiple TLS protocols on modern endpoints' {
+            # Test TLS 1.0 and 1.1 (whether supported or not depends on server configuration)
             $result = Test-TlsProtocol -ComputerName 'www.google.com' -Protocol Tls, Tls11 -Timeout 10000
 
             $result | Should -Not -BeNullOrEmpty
             $result | Should -HaveCount 2
 
-            # TLS 1.0 and 1.1 should generally not be supported on modern Google servers
+            # Verify protocols were tested
             $result[0].Protocol | Should -Be 'Tls'
             $result[1].Protocol | Should -Be 'Tls11'
 
-            # At least one should be unsupported (modern servers disable old TLS)
-            $unsupportedCount = ($result | Where-Object { -not $_.Supported }).Count
-            $unsupportedCount | Should -BeGreaterThan 0
+            # Each result should have a status
+            $result[0].Status | Should -Not -BeNullOrEmpty
+            $result[1].Status | Should -Not -BeNullOrEmpty
+
+            # Response times should be recorded
+            $result[0].ResponseTime | Should -Not -BeNullOrEmpty
+            $result[1].ResponseTime | Should -Not -BeNullOrEmpty
         }
 
         It 'Should test all protocols on a public endpoint' {
