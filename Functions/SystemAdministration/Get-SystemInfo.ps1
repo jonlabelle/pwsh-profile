@@ -41,6 +41,11 @@ function Get-SystemInfo
         properties will be omitted: ComputerName, HostName, Domain, IPAddresses, SerialNumber, BIOSVersion,
         TimeZone, LastBootTime, and Uptime.
 
+    .PARAMETER ExcludeNullProperties
+        Excludes properties with null or empty values from the output. This provides cleaner results by only
+        showing properties that have actual values, which is particularly useful for cross-platform scenarios
+        where certain properties may not be available on all operating systems.
+
     .EXAMPLE
         PS > Get-SystemInfo
 
@@ -119,6 +124,12 @@ function Get-SystemInfo
         Gets system information while excluding private and personally identifiable information
         such as computer name, hostname, IP addresses, serial number, and BIOS version.
 
+    .EXAMPLE
+        PS > Get-SystemInfo -ExcludeNullProperties
+
+        Gets system information and excludes any properties that have null or empty values,
+        resulting in a cleaner output showing only populated properties.
+
     .OUTPUTS
         System.Object[]
 
@@ -134,6 +145,7 @@ function Get-SystemInfo
         - CPUName: Processor name/model
         - CPUCores: Number of processor cores
         - CPULogicalProcessors: Number of logical processors
+        - HyperthreadingEnabled: Whether hyperthreading/SMT is enabled
         - CPUSpeedMHz: Processor speed in MHz
         - GPUName: GPU/video card name(s)
         - GPUMemoryGB: Total GPU memory in GB (when available)
@@ -184,7 +196,10 @@ function Get-SystemInfo
         [PSCredential]$Credential,
 
         [Parameter()]
-        [Switch]$ExcludePrivateInfo
+        [Switch]$ExcludePrivateInfo,
+
+        [Parameter()]
+        [Switch]$ExcludeNullProperties
     )
 
     begin
@@ -264,6 +279,7 @@ function Get-SystemInfo
                         CPUName = $null
                         CPUCores = $null
                         CPULogicalProcessors = $null
+                        HyperthreadingEnabled = $null
                         CPUSpeedMHz = $null
                         GPUName = $null
                         GPUMemoryGB = $null
@@ -346,6 +362,17 @@ function Get-SystemInfo
                             $systemInfo.CPUName = $cpu.Name.Trim()
                             $systemInfo.CPUCores = $cpu.NumberOfCores
                             $systemInfo.CPULogicalProcessors = $cpu.NumberOfLogicalProcessors
+
+                            # Detect hyperthreading/SMT (if logical processors > cores, HT is enabled)
+                            if ($cpu.NumberOfLogicalProcessors -gt $cpu.NumberOfCores)
+                            {
+                                $systemInfo.HyperthreadingEnabled = $true
+                            }
+                            else
+                            {
+                                $systemInfo.HyperthreadingEnabled = $false
+                            }
+
                             $systemInfo.CPUSpeedMHz = $cpu.MaxClockSpeed
 
                             # Get computer system information
@@ -683,6 +710,21 @@ function Get-SystemInfo
 
                             $cpuLogical = sysctl -n hw.logicalcpu 2>$null
                             if ($cpuLogical) { $systemInfo.CPULogicalProcessors = [int]$cpuLogical }
+
+                            # Detect hyperthreading/SMT
+                            if ($cpuCores -and $cpuLogical)
+                            {
+                                $coresInt = [int]$cpuCores
+                                $logicalInt = [int]$cpuLogical
+                                if ($logicalInt -gt $coresInt)
+                                {
+                                    $systemInfo.HyperthreadingEnabled = $true
+                                }
+                                else
+                                {
+                                    $systemInfo.HyperthreadingEnabled = $false
+                                }
+                            }
 
                             # CPU frequency: Only available on Intel Macs via hw.cpufrequency
                             # Apple Silicon Macs use dynamic frequency scaling and don't expose a fixed value
@@ -1199,6 +1241,19 @@ function Get-SystemInfo
 
                                 $processors = $cpuInfo | Where-Object { $_ -match '^processor' }
                                 $systemInfo.CPULogicalProcessors = $processors.Count
+
+                                # Detect hyperthreading/SMT
+                                if ($systemInfo.CPUCores -and $systemInfo.CPULogicalProcessors)
+                                {
+                                    if ($systemInfo.CPULogicalProcessors -gt $systemInfo.CPUCores)
+                                    {
+                                        $systemInfo.HyperthreadingEnabled = $true
+                                    }
+                                    else
+                                    {
+                                        $systemInfo.HyperthreadingEnabled = $false
+                                    }
+                                }
                             }
 
                             # Remove duplicate CPU cores calculation
@@ -1657,6 +1712,25 @@ function Get-SystemInfo
                         $systemInfo.PSObject.Properties.Remove('Uptime')
                     }
 
+                    # Remove null/empty properties if requested
+                    if ($ExcludeNullProperties)
+                    {
+                        $propertiesToRemove = @()
+                        foreach ($prop in $systemInfo.PSObject.Properties)
+                        {
+                            if ($null -eq $prop.Value -or
+                                ($prop.Value -is [string] -and [string]::IsNullOrWhiteSpace($prop.Value)))
+                            {
+                                $propertiesToRemove += $prop.Name
+                            }
+                        }
+
+                        foreach ($propName in $propertiesToRemove)
+                        {
+                            $systemInfo.PSObject.Properties.Remove($propName)
+                        }
+                    }
+
                     [void]$results.Add($systemInfo)
                 }
                 catch
@@ -1704,6 +1778,7 @@ function Get-SystemInfo
                             CPUName = $null
                             CPUCores = $null
                             CPULogicalProcessors = $null
+                            HyperthreadingEnabled = $null
                             CPUSpeedMHz = $null
                             GPUName = $null
                             GPUMemoryGB = $null
@@ -1794,6 +1869,17 @@ function Get-SystemInfo
                             $systemInfo.CPUName = $cpu.Name.Trim()
                             $systemInfo.CPUCores = $cpu.NumberOfCores
                             $systemInfo.CPULogicalProcessors = $cpu.NumberOfLogicalProcessors
+
+                            # Detect hyperthreading/SMT (if logical processors > cores, HT is enabled)
+                            if ($cpu.NumberOfLogicalProcessors -gt $cpu.NumberOfCores)
+                            {
+                                $systemInfo.HyperthreadingEnabled = $true
+                            }
+                            else
+                            {
+                                $systemInfo.HyperthreadingEnabled = $false
+                            }
+
                             $systemInfo.CPUSpeedMHz = $cpu.MaxClockSpeed
 
                             # Get computer system information
@@ -2094,6 +2180,25 @@ function Get-SystemInfo
                             $remoteResults.PSObject.Properties.Remove('TimeZone')
                             $remoteResults.PSObject.Properties.Remove('LastBootTime')
                             $remoteResults.PSObject.Properties.Remove('Uptime')
+                        }
+
+                        # Remove null/empty properties if requested
+                        if ($ExcludeNullProperties)
+                        {
+                            $propertiesToRemove = @()
+                            foreach ($prop in $remoteResults.PSObject.Properties)
+                            {
+                                if ($null -eq $prop.Value -or
+                                    ($prop.Value -is [string] -and [string]::IsNullOrWhiteSpace($prop.Value)))
+                                {
+                                    $propertiesToRemove += $prop.Name
+                                }
+                            }
+
+                            foreach ($propName in $propertiesToRemove)
+                            {
+                                $remoteResults.PSObject.Properties.Remove($propName)
+                            }
                         }
 
                         [void]$results.Add($remoteResults)
