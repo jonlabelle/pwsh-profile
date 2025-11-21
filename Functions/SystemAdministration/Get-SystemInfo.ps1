@@ -36,12 +36,12 @@ function Get-SystemInfo
         Specifies credentials for remote computer access. Required for remote computers that need authentication.
         Only applicable on Windows systems with PowerShell remoting enabled.
 
-    .PARAMETER ExcludePrivateInfo
+    .PARAMETER NoPII
         Excludes private and personally identifiable information from the output. When specified, the following
         properties will be omitted: ComputerName, HostName, Domain, IPAddresses, SerialNumber, BIOSVersion,
         TimeZone, LastBootTime, and Uptime.
 
-    .PARAMETER ExcludeNullProperties
+    .PARAMETER NoEmptyProps
         Excludes properties with null or empty values from the output. This provides cleaner results by only
         showing properties that have actual values, which is particularly useful for cross-platform scenarios
         where certain properties may not be available on all operating systems.
@@ -96,7 +96,7 @@ function Get-SystemInfo
         Gets system information and displays it in a formatted table.
 
     .EXAMPLE
-        PS > Get-SystemInfo -ExcludePrivateInfo
+        PS > Get-SystemInfo -NoPII
 
         OperatingSystem      : Microsoft Windows 11 Pro
         OSArchitecture       : 64-bit
@@ -125,7 +125,7 @@ function Get-SystemInfo
         such as computer name, hostname, IP addresses, serial number, and BIOS version.
 
     .EXAMPLE
-        PS > Get-SystemInfo -ExcludeNullProperties
+        PS > Get-SystemInfo -NoEmptyProps
 
         Gets system information and excludes any properties that have null or empty values,
         resulting in a cleaner output showing only populated properties.
@@ -196,10 +196,10 @@ function Get-SystemInfo
         [PSCredential]$Credential,
 
         [Parameter()]
-        [Switch]$ExcludePrivateInfo,
+        [Switch]$NoPII,
 
         [Parameter()]
-        [Switch]$ExcludeNullProperties
+        [Switch]$NoEmptyProps
     )
 
     begin
@@ -1699,7 +1699,7 @@ function Get-SystemInfo
                     }
 
                     # Apply privacy filter if requested
-                    if ($ExcludePrivateInfo)
+                    if ($NoPII)
                     {
                         $systemInfo.PSObject.Properties.Remove('ComputerName')
                         $systemInfo.PSObject.Properties.Remove('HostName')
@@ -1713,7 +1713,7 @@ function Get-SystemInfo
                     }
 
                     # Remove null/empty properties if requested
-                    if ($ExcludeNullProperties)
+                    if ($NoEmptyProps)
                     {
                         $propertiesToRemove = @()
                         foreach ($prop in $systemInfo.PSObject.Properties)
@@ -2169,7 +2169,7 @@ function Get-SystemInfo
                     if ($remoteResults)
                     {
                         # Apply privacy filter if requested
-                        if ($ExcludePrivateInfo)
+                        if ($NoPII)
                         {
                             $remoteResults.PSObject.Properties.Remove('ComputerName')
                             $remoteResults.PSObject.Properties.Remove('HostName')
@@ -2183,7 +2183,7 @@ function Get-SystemInfo
                         }
 
                         # Remove null/empty properties if requested
-                        if ($ExcludeNullProperties)
+                        if ($NoEmptyProps)
                         {
                             $propertiesToRemove = @()
                             foreach ($prop in $remoteResults.PSObject.Properties)
