@@ -392,6 +392,7 @@ The profile includes utility functions organized by category:
 - **[`Test-DnsNameResolution`](Functions/NetworkAndDns/Test-DnsNameResolution.ps1)** — Tests DNS name resolution using cross-platform .NET methods
 - **[`Test-HttpResponse`](Functions/NetworkAndDns/Test-HttpResponse.ps1)** — Tests HTTP/HTTPS endpoints and returns response details
 - **[`Test-Port`](Functions/NetworkAndDns/Test-Port.ps1)** — Tests TCP/UDP port connectivity with detailed connection information
+- **[`Test-TlsProtocol`](Functions/NetworkAndDns/Test-TlsProtocol.ps1)** — Tests which TLS protocols (1.0, 1.1, 1.2, 1.3) are supported by remote web servers
 
 ### System Administration
 
