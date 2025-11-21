@@ -119,7 +119,7 @@ irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1'
 
 > **Strongly Recommended:** Use [install.ps1](install.ps1) instead of manually cloning the repository. The install script provides automatic backups, preserves your local directories (`Help`, `Modules`, `PSReadLine`, `Scripts`), and includes easy restoration capabilities that manual installation does not.
 
-If you still prefer to install manually, you can clone this repository directly into your profile directory. **Warning:** This approach does not preserve your local directories and requires manual restoration if something goes wrong:
+If you still prefer to install manually, you can clone this repository directly into your profile directory:
 
 ```powershell
 # Resolve profile directory
