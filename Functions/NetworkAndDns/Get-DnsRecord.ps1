@@ -133,9 +133,6 @@ function Get-DnsRecord
         Author: Jon LaBelle
         Date: November 9, 2025
 
-        Dependencies:
-        - Set-TlsSecurityProtocol (for HTTPS/TLS 1.2+ support)
-
         DNS-over-HTTPS Providers:
         - Cloudflare: https://cloudflare-dns.com/dns-query
         - Google: https://dns.google/resolve
@@ -173,9 +170,6 @@ function Get-DnsRecord
     begin
     {
         Write-Verbose 'Initializing DNS query'
-
-        # Ensure TLS 1.2+ is enabled for HTTPS connections
-        Set-TlsSecurityProtocol -MinimumVersion Tls12
 
         # DNS-over-HTTPS (DoH) endpoints
         $dohEndpoints = @{

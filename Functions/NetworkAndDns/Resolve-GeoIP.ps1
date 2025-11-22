@@ -102,9 +102,6 @@ function Resolve-GeoIP
         Author: Jon LaBelle
         Date: November 9, 2025
 
-        Dependencies:
-        - Set-TlsSecurityProtocol (for HTTPS/TLS 1.2+ support)
-
         API Service Details:
         - ipapi.co: 1000 requests/day free, HTTPS, detailed data
         - ip-api.com: 45 requests/minute, no key required, comprehensive
@@ -140,9 +137,6 @@ function Resolve-GeoIP
     begin
     {
         Write-Verbose 'Initializing IP geolocation lookup'
-
-        # Ensure TLS 1.2+ is enabled for HTTPS connections
-        Set-TlsSecurityProtocol -MinimumVersion Tls12
 
         # API service configurations
         $services = @{

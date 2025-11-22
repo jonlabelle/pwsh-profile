@@ -74,16 +74,6 @@ function Get-OutdatedModules
     {
         Write-Verbose 'Starting outdated module check process'
 
-        # Configure TLS for secure connections
-        try
-        {
-            Set-TlsSecurityProtocol -MinimumVersion Tls12 -Verbose:$VerbosePreference
-        }
-        catch
-        {
-            Write-Warning "Could not configure TLS settings: $($_.Exception.Message)"
-        }
-
         # System modules that should typically be excluded for safety
         $systemModules = @(
             'Microsoft.PowerShell.*',

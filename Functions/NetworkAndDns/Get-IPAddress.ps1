@@ -147,9 +147,6 @@ function Get-IPAddress
         Author: Jon LaBelle
         Date: November 9, 2025
 
-        Dependencies:
-        - Set-TlsSecurityProtocol (for HTTPS/TLS 1.2+ support)
-
         Public IP Services:
         - ipinfo.io - Provides geolocation data (city, region, country, org)
         - ifconfig.me - Simple IP return
@@ -186,9 +183,6 @@ function Get-IPAddress
     begin
     {
         Write-Verbose "Getting IP addresses (Mode: $(if ($Public) { 'Public' } else { 'Local' }))"
-
-        # Ensure TLS 1.2+ is enabled for HTTPS connections
-        Set-TlsSecurityProtocol -MinimumVersion Tls12
     }
 
     process

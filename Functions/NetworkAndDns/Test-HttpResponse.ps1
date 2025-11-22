@@ -123,9 +123,6 @@ function Test-HttpResponse
     .NOTES
         Author: Jon LaBelle
         Date: November 9, 2025
-
-        Dependencies:
-        - Set-TlsSecurityProtocol (for HTTPS/TLS 1.2+ support)
     #>
     [CmdletBinding()]
     [OutputType([System.Management.Automation.PSCustomObject])]
@@ -163,9 +160,6 @@ function Test-HttpResponse
     begin
     {
         Write-Verbose 'Initializing HTTP client'
-
-        # Ensure TLS 1.2+ is enabled for HTTPS connections
-        Set-TlsSecurityProtocol -MinimumVersion Tls12
 
         # Create HTTP client handler
         $httpHandler = [System.Net.Http.HttpClientHandler]::new()

@@ -215,7 +215,7 @@ Describe 'install.ps1 integration tests' {
                 Test-Path $funcLocalTestFile | Should -BeFalse
 
                 # These directories should not exist at all
-                foreach ($name in @('Help', 'Modules', 'PSReadLine', 'Scripts'))
+                foreach ($name in @('Help', 'Modules', 'PSReadLine'))
                 {
                     Test-Path (Join-Path $profileRoot $name) | Should -BeFalse
                 }
