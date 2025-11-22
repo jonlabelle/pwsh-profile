@@ -978,16 +978,27 @@ function Get-SystemInfo
                             # Get process and thread count
                             try
                             {
-                                $processCount = Get-Process -A 2>$null | Measure-Object | Select-Object -ExpandProperty Count
+                                $processCount = (Get-Process -ErrorAction SilentlyContinue | Measure-Object).Count
                                 if ($processCount)
                                 {
-                                    # Subtract 1 for the header line
-                                    $systemInfo.ProcessCount = $processCount - 1
+                                    $systemInfo.ProcessCount = $processCount
+                                }
+
+                                # Get thread count using ps -M (macOS-specific)
+                                $threadCountOutput = ps -M -A 2>$null | wc -l 2>$null
+                                if ($threadCountOutput)
+                                {
+                                    $threadCount = [int]$threadCountOutput.Trim()
+                                    if ($threadCount -gt 1)
+                                    {
+                                        # Subtract 1 for the header line
+                                        $systemInfo.ThreadCount = $threadCount - 1
+                                    }
                                 }
                             }
                             catch
                             {
-                                Write-Verbose "Could not retrieve process count: $($_.Exception.Message)"
+                                Write-Verbose "Could not retrieve process/thread count: $($_.Exception.Message)"
                             }
 
                             # Get available memory using vm_stat
@@ -1672,26 +1683,18 @@ function Get-SystemInfo
                             # Get process and thread count
                             try
                             {
-                                $processCount = Get-Process -A 2>$null | Measure-Object | Select-Object -ExpandProperty Count
+                                $processCount = (Get-Process -ErrorAction SilentlyContinue | Measure-Object).Count
                                 if ($processCount)
                                 {
-                                    # Subtract 1 for the header line
-                                    $systemInfo.ProcessCount = $processCount - 1
+                                    $systemInfo.ProcessCount = $processCount
                                 }
 
-                                # Get thread count from /proc
-                                if (Test-Path '/proc')
+                                # Get thread count using ps with nlwp (number of light-weight processes/threads)
+                                # This is more efficient than parsing /proc filesystem
+                                $threadCountOutput = ps -A -o pid, nlwp 2>$null | awk 'NR>1 {sum+=$2} END {print sum}' 2>$null
+                                if ($threadCountOutput)
                                 {
-                                    $threadCount = Get-ChildItem -Path '/proc' -Directory -ErrorAction SilentlyContinue |
-                                    Where-Object { $_.Name -match '^\d+$' } |
-                                    ForEach-Object {
-                                        $taskDir = Join-Path $_.FullName 'task'
-                                        if (Test-Path $taskDir)
-                                        {
-                                            (Get-ChildItem -Path $taskDir -Directory -ErrorAction SilentlyContinue).Count
-                                        }
-                                    } | Measure-Object -Sum | Select-Object -ExpandProperty Sum
-
+                                    $threadCount = [int]$threadCountOutput.Trim()
                                     if ($threadCount -gt 0)
                                     {
                                         $systemInfo.ThreadCount = $threadCount
