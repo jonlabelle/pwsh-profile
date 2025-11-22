@@ -9,15 +9,15 @@ function Set-TlsSecurityProtocol
         setting to ensure secure TLS connections. It supports both PowerShell Desktop (5.1)
         and PowerShell Core (6+).
 
-        On modern systems (.NET Framework 4.7+, .NET Core 3.0+), it's often best to let the
-        operating system decide the best security protocol by not setting a specific version.
-        This function defaults to ensuring at least TLS 1.2 is available but can be used
+        On modern systems, it's often best to let the operating system decide the best
+        security protocol by not setting a specific version. This function defaults to
+        letting the operating system decide the best security protocol, but can be used
         to enforce other versions.
 
     .PARAMETER MinimumVersion
         The minimum TLS version to ensure is enabled.
         Valid values: SystemDefault, Tls, Tls11, Tls12, Tls13.
-        Default is Tls12. 'SystemDefault' allows the OS to choose the best protocol.
+        Default is SystemDefault. 'SystemDefault' allows the OS to choose the best protocol.
 
     .PARAMETER Force
         Forces the security protocol to be set, even if a secure version is already configured.
@@ -29,7 +29,7 @@ function Set-TlsSecurityProtocol
     .EXAMPLE
         PS > Set-TlsSecurityProtocol
 
-        Ensures at least TLS 1.2 is enabled for the current session.
+        Sets the security protocol to the operating system default for the current session.
 
     .EXAMPLE
         PS > Set-TlsSecurityProtocol -MinimumVersion Tls13 -Verbose
@@ -41,10 +41,9 @@ function Set-TlsSecurityProtocol
         Adds TLS 1.3 to the existing security protocols.
 
     .EXAMPLE
-        PS > Set-TlsSecurityProtocol -MinimumVersion SystemDefault -Force -PassThru
-        SystemDefault
+        PS > Set-TlsSecurityProtocol -MinimumVersion Tls12
 
-        Resets the security protocol to the operating system default and returns the setting.
+        Ensures at least TLS 1.2 is enabled, useful for older systems or specific compatibility requirements.
 
     .OUTPUTS
         System.Net.SecurityProtocolType
@@ -61,7 +60,7 @@ function Set-TlsSecurityProtocol
     param(
         [Parameter()]
         [ValidateSet('SystemDefault', 'Tls', 'Tls11', 'Tls12', 'Tls13')]
-        [String]$MinimumVersion = 'Tls12',
+        [String]$MinimumVersion = 'SystemDefault',
 
         [Parameter()]
         [Switch]$Force,
