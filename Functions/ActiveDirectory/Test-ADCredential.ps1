@@ -63,8 +63,6 @@ function Test-ADCredential
     .LINK
         https://jonlabelle.com/snippets/view/powershell/test-active-directory-credential
     #>
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
     [CmdletBinding()]
     [OutputType([bool])]
     param (
