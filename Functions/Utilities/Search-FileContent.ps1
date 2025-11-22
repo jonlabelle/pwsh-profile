@@ -159,7 +159,7 @@ function Search-FileContent
         [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName, Position = 1)]
         [Alias('FullName', 'FilePath', 'PSPath')]
         [ValidateNotNullOrEmpty()]
-        [String[]]$Path = '.',
+        [String[]]$Path = (Get-Location),
 
         [Parameter()]
         [Switch]$Literal,

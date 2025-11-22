@@ -122,7 +122,7 @@ function Invoke-FFmpeg
         [Alias('Directory', 'Folder', 'Location')]
         [ValidateNotNullOrEmpty()]
         [string[]]
-        $Path = '.',
+        $Path = (Get-Location),
 
         [Parameter(Position = 1)]
         [ValidateNotNullOrEmpty()]
