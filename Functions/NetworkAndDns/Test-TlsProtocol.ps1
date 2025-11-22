@@ -2,11 +2,12 @@ function Test-TlsProtocol
 {
     <#
     .SYNOPSIS
-        Tests which TLS protocols are supported by a remote web server.
+        Tests which TLS protocols are supported by a remote server.
 
     .DESCRIPTION
-        Tests TLS protocol support on remote web servers by attempting connections using
-        different TLS versions (TLS 1.0, 1.1, 1.2, and 1.3). Returns detailed information
+        Tests TLS protocol support on remote servers by attempting connections using
+        different TLS versions (TLS 1.0, 1.1, 1.2, and 1.3). It works with any TCP-based
+        service that uses TLS for encryption, not just HTTPS. Returns detailed information
         about which protocols are supported or rejected.
 
         Compatible with PowerShell Desktop 5.1+ on Windows, macOS, and Linux.
@@ -88,6 +89,72 @@ function Test-TlsProtocol
         PS > Test-TlsProtocol -ComputerName 'server.com' | Where-Object { $_.Supported }
 
         Tests all TLS protocols and filters to show only supported ones.
+
+    .EXAMPLE
+        PS > Test-TlsProtocol -ComputerName 'smtp.gmail.com' -Port 465
+
+        Server       : smtp.gmail.com
+        Port         : 465
+        Protocol     : Tls
+        Supported    : True
+        Status       : Success
+        ResponseTime : 00:00:00.3033514
+
+        Server       : smtp.gmail.com
+        Port         : 465
+        Protocol     : Tls11
+        Supported    : True
+        Status       : Success
+        ResponseTime : 00:00:00.1057390
+
+        Server       : smtp.gmail.com
+        Port         : 465
+        Protocol     : Tls12
+        Supported    : True
+        Status       : Success
+        ResponseTime : 00:00:00.1216716
+
+        Server       : smtp.gmail.com
+        Port         : 465
+        Protocol     : Tls13
+        Supported    : True
+        Status       : Success
+        ResponseTime : 00:00:00.0887873
+
+        Tests TLS protocols on the Gmail SMTPS service.
+
+    .EXAMPLE
+        PS > Test-TlsProtocol -ComputerName 'imap.mail.me.com' -Port 993
+
+        Server       : imap.mail.me.com
+        Port         : 993
+        Protocol     : Tls
+        Supported    : False
+        Status       : Not supported by server
+        ResponseTime : 00:00:00.1503006
+
+        Server       : imap.mail.me.com
+        Port         : 993
+        Protocol     : Tls11
+        Supported    : False
+        Status       : Not supported by server
+        ResponseTime : 00:00:00.0866580
+
+        Server       : imap.mail.me.com
+        Port         : 993
+        Protocol     : Tls12
+        Supported    : True
+        Status       : Success
+        ResponseTime : 00:00:00.2287825
+
+        Server       : imap.mail.me.com
+        Port         : 993
+        Protocol     : Tls13
+        Supported    : True
+        Status       : Success
+        ResponseTime : 00:00:00.0850641
+
+        Tests TLS protocols on the iCloud IMAPS service.
 
     .OUTPUTS
         PSCustomObject
