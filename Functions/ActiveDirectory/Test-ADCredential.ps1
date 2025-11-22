@@ -76,7 +76,25 @@ function Test-ADCredential
 
     begin
     {
-        # Load required assemblies for DirectoryServices
+        # Platform detection for PowerShell 5.1 and Core
+        if ($PSVersionTable.PSVersion.Major -lt 6)
+        {
+            # PowerShell 5.1 - Windows only
+            $script:IsWindowsPlatform = $true
+        }
+        else
+        {
+            # PowerShell Core - use built-in variables
+            $script:IsWindowsPlatform = $IsWindows
+        }
+
+        # Verify Windows platform
+        if (-not $script:IsWindowsPlatform)
+        {
+            throw 'Test-ADCredential is only supported on Windows. Use alternative LDAP authentication methods or consider using PowerShell modules like ''Microsoft.Graph'' for Azure AD authentication.'
+        }
+
+        # Load required assemblies for DirectoryServices (Windows only)
         try
         {
             Add-Type -AssemblyName System.DirectoryServices.AccountManagement -ErrorAction Stop
@@ -84,34 +102,12 @@ function Test-ADCredential
         }
         catch
         {
-            Write-Warning "Failed to load DirectoryServices assemblies: $($_.Exception.Message)"
+            throw "Failed to load DirectoryServices assemblies: $($_.Exception.Message)"
         }
     }
 
     process
     {
-        # Platform detection
-        if ($PSVersionTable.PSVersion.Major -lt 6)
-        {
-            # PowerShell 5.1 - Windows only
-            $script:IsWindowsPlatform = $true
-            $script:IsMacOSPlatform = $false
-            $script:IsLinuxPlatform = $false
-        }
-        else
-        {
-            # PowerShell Core - cross-platform
-            $script:IsWindowsPlatform = $IsWindows
-            $script:IsMacOSPlatform = $IsMacOS
-            $script:IsLinuxPlatform = $IsLinux
-        }
-
-        # Check if running on Windows
-        if (-not $script:IsWindowsPlatform)
-        {
-            $platformName = if ($script:IsMacOSPlatform) { 'macOS' } elseif ($script:IsLinuxPlatform) { 'Linux' } else { 'this platform' }
-            throw "Test-ADCredential is only supported on Windows. On $platformName, use alternative LDAP authentication methods or consider using PowerShell modules like 'Microsoft.Graph' for Azure AD authentication."
-        }
 
         $username = $Credential.UserName
         $password = $Credential.GetNetworkCredential().Password
@@ -131,6 +127,7 @@ function Test-ADCredential
         }
 
         $directoryEntry = $null
+        $searcher = $null
         try
         {
             $directoryEntry = New-Object System.DirectoryServices.DirectoryEntry($domain, $username, $password)
@@ -149,7 +146,6 @@ function Test-ADCredential
             $searcher.Filter = '(objectClass=*)'
             $searcher.SizeLimit = 1
             $null = $searcher.FindOne()
-            $searcher.Dispose()
 
             Write-Verbose "Successfully authenticated '$username'"
             Write-Host "Successfully authenticated with '$username'" -ForegroundColor Green
@@ -177,6 +173,19 @@ function Test-ADCredential
         }
         finally
         {
+            if ($null -ne $searcher)
+            {
+                try
+                {
+                    $searcher.Dispose()
+                }
+                catch
+                {
+                    # Silently ignore disposal errors as the object may already be disposed
+                    Write-Debug "DirectorySearcher disposal failed: $($_.Exception.Message)"
+                }
+            }
+
             if ($null -ne $directoryEntry)
             {
                 try
