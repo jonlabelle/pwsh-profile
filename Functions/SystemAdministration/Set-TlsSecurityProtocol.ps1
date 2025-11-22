@@ -14,8 +14,8 @@ function Set-TlsSecurityProtocol
         letting the operating system decide the best security protocol, but can be used
         to enforce other versions.
 
-    .PARAMETER MinimumVersion
-        The minimum TLS version to ensure is enabled.
+    .PARAMETER Protocol
+        The TLS protocol configuration to apply.
         Valid values: SystemDefault, Tls, Tls11, Tls12, Tls13.
         Default is SystemDefault. 'SystemDefault' allows the OS to choose the best protocol.
 
@@ -32,7 +32,7 @@ function Set-TlsSecurityProtocol
         Sets the security protocol to the operating system default for the current session.
 
     .EXAMPLE
-        PS > Set-TlsSecurityProtocol -MinimumVersion Tls13 -Verbose
+        PS > Set-TlsSecurityProtocol -Protocol Tls13 -Verbose
 
         VERBOSE: Current security protocol: Tls12
         VERBOSE: TLS 1.3 is available on this system.
@@ -41,7 +41,7 @@ function Set-TlsSecurityProtocol
         Adds TLS 1.3 to the existing security protocols.
 
     .EXAMPLE
-        PS > Set-TlsSecurityProtocol -MinimumVersion Tls12
+        PS > Set-TlsSecurityProtocol -Protocol Tls12
 
         Ensures at least TLS 1.2 is enabled, useful for older systems or specific compatibility requirements.
 
@@ -60,7 +60,7 @@ function Set-TlsSecurityProtocol
     param(
         [Parameter()]
         [ValidateSet('SystemDefault', 'Tls', 'Tls11', 'Tls12', 'Tls13')]
-        [String]$MinimumVersion = 'SystemDefault',
+        [String]$Protocol = 'SystemDefault',
 
         [Parameter()]
         [Switch]$Force,
@@ -71,7 +71,7 @@ function Set-TlsSecurityProtocol
 
     begin
     {
-        Write-Verbose "Starting TLS security protocol configuration (Minimum: $MinimumVersion)"
+        Write-Verbose "Starting TLS security protocol configuration (Protocol: $Protocol)"
 
         # Create a mapping of protocol names to their enum values and strength
         $protocolMap = @{
@@ -106,7 +106,7 @@ function Set-TlsSecurityProtocol
             Write-Verbose "Current security protocol: $currentProtocol"
 
             # Handle SystemDefault as a special case
-            if ($MinimumVersion -eq 'SystemDefault')
+            if ($Protocol -eq 'SystemDefault')
             {
                 if ($Force -or $currentProtocol -ne $protocolMap.SystemDefault.Value)
                 {
@@ -122,7 +122,7 @@ function Set-TlsSecurityProtocol
             {
                 # Determine if the current configuration is already sufficient
                 $isSufficient = $false
-                $minStrength = $protocolMap[$MinimumVersion].Strength
+                $minStrength = $protocolMap[$Protocol].Strength
                 foreach ($protocolName in $protocolMap.Keys)
                 {
                     if ($protocolMap[$protocolName].Strength -ge $minStrength)
@@ -165,7 +165,7 @@ function Set-TlsSecurityProtocol
                 }
                 else
                 {
-                    Write-Verbose "Security protocol already configured with $MinimumVersion or higher."
+                    Write-Verbose "Security protocol already configured with $Protocol or higher."
                 }
             }
 

@@ -33,37 +33,34 @@ Describe 'Set-TlsSecurityProtocol' {
     }
 
     Context 'Parameter Validation' {
-        It 'Should accept valid MinimumVersion values' {
-            { Set-TlsSecurityProtocol -MinimumVersion 'Tls' } | Should -Not -Throw
-            { Set-TlsSecurityProtocol -MinimumVersion 'Tls11' } | Should -Not -Throw
-            { Set-TlsSecurityProtocol -MinimumVersion 'Tls12' } | Should -Not -Throw
-            { Set-TlsSecurityProtocol -MinimumVersion 'Tls13' } | Should -Not -Throw
+        It 'Should accept valid Protocol values' {
+            { Set-TlsSecurityProtocol -Protocol 'Tls' } | Should -Not -Throw
+            { Set-TlsSecurityProtocol -Protocol 'Tls11' } | Should -Not -Throw
+            { Set-TlsSecurityProtocol -Protocol 'Tls12' } | Should -Not -Throw
+            { Set-TlsSecurityProtocol -Protocol 'Tls13' } | Should -Not -Throw
         }
 
-        It 'Should reject invalid MinimumVersion values' {
-            { Set-TlsSecurityProtocol -MinimumVersion 'InvalidTls' } | Should -Throw
+        It 'Should reject invalid Protocol values' {
+            { Set-TlsSecurityProtocol -Protocol 'InvalidTls' } | Should -Throw
         }
 
-        It 'Should have Tls12 as default MinimumVersion' {
-            # Set to less secure protocol first (if possible)
+        It 'Should have SystemDefault as default Protocol' {
+            # Set to a different protocol first
             try
             {
-                [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls
-                $testNeeded = $true
+                [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
             }
             catch
             {
-                # If we can't set TLS 1.0, just test that the function doesn't throw
-                $testNeeded = $false
+                # If we can't set TLS 1.2, use whatever is available
+                [Net.ServicePointManager]::SecurityProtocol = $script:OriginalSecurityProtocol
             }
 
             Set-TlsSecurityProtocol
 
-            if ($testNeeded)
-            {
-                $current = [Net.ServicePointManager]::SecurityProtocol
-                ($current -band [Net.SecurityProtocolType]::Tls12) | Should -Not -Be 0
-            }
+            $current = [Net.ServicePointManager]::SecurityProtocol
+            # Should be set to SystemDefault (value of 0)
+            $current | Should -Be ([Net.SecurityProtocolType]::SystemDefault)
         }
     }
 
@@ -81,7 +78,7 @@ Describe 'Set-TlsSecurityProtocol' {
                 return
             }
 
-            Set-TlsSecurityProtocol -MinimumVersion 'Tls12'
+            Set-TlsSecurityProtocol -Protocol 'Tls12'
 
             $current = [Net.ServicePointManager]::SecurityProtocol
             ($current -band [Net.SecurityProtocolType]::Tls12) | Should -Not -Be 0
@@ -92,7 +89,7 @@ Describe 'Set-TlsSecurityProtocol' {
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
             $originalProtocol = [Net.ServicePointManager]::SecurityProtocol
 
-            Set-TlsSecurityProtocol -MinimumVersion 'Tls12'
+            Set-TlsSecurityProtocol -Protocol 'Tls12'
 
             $current = [Net.ServicePointManager]::SecurityProtocol
             $current | Should -Be $originalProtocol
@@ -102,7 +99,7 @@ Describe 'Set-TlsSecurityProtocol' {
             # Set to secure protocol
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-            Set-TlsSecurityProtocol -MinimumVersion 'Tls12' -Force
+            Set-TlsSecurityProtocol -Protocol 'Tls12' -Force
 
             $current = [Net.ServicePointManager]::SecurityProtocol
             ($current -band [Net.SecurityProtocolType]::Tls12) | Should -Not -Be 0
@@ -111,14 +108,14 @@ Describe 'Set-TlsSecurityProtocol' {
 
     Context 'PassThru Parameter' {
         It 'Should return SecurityProtocol when PassThru is specified' {
-            $result = Set-TlsSecurityProtocol -MinimumVersion 'Tls12' -PassThru
+            $result = Set-TlsSecurityProtocol -Protocol 'Tls12' -PassThru
 
             $result | Should -BeOfType [System.Net.SecurityProtocolType]
             $result | Should -Be ([Net.ServicePointManager]::SecurityProtocol)
         }
 
         It 'Should not return anything when PassThru is not specified' {
-            $result = Set-TlsSecurityProtocol -MinimumVersion 'Tls12'
+            $result = Set-TlsSecurityProtocol -Protocol 'Tls12'
 
             $result | Should -BeNullOrEmpty
         }
@@ -127,7 +124,7 @@ Describe 'Set-TlsSecurityProtocol' {
     Context 'TLS Version Handling' {
         It 'Should handle Tls as minimum version' {
             # This test just verifies the function doesn't throw
-            { Set-TlsSecurityProtocol -MinimumVersion 'Tls' } | Should -Not -Throw
+            { Set-TlsSecurityProtocol -Protocol 'Tls' } | Should -Not -Throw
 
             $current = [Net.ServicePointManager]::SecurityProtocol
             # Should have at least TLS 1.0 enabled (if supported)
@@ -136,7 +133,7 @@ Describe 'Set-TlsSecurityProtocol' {
 
         It 'Should handle Tls11 as minimum version' {
             # This test just verifies the function doesn't throw
-            { Set-TlsSecurityProtocol -MinimumVersion 'Tls11' } | Should -Not -Throw
+            { Set-TlsSecurityProtocol -Protocol 'Tls11' } | Should -Not -Throw
 
             $current = [Net.ServicePointManager]::SecurityProtocol
             # Should have some TLS protocol enabled
@@ -145,7 +142,7 @@ Describe 'Set-TlsSecurityProtocol' {
 
         It 'Should handle Tls13 gracefully on systems that do not support it' {
             # This should not throw even if TLS 1.3 is not available
-            { Set-TlsSecurityProtocol -MinimumVersion 'Tls13' } | Should -Not -Throw
+            { Set-TlsSecurityProtocol -Protocol 'Tls13' } | Should -Not -Throw
 
             $current = [Net.ServicePointManager]::SecurityProtocol
             # Should have either TLS 1.3 or TLS 1.2 (fallback) set
@@ -178,7 +175,7 @@ Describe 'Set-TlsSecurityProtocol' {
                 $hadTls13 = $false
             }
 
-            Set-TlsSecurityProtocol -MinimumVersion 'Tls12'
+            Set-TlsSecurityProtocol -Protocol 'Tls12'
 
             $current = [Net.ServicePointManager]::SecurityProtocol
             ($current -band [Net.SecurityProtocolType]::Tls12) | Should -Not -Be 0
@@ -204,7 +201,7 @@ Describe 'Set-TlsSecurityProtocol' {
 
     Context 'Verbose Output' {
         It 'Should provide verbose output when requested' {
-            $verboseOutput = Set-TlsSecurityProtocol -MinimumVersion 'Tls12' -Verbose 4>&1
+            $verboseOutput = Set-TlsSecurityProtocol -Protocol 'Tls12' -Verbose 4>&1
 
             $verboseOutput | Should -Not -BeNullOrEmpty
             $verboseOutput | Should -Match 'TLS|protocol|security'
@@ -214,19 +211,19 @@ Describe 'Set-TlsSecurityProtocol' {
     Context 'Cross-Platform Compatibility' {
         It 'Should work on PowerShell Desktop (5.1)' {
             # This test runs regardless of PowerShell version
-            { Set-TlsSecurityProtocol -MinimumVersion 'Tls12' } | Should -Not -Throw
+            { Set-TlsSecurityProtocol -Protocol 'Tls12' } | Should -Not -Throw
         }
 
         It 'Should work on PowerShell Core (6+)' {
             # This test runs regardless of PowerShell version
-            { Set-TlsSecurityProtocol -MinimumVersion 'Tls12' } | Should -Not -Throw
+            { Set-TlsSecurityProtocol -Protocol 'Tls12' } | Should -Not -Throw
         }
 
         It 'Should handle TLS 1.3 appropriately based on PowerShell version' {
             if ($PSVersionTable.PSVersion.Major -ge 6)
             {
                 # PowerShell Core - should attempt TLS 1.3
-                { Set-TlsSecurityProtocol -MinimumVersion 'Tls13' } | Should -Not -Throw
+                { Set-TlsSecurityProtocol -Protocol 'Tls13' } | Should -Not -Throw
 
                 $current = [Net.ServicePointManager]::SecurityProtocol
                 # Should have either TLS 1.3 or TLS 1.2 (fallback) set
@@ -238,7 +235,7 @@ Describe 'Set-TlsSecurityProtocol' {
             else
             {
                 # PowerShell Desktop - should fall back to TLS 1.2 (but might set TLS 1.3 if available)
-                { Set-TlsSecurityProtocol -MinimumVersion 'Tls13' } | Should -Not -Throw
+                { Set-TlsSecurityProtocol -Protocol 'Tls13' } | Should -Not -Throw
                 $current = [Net.ServicePointManager]::SecurityProtocol
                 # Should have either TLS 1.3 or TLS 1.2 set
                 $hasTls12 = ($current -band [Net.SecurityProtocolType]::Tls12) -ne 0
