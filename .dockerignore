@@ -1,0 +1,36 @@
+# Git
+.git/
+.github/
+.gitignore
+.gitattributes
+
+# Test artifacts
+testresults.xml
+_tmp/
+tmp/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Logs
+*.log
+
+# Documentation (not needed in container)
+*.md
+LICENSE
+
+/Modules/
+/Scripts/
+/PSReadline/
+
+testresults.xml
+*.png

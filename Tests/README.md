@@ -47,6 +47,8 @@ Tests/
 
 ## Running Tests
 
+### Local Testing
+
 ```powershell
 # Run all tests
 ./Invoke-Tests.ps1
@@ -61,7 +63,53 @@ Tests/
 ./Invoke-Tests.ps1 -OutputFormat Detailed
 ```
 
+### Docker Testing (Linux Containers)
+
+Run tests in a Linux container from the project root using Docker Compose.
+
+**Prerequisites:** Docker Desktop (macOS/Windows) or Docker Engine (Linux)
+
+#### Quick Start
+
+```bash
+# Run all tests
+docker compose -f Tests/docker-compose.yml run --rm pwsh-tests
+
+# Interactive PowerShell session
+docker compose -f Tests/docker-compose.yml run --rm pwsh-tests pwsh
+```
+
+#### Run Specific Test Types
+
+```bash
+# Unit tests only
+docker compose -f Tests/docker-compose.yml run --rm pwsh-tests \
+  pwsh -NoProfile -File ./Invoke-Tests.ps1 -TestType Unit
+
+# Integration tests only
+docker compose -f Tests/docker-compose.yml run --rm pwsh-tests \
+  pwsh -NoProfile -File ./Invoke-Tests.ps1 -TestType Integration
+
+# PSScriptAnalyzer only
+docker compose -f Tests/docker-compose.yml run --rm pwsh-tests \
+  pwsh -NoProfile -Command "Invoke-ScriptAnalyzer -Settings PSScriptAnalyzerSettings.psd1 -Path . -Recurse"
+```
+
+#### Container Management
+
+```bash
+# Pull latest image
+docker compose -f Tests/docker-compose.yml pull
+
+# Clean up
+docker compose -f Tests/docker-compose.yml down
+```
+
+**Note:** The container mounts the project root to `/workspace`, so code changes are immediately available and test results (`testresults.xml`) are saved locally.
+
 ### Manual Test Execution
+
+Run tests manually with Pester:
 
 ```powershell
 # Install Pester if not available
@@ -76,23 +124,19 @@ Invoke-Pester -Configuration (Import-PowerShellDataFile Tests/PesterConfiguratio
 
 ## Test Design Principles
 
-### Based on Documentation Examples
+### Documentation-Driven Tests
 
-All tests are derived from the `.EXAMPLE` sections in function documentation
+All tests are derived from the `.EXAMPLE` sections in function documentation.
 
 ### Cross-Platform Compatibility
 
-Tests are designed to work on:
-
-- Windows (PowerShell Desktop 5.1 and PowerShell Core)
-- macOS (PowerShell Core)
-- Linux (PowerShell Core)
+Tests work on Windows (PowerShell Desktop 5.1 and PowerShell Core), macOS, and Linux (PowerShell Core).
 
 ### Robust Resource Cleanup
 
-All tests implement comprehensive cleanup to ensure test isolation and prevent resource leaks:
+All tests implement comprehensive cleanup to ensure test isolation and prevent resource leaks.
 
-#### Test Directory Cleanup
+#### Test Directory Cleanup Example
 
 ```powershell
 AfterEach {
@@ -119,7 +163,7 @@ AfterEach {
 }
 ```
 
-#### Background Job Cleanup
+#### Background Job Cleanup Example
 
 ```powershell
 AfterEach {
@@ -135,9 +179,9 @@ AfterEach {
 }
 ```
 
-#### Using TestCleanupUtilities.ps1
+#### Using Centralized Cleanup Utilities
 
-For complex cleanup scenarios, tests can use the centralized cleanup utilities:
+For complex cleanup scenarios, use `TestCleanupUtilities.ps1`:
 
 ```powershell
 BeforeAll {
