@@ -55,8 +55,20 @@ function Replace-StringInFile
 
     .PARAMETER Encoding
         The file encoding to use when reading and writing files.
-        Valid values: UTF8, ASCII, Unicode, UTF32, UTF7, Default, OEM
-        Default: UTF8
+        When set to 'Auto' (default), the original file encoding is automatically detected and preserved.
+
+        Valid values:
+        - Auto: Automatically detect and preserve original file encoding (default)
+        - UTF8: UTF-8 without BOM
+        - UTF8BOM: UTF-8 with BOM
+        - UTF16LE: UTF-16 Little Endian with BOM
+        - UTF16BE: UTF-16 Big Endian with BOM
+        - UTF32: UTF-32 Little Endian with BOM
+        - UTF32BE: UTF-32 Big Endian with BOM
+        - ASCII: 7-bit ASCII encoding
+        - ANSI: System default ANSI encoding (code page dependent)
+
+        Default: Auto
 
     .PARAMETER WhatIf
         Shows what would happen if the command runs without actually making changes.
@@ -203,8 +215,8 @@ function Replace-StringInFile
         [Switch]$Backup,
 
         [Parameter()]
-        [ValidateSet('UTF8', 'ASCII', 'Unicode', 'UTF32', 'UTF7', 'Default', 'OEM')]
-        [String]$Encoding = 'UTF8'
+        [ValidateSet('Auto', 'UTF8', 'UTF8BOM', 'UTF16LE', 'UTF16BE', 'UTF32', 'UTF32BE', 'ASCII', 'ANSI')]
+        [String]$Encoding = 'Auto'
     )
 
     begin
@@ -219,6 +231,164 @@ function Replace-StringInFile
         if ($PreserveCase -and -not $CaseInsensitive)
         {
             throw 'PreserveCase requires CaseInsensitive to be enabled'
+        }
+
+        # Helper function to detect file encoding
+        function Get-FileEncoding
+        {
+            param(
+                [String]$FilePath
+            )
+
+            try
+            {
+                # Read only the first few bytes to detect BOM and sample for encoding detection
+                $stream = [System.IO.File]::OpenRead($FilePath)
+                try
+                {
+                    if ($stream.Length -eq 0)
+                    {
+                        return New-Object System.Text.UTF8Encoding($false)  # UTF-8 without BOM for empty files
+                    }
+
+                    # Read up to 4 bytes for BOM detection
+                    $bomBuffer = New-Object byte[] 4
+                    $bomBytesRead = $stream.Read($bomBuffer, 0, 4)
+
+                    # Check for BOM patterns - Order matters! Check longer BOMs first
+                    # UTF-32 LE BOM: FF FE 00 00 (4 bytes)
+                    if ($bomBytesRead -ge 4 -and $bomBuffer[0] -eq 0xFF -and $bomBuffer[1] -eq 0xFE -and $bomBuffer[2] -eq 0x00 -and $bomBuffer[3] -eq 0x00)
+                    {
+                        return [System.Text.Encoding]::UTF32  # UTF-32 LE
+                    }
+                    # UTF-32 BE BOM: 00 00 FE FF (4 bytes)
+                    elseif ($bomBytesRead -ge 4 -and $bomBuffer[0] -eq 0x00 -and $bomBuffer[1] -eq 0x00 -and $bomBuffer[2] -eq 0xFE -and $bomBuffer[3] -eq 0xFF)
+                    {
+                        return New-Object System.Text.UTF32Encoding($true, $true)  # UTF-32 BE
+                    }
+                    # UTF-8 BOM: EF BB BF (3 bytes)
+                    elseif ($bomBytesRead -ge 3 -and $bomBuffer[0] -eq 0xEF -and $bomBuffer[1] -eq 0xBB -and $bomBuffer[2] -eq 0xBF)
+                    {
+                        return New-Object System.Text.UTF8Encoding($true)  # UTF-8 with BOM
+                    }
+                    # UTF-16 LE BOM: FF FE (2 bytes) - Check after UTF-32 LE to avoid conflict
+                    elseif ($bomBytesRead -ge 2 -and $bomBuffer[0] -eq 0xFF -and $bomBuffer[1] -eq 0xFE)
+                    {
+                        return [System.Text.Encoding]::Unicode  # UTF-16 LE
+                    }
+                    # UTF-16 BE BOM: FE FF (2 bytes)
+                    elseif ($bomBytesRead -ge 2 -and $bomBuffer[0] -eq 0xFE -and $bomBuffer[1] -eq 0xFF)
+                    {
+                        return [System.Text.Encoding]::BigEndianUnicode  # UTF-16 BE
+                    }
+
+                    # No BOM detected, read a sample to determine encoding
+                    # Reset stream position to beginning
+                    $stream.Position = 0
+
+                    # Read up to 8KB sample for encoding detection
+                    $sampleSize = [Math]::Min($stream.Length, 8192)
+                    $sampleBuffer = New-Object byte[] $sampleSize
+                    $sampleBytesRead = $stream.Read($sampleBuffer, 0, $sampleSize)
+
+                    if ($sampleBytesRead -eq 0)
+                    {
+                        return New-Object System.Text.UTF8Encoding($false)  # UTF-8 without BOM for empty files
+                    }
+
+                    # Check if it's valid UTF-8 using the sample
+                    try
+                    {
+                        $utf8NoBom = New-Object System.Text.UTF8Encoding($false, $true)  # Strict UTF-8 validation
+                        $decoded = $utf8NoBom.GetString($sampleBuffer, 0, $sampleBytesRead)
+                        $reencoded = $utf8NoBom.GetBytes($decoded)
+
+                        # If reencoding produces the same bytes, it's likely UTF-8
+                        if ($sampleBytesRead -eq $reencoded.Length)
+                        {
+                            $match = $true
+                            for ($i = 0; $i -lt $sampleBytesRead; $i++)
+                            {
+                                if ($sampleBuffer[$i] -ne $reencoded[$i])
+                                {
+                                    $match = $false
+                                    break
+                                }
+                            }
+                            if ($match)
+                            {
+                                return $utf8NoBom  # UTF-8 without BOM
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        # Not valid UTF-8, continue to next encoding check
+                        Write-Verbose "File '$FilePath' sample is not valid UTF-8"
+                    }
+
+                    # Check if sample bytes are all ASCII
+                    $isAscii = $true
+                    for ($i = 0; $i -lt $sampleBytesRead; $i++)
+                    {
+                        if ($sampleBuffer[$i] -gt 127)
+                        {
+                            $isAscii = $false
+                            break
+                        }
+                    }
+
+                    if ($isAscii)
+                    {
+                        return [System.Text.Encoding]::ASCII
+                    }
+
+                    # Default to UTF-8 without BOM for other cases
+                    return New-Object System.Text.UTF8Encoding($false)
+                }
+                finally
+                {
+                    $stream.Close()
+                }
+            }
+            catch
+            {
+                Write-Verbose "Error detecting encoding for '$FilePath': $($_.Exception.Message)"
+                return New-Object System.Text.UTF8Encoding($false)  # UTF-8 without BOM as fallback
+            }
+        }
+
+        # Helper function to convert encoding name to encoding object
+        function Get-EncodingFromName
+        {
+            param(
+                [String]$EncodingName
+            )
+
+            try
+            {
+                switch ($EncodingName.ToUpper())
+                {
+                    'AUTO' { return $null }  # Return null to indicate auto-detect
+                    'UTF8' { return New-Object System.Text.UTF8Encoding($false) }
+                    'UTF8BOM' { return New-Object System.Text.UTF8Encoding($true) }
+                    'UTF16LE' { return [System.Text.Encoding]::Unicode }
+                    'UTF16BE' { return [System.Text.Encoding]::BigEndianUnicode }
+                    'UTF32' { return [System.Text.Encoding]::UTF32 }
+                    'UTF32BE' { return New-Object System.Text.UTF32Encoding($true, $true) }
+                    'ASCII' { return [System.Text.Encoding]::ASCII }
+                    'ANSI' { return [System.Text.Encoding]::Default }
+                    default
+                    {
+                        throw "Unsupported encoding: $EncodingName"
+                    }
+                }
+            }
+            catch
+            {
+                Write-Error "Failed to create encoding '$EncodingName': $($_.Exception.Message)"
+                return $null
+            }
         }
 
         # Build regex options
@@ -243,6 +413,7 @@ function Replace-StringInFile
         Write-Verbose "Regex mode: $Regex"
         Write-Verbose "Case insensitive: $CaseInsensitive"
         Write-Verbose "Preserve case: $PreserveCase"
+        Write-Verbose "Encoding: $Encoding"
     }
 
     process
@@ -267,21 +438,57 @@ function Replace-StringInFile
 
                     Write-Verbose "Processing file: $($file.FullName)"
 
-                    # Check if file is binary
+                    # Always auto-detect the source encoding for reading
+                    $sourceEncoding = Get-FileEncoding -FilePath $file.FullName
+                    Write-Verbose "Detected source encoding: $($sourceEncoding.EncodingName) (BOM: $($sourceEncoding.GetPreamble().Length -gt 0))"
+
+                    # Determine target encoding for writing
+                    $targetEncoding = if ($Encoding -eq 'Auto')
+                    {
+                        # Use the same encoding as source
+                        $sourceEncoding
+                    }
+                    else
+                    {
+                        # Use the explicitly specified encoding
+                        $explicitEncoding = Get-EncodingFromName -EncodingName $Encoding
+                        Write-Verbose "Target encoding specified: $Encoding"
+                        $explicitEncoding
+                    }
+
+                    # Check if file is binary (encoding-aware)
                     try
                     {
-                        # PowerShell 5.1 uses -Encoding Byte, PowerShell Core 6+ uses -AsByteStream
-                        if ($PSVersionTable.PSVersion.Major -ge 6)
+                        # Skip binary detection for known text encodings with null bytes (UTF-16, UTF-32)
+                        $encodingType = $sourceEncoding.GetType().Name
+                        $isBinary = $false
+
+                        if ($encodingType -notmatch 'Unicode|UTF32')
                         {
-                            $testBytes = Get-Content -Path $file.FullName -AsByteStream -TotalCount 8000 -ErrorAction Stop
+                            # For UTF-8, ASCII, and other encodings, check for excessive null bytes
+                            # PowerShell 5.1 uses -Encoding Byte, PowerShell Core 6+ uses -AsByteStream
+                            if ($PSVersionTable.PSVersion.Major -ge 6)
+                            {
+                                $testBytes = Get-Content -Path $file.FullName -AsByteStream -TotalCount 8000 -ErrorAction Stop
+                            }
+                            else
+                            {
+                                $testBytes = Get-Content -Path $file.FullName -Encoding Byte -TotalCount 8000 -ErrorAction Stop
+                            }
+
+                            $nullBytes = ($testBytes | Where-Object { $_ -eq 0 }).Count
+                            # Allow a small number of null bytes, but flag as binary if > 1% are null
+                            if ($testBytes.Count -gt 0 -and $nullBytes -gt ($testBytes.Count * 0.01))
+                            {
+                                $isBinary = $true
+                            }
                         }
                         else
                         {
-                            $testBytes = Get-Content -Path $file.FullName -Encoding Byte -TotalCount 8000 -ErrorAction Stop
+                            Write-Verbose "Skipping binary check for $encodingType encoding (null bytes are normal)"
                         }
 
-                        $nullBytes = ($testBytes | Where-Object { $_ -eq 0 }).Count
-                        if ($nullBytes -gt 0)
+                        if ($isBinary)
                         {
                             Write-Warning "Skipping binary file: $($file.FullName)"
                             continue
@@ -293,10 +500,12 @@ function Replace-StringInFile
                         continue
                     }
 
-                    # Read file content
+                    # Read file content using detected or specified encoding
                     try
                     {
-                        $content = Get-Content -Path $file.FullName -Raw -Encoding $Encoding -ErrorAction Stop
+                        # Always read file using the source encoding
+                        $fileBytes = [System.IO.File]::ReadAllBytes($file.FullName)
+                        $content = $sourceEncoding.GetString($fileBytes)
                     }
                     catch
                     {
@@ -713,10 +922,26 @@ function Replace-StringInFile
                             }
                         }
 
-                        # Write new content
+                        # Write new content using the same encoding
                         try
                         {
-                            Set-Content -Path $file.FullName -Value $newContent -Encoding $Encoding -NoNewline -ErrorAction Stop
+                            # Convert string content to bytes using the target encoding
+                            $preamble = $targetEncoding.GetPreamble()
+                            $contentBytes = $targetEncoding.GetBytes($newContent)
+
+                            # Combine preamble (BOM) and content bytes
+                            if ($preamble.Length -gt 0)
+                            {
+                                $newBytes = New-Object byte[] ($preamble.Length + $contentBytes.Length)
+                                [Array]::Copy($preamble, 0, $newBytes, 0, $preamble.Length)
+                                [Array]::Copy($contentBytes, 0, $newBytes, $preamble.Length, $contentBytes.Length)
+                            }
+                            else
+                            {
+                                $newBytes = $contentBytes
+                            }
+
+                            [System.IO.File]::WriteAllBytes($file.FullName, $newBytes)
                             $result.ReplacementsMade = $true
                             Write-Verbose "Replaced $replacementCount occurrence(s) in: $($file.FullName)"
                         }

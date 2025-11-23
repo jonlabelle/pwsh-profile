@@ -707,4 +707,235 @@ USERNAME
             $result.ReplacementsMade | Should -Be $true
         }
     }
+
+    Context 'Encoding Auto-Detection and Preservation' {
+        It 'Should auto-detect and preserve UTF-8 without BOM by default' {
+            $testFile = Join-Path $script:testDir 'utf8-no-bom.txt'
+            $content = 'This is a test file'
+            $utf8NoBOM = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText($testFile, $content, $utf8NoBOM)
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'sample'
+
+            $result.ReplacementsMade | Should -Be $true
+            $bytes = [System.IO.File]::ReadAllBytes($testFile)
+            # First byte should NOT be BOM (0xEF)
+            $bytes[0] | Should -Not -Be 0xEF
+            (Get-Content -Path $testFile -Raw) | Should -Be 'This is a sample file'
+        }
+
+        It 'Should auto-detect and preserve UTF-8 with BOM' {
+            $testFile = Join-Path $script:testDir 'utf8-bom.txt'
+            $content = 'This is a test file'
+            $utf8BOM = New-Object System.Text.UTF8Encoding($true)
+            [System.IO.File]::WriteAllText($testFile, $content, $utf8BOM)
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'sample'
+
+            $result.ReplacementsMade | Should -Be $true
+            $bytes = [System.IO.File]::ReadAllBytes($testFile)
+            # Should have UTF-8 BOM (EF BB BF)
+            $bytes[0] | Should -Be 0xEF
+            $bytes[1] | Should -Be 0xBB
+            $bytes[2] | Should -Be 0xBF
+        }
+
+        It 'Should auto-detect and preserve UTF-16 LE encoding' {
+            $testFile = Join-Path $script:testDir 'utf16le.txt'
+            $content = 'This is a test file'
+            $utf16LE = [System.Text.Encoding]::Unicode
+            [System.IO.File]::WriteAllText($testFile, $content, $utf16LE)
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'sample'
+
+            $result.ReplacementsMade | Should -Be $true
+            $bytes = [System.IO.File]::ReadAllBytes($testFile)
+            # Should have UTF-16 LE BOM (FF FE)
+            $bytes[0] | Should -Be 0xFF
+            $bytes[1] | Should -Be 0xFE
+            # Verify it's not UTF-32 LE (which also starts with FF FE)
+            $bytes[2] | Should -Not -Be 0x00
+        }
+
+        It 'Should auto-detect and preserve UTF-16 BE encoding' {
+            $testFile = Join-Path $script:testDir 'utf16be.txt'
+            $content = 'This is a test file'
+            $utf16BE = [System.Text.Encoding]::BigEndianUnicode
+            [System.IO.File]::WriteAllText($testFile, $content, $utf16BE)
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'sample'
+
+            $result.ReplacementsMade | Should -Be $true
+            $bytes = [System.IO.File]::ReadAllBytes($testFile)
+            # Should have UTF-16 BE BOM (FE FF)
+            $bytes[0] | Should -Be 0xFE
+            $bytes[1] | Should -Be 0xFF
+        }
+
+        It 'Should auto-detect and preserve UTF-32 LE encoding' {
+            $testFile = Join-Path $script:testDir 'utf32le.txt'
+            $content = 'This is a test file'
+            $utf32LE = [System.Text.Encoding]::UTF32
+            [System.IO.File]::WriteAllText($testFile, $content, $utf32LE)
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'sample'
+
+            $result.ReplacementsMade | Should -Be $true
+            $bytes = [System.IO.File]::ReadAllBytes($testFile)
+            # Should have UTF-32 LE BOM (FF FE 00 00)
+            $bytes[0] | Should -Be 0xFF
+            $bytes[1] | Should -Be 0xFE
+            $bytes[2] | Should -Be 0x00
+            $bytes[3] | Should -Be 0x00
+        }
+
+        It 'Should auto-detect and preserve UTF-32 BE encoding' {
+            $testFile = Join-Path $script:testDir 'utf32be.txt'
+            $content = 'This is a test file'
+            $utf32BE = New-Object System.Text.UTF32Encoding($true, $true)
+            [System.IO.File]::WriteAllText($testFile, $content, $utf32BE)
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'sample'
+
+            $result.ReplacementsMade | Should -Be $true
+            $bytes = [System.IO.File]::ReadAllBytes($testFile)
+            # Should have UTF-32 BE BOM (00 00 FE FF)
+            $bytes[0] | Should -Be 0x00
+            $bytes[1] | Should -Be 0x00
+            $bytes[2] | Should -Be 0xFE
+            $bytes[3] | Should -Be 0xFF
+        }
+
+        It 'Should auto-detect and preserve ASCII encoding' {
+            $testFile = Join-Path $script:testDir 'ascii.txt'
+            $content = 'This is a test file'
+            $ascii = [System.Text.Encoding]::ASCII
+            [System.IO.File]::WriteAllText($testFile, $content, $ascii)
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'sample'
+
+            $result.ReplacementsMade | Should -Be $true
+            # Read back and verify all bytes are within ASCII range (0-127)
+            $bytes = [System.IO.File]::ReadAllBytes($testFile)
+            $nonAsciiBytes = $bytes | Where-Object { $_ -gt 127 }
+            $nonAsciiBytes.Count | Should -Be 0
+        }
+
+        It 'Should convert to UTF-8 with BOM when explicitly specified' {
+            $testFile = Join-Path $script:testDir 'convert-to-utf8bom.txt'
+            $content = 'This is a test file'
+            $utf8NoBOM = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText($testFile, $content, $utf8NoBOM)
+
+            # Verify no BOM before conversion
+            $beforeBytes = [System.IO.File]::ReadAllBytes($testFile)
+            $beforeBytes[0] | Should -Not -Be 0xEF
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'sample' -Encoding UTF8BOM
+
+            $result.ReplacementsMade | Should -Be $true
+            $bytes = [System.IO.File]::ReadAllBytes($testFile)
+            # Should now have UTF-8 BOM (EF BB BF)
+            $bytes[0] | Should -Be 0xEF
+            $bytes[1] | Should -Be 0xBB
+            $bytes[2] | Should -Be 0xBF
+        }
+
+        It 'Should convert to UTF-16 LE when explicitly specified' {
+            $testFile = Join-Path $script:testDir 'convert-to-utf16le.txt'
+            $content = 'This is a test file'
+            $utf8NoBOM = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText($testFile, $content, $utf8NoBOM)
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'sample' -Encoding UTF16LE
+
+            $result.ReplacementsMade | Should -Be $true
+            $bytes = [System.IO.File]::ReadAllBytes($testFile)
+            # Should have UTF-16 LE BOM (FF FE)
+            $bytes[0] | Should -Be 0xFF
+            $bytes[1] | Should -Be 0xFE
+        }
+
+        It 'Should handle empty files with Auto encoding' {
+            $testFile = Join-Path $script:testDir 'empty.txt'
+            '' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'sample'
+
+            $result.MatchCount | Should -Be 0
+            $result.ReplacementsMade | Should -Be $false
+        }
+
+        It 'Should not modify UTF-16 LE files binary detection' {
+            # This test verifies that UTF-16 files with null bytes are NOT skipped as binary
+            $testFile = Join-Path $script:testDir 'utf16-with-nulls.txt'
+            $content = 'Test with ASCII characters'  # ASCII chars in UTF-16 have null bytes
+            $utf16LE = [System.Text.Encoding]::Unicode
+            [System.IO.File]::WriteAllText($testFile, $content, $utf16LE)
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'Test' -NewString 'Sample'
+
+            $result.ReplacementsMade | Should -Be $true
+            $newContent = [System.IO.File]::ReadAllText($testFile, $utf16LE)
+            $newContent | Should -Match 'Sample'
+        }
+
+        It 'Should not modify UTF-32 files binary detection' {
+            # This test verifies that UTF-32 files with many null bytes are NOT skipped as binary
+            $testFile = Join-Path $script:testDir 'utf32-with-nulls.txt'
+            $content = 'Test with ASCII characters'  # ASCII chars in UTF-32 have many null bytes
+            $utf32LE = [System.Text.Encoding]::UTF32
+            [System.IO.File]::WriteAllText($testFile, $content, $utf32LE)
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'Test' -NewString 'Sample'
+
+            $result.ReplacementsMade | Should -Be $true
+            $newContent = [System.IO.File]::ReadAllText($testFile, $utf32LE)
+            $newContent | Should -Match 'Sample'
+        }
+
+        It 'Should preserve encoding when no matches found' {
+            $testFile = Join-Path $script:testDir 'no-match-utf8bom.txt'
+            $content = 'This is a file'
+            $utf8BOM = New-Object System.Text.UTF8Encoding($true)
+            [System.IO.File]::WriteAllText($testFile, $content, $utf8BOM)
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'xyz' -NewString 'abc'
+
+            $result.MatchCount | Should -Be 0
+            # BOM should still be present (file should be unchanged)
+            $bytes = [System.IO.File]::ReadAllBytes($testFile)
+            $bytes[0] | Should -Be 0xEF
+            $bytes[1] | Should -Be 0xBB
+            $bytes[2] | Should -Be 0xBF
+        }
+
+        It 'Should work with multiple files having different encodings' {
+            # Create files with different encodings
+            $file1 = Join-Path $script:testDir 'file1.txt'
+            $file2 = Join-Path $script:testDir 'file2.txt'
+
+            $utf8NoBOM = New-Object System.Text.UTF8Encoding($false)
+            $utf8BOM = New-Object System.Text.UTF8Encoding($true)
+
+            [System.IO.File]::WriteAllText($file1, 'test content', $utf8NoBOM)
+            [System.IO.File]::WriteAllText($file2, 'test content', $utf8BOM)
+
+            # Process both files
+            $results = Replace-StringInFile -Path $file1, $file2 -OldString 'test' -NewString 'sample'
+
+            $results.Count | Should -Be 2
+            $results[0].ReplacementsMade | Should -Be $true
+            $results[1].ReplacementsMade | Should -Be $true
+
+            # Verify each file preserved its encoding
+            $bytes1 = [System.IO.File]::ReadAllBytes($file1)
+            $bytes1[0] | Should -Not -Be 0xEF  # No BOM
+
+            $bytes2 = [System.IO.File]::ReadAllBytes($file2)
+            $bytes2[0] | Should -Be 0xEF  # Has BOM
+            $bytes2[1] | Should -Be 0xBB
+            $bytes2[2] | Should -Be 0xBF
+        }
+    }
 }
