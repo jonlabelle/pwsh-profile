@@ -285,7 +285,6 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             # Extract components
             $salt = $encryptedBytes[0..31]
             $iv = $encryptedBytes[32..47]
-            $ciphertext = $encryptedBytes[48..($encryptedBytes.Length - 1)]
 
             # Verify salt and IV are not all zeros (proper randomness)
             $salt | Should -Not -Be (@(0) * 32)

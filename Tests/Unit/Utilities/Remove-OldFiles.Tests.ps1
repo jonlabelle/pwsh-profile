@@ -67,8 +67,6 @@ Describe 'Remove-OldFiles' {
         }
 
         It 'Should have default Unit value of Days' {
-            $command = Get-Command Remove-OldFiles
-            $unitParam = $command.Parameters['Unit']
             # Default values in advanced functions aren't reflected in parameter metadata,
             # so we'll test behavior instead
             { Remove-OldFiles -OlderThan 1 -WhatIf } | Should -Not -Throw

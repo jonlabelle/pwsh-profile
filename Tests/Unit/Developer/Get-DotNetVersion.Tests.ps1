@@ -112,16 +112,10 @@ Describe 'Get-DotNetVersion' {
             $result = Get-DotNetVersion -ComputerName 'localhost' -All
 
             # Should return appropriate runtime information for the platform
-            if ($IsWindows -or $PSVersionTable.PSVersion.Major -lt 6)
-            {
-                # On Windows, might have .NET Framework
-                $frameworkVersions = $result | Where-Object { $_.RuntimeType -match 'Framework' }
-                # Framework versions might exist on Windows
+            $result | Should -Not -BeNullOrEmpty
+            $result | ForEach-Object {
+                $_.RuntimeType | Should -Not -BeNullOrEmpty
             }
-
-            # .NET might be available on any platform
-            $dotNetVersions = $result | Where-Object { $_.RuntimeType -notmatch 'Framework' }
-            # Might or might not exist depending on installation
         }
     }
 
@@ -200,8 +194,5 @@ Describe 'Get-DotNetVersion' {
                 $_.RuntimeType | Should -Not -BeNullOrEmpty
             }
         }
-    }
-
-    Context 'SDK detection' {
     }
 }

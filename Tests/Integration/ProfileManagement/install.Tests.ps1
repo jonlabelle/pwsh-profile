@@ -429,13 +429,11 @@ Describe 'install.ps1 integration tests' {
     Context 'Zip download fallback' {
         It 'downloads and extracts repository as zip when git is not available' {
             $testRoot = Join-Path $TestDrive ('ZipDownload_{0}' -f ([guid]::NewGuid().ToString('N')))
-            $profileRoot = Join-Path $testRoot 'ProfileRoot'
 
             try
             {
                 # Mock a scenario where git is not found by using a URL that would trigger zip download
                 # We'll create a local zip file to simulate the download
-                $mockZipPath = Join-Path $testRoot 'mock-repo.zip'
                 $mockRepoContent = Join-Path $testRoot 'MockRepoContent'
                 New-Item -ItemType Directory -Path $mockRepoContent -Force | Out-Null
 

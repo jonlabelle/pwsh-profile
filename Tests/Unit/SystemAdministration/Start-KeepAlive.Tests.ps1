@@ -225,12 +225,6 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
         }
 
         It 'Should clean up completed jobs before starting new ones' {
-            # Create a completed mock job
-            $mockJob = [PSCustomObject]@{
-                Name = 'TestKeepAlive3'
-                State = 'Completed'
-            }
-
             # Start a real job - it should clean up the old one
             $job = Start-KeepAlive -KeepAliveHours 0.1 -JobName 'TestKeepAlive3'
             $job | Should -Not -BeNullOrEmpty
