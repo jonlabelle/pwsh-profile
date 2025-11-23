@@ -333,7 +333,8 @@ Line 3
             $result.PSObject.Properties.Name | Should -Contain 'Error'
         }
 
-        It 'Should set Error property when replacement fails' {
+        # Skip on Linux when running as root because root can write to read-only files
+        It 'Should set Error property when replacement fails' -Skip:($IsLinux -and (whoami) -eq 'root') {
             $testFile = Join-Path $script:testDir 'readonly.txt'
             'test' | Set-Content -Path $testFile -NoNewline
 
