@@ -148,6 +148,67 @@ database_user=admin
 
             $results.Count | Should -Be 3
         }
+
+        It 'Should preserve snake_case in Python code' {
+            $pyFile = Join-Path $script:testRoot 'script.py'
+
+            @'
+def get_user_name():
+    user_name = "admin"
+    USER_NAME = "ADMIN"
+    return user_name
+'@ | Set-Content -Path $pyFile -NoNewline
+
+            $result = Replace-StringInFile -Path $pyFile -OldString 'user_name' -NewString 'account_id' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $pyFile -Raw
+            $content | Should -Match 'def get_account_id\(\):'
+            $content | Should -Match 'account_id = "admin"'
+            $content | Should -Match 'ACCOUNT_ID = "ADMIN"'
+            $content | Should -Match 'return account_id'
+            $result.MatchCount | Should -Be 4
+        }
+
+        It 'Should preserve kebab-case in CSS' {
+            $cssFile = Join-Path $script:testRoot 'styles.css'
+
+            @'
+:root {
+    --primary-color: #007bff;
+    --PRIMARY-COLOR: #0056b3;
+}
+.primary-color {
+    color: var(--primary-color);
+}
+'@ | Set-Content -Path $cssFile -NoNewline
+
+            $result = Replace-StringInFile -Path $cssFile -OldString 'primary-color' -NewString 'brand-color' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $cssFile -Raw
+            $content | Should -Match '--brand-color: #007bff;'
+            $content | Should -Match '--BRAND-COLOR: #0056b3;'
+            $content | Should -Match '\.brand-color \{'
+            $content | Should -Match 'var\(--brand-color\);'
+            $result.MatchCount | Should -Be 4
+        }
+
+        It 'Should preserve SCREAMING_SNAKE_CASE in environment files' {
+            $envFile = Join-Path $script:testRoot 'test.env'
+
+            @'
+DATABASE_URL=postgresql://localhost/db
+database_url=postgresql://localhost/db
+DATABASE-URL=postgresql://localhost/db
+'@ | Set-Content -Path $envFile -NoNewline
+
+            $result = Replace-StringInFile -Path $envFile -OldString 'database_url' -NewString 'db_connection' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $envFile -Raw
+            $content | Should -Match 'DB_CONNECTION=postgresql://localhost/db'
+            $content | Should -Match 'db_connection=postgresql://localhost/db'
+            # Note: DATABASE-URL doesn't match database_url search pattern (different separators)
+            $result.MatchCount | Should -Be 2
+        }
     }
 
     Context 'PreserveCase with Backup and Recovery' {

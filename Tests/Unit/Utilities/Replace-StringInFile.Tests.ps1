@@ -595,6 +595,79 @@ USERNAME
             $content | Should -Match 'ACCOUNT ID'  # ALL CAPS preserves spaces
             $result.MatchCount | Should -Be 3
         }
+
+        It 'Should preserve snake_case pattern' {
+            $testFile = Join-Path $script:testDir 'snake.txt'
+            'user_name is required' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'user_name' -NewString 'account_id' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Be 'account_id is required'
+            $result.ReplacementsMade | Should -Be $true
+        }
+
+        It 'Should preserve SCREAMING_SNAKE_CASE pattern' {
+            $testFile = Join-Path $script:testDir 'screaming-snake.txt'
+            'USER_NAME is required' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'user_name' -NewString 'account_id' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Be 'ACCOUNT_ID is required'
+            $result.ReplacementsMade | Should -Be $true
+        }
+
+        It 'Should preserve kebab-case pattern' {
+            $testFile = Join-Path $script:testDir 'kebab.txt'
+            'user-name is required' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'user-name' -NewString 'account-id' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Be 'account-id is required'
+            $result.ReplacementsMade | Should -Be $true
+        }
+
+        It 'Should preserve SCREAMING-KEBAB-CASE pattern' {
+            $testFile = Join-Path $script:testDir 'screaming-kebab.txt'
+            'USER-NAME is required' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'user-name' -NewString 'account-id' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Be 'ACCOUNT-ID is required'
+            $result.ReplacementsMade | Should -Be $true
+        }
+
+        It 'Should handle mixed case patterns in same file' {
+            $testFile = Join-Path $script:testDir 'mixed-patterns.txt'
+            @'
+userName
+UserName
+USERNAME
+'@ | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'username' -NewString 'account id' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Match 'accountId'
+            $content | Should -Match 'AccountId'
+            $content | Should -Match 'ACCOUNT ID'
+            $result.MatchCount | Should -Be 3
+        }
+
+        It 'Should convert between different separator styles' {
+            $testFile = Join-Path $script:testDir 'separator-conversion.txt'
+            'user_name' | Set-Content -Path $testFile -NoNewline
+
+            # Convert from snake_case replacement text  to kebab-case
+            $result = Replace-StringInFile -Path $testFile -OldString 'user_name' -NewString 'account-id' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Be 'account_id'  # Preserves snake_case pattern
+            $result.ReplacementsMade | Should -Be $true
+        }
     }
 
     Context 'PreserveCase with File Operations' {
