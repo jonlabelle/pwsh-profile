@@ -1,6 +1,7 @@
 services:
   pwsh-tests:
     build:
+      # The working directory is the parent directory of Tests/ (or repository root)
       context: ..
       dockerfile: Tests/Dockerfile
     container_name: pwsh-profile-tests
