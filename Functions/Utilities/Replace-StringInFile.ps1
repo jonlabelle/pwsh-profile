@@ -97,7 +97,32 @@ function Replace-StringInFile
         Replaces 'debug', 'Debug', 'DEBUG', etc. with 'RELEASE' (case-insensitive).
 
     .EXAMPLE
-        PS > Get-ChildItem *.txt | Replace-StringInFile -OldString 'foo' -NewString 'bar' -WhatIf
+        PS > $results = Replace-StringInFile -Path config.txt -OldString 'username' -NewString 'accountid' -CaseInsensitive -PreserveCase -WhatIf
+        PS > $results.Matches | Format-Table
+
+        Line Column OldValue NewValue  LineContent
+        ---- ------ -------- --------  -----------
+           1      7 USERNAME ACCOUNTID const USERNAME = 'admin';
+           2      5 userName accountid let userName = getUser();
+           3      7 username accountid Check username in logs.
+
+        Shows detailed information about what would be replaced without making changes.
+        Each match includes Line, Column, OldValue, NewValue, and LineContent.
+
+    .EXAMPLE
+        PS > Replace-StringInFile -Path *.txt -OldString 'foo' -NewString 'bar' -WhatIf
+
+        What if: Performing the operation "Replace 3 occurrence(s) of 'foo' with 'bar'" on target "C:\files\test.txt".
+
+        FilePath         : C:\files\test.txt
+        MatchCount       : 3
+        Matches          : {@{Line=1; Column=10; OldValue=foo; NewValue=bar; LineContent=Example foo text},
+                           @{Line=2; Column=5; OldValue=foo; NewValue=bar; LineContent=More foo here},
+                           @{Line=4; Column=1; OldValue=foo; NewValue=bar; LineContent=foo at start}}
+        ReplacementsMade : False
+        BackupCreated    : False
+        Encoding         : Unicode (UTF-8)
+        Error            :
 
         Shows what would be replaced in all .txt files without making actual changes.
 
@@ -151,11 +176,16 @@ function Replace-StringInFile
 
     .EXAMPLE
         PS > $files = @('app.js', 'utils.js', 'config.js')
-        PS > $files | Replace-StringInFile -OldString 'apikey' -NewString 'api token' -CaseInsensitive -PreserveCase
-        PS > # Process results
-        PS > $results | Where-Object ReplacementsMade | Select-Object FilePath, MatchCount
+        PS > $results = $files | Replace-StringInFile -OldString 'apikey' -NewString 'api token' -CaseInsensitive -PreserveCase -WhatIf
+        PS > $results | Select-Object FilePath, MatchCount, @{N='Matches';E={$_.Matches.Count}}
 
-        Batch processing multiple files and reviewing which files were modified.
+        FilePath      MatchCount Matches
+        --------      ---------- -------
+        app.js                 3       3
+        utils.js               1       1
+        config.js              2       2
+
+        Batch processing multiple files and reviewing match counts.
         'apiKey' ~> 'apiToken', 'APIKey' ~> 'APIToken', 'APIKEY' ~> 'API TOKEN'.
 
     .EXAMPLE
@@ -176,8 +206,46 @@ function Replace-StringInFile
         Environment variable renaming with SCREAMING_SNAKE_CASE preservation.
         'DATABASE_URL' ~> 'DB_CONNECTION', 'database_url' ~> 'db_connection'.
 
+    .EXAMPLE
+        PS > Replace-StringInFile -Path app.js -OldString 'userName' -NewString 'accountId' -WhatIf | ConvertTo-Json -Depth 3
+
+        {
+          "FilePath": "/path/to/app.js",
+          "MatchCount": 2,
+          "Matches": [
+            {
+              "Line": 5,
+              "Column": 10,
+              "OldValue": "userName",
+              "NewValue": "accountId",
+              "LineContent": "const userName = getUser();"
+            },
+            {
+              "Line": 12,
+              "Column": 15,
+              "OldValue": "userName",
+              "NewValue": "accountId",
+              "LineContent": "  return userName.trim();"
+            }
+          ],
+          "ReplacementsMade": false,
+          "BackupCreated": false,
+          "Encoding": "Unicode (UTF-8)",
+          "Error": null
+        }
+
+        Export detailed match information as JSON for programmatic processing or CI/CD pipelines.
+
     .OUTPUTS
-        PSCustomObject with details about each file processed, including the number of replacements made.
+        PSCustomObject with details about each file processed, including:
+        - FilePath: Full path to the file
+        - FileName: Name of the file
+        - MatchCount: Number of matches found
+        - Matches: Array of match details (Line, Column, OldValue, NewValue, LineContent)
+        - ReplacementsMade: Whether replacements were actually performed
+        - BackupCreated: Whether a backup was created
+        - Encoding: The encoding used (detected or specified)
+        - Error: Any error that occurred during processing
 
     .NOTES
         - Always test with -WhatIf first when processing multiple files
@@ -516,6 +584,7 @@ function Replace-StringInFile
                     # Perform replacement
                     $replacementCount = 0
                     $newContent = $null
+                    $matchDetails = @()
 
                     try
                     {
@@ -531,6 +600,373 @@ function Replace-StringInFile
 
                             if ($replacementCount -gt 0)
                             {
+                                # Calculate line and column numbers for each match
+                                foreach ($match in $regexMatches)
+                                {
+                                    # Find line number by counting newlines before match
+                                    $textBeforeMatch = $content.Substring(0, $match.Index)
+                                    $lineNumber = ($textBeforeMatch.ToCharArray() | Where-Object { $_ -eq "`n" }).Count + 1
+
+                                    # Find column by getting position after last newline
+                                    $lastNewlineIndex = $textBeforeMatch.LastIndexOf("`n")
+                                    $columnNumber = if ($lastNewlineIndex -ge 0)
+                                    {
+                                        $match.Index - $lastNewlineIndex
+                                    }
+                                    else
+                                    {
+                                        $match.Index + 1
+                                    }
+
+                                    # Get the line content for context
+                                    $lines = $content -split "`r?`n"
+                                    $lineContent = if ($lineNumber -le $lines.Count) { $lines[$lineNumber - 1] } else { '' }
+
+                                    # Calculate replacement value (respecting PreserveCase if enabled)
+                                    $replacementValue = $NewString
+                                    if ($PreserveCase)
+                                    {
+                                        $matchedText = $match.Value
+
+                                        # Helper function to detect camelCase/PascalCase patterns
+                                        function Test-CamelCase
+                                        {
+                                            param([string]$text)
+
+                                            # Must have at least one lowercase followed by uppercase
+                                            # and no spaces, underscores, or hyphens
+                                            if ($text -match '[\s_-]')
+                                            {
+                                                return $false
+                                            }
+
+                                            # Check for transitions between lowercase and uppercase
+                                            for ($i = 0; $i -lt $text.Length - 1; $i++)
+                                            {
+                                                $current = $text[$i]
+                                                $next = $text[$i + 1]
+
+                                                if ([char]::IsLower($current) -and [char]::IsUpper($next))
+                                                {
+                                                    return $true
+                                                }
+                                            }
+
+                                            return $false
+                                        }
+
+                                        # Helper function to detect snake_case pattern
+                                        function Test-SnakeCase
+                                        {
+                                            param([string]$text)
+
+                                            # Must contain underscores and be all lowercase or all uppercase
+                                            if ($text -notmatch '_')
+                                            {
+                                                return $false
+                                            }
+
+                                            # Check if all letters are same case (excluding underscores)
+                                            $letters = $text -replace '_', ''
+                                            return ($letters -ceq $letters.ToLower()) -or ($letters -ceq $letters.ToUpper())
+                                        }
+
+                                        # Helper function to detect kebab-case pattern
+                                        function Test-KebabCase
+                                        {
+                                            param([string]$text)
+
+                                            # Must contain hyphens and be all lowercase or all uppercase
+                                            if ($text -notmatch '-')
+                                            {
+                                                return $false
+                                            }
+
+                                            # Check if all letters are same case (excluding hyphens)
+                                            $letters = $text -replace '-', ''
+                                            return ($letters -ceq $letters.ToLower()) -or ($letters -ceq $letters.ToUpper())
+                                        }
+
+                                        function ConvertTo-CamelCase
+                                        {
+                                            param([string]$text, [bool]$pascalCase)
+
+                                            # Split on spaces, underscores, hyphens, or case transitions
+                                            $words = @()
+                                            $currentWord = ''
+
+                                            for ($i = 0; $i -lt $text.Length; $i++)
+                                            {
+                                                $char = $text[$i]
+
+                                                if ($char -match '[\s_-]')
+                                                {
+                                                    if ($currentWord)
+                                                    {
+                                                        $words += $currentWord
+                                                        $currentWord = ''
+                                                    }
+                                                }
+                                                elseif ($i -gt 0 -and [char]::IsUpper($char) -and [char]::IsLower($text[$i - 1]))
+                                                {
+                                                    if ($currentWord)
+                                                    {
+                                                        $words += $currentWord
+                                                    }
+                                                    $currentWord = [string]$char
+                                                }
+                                                else
+                                                {
+                                                    $currentWord += $char
+                                                }
+                                            }
+
+                                            if ($currentWord)
+                                            {
+                                                $words += $currentWord
+                                            }
+
+                                            # If we got a single word (no separators found), return it as-is in the requested case
+                                            if ($words.Count -eq 1)
+                                            {
+                                                $word = $words[0].ToLower()
+                                                if ($pascalCase)
+                                                {
+                                                    return $word.Substring(0, 1).ToUpper() + $(if ($word.Length -gt 1) { $word.Substring(1) } else { '' })
+                                                }
+                                                else
+                                                {
+                                                    return $word
+                                                }
+                                            }
+
+                                            # Build camelCase or PascalCase
+                                            $result = ''
+                                            for ($i = 0; $i -lt $words.Count; $i++)
+                                            {
+                                                $word = $words[$i].ToLower()
+                                                if ($word.Length -eq 0) { continue }
+
+                                                if ($i -eq 0)
+                                                {
+                                                    if ($pascalCase)
+                                                    {
+                                                        $result += $word.Substring(0, 1).ToUpper() + $(if ($word.Length -gt 1) { $word.Substring(1) } else { '' })
+                                                    }
+                                                    else
+                                                    {
+                                                        $result += $word
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    $result += $word.Substring(0, 1).ToUpper() + $(if ($word.Length -gt 1) { $word.Substring(1) } else { '' })
+                                                }
+                                            }
+
+                                            return $result
+                                        }
+
+                                        function ConvertTo-SnakeCase
+                                        {
+                                            param([string]$text, [bool]$uppercase)
+
+                                            # Split on spaces, hyphens, underscores, or case transitions
+                                            $words = @()
+                                            $currentWord = ''
+
+                                            for ($i = 0; $i -lt $text.Length; $i++)
+                                            {
+                                                $char = $text[$i]
+
+                                                if ($char -match '[\s_-]')
+                                                {
+                                                    if ($currentWord)
+                                                    {
+                                                        $words += $currentWord
+                                                        $currentWord = ''
+                                                    }
+                                                }
+                                                elseif ($i -gt 0 -and [char]::IsUpper($char) -and [char]::IsLower($text[$i - 1]))
+                                                {
+                                                    if ($currentWord)
+                                                    {
+                                                        $words += $currentWord
+                                                    }
+                                                    $currentWord = [string]$char
+                                                }
+                                                else
+                                                {
+                                                    $currentWord += $char
+                                                }
+                                            }
+
+                                            if ($currentWord)
+                                            {
+                                                $words += $currentWord
+                                            }
+
+                                            # Join with underscores
+                                            $result = ($words | ForEach-Object { $_.ToLower() }) -join '_'
+
+                                            if ($uppercase)
+                                            {
+                                                return $result.ToUpper()
+                                            }
+
+                                            return $result
+                                        }
+
+                                        function ConvertTo-KebabCase
+                                        {
+                                            param([string]$text, [bool]$uppercase)
+
+                                            # Split on spaces, hyphens, underscores, or case transitions
+                                            $words = @()
+                                            $currentWord = ''
+
+                                            for ($i = 0; $i -lt $text.Length; $i++)
+                                            {
+                                                $char = $text[$i]
+
+                                                if ($char -match '[\s_-]')
+                                                {
+                                                    if ($currentWord)
+                                                    {
+                                                        $words += $currentWord
+                                                        $currentWord = ''
+                                                    }
+                                                }
+                                                elseif ($i -gt 0 -and [char]::IsUpper($char) -and [char]::IsLower($text[$i - 1]))
+                                                {
+                                                    if ($currentWord)
+                                                    {
+                                                        $words += $currentWord
+                                                    }
+                                                    $currentWord = [string]$char
+                                                }
+                                                else
+                                                {
+                                                    $currentWord += $char
+                                                }
+                                            }
+
+                                            if ($currentWord)
+                                            {
+                                                $words += $currentWord
+                                            }
+
+                                            # Join with hyphens
+                                            $result = ($words | ForEach-Object { $_.ToLower() }) -join '-'
+
+                                            if ($uppercase)
+                                            {
+                                                return $result.ToUpper()
+                                            }
+
+                                            return $result
+                                        }
+
+                                        # Determine the case pattern of the matched text
+                                        if ($matchedText -ceq $matchedText.ToUpper())
+                                        {
+                                            # ALL CAPS - check for separators
+                                            if (Test-SnakeCase -text $matchedText)
+                                            {
+                                                $replacementValue = ConvertTo-SnakeCase -text $NewString -uppercase $true
+                                            }
+                                            elseif (Test-KebabCase -text $matchedText)
+                                            {
+                                                $replacementValue = ConvertTo-KebabCase -text $NewString -uppercase $true
+                                            }
+                                            else
+                                            {
+                                                $replacementValue = $NewString.ToUpper()
+                                            }
+                                        }
+                                        elseif ($matchedText -ceq $matchedText.ToLower())
+                                        {
+                                            # all lowercase - check for separators
+                                            if (Test-SnakeCase -text $matchedText)
+                                            {
+                                                $replacementValue = ConvertTo-SnakeCase -text $NewString -uppercase $false
+                                            }
+                                            elseif (Test-KebabCase -text $matchedText)
+                                            {
+                                                $replacementValue = ConvertTo-KebabCase -text $NewString -uppercase $false
+                                            }
+                                            else
+                                            {
+                                                $replacementValue = $NewString.ToLower()
+                                            }
+                                        }
+                                        elseif (Test-SnakeCase -text $matchedText)
+                                        {
+                                            # snake_case (mixed case with underscores - rare but possible)
+                                            $replacementValue = ConvertTo-SnakeCase -text $NewString -uppercase $false
+                                        }
+                                        elseif (Test-KebabCase -text $matchedText)
+                                        {
+                                            # kebab-case (mixed case with hyphens - rare but possible)
+                                            $replacementValue = ConvertTo-KebabCase -text $NewString -uppercase $false
+                                        }
+                                        elseif (Test-CamelCase -text $matchedText)
+                                        {
+                                            # camelCase or PascalCase
+                                            $isPascalCase = [char]::IsUpper($matchedText[0])
+                                            $replacementValue = ConvertTo-CamelCase -text $NewString -pascalCase $isPascalCase
+                                        }
+                                        elseif ($matchedText[0] -ceq [char]::ToUpper($matchedText[0]))
+                                        {
+                                            # Check if it's Title Case (each word capitalized)
+                                            $words = $matchedText -split '\s+'
+                                            $isTitleCase = $true
+                                            foreach ($word in $words)
+                                            {
+                                                if ($word.Length -gt 0 -and $word[0] -cne [char]::ToUpper($word[0]))
+                                                {
+                                                    $isTitleCase = $false
+                                                    break
+                                                }
+                                            }
+
+                                            if ($isTitleCase -and $words.Count -gt 1)
+                                            {
+                                                # Title Case - capitalize first letter of each word
+                                                $replacementWords = $NewString -split '\s+'
+                                                $titleCased = @()
+                                                foreach ($word in $replacementWords)
+                                                {
+                                                    if ($word.Length -gt 0)
+                                                    {
+                                                        $titleCased += $word.Substring(0, 1).ToUpper() + $word.Substring(1).ToLower()
+                                                    }
+                                                }
+                                                $replacementValue = $titleCased -join ' '
+                                            }
+                                            else
+                                            {
+                                                # First letter capitalized only
+                                                $replacementValue = $NewString.Substring(0, 1).ToUpper() + $NewString.Substring(1).ToLower()
+                                            }
+                                        }
+                                        else
+                                        {
+                                            # Mixed case or other - use replacement as-is
+                                            $replacementValue = $NewString
+                                        }
+                                    }
+
+                                    # Store match details
+                                    $matchDetails += [PSCustomObject]@{
+                                        Line = $lineNumber
+                                        Column = $columnNumber
+                                        OldValue = $match.Value
+                                        NewValue = $replacementValue
+                                        LineContent = $lineContent
+                                    }
+                                }
+
                                 if ($PreserveCase)
                                 {
                                     # Use MatchEvaluator to preserve case for each match
@@ -886,9 +1322,12 @@ function Replace-StringInFile
                     # Create result object
                     $result = [PSCustomObject]@{
                         FilePath = $file.FullName
+                        FileName = $file.Name
                         MatchCount = $replacementCount
+                        Matches = $matchDetails
                         ReplacementsMade = $false
                         BackupCreated = $false
+                        Encoding = if ($Encoding -eq 'Auto') { $sourceEncoding.EncodingName } else { $Encoding }
                         Error = $null
                     }
 
