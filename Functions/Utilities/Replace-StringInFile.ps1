@@ -236,6 +236,72 @@ function Replace-StringInFile
 
         Export detailed match information as JSON for programmatic processing or CI/CD pipelines.
 
+    .EXAMPLE
+        PS > Replace-StringInFile -Path logs/*.log -OldString '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b' -NewString '[REDACTED_EMAIL]' -Regex -Backup
+
+        Anonymizes email addresses in log files using regex pattern matching.
+
+        - john.doe@example.com -> [REDACTED_EMAIL]
+        - support@company.org ->  [REDACTED_EMAIL]
+
+        Creates backups of original files before modification.
+
+    .EXAMPLE
+        PS > Replace-StringInFile -Path customer_data.csv -OldString '\b\d{3}-\d{3}-\d{4}\b' -NewString 'XXX-XXX-XXXX' -Regex
+
+        Redacts US phone numbers (format: 555-123-4567) in CSV files.
+        All phone numbers are replaced with XXX-XXX-XXXX for privacy compliance.
+
+    .EXAMPLE
+        PS > Replace-StringInFile -Path application.log -OldString '\b\d{3}-\d{2}-\d{4}\b' -NewString '***-**-****' -Regex -Backup
+
+        Anonymizes US Social Security Numbers (SSN) in application logs.
+        Pattern matches XXX-XX-XXXX format and replaces with asterisks.
+        Original files are preserved with .bak extension.
+
+    .EXAMPLE
+        PS > Replace-StringInFile -Path *.txt -OldString '\b(?:\d{4}[-\s]?){3}\d{4}\b' -NewString '[REDACTED_CC]' -Regex
+
+        Removes credit card numbers from text files.
+        Matches formats: 1234567890123456, 1234-5678-9012-3456, 1234 5678 9012 3456
+        Useful for sanitizing data before sharing with third parties.
+
+    .EXAMPLE
+        PS > Replace-StringInFile -Path debug.log -OldString '\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b' -NewString '[IP_ADDRESS]' -Regex
+
+        Anonymizes IPv4 addresses in debug logs.
+        192.168.1.100 -> [IP_ADDRESS]
+        10.0.0.1 -> [IP_ADDRESS]
+        Helps comply with GDPR/privacy requirements when sharing logs.
+
+    .EXAMPLE
+        PS > $patterns = @(
+        PS >     @{ Pattern = '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'; Replacement = '[EMAIL]' },
+        PS >     @{ Pattern = '\b\d{3}-\d{3}-\d{4}\b'; Replacement = '[PHONE]' },
+        PS >     @{ Pattern = '\b\d{3}-\d{2}-\d{4}\b'; Replacement = '[SSN]' }
+        PS > )
+        PS > foreach ($p in $patterns) {
+        PS >     Replace-StringInFile -Path sensitive_data.txt -OldString $p.Pattern -NewString $p.Replacement -Regex
+        PS > }
+
+        Multi-pass anonymization removing multiple PII types from a single file.
+        First pass: emails, second pass: phone numbers, third pass: SSNs.
+        Comprehensive data sanitization for compliance purposes.
+
+    .EXAMPLE
+        PS > Replace-StringInFile -Path user_dump.json -OldString '"password"\s*:\s*"[^"]*"' -NewString '"password": "[REDACTED]"' -Regex
+
+        Redacts password values from JSON exports while preserving structure.
+        "password": "mySecretPass123" -> "password": "[REDACTED]"
+        Safe for sharing database dumps or API responses in bug reports.
+
+    .EXAMPLE
+        PS > Get-ChildItem ./exports -Filter *.csv | Replace-StringInFile -OldString '\b[A-Z]{2}\d{6,8}\b' -NewString '[ID_REDACTED]' -Regex -WhatIf
+
+        Preview anonymization of government ID numbers across multiple CSV export files.
+        Matches patterns like AB123456, CA98765432 (passport/license numbers).
+        Use -WhatIf to verify patterns before making changes.
+
     .OUTPUTS
         PSCustomObject with details about each file processed, including:
         - FilePath: Full path to the file

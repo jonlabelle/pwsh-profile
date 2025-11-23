@@ -21,12 +21,14 @@
   "powershell.codeFormatting.useConstantStrings": true,
 
   "cSpell.words": [
+    "ACCOUNTID",
     "acodec",
     "adoc",
     "ADSI",
     "afilias",
     "afnic",
     "ALSA",
+    "anonymization",
     "apikey",
     "aplay",
     "appimage",
