@@ -2011,8 +2011,8 @@ function Convert-LineEndings
 
                             if ($result.Success)
                             {
-                                $encodingInfo = if ($result.EncodingChanged) { " Encoding: $($result.SourceEncoding)→$($result.TargetEncoding)" } else { '' }
-                                Write-Verbose "Successfully converted '$($file.FullName)' (LF: $($result.OriginalLF)→$($result.NewLF), CRLF: $($result.OriginalCRLF)→$($result.NewCRLF))$encodingInfo"
+                                $encodingInfo = if ($result.EncodingChanged) { " Encoding: $($result.SourceEncoding)~>$($result.TargetEncoding)" } else { '' }
+                                Write-Verbose "Successfully converted '$($file.FullName)' (LF: $($result.OriginalLF)~>$($result.NewLF), CRLF: $($result.OriginalCRLF)~>$($result.NewCRLF))$encodingInfo"
                             }
                             else
                             {
@@ -2123,8 +2123,8 @@ function Convert-LineEndings
 
                         if ($result.Success)
                         {
-                            $encodingInfo = if ($result.EncodingChanged) { " Encoding: $($result.SourceEncoding)→$($result.TargetEncoding)" } else { '' }
-                            Write-Verbose "Successfully converted '$resolvedPath' (LF: $($result.OriginalLF)→$($result.NewLF), CRLF: $($result.OriginalCRLF)→$($result.NewCRLF))$encodingInfo"
+                            $encodingInfo = if ($result.EncodingChanged) { " Encoding: $($result.SourceEncoding)~>$($result.TargetEncoding)" } else { '' }
+                            Write-Verbose "Successfully converted '$resolvedPath' (LF: $($result.OriginalLF)~>$($result.NewLF), CRLF: $($result.OriginalCRLF)~>$($result.NewCRLF))$encodingInfo"
                         }
                         else
                         {

@@ -116,7 +116,7 @@ function Replace-StringInFile
         PS > Get-ChildItem -Path src -Filter *.cs -Recurse | Replace-StringInFile -OldString 'customer' -NewString 'client' -CaseInsensitive -PreserveCase -Backup
 
         Refactors an entire C# codebase, renaming 'customer' to 'client' while preserving case.
-        'CustomerService' → 'ClientService', 'getCustomerId' → 'getClientId', 'CUSTOMER_ID' → 'CLIENT_ID'.
+        'CustomerService' ~> 'ClientService', 'getCustomerId' ~> 'getClientId', 'CUSTOMER_ID' ~> 'CLIENT_ID'.
         Creates backups of all modified files.
 
     .EXAMPLE
@@ -144,25 +144,25 @@ function Replace-StringInFile
         PS > $results | Where-Object ReplacementsMade | Select-Object FilePath, MatchCount
 
         Batch processing multiple files and reviewing which files were modified.
-        'apiKey' → 'apiToken', 'APIKey' → 'APIToken', 'APIKEY' → 'API TOKEN'.
+        'apiKey' ~> 'apiToken', 'APIKey' ~> 'APIToken', 'APIKEY' ~> 'API TOKEN'.
 
     .EXAMPLE
         PS > Replace-StringInFile -Path database.py -OldString 'user name' -NewString 'account id' -CaseInsensitive -PreserveCase
 
         Python code refactoring with snake_case preservation.
-        'user_name' → 'account_id', 'USER_NAME' → 'ACCOUNT_ID', 'userName' → 'accountId'.
+        'user_name' ~> 'account_id', 'USER_NAME' ~> 'ACCOUNT_ID', 'userName' ~> 'accountId'.
 
     .EXAMPLE
         PS > Replace-StringInFile -Path styles.css -OldString 'primary color' -NewString 'brand color' -CaseInsensitive -PreserveCase
 
         CSS variable renaming with kebab-case preservation.
-        '--primary-color' → '--brand-color', 'PRIMARY-COLOR' → 'BRAND-COLOR'.
+        '--primary-color' ~> '--brand-color', 'PRIMARY-COLOR' ~> 'BRAND-COLOR'.
 
     .EXAMPLE
         PS > Replace-StringInFile -Path .env -OldString 'database url' -NewString 'db connection' -CaseInsensitive -PreserveCase
 
         Environment variable renaming with SCREAMING_SNAKE_CASE preservation.
-        'DATABASE_URL' → 'DB_CONNECTION', 'database_url' → 'db_connection'.
+        'DATABASE_URL' ~> 'DB_CONNECTION', 'database_url' ~> 'db_connection'.
 
     .OUTPUTS
         PSCustomObject with details about each file processed, including the number of replacements made.

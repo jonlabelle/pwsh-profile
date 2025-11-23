@@ -158,11 +158,12 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should handle Unicode correctly' {
+            # Use Unicode escape sequences for PowerShell 5.1 compatibility
             $unicodeStrings = @(
-                'Hello 世界'
-                'Привет мир'
-                'مرحبا بالعالم'
-                '😀🌍🎉'
+                "Hello $([char]0x4e16)$([char]0x754c)"  # Hello 世界
+                "Привет мир"
+                "$([char]0x645)$([char]0x631)$([char]0x62d)$([char]0x628)$([char]0x627) $([char]0x628)$([char]0x627)$([char]0x644)$([char]0x639)$([char]0x627)$([char]0x644)$([char]0x645)"  # مرحبا بالعالم
+                "$([char]::ConvertFromUtf32(0x1F600))$([char]::ConvertFromUtf32(0x1F30D))$([char]::ConvertFromUtf32(0x1F389))"  # 😀🌍🎉
             )
 
             foreach ($str in $unicodeStrings)
@@ -187,8 +188,12 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should handle JWT-like tokens (URL-safe)' {
-            $header = '{"alg":"HS256","typ":"JWT"}'
-            $payload = '{"sub":"1234567890","name":"John Doe","iat":1516239022}'
+            $header = @'
+{"alg":"HS256","typ":"JWT"}
+'@
+            $payload = @'
+{"sub":"1234567890","name":"John Doe","iat":1516239022}
+'@
 
             $encodedHeader = ConvertTo-Base64 -InputObject $header -UrlSafe
             $encodedPayload = ConvertTo-Base64 -InputObject $payload -UrlSafe

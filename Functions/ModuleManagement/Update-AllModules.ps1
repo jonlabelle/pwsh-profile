@@ -341,7 +341,7 @@ function Update-AllModules
                 Write-Host "Found $($outdatedModules.Count) module(s) with available updates:" -ForegroundColor Yellow
                 foreach ($outdated in $outdatedModules)
                 {
-                    Write-Host "  - $($outdated.Name): $($outdated.CurrentVersion) → $($outdated.AvailableVersion)" -ForegroundColor Cyan
+                    Write-Host "  - $($outdated.Name): $($outdated.CurrentVersion) ~> $($outdated.AvailableVersion)" -ForegroundColor Cyan
                 }
                 Write-Host ''
 

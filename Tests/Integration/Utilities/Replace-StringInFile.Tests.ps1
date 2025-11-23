@@ -10,7 +10,8 @@ Describe 'Replace-StringInFile Integration Tests' -Tag 'Integration' {
 
     BeforeAll {
         # Create a test directory in the repository's tmp folder
-        $script:testRoot = Join-Path $PSScriptRoot '../../../tmp' "replace-string-integration-$(Get-Random)"
+        $tmpPath = Join-Path -Path $PSScriptRoot -ChildPath '../../../tmp'
+        $script:testRoot = Join-Path -Path $tmpPath -ChildPath "replace-string-integration-$(Get-Random)"
         New-Item -ItemType Directory -Path $script:testRoot -Force | Out-Null
     }
 
