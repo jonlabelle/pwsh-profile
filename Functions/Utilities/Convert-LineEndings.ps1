@@ -308,11 +308,15 @@ function Convert-LineEndings
         When the -Encoding parameter is specified, files are converted to the target encoding.
 
         Supported encodings:
-        - UTF-8 (with and without BOM)
-        - UTF-16 (Little and Big Endian)
-        - UTF-32 (Little and Big Endian)
-        - ASCII
-        - ANSI (system default code page)
+        - Auto: Preserve original file encoding (default)
+        - UTF8: UTF-8 without BOM
+        - UTF8BOM: UTF-8 with BOM
+        - UTF16LE: UTF-16 Little Endian with BOM
+        - UTF16BE: UTF-16 Big Endian with BOM
+        - UTF32: UTF-32 Little Endian with BOM
+        - UTF32BE: UTF-32 Big Endian with BOM
+        - ASCII: 7-bit ASCII encoding
+        - ANSI: System default ANSI encoding (code page dependent)
 
         INTELLIGENT CONVERSION:
 
