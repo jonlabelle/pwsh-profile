@@ -93,15 +93,35 @@ function Search-FileContent
     .EXAMPLE
         PS > Search-FileContent -Pattern 'function' -Path ./Functions
 
+        /Users/jon/Functions/Utils.ps1
+        42:function Get-Something {
+        58:function Set-Value {
+
+        /Users/jon/Functions/Helper.ps1
+        15:function Test-Connection {
+
         Searches for 'function' in all files within the Functions directory recursively.
+        Output is colorized with file paths, line numbers, and highlighted matches.
 
     .EXAMPLE
         PS > Search-FileContent -Pattern 'TODO' -Path . -Include '*.ps1' -Context 2
 
+        /Users/jon/script.ps1
+        18-    # Get user input
+        19-    $name = Read-Host 'Name'
+        20:    # TODO: Add validation
+        21-    $result = Process-Name $name
+        22-    return $result
+
         Searches for 'TODO' in PowerShell files with 2 lines of context before and after.
+        Context lines are shown with '-' and matches with ':' after line numbers.
 
     .EXAMPLE
         PS > Search-FileContent -Pattern 'error' -Path ./logs -CaseInsensitive -CountOnly
+
+        /var/logs/app.log: 23 matches
+        /var/logs/system.log: 5 matches
+        /var/logs/debug.log: 142 matches
 
         Case-insensitive search for 'error' showing only match counts per file.
 
@@ -113,12 +133,25 @@ function Search-FileContent
     .EXAMPLE
         PS > Get-ChildItem *.cs | Search-FileContent -Pattern 'class\s+\w+' -Simple
 
-        Searches C# files from pipeline for class declarations, outputting objects.
+        Path                    LineNumber Line                          Match
+        ----                    ---------- ----                          -----
+        /src/Models/User.cs             12 public class UserModel {      class UserModel
+        /src/Models/Product.cs          8  public class ProductModel {   class ProductModel
+        /src/Services/Auth.cs           25 internal class AuthService {  class AuthService
+
+        Searches C# files from pipeline for class declarations, outputting PSCustomObjects.
+        Perfect for further processing in pipelines or scripts.
 
     .EXAMPLE
         PS > Search-FileContent -Pattern 'import' -Path ./src -ExcludeDirectory 'node_modules','.git' -FilesOnly
 
+        /src/app.js
+        /src/utils/helpers.js
+        /src/components/Header.jsx
+        /src/services/api.js
+
         Finds files containing 'import', excluding common directories, showing only filenames.
+        Similar to 'grep -l' for quickly identifying which files match.
 
     .EXAMPLE
         PS > Search-FileContent -Pattern 'password' -Path . -Before 1 -After 3 -Include '*.config'
