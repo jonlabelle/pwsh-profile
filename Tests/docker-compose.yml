@@ -1,16 +1,14 @@
 services:
   pwsh-tests:
-    image: mcr.microsoft.com/powershell:latest
+    build:
+      context: ..
+      dockerfile: Tests/Dockerfile
     container_name: pwsh-profile-tests
-    environment:
-      POWERSHELL_TELEMETRY_OPTOUT: "1"
     volumes:
       - ..:/workspace
     working_dir: /workspace
     command: >
       sh -c "
-        echo '=== Installing test dependencies ===' &&
-        pwsh -NoProfile -File ./dev-requirements.ps1 &&
         echo '=== Running PSScriptAnalyzer ===' &&
         pwsh -NoProfile -Command \"Invoke-ScriptAnalyzer -Settings PSScriptAnalyzerSettings.psd1 -Path . -Recurse\" &&
         echo '=== Running Pester tests ===' &&

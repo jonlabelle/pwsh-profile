@@ -8,7 +8,7 @@
     // PowerShell Core (pwsh) Tasks
     // ---------------------------------------------------------
     {
-      "label": "Run PSScriptAnalyzer (pwsh)",
+      "label": "pwsh: Run PSScriptAnalyzer",
       "type": "shell",
       "command": "pwsh",
       "args": [
@@ -47,7 +47,7 @@
       ]
     },
     {
-      "label": "Run Current PowerShell File (pwsh)",
+      "label": "pwsh: Run Current File",
       "type": "shell",
       "command": "pwsh",
       "args": ["-NoProfile", "-File", "${file}"],
@@ -65,7 +65,7 @@
       }
     },
     {
-      "label": "Run All Pester Tests (pwsh)",
+      "label": "pwsh: Test - All (Detailed)",
       "type": "shell",
       "command": "pwsh",
       "args": [
@@ -102,7 +102,7 @@
       ]
     },
     {
-      "label": "Run Unit Tests (pwsh)",
+      "label": "pwsh: Test - Unit Only",
       "type": "shell",
       "command": "pwsh",
       "args": [
@@ -139,7 +139,7 @@
       ]
     },
     {
-      "label": "Run Integration Tests (pwsh)",
+      "label": "pwsh: Test - Integration Only",
       "type": "shell",
       "command": "pwsh",
       "args": [
@@ -176,7 +176,7 @@
       ]
     },
     {
-      "label": "Run Tests - Normal Output (pwsh)",
+      "label": "pwsh: Test - All (Normal)",
       "type": "shell",
       "command": "pwsh",
       "args": [
@@ -199,7 +199,7 @@
       }
     },
     {
-      "label": "Run Tests - Diagnostic Output (pwsh)",
+      "label": "pwsh: Test - All (Diagnostic)",
       "type": "shell",
       "command": "pwsh",
       "args": [
@@ -222,7 +222,7 @@
       }
     },
     {
-      "label": "Run Tests with PassThru (pwsh)",
+      "label": "pwsh: Test - All (PassThru)",
       "type": "shell",
       "command": "pwsh",
       "args": [
@@ -246,7 +246,7 @@
       }
     },
     {
-      "label": "Interactive Session (pwsh)",
+      "label": "pwsh: Interactive Session",
       "type": "shell",
       "command": "pwsh",
       "args": ["-NoExit", "-NoProfile"],
@@ -261,10 +261,71 @@
       }
     },
     {
-      "label": "Install Required Dev Modules (pwsh)",
+      "label": "pwsh: Install Dev Modules",
       "type": "shell",
       "command": "pwsh",
       "args": ["-NoProfile", "-File", "./dev-requirements.ps1"],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": true
+      }
+    },
+    // ---------------------------------------------------------
+    // Docker Tasks (Linux)
+    // ---------------------------------------------------------
+    {
+      "label": "docker: Test - All (Linux)",
+      "type": "shell",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "Tests/docker-compose.yml",
+        "run",
+        "--rm",
+        "pwsh-tests"
+      ],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      }
+    },
+    {
+      "label": "docker: Build Image",
+      "type": "shell",
+      "command": "docker",
+      "args": ["compose", "-f", "Tests/docker-compose.yml", "build"],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": true
+      }
+    },
+    {
+      "label": "docker: Rebuild Image (No Cache)",
+      "type": "shell",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "Tests/docker-compose.yml",
+        "build",
+        "--no-cache"
+      ],
       "group": "build",
       "presentation": {
         "echo": true,
@@ -280,7 +341,7 @@
     // Windows PowerShell Desktop (powershell.exe) Tasks
     // ---------------------------------------------------------
     {
-      "label": "Run PSScriptAnalyzer (powershell)",
+      "label": "powershell: Run PSScriptAnalyzer",
       "type": "shell",
       "command": "powershell",
       "args": [
@@ -319,7 +380,7 @@
       ]
     },
     {
-      "label": "Run Current PowerShell File (powershell)",
+      "label": "powershell: Run Current File",
       "type": "shell",
       "command": "powershell",
       "args": ["-NoProfile", "-File", "${file}"],
@@ -337,7 +398,7 @@
       }
     },
     {
-      "label": "Install Required Dev Modules (powershell)",
+      "label": "powershell: Install Dev Modules",
       "type": "shell",
       "command": "powershell",
       "args": ["-NoProfile", "-File", "./dev-requirements.ps1"],
@@ -352,7 +413,7 @@
       }
     },
     {
-      "label": "Run All Pester Tests (powershell)",
+      "label": "powershell: Test - All (Detailed)",
       "type": "shell",
       "command": "powershell",
       "args": [
@@ -389,7 +450,7 @@
       ]
     },
     {
-      "label": "Run Unit Tests (powershell)",
+      "label": "powershell: Test - Unit Only",
       "type": "shell",
       "command": "powershell",
       "args": [
@@ -426,7 +487,7 @@
       ]
     },
     {
-      "label": "Run Integration Tests (powershell)",
+      "label": "powershell: Test - Integration Only",
       "type": "shell",
       "command": "powershell",
       "args": [
@@ -463,7 +524,7 @@
       ]
     },
     {
-      "label": "Run Tests - Normal Output (powershell)",
+      "label": "powershell: Test - All (Normal)",
       "type": "shell",
       "command": "powershell",
       "args": [
@@ -486,7 +547,7 @@
       }
     },
     {
-      "label": "Run Tests - Diagnostic Output (powershell)",
+      "label": "powershell: Test - All (Diagnostic)",
       "type": "shell",
       "command": "powershell",
       "args": [
@@ -509,7 +570,7 @@
       }
     },
     {
-      "label": "Run Tests with PassThru (powershell)",
+      "label": "powershell: Test - All (PassThru)",
       "type": "shell",
       "command": "powershell",
       "args": [
@@ -533,7 +594,7 @@
       }
     },
     {
-      "label": "Interactive Session (powershell)",
+      "label": "powershell: Interactive Session",
       "type": "shell",
       "command": "powershell",
       "args": ["-NoExit", "-NoProfile"],

@@ -98,8 +98,11 @@ docker compose -f Tests/docker-compose.yml run --rm pwsh-tests \
 #### Container Management
 
 ```bash
-# Pull latest image
-docker compose -f Tests/docker-compose.yml pull
+# Build image (first time or after dependency changes)
+docker compose -f Tests/docker-compose.yml build
+
+# Rebuild image without cache
+docker compose -f Tests/docker-compose.yml build --no-cache
 
 # Clean up
 docker compose -f Tests/docker-compose.yml down
