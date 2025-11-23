@@ -547,7 +547,6 @@ function Start-KeepAlive
                 {
                     # Initialization script to set working directory to a known-good location
                     $initScript = {
-                        param($WorkingDir)
                         # Set to user's home directory to avoid directory-not-found errors
                         # This is safer than using the current directory which may be temporary
                         try
