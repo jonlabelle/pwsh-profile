@@ -338,7 +338,7 @@ function Restore-PreservedDirectories
     }
 }
 
-function Ensure-DirectoryExists
+function Assert-DirectoryExists
 {
     param(
         [Parameter(Mandatory)]
@@ -405,7 +405,7 @@ function Invoke-RepositoryDownload
     )
 
     $parentDirectory = Split-Path -Parent $Destination
-    Ensure-DirectoryExists -Path $parentDirectory
+    Assert-DirectoryExists -Path $parentDirectory
 
     $gitCommand = Get-Command -Name git -ErrorAction SilentlyContinue
     if ($gitCommand)
@@ -465,7 +465,7 @@ function Invoke-ZipDownload
         }
 
         Write-Verbose "Moving extracted content to $Destination"
-        Ensure-DirectoryExists -Path $Destination
+        Assert-DirectoryExists -Path $Destination
 
         Get-ChildItem -Path $extractedDir.FullName -Force | ForEach-Object {
             Copy-Item -Path $_.FullName -Destination $Destination -Recurse -Force
@@ -499,7 +499,7 @@ function Copy-LocalSource
     }
 
     Write-Verbose "Copying local source from $SourcePath to $DestinationPath"
-    Ensure-DirectoryExists -Path $DestinationPath
+    Assert-DirectoryExists -Path $DestinationPath
 
     Get-ChildItem -Path $SourcePath -Force | ForEach-Object {
         Copy-Item -Path $_.FullName -Destination $DestinationPath -Recurse -Force
@@ -527,7 +527,7 @@ function Restore-FromBackup
         Remove-Item -Path $Destination -Recurse -Force
     }
 
-    Ensure-DirectoryExists -Path $Destination
+    Assert-DirectoryExists -Path $Destination
 
     Write-Verbose "Restoring profile from $BackupSource"
     Get-ChildItem -Path $BackupSource -Force | ForEach-Object {
