@@ -112,6 +112,7 @@
     "norid",
     "nvmrc",
     "NXDOMAIN",
+    "OPTOUT",
     "pacman",
     "pacmd",
     "pactl",

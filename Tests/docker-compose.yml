@@ -1,7 +1,9 @@
 services:
   pwsh-tests:
-    image: mcr.microsoft.com/powershell:alpine
+    image: mcr.microsoft.com/powershell:latest
     container_name: pwsh-profile-tests
+    environment:
+      POWERSHELL_TELEMETRY_OPTOUT: "1"
     volumes:
       - ..:/workspace
     working_dir: /workspace
