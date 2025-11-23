@@ -102,6 +102,11 @@ function Get-CertificateExpiration
 
     .LINK
         https://docs.microsoft.com/en-us/dotnet/api/system.net.security.sslstream
+
+    .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-CertificateExpiration.ps1
     #>
 
     [CmdletBinding()]

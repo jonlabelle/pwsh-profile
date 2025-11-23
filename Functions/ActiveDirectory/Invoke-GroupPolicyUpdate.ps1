@@ -56,6 +56,10 @@ function Invoke-GroupPolicyUpdate
         None
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ActiveDirectory/Invoke-GroupPolicyUpdate.ps1
+
         This function uses Invoke-ElevatedCommand to ensure proper elevation, which handles
         complex scenarios like PIM (Privileged Identity Management) and elevated admin roles
         more reliably than simple administrator checks.

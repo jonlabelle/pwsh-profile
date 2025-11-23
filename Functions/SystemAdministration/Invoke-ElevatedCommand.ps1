@@ -79,6 +79,10 @@ function Invoke-ElevatedCommand
         If the elevated process fails, a terminating error is thrown.
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Invoke-ElevatedCommand.ps1
+
         Enhanced version based on Windows PowerShell Cookbook (O'Reilly)
         by Lee Holmes (http://www.leeholmes.com/guide)
 

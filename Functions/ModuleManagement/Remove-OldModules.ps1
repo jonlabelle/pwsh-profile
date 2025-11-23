@@ -61,6 +61,10 @@ function Remove-OldModules
         No output is returned, but progress information is displayed.
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Remove-OldModules.ps1
+
         - Requires PowerShell 5.1 or later with PowerShellGet module
         - May require elevated permissions on some systems
         - System modules are excluded by default for safety

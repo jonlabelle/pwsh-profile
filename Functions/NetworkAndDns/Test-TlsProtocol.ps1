@@ -161,6 +161,10 @@ function Test-TlsProtocol
         Returns objects with Server, Port, Protocol, Supported, Status, and ResponseTime properties.
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Test-TlsProtocol.ps1
+
         This function uses .NET's SslStream class for cross-platform TLS testing.
         On macOS and Linux, if OpenSSL is available, it will be used as a fallback for more
         accurate TLS protocol detection when .NET limitations are encountered.

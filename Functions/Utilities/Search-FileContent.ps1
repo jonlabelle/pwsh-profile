@@ -176,6 +176,10 @@ function Search-FileContent
         Colorized output showing file paths, line numbers, and matched content
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Search-FileContent.ps1
+
         - Binary files are automatically detected and skipped
         - Large files (>100MB by default) are skipped for performance
         - Use -Simple for programmatic processing of results

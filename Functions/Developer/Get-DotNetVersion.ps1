@@ -110,8 +110,10 @@ function Get-DotNetVersion
         Returns custom objects with ComputerName, RuntimeType, Version, Release, InstallPath, and IsLatest properties.
 
     .NOTES
-        Name: Get-DotNetVersion.ps1
         Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Get-DotNetVersion.ps1
+        Name: Get-DotNetVersion.ps1
         Created: 8/20/2025
         Enhanced cross-platform support for .NET detection
 

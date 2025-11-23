@@ -93,6 +93,10 @@ function Test-Admin
         Returns $true if running with elevated privileges, otherwise $false.
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Test-Admin.ps1
+
         Platform-specific behavior:
 
         Windows:

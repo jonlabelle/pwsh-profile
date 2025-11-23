@@ -124,6 +124,10 @@ function Get-IPSubnet
         https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Get-IPSubnet.ps1
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Get-IPSubnet.ps1
+
         Original Author: saw-friendship@yandex.ru
         Description: IP Subnet Calculator WildCard CIDR
         URL: https://sawfriendship.wordpress.com/

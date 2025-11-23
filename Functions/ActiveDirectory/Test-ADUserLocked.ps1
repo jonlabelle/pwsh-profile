@@ -59,6 +59,10 @@ function Test-ADUserLocked
         Returns $true if the user account is locked out, otherwise $false.
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ActiveDirectory/Test-ADUserLocked.ps1
+
         The function checks the lockoutTime attribute in Active Directory. A value greater
         than 0 indicates the account is locked out. The function includes proper error
         handling and resource cleanup for all DirectoryServices objects.

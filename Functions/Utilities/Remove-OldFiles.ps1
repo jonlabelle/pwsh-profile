@@ -95,6 +95,10 @@ function Remove-OldFiles
         - OldestDate: The cutoff date used for file age comparison
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Remove-OldFiles.ps1
+
         - Requires PowerShell 5.1 or later
         - Uses LastWriteTime to determine file age
         - Respects -WhatIf and -Confirm parameters for safety

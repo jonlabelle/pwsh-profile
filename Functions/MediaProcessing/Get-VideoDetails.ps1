@@ -144,6 +144,11 @@ function Get-VideoDetails
 
     .LINK
         https://ffmpeg.org/ffprobe.html
+
+    .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/MediaProcessing/Get-VideoDetails.ps1
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
     [CmdletBinding()]

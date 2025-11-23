@@ -314,6 +314,10 @@ function Replace-StringInFile
         - Error: Any error that occurred during processing
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Replace-StringInFile.ps1
+
         - Always test with -WhatIf first when processing multiple files
         - Use -Backup to preserve original files
         - Binary files are automatically skipped

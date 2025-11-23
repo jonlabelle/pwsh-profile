@@ -210,6 +210,10 @@ function Send-TcpRequest
         In test mode, returns System.Boolean indicating connection success.
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Send-TcpRequest.ps1
+
         Original Author: Lee Holmes, Windows PowerShell Cookbook (O'Reilly), https://www.leeholmes.com/guide
 
         Enhanced with improved error handling, parameter validation, timeout support,

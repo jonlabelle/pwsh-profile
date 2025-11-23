@@ -123,6 +123,10 @@ function Update-AllModules
         No output is returned, but progress information is displayed.
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Update-AllModules.ps1
+
         - Requires PowerShell 5.1 or later
         - Internet connection required to check for updates
         - May require elevated permissions on some systems for system-installed modules

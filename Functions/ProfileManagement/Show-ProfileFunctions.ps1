@@ -27,6 +27,11 @@ function Show-ProfileFunctions
     .OUTPUTS
         System.String
         Formatted list of functions and descriptions
+
+    .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ProfileManagement/Show-ProfileFunctions.ps1
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding()]

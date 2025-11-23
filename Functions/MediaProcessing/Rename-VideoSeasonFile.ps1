@@ -67,10 +67,11 @@ function Rename-VideoSeasonFile
         When PassThru is specified, returns FileInfo objects for renamed files.
 
     .NOTES
-        Version: 2.0.0
-        Date: August 24, 2025
         Author: Jon LaBelle
         License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/MediaProcessing/Rename-VideoSeasonFile.ps1
+        Version: 2.0.0
+        Date: August 24, 2025
 
         Supported patterns:
         - S01E01, s01e01 (standard format)

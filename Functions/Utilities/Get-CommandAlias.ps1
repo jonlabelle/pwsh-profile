@@ -77,6 +77,10 @@ function Get-CommandAlias
         A formatted table showing the command definition and its corresponding aliases.
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Get-CommandAlias.ps1
+
         This function is commonly added to PowerShell profiles for quick alias reference.
         Compatible with PowerShell Desktop 5.1+ and PowerShell Core 6+.
         Works on Windows, macOS, and Linux.

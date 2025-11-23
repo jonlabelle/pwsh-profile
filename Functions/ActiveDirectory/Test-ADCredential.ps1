@@ -55,6 +55,10 @@ function Test-ADCredential
         Returns $true if authentication succeeds, otherwise $false.
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ActiveDirectory/Test-ADCredential.ps1
+
         This function validates credentials by first attempting a simple directory binding
         test, then performing a directory search to ensure comprehensive validation.
         It includes proper error handling and resource cleanup for all DirectoryServices

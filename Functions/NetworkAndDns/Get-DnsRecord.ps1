@@ -131,6 +131,8 @@ function Get-DnsRecord
 
     .NOTES
         Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-DnsRecord.ps1
         Date: November 9, 2025
 
         DNS-over-HTTPS Providers:

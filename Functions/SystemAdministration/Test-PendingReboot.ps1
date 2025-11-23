@@ -92,9 +92,12 @@ function Test-PendingReboot
         - Reason: [string] Descriptive reason(s) why a reboot is pending, $null if no reboot needed or error occurred
 
     .NOTES
-        Author: Based on inspiration from Adam Bertram
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Test-PendingReboot.ps1
         Version: 3.0 (Enhanced with Reason Detection)
 
+        Based on inspiration from Adam Bertram
         Inspiration from: https://gallery.technet.microsoft.com/scriptcenter/Get-PendingReboot-Query-bdb79542
 
         Performance Optimizations:

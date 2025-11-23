@@ -109,6 +109,10 @@ function Sync-Directory
         Returns an object with Platform, Command, ExitCode, Success, and Message properties.
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Sync-Directory.ps1
+
         Cross-platform compatible with PowerShell 5.1+ and PowerShell Core 6.2+.
 
         Windows Requirements:

@@ -59,6 +59,11 @@ function Test-DnsNameResolution
 
     .LINK
         https://jonlabelle.com/snippets/view/powershell/test-dns-name-in-powershell
+
+    .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Test-DnsNameResolution.ps1
   #>
 
     [CmdletBinding()]

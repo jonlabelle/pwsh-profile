@@ -100,6 +100,8 @@ function Resolve-GeoIP
 
     .NOTES
         Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Resolve-GeoIP.ps1
         Date: November 9, 2025
 
         API Service Details:

@@ -70,6 +70,10 @@ function Remove-NodeModules
         - Errors: Number of errors encountered
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-NodeModules.ps1
+
         - Requires PowerShell 5.1 or later
         - Only removes node_modules folders when a package.json file exists in the parent directory
         - Respects -WhatIf and -Confirm parameters for safety

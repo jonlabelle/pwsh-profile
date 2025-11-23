@@ -70,6 +70,10 @@ function Remove-DotNetBuildArtifacts
         - Errors: Number of errors encountered
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-DotNetBuildArtifacts.ps1
+
         - Requires PowerShell 5.1 or later
         - Only removes bin/obj folders when a .NET project file exists in the parent directory
         - Respects -WhatIf and -Confirm parameters for safety

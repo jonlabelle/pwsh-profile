@@ -116,6 +116,10 @@ function Test-Port
         https://jonlabelle.com/snippets/view/powershell/test-tcp-or-udp-network-port-in-powershell
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Test-Port.ps1
+
         Original Author: Boe Prox
         Created: 18-Aug-2010
         Updated by: Jon LaBelle, 9/29/2022

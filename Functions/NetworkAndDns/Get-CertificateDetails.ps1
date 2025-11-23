@@ -110,6 +110,10 @@ function Get-CertificateDetails
         https://docs.microsoft.com/en-us/dotnet/api/system.net.security.sslstream
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-CertificateDetails.ps1
+
         This function requires network connectivity to the target host and port.
         The certificate validation callback is set to always return true to retrieve certificates
         even if they have validation issues (expired, self-signed, etc.).

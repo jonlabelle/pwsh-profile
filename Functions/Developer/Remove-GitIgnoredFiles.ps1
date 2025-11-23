@@ -100,6 +100,10 @@ function Remove-GitIgnoredFiles
         - Errors: Number of errors encountered
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-GitIgnoredFiles.ps1
+
         - Requires PowerShell 5.1 or later
         - Requires Git to be installed and available in PATH
         - Only removes files not tracked by Git (ignored and optionally untracked)

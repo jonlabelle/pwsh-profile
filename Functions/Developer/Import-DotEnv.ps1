@@ -163,6 +163,10 @@ function Import-DotEnv
         None by default. With -PassThru, returns a PSCustomObject with load/unload details.
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Import-DotEnv.ps1
+
         The function tracks loaded variable names in $env:__DOTENV_LOADED_VARS (pipe-delimited)
         to enable unloading. This tracking variable is also removed when using -Unload.
 

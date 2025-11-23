@@ -71,6 +71,11 @@ function Get-WhichCommand
 
     .OUTPUTS
         PSCustomObject with command details, or String when using -Simple switch.
+
+    .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Get-WhichCommand.ps1
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject], [String])]

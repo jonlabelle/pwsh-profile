@@ -58,6 +58,10 @@ function Copy-DirectoryWithExclusions
         Returns an object with TotalFiles, TotalDirectories, ExcludedDirectories, and Duration properties.
 
     .NOTES
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Copy-DirectoryWithExclusions.ps1
+
         Cross-platform compatible with PowerShell 5.1+ and PowerShell Core 6.2+.
         Uses .NET methods for path resolution to ensure cross-platform compatibility.
     #>
