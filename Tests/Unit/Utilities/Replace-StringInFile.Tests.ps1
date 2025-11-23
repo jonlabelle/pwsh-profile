@@ -227,7 +227,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
             $testFile = Join-Path $script:testDir 'whatif.txt'
             'original' | Set-Content -Path $testFile -NoNewline
 
-            $result = Replace-StringInFile -Path $testFile -OldString 'original' -NewString 'modified' -WhatIf
+            Replace-StringInFile -Path $testFile -OldString 'original' -NewString 'modified' -WhatIf
 
             (Get-Content -Path $testFile -Raw) | Should -Be 'original'
         }

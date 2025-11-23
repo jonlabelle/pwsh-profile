@@ -245,7 +245,7 @@ foobar everywhere
             $testFile = Join-Path $script:testRoot 'utf8.txt'
             'Hello café' | Set-Content -Path $testFile -Encoding UTF8 -NoNewline
 
-            $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase -Encoding UTF8
+            Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase -Encoding UTF8
 
             $content = Get-Content -Path $testFile -Encoding UTF8 -Raw
             $content | Should -Be 'Goodbye café'
@@ -255,7 +255,7 @@ foobar everywhere
             $testFile = Join-Path $script:testRoot 'ascii.txt'
             'HELLO world' | Set-Content -Path $testFile -Encoding ASCII -NoNewline
 
-            $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase -Encoding ASCII
+            Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase -Encoding ASCII
 
             $content = Get-Content -Path $testFile -Encoding ASCII -Raw
             $content | Should -Be 'GOODBYE world'
