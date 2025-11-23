@@ -336,12 +336,33 @@ Line 3
         It 'Should set Error property when replacement fails' {
             $testFile = Join-Path $script:testDir 'readonly.txt'
             'test' | Set-Content -Path $testFile -NoNewline
-            $fileItem = Get-Item $testFile
-            $fileItem.IsReadOnly = $true
+
+            # Make file read-only using platform-appropriate method
+            if ($IsWindows -or $PSVersionTable.PSVersion.Major -lt 6)
+            {
+                # Windows - use IsReadOnly property
+                $fileItem = Get-Item $testFile
+                $fileItem.IsReadOnly = $true
+            }
+            else
+            {
+                # Linux/macOS - use chmod to remove write permissions
+                chmod 444 $testFile
+            }
 
             $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'new' -ErrorAction SilentlyContinue
 
-            $fileItem.IsReadOnly = $false
+            # Restore write permissions for cleanup
+            if ($IsWindows -or $PSVersionTable.PSVersion.Major -lt 6)
+            {
+                $fileItem = Get-Item $testFile
+                $fileItem.IsReadOnly = $false
+            }
+            else
+            {
+                chmod 644 $testFile
+            }
+
             $result.Error | Should -Not -BeNullOrEmpty
         }
     }
