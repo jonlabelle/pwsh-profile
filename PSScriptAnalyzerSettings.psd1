@@ -17,6 +17,7 @@
     'PSAvoidUsingConvertToSecureStringWithPlainText' # Acceptable in test scripts
     'PSAvoidUsingBrokenHashAlgorithms' # SHA1 and MD5 still have plenty of legitimate use cases
     'PSUseBOMForUnicodeEncodedFile' # Disabled to avoid BOM insertion in existing files
+    'PSUseSingularNouns' # Disabled due to frequent false positives in cmdlet naming
   )
 
   # Enable specific rules globally
