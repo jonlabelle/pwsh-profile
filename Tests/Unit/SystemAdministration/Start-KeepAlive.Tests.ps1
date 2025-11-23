@@ -326,7 +326,6 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
     Context 'Verbose Output' -Skip:($script:IsCI) {
 
         It 'Should provide verbose output when requested' {
-            $verboseMessages = @()
             $job = Start-KeepAlive -KeepAliveHours 0.1 -JobName 'TestVerbose1' -Verbose 4>&1
 
             $verboseOutput = $job | Out-String

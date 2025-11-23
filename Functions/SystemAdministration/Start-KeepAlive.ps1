@@ -545,9 +545,6 @@ function Start-KeepAlive
                 # Start the background job
                 try
                 {
-                    # Store current location to use in job initialization
-                    $currentLocation = Get-Location
-
                     # Initialization script to set working directory to a known-good location
                     $initScript = {
                         param($WorkingDir)

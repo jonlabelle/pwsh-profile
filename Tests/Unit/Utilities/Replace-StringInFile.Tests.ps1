@@ -482,6 +482,7 @@ Foo is everywhere
             $content = Get-Content -Path $testFile -Raw
             # Mixed case that doesn't match a clear pattern uses replacement as-is
             $content | Should -Be 'goodbye world'
+            $result.ReplacementsMade | Should -Be $true
         }
 
         It 'Should work with single character replacements' {

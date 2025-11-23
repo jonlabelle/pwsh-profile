@@ -514,11 +514,11 @@ function Test-TlsProtocol
                 # Clean up resources
                 if ($null -ne $sslStream)
                 {
-                    try { $sslStream.Dispose() } catch { }
+                    try { $sslStream.Dispose() } catch { $null = $_ }
                 }
                 if ($null -ne $tcpClient)
                 {
-                    try { $tcpClient.Dispose() } catch { }
+                    try { $tcpClient.Dispose() } catch { $null = $_ }
                 }
             }
 
