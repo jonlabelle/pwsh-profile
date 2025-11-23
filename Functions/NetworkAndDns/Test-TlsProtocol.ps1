@@ -435,7 +435,7 @@ function Test-TlsProtocol
                 # Create a simple certificate validation callback that accepts all certificates
                 # This is needed for testing TLS protocol support regardless of certificate validity
                 $certCallback = {
-                    param($sender, $certificate, $chain, $sslPolicyErrors)
+                    param($certSender, $certificate, $chain, $sslPolicyErrors)
                     return $true
                 }
 

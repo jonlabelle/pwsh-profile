@@ -33,13 +33,13 @@ Describe 'ConvertTo-Base64' -Tag 'Unit' {
         }
 
         It 'Should encode multiline text' {
-            $input = "Line 1`nLine 2`nLine 3"
-            $result = ConvertTo-Base64 -InputObject $input
+            $inputText = "Line 1`nLine 2`nLine 3"
+            $result = ConvertTo-Base64 -InputObject $inputText
             $result | Should -Not -BeNullOrEmpty
 
             # Verify it can be decoded back
             $decoded = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($result))
-            $decoded | Should -Be $input
+            $decoded | Should -Be $inputText
         }
 
         It 'Should accept input from pipeline' {
@@ -71,15 +71,15 @@ Describe 'ConvertTo-Base64' -Tag 'Unit' {
 
         It 'Should replace + with - in URL-safe mode' {
             # Create input that generates + in standard Base64
-            $input = [char]0xFB + [char]0xFF
-            $result = ConvertTo-Base64 -InputObject $input -UrlSafe
+            $inputText = [char]0xFB + [char]0xFF
+            $result = ConvertTo-Base64 -InputObject $inputText -UrlSafe
             $result | Should -Not -Match '\+'
         }
 
         It 'Should replace / with _ in URL-safe mode' {
             # Create input that generates / in standard Base64
-            $input = [char]0xFF + [char]0xFE
-            $result = ConvertTo-Base64 -InputObject $input -UrlSafe
+            $inputText = [char]0xFF + [char]0xFE
+            $result = ConvertTo-Base64 -InputObject $inputText -UrlSafe
             $result | Should -Not -Match '/'
         }
     }
