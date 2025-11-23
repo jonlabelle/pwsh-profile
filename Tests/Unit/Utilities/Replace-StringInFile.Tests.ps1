@@ -379,4 +379,259 @@ Line 3
             $verboseOutput | Should -Not -BeNullOrEmpty
         }
     }
+
+    Context 'PreserveCase Parameter Validation' {
+        It 'Should throw when PreserveCase is used with Regex' {
+            $testFile = Join-Path $script:testDir 'test.txt'
+            'foo bar' | Set-Content -Path $testFile -NoNewline
+
+            {
+                Replace-StringInFile -Path $testFile -OldString 'foo' -NewString 'bar' -Regex -PreserveCase -CaseInsensitive -ErrorAction Stop
+            } | Should -Throw -ExpectedMessage 'PreserveCase cannot be used with Regex mode'
+        }
+
+        It 'Should throw when PreserveCase is used without CaseInsensitive' {
+            $testFile = Join-Path $script:testDir 'test.txt'
+            'foo bar' | Set-Content -Path $testFile -NoNewline
+
+            {
+                Replace-StringInFile -Path $testFile -OldString 'foo' -NewString 'bar' -PreserveCase -ErrorAction Stop
+            } | Should -Throw -ExpectedMessage 'PreserveCase requires CaseInsensitive to be enabled'
+        }
+
+        It 'Should accept valid parameter combinations' {
+            $testFile = Join-Path $script:testDir 'test.txt'
+            'test content' | Set-Content -Path $testFile -NoNewline
+
+            {
+                Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'demo' -CaseInsensitive -PreserveCase -WhatIf -ErrorAction Stop
+            } | Should -Not -Throw
+        }
+    }
+
+    Context 'PreserveCase Functionality' {
+        It 'Should preserve ALL CAPS case' {
+            $testFile = Join-Path $script:testDir 'caps.txt'
+            'HELLO world' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Be 'GOODBYE world'
+            $result.ReplacementsMade | Should -Be $true
+            $result.MatchCount | Should -Be 1
+        }
+
+        It 'Should preserve all lowercase case' {
+            $testFile = Join-Path $script:testDir 'lower.txt'
+            'hello WORLD' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'GOODBYE' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Be 'goodbye WORLD'
+            $result.ReplacementsMade | Should -Be $true
+        }
+
+        It 'Should preserve First Capital case' {
+            $testFile = Join-Path $script:testDir 'firstcap.txt'
+            'Hello world' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Be 'Goodbye world'
+            $result.ReplacementsMade | Should -Be $true
+        }
+
+        It 'Should preserve Title Case for multi-word strings' {
+            $testFile = Join-Path $script:testDir 'title.txt'
+            'Hello World from everyone' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'hello world' -NewString 'goodbye universe' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Be 'Goodbye Universe from everyone'
+            $result.ReplacementsMade | Should -Be $true
+        }
+
+        It 'Should handle multiple matches with different cases' {
+            $testFile = Join-Path $script:testDir 'multi.txt'
+            @'
+foo is here
+FOO is there
+Foo is everywhere
+'@ | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'foo' -NewString 'bar' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Match 'bar is here'
+            $content | Should -Match 'BAR is there'
+            $content | Should -Match 'Bar is everywhere'
+            $result.MatchCount | Should -Be 3
+            $result.ReplacementsMade | Should -Be $true
+        }
+
+        It 'Should handle mixed case by using replacement as-is' {
+            $testFile = Join-Path $script:testDir 'mixed.txt'
+            'hElLo world' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            # Mixed case that doesn't match a clear pattern uses replacement as-is
+            $content | Should -Be 'goodbye world'
+        }
+
+        It 'Should work with single character replacements' {
+            $testFile = Join-Path $script:testDir 'single.txt'
+            'A B C a b c' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'a' -NewString 'x' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Be 'X B C x b c'
+            $result.MatchCount | Should -Be 2
+        }
+
+        It 'Should preserve case with underscores and special characters' {
+            $testFile = Join-Path $script:testDir 'special.txt'
+            'OLD_NAME new_name' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'old_name' -NewString 'better_name' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Be 'BETTER_NAME new_name'
+            $result.MatchCount | Should -Be 1
+        }
+
+        It 'Should handle empty lines without errors' {
+            $testFile = Join-Path $script:testDir 'empty.txt'
+            @'
+HELLO
+
+hello
+'@ | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Match 'GOODBYE'
+            $content | Should -Match "`n`ngoodbye"
+            $result.MatchCount | Should -Be 2
+        }
+
+        It 'Should not modify content when no matches found' {
+            $testFile = Join-Path $script:testDir 'nomatch.txt'
+            $originalContent = 'No matches here'
+            $originalContent | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'foo' -NewString 'bar' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Be $originalContent
+            $result.MatchCount | Should -Be 0
+            $result.ReplacementsMade | Should -Be $false
+        }
+
+        It 'Should preserve camelCase pattern' {
+            $testFile = Join-Path $script:testDir 'camel.txt'
+            'userName is required' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'username' -NewString 'account id' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Be 'accountId is required'
+            $result.ReplacementsMade | Should -Be $true
+        }
+
+        It 'Should preserve PascalCase pattern' {
+            $testFile = Join-Path $script:testDir 'pascal.txt'
+            'UserName is required' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'username' -NewString 'account id' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Be 'AccountId is required'
+            $result.ReplacementsMade | Should -Be $true
+        }
+
+        It 'Should preserve camelCase with multi-word replacement' {
+            $testFile = Join-Path $script:testDir 'camel-multi.txt'
+            'oldUserName' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'oldusername' -NewString 'new account id' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Be 'newAccountId'
+            $result.ReplacementsMade | Should -Be $true
+        }
+
+        It 'Should preserve PascalCase with multi-word replacement' {
+            $testFile = Join-Path $script:testDir 'pascal-multi.txt'
+            'OldUserName' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'oldusername' -NewString 'new account id' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Be 'NewAccountId'
+            $result.ReplacementsMade | Should -Be $true
+        }
+
+        It 'Should handle multiple camelCase/PascalCase variations' {
+            $testFile = Join-Path $script:testDir 'case-variations.txt'
+            @'
+userName
+UserName
+USERNAME
+'@ | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'username' -NewString 'account id' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Match 'accountId'
+            $content | Should -Match 'AccountId'
+            $content | Should -Match 'ACCOUNT ID'  # ALL CAPS preserves spaces
+            $result.MatchCount | Should -Be 3
+        }
+    }
+
+    Context 'PreserveCase with File Operations' {
+        It 'Should create backup when -Backup is specified with PreserveCase' {
+            $testFile = Join-Path $script:testDir 'backup.txt'
+            'HELLO world' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase -Backup
+
+            $result.BackupCreated | Should -Be $true
+            Test-Path -Path "$testFile.bak" | Should -Be $true
+
+            $backupContent = Get-Content -Path "$testFile.bak" -Raw
+            $backupContent | Should -Be 'HELLO world'
+        }
+
+        It 'Should support WhatIf with PreserveCase' {
+            $testFile = Join-Path $script:testDir 'whatif.txt'
+            'HELLO world' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase -WhatIf
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Be 'HELLO world'  # Should not be modified
+            $result.ReplacementsMade | Should -Be $false
+            $result.MatchCount | Should -Be 1  # Should still report matches found
+        }
+
+        It 'Should work with pipeline input' {
+            $testFile = Join-Path $script:testDir 'pipeline.txt'
+            'HELLO world' | Set-Content -Path $testFile -NoNewline
+
+            $result = Get-Item -Path $testFile | Replace-StringInFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Be 'GOODBYE world'
+            $result.ReplacementsMade | Should -Be $true
+        }
+    }
 }
