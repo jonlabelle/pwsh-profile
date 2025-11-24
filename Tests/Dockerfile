@@ -26,6 +26,7 @@ RUN pwsh -NoProfile -File /tmp/dev-requirements.ps1 && \
 
 # Disable PowerShell telemetry
 ENV POWERSHELL_TELEMETRY_OPTOUT=1
+ENV DISABLE_TELEMETRY=1
 
 # Default command
 CMD ["pwsh"]
