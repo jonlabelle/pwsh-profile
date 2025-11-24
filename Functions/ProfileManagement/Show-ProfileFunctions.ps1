@@ -235,10 +235,10 @@ function Show-ProfileFunctions
                     # Display aliases if requested and available
                     if ($IncludeAliases -and $aliases.Count -gt 0)
                     {
-                        Write-Host ' (' -ForegroundColor DarkGray -NoNewline
-                        Write-Host ($aliases -join ', ') -ForegroundColor Magenta -NoNewline
-                        Write-Host '*' -ForegroundColor DarkGray -NoNewline
-                        Write-Host ')' -ForegroundColor DarkGray -NoNewline
+                        Write-Host ' (' -ForegroundColor Gray -NoNewline
+                        Write-Host ($aliases -join ', ') -ForegroundColor DarkGray -NoNewline
+                        # Write-Host '*' -ForegroundColor Gray -NoNewline
+                        Write-Host ')' -ForegroundColor Gray -NoNewline
                     }
 
                     Write-Host ' - ' -ForegroundColor Yellow -NoNewline
@@ -252,10 +252,16 @@ function Show-ProfileFunctions
             Write-Host 'across ' -ForegroundColor Cyan -NoNewline
             Write-Host "$($functionsByCategory.Count) categories" -ForegroundColor White
 
-            # Add alias note if included
+            # Add alias note if included, or hint if not
             if ($IncludeAliases)
             {
                 Write-Host "`n* Aliases are only created if they don't already exist in the environment" -ForegroundColor DarkGray
+            }
+            else
+            {
+                Write-Host "`nTip: Use " -ForegroundColor Gray -NoNewline
+                Write-Host 'Show-ProfileFunctions -IncludeAliases' -ForegroundColor Cyan -NoNewline
+                Write-Host ' to see function aliases' -ForegroundColor Gray
             }
 
             # Add helpful footer
