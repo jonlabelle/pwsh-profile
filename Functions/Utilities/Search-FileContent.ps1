@@ -112,7 +112,8 @@ function Search-FileContent
         - kebab-case (user-name)
         - SCREAMING-KEBAB-CASE (USER-NAME)
 
-        Note: Requires -CaseInsensitive to be enabled. Cannot be used with -CountOnly or -FilesOnly.
+        Note: Requires -CaseInsensitive to be enabled. Cannot be used with -CountOnly, -FilesOnly,
+        -Context, -Before, or -After (context parameters are not applicable to variation summaries).
 
     .EXAMPLE
         PS > Search-FileContent -Pattern 'function' -Path ./Functions
@@ -330,6 +331,10 @@ function Search-FileContent
             if ($FilesOnly)
             {
                 throw 'IncludeCaseVariations cannot be used with FilesOnly'
+            }
+            if ($Context -gt 0 -or $Before -gt 0 -or $After -gt 0)
+            {
+                throw 'IncludeCaseVariations cannot be used with Context, Before, or After parameters (context is not applicable to variation summaries)'
             }
         }
 
@@ -1024,6 +1029,10 @@ function Search-FileContent
                     }
                     Write-Host ''
                 }
+
+                # Add helpful tip about Replace-StringInFile
+                Write-Host "$($colorContext)Tip: Use $([char]0x1b)[0mReplace-StringInFile$($colorContext) to replace these matches while preserving case patterns.$($colorReset)"
+                Write-Host "$($colorContext)     Example: Replace-StringInFile -Path <files> -OldString '$Pattern' -NewString 'newtext' -CaseInsensitive -PreserveCase$($colorReset)"
             }
         }
 

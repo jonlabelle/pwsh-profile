@@ -536,6 +536,18 @@ user-name = cssClass
             { Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -FilesOnly } | Should -Throw '*IncludeCaseVariations cannot be used with FilesOnly*'
         }
 
+        It 'Should throw error when IncludeCaseVariations used with Context' {
+            { Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Context 2 } | Should -Throw '*IncludeCaseVariations cannot be used with Context*'
+        }
+
+        It 'Should throw error when IncludeCaseVariations used with Before' {
+            { Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Before 2 } | Should -Throw '*IncludeCaseVariations cannot be used with*Before*'
+        }
+
+        It 'Should throw error when IncludeCaseVariations used with After' {
+            { Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -After 2 } | Should -Throw '*IncludeCaseVariations cannot be used with*After*'
+        }
+
         It 'Should detect all case variations in Simple mode' {
             $results = Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
             $results | Should -Not -BeNullOrEmpty
