@@ -77,34 +77,57 @@ function Show-ProfileFunctions
 
             foreach ($file in $functionFiles)
             {
-                $functionName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
+                $functionName = ''
                 $synopsis = ''
 
                 try
                 {
-                    # Read the file content to extract SYNOPSIS
-                    $content = Get-Content $file.FullName -Raw -ErrorAction Stop
+                    # Use PowerShell's AST parser to reliably get function info
+                    $tokens = $null
+                    $errors = $null
+                    $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors)
 
-                    # Use regex to find the SYNOPSIS or DESCRIPTION section
-                    if ($content -match '\.SYNOPSIS\s*\r?\n\s*(.+?)(?:\r?\n\s*\r?\n|\r?\n\s*\.)')
+                    if ($errors.Count -gt 0)
                     {
-                        $synopsis = $matches[1].Trim()
-                        # Remove any leading/trailing whitespace and normalize line breaks
-                        $synopsis = $synopsis -replace '\r?\n\s*', ' ' -replace '\s+', ' '
+                        Write-Verbose "Encountered $($errors.Count) parsing errors in $($file.Name)."
                     }
-                    elseif ($content -match '\.SYNOPSIS\s*\r?\n\s*(.+?)(?:\r?\n|\.)')
+
+                    $functionAst = $ast.Find({ $args[0] -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)
+
+                    if ($functionAst)
                     {
-                        $synopsis = $matches[1].Trim()
-                        $synopsis = $synopsis -replace '\r?\n\s*', ' ' -replace '\s+', ' '
-                    }
-                    elseif ($content -match '\.DESCRIPTION\s*\r?\n\s*(.+?)(?:\r?\n\s*\r?\n|\r?\n\s*\.)')
-                    {
-                        $synopsis = $matches[1].Trim()
-                        $synopsis = $synopsis -replace '\r?\n\s*', ' ' -replace '\s+', ' '
+                        $functionName = $functionAst.Name
+                        $helpContent = $functionAst.GetHelpContent()
+
+                        if ($helpContent)
+                        {
+                            # Extract synopsis, fallback to description
+                            $synopsisText = if (-not [string]::IsNullOrWhiteSpace($helpContent.Synopsis))
+                            {
+                                $helpContent.Synopsis
+                            }
+                            elseif (-not [string]::IsNullOrWhiteSpace($helpContent.Description))
+                            {
+                                $helpContent.Description
+                            }
+                            else
+                            {
+                                'No description available'
+                            }
+
+                            # Normalize newlines and join multi-line text into a single line
+                            $synopsis = ($synopsisText -split '\r?\n' | ForEach-Object { $_.Trim() }) -join ' '
+                        }
+                        else
+                        {
+                            $synopsis = 'No description available'
+                        }
                     }
                     else
                     {
-                        $synopsis = 'No description available'
+                        # Fallback for files that might not contain a standard function definition
+                        $functionName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
+                        $synopsis = 'Could not parse function definition'
                     }
 
                     # Truncate if too long to keep single line
@@ -115,7 +138,8 @@ function Show-ProfileFunctions
                 }
                 catch
                 {
-                    Write-Verbose "Error reading file $($file.Name): $($_.Exception.Message)"
+                    Write-Verbose "Error parsing file $($file.Name): $($_.Exception.Message)"
+                    $functionName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
                     $synopsis = 'Unable to read description'
                 }
 
