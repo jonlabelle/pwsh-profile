@@ -12,10 +12,14 @@ function Show-ProfileFunctions
 
         Compatible with PowerShell Desktop 5.1+ on Windows, macOS, and Linux.
 
+    .PARAMETER IncludeAliases
+        Include function aliases in the output. Shows aliases that are conditionally created
+        when the function is loaded (only if the alias name doesn't already exist).
+
     .EXAMPLE
         PS > Show-ProfileFunctions
 
-        ActiveDirectory Functions:
+        Active Directory Functions:
           - Invoke-GroupPolicyUpdate - Forces an immediate Group Policy update on Windows systems.
           - Test-ADCredential - Test the username and password of Active Directory credentials.
           - Test-ADUserLocked - Test if an Active Directory user account is locked out.
@@ -28,10 +32,23 @@ function Show-ProfileFunctions
 
         Total: 52 functions across 7 categories
 
-        For full details about any function, use: Get-Help <Function-Name>
-        Example: Get-Help Test-Port -Full
-
         Displays all available profile functions organized by category with brief descriptions.
+
+    .EXAMPLE
+        PS > Show-ProfileFunctions -IncludeAliases
+
+        Developer Functions:
+          - Import-DotEnv (dotenv*) - Loads environment variables from dotenv (.env) files.
+
+        Utilities Functions:
+          - ConvertFrom-Base64 (base64-decode*) - Decodes a Base64-encoded string...
+          - ConvertTo-Base64 (base64-encode*) - Converts a string or file content to Base64...
+          - Get-WhichCommand (which*) - Locates a command and displays its location...
+        ...
+
+        * Aliases are only created if they don't already exist in the environment
+
+        Displays functions with their conditionally-created aliases.
 
     .OUTPUTS
         System.String
@@ -45,7 +62,10 @@ function Show-ProfileFunctions
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding()]
     [OutputType([String])]
-    param()
+    param(
+        [Parameter()]
+        [switch]$IncludeAliases
+    )
 
     begin
     {
@@ -111,6 +131,7 @@ function Show-ProfileFunctions
                 {
                     $functionName = ''
                     $synopsis = ''
+                    $aliases = @()
 
                     try
                     {
@@ -130,6 +151,38 @@ function Show-ProfileFunctions
                         {
                             $functionName = $functionAst.Name
                             $helpContent = $functionAst.GetHelpContent()
+
+                            # Extract aliases if requested
+                            if ($IncludeAliases)
+                            {
+                                # Find Set-Alias commands in the file
+                                $setAliasCalls = $ast.FindAll({
+                                        $args[0] -is [System.Management.Automation.Language.CommandAst] -and
+                                        $args[0].GetCommandName() -eq 'Set-Alias'
+                                    }, $true)
+
+                                foreach ($aliasCall in $setAliasCalls)
+                                {
+                                    # Extract the -Name parameter value
+                                    $nameParam = $aliasCall.CommandElements | Where-Object {
+                                        $_ -is [System.Management.Automation.Language.CommandParameterAst] -and
+                                        $_.ParameterName -eq 'Name'
+                                    }
+
+                                    if ($nameParam)
+                                    {
+                                        $nameIndex = $aliasCall.CommandElements.IndexOf($nameParam)
+                                        if ($nameIndex -ge 0 -and ($nameIndex + 1) -lt $aliasCall.CommandElements.Count)
+                                        {
+                                            $aliasValue = $aliasCall.CommandElements[$nameIndex + 1]
+                                            if ($aliasValue -is [System.Management.Automation.Language.StringConstantExpressionAst])
+                                            {
+                                                $aliases += $aliasValue.Value
+                                            }
+                                        }
+                                    }
+                                }
+                            }
 
                             if ($helpContent)
                             {
@@ -178,6 +231,16 @@ function Show-ProfileFunctions
                     # Format and display the function with description
                     Write-Host '  - ' -ForegroundColor Yellow -NoNewline
                     Write-Host $functionName -ForegroundColor Green -NoNewline
+
+                    # Display aliases if requested and available
+                    if ($IncludeAliases -and $aliases.Count -gt 0)
+                    {
+                        Write-Host ' (' -ForegroundColor DarkGray -NoNewline
+                        Write-Host ($aliases -join ', ') -ForegroundColor Magenta -NoNewline
+                        Write-Host '*' -ForegroundColor DarkGray -NoNewline
+                        Write-Host ')' -ForegroundColor DarkGray -NoNewline
+                    }
+
                     Write-Host ' - ' -ForegroundColor Yellow -NoNewline
                     Write-Host $synopsis -ForegroundColor White
                 }
@@ -188,6 +251,12 @@ function Show-ProfileFunctions
             Write-Host "$($functionFiles.Count) functions " -ForegroundColor White -NoNewline
             Write-Host 'across ' -ForegroundColor Cyan -NoNewline
             Write-Host "$($functionsByCategory.Count) categories" -ForegroundColor White
+
+            # Add alias note if included
+            if ($IncludeAliases)
+            {
+                Write-Host "`n* Aliases are only created if they don't already exist in the environment" -ForegroundColor DarkGray
+            }
 
             # Add helpful footer
             Write-Host "`nFor full details about any function, use: " -ForegroundColor Gray -NoNewline

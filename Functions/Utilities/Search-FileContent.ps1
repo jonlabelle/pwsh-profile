@@ -23,7 +23,7 @@ function Search-FileContent
         - Performance optimizations for large file sets
 
         ALIASES:
-        The 'grep' and 'search' aliases are created only if they don't already exist.
+        The 'search' alias is created only if it doesn't already exist in the current environment.
 
     .PARAMETER Pattern
         The search pattern. Supports regular expressions by default.
@@ -731,20 +731,6 @@ function Search-FileContent
         {
             Write-Verbose "Search complete: $totalMatches matches in $filesWithMatches files"
         }
-    }
-}
-
-# Create 'grep' alias only if it doesn't already exist
-if (-not (Get-Command -Name 'grep' -ErrorAction SilentlyContinue))
-{
-    try
-    {
-        Write-Verbose "Creating 'grep' alias for Search-FileContent"
-        Set-Alias -Name 'grep' -Value 'Search-FileContent' -Force -ErrorAction Stop
-    }
-    catch
-    {
-        Write-Warning "Search-FileContent: Could not create 'grep' alias: $($_.Exception.Message)"
     }
 }
 
