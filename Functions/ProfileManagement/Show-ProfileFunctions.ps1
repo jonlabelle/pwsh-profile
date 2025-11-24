@@ -152,6 +152,25 @@ function Show-ProfileFunctions
                             $functionName = $functionAst.Name
                             $helpContent = $functionAst.GetHelpContent()
 
+                            # Fallback: If GetHelpContent() returns null or empty, manually parse the help block
+                            if (-not $helpContent -or [string]::IsNullOrWhiteSpace($helpContent.Synopsis))
+                            {
+                                Write-Verbose "GetHelpContent() failed for $($file.Name), using manual parsing"
+                                $fileContent = Get-Content $file.FullName -Raw
+
+                                # Extract .SYNOPSIS using regex - handle multi-line content
+                                if ($fileContent -match '(?s)\.SYNOPSIS\s+(.+?)(?=\r?\n\s*\.)')
+                                {
+                                    $synopsisText = $matches[1].Trim()
+
+                                    # Create a minimal help content object
+                                    $helpContent = [PSCustomObject]@{
+                                        Synopsis = $synopsisText
+                                        Description = $null
+                                    }
+                                }
+                            }
+
                             # Extract aliases if requested
                             if ($IncludeAliases)
                             {
