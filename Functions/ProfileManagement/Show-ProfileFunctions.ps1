@@ -6,7 +6,8 @@ function Show-ProfileFunctions
 
     .DESCRIPTION
         This function scans the Functions folder and extracts the SYNOPSIS from each PowerShell function file
-        to display a simple bulleted list of available functions with their descriptions.
+        to display a categorized list of available functions with their descriptions.
+        Functions are grouped by their category folder and sorted alphabetically within each category.
         Helps users discover what functions are available in their profile.
 
         Compatible with PowerShell Desktop 5.1+ on Windows, macOS, and Linux.
@@ -14,15 +15,23 @@ function Show-ProfileFunctions
     .EXAMPLE
         PS > Show-ProfileFunctions
 
-        - Convert-LineEndings - Converts line endings between LF (Unix) and CRLF (Windows) with optional file...
-        - Copy-DirectoryWithExclusions - Copies a directory recursively with the ability to exclude specific directories.
-        - Get-CertificateDetails - Gets detailed SSL/TLS certificate information from remote hosts.
-        - Get-CertificateExpiration - Gets the expiration date of an SSL/TLS certificate from a remote host.
-        - Get-CommandAlias - Lists all aliases for the specified PowerShell command.
-        ...
+        ActiveDirectory Functions:
+          - Invoke-GroupPolicyUpdate - Forces an immediate Group Policy update on Windows systems.
+          - Test-ADCredential - Test the username and password of Active Directory credentials.
+          - Test-ADUserLocked - Test if an Active Directory user account is locked out.
+
+        Developer Functions:
+          - Get-DotNetVersion - Gets the installed .NET Framework versions.
+          - Import-DotEnv - Loads environment variables from dotenv (.env) files.
+          - Remove-DotNetBuildArtifacts - Removes bin and obj folders from .NET project directories.
         ...
 
-        Displays all available profile functions with brief descriptions.
+        Total: 52 functions across 7 categories
+
+        For full details about any function, use: Get-Help <Function-Name>
+        Example: Get-Help Test-Port -Full
+
+        Displays all available profile functions organized by category with brief descriptions.
 
     .OUTPUTS
         System.String
@@ -65,7 +74,7 @@ function Show-ProfileFunctions
         try
         {
             # Get all PowerShell files in the Functions directory and subdirectories
-            $functionFiles = Get-ChildItem -Path $functionsPath -Filter '*.ps1' -File -Recurse | Sort-Object Name
+            $functionFiles = Get-ChildItem -Path $functionsPath -Filter '*.ps1' -File -Recurse
 
             if (-not $functionFiles)
             {
@@ -73,85 +82,112 @@ function Show-ProfileFunctions
                 return
             }
 
-            Write-Host '' # Blank line for spacing
+            # Group functions by category (parent folder)
+            $functionsByCategory = $functionFiles | Group-Object { $_.Directory.Name } | Sort-Object Name
 
-            foreach ($file in $functionFiles)
+            $firstCategory = $true
+
+            foreach ($category in $functionsByCategory)
             {
-                $functionName = ''
-                $synopsis = ''
+                # Add spaces to category name (e.g., "NetworkAndDns" -> "Network And Dns")
+                $categoryDisplay = $category.Name -creplace '([A-Z])', ' $1'
+                $categoryDisplay = $categoryDisplay.Trim()
 
-                try
+                # Display category header with blank line before (except first)
+                if ($firstCategory)
                 {
-                    # Use PowerShell's AST parser to reliably get function info
-                    $tokens = $null
-                    $errors = $null
-                    $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors)
+                    Write-Host "`n$categoryDisplay Functions:" -ForegroundColor Cyan
+                    $firstCategory = $false
+                }
+                else
+                {
+                    Write-Host "`n$categoryDisplay Functions:" -ForegroundColor Cyan
+                }
 
-                    if ($errors.Count -gt 0)
+                # Sort functions within category
+                $sortedFiles = $category.Group | Sort-Object Name
+
+                foreach ($file in $sortedFiles)
+                {
+                    $functionName = ''
+                    $synopsis = ''
+
+                    try
                     {
-                        Write-Verbose "Encountered $($errors.Count) parsing errors in $($file.Name)."
-                    }
+                        # Use PowerShell's AST parser to reliably get function info
+                        $tokens = $null
+                        $errors = $null
+                        $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors)
 
-                    $functionAst = $ast.Find({ $args[0] -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)
-
-                    if ($functionAst)
-                    {
-                        $functionName = $functionAst.Name
-                        $helpContent = $functionAst.GetHelpContent()
-
-                        if ($helpContent)
+                        if ($errors.Count -gt 0)
                         {
-                            # Extract synopsis, fallback to description
-                            $synopsisText = if (-not [string]::IsNullOrWhiteSpace($helpContent.Synopsis))
+                            Write-Verbose "Encountered $($errors.Count) parsing errors in $($file.Name)."
+                        }
+
+                        $functionAst = $ast.Find({ $args[0] -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)
+
+                        if ($functionAst)
+                        {
+                            $functionName = $functionAst.Name
+                            $helpContent = $functionAst.GetHelpContent()
+
+                            if ($helpContent)
                             {
-                                $helpContent.Synopsis
-                            }
-                            elseif (-not [string]::IsNullOrWhiteSpace($helpContent.Description))
-                            {
-                                $helpContent.Description
+                                # Extract synopsis, fallback to description
+                                $synopsisText = if (-not [string]::IsNullOrWhiteSpace($helpContent.Synopsis))
+                                {
+                                    $helpContent.Synopsis
+                                }
+                                elseif (-not [string]::IsNullOrWhiteSpace($helpContent.Description))
+                                {
+                                    $helpContent.Description
+                                }
+                                else
+                                {
+                                    'No description available'
+                                }
+
+                                # Normalize newlines and join multi-line text into a single line
+                                $synopsis = ($synopsisText -split '\r?\n' | ForEach-Object { $_.Trim() }) -join ' '
                             }
                             else
                             {
-                                'No description available'
+                                $synopsis = 'No description available'
                             }
-
-                            # Normalize newlines and join multi-line text into a single line
-                            $synopsis = ($synopsisText -split '\r?\n' | ForEach-Object { $_.Trim() }) -join ' '
                         }
                         else
                         {
-                            $synopsis = 'No description available'
+                            # Fallback for files that might not contain a standard function definition
+                            $functionName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
+                            $synopsis = 'Could not parse function definition'
+                        }
+
+                        # Truncate if too long to keep single line
+                        if ($synopsis.Length -gt 80)
+                        {
+                            $synopsis = $synopsis.Substring(0, 77) + '...'
                         }
                     }
-                    else
+                    catch
                     {
-                        # Fallback for files that might not contain a standard function definition
+                        Write-Verbose "Error parsing file $($file.Name): $($_.Exception.Message)"
                         $functionName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
-                        $synopsis = 'Could not parse function definition'
+                        $synopsis = 'Unable to read description'
                     }
 
-                    # Truncate if too long to keep single line
-                    if ($synopsis.Length -gt 80)
-                    {
-                        $synopsis = $synopsis.Substring(0, 77) + '...'
-                    }
+                    # Format and display the function with description
+                    Write-Host '  - ' -ForegroundColor Yellow -NoNewline
+                    Write-Host $functionName -ForegroundColor Green -NoNewline
+                    Write-Host ' - ' -ForegroundColor Yellow -NoNewline
+                    Write-Host $synopsis -ForegroundColor White
                 }
-                catch
-                {
-                    Write-Verbose "Error parsing file $($file.Name): $($_.Exception.Message)"
-                    $functionName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
-                    $synopsis = 'Unable to read description'
-                }
-
-                # Format and display the function with description
-                Write-Host ' - ' -ForegroundColor Yellow -NoNewline
-                Write-Host $functionName -ForegroundColor Green -NoNewline
-                Write-Host ' - ' -ForegroundColor Yellow -NoNewline
-                Write-Host $synopsis -ForegroundColor White
             }
 
-            # Write-Host "`nTotal functions: " -ForegroundColor Cyan -NoNewline
-            # Write-Host $functionFiles.Count -ForegroundColor White
+            # Display summary statistics
+            Write-Host "`nTotal: " -ForegroundColor Cyan -NoNewline
+            Write-Host "$($functionFiles.Count) functions " -ForegroundColor White -NoNewline
+            Write-Host 'across ' -ForegroundColor Cyan -NoNewline
+            Write-Host "$($functionsByCategory.Count) categories" -ForegroundColor White
 
             # Add helpful footer
             Write-Host "`nFor full details about any function, use: " -ForegroundColor Gray -NoNewline
