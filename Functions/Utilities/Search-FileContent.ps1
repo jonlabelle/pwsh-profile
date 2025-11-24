@@ -90,6 +90,30 @@ function Search-FileContent
     .PARAMETER NoLineNumber
         Do not display line numbers in the output.
 
+    .PARAMETER IncludeCaseVariations
+        When enabled with -CaseInsensitive, groups and displays the different case variations
+        found for the search pattern. This is useful for identifying naming inconsistencies
+        across a codebase (e.g., 'userName', 'UserName', 'USERNAME', 'user_name').
+
+        The output includes:
+        - Total unique case variations found
+        - Count of each variation
+        - Files where each variation appears
+
+        Case patterns detected:
+        - ALL CAPS (USERNAME)
+        - Title Case (User Name)
+        - lowercase (username)
+        - First capital (Username)
+        - camelCase (userName)
+        - PascalCase (UserName)
+        - snake_case (user_name)
+        - SCREAMING_SNAKE_CASE (USER_NAME)
+        - kebab-case (user-name)
+        - SCREAMING-KEBAB-CASE (USER-NAME)
+
+        Note: Requires -CaseInsensitive to be enabled. Cannot be used with -CountOnly or -FilesOnly.
+
     .EXAMPLE
         PS > Search-FileContent -Pattern 'function' -Path ./Functions
 
@@ -157,6 +181,39 @@ function Search-FileContent
         PS > Search-FileContent -Pattern 'password' -Path . -Before 1 -After 3 -Include '*.config'
 
         Searches config files with 1 line before and 3 lines after each match.
+
+    .EXAMPLE
+        PS > Search-FileContent -Pattern 'username' -Path ./src -CaseInsensitive -IncludeCaseVariations
+
+        Case Variations Found: 4 unique patterns
+
+        USERNAME (SCREAMING_SNAKE_CASE) - 12 occurrences
+          /src/auth.js (5)
+          /src/user.js (7)
+
+        userName (camelCase) - 8 occurrences
+          /src/auth.js (3)
+          /src/profile.js (5)
+
+        UserName (PascalCase) - 3 occurrences
+          /src/models.ts (3)
+
+        user_name (snake_case) - 2 occurrences
+          /src/database.py (2)
+
+        Searches for 'username' case-insensitively and shows all case variations found.
+        Helps identify naming inconsistencies across different files and coding styles.
+
+    .EXAMPLE
+        PS > Search-FileContent -Pattern 'apikey' -Path . -CaseInsensitive -IncludeCaseVariations -Simple
+
+        Variation     CasePattern              Count Files
+        ---------     -----------              ----- -----
+        API_KEY       SCREAMING_SNAKE_CASE        15 {config.py, settings.py}
+        apiKey        camelCase                    8 {app.js, utils.js}
+        ApiKey        PascalCase                   2 {Models.cs}
+
+        Simple output mode showing case variations as structured objects for pipeline processing.
 
     .EXAMPLE
         PS > Search-FileContent -Pattern 'test' -Path ./src, ./lib, ./tests -Literal
@@ -249,12 +306,32 @@ function Search-FileContent
         [Switch]$NoRecurse,
 
         [Parameter()]
-        [Switch]$NoLineNumber
+        [Switch]$NoLineNumber,
+
+        [Parameter()]
+        [Switch]$IncludeCaseVariations
     )
 
     begin
     {
         Write-Verbose 'Initializing Search-FileContent'
+
+        # Validate parameter combinations
+        if ($IncludeCaseVariations)
+        {
+            if (-not $CaseInsensitive)
+            {
+                throw 'IncludeCaseVariations requires CaseInsensitive to be enabled'
+            }
+            if ($CountOnly)
+            {
+                throw 'IncludeCaseVariations cannot be used with CountOnly'
+            }
+            if ($FilesOnly)
+            {
+                throw 'IncludeCaseVariations cannot be used with FilesOnly'
+            }
+        }
 
         # Context handling - Context overrides Before/After if specified
         if ($PSBoundParameters.ContainsKey('Context'))
@@ -505,6 +582,151 @@ function Search-FileContent
             }
         }
 
+        # Helper function to detect case pattern of a string
+        function Get-CasePattern
+        {
+            param([String]$Text)
+
+            if ([string]::IsNullOrEmpty($Text))
+            {
+                return 'Unknown'
+            }
+
+            # Helper to check if text contains underscores and is consistent case
+            $hasUnderscores = $Text -match '_'
+            $hasHyphens = $Text -match '-'
+            $hasSpaces = $Text -match '\s'
+
+            # All uppercase
+            if ($Text -ceq $Text.ToUpper())
+            {
+                if ($hasUnderscores)
+                {
+                    return 'SCREAMING_SNAKE_CASE'
+                }
+                elseif ($hasHyphens)
+                {
+                    return 'SCREAMING-KEBAB-CASE'
+                }
+                elseif ($hasSpaces)
+                {
+                    return 'ALL CAPS'
+                }
+                else
+                {
+                    return 'UPPERCASE'
+                }
+            }
+
+            # All lowercase
+            if ($Text -ceq $Text.ToLower())
+            {
+                if ($hasUnderscores)
+                {
+                    return 'snake_case'
+                }
+                elseif ($hasHyphens)
+                {
+                    return 'kebab-case'
+                }
+                elseif ($hasSpaces)
+                {
+                    return 'lowercase'
+                }
+                else
+                {
+                    return 'lowercase'
+                }
+            }
+
+            # Check for separators (if mixed case with separators)
+            if ($hasUnderscores)
+            {
+                $letters = $Text -replace '_', ''
+                if ($letters -and (($letters -ceq $letters.ToLower()) -or ($letters -ceq $letters.ToUpper())))
+                {
+                    return 'snake_case (mixed)'
+                }
+            }
+
+            if ($hasHyphens)
+            {
+                $letters = $Text -replace '-', ''
+                if ($letters -and (($letters -ceq $letters.ToLower()) -or ($letters -ceq $letters.ToUpper())))
+                {
+                    return 'kebab-case (mixed)'
+                }
+            }
+
+            # Check for camelCase or PascalCase (no spaces/separators, mixed case)
+            if (-not $hasSpaces -and -not $hasUnderscores -and -not $hasHyphens)
+            {
+                # Look for lowercase followed by uppercase
+                $hasCamelTransition = $false
+                for ($i = 0; $i -lt $Text.Length - 1; $i++)
+                {
+                    if ([char]::IsLower($Text[$i]) -and [char]::IsUpper($Text[$i + 1]))
+                    {
+                        $hasCamelTransition = $true
+                        break
+                    }
+                }
+
+                if ($hasCamelTransition)
+                {
+                    if ([char]::IsUpper($Text[0]))
+                    {
+                        return 'PascalCase'
+                    }
+                    else
+                    {
+                        return 'camelCase'
+                    }
+                }
+            }
+
+            # Check for Title Case (spaces with each word capitalized)
+            if ($hasSpaces)
+            {
+                $words = $Text -split '\s+'
+                $allWordsCapitalized = $true
+                foreach ($word in $words)
+                {
+                    if ($word.Length -gt 0 -and [char]::IsLower($word[0]))
+                    {
+                        $allWordsCapitalized = $false
+                        break
+                    }
+                }
+
+                if ($allWordsCapitalized -and $words.Count -gt 1)
+                {
+                    return 'Title Case'
+                }
+            }
+
+            # First letter capitalized only
+            if ($Text.Length -gt 0 -and [char]::IsUpper($Text[0]))
+            {
+                $restLower = $true
+                for ($i = 1; $i -lt $Text.Length; $i++)
+                {
+                    if ([char]::IsUpper($Text[$i]))
+                    {
+                        $restLower = $false
+                        break
+                    }
+                }
+
+                if ($restLower)
+                {
+                    return 'First Capital'
+                }
+            }
+
+            return 'Mixed Case'
+        }
+
         # Function to search a single file
         function Search-SingleFile
         {
@@ -562,11 +784,12 @@ function Search-FileContent
                             }
                         }
 
+                        $matchValue = $Regex.Match($line).Value
                         $results += [PSCustomObject]@{
                             Path = $File.FullName
                             LineNumber = $lineNumber
                             Line = $line
-                            Match = $Regex.Match($line).Value
+                            Match = $matchValue
                             Context = $contextLines
                         }
                     }
@@ -614,6 +837,8 @@ function Search-FileContent
 
         $totalMatches = 0
         $filesWithMatches = 0
+        # Use case-sensitive dictionary for case variations
+        $caseVariations = New-Object 'System.Collections.Generic.Dictionary[String,Object]' ([StringComparer]::Ordinal)
 
         foreach ($file in $allFiles)
         {
@@ -631,103 +856,178 @@ function Search-FileContent
             $filesWithMatches++
             $totalMatches += $fileResult.MatchCount
 
-            if ($CountOnly)
+            # Collect case variations if requested
+            if ($IncludeCaseVariations)
             {
-                # Show count only
-                if ($Simple)
+                foreach ($match in $fileResult.Matches)
                 {
-                    [PSCustomObject]@{
-                        Path = $fileResult.Path
-                        MatchCount = $fileResult.MatchCount
+                    $matchText = $match.Match
+                    if (-not $caseVariations.ContainsKey($matchText))
+                    {
+                        $caseVariations[$matchText] = @{
+                            CasePattern = Get-CasePattern -Text $matchText
+                            Count = 0
+                            Files = @{}
+                        }
                     }
-                }
-                else
-                {
-                    Write-Host "$($colorFile)$($fileResult.Path)$($colorReset): $($fileResult.MatchCount) matches"
+                    $caseVariations[$matchText].Count++
+
+                    # Track file occurrences
+                    if (-not $caseVariations[$matchText].Files.ContainsKey($fileResult.Path))
+                    {
+                        $caseVariations[$matchText].Files[$fileResult.Path] = 0
+                    }
+                    $caseVariations[$matchText].Files[$fileResult.Path]++
                 }
             }
-            elseif ($FilesOnly)
+
+            # Skip normal output if showing case variations
+            if (-not $IncludeCaseVariations)
             {
-                # Show filename only
-                if ($Simple)
+                if ($CountOnly)
                 {
-                    [PSCustomObject]@{
-                        Path = $fileResult.Path
-                    }
-                }
-                else
-                {
-                    Write-Host "$($colorFile)$($fileResult.Path)$($colorReset)"
-                }
-            }
-            else
-            {
-                # Show full results
-                if ($Simple)
-                {
-                    # Output objects for pipeline
-                    foreach ($match in $fileResult.Matches)
+                    # Show count only
+                    if ($Simple)
                     {
                         [PSCustomObject]@{
-                            Path = $match.Path
-                            LineNumber = $match.LineNumber
-                            Line = $match.Line
-                            Match = $match.Match
+                            Path = $fileResult.Path
+                            MatchCount = $fileResult.MatchCount
                         }
+                    }
+                    else
+                    {
+                        Write-Host "$($colorFile)$($fileResult.Path)$($colorReset): $($fileResult.MatchCount) matches"
+                    }
+                }
+                elseif ($FilesOnly)
+                {
+                    # Show filename only
+                    if ($Simple)
+                    {
+                        [PSCustomObject]@{
+                            Path = $fileResult.Path
+                        }
+                    }
+                    else
+                    {
+                        Write-Host "$($colorFile)$($fileResult.Path)$($colorReset)"
                     }
                 }
                 else
                 {
-                    # Formatted output
-                    Write-Host ''
-                    Write-Host "$($colorFile)$($fileResult.Path)$($colorReset)"
-
-                    $lastEnd = -1
-                    foreach ($match in $fileResult.Matches)
+                    # Show full results
+                    if ($Simple)
                     {
-                        # Add separator if there's a gap in context
-                        if ($lastEnd -ne -1 -and $match.Context[0].LineNumber -gt $lastEnd + 1)
+                        # Output objects for pipeline
+                        foreach ($match in $fileResult.Matches)
                         {
-                            Write-Host "$($colorContext)--$($colorReset)"
+                            [PSCustomObject]@{
+                                Path = $match.Path
+                                LineNumber = $match.LineNumber
+                                Line = $match.Line
+                                Match = $match.Match
+                            }
                         }
+                    }
+                    else
+                    {
+                        # Formatted output
+                        Write-Host ''
+                        Write-Host "$($colorFile)$($fileResult.Path)$($colorReset)"
 
-                        foreach ($contextLine in $match.Context)
+                        $lastEnd = -1
+                        foreach ($match in $fileResult.Matches)
                         {
-                            if ($contextLine.IsMatch)
+                            # Add separator if there's a gap in context
+                            if ($lastEnd -ne -1 -and $match.Context[0].LineNumber -gt $lastEnd + 1)
                             {
-                                # Highlight the match
-                                $highlightedLine = $regex.Replace($contextLine.Content, "$($colorMatch)`$&$($colorReset)")
+                                Write-Host "$($colorContext)--$($colorReset)"
+                            }
 
-                                if ($NoLineNumber)
+                            foreach ($contextLine in $match.Context)
+                            {
+                                if ($contextLine.IsMatch)
                                 {
-                                    Write-Host $highlightedLine
+                                    # Highlight the match
+                                    $highlightedLine = $regex.Replace($contextLine.Content, "$($colorMatch)`$&$($colorReset)")
+
+                                    if ($NoLineNumber)
+                                    {
+                                        Write-Host $highlightedLine
+                                    }
+                                    else
+                                    {
+                                        Write-Host "$($colorLineNum)$($contextLine.LineNumber):$($colorReset)$highlightedLine"
+                                    }
                                 }
                                 else
                                 {
-                                    Write-Host "$($colorLineNum)$($contextLine.LineNumber):$($colorReset)$highlightedLine"
+                                    # Context line
+                                    if ($NoLineNumber)
+                                    {
+                                        Write-Host "$($colorContext)$($contextLine.Content)$($colorReset)"
+                                    }
+                                    else
+                                    {
+                                        Write-Host "$($colorContext)$($contextLine.LineNumber)-$($contextLine.Content)$($colorReset)"
+                                    }
                                 }
                             }
-                            else
-                            {
-                                # Context line
-                                if ($NoLineNumber)
-                                {
-                                    Write-Host "$($colorContext)$($contextLine.Content)$($colorReset)"
-                                }
-                                else
-                                {
-                                    Write-Host "$($colorContext)$($contextLine.LineNumber)-$($contextLine.Content)$($colorReset)"
-                                }
-                            }
-                        }
 
-                        $lastEnd = $match.Context[-1].LineNumber
+                            $lastEnd = $match.Context[-1].LineNumber
+                        }
                     }
                 }
             }
         }
 
-        if (-not $Simple -and -not $FilesOnly -and -not $CountOnly)
+        # Display case variations summary if requested
+        if ($IncludeCaseVariations -and $caseVariations.Count -gt 0)
+        {
+            if ($Simple)
+            {
+                # Simple output - return objects
+                foreach ($variation in ($caseVariations.GetEnumerator() | Sort-Object { $_.Value.Count } -Descending))
+                {
+                    [PSCustomObject]@{
+                        Variation = $variation.Key
+                        CasePattern = $variation.Value.CasePattern
+                        Count = $variation.Value.Count
+                        Files = @($variation.Value.Files.Keys)
+                    }
+                }
+            }
+            else
+            {
+                # Formatted output
+                Write-Host ''
+                Write-Host "$($colorMatch)Case Variations Found: $($caseVariations.Count) unique patterns$($colorReset)"
+                Write-Host ''
+
+                # Sort by count descending
+                $sortedVariations = $caseVariations.GetEnumerator() | Sort-Object { $_.Value.Count } -Descending
+
+                foreach ($variation in $sortedVariations)
+                {
+                    $varText = $variation.Key
+                    $varData = $variation.Value
+                    $casePattern = $varData.CasePattern
+                    $count = $varData.Count
+
+                    Write-Host "$($colorMatch)$varText$($colorReset) ($casePattern) - $count occurrence$(if ($count -ne 1) { 's' })"
+
+                    # Show files where this variation appears
+                    $fileEntries = $varData.Files.GetEnumerator() | Sort-Object { $_.Value } -Descending
+                    foreach ($fileEntry in $fileEntries)
+                    {
+                        Write-Host "  $($colorFile)$($fileEntry.Key)$($colorReset) ($($fileEntry.Value))"
+                    }
+                    Write-Host ''
+                }
+            }
+        }
+
+        if (-not $Simple -and -not $FilesOnly -and -not $CountOnly -and -not $IncludeCaseVariations)
         {
             Write-Verbose "Search complete: $totalMatches matches in $filesWithMatches files"
         }

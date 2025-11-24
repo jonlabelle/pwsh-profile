@@ -491,4 +491,112 @@ Final line
             { Search-FileContent -Pattern '[invalid' -Path $testFile -Simple } | Should -Throw
         }
     }
+
+    Context 'Case Variations' {
+        BeforeAll {
+            $script:testDir = Join-Path $TestDrive 'CaseVariationTests'
+            New-Item -ItemType Directory -Path $script:testDir -Force | Out-Null
+
+            # Create test file with various case patterns of 'username' (without separators)
+            $testFile1 = Join-Path $script:testDir 'code.js'
+            @'
+const userName = getUser();
+const UserName = parseData();
+const USERNAME = process.env.USERNAME;
+let username = 'test';
+const Username = config.Username;
+'@ | Set-Content -Path $testFile1
+
+            # Create another test file with different patterns
+            $testFile2 = Join-Path $script:testDir 'code.py'
+            @'
+username = get_user()
+userName = some_function()
+USERNAME = constant_value
+'@ | Set-Content -Path $testFile2
+
+            # Create test file with separated patterns (should NOT match 'username' pattern)
+            $testFile3 = Join-Path $script:testDir 'config.py'
+            @'
+user_name = dbQuery()
+USER_NAME = config.USER_NAME
+user-name = cssClass
+'@ | Set-Content -Path $testFile3
+        }
+
+        It 'Should throw error when IncludeCaseVariations used without CaseInsensitive' {
+            { Search-FileContent -Pattern 'username' -Path $script:testDir -IncludeCaseVariations } | Should -Throw '*IncludeCaseVariations requires CaseInsensitive*'
+        }
+
+        It 'Should throw error when IncludeCaseVariations used with CountOnly' {
+            { Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -CountOnly } | Should -Throw '*IncludeCaseVariations cannot be used with CountOnly*'
+        }
+
+        It 'Should throw error when IncludeCaseVariations used with FilesOnly' {
+            { Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -FilesOnly } | Should -Throw '*IncludeCaseVariations cannot be used with FilesOnly*'
+        }
+
+        It 'Should detect all case variations in Simple mode' {
+            $results = Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
+            $results | Should -Not -BeNullOrEmpty
+            $results.Count | Should -BeGreaterThan 0
+            # Should find these variations (not separated patterns like user_name)
+            $results.Variation | Should -Contain 'userName'
+            $results.Variation | Should -Contain 'UserName'
+            $results.Variation | Should -Contain 'USERNAME'
+            $results.Variation | Should -Contain 'username'
+            $results.Variation | Should -Contain 'Username'
+        }
+
+        It 'Should count occurrences correctly' {
+            $results = Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
+            $userNameResult = $results | Where-Object { $_.Variation -ceq 'userName' }
+            $userNameResult.Count | Should -Be 2  # Once in code.js, once in code.py
+        }
+
+        It 'Should track files for each variation' {
+            $results = Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
+            $usernameResult = $results | Where-Object { $_.Variation -ceq 'username' }
+            $usernameResult.Files | Should -Contain (Join-Path $script:testDir 'code.js')
+        }
+
+        It 'Should identify camelCase pattern' {
+            $results = Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
+            $camelResult = $results | Where-Object { $_.Variation -ceq 'userName' }
+            $camelResult.CasePattern | Should -Be 'camelCase'
+        }
+
+        It 'Should identify PascalCase pattern' {
+            $results = Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
+            $pascalResult = $results | Where-Object { $_.Variation -ceq 'UserName' }
+            $pascalResult.CasePattern | Should -Be 'PascalCase'
+        }
+
+        It 'Should identify UPPERCASE pattern' {
+            $results = Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
+            $upperResult = $results | Where-Object { $_.Variation -ceq 'USERNAME' }
+            $upperResult.CasePattern | Should -Be 'UPPERCASE'
+        }
+
+        It 'Should identify lowercase pattern' {
+            $results = Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
+            $lowerResult = $results | Where-Object { $_.Variation -ceq 'username' }
+            $lowerResult.CasePattern | Should -Be 'lowercase'
+        }
+
+        It 'Should identify First Capital pattern' {
+            $results = Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
+            $firstCapResult = $results | Where-Object { $_.Variation -ceq 'Username' }
+            $firstCapResult.CasePattern | Should -Be 'First Capital'
+        }
+
+        It 'Should NOT match separated patterns like user_name or user-name' {
+            $results = Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
+            # These should not be in the results because they have separators
+            $results.Variation | Should -Not -Contain 'user_name'
+            $results.Variation | Should -Not -Contain 'USER_NAME'
+            $results.Variation | Should -Not -Contain 'user-name'
+            $results.Variation | Should -Not -Contain 'USER-NAME'
+        }
+    }
 }

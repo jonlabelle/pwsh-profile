@@ -462,4 +462,185 @@ Fifth line with MATCH
             $results.PSObject.Properties.Name | Should -Not -Contain 'LineNumber'
         }
     }
+
+    Context 'Case Variations in Real Codebase' {
+        BeforeAll {
+            # Create a realistic multi-language project structure
+            $script:codebaseDir = Join-Path $TestDrive 'Codebase'
+            New-Item -ItemType Directory -Path $script:codebaseDir -Force | Out-Null
+
+            # JavaScript/TypeScript files with various naming conventions
+            $jsDir = Join-Path $script:codebaseDir 'src'
+            New-Item -ItemType Directory -Path $jsDir -Force | Out-Null
+
+            @'
+const apiKey = process.env.API_KEY;
+const API_KEY = getEnvVar('API_KEY');
+const ApiKey = parseConfig().ApiKey;
+const api_key = database.api_key;
+export const apiKey = config.apiKey;
+function getApiKey() { return apiKey; }
+'@ | Set-Content -Path (Join-Path $jsDir 'config.js')
+
+            @'
+export class ApiKey {
+    private apiKey: string;
+    private API_KEY: string;
+
+    constructor() {
+        this.apiKey = '';
+        this.API_KEY = '';
+    }
+}
+'@ | Set-Content -Path (Join-Path $jsDir 'models.ts')
+
+            # Python files with snake_case convention
+            $pyDir = Join-Path $script:codebaseDir 'python'
+            New-Item -ItemType Directory -Path $pyDir -Force | Out-Null
+
+            @'
+import os
+
+api_key = os.getenv('API_KEY')
+API_KEY = os.environ.get('API_KEY')
+
+def get_api_key():
+    return api_key
+
+class ApiKey:
+    def __init__(self):
+        self.api_key = None
+'@ | Set-Content -Path (Join-Path $pyDir 'config.py')
+
+            # CSS files with kebab-case
+            $cssDir = Join-Path $script:codebaseDir 'styles'
+            New-Item -ItemType Directory -Path $cssDir -Force | Out-Null
+
+            @'
+:root {
+    --api-key-input: #333;
+    --API-KEY-COLOR: blue;
+}
+
+.api-key {
+    color: var(--api-key-input);
+}
+
+.API-KEY {
+    font-weight: bold;
+}
+'@ | Set-Content -Path (Join-Path $cssDir 'styles.css')
+
+            # Configuration files
+            @'
+{
+    "apiKey": "test123",
+    "API_KEY": "PROD456",
+    "api_key": "dev789"
+}
+'@ | Set-Content -Path (Join-Path $script:codebaseDir 'config.json')
+
+            @'
+# Environment Variables
+API_KEY=production_key
+api_key=development_key
+'@ | Set-Content -Path (Join-Path $script:codebaseDir '.env')
+        }
+
+        AfterAll {
+            Remove-TestDirectory -Path $script:codebaseDir
+        }
+
+        It 'Should find all case variations across multiple files' {
+            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple
+            $results | Should -Not -BeNullOrEmpty
+            $uniqueVariations = $results.Variation | Select-Object -Unique
+            # Should find apiKey (camelCase) and ApiKey (PascalCase) across files
+            # Note: api_key, API_KEY, api-key won't match because of separators
+            $uniqueVariations.Count | Should -BeGreaterOrEqual 2
+        }
+
+        It 'Should correctly count each variation across files' {
+            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple
+            $apiKeyResults = $results | Where-Object { $_.Variation -eq 'apiKey' }
+            $apiKeyResults.Count | Should -BeGreaterThan 0
+        }
+
+        It 'Should identify JavaScript camelCase usage' {
+            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple
+            $camelCase = $results | Where-Object { $_.CasePattern -eq 'camelCase' }
+            $camelCase | Should -Not -BeNullOrEmpty
+        }
+
+        It 'Should identify PascalCase for class names' {
+            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple
+            $pascalCase = $results | Where-Object { $_.CasePattern -eq 'PascalCase' }
+            $pascalCase | Should -Not -BeNullOrEmpty
+        }
+
+        It 'Should NOT find separated patterns like snake_case or kebab-case when searching for continuous pattern' {
+            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple
+            # Patterns like api_key, API_KEY, api-key should not match 'apikey'
+            $snakeCase = $results | Where-Object { $_.CasePattern -match 'snake' }
+            $snakeCase | Should -BeNullOrEmpty
+            $kebabCase = $results | Where-Object { $_.CasePattern -match 'kebab' }
+            $kebabCase | Should -BeNullOrEmpty
+        }
+
+        It 'Should track which files contain each variation' {
+            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple
+            foreach ($result in $results)
+            {
+                $result.Files | Should -Not -BeNullOrEmpty
+                # Files should be an array (or single value if only one file)
+                @($result.Files).Count | Should -BeGreaterThan 0
+            }
+        }
+
+        It 'Should work with Include filter for specific file types' {
+            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -Include '*.js', '*.ts' -CaseInsensitive -IncludeCaseVariations -Simple
+            $results | Should -Not -BeNullOrEmpty
+            # Should only include JavaScript and TypeScript files
+            foreach ($result in $results)
+            {
+                foreach ($file in $result.Files)
+                {
+                    $file | Should -Match '\.(js|ts)$'
+                }
+            }
+        }
+
+        It 'Should show most common variation first when sorted' {
+            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple
+            $sortedResults = $results | Sort-Object -Property Count -Descending
+            $sortedResults[0].Count | Should -BeGreaterOrEqual $sortedResults[-1].Count
+        }
+
+        It 'Should handle multiple variations in same file' {
+            $results = Search-FileContent -Pattern 'apikey' -Path (Join-Path $script:codebaseDir 'src/config.js') -CaseInsensitive -IncludeCaseVariations -Simple
+            $results.Count | Should -BeGreaterThan 1
+        }
+
+        It 'Should provide accurate file occurrence counts' {
+            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple
+            foreach ($result in $results)
+            {
+                $result.Count | Should -BeGreaterThan 0
+                $result.Files.Count | Should -BeGreaterThan 0
+                # Total count should be >= number of files (could be multiple matches per file)
+                $result.Count | Should -BeGreaterOrEqual $result.Files.Count
+            }
+        }
+
+        It 'Should work with Exclude patterns' {
+            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -Exclude '*.json', '*.env' -CaseInsensitive -IncludeCaseVariations -Simple
+            $results | Should -Not -BeNullOrEmpty
+            # Should not include config.json or .env files
+            foreach ($result in $results)
+            {
+                $result.Files | Should -Not -Contain (Join-Path $script:codebaseDir 'config.json')
+                $result.Files | Should -Not -Contain (Join-Path $script:codebaseDir '.env')
+            }
+        }
+    }
 }
