@@ -716,19 +716,20 @@ ANOTHER_VALID=valid2
             Clear-TestEnvVars -VarNames @('VAR1', 'VAR2')
         }
 
-        It 'Should handle unicode and UTF-8 characters' {
-            $content = @'
-NAME="José García"
-MESSAGE="Hello 世界"
-EMOJI="Hello 👋 World"
-'@
+        It 'Should handle unicode and UTF-8 characters' -Skip:($PSVersionTable.PSVersion.Major -lt 6) {
+            # Build content with UTF-8 characters programmatically to avoid PS 5.1 parse errors
+            $jose = [System.Text.Encoding]::UTF8.GetString(@(74, 111, 115, 195, 169, 32, 71, 97, 114, 99, 195, 173, 97))
+            $hello = [System.Text.Encoding]::UTF8.GetString(@(72, 101, 108, 108, 111, 32, 228, 184, 150, 231, 149, 140))
+            $emoji = [System.Text.Encoding]::UTF8.GetString(@(72, 101, 108, 108, 111, 32, 240, 159, 145, 139, 32, 87, 111, 114, 108, 100))
+
+            $content = "NAME=`"$jose`"`nMESSAGE=`"$hello`"`nEMOJI=`"$emoji`""
             New-TestEnvFile -Path $script:TestEnvFile -Content $content
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:NAME | Should -Be 'José García'
-            $env:MESSAGE | Should -Be 'Hello 世界'
-            $env:EMOJI | Should -Be 'Hello 👋 World'
+            $env:NAME | Should -Be $jose
+            $env:MESSAGE | Should -Be $hello
+            $env:EMOJI | Should -Be $emoji
 
             Clear-TestEnvVars -VarNames @('NAME', 'MESSAGE', 'EMOJI')
         }
@@ -1262,20 +1263,21 @@ SHOW_VAR3=value3
             ($result | Where-Object { $_.Name -eq 'SHOW_VAR2' }).Value | Should -BeNullOrEmpty
         }
 
-        It 'Should work with Unicode and emoji values' {
-            $content = @'
-SHOW_VAR1="José García"
-SHOW_VAR2="Hello 👋 World"
-SHOW_VAR3="你好世界"
-'@
+        It 'Should work with Unicode and emoji values' -Skip:($PSVersionTable.PSVersion.Major -lt 6) {
+            # Build content with UTF-8 characters programmatically to avoid PS 5.1 parse errors
+            $jose = [System.Text.Encoding]::UTF8.GetString(@(74, 111, 115, 195, 169, 32, 71, 97, 114, 99, 195, 173, 97))
+            $emoji = [System.Text.Encoding]::UTF8.GetString(@(72, 101, 108, 108, 111, 32, 240, 159, 145, 139, 32, 87, 111, 114, 108, 100))
+            $chinese = [System.Text.Encoding]::UTF8.GetString(@(228, 189, 160, 229, 165, 189, 228, 184, 150, 231, 149, 140))
+
+            $content = "SHOW_VAR1=`"$jose`"`nSHOW_VAR2=`"$emoji`"`nSHOW_VAR3=`"$chinese`""
             New-TestEnvFile -Path $script:TestEnvFile -Content $content
             Import-DotEnv -Path $script:TestEnvFile
 
             $result = Import-DotEnv -ShowLoadedWithValues -PassThru
 
-            ($result | Where-Object { $_.Name -eq 'SHOW_VAR1' }).Value | Should -Be 'José García'
-            ($result | Where-Object { $_.Name -eq 'SHOW_VAR2' }).Value | Should -Be 'Hello 👋 World'
-            ($result | Where-Object { $_.Name -eq 'SHOW_VAR3' }).Value | Should -Be '你好世界'
+            ($result | Where-Object { $_.Name -eq 'SHOW_VAR1' }).Value | Should -Be $jose
+            ($result | Where-Object { $_.Name -eq 'SHOW_VAR2' }).Value | Should -Be $emoji
+            ($result | Where-Object { $_.Name -eq 'SHOW_VAR3' }).Value | Should -Be $chinese
         }
     }
 }

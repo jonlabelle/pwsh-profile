@@ -197,6 +197,17 @@ function Import-DotEnv
         Security Note: Be cautious with .env files containing sensitive data. Ensure
         appropriate file permissions and never commit them to version control.
 
+        PowerShell 5.1 Compatibility Note: This function is compatible with PowerShell 5.1+.
+        However, when writing tests that include UTF-8 characters (emoji, non-ASCII characters),
+        PowerShell 5.1 cannot parse .ps1 files containing UTF-8 literals in the source code.
+        Tests with UTF-8 content should use programmatic byte array construction:
+
+        Example:
+        $utf8String = [System.Text.Encoding]::UTF8.GetString(@(74, 111, 115, 195, 169))
+
+        This approach allows test files to remain ASCII-compatible while still testing UTF-8
+        functionality on PowerShell Core 6+ (where tests can skip on PS 5.1 if needed).
+
         Dependencies:
         - Invoke-ElevatedCommand: Required when using -Scope Machine on Windows.
           This function must be available in the session for Machine scope to work.
