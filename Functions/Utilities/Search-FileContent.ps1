@@ -41,6 +41,13 @@ function Search-FileContent
     .PARAMETER CaseInsensitive
         Perform case-insensitive pattern matching. By default, matching is case-sensitive.
 
+        When used with -IncludeCaseVariations, the pattern is automatically converted to match
+        variations with different separators. For example, 'userName' will match 'USERNAME',
+        'user_name', 'user-name', 'UserName', etc.
+
+        When used without -IncludeCaseVariations, only alphabetic case is ignored. Separators
+        (underscores, hyphens, spaces) must match exactly unless you use a regex pattern.
+
     .PARAMETER Context
         Number of context lines to show before and after each match.
         Alias: -C
@@ -92,8 +99,12 @@ function Search-FileContent
 
     .PARAMETER IncludeCaseVariations
         When enabled with -CaseInsensitive, groups and displays the different case variations
-        found for the search pattern. This is useful for identifying naming inconsistencies
-        across a codebase (e.g., 'userName', 'UserName', 'USERNAME', 'user_name').
+        found for the search pattern across different naming conventions. This is useful for
+        identifying naming inconsistencies across a codebase.
+
+        The pattern is automatically converted to be separator-aware. For example, searching for
+        'userName' will find: 'userName', 'UserName', 'USERNAME', 'user_name', 'USER_NAME',
+        'user-name', 'USER-NAME', 'user name', 'USER NAME', etc.
 
         The output includes:
         - Total unique case variations found
@@ -111,6 +122,10 @@ function Search-FileContent
         - SCREAMING_SNAKE_CASE (USER_NAME)
         - kebab-case (user-name)
         - SCREAMING-KEBAB-CASE (USER-NAME)
+
+        How it works: The pattern is split into words based on camelCase/PascalCase boundaries or
+        existing separators, then reconstructed as a regex that matches any combination of
+        separators (spaces, underscores, hyphens) between words.
 
         Note: Requires -CaseInsensitive to be enabled. Cannot be used with -CountOnly, -FilesOnly,
         -Context, -Before, or -After (context parameters are not applicable to variation summaries).
@@ -184,26 +199,33 @@ function Search-FileContent
         Searches config files with 1 line before and 3 lines after each match.
 
     .EXAMPLE
-        PS > Search-FileContent -Pattern 'username' -Path ./src -CaseInsensitive -IncludeCaseVariations
+        PS > Search-FileContent -Pattern 'userName' -Path ./src -CaseInsensitive -IncludeCaseVariations
 
-        Case Variations Found: 4 unique patterns
+        Case Variations Found: 6 unique patterns
 
-        USERNAME (SCREAMING_SNAKE_CASE) - 12 occurrences
-          /src/auth.js (5)
-          /src/user.js (7)
+        USER_NAME (SCREAMING_SNAKE_CASE) - 15 occurrences
+          /src/constants.py (10)
+          /src/config.js (5)
 
-        userName (camelCase) - 8 occurrences
-          /src/auth.js (3)
+        userName (camelCase) - 12 occurrences
+          /src/auth.js (7)
           /src/profile.js (5)
 
-        UserName (PascalCase) - 3 occurrences
-          /src/models.ts (3)
+        UserName (PascalCase) - 8 occurrences
+          /src/models.ts (8)
 
-        user_name (snake_case) - 2 occurrences
-          /src/database.py (2)
+        user_name (snake_case) - 5 occurrences
+          /src/database.py (5)
 
-        Searches for 'username' case-insensitively and shows all case variations found.
-        Helps identify naming inconsistencies across different files and coding styles.
+        user-name (kebab-case) - 3 occurrences
+          /src/styles.css (3)
+
+        username (lowercase) - 2 occurrences
+          /src/legacy.php (2)
+
+        Searches for 'userName' and automatically finds all case and separator variations.
+        Pattern is intelligently converted to match userName, user_name, user-name, UserName, etc.
+        Helps identify naming inconsistencies across different files and coding conventions.
 
     .EXAMPLE
         PS > Search-FileContent -Pattern 'apikey' -Path . -CaseInsensitive -IncludeCaseVariations -Simple
@@ -317,6 +339,81 @@ function Search-FileContent
     {
         Write-Verbose 'Initializing Search-FileContent'
 
+        # Helper function to convert a pattern to separator-aware regex
+        function Convert-ToSeparatorAwarePattern
+        {
+            param([String]$Pattern)
+
+            # Split pattern into words based on camelCase, PascalCase, or existing separators
+            $words = @()
+            $currentWord = ''
+
+            for ($i = 0; $i -lt $Pattern.Length; $i++)
+            {
+                $char = $Pattern[$i]
+
+                # Check if this is a separator
+                if ($char -match '[\s_-]')
+                {
+                    if ($currentWord.Length -gt 0)
+                    {
+                        $words += $currentWord
+                        $currentWord = ''
+                    }
+                    continue
+                }
+
+                # Check for camelCase/PascalCase boundary (lowercase followed by uppercase)
+                if ($i -gt 0 -and
+                    [char]::IsLower($Pattern[$i - 1]) -and
+                    [char]::IsUpper($char))
+                {
+                    $words += $currentWord
+                    $currentWord = $char
+                }
+                # Check for acronym boundary (multiple uppercase followed by lowercase)
+                elseif ($i -gt 1 -and
+                    [char]::IsUpper($Pattern[$i - 2]) -and
+                    [char]::IsUpper($Pattern[$i - 1]) -and
+                    [char]::IsLower($char))
+                {
+                    # Move last char of previous word to current word
+                    $lastChar = $currentWord[$currentWord.Length - 1]
+                    $currentWord = $currentWord.Substring(0, $currentWord.Length - 1)
+                    if ($currentWord.Length -gt 0)
+                    {
+                        $words += $currentWord
+                    }
+                    $currentWord = $lastChar + $char
+                }
+                else
+                {
+                    $currentWord += $char
+                }
+            }
+
+            # Add the last word
+            if ($currentWord.Length -gt 0)
+            {
+                $words += $currentWord
+            }
+
+            # If no words were detected, treat entire pattern as single word
+            if ($words.Count -eq 0)
+            {
+                $words = @($Pattern)
+            }
+
+            # Build regex pattern with optional separators between words
+            $escapedWords = $words | ForEach-Object { [Regex]::Escape($_) }
+            $regexPattern = $escapedWords -join '[\s_-]*'
+
+            Write-Verbose "Converted pattern '$Pattern' to separator-aware regex: '$regexPattern'"
+            Write-Verbose "Detected words: $($words -join ', ')"
+
+            return $regexPattern
+        }
+
         # Validate parameter combinations
         if ($IncludeCaseVariations)
         {
@@ -357,8 +454,13 @@ function Search-FileContent
             $regexOptions = $regexOptions -bor [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
         }
 
-        # Escape pattern for literal matching
-        $searchPattern = if ($Literal)
+        # Escape pattern for literal matching or convert to separator-aware pattern
+        $searchPattern = if ($IncludeCaseVariations)
+        {
+            # For case variations, automatically convert to separator-aware pattern
+            Convert-ToSeparatorAwarePattern -Pattern $Pattern
+        }
+        elseif ($Literal)
         {
             [Regex]::Escape($Pattern)
         }

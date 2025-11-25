@@ -641,6 +641,76 @@ USERNAME
             $result.ReplacementsMade | Should -Be $true
         }
 
+        It 'Should replace cross-separator variations with PreserveCase (camelCase to snake_case)' {
+            $testFile = Join-Path $script:testDir 'cross-separator.txt'
+            'userName is the user_name' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'userName' -NewString 'accountId' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Be 'accountId is the account_id'
+            $result.MatchCount | Should -Be 2
+        }
+
+        It 'Should replace cross-separator variations with PreserveCase (PascalCase to SCREAMING_SNAKE_CASE)' {
+            $testFile = Join-Path $script:testDir 'cross-separator-2.txt'
+            'UserName is the USER_NAME' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'userName' -NewString 'accountId' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Be 'AccountId is the ACCOUNT_ID'
+            $result.MatchCount | Should -Be 2
+        }
+
+        It 'Should replace cross-separator variations with PreserveCase (kebab-case to snake_case)' {
+            $testFile = Join-Path $script:testDir 'cross-separator-3.txt'
+            'user-name and user_name' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'userName' -NewString 'accountId' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Be 'account-id and account_id'
+            $result.MatchCount | Should -Be 2
+        }
+
+        It 'Should replace all separator variations when using separator-aware matching' {
+            $testFile = Join-Path $script:testDir 'all-separators.txt'
+            @'
+userName
+UserName
+USERNAME
+user_name
+USER_NAME
+user-name
+USER-NAME
+'@ | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'userName' -NewString 'accountId' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            $content | Should -Match 'accountId'
+            $content | Should -Match 'AccountId'
+            $content | Should -Match 'ACCOUNTID'
+            $content | Should -Match 'account_id'
+            $content | Should -Match 'ACCOUNT_ID'
+            $content | Should -Match 'account-id'
+            $content | Should -Match 'ACCOUNT-ID'
+            $result.MatchCount | Should -Be 7
+        }
+
+        It 'Should not perform cross-separator matching when pattern has no word boundaries' {
+            $testFile = Join-Path $script:testDir 'no-boundaries.txt'
+            'username and user_name' | Set-Content -Path $testFile -NoNewline
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'username' -NewString 'accountid' -CaseInsensitive -PreserveCase
+
+            $content = Get-Content -Path $testFile -Raw
+            # 'username' (all lowercase) has no word boundaries, so it should NOT match 'user_name'
+            $content | Should -Be 'accountid and user_name'
+            $result.MatchCount | Should -Be 1
+        }
+
         It 'Should handle mixed case patterns in same file' {
             $testFile = Join-Path $script:testDir 'mixed-patterns.txt'
             @'

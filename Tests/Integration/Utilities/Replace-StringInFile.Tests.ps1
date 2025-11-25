@@ -75,7 +75,7 @@ The UserService class provides user management functionality.
             $content1 | Should -Match 'public AccountService\(IUserRepository userRepository\)'
 
             $content2 = Get-Content -Path $file2 -Raw
-            $content2 | Should -Match '// USER_SERVICE endpoint'  # Commented code not changed
+            $content2 | Should -Match '// ACCOUNT_SERVICE endpoint'  # Separator-aware matching replaces USER_SERVICE
             $content2 | Should -Match 'private readonly AccountService accountService'
             $content2 | Should -Match 'public UserController\(AccountService accountService\)'
 
@@ -207,8 +207,9 @@ DATABASE-URL=postgresql://localhost/db
             $content = Get-Content -Path $envFile -Raw
             $content | Should -Match 'DB_CONNECTION=postgresql://localhost/db'
             $content | Should -Match 'db_connection=postgresql://localhost/db'
-            # Note: DATABASE-URL doesn't match database_url search pattern (different separators)
-            $result.MatchCount | Should -Be 2
+            $content | Should -Match 'DB-CONNECTION=postgresql://localhost/db'
+            # Note: Separator-aware matching now matches DATABASE-URL because separators are interchangeable
+            $result.MatchCount | Should -Be 3
         }
     }
 

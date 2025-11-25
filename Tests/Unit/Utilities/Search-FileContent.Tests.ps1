@@ -512,15 +512,16 @@ const Username = config.Username;
             @'
 username = get_user()
 userName = some_function()
-USERNAME = constant_value
+            USERNAME = constant_value
 '@ | Set-Content -Path $testFile2
 
-            # Create test file with separated patterns (should NOT match 'username' pattern)
+            # Create test file with separated patterns (NOW WILL match with separator-aware matching)
             $testFile3 = Join-Path $script:testDir 'config.py'
             @'
 user_name = dbQuery()
 USER_NAME = config.USER_NAME
 user-name = cssClass
+USER-NAME = cssConstant
 '@ | Set-Content -Path $testFile3
         }
 
@@ -602,13 +603,14 @@ user-name = cssClass
             $firstCapResult.CasePattern | Should -Be 'First Capital'
         }
 
-        It 'Should NOT match separated patterns like user_name or user-name' {
-            $results = Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
-            # These should not be in the results because they have separators
-            $results.Variation | Should -Not -Contain 'user_name'
-            $results.Variation | Should -Not -Contain 'USER_NAME'
-            $results.Variation | Should -Not -Contain 'user-name'
-            $results.Variation | Should -Not -Contain 'USER-NAME'
+        It 'Should match separated patterns like user_name and user-name with separator-aware matching' {
+            # With separator-aware matching, IncludeCaseVariations automatically finds variations
+            # across different separators (underscores, hyphens, spaces) when pattern has word boundaries
+            $results = Search-FileContent -Pattern 'userName' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
+            # These SHOULD be in the results because the pattern is separator-aware
+            $results.Variation | Should -Contain 'user_name'
+            $results.Variation | Should -Contain 'USER_NAME'
+            $results.Variation | Should -Contain 'user-name'
         }
     }
 }
