@@ -242,6 +242,48 @@ function Import-DotEnv
 
     begin
     {
+        # Helper function to load dependencies on demand
+        function Import-DependencyIfNeeded
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$FunctionName,
+
+                [Parameter(Mandatory)]
+                [String]$RelativePath
+            )
+
+            if (-not (Get-Command -Name $FunctionName -ErrorAction SilentlyContinue))
+            {
+                Write-Verbose "$FunctionName is required - attempting to load it"
+
+                # Resolve path from current script location
+                $dependencyPath = Join-Path -Path $PSScriptRoot -ChildPath $RelativePath
+                $dependencyPath = [System.IO.Path]::GetFullPath($dependencyPath)
+
+                if (Test-Path -Path $dependencyPath -PathType Leaf)
+                {
+                    try
+                    {
+                        . $dependencyPath
+                        Write-Verbose "Loaded $FunctionName from: $dependencyPath"
+                    }
+                    catch
+                    {
+                        throw "Failed to load required dependency '$FunctionName' from '$dependencyPath': $($_.Exception.Message)"
+                    }
+                }
+                else
+                {
+                    throw "Required function '$FunctionName' could not be found. Expected location: $dependencyPath"
+                }
+            }
+            else
+            {
+                Write-Verbose "$FunctionName is already loaded"
+            }
+        }
+
         # Platform detection for PS 5.1 compatibility
         if ($PSVersionTable.PSVersion.Major -lt 6)
         {
@@ -260,6 +302,12 @@ function Import-DotEnv
         if (-not $script:IsWindowsPlatform -and $Scope -ne 'Process')
         {
             throw "Scope '$Scope' is only supported on Windows. On macOS and Linux, only 'Process' scope is available."
+        }
+
+        # Load Invoke-ElevatedCommand if needed for Machine scope
+        if ($Scope -eq 'Machine' -and $script:IsWindowsPlatform)
+        {
+            Import-DependencyIfNeeded -FunctionName 'Invoke-ElevatedCommand' -RelativePath '..\SystemAdministration\Invoke-ElevatedCommand.ps1'
         }
 
         $loadedVariables = [System.Collections.ArrayList]::new()

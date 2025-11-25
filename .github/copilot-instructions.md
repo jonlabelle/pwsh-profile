@@ -126,6 +126,91 @@ function Verb-Noun {
 - Use `ValidateSet` for enumerated values
 - Support pipeline input with `ValueFromPipeline`
 
+### Loading Dependencies on Other Profile Functions
+
+When a function requires another function from this repository as a dependency, use a helper function to load it on demand. This allows functions to be loaded individually (outside the profile) while still ensuring dependencies are available.
+
+**Pattern:**
+
+```powershell
+function Your-Function
+{
+    param(...)
+
+    begin
+    {
+        # Helper function to load dependencies on demand
+        function Import-DependencyIfNeeded
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$FunctionName,
+
+                [Parameter(Mandatory)]
+                [String]$RelativePath
+            )
+
+            if (-not (Get-Command -Name $FunctionName -ErrorAction SilentlyContinue))
+            {
+                Write-Verbose "$FunctionName is required - attempting to load it"
+
+                # Resolve path from current script location
+                $dependencyPath = Join-Path -Path $PSScriptRoot -ChildPath $RelativePath
+                $dependencyPath = [System.IO.Path]::GetFullPath($dependencyPath)
+
+                if (Test-Path -Path $dependencyPath -PathType Leaf)
+                {
+                    try
+                    {
+                        . $dependencyPath
+                        Write-Verbose "Loaded $FunctionName from: $dependencyPath"
+                    }
+                    catch
+                    {
+                        throw "Failed to load required dependency '$FunctionName' from '$dependencyPath': $($_.Exception.Message)"
+                    }
+                }
+                else
+                {
+                    throw "Required function '$FunctionName' could not be found. Expected location: $dependencyPath"
+                }
+            }
+            else
+            {
+                Write-Verbose "$FunctionName is already loaded"
+            }
+        }
+
+        # Load dependency if needed
+        Import-DependencyIfNeeded -FunctionName 'Some-RequiredFunction' -RelativePath '..\Category\Some-RequiredFunction.ps1'
+    }
+
+    process
+    {
+        # Use the dependency
+        Some-RequiredFunction -Parameter 'value'
+    }
+}
+```
+
+**Example from `Import-DotEnv`:**
+
+```powershell
+# Load Invoke-ElevatedCommand if needed for Machine scope
+if ($Scope -eq 'Machine' -and $script:IsWindowsPlatform)
+{
+    Import-DependencyIfNeeded -FunctionName 'Invoke-ElevatedCommand' -RelativePath '..\SystemAdministration\Invoke-ElevatedCommand.ps1'
+}
+```
+
+**Key Benefits:**
+
+- Functions can be dot-sourced individually without knowing dependency locations
+- Dependencies are only loaded when needed (conditional loading)
+- Clear error messages if dependencies are missing
+- Works with relative paths using `$PSScriptRoot`
+- Avoids duplicate loading with `Get-Command` check
+
 ## Testing and Quality
 
 ### Development Workflow
