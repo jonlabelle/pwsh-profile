@@ -76,6 +76,48 @@ function Invoke-GroupPolicyUpdate
 
     begin
     {
+        # Helper function to load dependencies on demand
+        function Import-DependencyIfNeeded
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$FunctionName,
+
+                [Parameter(Mandatory)]
+                [String]$RelativePath
+            )
+
+            if (-not (Get-Command -Name $FunctionName -ErrorAction SilentlyContinue))
+            {
+                Write-Verbose "$FunctionName is required - attempting to load it"
+
+                # Resolve path from current script location
+                $dependencyPath = Join-Path -Path $PSScriptRoot -ChildPath $RelativePath
+                $dependencyPath = [System.IO.Path]::GetFullPath($dependencyPath)
+
+                if (Test-Path -Path $dependencyPath -PathType Leaf)
+                {
+                    try
+                    {
+                        . $dependencyPath
+                        Write-Verbose "Loaded $FunctionName from: $dependencyPath"
+                    }
+                    catch
+                    {
+                        throw "Failed to load required dependency '$FunctionName' from '$dependencyPath': $($_.Exception.Message)"
+                    }
+                }
+                else
+                {
+                    throw "Required function '$FunctionName' could not be found. Expected location: $dependencyPath"
+                }
+            }
+            else
+            {
+                Write-Verbose "$FunctionName is already loaded"
+            }
+        }
+
         Write-Verbose 'Checking platform compatibility'
 
         # Platform detection for PowerShell 5.1 and Core
@@ -95,6 +137,9 @@ function Invoke-GroupPolicyUpdate
         {
             throw 'This function is only supported on Windows platforms. Group Policy is a Windows-specific feature.'
         }
+
+        # Load Invoke-ElevatedCommand dependency
+        Import-DependencyIfNeeded -FunctionName 'Invoke-ElevatedCommand' -RelativePath '..\SystemAdministration\Invoke-ElevatedCommand.ps1'
     }
 
     process
