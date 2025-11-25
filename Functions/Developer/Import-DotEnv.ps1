@@ -28,8 +28,18 @@ function Import-DotEnv
         Accepts pipeline input and multiple paths.
 
     .PARAMETER Unload
-        If specified, removes environment variables that were previously loaded by this function.
-        Uses tracking metadata stored in $env:__DOTENV_LOADED_VARS to identify which variables to remove.
+        Removes only Process-scoped variables previously loaded in the active PowerShell session by Import-DotEnv.
+
+        Process-scope loads are tracked in $env:__DOTENV_LOADED_VARS (pipe-delimited). When -Unload is used:
+        - Each tracked variable is removed from the current process environment
+        - The tracking variable itself ($env:__DOTENV_LOADED_VARS) is deleted
+
+        It does NOT:
+        - Remove User or Machine scoped variables (those persist and require manual, elevated removal)
+        - Reconstruct or remove variables from prior sessions (tracking is per-session; a new session without the tracking variable unloads nothing)
+        - Touch any environment variables not listed in $env:__DOTENV_LOADED_VARS
+
+        In a fresh session, -Unload does nothing unless you first load variables with 'Process' Scope.
 
     .PARAMETER ShowLoaded
         Displays the names of environment variables that were previously loaded by Import-DotEnv.
