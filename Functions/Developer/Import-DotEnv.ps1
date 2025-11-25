@@ -73,6 +73,7 @@ function Import-DotEnv
 
     .EXAMPLE
         PS > Import-DotEnv -Path ~/project/.env
+
         PS > $env:DATABASE_URL
         postgresql://user:pass@localhost:5432/mydb
 
@@ -92,51 +93,51 @@ function Import-DotEnv
 
     .EXAMPLE
         PS > Import-DotEnv -ShowLoaded
+
         Environment variables loaded by Import-DotEnv (4 total):
-        APP_NAME, APP_ENV, APP_DEBUG, APP_URL
+        APP_NAME, APP_ENV, APP_DEBUG, API_URL
 
         Displays all environment variable names that were previously loaded by Import-DotEnv.
 
     .EXAMPLE
         PS > Import-DotEnv -ShowLoaded -PassThru
 
-        VariableCount : 4
-        Variables     : {APP_NAME, APP_ENV, APP_DEBUG, APP_URL}
+        Environment variables loaded by Import-DotEnv (4 total):
+        APP_NAME, APP_ENV, APP_DEBUG, API_URL
+
+        VariableCount Variables
+        ------------- ---------
+                    4 {APP_NAME, APP_ENV, APP_DEBUG, API_URL}
 
         Shows loaded variables and returns a structured object for scripting.
 
     .EXAMPLE
         PS > Import-DotEnv -ShowLoadedWithValues
 
-        Name        Value
-        ----        -----
-        APP_NAME    MyApp
-        APP_ENV     development
-        APP_DEBUG   true
-        APP_URL     http://localhost:3000
+        Name      Value
+        ----      -----
+        APP_NAME  My app
+        APP_ENV   production
+        APP_DEBUG false
+        API_URL   https://example.com/api
 
         Displays all previously loaded environment variables with their current values.
 
     .EXAMPLE
-        PS > Import-DotEnv -ShowLoadedWithValues -PassThru
-
-        Returns an array of PSCustomObjects with Name and Value properties for programmatic access.
-
-    .EXAMPLE
-        PS > Import-DotEnv -Path .env.local -Force
+        PS > Import-DotEnv .env.local -Force
         PS > $env:API_KEY
         sk-prod-abc123xyz789
 
         Loads variables from .env.local, overwriting any existing environment variables with -Force.
 
     .EXAMPLE
-        PS > Import-DotEnv -Path @('.env', '.env.development') -Force
+        PS > Import-DotEnv @('.env', '.env.development') -Force
         PS > npm run dev
 
         Layered load similar to Next.js tooling: base .env first, then environment-specific overrides before starting the dev server.
 
     .EXAMPLE
-        PS > Import-DotEnv -Path .env
+        PS > Import-DotEnv
         PS > $env:__DOTENV_LOADED_VARS -eq $null # APP_NAME|APP_ENV|APP_DEBUG|APP_URL
         False
 
@@ -144,25 +145,26 @@ function Import-DotEnv
         PS > $env:__DOTENV_LOADED_VARS -eq $null
         True
 
-        Loads environment variables then inspects the tracking variable that stores loaded variable names.
+        Loads environment variables from the .env file in the working directory, then inspects the tracking variable that stores loaded variable names.
         Finally, environment variables are unloaded and again the tracking variable is checked to confirm removal.
 
     .EXAMPLE
         PS > Import-DotEnv -Unload -PassThru
 
-        VariableCount : 4
-        Variables     : {DATABASE_URL, API_KEY, DEBUG, APP_NAME}
+        VariableCount Variables
+        ------------- ---------
+                    4 {APP_NAME, APP_ENV, APP_DEBUG, API_URL}
 
         Removes all environment variables that were previously loaded and shows what was unloaded.
 
     .EXAMPLE
-        PS > Import-DotEnv -Path '.env.ci' -PassThru | Out-Null
+        PS > Import-DotEnv -Path '.env.ci'
         PS > Invoke-Pester -Configuration ./Tests/PesterConfiguration.psd1
 
         Loads CI-specific secrets immediately before running the test suite so the pipeline remains self-contained.
 
     .EXAMPLE
-        PS > dotenv -Path .env.development
+        PS > dotenv .env.development
         PS > $env:NODE_ENV
         development
 
