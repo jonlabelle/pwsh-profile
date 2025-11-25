@@ -282,6 +282,20 @@ You can check for available updates without applying them:
 Test-ProfileUpdate
 ```
 
+## Using Functions Standalone
+
+Functions can be used without loading the profile by dot-sourcing them directly:
+
+```powershell
+# Load a specific function (any dependencies are auto-loaded)
+. ~/.config/powershell/Functions/NetworkAndDns/Test-Port.ps1
+
+# Use it
+Test-Port -ComputerName google.com -Port 443
+```
+
+Functions with dependencies automatically load what they need, so you only need to dot-source the function you want to use.
+
 ## Quick Start
 
 After installation, try these commands to explore what the profile offers:
