@@ -33,6 +33,7 @@
   - [Profile Management](#profile-management)
   - [Media Processing](#media-processing)
   - [Utilities](#utilities)
+- [Using Functions Standalone](#using-functions-standalone)
 - [Contributing](#contributing)
 - [Author](#author)
 - [License](#license)
@@ -282,20 +283,6 @@ You can check for available updates without applying them:
 Test-ProfileUpdate
 ```
 
-## Using Functions Standalone
-
-Functions can be used without loading the profile by dot-sourcing them directly:
-
-```powershell
-# Load a specific function (any dependencies are auto-loaded)
-. ~/.config/powershell/Functions/NetworkAndDns/Test-Port.ps1
-
-# Use it
-Test-Port -ComputerName google.com -Port 443
-```
-
-Functions with dependencies automatically load what they need, so you only need to dot-source the function you want to use.
-
 ## Quick Start
 
 After installation, try these commands to explore what the profile offers:
@@ -469,6 +456,20 @@ The profile includes utility functions organized by category:
 - **[`Replace-StringInFile`](Functions/Utilities/Replace-StringInFile.ps1)** — Finds and replaces text in files with support for regex and backups
 - **[`Search-FileContent`](Functions/Utilities/Search-FileContent.ps1)** — Search files with regex, context, filtering, and colorized output
 - **[`Sync-Directory`](Functions/Utilities/Sync-Directory.ps1)** — Synchronizes directories using native platform tools (rsync/robocopy)
+
+## Using Functions Standalone
+
+Functions can be used without loading the profile by dot-sourcing them directly:
+
+```powershell
+# Load a specific function (any dependencies are auto-loaded)
+. ~/.config/powershell/Functions/NetworkAndDns/Test-Port.ps1
+
+# Use it
+Test-Port -ComputerName google.com -Port 443
+```
+
+> Functions with dependencies automatically load what they need, so you only need to dot-source the function you want to use.
 
 ## Contributing
 
