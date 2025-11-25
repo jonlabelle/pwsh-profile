@@ -6,8 +6,8 @@ function Import-DotEnv
 
     .DESCRIPTION
         Parses dotenv files and imports environment variables into the current PowerShell session.
-        Supports standard dotenv format including comments, quoted values, variable expansion,
-        and multi-line values. Can also unload previously loaded variables.
+        Supports standard dotenv format including comments, quoted values, and variable expansion.
+        Can also unload previously loaded variables.
 
         The function follows common dotenv conventions:
         - Lines starting with # are comments

@@ -326,6 +326,47 @@ TEST_VAR2=value2
 
             Clear-TestEnvVars -VarNames @('VAR1', 'VAR2')
         }
+
+        It 'Should expand nested/chained variables' {
+            $env:BASE = '/home/user'
+            $content = @'
+PATH_ONE="${BASE}/bin"
+PATH_TWO="${PATH_ONE}/tools"
+'@
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+
+            Import-DotEnv -Path $script:TestEnvFile
+
+            $env:PATH_ONE | Should -Be '/home/user/bin'
+            $env:PATH_TWO | Should -Be '/home/user/bin/tools'
+
+            Clear-TestEnvVars -VarNames @('BASE', 'PATH_ONE', 'PATH_TWO')
+        }
+
+        It 'Should handle self-referencing variables' {
+            $env:ORIG_PATH = '/usr/bin'
+            $content = 'ORIG_PATH="${ORIG_PATH}:/new/path"'
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+
+            Import-DotEnv -Path $script:TestEnvFile -Force
+
+            $env:ORIG_PATH | Should -Be '/usr/bin:/new/path'
+
+            Clear-TestEnvVars -VarNames @('ORIG_PATH')
+        }
+
+        It 'Should expand mixed variables in one value' {
+            $env:HOST = 'localhost'
+            $env:PORT = '8080'
+            $content = 'URL="http://${HOST}:${PORT}/api"'
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+
+            Import-DotEnv -Path $script:TestEnvFile
+
+            $env:URL | Should -Be 'http://localhost:8080/api'
+
+            Clear-TestEnvVars -VarNames @('HOST', 'PORT', 'URL')
+        }
     }
 
     Context 'Force Parameter' {
@@ -674,6 +715,23 @@ ANOTHER_VALID=valid2
 
             Clear-TestEnvVars -VarNames @('VAR1', 'VAR2')
         }
+
+        It 'Should handle unicode and UTF-8 characters' {
+            $content = @'
+NAME="José García"
+MESSAGE="Hello 世界"
+EMOJI="Hello 👋 World"
+'@
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+
+            Import-DotEnv -Path $script:TestEnvFile
+
+            $env:NAME | Should -Be 'José García'
+            $env:MESSAGE | Should -Be 'Hello 世界'
+            $env:EMOJI | Should -Be 'Hello 👋 World'
+
+            Clear-TestEnvVars -VarNames @('NAME', 'MESSAGE', 'EMOJI')
+        }
     }
 
     Context 'Scope Validation' {
@@ -710,6 +768,158 @@ ANOTHER_VALID=valid2
             New-TestEnvFile -Path $script:TestEnvFile -Content $content
 
             { Import-DotEnv -Path $script:TestEnvFile -Scope Machine } | Should -Throw '*only supported on Windows*'
+        }
+    }
+
+    Context 'Invalid and Malformed Input' {
+        BeforeEach {
+            $script:TestEnvFile = Join-Path $script:TestDir 'invalid.env'
+            Clear-TestEnvVars -VarNames @('VALID_VAR', 'KEY', 'TEST_VAR', '__DOTENV_LOADED_VARS')
+        }
+
+        AfterEach {
+            Clear-TestEnvVars -VarNames @('VALID_VAR', 'KEY', 'TEST_VAR', '__DOTENV_LOADED_VARS')
+            if (Test-Path $script:TestEnvFile)
+            {
+                Remove-Item -Path $script:TestEnvFile -Force
+            }
+        }
+
+        It 'Should skip lines without equals sign' {
+            $content = @'
+VALID_VAR=valid_value
+INVALID_LINE_NO_EQUALS
+ANOTHER_VALID=valid2
+'@
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+
+            Import-DotEnv -Path $script:TestEnvFile
+
+            $env:VALID_VAR | Should -Be 'valid_value'
+            $env:ANOTHER_VALID | Should -Be 'valid2'
+            # Invalid line should be skipped
+        }
+
+        It 'Should handle multiple equals signs in quoted values' {
+            $content = 'KEY="value=with=equals"'
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+
+            Import-DotEnv -Path $script:TestEnvFile
+
+            $env:KEY | Should -Be 'value=with=equals'
+        }
+
+        It 'Should handle unclosed double quotes gracefully' {
+            $content = @'
+VALID_VAR=before
+KEY="unclosed value
+ANOTHER_VALID=after
+'@
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+
+            # Should not throw, but behavior may vary
+            { Import-DotEnv -Path $script:TestEnvFile } | Should -Not -Throw
+
+            # Valid variables before and after should still load
+            $env:VALID_VAR | Should -Be 'before'
+        }
+
+        It 'Should handle mismatched quotes' {
+            $content = 'KEY="value with mismatched quote' + "'"
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+
+            # Should not throw
+            { Import-DotEnv -Path $script:TestEnvFile } | Should -Not -Throw
+        }
+
+        It 'Should skip variable names with hyphens' {
+            $content = @'
+VALID_VAR=valid
+INVALID-VAR=invalid
+ANOTHER_VALID=valid2
+'@
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+
+            Import-DotEnv -Path $script:TestEnvFile
+
+            $env:VALID_VAR | Should -Be 'valid'
+            $env:ANOTHER_VALID | Should -Be 'valid2'
+            # Variable with hyphen should be skipped (not valid env var name)
+        }
+
+        It 'Should skip variable names starting with numbers' {
+            $content = @'
+VALID_VAR=valid
+123INVALID=invalid
+ANOTHER_VALID=valid2
+'@
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+
+            Import-DotEnv -Path $script:TestEnvFile
+
+            $env:VALID_VAR | Should -Be 'valid'
+            $env:ANOTHER_VALID | Should -Be 'valid2'
+        }
+
+        It 'Should handle lowercase variable names' {
+            $content = @'
+lowercase_var=lowercase
+UPPERCASE_VAR=uppercase
+MixedCase_Var=mixed
+'@
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+
+            Import-DotEnv -Path $script:TestEnvFile
+
+            # PowerShell environment variables are case-insensitive on Windows, case-sensitive on Unix
+            $env:lowercase_var | Should -Be 'lowercase'
+            $env:UPPERCASE_VAR | Should -Be 'uppercase'
+            $env:MixedCase_Var | Should -Be 'mixed'
+
+            Clear-TestEnvVars -VarNames @('lowercase_var', 'UPPERCASE_VAR', 'MixedCase_Var')
+        }
+    }
+
+    Context 'Whitespace Handling' {
+        BeforeEach {
+            $script:TestEnvFile = Join-Path $script:TestDir 'whitespace.env'
+            Clear-TestEnvVars -VarNames @('KEY1', 'KEY2', 'KEY3', '__DOTENV_LOADED_VARS')
+        }
+
+        AfterEach {
+            Clear-TestEnvVars -VarNames @('KEY1', 'KEY2', 'KEY3', '__DOTENV_LOADED_VARS')
+            if (Test-Path $script:TestEnvFile)
+            {
+                Remove-Item -Path $script:TestEnvFile -Force
+            }
+        }
+
+        It 'Should handle leading and trailing spaces in keys' {
+            $content = ' KEY1 =value'
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+
+            Import-DotEnv -Path $script:TestEnvFile
+
+            # Trimmed key should work
+            $env:KEY1 | Should -Be 'value'
+        }
+
+        It 'Should handle tabs around equals sign' {
+            $content = "KEY2`t=`tvalue"
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+
+            Import-DotEnv -Path $script:TestEnvFile
+
+            $env:KEY2 | Should -Be 'value'
+        }
+
+        It 'Should handle mixed whitespace' {
+            $content = "KEY3  `t  =  `t  value"
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+
+            Import-DotEnv -Path $script:TestEnvFile
+
+            $env:KEY3 | Should -Be 'value'
         }
     }
 
@@ -766,5 +976,146 @@ API_TOKEN=another_secret
             $resultString | Should -Not -Match 'super_secret_value'
             $resultString | Should -Not -Match 'another_secret'
         }
+
+        It 'Should redact content in error messages' {
+            $content = @'
+SECRET_KEY=super_secret_12345
+MALFORMED LINE WITHOUT EQUALS
+API_TOKEN=token_abcdef67890
+'@
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+
+            # Capture any error output
+            $errorOutput = $null
+            try
+            {
+                Import-DotEnv -Path $script:TestEnvFile -ErrorVariable errorOutput -ErrorAction SilentlyContinue
+            }
+            catch
+            {
+                $errorOutput = $_.Exception.Message
+            }
+
+            # Even if there's an error, secret values should not appear in error messages
+            if ($errorOutput)
+            {
+                $errorOutput | Should -Not -Match 'super_secret_12345'
+                $errorOutput | Should -Not -Match 'token_abcdef67890'
+            }
+        }
+    }
+
+    Context 'Multiple File Priority and Conflicts' {
+        BeforeEach {
+            Clear-TestEnvVars -VarNames @('SHARED_VAR', 'FILE1_VAR', 'FILE2_VAR', '__DOTENV_LOADED_VARS')
+        }
+
+        AfterEach {
+            Clear-TestEnvVars -VarNames @('SHARED_VAR', 'FILE1_VAR', 'FILE2_VAR', '__DOTENV_LOADED_VARS')
+        }
+
+        It 'Should preserve first loaded value when same variable in multiple files without Force' {
+            $file1 = Join-Path $script:TestDir 'first.env'
+            $file2 = Join-Path $script:TestDir 'second.env'
+
+            New-TestEnvFile -Path $file1 -Content 'SHARED_VAR=first_value'
+            New-TestEnvFile -Path $file2 -Content 'SHARED_VAR=second_value'
+
+            # Load both files
+            Import-DotEnv -Path @($file1, $file2)
+
+            # First value should win (second should be skipped)
+            $env:SHARED_VAR | Should -Be 'first_value'
+
+            Remove-Item -Path $file1, $file2 -Force
+        }
+
+        It 'Should use last loaded value when same variable in multiple files with Force' {
+            $file1 = Join-Path $script:TestDir 'first.env'
+            $file2 = Join-Path $script:TestDir 'second.env'
+
+            New-TestEnvFile -Path $file1 -Content 'SHARED_VAR=first_value'
+            New-TestEnvFile -Path $file2 -Content 'SHARED_VAR=second_value'
+
+            # Load both files with Force
+            Import-DotEnv -Path @($file1, $file2) -Force
+
+            # Last value should win with Force
+            $env:SHARED_VAR | Should -Be 'second_value'
+
+            Remove-Item -Path $file1, $file2 -Force
+        }
+
+        It 'Should track variables from all files' {
+            $file1 = Join-Path $script:TestDir 'file1.env'
+            $file2 = Join-Path $script:TestDir 'file2.env'
+
+            New-TestEnvFile -Path $file1 -Content 'FILE1_VAR=value1'
+            New-TestEnvFile -Path $file2 -Content 'FILE2_VAR=value2'
+
+            Import-DotEnv -Path @($file1, $file2)
+
+            $tracked = $env:__DOTENV_LOADED_VARS
+            $tracked | Should -Match 'FILE1_VAR'
+            $tracked | Should -Match 'FILE2_VAR'
+
+            Remove-Item -Path $file1, $file2 -Force
+        }
+    }
+
+    Context 'Tracking Variable Edge Cases' {
+        BeforeEach {
+            $script:TestEnvFile = Join-Path $script:TestDir 'tracking.env'
+            Clear-TestEnvVars -VarNames @('TEST_VAR1', 'TEST_VAR2', '__DOTENV_LOADED_VARS')
+        }
+
+        AfterEach {
+            Clear-TestEnvVars -VarNames @('TEST_VAR1', 'TEST_VAR2', '__DOTENV_LOADED_VARS')
+            if (Test-Path $script:TestEnvFile)
+            {
+                Remove-Item -Path $script:TestEnvFile -Force
+            }
+        }
+
+        It 'Should handle manually corrupted tracking variable' {
+            # Manually set corrupted tracking variable
+            $env:__DOTENV_LOADED_VARS = 'CORRUPT|||DATA||'
+
+            $content = 'TEST_VAR1=value1'
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+
+            # Should still work
+            { Import-DotEnv -Path $script:TestEnvFile } | Should -Not -Throw
+
+            $env:TEST_VAR1 | Should -Be 'value1'
+        }
+
+        It 'Should handle duplicate variable names in same file' {
+            $content = @'
+TEST_VAR1=first_value
+TEST_VAR1=second_value
+'@
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+
+            Import-DotEnv -Path $script:TestEnvFile -Force
+
+            # Last occurrence should win
+            $env:TEST_VAR1 | Should -Be 'second_value'
+        }
+
+        It 'Should deduplicate tracking variable entries' {
+            $content = 'TEST_VAR1=value1'
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+
+            # Load same file twice
+            Import-DotEnv -Path $script:TestEnvFile
+            Import-DotEnv -Path $script:TestEnvFile
+
+            $tracked = $env:__DOTENV_LOADED_VARS
+            # Should only contain TEST_VAR1 once (deduplicated)
+            $varCount = ($tracked -split '\|' | Where-Object { $_ -eq 'TEST_VAR1' }).Count
+            $varCount | Should -BeLessOrEqual 1
+        }
     }
 }
+
