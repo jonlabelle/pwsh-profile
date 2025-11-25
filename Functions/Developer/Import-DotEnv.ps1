@@ -47,10 +47,10 @@ function Import-DotEnv
         Shows only variable names without values for security.
 
     .PARAMETER ShowLoadedWithValues
+        WARNING: This option can expose sensitive values in the output, for example API keys or passwords. Use with caution.
         Displays both names and values of environment variables that were previously loaded by Import-DotEnv.
         This is a standalone operation that does not load any new files.
         Returns an array of PSCustomObjects with Name and Value properties for clean display.
-        WARNING: This will display sensitive values. Use with caution.
 
     .PARAMETER Scope
         Specifies the scope for environment variables. Valid values:
