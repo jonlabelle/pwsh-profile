@@ -1117,5 +1117,166 @@ TEST_VAR1=second_value
             $varCount | Should -BeLessOrEqual 1
         }
     }
+
+    Context 'ShowLoadedWithValues Functionality' {
+        BeforeEach {
+            $script:TestEnvFile = Join-Path $script:TestDir 'showvalues.env'
+            Clear-TestEnvVars -VarNames @('SHOW_VAR1', 'SHOW_VAR2', 'SHOW_VAR3', 'SECRET_KEY', '__DOTENV_LOADED_VARS')
+        }
+
+        AfterEach {
+            Clear-TestEnvVars -VarNames @('SHOW_VAR1', 'SHOW_VAR2', 'SHOW_VAR3', 'SECRET_KEY', '__DOTENV_LOADED_VARS')
+            if (Test-Path $script:TestEnvFile)
+            {
+                Remove-Item -Path $script:TestEnvFile -Force
+            }
+        }
+
+        It 'Should display message when no variables loaded' {
+            # Capture output by running without PassThru
+            { Import-DotEnv -ShowLoadedWithValues } | Should -Not -Throw
+
+            # The function should complete without error when no variables are loaded
+        }
+
+        It 'Should return empty array with PassThru when no variables loaded' {
+            $result = Import-DotEnv -ShowLoadedWithValues -PassThru
+
+            $result | Should -BeNullOrEmpty
+        }
+
+        It 'Should display variable names and values' {
+            $content = @'
+SHOW_VAR1=value1
+SHOW_VAR2=value2
+SHOW_VAR3=value3
+'@
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+            Import-DotEnv -Path $script:TestEnvFile
+
+            $result = Import-DotEnv -ShowLoadedWithValues -PassThru
+
+            $result | Should -Not -BeNullOrEmpty
+            $result.Count | Should -Be 3
+
+            $var1 = $result | Where-Object { $_.Name -eq 'SHOW_VAR1' }
+            $var1.Value | Should -Be 'value1'
+
+            $var2 = $result | Where-Object { $_.Name -eq 'SHOW_VAR2' }
+            $var2.Value | Should -Be 'value2'
+
+            $var3 = $result | Where-Object { $_.Name -eq 'SHOW_VAR3' }
+            $var3.Value | Should -Be 'value3'
+        }
+
+        It 'Should return PSCustomObjects with Name and Value properties' {
+            $content = @'
+SHOW_VAR1=test_value
+SHOW_VAR2=another_value
+'@
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+            Import-DotEnv -Path $script:TestEnvFile
+
+            $result = Import-DotEnv -ShowLoadedWithValues -PassThru
+
+            $result | Should -BeOfType [PSCustomObject]
+            $result[0].PSObject.Properties.Name | Should -Contain 'Name'
+            $result[0].PSObject.Properties.Name | Should -Contain 'Value'
+        }
+
+        It 'Should show current values even if modified after loading' {
+            $content = 'SHOW_VAR1=original_value'
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+            Import-DotEnv -Path $script:TestEnvFile
+
+            # Manually modify the environment variable
+            $env:SHOW_VAR1 = 'modified_value'
+
+            $result = Import-DotEnv -ShowLoadedWithValues -PassThru
+
+            $var1 = $result | Where-Object { $_.Name -eq 'SHOW_VAR1' }
+            $var1.Value | Should -Be 'modified_value'
+        }
+
+        It 'Should handle variables with special characters in values' {
+            $content = @'
+SHOW_VAR1="value with spaces"
+SHOW_VAR2="value=with=equals"
+SHOW_VAR3="special!@#$%"
+'@
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+            Import-DotEnv -Path $script:TestEnvFile
+
+            $result = Import-DotEnv -ShowLoadedWithValues -PassThru
+
+            ($result | Where-Object { $_.Name -eq 'SHOW_VAR1' }).Value | Should -Be 'value with spaces'
+            ($result | Where-Object { $_.Name -eq 'SHOW_VAR2' }).Value | Should -Be 'value=with=equals'
+            ($result | Where-Object { $_.Name -eq 'SHOW_VAR3' }).Value | Should -Be 'special!@#$%'
+        }
+
+        It 'Should handle variables that were unset after loading' {
+            $content = @'
+SHOW_VAR1=value1
+SHOW_VAR2=value2
+'@
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+            Import-DotEnv -Path $script:TestEnvFile
+
+            # Manually unset one variable
+            Remove-Item -Path 'env:SHOW_VAR2' -ErrorAction SilentlyContinue
+
+            $result = Import-DotEnv -ShowLoadedWithValues -PassThru
+
+            # Should still show both in tracking, but SHOW_VAR2 will have null/empty value
+            $result.Count | Should -Be 2
+            ($result | Where-Object { $_.Name -eq 'SHOW_VAR2' }).Value | Should -BeNullOrEmpty
+        }
+
+        It 'Should display sensitive values (security warning test)' {
+            $content = @'
+SECRET_KEY=super_secret_password
+SHOW_VAR1=regular_value
+'@
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+            Import-DotEnv -Path $script:TestEnvFile
+
+            $result = Import-DotEnv -ShowLoadedWithValues -PassThru
+
+            # Verify that sensitive values ARE shown (this is expected behavior)
+            $secret = $result | Where-Object { $_.Name -eq 'SECRET_KEY' }
+            $secret.Value | Should -Be 'super_secret_password'
+        }
+
+        It 'Should handle empty values' {
+            $content = @'
+SHOW_VAR1=value1
+SHOW_VAR2=
+SHOW_VAR3=value3
+'@
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+            Import-DotEnv -Path $script:TestEnvFile
+
+            $result = Import-DotEnv -ShowLoadedWithValues -PassThru
+
+            $result.Count | Should -Be 3
+            ($result | Where-Object { $_.Name -eq 'SHOW_VAR2' }).Value | Should -BeNullOrEmpty
+        }
+
+        It 'Should work with Unicode and emoji values' {
+            $content = @'
+SHOW_VAR1="José García"
+SHOW_VAR2="Hello 👋 World"
+SHOW_VAR3="你好世界"
+'@
+            New-TestEnvFile -Path $script:TestEnvFile -Content $content
+            Import-DotEnv -Path $script:TestEnvFile
+
+            $result = Import-DotEnv -ShowLoadedWithValues -PassThru
+
+            ($result | Where-Object { $_.Name -eq 'SHOW_VAR1' }).Value | Should -Be 'José García'
+            ($result | Where-Object { $_.Name -eq 'SHOW_VAR2' }).Value | Should -Be 'Hello 👋 World'
+            ($result | Where-Object { $_.Name -eq 'SHOW_VAR3' }).Value | Should -Be '你好世界'
+        }
+    }
 }
 

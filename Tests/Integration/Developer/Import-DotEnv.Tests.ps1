@@ -580,4 +580,111 @@ NETWORK_PATH="\\\\server\\share"
             Remove-Item -Path $envFile -Force
         }
     }
+
+    Context 'ShowLoadedWithValues Integration' {
+        BeforeEach {
+            Clear-AllTestEnvVars
+        }
+
+        AfterEach {
+            Clear-AllTestEnvVars
+        }
+
+        It 'Should display values from realistic application configuration' {
+            $envFile = Join-Path $script:TestDir 'app-showvalues.env'
+            New-RealisticEnvFile -Path $envFile -Type 'Standard'
+
+            Import-DotEnv -Path $envFile
+
+            $result = Import-DotEnv -ShowLoadedWithValues -PassThru
+
+            # Verify we got results
+            $result | Should -Not -BeNullOrEmpty
+            $result.Count | Should -BeGreaterThan 10
+
+            # Check specific values
+            ($result | Where-Object { $_.Name -eq 'APP_NAME' }).Value | Should -Be 'MyApp'
+            ($result | Where-Object { $_.Name -eq 'APP_ENV' }).Value | Should -Be 'development'
+            ($result | Where-Object { $_.Name -eq 'DB_CONNECTION' }).Value | Should -Be 'postgresql'
+            ($result | Where-Object { $_.Name -eq 'DB_HOST' }).Value | Should -Be 'localhost'
+
+            Remove-Item -Path $envFile -Force
+        }
+
+        It 'Should handle multi-file scenario showing all loaded variables' {
+            $file1 = Join-Path $script:TestDir 'base-showvalues.env'
+            $file2 = Join-Path $script:TestDir 'override-showvalues.env'
+
+            [System.IO.File]::WriteAllText($file1, @'
+APP_NAME=BaseApp
+APP_ENV=production
+DB_HOST=prod-db.example.com
+'@, [System.Text.Encoding]::UTF8)
+
+            [System.IO.File]::WriteAllText($file2, @'
+APP_ENV=development
+DB_HOST=localhost
+DEBUG=true
+'@, [System.Text.Encoding]::UTF8)
+
+            # Load both
+            Import-DotEnv -Path @($file1, $file2) -Force
+
+            $result = Import-DotEnv -ShowLoadedWithValues -PassThru
+
+            # Should show all variables with final values
+            $result.Count | Should -Be 4
+            ($result | Where-Object { $_.Name -eq 'APP_NAME' }).Value | Should -Be 'BaseApp'
+            ($result | Where-Object { $_.Name -eq 'APP_ENV' }).Value | Should -Be 'development'
+            ($result | Where-Object { $_.Name -eq 'DB_HOST' }).Value | Should -Be 'localhost'
+            ($result | Where-Object { $_.Name -eq 'DEBUG' }).Value | Should -Be 'true'
+
+            Remove-Item -Path $file1, $file2 -Force
+        }
+
+        It 'Should show expanded variable values' {
+            $envFile = Join-Path $script:TestDir 'expansion-showvalues.env'
+            [System.IO.File]::WriteAllText($envFile, @'
+BASE_PATH=/home/user
+PROJECT_PATH="${BASE_PATH}/projects"
+CONFIG_PATH="${PROJECT_PATH}/config"
+'@, [System.Text.Encoding]::UTF8)
+
+            Import-DotEnv -Path $envFile
+
+            $result = Import-DotEnv -ShowLoadedWithValues -PassThru
+
+            ($result | Where-Object { $_.Name -eq 'BASE_PATH' }).Value | Should -Be '/home/user'
+            ($result | Where-Object { $_.Name -eq 'PROJECT_PATH' }).Value | Should -Be '/home/user/projects'
+            ($result | Where-Object { $_.Name -eq 'CONFIG_PATH' }).Value | Should -Be '/home/user/projects/config'
+
+            Remove-Item -Path $envFile -Force
+        }
+
+        It 'Should handle load, modify, show workflow' {
+            $envFile = Join-Path $script:TestDir 'workflow-showvalues.env'
+            [System.IO.File]::WriteAllText($envFile, @'
+CONFIG_MODE=initial
+API_ENDPOINT=https://api.example.com
+TIMEOUT=30
+'@, [System.Text.Encoding]::UTF8)
+
+            # Load
+            Import-DotEnv -Path $envFile
+
+            # Modify some values programmatically
+            $env:CONFIG_MODE = 'modified'
+            $env:TIMEOUT = '60'
+
+            # Show values should reflect current state
+            $result = Import-DotEnv -ShowLoadedWithValues -PassThru
+
+            ($result | Where-Object { $_.Name -eq 'CONFIG_MODE' }).Value | Should -Be 'modified'
+            ($result | Where-Object { $_.Name -eq 'API_ENDPOINT' }).Value | Should -Be 'https://api.example.com'
+            ($result | Where-Object { $_.Name -eq 'TIMEOUT' }).Value | Should -Be '60'
+
+            Remove-Item -Path $envFile -Force
+        }
+    }
 }
+

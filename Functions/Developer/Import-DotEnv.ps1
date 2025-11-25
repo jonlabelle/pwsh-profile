@@ -36,6 +36,12 @@ function Import-DotEnv
         This is a standalone operation that does not load any new files.
         Shows only variable names without values for security.
 
+    .PARAMETER ShowLoadedWithValues
+        Displays both names and values of environment variables that were previously loaded by Import-DotEnv.
+        This is a standalone operation that does not load any new files.
+        Returns an array of PSCustomObjects with Name and Value properties for clean display.
+        WARNING: This will display sensitive values. Use with caution.
+
     .PARAMETER Scope
         Specifies the scope for environment variables. Valid values:
         - Process (default): Sets variables for the current process only
@@ -88,6 +94,23 @@ function Import-DotEnv
         Variables     : {APP_NAME, APP_ENV, APP_DEBUG, APP_URL}
 
         Shows loaded variables and returns a structured object for scripting.
+
+    .EXAMPLE
+        PS > Import-DotEnv -ShowLoadedWithValues
+
+        Name        Value
+        ----        -----
+        APP_NAME    MyApp
+        APP_ENV     development
+        APP_DEBUG   true
+        APP_URL     http://localhost:3000
+
+        Displays all previously loaded environment variables with their current values.
+
+    .EXAMPLE
+        PS > Import-DotEnv -ShowLoadedWithValues -PassThru
+
+        Returns an array of PSCustomObjects with Name and Value properties for programmatic access.
 
     .EXAMPLE
         PS > Import-DotEnv -Path .env.local -Force
@@ -160,7 +183,8 @@ function Import-DotEnv
         Loads multiple .env files via pipeline input and displays summary for each file.
 
     .OUTPUTS
-        None by default. With -PassThru, returns a PSCustomObject with load/unload details.
+        None by default. With -PassThru, returns a PSCustomObject or array of PSCustomObjects with load/unload details.
+        With -ShowLoadedWithValues and -PassThru, returns an array of PSCustomObjects with Name and Value properties.
 
     .NOTES
         Author: Jon LaBelle
@@ -179,6 +203,7 @@ function Import-DotEnv
     #>
     [CmdletBinding(DefaultParameterSetName = 'Load')]
     [OutputType([System.Management.Automation.PSCustomObject])]
+    [OutputType([System.Object[]])]
     param(
         [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName, ParameterSetName = 'Load', Position = 0)]
         [Alias('FilePath', 'EnvFile')]
@@ -189,6 +214,9 @@ function Import-DotEnv
 
         [Parameter(Mandatory, ParameterSetName = 'ShowLoaded')]
         [Switch]$ShowLoaded,
+
+        [Parameter(Mandatory, ParameterSetName = 'ShowLoadedWithValues')]
+        [Switch]$ShowLoadedWithValues,
 
         [Parameter(ParameterSetName = 'Load')]
         [ValidateSet('Process', 'User', 'Machine')]
@@ -267,6 +295,49 @@ function Import-DotEnv
                 }
                 $result.PSObject.TypeNames.Insert(0, 'DotEnv.ShowLoadedResult')
                 return $result
+            }
+            return
+        }
+
+        if ($ShowLoadedWithValues)
+        {
+            Write-Verbose 'Displaying previously loaded environment variables with values'
+
+            # Get tracking variable
+            $trackedVars = $env:__DOTENV_LOADED_VARS
+
+            if ([String]::IsNullOrEmpty($trackedVars))
+            {
+                Write-Host 'No environment variables have been loaded by Import-DotEnv.' -ForegroundColor Yellow
+
+                if ($PassThru)
+                {
+                    return @()
+                }
+                return
+            }
+
+            # Parse pipe-delimited variable names
+            $varsLoaded = $trackedVars -split '\|' | Where-Object { -not [String]::IsNullOrWhiteSpace($_) }
+
+            # Build array of objects with Name and Value
+            $varObjects = foreach ($varName in $varsLoaded)
+            {
+                $varValue = [System.Environment]::GetEnvironmentVariable($varName)
+                [PSCustomObject]@{
+                    Name = $varName
+                    Value = $varValue
+                }
+            }
+
+            if ($PassThru)
+            {
+                return $varObjects
+            }
+            else
+            {
+                # Display as table
+                $varObjects | Format-Table -AutoSize
             }
             return
         }
