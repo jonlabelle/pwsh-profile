@@ -148,16 +148,18 @@ EXPANDED="${BASE_VAR}_expanded"
     # Helper to clean up all test environment variables
     function Clear-AllTestEnvVars
     {
-        $testVarPrefixes = @('APP_', 'DB_', 'CACHE_', 'REDIS_', 'MAIL_', 'COMPOSE_', 'DOCKER_',
+        $prefixes = @(
+            'APP_', 'DB_', 'CACHE_', 'REDIS_', 'MAIL_', 'COMPOSE_', 'DOCKER_',
             'NODE_', 'POSTGRES_', 'WEB_', 'AWS_', 'S3_', 'HOME_DIR', 'PROJECT_',
             'CONFIG_', 'DATA_', 'LOG_', 'API_', 'FULL_', 'SIMPLE', 'DOUBLE_',
             'SINGLE_', 'SPECIAL', 'ESCAPED', 'INLINE', 'EXPORTED', 'EMPTY',
-            'EQUALS', 'BASE_', 'EXPANDED')
+            'EQUALS', 'BASE_', 'EXPANDED', 'BOM_', 'WORKFLOW_', 'RELOAD_', 'VALID_VAR',
+            'PROTECTED', 'UNIX_PATH', 'RELATIVE_PATH', 'WIN_PATH', 'NETWORK_PATH', 'VAR_',
+            'LOCAL_SETTING', 'CONFIG_MODE', 'TIMEOUT', 'DEBUG'
+        )
+        $testVarPattern = '^(' + ($prefixes -join '|') + ')'
 
-        Get-ChildItem env: | Where-Object {
-            $name = $_.Name
-            $testVarPrefixes | Where-Object { $name.StartsWith($_) }
-        } | ForEach-Object {
+        Get-ChildItem env: | Where-Object { $_.Name -match $testVarPattern } | ForEach-Object {
             Remove-Item -Path "env:$($_.Name)" -ErrorAction SilentlyContinue
         }
 
@@ -251,6 +253,63 @@ Describe 'Import-DotEnv Integration Tests' {
             $env:AWS_ACCESS_KEY_ID | Should -Be 'AKIAIOSFODNN7EXAMPLE'
             $env:AWS_SECRET_ACCESS_KEY | Should -Be 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
             $env:S3_BUCKET | Should -Be 'my-app-bucket'
+
+            Remove-Item -Path $envFile -Force
+        }
+
+        It 'Should warn and not load when Path targets a directory' {
+            $envDir = Join-Path $script:TestDir 'dotenv-dir'
+            New-Item -Path $envDir -ItemType Directory -Force | Out-Null
+
+            $warnings = @()
+            $result = Import-DotEnv -Path $envDir -PassThru -WarningVariable warnings -WarningAction Continue
+
+            $warnings | Should -Not -BeNullOrEmpty
+            ($warnings -join "`n") | Should -Match 'File not found.*dotenv-dir'
+            $env:APP_NAME | Should -BeNullOrEmpty
+            $result | Should -BeNullOrEmpty
+
+            Remove-Item -Path $envDir -Recurse -Force
+        }
+
+        It 'Should load UTF-8 BOM encoded files' {
+            $envFile = Join-Path $script:TestDir 'bom.env'
+            $utf8WithBom = [System.Text.UTF8Encoding]::new($true)
+            [System.IO.File]::WriteAllText($envFile, 'BOM_VAR=value_with_bom', $utf8WithBom)
+
+            $result = Import-DotEnv -Path $envFile -PassThru
+
+            $result.VariableCount | Should -Be 1
+            $env:BOM_VAR | Should -Be 'value_with_bom'
+
+            Remove-Item -Path $envFile -Force
+        }
+
+        It 'Should not overwrite existing variables without Force' {
+            $envFile = Join-Path $script:TestDir 'no-force-overwrite.env'
+            [System.IO.File]::WriteAllText($envFile, @'
+APP_NAME=FirstLoad
+API_URL=https://first.example.com
+'@, [System.Text.Encoding]::UTF8)
+
+            $initialResult = Import-DotEnv -Path $envFile -PassThru
+            $initialResult.VariableCount | Should -Be 2
+            $env:APP_NAME | Should -Be 'FirstLoad'
+            $env:API_URL | Should -Be 'https://first.example.com'
+
+            # Change the file values and load again without -Force; existing env vars should be preserved
+            [System.IO.File]::WriteAllText($envFile, @'
+APP_NAME=SecondLoad
+API_URL=https://second.example.com
+'@, [System.Text.Encoding]::UTF8)
+
+            $secondResult = Import-DotEnv -Path $envFile -PassThru
+
+            $env:APP_NAME | Should -Be 'FirstLoad'
+            $env:API_URL | Should -Be 'https://first.example.com'
+            $secondResult.VariableCount | Should -Be 0
+            $secondResult.Skipped | Should -Contain 'APP_NAME'
+            $secondResult.Skipped | Should -Contain 'API_URL'
 
             Remove-Item -Path $envFile -Force
         }
@@ -496,6 +555,18 @@ RELOAD_VAR=new_value
             Remove-Item -Path $validFile -Force
         }
 
+        It 'Should surface warning message for missing file' {
+            $missingFile = Join-Path $script:TestDir 'missing.env'
+            $escapedMissingFile = [Regex]::Escape($missingFile)
+
+            $warnings = @()
+            Import-DotEnv -Path $missingFile -WarningVariable warnings -WarningAction Continue
+
+            $warnings | Should -Not -BeNullOrEmpty
+            ($warnings -join "`n") | Should -Match $escapedMissingFile
+            ($warnings -join "`n") | Should -Match 'File not found'
+        }
+
         It 'Should handle file read permissions gracefully' {
             $envFile = Join-Path $script:TestDir 'protected.env'
             [System.IO.File]::WriteAllText($envFile, 'PROTECTED=value', [System.Text.Encoding]::UTF8)
@@ -687,4 +758,3 @@ TIMEOUT=30
         }
     }
 }
-
