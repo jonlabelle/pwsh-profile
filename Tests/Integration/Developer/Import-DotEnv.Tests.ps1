@@ -169,27 +169,18 @@ EXPANDED="${BASE_VAR}_expanded"
 
 Describe 'Import-DotEnv Integration Tests' {
     BeforeAll {
-        $script:TestDir = Join-Path ([System.IO.Path]::GetTempPath()) "dotenv-integration-$(Get-Random)"
-        New-Item -Path $script:TestDir -ItemType Directory -Force | Out-Null
-    }
-
-    AfterAll {
-        Clear-AllTestEnvVars
-        if (Test-Path $script:TestDir)
+        $script:TestDir = Join-Path $TestDrive 'dotenv'
+        if (-not (Test-Path $script:TestDir))
         {
-            Remove-Item -Path $script:TestDir -Recurse -Force -ErrorAction SilentlyContinue
+            New-Item -Path $script:TestDir -ItemType Directory -Force | Out-Null
         }
     }
+
+    BeforeEach { Clear-AllTestEnvVars }
+    AfterEach { Clear-AllTestEnvVars }
+    AfterAll { Clear-AllTestEnvVars }
 
     Context 'Real-World Application Scenarios' {
-        BeforeEach {
-            Clear-AllTestEnvVars
-        }
-
-        AfterEach {
-            Clear-AllTestEnvVars
-        }
-
         It 'Should load standard application configuration' {
             $envFile = Join-Path $script:TestDir 'app.env'
             New-RealisticEnvFile -Path $envFile -Type 'Standard'
@@ -316,14 +307,6 @@ API_URL=https://second.example.com
     }
 
     Context 'Multi-File Loading' {
-        BeforeEach {
-            Clear-AllTestEnvVars
-        }
-
-        AfterEach {
-            Clear-AllTestEnvVars
-        }
-
         It 'Should load multiple .env files sequentially' {
             $baseEnvFile = Join-Path $script:TestDir '.env'
             $localEnvFile = Join-Path $script:TestDir '.env.local'
@@ -395,14 +378,6 @@ DB_PORT=5432'
     }
 
     Context 'Variable Expansion in Real Scenarios' {
-        BeforeEach {
-            Clear-AllTestEnvVars
-        }
-
-        AfterEach {
-            Clear-AllTestEnvVars
-        }
-
         It 'Should expand path variables correctly' {
             $envFile = Join-Path $script:TestDir 'paths.env'
             New-RealisticEnvFile -Path $envFile -Type 'WithExpansion'
@@ -437,14 +412,6 @@ API_ENDPOINT="${API_BASE}/${API_VERSION}"
     }
 
     Context 'Complex Format Handling' {
-        BeforeEach {
-            Clear-AllTestEnvVars
-        }
-
-        AfterEach {
-            Clear-AllTestEnvVars
-        }
-
         It 'Should handle all complex formats in one file' {
             $envFile = Join-Path $script:TestDir 'complex.env'
             New-RealisticEnvFile -Path $envFile -Type 'Complex'
@@ -467,14 +434,6 @@ API_ENDPOINT="${API_BASE}/${API_VERSION}"
     }
 
     Context 'Load and Unload Workflow' {
-        BeforeEach {
-            Clear-AllTestEnvVars
-        }
-
-        AfterEach {
-            Clear-AllTestEnvVars
-        }
-
         It 'Should support complete load-use-unload workflow' {
             $envFile = Join-Path $script:TestDir 'workflow.env'
             [System.IO.File]::WriteAllText($envFile, @'
@@ -532,14 +491,6 @@ RELOAD_VAR=new_value
     }
 
     Context 'Error Handling' {
-        BeforeEach {
-            Clear-AllTestEnvVars
-        }
-
-        AfterEach {
-            Clear-AllTestEnvVars
-        }
-
         It 'Should continue processing when one file fails' {
             $validFile = Join-Path $script:TestDir 'valid.env'
             $invalidFile = Join-Path $script:TestDir 'nonexistent.env'
@@ -579,14 +530,6 @@ RELOAD_VAR=new_value
     }
 
     Context 'Cross-Platform Path Handling' {
-        BeforeEach {
-            Clear-AllTestEnvVars
-        }
-
-        AfterEach {
-            Clear-AllTestEnvVars
-        }
-
         It 'Should handle paths with forward slashes' {
             $envFile = Join-Path $script:TestDir 'paths-forward.env'
             [System.IO.File]::WriteAllText($envFile, @'
@@ -619,14 +562,6 @@ NETWORK_PATH="\\\\server\\share"
     }
 
     Context 'Performance and Scale' {
-        BeforeEach {
-            Clear-AllTestEnvVars
-        }
-
-        AfterEach {
-            Clear-AllTestEnvVars
-        }
-
         It 'Should handle large .env file efficiently' {
             $envFile = Join-Path $script:TestDir 'large.env'
             $content = @()
@@ -653,14 +588,6 @@ NETWORK_PATH="\\\\server\\share"
     }
 
     Context 'ShowLoadedWithValues Integration' {
-        BeforeEach {
-            Clear-AllTestEnvVars
-        }
-
-        AfterEach {
-            Clear-AllTestEnvVars
-        }
-
         It 'Should display values from realistic application configuration' {
             $envFile = Join-Path $script:TestDir 'app-showvalues.env'
             New-RealisticEnvFile -Path $envFile -Type 'Standard'
