@@ -17,6 +17,11 @@ function Import-DotEnv
         - Single quotes preserve literal values (no expansion)
         - Export prefix is optional: export KEY=value
 
+        Additional behaviors:
+        - Variable expansion allows derived values (e.g., API_ENDPOINT="${API_BASE_URL}/v1" will resolve using 'API_BASE_URL' if set).
+        - Multiple files can be loaded in a single call via array input or pipeline; later files require -Force to override earlier values.
+        - Using the -PassThru parameter returns per-file load summaries that include which variables were set or skipped.
+
         Compatible with PowerShell 5.1+ on Windows, macOS, and Linux.
 
         Aliases:
