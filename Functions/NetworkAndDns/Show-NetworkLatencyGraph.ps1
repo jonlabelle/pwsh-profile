@@ -30,6 +30,21 @@ function Show-NetworkLatencyGraph
     .PARAMETER NoColor
         Disable ANSI color codes in output (plain text only)
 
+    .PARAMETER Continuous
+        Run continuously until stopped with Ctrl+C, collecting new data samples
+
+    .PARAMETER Interval
+        Interval in seconds between continuous updates (default: 5)
+
+    .PARAMETER HostName
+        Target hostname or IP address (required for continuous mode)
+
+    .PARAMETER Count
+        Number of samples to collect per cycle in continuous mode (default: 20)
+
+    .PARAMETER Port
+        TCP port to test in continuous mode (default: 443)
+
     .EXAMPLE
         PS > $latencies = @(15, 14, 16, 22, 15, 14, 13, 16)
         PS > Show-NetworkLatencyGraph -Data $latencies -GraphType Sparkline
@@ -102,6 +117,16 @@ function Show-NetworkLatencyGraph
 
         Collect multiple metric sets over time and display combined time-series graph
 
+    .EXAMPLE
+        PS > Show-NetworkLatencyGraph -HostName 'google.com' -GraphType TimeSeries -Continuous -Interval 3
+
+        Continuously monitor google.com with animated time-series graph, updating every 3 seconds
+
+    .EXAMPLE
+        PS > Show-NetworkLatencyGraph -HostName 'cloudflare.com' -GraphType Sparkline -Continuous -ShowStats
+
+        Continuously monitor with sparkline graph and statistics (default 5-second interval)
+
     .OUTPUTS
         System.String
 
@@ -113,9 +138,13 @@ function Show-NetworkLatencyGraph
     [CmdletBinding()]
     [OutputType([String])]
     param(
-        [Parameter(Mandatory, ValueFromPipeline)]
+        [Parameter(Mandatory, ValueFromPipeline, ParameterSetName = 'Data')]
         [AllowNull()]
         [Double[]]$Data,
+
+        [Parameter(Mandatory, ParameterSetName = 'Continuous')]
+        [ValidateNotNullOrEmpty()]
+        [String]$HostName,
 
         [Parameter()]
         [ValidateSet('Sparkline', 'TimeSeries', 'Distribution')]
@@ -133,7 +162,22 @@ function Show-NetworkLatencyGraph
         [Switch]$ShowStats,
 
         [Parameter()]
-        [Switch]$NoColor
+        [Switch]$NoColor,
+
+        [Parameter(ParameterSetName = 'Continuous')]
+        [Switch]$Continuous,
+
+        [Parameter(ParameterSetName = 'Continuous')]
+        [ValidateRange(1, 3600)]
+        [Int32]$Interval = 5,
+
+        [Parameter(ParameterSetName = 'Continuous')]
+        [ValidateRange(5, 1000)]
+        [Int32]$Count = 20,
+
+        [Parameter(ParameterSetName = 'Continuous')]
+        [ValidateRange(1, 65535)]
+        [Int32]$Port = 443
     )
 
     begin
@@ -151,26 +195,220 @@ function Show-NetworkLatencyGraph
         # Block characters for sparklines (8 levels)
         $script:SparkChars = @(' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█')
 
-        # Filter out null values but track them
-        $validData = @($Data | Where-Object { $null -ne $_ })
-        $failedCount = @($Data | Where-Object { $null -eq $_ }).Count
-
-        if ($validData.Count -eq 0)
+        # Load Get-NetworkMetrics if in continuous mode
+        if ($Continuous)
         {
-            Write-Warning 'No valid data points to graph'
-            return '(no data)'
+            if (-not (Get-Command -Name 'Get-NetworkMetrics' -ErrorAction SilentlyContinue))
+            {
+                Write-Verbose 'Get-NetworkMetrics is required - attempting to load it'
+                $metricsPath = Join-Path -Path $PSScriptRoot -ChildPath 'Get-NetworkMetrics.ps1'
+                $metricsPath = [System.IO.Path]::GetFullPath($metricsPath)
+
+                if (Test-Path -Path $metricsPath -PathType Leaf)
+                {
+                    try
+                    {
+                        . $metricsPath
+                        Write-Verbose "Loaded Get-NetworkMetrics from: $metricsPath"
+                    }
+                    catch
+                    {
+                        throw "Failed to load required dependency 'Get-NetworkMetrics' from '$metricsPath': $($_.Exception.Message)"
+                    }
+                }
+                else
+                {
+                    throw "Required function 'Get-NetworkMetrics' could not be found. Expected location: $metricsPath"
+                }
+            }
         }
 
-        # Calculate statistics
-        $min = ($validData | Measure-Object -Minimum).Minimum
-        $max = ($validData | Measure-Object -Maximum).Maximum
-        $avg = ($validData | Measure-Object -Average).Average
+        # If we have data directly, process it
+        if ($PSCmdlet.ParameterSetName -eq 'Data')
+        {
+            # Filter out null values but track them
+            $validData = @($Data | Where-Object { $null -ne $_ })
+            $failedCount = @($Data | Where-Object { $null -eq $_ }).Count
 
-        Write-Verbose "Data range: min=$min, max=$max, avg=$([Math]::Round($avg, 2))"
+            if ($validData.Count -eq 0)
+            {
+                Write-Warning 'No valid data points to graph'
+                return '(no data)'
+            }
+
+            # Calculate statistics
+            $min = ($validData | Measure-Object -Minimum).Minimum
+            $max = ($validData | Measure-Object -Maximum).Maximum
+            $avg = ($validData | Measure-Object -Average).Average
+
+            Write-Verbose "Data range: min=$min, max=$max, avg=$([Math]::Round($avg, 2))"
+        }
     }
 
     process
     {
+        # Continuous mode
+        if ($Continuous)
+        {
+            $iteration = 0
+            $firstRun = $true
+            do
+            {
+                $iteration++
+
+                if ($firstRun)
+                {
+                    Clear-Host
+                    $firstRun = $false
+                }
+                else
+                {
+                    # Move cursor to top of screen for smooth animation
+                    Write-Host "`e[H" -NoNewline
+                }
+
+                Write-Host "${script:ColorCyan}Network Latency Graph - Iteration $iteration (Press Ctrl+C to stop)${script:ColorReset}"
+                Write-Host "${script:ColorGray}Host: $HostName | Interval: ${Interval}s | Samples: $Count | Port: $Port${script:ColorReset}"
+                Write-Host
+
+                # Collect metrics
+                $metrics = Get-NetworkMetrics -HostName $HostName -Count $Count -Port $Port
+                $Data = $metrics.LatencyData
+
+                # Filter and calculate for this iteration
+                $validData = @($Data | Where-Object { $null -ne $_ })
+                $failedCount = @($Data | Where-Object { $null -eq $_ }).Count
+
+                if ($validData.Count -gt 0)
+                {
+                    $min = ($validData | Measure-Object -Minimum).Minimum
+                    $max = ($validData | Measure-Object -Maximum).Maximum
+                    $avg = ($validData | Measure-Object -Average).Average
+
+                    # Generate and display graph
+                    $graphOutput = switch ($GraphType)
+                    {
+                        'Sparkline'
+                        {
+                            $sparkline = New-Object System.Text.StringBuilder
+                            foreach ($value in $Data)
+                            {
+                                if ($null -eq $value)
+                                {
+                                    [void]$sparkline.Append('✖')
+                                }
+                                else
+                                {
+                                    if ($max -eq $min) { $index = 4 }
+                                    else
+                                    {
+                                        $normalized = ($value - $min) / ($max - $min)
+                                        $index = [Math]::Floor($normalized * 8)
+                                        $index = [Math]::Min(8, [Math]::Max(0, $index))
+                                    }
+                                    [void]$sparkline.Append($script:SparkChars[$index])
+                                }
+                            }
+                            $result = $sparkline.ToString()
+                            if ($ShowStats)
+                            {
+                                $statsText = " ${script:ColorGray}(min: ${script:ColorCyan}$([Math]::Round($min, 1))ms${script:ColorGray}, max: ${script:ColorCyan}$([Math]::Round($max, 1))ms${script:ColorGray}, avg: "
+                                $avgColor = if ($avg -lt 50) { $script:ColorGreen } elseif ($avg -lt 100) { $script:ColorYellow } else { $script:ColorRed }
+                                $statsText += "$avgColor$([Math]::Round($avg, 1))ms${script:ColorGray}"
+                                if ($failedCount -gt 0) { $statsText += ", failed: ${script:ColorRed}$failedCount${script:ColorGray}" }
+                                $statsText += ")${script:ColorReset}"
+                                $result += $statsText
+                            }
+                            $result
+                        }
+                        'TimeSeries'
+                        {
+                            $output = New-Object System.Text.StringBuilder
+                            $range = if (($max - $min) -eq 0) { 1 } else { $max - $min }
+                            for ($row = $Height - 1; $row -ge 0; $row--)
+                            {
+                                $threshold = $min + ($range * ($row + 0.5) / $Height)
+                                $yLabel = [Math]::Round($min + ($range * $row / $Height), 0)
+                                [void]$output.Append($yLabel.ToString().PadLeft(5))
+                                [void]$output.Append(' |')
+                                $pointsToPlot = [Math]::Min($Width, $validData.Count)
+                                for ($col = 0; $col -lt $pointsToPlot; $col++)
+                                {
+                                    $dataIndex = [Math]::Floor($col * $validData.Count / $pointsToPlot)
+                                    $value = $validData[$dataIndex]
+                                    if ($null -eq $value) { [void]$output.Append(' ') }
+                                    elseif ($value -ge $threshold)
+                                    {
+                                        if ($row -eq $Height - 1 -or $validData[$dataIndex] -ge ($min + ($range * ($row + 1) / $Height)))
+                                        { [void]$output.Append('█') }
+                                        else { [void]$output.Append('▄') }
+                                    }
+                                    else { [void]$output.Append(' ') }
+                                }
+                                [void]$output.AppendLine()
+                            }
+                            [void]$output.Append('     +')
+                            [void]$output.AppendLine('-' * $pointsToPlot)
+                            if ($ShowStats)
+                            {
+                                $statsLine = "     ${script:ColorGray}Min: ${script:ColorCyan}$([Math]::Round($min, 1))ms ${script:ColorGray}| Max: ${script:ColorCyan}$([Math]::Round($max, 1))ms ${script:ColorGray}| Avg: "
+                                $avgColor = if ($avg -lt 50) { $script:ColorGreen } elseif ($avg -lt 100) { $script:ColorYellow } else { $script:ColorRed }
+                                $statsLine += "$avgColor$([Math]::Round($avg, 1))ms ${script:ColorGray}| Samples: ${script:ColorCyan}$($validData.Count)${script:ColorReset}"
+                                [void]$output.AppendLine($statsLine)
+                            }
+                            $output.ToString()
+                        }
+                        'Distribution'
+                        {
+                            $output = New-Object System.Text.StringBuilder
+                            $bucketCount = 10
+                            $bucketSize = if (($max - $min) -eq 0) { 1 } else { ($max - $min) / $bucketCount }
+                            $buckets = @{}
+                            0..($bucketCount-1) | ForEach-Object { $buckets[$_] = 0 }
+                            foreach ($value in $validData)
+                            {
+                                $bucketIndex = [Math]::Floor(($value - $min) / $bucketSize)
+                                $bucketIndex = [Math]::Min($bucketCount - 1, [Math]::Max(0, $bucketIndex))
+                                $buckets[$bucketIndex]++
+                            }
+                            $maxCount = if (($buckets.Values | Measure-Object -Maximum).Maximum -eq 0) { 1 } else { ($buckets.Values | Measure-Object -Maximum).Maximum }
+                            [void]$output.AppendLine("${script:ColorCyan}Latency Distribution:${script:ColorReset}")
+                            for ($i = 0; $i -lt $bucketCount; $i++)
+                            {
+                                $rangeStart = [Math]::Round($min + ($i * $bucketSize), 1)
+                                $rangeEnd = [Math]::Round($min + (($i + 1) * $bucketSize), 1)
+                                $count = $buckets[$i]
+                                $barWidth = [Math]::Floor(($count / $maxCount) * ($Width - 20))
+                                $midpoint = ($rangeStart + $rangeEnd) / 2
+                                $barColor = if ($midpoint -lt 50) { $script:ColorGreen } elseif ($midpoint -lt 100) { $script:ColorYellow } else { $script:ColorRed }
+                                $label = "${script:ColorGray}$rangeStart-$rangeEnd ms${script:ColorReset}".PadRight(15 + ($script:ColorGray.Length + $script:ColorReset.Length))
+                                $bar = "$barColor" + ('█' * $barWidth) + "$script:ColorReset"
+                                $percentage = [Math]::Round(($count / $validData.Count) * 100, 1)
+                                [void]$output.AppendLine("$label $bar ${script:ColorCyan}$count${script:ColorReset} ${script:ColorGray}($percentage%)${script:ColorReset}")
+                            }
+                            $output.ToString()
+                        }
+                    }
+
+                    Write-Host $graphOutput
+                }
+                else
+                {
+                    Write-Host "${script:ColorRed}No successful connections${script:ColorReset}"
+                }
+
+                Write-Host
+                Write-Host "${script:ColorGray}Packet Loss: ${script:ColorRed}$($metrics.PacketLoss)%${script:ColorGray} | Jitter: ${script:ColorYellow}$($metrics.Jitter)ms${script:ColorReset}"
+                Write-Host "${script:ColorGray}Waiting ${Interval} seconds until next test...${script:ColorReset}"
+                Write-Host "`e[?25l" -NoNewline  # Hide cursor
+                Start-Sleep -Seconds $Interval
+                Write-Host "`e[?25h" -NoNewline  # Show cursor
+
+            } while ($true)
+            return
+        }
+
+        # Static mode (original behavior)
         switch ($GraphType)
         {
             'Sparkline'

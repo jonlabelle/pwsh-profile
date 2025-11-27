@@ -147,34 +147,53 @@ function Get-NetworkMetrics
         {
             $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
             $success = $false
+            $tcpClient = $null
 
             try
             {
                 $tcpClient = New-Object System.Net.Sockets.TcpClient
-                $connectTask = $tcpClient.ConnectAsync($HostName, $Port)
 
-                if ($connectTask.Wait($Timeout))
+                # Use BeginConnect/EndConnect for timeout support
+                $asyncResult = $tcpClient.BeginConnect($HostName, $Port, $null, $null)
+                $waitHandle = $asyncResult.AsyncWaitHandle
+
+                if ($waitHandle.WaitOne($Timeout, $false))
                 {
-                    $stopwatch.Stop()
-                    $latency = $stopwatch.Elapsed.TotalMilliseconds
-                    $latencies.Add($latency)
-                    $success = $true
-                    Write-Verbose "Sample $i/$Count : $([Math]::Round($latency, 2))ms"
+                    try
+                    {
+                        $tcpClient.EndConnect($asyncResult)
+                        $stopwatch.Stop()
+                        $latency = $stopwatch.Elapsed.TotalMilliseconds
+                        $latencies.Add($latency)
+                        $success = $true
+                        Write-Verbose "Sample $i/$Count : $([Math]::Round($latency, 2))ms"
+                    }
+                    catch
+                    {
+                        Write-Verbose "Sample $i/$Count : Connection failed - $($_.Exception.Message)"
+                        $latencies.Add($null)
+                    }
                 }
                 else
                 {
                     Write-Verbose "Sample $i/$Count : Timeout"
                     $latencies.Add($null)
+                    $tcpClient.Close()
                 }
-
-                $tcpClient.Close()
-                $tcpClient.Dispose()
             }
             catch
             {
                 $stopwatch.Stop()
                 Write-Verbose "Sample $i/$Count : Failed - $($_.Exception.Message)"
                 $latencies.Add($null)
+            }
+            finally
+            {
+                if ($null -ne $tcpClient)
+                {
+                    $tcpClient.Close()
+                    $tcpClient.Dispose()
+                }
             }
 
             $results.Add($success)
