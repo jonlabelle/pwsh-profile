@@ -373,7 +373,7 @@
         {
             $iteration++
 
-            if ($Continuous -and ($MaxIterations -eq 0))
+            if ($Continuous -and ($MaxIterations -eq 0) -and ($PSVersionTable.PSVersion.Major -lt 6))
             {
                 Clear-Host
             }
