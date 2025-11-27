@@ -45,6 +45,14 @@
     .PARAMETER Port
         TCP port to test in continuous mode (default: 443)
 
+    .PARAMETER RenderMode
+        Controls how the output refreshes during continuous runs.
+        Valid values:
+        - Auto   : PowerShell 5.1 uses Clear (screen wipe), PowerShell 6+ uses InPlace (default)
+        - InPlace: Update the same block using ANSI cursor moves (Core only; falls back to Clear on 5.1)
+        - Clear  : Clear the screen between iterations
+        - Stack  : Append output without clearing (useful for logs/debugging)
+
     .NOTES
         CONTINUOUS MODE:
         - Use -Continuous with -HostName to refresh graph periodically until Ctrl+C
@@ -141,6 +149,16 @@
         Continuously monitor with sparkline graph and statistics (default 5-second interval)
 
     .EXAMPLE
+        PS > Show-NetworkLatencyGraph -HostName 'cloudflare.com' -GraphType TimeSeries -Continuous -Interval 2 -RenderMode InPlace
+
+        PowerShell Core: refreshes the same output block in place (no stacking)
+
+    .EXAMPLE
+        PS > Show-NetworkLatencyGraph -HostName 'cloudflare.com' -GraphType Sparkline -Continuous -Interval 2 -RenderMode Stack -MaxIterations 1
+
+        Append a single iteration for testing/logging; no clear or in-place refresh
+
+    .EXAMPLE
         PS > Show-NetworkLatencyGraph -HostName 'cloudflare.com' -GraphType Sparkline -Continuous -MaxIterations 1
 
         Run one continuous iteration for testing/CI (hidden parameter)
@@ -199,7 +217,11 @@
 
         # Hidden/testing-only: limit iterations for continuous mode (0 = infinite)
         [Parameter(ParameterSetName = 'Continuous')]
-        [Int32]$MaxIterations = 0
+        [Int32]$MaxIterations = 0,
+
+        [Parameter()]
+        [ValidateSet('Auto', 'InPlace', 'Clear', 'Stack')]
+        [String]$RenderMode = 'Auto'
     )
 
     begin
@@ -289,13 +311,20 @@
             {
                 $iteration++
 
-                if ($MaxIterations -eq 0 -and $PSVersionTable.PSVersion.Major -lt 6)
+                $effectiveRender = switch ($RenderMode)
+                {
+                    'InPlace' { if ($PSVersionTable.PSVersion.Major -lt 6) { 'Clear' } else { 'InPlace' } }
+                    'Clear' { 'Clear' }
+                    'Stack' { 'Stack' }
+                    default { if ($PSVersionTable.PSVersion.Major -lt 6) { 'Clear' } else { 'InPlace' } }
+                }
+
+                if ($effectiveRender -eq 'Clear' -and ($iteration -gt 1 -or $MaxIterations -eq 0))
                 {
                     Clear-Host
                 }
-                elseif ($PSVersionTable.PSVersion.Major -ge 6 -and $iteration -gt 1)
+                elseif ($effectiveRender -eq 'InPlace' -and ($iteration -gt 1))
                 {
-                    # PowerShell Core: move cursor up and clear previous block before re-rendering
                     $ansiUpAndClear = "`e[{0}A`e[J" -f $lastRenderLines
                     Write-Host $ansiUpAndClear -NoNewline
                 }
@@ -425,14 +454,8 @@
                     }
 
                     Write-Host $graphOutput
-                    switch ($GraphType)
-                    {
-                        'Sparkline' { $graphLines = 1 }
-                        'TimeSeries' { $graphLines = $Height + 2 }
-                        'Distribution' { $graphLines = 12 }
-                        default { $graphLines = 1 }
-                    }
-                    $linesPrinted += $graphLines
+                    $graphLineCount = ($graph -split "`n" | Where-Object { $_.Trim() }).Count
+                    $linesPrinted += $graphLineCount
                 }
                 else
                 {

@@ -27,6 +27,14 @@
     .PARAMETER Timeout
         Timeout in milliseconds for each connection attempt (default: 2000)
 
+        .PARAMETER RenderMode
+            Controls how the output refreshes during continuous runs.
+            Valid values:
+            - Auto   : PowerShell 5.1 uses Clear (screen wipe), PowerShell 6+ uses InPlace (default)
+            - InPlace: Update the same block using ANSI cursor moves (Core only; falls back to Clear on 5.1)
+            - Clear  : Clear the screen between iterations
+            - Stack  : Append output without clearing (useful for logs/debugging)
+
     .PARAMETER Port
         TCP port to test (default: 443 for HTTPS)
 
@@ -45,6 +53,21 @@
     .NOTES
         CONTINUOUS MODE:
         - Use -Continuous to refresh output periodically until Ctrl+C is pressed
+        .EXAMPLE
+            PS > Invoke-NetworkDiagnostic -HostName 'cloudflare.com' -Continuous -Interval 2 -RenderMode InPlace
+
+            PowerShell Core: refreshes the same output block in place (no stacking)
+
+        .EXAMPLE
+            PS > Invoke-NetworkDiagnostic -HostName 'cloudflare.com' -Continuous -Interval 2 -RenderMode Clear
+
+            Force screen clear between iterations (useful if in-place rendering isn't desired)
+
+        .EXAMPLE
+            PS > Invoke-NetworkDiagnostic -HostName 'cloudflare.com' -Continuous -Interval 2 -RenderMode Stack -MaxIterations 1
+
+            Append a single iteration (good for logs/tests); no clear or in-place refresh
+
         - Set -Interval to control seconds between refreshes (default: 5)
         - For testing/CI: hidden -MaxIterations parameter limits iterations (0 = infinite)
           Example: -Continuous -MaxIterations 1 runs one iteration and exits
@@ -169,7 +192,11 @@
 
         # Hidden/testing-only: limit iterations for continuous mode (0 = infinite)
         [Parameter()]
-        [Int32]$MaxIterations = 0
+        [Int32]$MaxIterations = 0,
+
+        [Parameter()]
+        [ValidateSet('Auto', 'InPlace', 'Clear', 'Stack')]
+        [String]$RenderMode = 'Auto'
     )
 
     begin
@@ -245,10 +272,14 @@
                 [PSCustomObject[]]$Results,
 
                 [Parameter()]
-                [Switch]$Continuous
+                [Switch]$Continuous,
+
+                [Parameter()]
+                [Switch]$ReturnLineCount
             )
 
             $output = New-Object System.Text.StringBuilder
+            $linesPrintedLocal = 0
 
             [void]$output.AppendLine()
             [void]$output.AppendLine('═' * 80)
@@ -271,6 +302,7 @@
 
                 # Host header with color coding
                 Write-Host "┌─ $($result.HostName):$($result.Port)" -ForegroundColor $statusColor
+                $linesPrintedLocal++
 
                 # Latency sparkline (already has color codes embedded)
                 $sparkline = Show-NetworkLatencyGraph -Data $result.LatencyData -GraphType Sparkline
@@ -279,11 +311,13 @@
                     Write-Host '│  Latency: ' -NoNewline
                     # Use default color to preserve ANSI codes in sparkline
                     Write-Host $sparkline
+                    $linesPrintedLocal++
                 }
                 else
                 {
                     Write-Host '│  Latency: ' -NoNewline
                     Write-Host $sparkline -ForegroundColor Red
+                    $linesPrintedLocal++
                 }
 
                 # Statistics with color coding
@@ -300,10 +334,12 @@
                     Write-Host ' | jitter: ' -NoNewline -ForegroundColor Gray
                     $jitterColor = if ($result.Jitter -lt 10) { 'Green' } elseif ($result.Jitter -lt 30) { 'Yellow' } else { 'Red' }
                     Write-Host "$($result.Jitter)ms" -ForegroundColor $jitterColor
+                    $linesPrintedLocal++
                 }
                 else
                 {
                     Write-Host '│  Stats  : No successful connections' -ForegroundColor Red
+                    $linesPrintedLocal++
                 }
 
                 # Packet loss and success rate with color coding
@@ -316,6 +352,7 @@
                 Write-Host ') | Packet Loss: ' -NoNewline
                 $lossColor = if ($result.PacketLoss -eq 0) { 'Green' } elseif ($result.PacketLoss -lt 5) { 'Yellow' } else { 'Red' }
                 Write-Host "$($result.PacketLoss)%" -ForegroundColor $lossColor
+                $linesPrintedLocal++
 
                 # DNS resolution time with color coding
                 if ($null -ne $result.DnsResolution)
@@ -324,6 +361,7 @@
                     $dnsColor = if ($result.DnsResolution -lt 50) { 'Green' } elseif ($result.DnsResolution -lt 150) { 'Yellow' } else { 'Red' }
                     Write-Host "$($result.DnsResolution)ms" -NoNewline -ForegroundColor $dnsColor
                     Write-Host ' resolution time'
+                    $linesPrintedLocal++
                 }
 
                 # Detailed graph if requested
@@ -331,20 +369,29 @@
                 {
                     Write-Host '│'
                     $graph = Show-NetworkLatencyGraph -Data $result.LatencyData -GraphType TimeSeries -Width 70 -Height 8 -ShowStats
+                    $graphLineCount = 0
                     foreach ($line in $graph -split "`n")
                     {
                         if ($line.Trim())
                         {
                             # Don't override colors - graph has embedded ANSI codes
                             Write-Host "│  $line"
+                            $graphLineCount++
                         }
                     }
+                    # Include the pre-graph spacer line
+                    $linesPrintedLocal += (1 + $graphLineCount)
                 }
 
                 Write-Host ('└' + ('─' * 79)) -ForegroundColor $statusColor
                 Write-Host
+                $linesPrintedLocal += 2
             }
 
+            if ($ReturnLineCount)
+            {
+                return $linesPrintedLocal
+            }
             return ''
         }
     }
@@ -373,18 +420,26 @@
         do
         {
             $iteration++
-
-            # PowerShell Desktop 5.1: clear between iterations (no ANSI cursor control)
-            if ($Continuous -and ($MaxIterations -eq 0) -and ($PSVersionTable.PSVersion.Major -lt 6))
+            # Determine effective render mode
+            $effectiveRender = switch ($RenderMode)
             {
-                Clear-Host
+                'InPlace' { if ($PSVersionTable.PSVersion.Major -lt 6) { 'Clear' } else { 'InPlace' } }
+                'Clear' { 'Clear' }
+                'Stack' { 'Stack' }
+                default { if ($PSVersionTable.PSVersion.Major -lt 6) { 'Clear' } else { 'InPlace' } }
             }
-            # PowerShell Core (6+): update in place by moving cursor up and clearing to end
-            elseif ($Continuous -and ($PSVersionTable.PSVersion.Major -ge 6) -and ($iteration -gt 1))
+
+            if ($Continuous)
             {
-                # Move cursor up by the number of lines we rendered previously and clear to end of screen
-                $ansiUpAndClear = "`e[{0}A`e[J" -f $lastRenderLines
-                Write-Host $ansiUpAndClear -NoNewline
+                if ($effectiveRender -eq 'Clear' -and ($iteration -gt 1 -or $MaxIterations -eq 0))
+                {
+                    Clear-Host
+                }
+                elseif ($effectiveRender -eq 'InPlace' -and ($iteration -gt 1))
+                {
+                    $ansiUpAndClear = "`e[{0}A`e[J" -f $lastRenderLines
+                    Write-Host $ansiUpAndClear -NoNewline
+                }
             }
             if ($Continuous)
             {
@@ -404,15 +459,13 @@
                 $results += $metrics
             }
 
-            # Display formatted output
-            Format-DiagnosticOutput -Results $results -Continuous:$Continuous.IsPresent
+            # Display formatted output and get accurate line count if needed
+            $countOut = Format-DiagnosticOutput -Results $results -Continuous:$Continuous.IsPresent -ReturnLineCount:$Continuous.IsPresent
 
             # Approximate lines printed per iteration for in-place refresh on Core
             if ($Continuous)
             {
-                # Use a conservative high estimate to ensure full overwrite
-                $perHost = if ($ShowGraph) { 100 } else { 20 }
-                $linesPrinted += ($perHost * $allHosts.Count)
+                if ($null -ne $countOut) { $linesPrinted += [int]$countOut }
                 $lastRenderLines = $linesPrinted
             }
 
