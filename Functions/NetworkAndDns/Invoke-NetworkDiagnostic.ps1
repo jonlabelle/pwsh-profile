@@ -211,6 +211,26 @@
     {
         Write-Verbose 'Starting network diagnostics'
 
+        # Validate parameter combinations
+        # -Interval, -MaxIterations, and non-Auto -RenderMode only apply when -Continuous is used
+        if (-not $Continuous)
+        {
+            if ($PSBoundParameters.ContainsKey('Interval'))
+            {
+                throw 'The -Interval parameter can only be used with -Continuous.'
+            }
+
+            if ($PSBoundParameters.ContainsKey('MaxIterations'))
+            {
+                throw 'The -MaxIterations parameter can only be used with -Continuous.'
+            }
+
+            if ($PSBoundParameters.ContainsKey('RenderMode') -and $RenderMode -ne 'Auto')
+            {
+                throw 'The -RenderMode parameter only applies to -Continuous. Use -RenderMode Auto for non-continuous runs.'
+            }
+        }
+
         # Load Get-NetworkMetrics if needed
         if (-not (Get-Command -Name 'Get-NetworkMetrics' -ErrorAction SilentlyContinue))
         {
