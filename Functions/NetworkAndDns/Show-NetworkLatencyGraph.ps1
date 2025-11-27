@@ -284,6 +284,7 @@
         if ($Continuous)
         {
             $iteration = 0
+            $lastRenderLines = 0
             do
             {
                 $iteration++
@@ -292,10 +293,17 @@
                 {
                     Clear-Host
                 }
+                elseif ($PSVersionTable.PSVersion.Major -ge 6 -and $iteration -gt 1)
+                {
+                    # PowerShell Core: move cursor up and clear previous block before re-rendering
+                    $ansiUpAndClear = "`e[{0}A`e[J" -f $lastRenderLines
+                    Write-Host $ansiUpAndClear -NoNewline
+                }
 
                 Write-Host "${script:ColorCyan}Network Latency Graph - Iteration $iteration (Press Ctrl+C to stop)${script:ColorReset}"
                 Write-Host "${script:ColorGray}Host: $HostName | Interval: ${Interval}s | Samples: $Count | Port: $Port${script:ColorReset}"
                 Write-Host
+                $linesPrinted = 3
 
                 # Collect metrics
                 $metrics = Get-NetworkMetrics -HostName $HostName -Count $Count -Port $Port
@@ -417,14 +425,25 @@
                     }
 
                     Write-Host $graphOutput
+                    switch ($GraphType)
+                    {
+                        'Sparkline' { $graphLines = 1 }
+                        'TimeSeries' { $graphLines = $Height + 2 }
+                        'Distribution' { $graphLines = 12 }
+                        default { $graphLines = 1 }
+                    }
+                    $linesPrinted += $graphLines
                 }
                 else
                 {
                     Write-Host "${script:ColorRed}No successful connections${script:ColorReset}"
+                    $linesPrinted += 1
                 }
 
                 Write-Host
                 Write-Host "${script:ColorGray}Packet Loss: ${script:ColorRed}$($metrics.PacketLoss)%${script:ColorGray} | Jitter: ${script:ColorYellow}$($metrics.Jitter)ms${script:ColorReset}"
+                $linesPrinted += 2
+                $lastRenderLines = $linesPrinted
                 Start-Sleep -Seconds $Interval
 
             } while ($MaxIterations -eq 0 -or $iteration -lt $MaxIterations)

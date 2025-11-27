@@ -369,19 +369,29 @@
 
         # Main test loop
         $iteration = 0
+        $lastRenderLines = 0
         do
         {
             $iteration++
 
+            # PowerShell Desktop 5.1: clear between iterations (no ANSI cursor control)
             if ($Continuous -and ($MaxIterations -eq 0) -and ($PSVersionTable.PSVersion.Major -lt 6))
             {
                 Clear-Host
+            }
+            # PowerShell Core (6+): update in place by moving cursor up and clearing to end
+            elseif ($Continuous -and ($PSVersionTable.PSVersion.Major -ge 6) -and ($iteration -gt 1))
+            {
+                # Move cursor up by the number of lines we rendered previously and clear to end of screen
+                $ansiUpAndClear = "`e[{0}A`e[J" -f $lastRenderLines
+                Write-Host $ansiUpAndClear -NoNewline
             }
             if ($Continuous)
             {
                 Write-Host "Network Diagnostic - Iteration $iteration (Press Ctrl+C to stop)" -ForegroundColor Cyan
                 Write-Host "Interval: ${Interval}s | Samples per host: $Count | Port: $Port" -ForegroundColor Gray
             }
+            $linesPrinted = if ($Continuous) { 2 } else { 0 }
 
             # Collect metrics for all hosts
             $results = @()
@@ -396,6 +406,15 @@
 
             # Display formatted output
             Format-DiagnosticOutput -Results $results -Continuous:$Continuous.IsPresent
+
+            # Approximate lines printed per iteration for in-place refresh on Core
+            if ($Continuous)
+            {
+                # Use a conservative high estimate to ensure full overwrite
+                $perHost = if ($ShowGraph) { 100 } else { 20 }
+                $linesPrinted += ($perHost * $allHosts.Count)
+                $lastRenderLines = $linesPrinted
+            }
 
             # Wait for next iteration if continuous
             if ($Continuous)
