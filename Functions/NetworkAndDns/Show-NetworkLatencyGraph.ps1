@@ -383,6 +383,14 @@
                                 $statsText += ")${script:ColorReset}"
                                 $result += $statsText
                             }
+                            else
+                            {
+                                # Provide a compact stats line under the sparkline in continuous mode
+                                $avgColor = if ($avg -lt 50) { $script:ColorGreen } elseif ($avg -lt 100) { $script:ColorYellow } else { $script:ColorRed }
+                                $compact = "`n${script:ColorGray}Min: ${script:ColorCyan}$([Math]::Round($min,1))ms ${script:ColorGray}| Max: ${script:ColorCyan}$([Math]::Round($max,1))ms ${script:ColorGray}| Avg: $avgColor$([Math]::Round($avg,1))ms ${script:ColorGray}| Samples: ${script:ColorCyan}$($validData.Count)${script:ColorReset}"
+                                if ($failedCount -gt 0) { $compact += " ${script:ColorGray}| Failed: ${script:ColorRed}$failedCount${script:ColorReset}" }
+                                $result += $compact
+                            }
                             $result
                         }
                         'TimeSeries'
@@ -465,7 +473,10 @@
                 }
 
                 Write-Host
-                Write-Host "${script:ColorGray}Packet Loss: ${script:ColorRed}$($metrics.PacketLoss)%${script:ColorGray} | Jitter: ${script:ColorYellow}$($metrics.Jitter)ms${script:ColorReset}"
+                # Packet loss and jitter with dynamic color coding (green=good, yellow=medium, red=bad)
+                $lossColor = if ($metrics.PacketLoss -eq 0) { $script:ColorGreen } elseif ($metrics.PacketLoss -lt 5) { $script:ColorYellow } else { $script:ColorRed }
+                $jitterColor = if ($metrics.Jitter -lt 10) { $script:ColorGreen } elseif ($metrics.Jitter -lt 30) { $script:ColorYellow } else { $script:ColorRed }
+                Write-Host "${script:ColorGray}Packet Loss: $lossColor$($metrics.PacketLoss)%${script:ColorGray} | Jitter: $jitterColor$($metrics.Jitter)ms${script:ColorReset}"
                 $linesPrinted += 2
                 $lastRenderLines = $linesPrinted
                 Start-Sleep -Seconds $Interval
