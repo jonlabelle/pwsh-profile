@@ -27,6 +27,9 @@ function Show-NetworkLatencyGraph
     .PARAMETER ShowStats
         Include statistics (min/max/avg) in the output
 
+    .PARAMETER NoColor
+        Disable ANSI color codes in output (plain text only)
+
     .EXAMPLE
         PS > $latencies = @(15, 14, 16, 22, 15, 14, 13, 16)
         PS > Show-NetworkLatencyGraph -Data $latencies -GraphType Sparkline
@@ -127,12 +130,23 @@ function Show-NetworkLatencyGraph
         [Int32]$Height = 10,
 
         [Parameter()]
-        [Switch]$ShowStats
+        [Switch]$ShowStats,
+
+        [Parameter()]
+        [Switch]$NoColor
     )
 
     begin
     {
         Write-Verbose "Creating $GraphType graph"
+
+        # ANSI color codes
+        $script:ColorReset = if ($NoColor) { '' } else { "`e[0m" }
+        $script:ColorGreen = if ($NoColor) { '' } else { "`e[32m" }
+        $script:ColorYellow = if ($NoColor) { '' } else { "`e[33m" }
+        $script:ColorRed = if ($NoColor) { '' } else { "`e[31m" }
+        $script:ColorCyan = if ($NoColor) { '' } else { "`e[36m" }
+        $script:ColorGray = if ($NoColor) { '' } else { "`e[90m" }
 
         # Block characters for sparklines (8 levels)
         $script:SparkChars = @(' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█')
@@ -190,12 +204,17 @@ function Show-NetworkLatencyGraph
 
                 if ($ShowStats)
                 {
-                    $statsText = " (min: $([Math]::Round($min, 1))ms, max: $([Math]::Round($max, 1))ms, avg: $([Math]::Round($avg, 1))ms"
+                    $statsText = " ${script:ColorGray}(min: ${script:ColorCyan}$([Math]::Round($min, 1))ms${script:ColorGray}, max: ${script:ColorCyan}$([Math]::Round($max, 1))ms${script:ColorGray}, avg: "
+
+                    # Color avg based on value
+                    $avgColor = if ($avg -lt 50) { $script:ColorGreen } elseif ($avg -lt 100) { $script:ColorYellow } else { $script:ColorRed }
+                    $statsText += "$avgColor$([Math]::Round($avg, 1))ms${script:ColorGray}"
+
                     if ($failedCount -gt 0)
                     {
-                        $statsText += ", failed: $failedCount"
+                        $statsText += ", failed: ${script:ColorRed}$failedCount${script:ColorGray}"
                     }
-                    $statsText += ')'
+                    $statsText += ")${script:ColorReset}"
                     $result += $statsText
                 }
 
@@ -259,7 +278,13 @@ function Show-NetworkLatencyGraph
 
                 if ($ShowStats)
                 {
-                    [void]$output.AppendLine("     Min: $([Math]::Round($min, 1))ms | Max: $([Math]::Round($max, 1))ms | Avg: $([Math]::Round($avg, 1))ms | Samples: $($validData.Count)")
+                    $statsLine = "     ${script:ColorGray}Min: ${script:ColorCyan}$([Math]::Round($min, 1))ms ${script:ColorGray}| Max: ${script:ColorCyan}$([Math]::Round($max, 1))ms ${script:ColorGray}| Avg: "
+
+                    # Color avg based on value
+                    $avgColor = if ($avg -lt 50) { $script:ColorGreen } elseif ($avg -lt 100) { $script:ColorYellow } else { $script:ColorRed }
+                    $statsLine += "$avgColor$([Math]::Round($avg, 1))ms ${script:ColorGray}| Samples: ${script:ColorCyan}$($validData.Count)${script:ColorReset}"
+
+                    [void]$output.AppendLine($statsLine)
                 }
 
                 return $output.ToString()
@@ -291,7 +316,7 @@ function Show-NetworkLatencyGraph
                 $maxCount = ($buckets.Values | Measure-Object -Maximum).Maximum
                 if ($maxCount -eq 0) { $maxCount = 1 }
 
-                [void]$output.AppendLine('Latency Distribution:')
+                [void]$output.AppendLine("${script:ColorCyan}Latency Distribution:${script:ColorReset}")
 
                 for ($i = 0; $i -lt $bucketCount; $i++)
                 {
@@ -300,11 +325,15 @@ function Show-NetworkLatencyGraph
                     $count = $buckets[$i]
                     $barWidth = [Math]::Floor(($count / $maxCount) * ($Width - 20))
 
-                    $label = "$rangeStart-$rangeEnd ms".PadRight(15)
-                    $bar = '█' * $barWidth
+                    # Color bar based on range midpoint
+                    $midpoint = ($rangeStart + $rangeEnd) / 2
+                    $barColor = if ($midpoint -lt 50) { $script:ColorGreen } elseif ($midpoint -lt 100) { $script:ColorYellow } else { $script:ColorRed }
+
+                    $label = "${script:ColorGray}$rangeStart-$rangeEnd ms${script:ColorReset}".PadRight(15 + ($script:ColorGray.Length + $script:ColorReset.Length))
+                    $bar = "$barColor" + ('█' * $barWidth) + "$script:ColorReset"
                     $percentage = [Math]::Round(($count / $validData.Count) * 100, 1)
 
-                    [void]$output.AppendLine("$label $bar $count ($percentage%)")
+                    [void]$output.AppendLine("$label $bar ${script:ColorCyan}$count${script:ColorReset} ${script:ColorGray}($percentage%)${script:ColorReset}")
                 }
 
                 return $output.ToString()

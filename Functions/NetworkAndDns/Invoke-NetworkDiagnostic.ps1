@@ -247,7 +247,7 @@ function Invoke-NetworkDiagnostic
                 # Host header with color coding
                 Write-Host "┌─ $($result.HostName):$($result.Port)" -ForegroundColor $statusColor
 
-                # Latency sparkline with color
+                # Latency sparkline (already has color codes embedded)
                 $sparkline = Show-NetworkLatencyGraph -Data $result.LatencyData -GraphType Sparkline
                 if ($null -ne $result.LatencyAvg)
                 {
@@ -255,11 +255,13 @@ function Invoke-NetworkDiagnostic
                     elseif ($result.LatencyAvg -lt 100) { 'Yellow' }
                     else { 'Red' }
                     Write-Host '│  Latency: ' -NoNewline
-                    Write-Host $sparkline -ForegroundColor $latencyColor
+                    # Use default color to preserve ANSI codes in sparkline
+                    Write-Host $sparkline
                 }
                 else
                 {
-                    Write-Host "│  Latency: $sparkline" -ForegroundColor Red
+                    Write-Host '│  Latency: ' -NoNewline
+                    Write-Host $sparkline -ForegroundColor Red
                 }
 
                 # Statistics with color coding
@@ -306,12 +308,13 @@ function Invoke-NetworkDiagnostic
                 if ($ShowGraph -and $result.LatencyData.Count -gt 0)
                 {
                     Write-Host '│'
-                    $graph = Show-NetworkLatencyGraph -Data $result.LatencyData -GraphType TimeSeries -Width 70 -Height 8
+                    $graph = Show-NetworkLatencyGraph -Data $result.LatencyData -GraphType TimeSeries -Width 70 -Height 8 -ShowStats
                     foreach ($line in $graph -split "`n")
                     {
                         if ($line.Trim())
                         {
-                            Write-Host "│  $line" -ForegroundColor Cyan
+                            # Don't override colors - graph has embedded ANSI codes
+                            Write-Host "│  $line"
                         }
                     }
                 }
