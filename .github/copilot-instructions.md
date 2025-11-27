@@ -65,6 +65,60 @@ else
 - **Network Testing:** Prefer .NET Socket classes over Windows-specific cmdlets
 - **Admin Detection:** `Test-Admin` function only works on Windows
 
+### File Encoding for Unicode Characters
+
+**CRITICAL for PowerShell 5.1 compatibility:**
+
+PowerShell 5.1 requires UTF-8 with BOM (Byte Order Mark) to properly parse files containing Unicode characters such as:
+
+- Box-drawing characters (═, ║, ╔, ╗, ╚, ╝, ┌, ┐, └, ┘, ├, ┤, ┬, ┴, ┼, │, ─)
+- Block elements (█, ▓, ▒, ░, ▄, ▀, ▁, ▂, ▃, ▅, ▆, ▇)
+- Special symbols (✓, ✗, ✖, •, ○, ●)
+
+**Requirements:**
+
+1. **All `.ps1` files with Unicode characters MUST be saved as UTF-8 with BOM**
+2. **Use `[char]` notation for Unicode characters in code when possible:**
+
+   ```powershell
+   # GOOD - Works in both PS 5.1 and Core
+   $sparkChars = @(' ', [char]0x2581, [char]0x2582, [char]0x2583, [char]0x2584, [char]0x2585, [char]0x2586, [char]0x2587, [char]0x2588)
+
+   # PROBLEMATIC in PS 5.1 without BOM
+   $sparkChars = @(' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█')
+   ```
+
+3. **Never use curly quotes in code** - always use straight quotes:
+   - ❌ WRONG: `'string'` or `"string"` (curly quotes)
+   - ✅ CORRECT: `'string'` or `"string"` (straight quotes)
+
+**How to add UTF-8 BOM to a file:**
+
+```powershell
+$path = "path\to\file.ps1"
+$content = Get-Content -Path $path -Raw -Encoding UTF8
+$utf8WithBom = New-Object System.Text.UTF8Encoding $true
+[System.IO.File]::WriteAllText($path, $content, $utf8WithBom)
+```
+
+Alternatively, use the [`Convert-LineEndings`](../Functions/Utilities/Convert-LineEndings.ps1) function which can convert encoding in a single command:
+
+```powershell
+Convert-LineEndings -Path "path\to\file.ps1" -Encoding UTF8BOM
+```
+
+**Testing for encoding issues:**
+
+Always test functions in both PowerShell 5.1 and Core:
+
+```powershell
+# Test in PowerShell 5.1
+powershell -NoProfile -File ".\Functions\Category\Function.ps1"
+
+# Test in PowerShell Core
+pwsh -NoProfile -File ".\Functions\Category\Function.ps1"
+```
+
 ## Function Development Patterns
 
 ### Standard Function Structure

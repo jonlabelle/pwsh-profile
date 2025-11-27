@@ -1,4 +1,4 @@
-function Get-NetworkMetrics
+﻿function Get-NetworkMetrics
 {
     <#
     .SYNOPSIS

@@ -1,4 +1,4 @@
-function Invoke-NetworkDiagnostic
+﻿function Invoke-NetworkDiagnostic
 {
     <#
     .SYNOPSIS

@@ -1,4 +1,4 @@
-function Show-NetworkLatencyGraph
+﻿function Show-NetworkLatencyGraph
 {
     <#
     .SYNOPSIS
@@ -193,7 +193,7 @@ function Show-NetworkLatencyGraph
         $script:ColorGray = if ($NoColor) { '' } else { "`e[90m" }
 
         # Block characters for sparklines (8 levels)
-        $script:SparkChars = @(' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█')
+        $script:SparkChars = @(' ', [char]0x2581, [char]0x2582, [char]0x2583, [char]0x2584, [char]0x2585, [char]0x2586, [char]0x2587, [char]0x2588)
 
         # Load Get-NetworkMetrics if in continuous mode
         if ($Continuous)
@@ -364,7 +364,7 @@ function Show-NetworkLatencyGraph
                             $bucketCount = 10
                             $bucketSize = if (($max - $min) -eq 0) { 1 } else { ($max - $min) / $bucketCount }
                             $buckets = @{}
-                            0..($bucketCount-1) | ForEach-Object { $buckets[$_] = 0 }
+                            0..($bucketCount - 1) | ForEach-Object { $buckets[$_] = 0 }
                             foreach ($value in $validData)
                             {
                                 $bucketIndex = [Math]::Floor(($value - $min) / $bucketSize)
@@ -567,11 +567,11 @@ function Show-NetworkLatencyGraph
                     $midpoint = ($rangeStart + $rangeEnd) / 2
                     $barColor = if ($midpoint -lt 50) { $script:ColorGreen } elseif ($midpoint -lt 100) { $script:ColorYellow } else { $script:ColorRed }
 
-                    $label = "${script:ColorGray}$rangeStart-$rangeEnd ms${script:ColorReset}".PadRight(15 + ($script:ColorGray.Length + $script:ColorReset.Length))
-                    $bar = "$barColor" + ('█' * $barWidth) + "$script:ColorReset"
+                    $label = "\${script:ColorGray}$rangeStart-$rangeEnd ms\${script:ColorReset}".PadRight(15 + ($script:ColorGray.Length + $script:ColorReset.Length))
+                    $bar = "$barColor" + ([char]0x2588 * $barWidth) + "$script:ColorReset"
                     $percentage = [Math]::Round(($count / $validData.Count) * 100, 1)
 
-                    [void]$output.AppendLine("$label $bar ${script:ColorCyan}$count${script:ColorReset} ${script:ColorGray}($percentage%)${script:ColorReset}")
+                    [void]$output.AppendLine("$label $bar \${script:ColorCyan}$count\${script:ColorReset} \${script:ColorGray}($percentage`%)\${script:ColorReset}")
                 }
 
                 return $output.ToString()
