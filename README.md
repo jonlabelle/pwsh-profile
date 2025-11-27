@@ -385,10 +385,13 @@ The profile includes utility functions organized by category:
 - **[`Get-CertificateDetails`](Functions/NetworkAndDns/Get-CertificateDetails.ps1)** — Retrieves detailed SSL/TLS certificate information from remote hosts
 - **[`Get-DnsRecord`](Functions/NetworkAndDns/Get-DnsRecord.ps1)** — Retrieves DNS records for any record type using DNS-over-HTTPS
 - **[`Get-IPAddress`](Functions/NetworkAndDns/Get-IPAddress.ps1)** — Gets local network interface IPs or public IP address with geolocation data
+- **[`Get-NetworkMetrics`](Functions/NetworkAndDns/Get-NetworkMetrics.ps1)** — Collects comprehensive network performance metrics including latency, packet loss, jitter, and DNS resolution time
 - **[`Get-Whois`](Functions/NetworkAndDns/Get-Whois.ps1)** — Performs WHOIS lookups for domain names with registration details and nameservers
+- **[`Invoke-NetworkDiagnostic`](Functions/NetworkAndDns/Invoke-NetworkDiagnostic.ps1)** — Performs comprehensive network diagnostics with visual ASCII graphs for latency, packet loss, and jitter analysis
 - **[`Invoke-Ping`](Functions/NetworkAndDns/Invoke-Ping.ps1)** — Sends ICMP echo requests with detailed statistics (cross-platform ping alternative)
 - **[`Resolve-GeoIP`](Functions/NetworkAndDns/Resolve-GeoIP.ps1)** — Resolves IP addresses to geographic locations
 - **[`Send-TcpRequest`](Functions/NetworkAndDns/Send-TcpRequest.ps1)** — Sends TCP requests and retrieves responses for network testing
+- **[`Show-NetworkLatencyGraph`](Functions/NetworkAndDns/Show-NetworkLatencyGraph.ps1)** — Displays ASCII graph visualizations of network latency data with sparklines, time-series, and distribution charts
 - **[`Test-Bandwidth`](Functions/NetworkAndDns/Test-Bandwidth.ps1)** — Tests network bandwidth with download speed and latency measurements
 - **[`Test-DnsNameResolution`](Functions/NetworkAndDns/Test-DnsNameResolution.ps1)** — Tests DNS name resolution using cross-platform .NET methods
 - **[`Test-HttpResponse`](Functions/NetworkAndDns/Test-HttpResponse.ps1)** — Tests HTTP/HTTPS endpoints and returns response details
