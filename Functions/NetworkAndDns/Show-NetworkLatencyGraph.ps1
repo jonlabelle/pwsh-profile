@@ -45,6 +45,19 @@
     .PARAMETER Port
         TCP port to test in continuous mode (default: 443)
 
+    .NOTES
+        CONTINUOUS MODE:
+        - Use -Continuous with -HostName to refresh graph periodically until Ctrl+C
+        - Set -Interval to control seconds between refreshes (default: 5)
+        - For testing/CI: hidden -MaxIterations parameter limits iterations (0 = infinite)
+          Example: -Continuous -MaxIterations 1 runs one iteration and exits
+
+        POWERSHELL 5.1 BEHAVIOR:
+        - PowerShell Desktop 5.1 does not support ANSI cursor control for in-place updates
+        - Console is cleared between iterations using Clear-Host in continuous mode
+        - ANSI colors are automatically disabled on 5.1 to prevent escape codes in output
+        - PowerShell Core (6+) supports ANSI colors; cursor movement avoided for compatibility
+
     .EXAMPLE
         PS > $latencies = @(15, 14, 16, 22, 15, 14, 13, 16)
         PS > Show-NetworkLatencyGraph -Data $latencies -GraphType Sparkline
@@ -127,6 +140,11 @@
 
         Continuously monitor with sparkline graph and statistics (default 5-second interval)
 
+    .EXAMPLE
+        PS > Show-NetworkLatencyGraph -HostName 'cloudflare.com' -GraphType Sparkline -Continuous -MaxIterations 1
+
+        Run one continuous iteration for testing/CI (hidden parameter)
+
     .OUTPUTS
         System.String
 
@@ -177,7 +195,11 @@
 
         [Parameter(ParameterSetName = 'Continuous')]
         [ValidateRange(1, 65535)]
-        [Int32]$Port = 443
+        [Int32]$Port = 443,
+
+        # Hidden/testing-only: limit iterations for continuous mode (0 = infinite)
+        [Parameter(ParameterSetName = 'Continuous')]
+        [Int32]$MaxIterations = 0
     )
 
     begin
@@ -191,6 +213,17 @@
         $script:ColorRed = if ($NoColor) { '' } else { "`e[31m" }
         $script:ColorCyan = if ($NoColor) { '' } else { "`e[36m" }
         $script:ColorGray = if ($NoColor) { '' } else { "`e[90m" }
+
+        # Disable ANSI colors automatically on PowerShell Desktop 5.1
+        if ($PSVersionTable.PSVersion.Major -lt 6)
+        {
+            $script:ColorReset = ''
+            $script:ColorGreen = ''
+            $script:ColorYellow = ''
+            $script:ColorRed = ''
+            $script:ColorCyan = ''
+            $script:ColorGray = ''
+        }
 
         # Block characters for sparklines (8 levels)
         $script:SparkChars = @(' ', [char]0x2581, [char]0x2582, [char]0x2583, [char]0x2584, [char]0x2585, [char]0x2586, [char]0x2587, [char]0x2588)
@@ -251,20 +284,13 @@
         if ($Continuous)
         {
             $iteration = 0
-            $firstRun = $true
             do
             {
                 $iteration++
 
-                if ($firstRun)
+                if ($MaxIterations -eq 0)
                 {
                     Clear-Host
-                    $firstRun = $false
-                }
-                else
-                {
-                    # Move cursor to top of screen for smooth animation
-                    Write-Host "`e[H" -NoNewline
                 }
 
                 Write-Host "${script:ColorCyan}Network Latency Graph - Iteration $iteration (Press Ctrl+C to stop)${script:ColorReset}"
@@ -399,12 +425,9 @@
 
                 Write-Host
                 Write-Host "${script:ColorGray}Packet Loss: ${script:ColorRed}$($metrics.PacketLoss)%${script:ColorGray} | Jitter: ${script:ColorYellow}$($metrics.Jitter)ms${script:ColorReset}"
-                Write-Host "${script:ColorGray}Waiting ${Interval} seconds until next test...${script:ColorReset}"
-                Write-Host "`e[?25l" -NoNewline  # Hide cursor
                 Start-Sleep -Seconds $Interval
-                Write-Host "`e[?25h" -NoNewline  # Show cursor
 
-            } while ($true)
+            } while ($MaxIterations -eq 0 -or $iteration -lt $MaxIterations)
             return
         }
 
@@ -567,11 +590,11 @@
                     $midpoint = ($rangeStart + $rangeEnd) / 2
                     $barColor = if ($midpoint -lt 50) { $script:ColorGreen } elseif ($midpoint -lt 100) { $script:ColorYellow } else { $script:ColorRed }
 
-                    $label = "\${script:ColorGray}$rangeStart-$rangeEnd ms\${script:ColorReset}".PadRight(15 + ($script:ColorGray.Length + $script:ColorReset.Length))
+                    $label = "${script:ColorGray}$rangeStart-$rangeEnd ms${script:ColorReset}".PadRight(15 + ($script:ColorGray.Length + $script:ColorReset.Length))
                     $bar = "$barColor" + ([char]0x2588 * $barWidth) + "$script:ColorReset"
                     $percentage = [Math]::Round(($count / $validData.Count) * 100, 1)
 
-                    [void]$output.AppendLine("$label $bar \${script:ColorCyan}$count\${script:ColorReset} \${script:ColorGray}($percentage`%)\${script:ColorReset}")
+                    [void]$output.AppendLine("$label $bar ${script:ColorCyan}$count${script:ColorReset} ${script:ColorGray}($percentage`%)${script:ColorReset}")
                 }
 
                 return $output.ToString()

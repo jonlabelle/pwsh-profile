@@ -42,6 +42,19 @@
     .PARAMETER Interval
         Interval in seconds between continuous test cycles (default: 5)
 
+    .NOTES
+        CONTINUOUS MODE:
+        - Use -Continuous to refresh output periodically until Ctrl+C is pressed
+        - Set -Interval to control seconds between refreshes (default: 5)
+        - For testing/CI: hidden -MaxIterations parameter limits iterations (0 = infinite)
+          Example: -Continuous -MaxIterations 1 runs one iteration and exits
+
+        POWERSHELL 5.1 BEHAVIOR:
+        - PowerShell Desktop 5.1 does not support ANSI cursor control for in-place updates
+        - Console is cleared between iterations using Clear-Host in continuous mode
+        - ANSI colors are automatically disabled on 5.1 to prevent escape codes in output
+        - PowerShell Core (6+) supports ANSI colors; cursor movement avoided for compatibility
+
     .EXAMPLE
         PS > Invoke-NetworkDiagnostic -HostName 'google.com'
 
@@ -66,6 +79,11 @@
         PS > Invoke-NetworkDiagnostic -HostName 'google.com' -Continuous -ShowGraph -Interval 5
 
         Monitor with detailed time-series graphs, auto-refreshing every 5 seconds
+
+    .EXAMPLE
+        PS > Invoke-NetworkDiagnostic -HostName 'cloudflare.com' -Continuous -MaxIterations 1
+
+        Run one continuous iteration for testing/CI (hidden parameter)
 
     .EXAMPLE
         PS > 'google.com', 'cloudflare.com' | Invoke-NetworkDiagnostic -Count 50
@@ -147,7 +165,11 @@
 
         [Parameter()]
         [ValidateRange(1, 3600)]
-        [Int32]$Interval = 5
+        [Int32]$Interval = 5,
+
+        # Hidden/testing-only: limit iterations for continuous mode (0 = infinite)
+        [Parameter()]
+        [Int32]$MaxIterations = 0
     )
 
     begin
@@ -220,7 +242,10 @@
         {
             param(
                 [Parameter(Mandatory)]
-                [PSCustomObject[]]$Results
+                [PSCustomObject[]]$Results,
+
+                [Parameter()]
+                [Switch]$Continuous
             )
 
             $output = New-Object System.Text.StringBuilder
@@ -251,9 +276,6 @@
                 $sparkline = Show-NetworkLatencyGraph -Data $result.LatencyData -GraphType Sparkline
                 if ($null -ne $result.LatencyAvg)
                 {
-                    $latencyColor = if ($result.LatencyAvg -lt 50) { 'Green' }
-                    elseif ($result.LatencyAvg -lt 100) { 'Yellow' }
-                    else { 'Red' }
                     Write-Host '│  Latency: ' -NoNewline
                     # Use default color to preserve ANSI codes in sparkline
                     Write-Host $sparkline
@@ -323,9 +345,6 @@
                 Write-Host
             }
 
-            Write-Host "Test completed at: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Gray
-            Write-Host
-
             return ''
         }
     }
@@ -350,23 +369,16 @@
 
         # Main test loop
         $iteration = 0
-        $firstRun = $true
         do
         {
             $iteration++
 
+            if ($Continuous -and ($MaxIterations -eq 0))
+            {
+                Clear-Host
+            }
             if ($Continuous)
             {
-                if ($firstRun)
-                {
-                    Clear-Host
-                    $firstRun = $false
-                }
-                else
-                {
-                    # Move cursor to top of screen for smooth animation
-                    Write-Host "`e[H" -NoNewline
-                }
                 Write-Host "Network Diagnostic - Iteration $iteration (Press Ctrl+C to stop)" -ForegroundColor Cyan
                 Write-Host "Interval: ${Interval}s | Samples per host: $Count | Port: $Port" -ForegroundColor Gray
             }
@@ -383,18 +395,15 @@
             }
 
             # Display formatted output
-            Format-DiagnosticOutput -Results $results
+            Format-DiagnosticOutput -Results $results -Continuous:$Continuous.IsPresent
 
             # Wait for next iteration if continuous
             if ($Continuous)
             {
-                Write-Host "Waiting ${Interval} seconds until next test..." -ForegroundColor Gray
-                Write-Host "`e[?25l" -NoNewline  # Hide cursor during wait
                 Start-Sleep -Seconds $Interval
-                Write-Host "`e[?25h" -NoNewline  # Show cursor
             }
 
-        } while ($Continuous)
+        } while ($Continuous -and ($MaxIterations -eq 0 -or $iteration -lt $MaxIterations))
 
         Write-Verbose 'Network diagnostics completed'
     }
