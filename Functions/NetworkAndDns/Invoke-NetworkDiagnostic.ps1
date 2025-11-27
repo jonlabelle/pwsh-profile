@@ -275,7 +275,10 @@
                 [Switch]$Continuous,
 
                 [Parameter()]
-                [Switch]$ReturnLineCount
+                [Switch]$ReturnLineCount,
+
+                [Parameter()]
+                [Switch]$InPlace
             )
 
             $output = New-Object System.Text.StringBuilder
@@ -286,6 +289,8 @@
             [void]$output.AppendLine('  NETWORK DIAGNOSTIC RESULTS')
             [void]$output.AppendLine('═' * 80)
             [void]$output.AppendLine()
+
+            $clearTail = if ($InPlace) { "`e[K" } else { '' }
 
             foreach ($result in $Results)
             {
@@ -301,7 +306,7 @@
                 }
 
                 # Host header with color coding
-                Write-Host "┌─ $($result.HostName):$($result.Port)" -ForegroundColor $statusColor
+                Write-Host ("┌─ $($result.HostName):$($result.Port)$clearTail") -ForegroundColor $statusColor
                 $linesPrintedLocal++
 
                 # Latency sparkline (already has color codes embedded)
@@ -310,13 +315,13 @@
                 {
                     Write-Host '│  Latency: ' -NoNewline
                     # Use default color to preserve ANSI codes in sparkline
-                    Write-Host $sparkline
+                    Write-Host ("$sparkline$clearTail")
                     $linesPrintedLocal++
                 }
                 else
                 {
                     Write-Host '│  Latency: ' -NoNewline
-                    Write-Host $sparkline -ForegroundColor Red
+                    Write-Host ("$sparkline$clearTail") -ForegroundColor Red
                     $linesPrintedLocal++
                 }
 
@@ -333,12 +338,12 @@
                     Write-Host "$($result.LatencyAvg)ms" -NoNewline -ForegroundColor $avgColor
                     Write-Host ' | jitter: ' -NoNewline -ForegroundColor Gray
                     $jitterColor = if ($result.Jitter -lt 10) { 'Green' } elseif ($result.Jitter -lt 30) { 'Yellow' } else { 'Red' }
-                    Write-Host "$($result.Jitter)ms" -ForegroundColor $jitterColor
+                    Write-Host ("$($result.Jitter)ms$clearTail") -ForegroundColor $jitterColor
                     $linesPrintedLocal++
                 }
                 else
                 {
-                    Write-Host '│  Stats  : No successful connections' -ForegroundColor Red
+                    Write-Host ("│  Stats  : No successful connections$clearTail") -ForegroundColor Red
                     $linesPrintedLocal++
                 }
 
@@ -351,7 +356,7 @@
                 Write-Host "$successRate%" -NoNewline -ForegroundColor $qualityColor
                 Write-Host ') | Packet Loss: ' -NoNewline
                 $lossColor = if ($result.PacketLoss -eq 0) { 'Green' } elseif ($result.PacketLoss -lt 5) { 'Yellow' } else { 'Red' }
-                Write-Host "$($result.PacketLoss)%" -ForegroundColor $lossColor
+                Write-Host ("$($result.PacketLoss)%$clearTail") -ForegroundColor $lossColor
                 $linesPrintedLocal++
 
                 # DNS resolution time with color coding
@@ -360,14 +365,14 @@
                     Write-Host '│  DNS    : ' -NoNewline
                     $dnsColor = if ($result.DnsResolution -lt 50) { 'Green' } elseif ($result.DnsResolution -lt 150) { 'Yellow' } else { 'Red' }
                     Write-Host "$($result.DnsResolution)ms" -NoNewline -ForegroundColor $dnsColor
-                    Write-Host ' resolution time'
+                    Write-Host (" resolution time$clearTail")
                     $linesPrintedLocal++
                 }
 
                 # Detailed graph if requested
                 if ($ShowGraph -and $result.LatencyData.Count -gt 0)
                 {
-                    Write-Host '│'
+                    Write-Host ("│$clearTail")
                     $graph = Show-NetworkLatencyGraph -Data $result.LatencyData -GraphType TimeSeries -Width 70 -Height 8 -ShowStats
                     $graphLineCount = 0
                     foreach ($line in $graph -split "`n")
@@ -375,7 +380,7 @@
                         if ($line.Trim())
                         {
                             # Don't override colors - graph has embedded ANSI codes
-                            Write-Host "│  $line"
+                            Write-Host ("│  $line$clearTail")
                             $graphLineCount++
                         }
                     }
@@ -383,7 +388,7 @@
                     $linesPrintedLocal += (1 + $graphLineCount)
                 }
 
-                Write-Host ('└' + ('─' * 79)) -ForegroundColor $statusColor
+                Write-Host (("└" + ('─' * 79) + $clearTail)) -ForegroundColor $statusColor
                 Write-Host
                 $linesPrintedLocal += 2
             }
@@ -437,33 +442,15 @@
                 }
                 elseif ($effectiveRender -eq 'InPlace' -and ($iteration -gt 1) -and $lastRenderLines -gt 0)
                 {
-                    # Move cursor up to the start of the previous block
+                    # Move cursor up to the start of the previous block (no pre-clear to avoid flicker)
                     Write-Host ("`e[{0}A" -f $lastRenderLines) -NoNewline
-
-                    # Clear each line individually to avoid clearing the entire screen
-                    for ($i = 0; $i -lt $lastRenderLines; $i++)
-                    {
-                        # Erase current line
-                        Write-Host "`e[2K" -NoNewline
-
-                        # Move down one line (except after the last line)
-                        if ($i -lt ($lastRenderLines - 1))
-                        {
-                            Write-Host "`e[1B" -NoNewline
-                        }
-                    }
-
-                    # Return cursor to the start of the cleared block
-                    if ($lastRenderLines -gt 1)
-                    {
-                        Write-Host ("`e[{0}A" -f ($lastRenderLines - 1)) -NoNewline
-                    }
                 }
             }
             if ($Continuous)
             {
-                Write-Host "Network Diagnostic - Iteration $iteration (Press Ctrl+C to stop)" -ForegroundColor Cyan
-                Write-Host "Interval: ${Interval}s | Samples per host: $Count | Port: $Port" -ForegroundColor Gray
+                $clearTail = "`e[K"
+                Write-Host ("Network Diagnostic - Iteration $iteration (Press Ctrl+C to stop)$clearTail") -ForegroundColor Cyan
+                Write-Host ("Interval: ${Interval}s | Samples per host: $Count | Port: $Port$clearTail") -ForegroundColor Gray
             }
             $linesPrinted = if ($Continuous) { 2 } else { 0 }
 
@@ -479,7 +466,7 @@
             }
 
             # Display formatted output and get accurate line count if needed
-            $countOut = Format-DiagnosticOutput -Results $results -Continuous:$Continuous.IsPresent -ReturnLineCount:$Continuous.IsPresent
+            $countOut = Format-DiagnosticOutput -Results $results -Continuous:$Continuous.IsPresent -ReturnLineCount:$Continuous.IsPresent -InPlace:($Continuous.IsPresent -and $effectiveRender -eq 'InPlace')
 
             # Approximate lines printed per iteration for in-place refresh on Core
             if ($Continuous)
