@@ -53,7 +53,7 @@
         Collect metrics and perform custom analysis on latency data
 
     .EXAMPLE
-        PS > Get-NetworkMetrics -HostName 'database.local' -Port 3306 -Timeout 5000 -Count 30
+        PS > Get-NetworkMetrics -HostName 'database.local' -Port 5432 -Timeout 5000 -Count 30
 
         Test database server with 5-second timeout and 30 samples
 
