@@ -16,6 +16,13 @@
         - DNS resolution time
         - Success/failure counts
 
+        RELATED FUNCTIONS:
+        This function is designed to be used by:
+        - Invoke-NetworkDiagnostic: Calls Get-NetworkMetrics to collect data for each host
+        - Show-NetworkLatencyGraph: Uses Get-NetworkMetrics in continuous mode to gather latency samples
+
+        Can also be used standalone for custom network metric collection and analysis.
+
     .PARAMETER HostName
         Target hostname or IP address to test
 

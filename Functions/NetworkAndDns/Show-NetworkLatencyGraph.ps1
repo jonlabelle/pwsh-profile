@@ -9,6 +9,13 @@
         bar charts, and time-series graphs. Supports both inline sparklines and detailed
         multi-line graphs. Cross-platform compatible.
 
+        RELATED FUNCTIONS:
+        This function is designed to work with:
+        - Get-NetworkMetrics: Auto-loaded in continuous mode to collect latency samples
+        - Invoke-NetworkDiagnostic: Calls Show-NetworkLatencyGraph to generate sparkline and time-series graphs
+
+        Can also be used standalone with pre-collected latency data arrays.
+
         See NOTES for PowerShell 5.1 behavior in continuous mode.
 
     .PARAMETER Data

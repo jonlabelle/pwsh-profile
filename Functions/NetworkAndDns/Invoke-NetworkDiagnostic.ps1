@@ -18,6 +18,13 @@
 
         Uses TCP connectivity tests for reliability across all platforms.
 
+        RELATED FUNCTIONS:
+        This function requires and auto-loads:
+        - Get-NetworkMetrics: Collects network performance data for each host
+        - Show-NetworkLatencyGraph: Generates sparkline graphs and optional time-series visualizations
+
+        All dependencies are automatically loaded if not already available.
+
         See NOTES for PowerShell 5.1 behavior in continuous mode.
 
     .PARAMETER HostName
