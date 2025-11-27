@@ -372,23 +372,20 @@
                 # Detailed graph if requested
                 if ($ShowGraph -and $result.LatencyData.Count -gt 0)
                 {
-                    Write-Host ("│$clearTail")
+                    Write-Host '│'
                     $graph = Show-NetworkLatencyGraph -Data $result.LatencyData -GraphType TimeSeries -Width 70 -Height 8 -ShowStats
                     $graphLineCount = 0
                     foreach ($line in $graph -split "`n")
                     {
-                        if ($line.Trim())
-                        {
-                            # Don't override colors - graph has embedded ANSI codes
-                            Write-Host ("│  $line$clearTail")
-                            $graphLineCount++
-                        }
+                        # Don't override colors - graph has embedded ANSI codes
+                        Write-Host ("│  $line")
+                        $graphLineCount++
                     }
                     # Include the pre-graph spacer line
                     $linesPrintedLocal += (1 + $graphLineCount)
                 }
 
-                Write-Host (("└" + ('─' * 79) + $clearTail)) -ForegroundColor $statusColor
+                Write-Host (('└' + ('─' * 79) + $clearTail)) -ForegroundColor $statusColor
                 Write-Host
                 $linesPrintedLocal += 2
             }
@@ -442,8 +439,9 @@
                 }
                 elseif ($effectiveRender -eq 'InPlace' -and ($iteration -gt 1) -and $lastRenderLines -gt 0)
                 {
-                    # Move cursor up to the start of the previous block (no pre-clear to avoid flicker)
+                    # Move cursor up to the start of the previous block and reset to column 1
                     Write-Host ("`e[{0}A" -f $lastRenderLines) -NoNewline
+                    Write-Host "`e[1G" -NoNewline
                 }
             }
             if ($Continuous)

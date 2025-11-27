@@ -325,21 +325,9 @@
                 }
                 elseif ($effectiveRender -eq 'InPlace' -and ($iteration -gt 1) -and $lastRenderLines -gt 0)
                 {
-                    # Move cursor up to the start of the previous block
+                    # Move cursor up to the start of the previous block and reset to column 1
                     Write-Host ("`e[{0}A" -f $lastRenderLines) -NoNewline
-
-                    # Clear each line individually to avoid clearing the entire screen
-                    for ($i = 0; $i -lt $lastRenderLines; $i++)
-                    {
-                        Write-Host "`e[2K" -NoNewline
-                        if ($i -lt ($lastRenderLines - 1)) { Write-Host "`e[1B" -NoNewline }
-                    }
-
-                    # Return cursor to start of cleared block
-                    if ($lastRenderLines -gt 1)
-                    {
-                        Write-Host ("`e[{0}A" -f ($lastRenderLines - 1)) -NoNewline
-                    }
+                    Write-Host "`e[1G" -NoNewline
                 }
 
                 Write-Host "${script:ColorCyan}Network Latency Graph - Iteration $iteration (Press Ctrl+C to stop)${script:ColorReset}"
