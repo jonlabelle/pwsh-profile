@@ -435,10 +435,29 @@
                 {
                     Clear-Host
                 }
-                elseif ($effectiveRender -eq 'InPlace' -and ($iteration -gt 1))
+                elseif ($effectiveRender -eq 'InPlace' -and ($iteration -gt 1) -and $lastRenderLines -gt 0)
                 {
-                    $ansiUpAndClear = "`e[{0}A`e[J" -f $lastRenderLines
-                    Write-Host $ansiUpAndClear -NoNewline
+                    # Move cursor up to the start of the previous block
+                    Write-Host ("`e[{0}A" -f $lastRenderLines) -NoNewline
+
+                    # Clear each line individually to avoid clearing the entire screen
+                    for ($i = 0; $i -lt $lastRenderLines; $i++)
+                    {
+                        # Erase current line
+                        Write-Host "`e[2K" -NoNewline
+
+                        # Move down one line (except after the last line)
+                        if ($i -lt ($lastRenderLines - 1))
+                        {
+                            Write-Host "`e[1B" -NoNewline
+                        }
+                    }
+
+                    # Return cursor to the start of the cleared block
+                    if ($lastRenderLines -gt 1)
+                    {
+                        Write-Host ("`e[{0}A" -f ($lastRenderLines - 1)) -NoNewline
+                    }
                 }
             }
             if ($Continuous)
