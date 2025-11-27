@@ -18,6 +18,8 @@
 
         Uses TCP connectivity tests for reliability across all platforms.
 
+        See NOTES for PowerShell 5.1 behavior in continuous mode.
+
     .PARAMETER HostName
         One or more hostnames or IP addresses to test. Supports pipeline input.
 
@@ -27,16 +29,17 @@
     .PARAMETER Timeout
         Timeout in milliseconds for each connection attempt (default: 2000)
 
-        .PARAMETER RenderMode
-            Controls how the output refreshes during continuous runs.
-            Valid values:
-            - Auto   : PowerShell 5.1 uses Clear (screen wipe), PowerShell 6+ uses InPlace (default)
-            - InPlace: Update the same block using ANSI cursor moves (Core only; falls back to Clear on 5.1)
-            - Clear  : Clear the screen between iterations
-            - Stack  : Append output without clearing (useful for logs/debugging)
-
     .PARAMETER Port
         TCP port to test (default: 443 for HTTPS)
+
+    .PARAMETER RenderMode
+        Controls how the output refreshes during continuous runs.
+
+        Valid values:
+        - Auto   : PowerShell 5.1 uses Clear (screen wipe), PowerShell 6+ uses InPlace (default)
+        - InPlace: Update the same block using ANSI cursor moves (Core only; falls back to Clear on 5.1)
+        - Clear  : Clear the screen between iterations
+        - Stack  : Append output without clearing (useful for logs/debugging)
 
     .PARAMETER ShowGraph
         Display detailed time-series graph for each host
@@ -47,36 +50,18 @@
     .PARAMETER Continuous
         Run continuously until stopped with Ctrl+C
 
+        Continuous mode notes:
+        - Use '-Continuous' to refresh output periodically until Ctrl+C is pressed
+        - Set '-Interval' to control seconds between refreshes (default: 5)
+        - For testing/CI: use '-MaxIterations' to limit iterations (0 = infinite)
+          Example: -Continuous -MaxIterations 1 runs one iteration and exits
+
     .PARAMETER Interval
         Interval in seconds between continuous test cycles (default: 5)
 
-    .NOTES
-        CONTINUOUS MODE:
-        - Use -Continuous to refresh output periodically until Ctrl+C is pressed
-        .EXAMPLE
-            PS > Invoke-NetworkDiagnostic -HostName 'cloudflare.com' -Continuous -Interval 2 -RenderMode InPlace
-
-            PowerShell Core: refreshes the same output block in place (no stacking)
-
-        .EXAMPLE
-            PS > Invoke-NetworkDiagnostic -HostName 'cloudflare.com' -Continuous -Interval 2 -RenderMode Clear
-
-            Force screen clear between iterations (useful if in-place rendering isn't desired)
-
-        .EXAMPLE
-            PS > Invoke-NetworkDiagnostic -HostName 'cloudflare.com' -Continuous -Interval 2 -RenderMode Stack -MaxIterations 1
-
-            Append a single iteration (good for logs/tests); no clear or in-place refresh
-
-        - Set -Interval to control seconds between refreshes (default: 5)
-        - For testing/CI: hidden -MaxIterations parameter limits iterations (0 = infinite)
-          Example: -Continuous -MaxIterations 1 runs one iteration and exits
-
-        POWERSHELL 5.1 BEHAVIOR:
-        - PowerShell Desktop 5.1 does not support ANSI cursor control for in-place updates
-        - Console is cleared between iterations using Clear-Host in continuous mode
-        - ANSI colors are automatically disabled on 5.1 to prevent escape codes in output
-        - PowerShell Core (6+) supports ANSI colors; cursor movement avoided for compatibility
+    .PARAMETER MaxIterations
+        Hidden parameter for testing/CI. Limits the number of iterations in continuous mode.
+        Default: 0 (infinite). Set to a positive number to run a specific number of iterations and exit.
 
     .EXAMPLE
         PS > Invoke-NetworkDiagnostic -HostName 'google.com'
@@ -104,9 +89,19 @@
         Monitor with detailed time-series graphs, auto-refreshing every 5 seconds
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'cloudflare.com' -Continuous -MaxIterations 1
+        PS > Invoke-NetworkDiagnostic -HostName 'cloudflare.com' -Continuous -Interval 2 -RenderMode InPlace
 
-        Run one continuous iteration for testing/CI (hidden parameter)
+        PowerShell Core: refreshes the same output block in place (no stacking)
+
+    .EXAMPLE
+        PS > Invoke-NetworkDiagnostic -HostName 'cloudflare.com' -Continuous -Interval 2 -RenderMode Clear
+
+        Force screen clear between iterations (useful if in-place rendering isn't desired)
+
+    .EXAMPLE
+        PS > Invoke-NetworkDiagnostic -HostName 'cloudflare.com' -Continuous -Interval 2 -RenderMode Stack -MaxIterations 1
+
+        Append a single iteration (good for logs/tests); no clear or in-place refresh
 
     .EXAMPLE
         PS > 'google.com', 'cloudflare.com' | Invoke-NetworkDiagnostic -Count 50
@@ -153,6 +148,12 @@
         System.String (formatted diagnostic output)
 
     .NOTES
+        POWERSHELL 5.1 BEHAVIOR:
+        - PowerShell Desktop 5.1 does not support ANSI cursor control for in-place updates
+        - Console is cleared between iterations using Clear-Host in continuous mode
+        - ANSI colors are automatically disabled on 5.1 to prevent escape codes in output
+        - PowerShell Core (6+) supports ANSI colors and in-place rendering
+
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Invoke-NetworkDiagnostic.ps1

@@ -9,6 +9,8 @@
         bar charts, and time-series graphs. Supports both inline sparklines and detailed
         multi-line graphs. Cross-platform compatible.
 
+        See NOTES for PowerShell 5.1 behavior in continuous mode.
+
     .PARAMETER Data
         Array of latency values in milliseconds. Supports $null values for failed requests.
 
@@ -33,6 +35,12 @@
     .PARAMETER Continuous
         Run continuously until stopped with Ctrl+C, collecting new data samples
 
+        Continuous mode notes:
+        - Use -Continuous with -HostName to refresh graph periodically until Ctrl+C
+        - Set -Interval to control seconds between refreshes (default: 5)
+        - For testing/CI: hidden -MaxIterations parameter limits iterations (0 = infinite)
+          Example: -Continuous -MaxIterations 1 runs one iteration and exits
+
     .PARAMETER Interval
         Interval in seconds between continuous updates (default: 5)
 
@@ -47,24 +55,12 @@
 
     .PARAMETER RenderMode
         Controls how the output refreshes during continuous runs.
+
         Valid values:
         - Auto   : PowerShell 5.1 uses Clear (screen wipe), PowerShell 6+ uses InPlace (default)
         - InPlace: Update the same block using ANSI cursor moves (Core only; falls back to Clear on 5.1)
         - Clear  : Clear the screen between iterations
         - Stack  : Append output without clearing (useful for logs/debugging)
-
-    .NOTES
-        CONTINUOUS MODE:
-        - Use -Continuous with -HostName to refresh graph periodically until Ctrl+C
-        - Set -Interval to control seconds between refreshes (default: 5)
-        - For testing/CI: hidden -MaxIterations parameter limits iterations (0 = infinite)
-          Example: -Continuous -MaxIterations 1 runs one iteration and exits
-
-        POWERSHELL 5.1 BEHAVIOR:
-        - PowerShell Desktop 5.1 does not support ANSI cursor control for in-place updates
-        - Console is cleared between iterations using Clear-Host in continuous mode
-        - ANSI colors are automatically disabled on 5.1 to prevent escape codes in output
-        - PowerShell Core (6+) supports ANSI colors; cursor movement avoided for compatibility
 
     .EXAMPLE
         PS > $latencies = @(15, 14, 16, 22, 15, 14, 13, 16)
@@ -167,6 +163,12 @@
         System.String
 
     .NOTES
+        POWERSHELL 5.1 BEHAVIOR:
+        - PowerShell Desktop 5.1 does not support ANSI cursor control for in-place updates
+        - Console is cleared between iterations using Clear-Host in continuous mode
+        - ANSI colors are automatically disabled on 5.1 to prevent escape codes in output
+        - PowerShell Core (6+) supports ANSI colors; cursor movement avoided for compatibility
+
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Show-NetworkLatencyGraph.ps1
