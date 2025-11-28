@@ -405,7 +405,10 @@ function Invoke-RepositoryDownload
     )
 
     $parentDirectory = Split-Path -Parent $Destination
-    Assert-DirectoryExists -Path $parentDirectory
+    if ($parentDirectory)
+    {
+        Assert-DirectoryExists -Path $parentDirectory
+    }
 
     $gitCommand = Get-Command -Name git -ErrorAction SilentlyContinue
     if ($gitCommand)
@@ -420,7 +423,12 @@ function Invoke-RepositoryDownload
 
         if ($LASTEXITCODE -ne 0)
         {
-            throw "Git clone failed with exit code $LASTEXITCODE"
+            $errorMsg = "Git clone failed with exit code $LASTEXITCODE"
+            if ($gitOutput)
+            {
+                $errorMsg += ". Git output: $($gitOutput -join '; ')"
+            }
+            throw $errorMsg
         }
         $gitOutput | ForEach-Object { Write-Verbose $_ }
     }
@@ -450,11 +458,25 @@ function Invoke-ZipDownload
     try
     {
         Write-Verbose "Downloading from $zipUrl"
-        Invoke-WebRequest -Uri $zipUrl -OutFile $tempZip -UseBasicParsing
+        try
+        {
+            Invoke-WebRequest -Uri $zipUrl -OutFile $tempZip -UseBasicParsing
+        }
+        catch
+        {
+            throw "Failed to download repository from $zipUrl : $($_.Exception.Message)"
+        }
 
         Write-Verbose 'Extracting to temporary location'
         $tempExtract = Join-Path ([System.IO.Path]::GetTempPath()) "pwsh-profile-extract-$([guid]::NewGuid().ToString('N'))"
-        Expand-Archive -Path $tempZip -DestinationPath $tempExtract -Force
+        try
+        {
+            Expand-Archive -Path $tempZip -DestinationPath $tempExtract -Force
+        }
+        catch
+        {
+            throw "Failed to extract zip archive: $($_.Exception.Message)"
+        }
 
         # GitHub zip archives contain a single top-level directory named {repo}-{branch}
         $extractedDir = Get-ChildItem -Path $tempExtract -Directory | Select-Object -First 1
@@ -467,8 +489,15 @@ function Invoke-ZipDownload
         Write-Verbose "Moving extracted content to $Destination"
         Assert-DirectoryExists -Path $Destination
 
-        Get-ChildItem -Path $extractedDir.FullName -Force | ForEach-Object {
-            Copy-Item -Path $_.FullName -Destination $Destination -Recurse -Force
+        try
+        {
+            Get-ChildItem -Path $extractedDir.FullName -Force | ForEach-Object {
+                Copy-Item -Path $_.FullName -Destination $Destination -Recurse -Force
+            }
+        }
+        catch
+        {
+            throw "Failed to copy extracted files to $Destination : $($_.Exception.Message)"
         }
 
         # Cleanup
@@ -688,7 +717,21 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
     }
     catch
     {
-        Write-Error $_
+        Write-Host ''
+        Write-Host 'ERROR: Profile installation failed' -ForegroundColor Red
+        Write-Host ''
+        Write-Host 'Error details:' -ForegroundColor Yellow
+        Write-Host "  $($_.Exception.Message)" -ForegroundColor Gray
+        Write-Host ''
+        if ($_.Exception.InnerException)
+        {
+            Write-Host 'Inner exception:' -ForegroundColor Yellow
+            Write-Host "  $($_.Exception.InnerException.Message)" -ForegroundColor Gray
+            Write-Host ''
+        }
+        Write-Host 'If the issue persists, please report it at:' -ForegroundColor Yellow
+        Write-Host '  https://github.com/jonlabelle/pwsh-profile/issues' -ForegroundColor Cyan
+        Write-Host ''
         throw
     }
     finally
