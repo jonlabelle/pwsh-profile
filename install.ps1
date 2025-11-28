@@ -355,6 +355,7 @@ function Test-ExecutionPolicyRequiresAction
 {
     param()
 
+    # Execution policies are only enforced on Windows
     $isWindowsPlatform = if ($PSVersionTable.PSVersion.Major -lt 6) { $true } else { $IsWindows }
     if (-not $isWindowsPlatform)
     {
@@ -365,34 +366,25 @@ function Test-ExecutionPolicyRequiresAction
     {
         # Check the effective execution policy (what PowerShell will actually enforce)
         $effectivePolicy = Get-ExecutionPolicy -ErrorAction Stop
-        Write-Verbose "Effective execution policy: $effectivePolicy"
+
+        # Define policies that allow script execution without issues
+        $permissivePolicies = @('RemoteSigned', 'Unrestricted', 'Bypass')
 
         # If the effective policy is already permissive, no action is required
-        $permissivePolicies = @('RemoteSigned', 'Unrestricted', 'Bypass')
+        # This is the most important check - if PowerShell will actually run scripts, we're good
         if ($permissivePolicies -contains $effectivePolicy)
         {
             return $false
         }
 
-        # Check CurrentUser scope to see if user has already set a permissive policy
-        $currentUserPolicy = Get-ExecutionPolicy -Scope CurrentUser -ErrorAction Stop
-        Write-Verbose "CurrentUser execution policy: $currentUserPolicy"
-
-        # If CurrentUser is already set to a permissive policy, no action needed
-        if ($permissivePolicies -contains $currentUserPolicy)
-        {
-            return $false
-        }
-
-        # If CurrentUser is Undefined and effective policy is restrictive, action is needed
-        # (This means the user hasn't set CurrentUser and the system default is restrictive)
+        # If we get here, the effective policy is Restricted, AllSigned, or something else restrictive
+        # In this case, action IS required
         return $true
     }
     catch
     {
-        Write-Verbose "Unable to determine execution policy: $($_.Exception.Message)"
         # If we can't determine the policy, assume no action is needed
-        # (This is safer than showing unnecessary warnings)
+        # (Better to not show the message than to show it incorrectly)
         return $false
     }
 }
