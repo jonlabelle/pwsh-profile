@@ -6,8 +6,9 @@ function Get-OutdatedModules
 
     .DESCRIPTION
         This function checks all installed PowerShell modules against the PowerShell Gallery to identify
-        modules that have newer versions available. It returns detailed information about outdated modules
-        including current and available versions. Cross-platform compatible with PowerShell 5.1+ on Windows, macOS, and Linux.
+        modules that have newer versions available. It returns detailed information about all checked modules
+        including current and available versions, with an indicator showing whether they're up-to-date.
+        Cross-platform compatible with PowerShell 5.1+ on Windows, macOS, and Linux.
 
     .PARAMETER ExcludeModule
         Array of module names to exclude from the outdated check. These modules will be skipped.
@@ -21,31 +22,41 @@ function Get-OutdatedModules
     .EXAMPLE
         PS > Get-OutdatedModules
 
-        Returns all outdated modules with current and available version information.
+        Returns all checked modules with current version, available version, and up-to-date status.
 
     .EXAMPLE
         PS > Get-OutdatedModules -ExcludeModule @('PSReadLine', 'PowerShellGet')
 
-        Gets outdated modules while excluding specific modules from the check.
+        Gets module status while excluding specific modules from the check.
 
     .EXAMPLE
-        PS > Get-OutdatedModules | Format-Table Name, CurrentVersion, AvailableVersion
+        PS > Get-OutdatedModules | Format-Table Name, CurrentVersion, AvailableVersion, IsUpToDate
 
-        Displays outdated modules in a formatted table showing version information.
+        Displays all modules in a formatted table showing version information and update status.
+
+    .EXAMPLE
+        PS > Get-OutdatedModules | Where-Object -Not IsUpToDate
+
+        Gets only modules that have updates available using pipeline filtering.
+
+    .EXAMPLE
+        PS > Get-OutdatedModules | Where-Object IsUpToDate
+
+        Gets only modules that are already up-to-date.
 
     .EXAMPLE
         PS > Get-OutdatedModules | Where-Object Name -like 'Azure*'
 
-        Gets only outdated Azure modules using pipeline filtering.
+        Gets status for all Azure modules using pipeline filtering.
 
     .EXAMPLE
-        PS > $outdated = Get-OutdatedModules; $outdated | Update-AllModules -ExcludeModule @('ProblematicModule')
+        PS > $results = Get-OutdatedModules; $results | Where-Object -Not IsUpToDate | Update-AllModules
 
-        Store outdated modules and use the results to selectively update modules.
+        Check all modules and selectively update only those that are outdated.
 
     .OUTPUTS
         [PSCustomObject[]]
-        Returns custom objects with properties: Name, CurrentVersion, AvailableVersion, Repository, Description
+        Returns custom objects with properties: Name, CurrentVersion, AvailableVersion, IsUpToDate, Repository, Description, PublishedDate, Author
 
     .NOTES
         Author: Jon LaBelle
@@ -94,7 +105,7 @@ function Get-OutdatedModules
             Write-Verbose "Excluding system modules: $($systemModules -join ', ')"
         }
 
-        $outdatedModules = @()
+        $moduleResults = @()
     }
 
     process
@@ -157,19 +168,23 @@ function Get-OutdatedModules
                     # Find the latest version in the repository
                     $latestModule = Find-Module -Name $moduleName -Repository $Repository -ErrorAction Stop
 
-                    if ($latestModule.Version -gt $installedModule.Version)
-                    {
-                        $outdatedModule = [PSCustomObject]@{
-                            Name = $moduleName
-                            CurrentVersion = $installedModule.Version
-                            AvailableVersion = $latestModule.Version
-                            Repository = $latestModule.Repository
-                            Description = $latestModule.Description
-                            PublishedDate = $latestModule.PublishedDate
-                            Author = $latestModule.Author
-                        }
+                    $isUpToDate = $latestModule.Version -le $installedModule.Version
 
-                        $outdatedModules += $outdatedModule
+                    $moduleInfo = [PSCustomObject]@{
+                        Name = $moduleName
+                        CurrentVersion = $installedModule.Version
+                        AvailableVersion = $latestModule.Version
+                        IsUpToDate = $isUpToDate
+                        Repository = $latestModule.Repository
+                        Description = $latestModule.Description
+                        PublishedDate = $latestModule.PublishedDate
+                        Author = $latestModule.Author
+                    }
+
+                    $moduleResults += $moduleInfo
+
+                    if (-not $isUpToDate)
+                    {
                         Write-Verbose "Found outdated module: $moduleName ($($installedModule.Version) -> $($latestModule.Version))"
                     }
                     else
@@ -200,9 +215,12 @@ function Get-OutdatedModules
             Write-Progress -Activity 'Checking for outdated modules' -Completed
 
             # Display summary
-            if ($outdatedModules.Count -gt 0)
+            $outdatedCount = ($moduleResults | Where-Object { -not $_.IsUpToDate }).Count
+            $upToDateCount = ($moduleResults | Where-Object { $_.IsUpToDate }).Count
+
+            if ($outdatedCount -gt 0)
             {
-                Write-Host "Found $($outdatedModules.Count) outdated module(s) out of $checkedCount checked" -ForegroundColor Yellow
+                Write-Host "Found $outdatedCount outdated module(s) and $upToDateCount up-to-date module(s) out of $checkedCount checked" -ForegroundColor Yellow
             }
             else
             {
@@ -224,7 +242,7 @@ function Get-OutdatedModules
 
     end
     {
-        Write-Verbose 'Outdated module check process completed'
-        return $outdatedModules
+        Write-Verbose 'Module check process completed'
+        return $moduleResults
     }
 }
