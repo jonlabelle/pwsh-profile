@@ -6,7 +6,15 @@
 
 ## Screenshot
 
-![PowerShell Profile in Windows Terminal](term-screen-shot.png)
+![PowerShell Profile in Windows Terminal](term-screen-shot.png "PowerShell Profile in Windows Terminal")
+
+> [`Show-ProfileFunctions`](Functions/ProfileManagement/Show-ProfileFunctions.ps1) output in Windows Terminal with custom prompt and color scheme.
+
+---
+
+![Invoke-NetworkDiagnostic screenshot](netdiag.webp "Invoke-NetworkDiagnostic in action")
+
+[`Invoke-NetworkDiagnostic`](Functions/NetworkAndDns/Invoke-NetworkDiagnostic.ps1) performing network diagnostics with visual graphs.
 
 ## Features
 
