@@ -363,21 +363,38 @@ function Test-ExecutionPolicyRequiresAction
 
     try
     {
-        $currentPolicy = Get-ExecutionPolicy -Scope CurrentUser -ErrorAction Stop
+        # Check the effective execution policy (what PowerShell will actually enforce)
+        $effectivePolicy = Get-ExecutionPolicy -ErrorAction Stop
+        Write-Verbose "Effective execution policy: $effectivePolicy"
+
+        # If the effective policy is already permissive, no action is required
+        $permissivePolicies = @('RemoteSigned', 'Unrestricted', 'Bypass')
+        if ($permissivePolicies -contains $effectivePolicy)
+        {
+            return $false
+        }
+
+        # Check CurrentUser scope to see if user has already set a permissive policy
+        $currentUserPolicy = Get-ExecutionPolicy -Scope CurrentUser -ErrorAction Stop
+        Write-Verbose "CurrentUser execution policy: $currentUserPolicy"
+
+        # If CurrentUser is already set to a permissive policy, no action needed
+        if ($permissivePolicies -contains $currentUserPolicy)
+        {
+            return $false
+        }
+
+        # If CurrentUser is Undefined and effective policy is restrictive, action is needed
+        # (This means the user hasn't set CurrentUser and the system default is restrictive)
+        return $true
     }
     catch
     {
-        Write-Verbose "Unable to determine CurrentUser execution policy: $($_.Exception.Message)"
-        return $true
+        Write-Verbose "Unable to determine execution policy: $($_.Exception.Message)"
+        # If we can't determine the policy, assume no action is needed
+        # (This is safer than showing unnecessary warnings)
+        return $false
     }
-
-    if ([string]::IsNullOrEmpty($currentPolicy) -or $currentPolicy -eq 'Undefined')
-    {
-        return $true
-    }
-
-    $permissivePolicies = @('RemoteSigned', 'Unrestricted', 'Bypass')
-    return -not ($permissivePolicies -contains $currentPolicy)
 }
 
 function Show-ExecutionPolicyGuidance
