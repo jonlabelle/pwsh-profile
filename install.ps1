@@ -487,12 +487,31 @@ function Invoke-ZipDownload
         }
 
         Write-Verbose "Moving extracted content to $Destination"
-        Assert-DirectoryExists -Path $Destination
+
+        # Ensure destination directory exists and is accessible
+        if (-not (Test-Path -Path $Destination))
+        {
+            try
+            {
+                New-Item -Path $Destination -ItemType Directory -Force | Out-Null
+            }
+            catch
+            {
+                throw "Failed to create destination directory $Destination : $($_.Exception.Message)"
+            }
+        }
+
+        # Verify the directory was created successfully
+        if (-not (Test-Path -Path $Destination -PathType Container))
+        {
+            throw "Destination directory $Destination does not exist after creation attempt"
+        }
 
         try
         {
             Get-ChildItem -Path $extractedDir.FullName -Force | ForEach-Object {
-                Copy-Item -Path $_.FullName -Destination $Destination -Recurse -Force
+                $destinationPath = Join-Path -Path $Destination -ChildPath $_.Name
+                Copy-Item -Path $_.FullName -Destination $destinationPath -Recurse -Force
             }
         }
         catch
@@ -528,10 +547,22 @@ function Copy-LocalSource
     }
 
     Write-Verbose "Copying local source from $SourcePath to $DestinationPath"
-    Assert-DirectoryExists -Path $DestinationPath
+
+    # Ensure destination directory exists and is accessible
+    if (-not (Test-Path -Path $DestinationPath))
+    {
+        New-Item -Path $DestinationPath -ItemType Directory -Force | Out-Null
+    }
+
+    # Verify the directory was created successfully
+    if (-not (Test-Path -Path $DestinationPath -PathType Container))
+    {
+        throw "Destination directory $DestinationPath does not exist after creation attempt"
+    }
 
     Get-ChildItem -Path $SourcePath -Force | ForEach-Object {
-        Copy-Item -Path $_.FullName -Destination $DestinationPath -Recurse -Force
+        $destinationPath = Join-Path -Path $DestinationPath -ChildPath $_.Name
+        Copy-Item -Path $_.FullName -Destination $destinationPath -Recurse -Force
     }
 }
 
