@@ -499,8 +499,8 @@ function Invoke-ZipDownload
                 Write-Verbose 'Parent directory does not exist, creating it...'
                 try
                 {
-                    $createdParent = New-Item -Path $parentDir -ItemType Directory -Force -ErrorAction Stop
-                    Write-Verbose "Successfully created parent directory: $($createdParent.FullName)"
+                    New-Item -Path $parentDir -ItemType Directory -Force -ErrorAction Stop | Out-Null
+                    Write-Verbose "Successfully created parent directory: $parentDir"
                 }
                 catch
                 {
@@ -526,8 +526,8 @@ function Invoke-ZipDownload
             Write-Verbose 'Destination does not exist, creating it...'
             try
             {
-                $createdDest = New-Item -Path $Destination -ItemType Directory -Force -ErrorAction Stop
-                Write-Verbose "Successfully created destination directory: $($createdDest.FullName)"
+                New-Item -Path $Destination -ItemType Directory -Force -ErrorAction Stop | Out-Null
+                Write-Verbose "Successfully created destination directory: $Destination"
             }
             catch
             {
