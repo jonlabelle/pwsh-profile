@@ -488,6 +488,21 @@ function Invoke-ZipDownload
 
         Write-Verbose "Moving extracted content to $Destination"
 
+        # Ensure parent directory exists first
+        $parentDir = Split-Path -Parent $Destination
+        if ($parentDir -and -not (Test-Path -Path $parentDir))
+        {
+            try
+            {
+                New-Item -Path $parentDir -ItemType Directory -Force | Out-Null
+                Write-Verbose "Created parent directory: $parentDir"
+            }
+            catch
+            {
+                throw "Failed to create parent directory $parentDir : $($_.Exception.Message)"
+            }
+        }
+
         # Ensure destination directory exists and is accessible
         if (-not (Test-Path -Path $Destination))
         {
@@ -511,11 +526,32 @@ function Invoke-ZipDownload
         try
         {
             # Copy all items from extracted directory into destination
-            # Using -Path with wildcard ensures we copy contents, not the directory itself
-            $sourcePath = Join-Path -Path $extractedDir.FullName -ChildPath '*'
-            Write-Verbose "Copying from: $sourcePath"
-            Write-Verbose "Copying to: $Destination"
-            Copy-Item -Path $sourcePath -Destination $Destination -Recurse -Force
+            Write-Verbose "Source directory: $($extractedDir.FullName)"
+            Write-Verbose "Destination directory: $Destination"
+
+            # Copy each item individually to avoid path resolution issues on Windows
+            Get-ChildItem -Path $extractedDir.FullName -Force | ForEach-Object {
+                $itemName = $_.Name
+                $sourcePath = $_.FullName
+                $destPath = Join-Path -Path $Destination -ChildPath $itemName
+
+                Write-Verbose "Copying: $itemName"
+
+                if ($_.PSIsContainer)
+                {
+                    # For directories, ensure destination exists then copy contents
+                    if (-not (Test-Path -Path $destPath))
+                    {
+                        New-Item -Path $destPath -ItemType Directory -Force | Out-Null
+                    }
+                    Copy-Item -Path (Join-Path -Path $sourcePath -ChildPath '*') -Destination $destPath -Recurse -Force -ErrorAction Stop
+                }
+                else
+                {
+                    # For files, copy directly
+                    Copy-Item -Path $sourcePath -Destination $destPath -Force -ErrorAction Stop
+                }
+            }
         }
         catch
         {
@@ -551,6 +587,14 @@ function Copy-LocalSource
 
     Write-Verbose "Copying local source from $SourcePath to $DestinationPath"
 
+    # Ensure parent directory exists first
+    $parentDir = Split-Path -Parent $DestinationPath
+    if ($parentDir -and -not (Test-Path -Path $parentDir))
+    {
+        New-Item -Path $parentDir -ItemType Directory -Force | Out-Null
+        Write-Verbose "Created parent directory: $parentDir"
+    }
+
     # Ensure destination directory exists and is accessible
     if (-not (Test-Path -Path $DestinationPath))
     {
@@ -564,12 +608,29 @@ function Copy-LocalSource
         throw "Destination directory $DestinationPath does not exist after creation attempt"
     }
 
-    # Copy all items from source directory into destination
-    # Using -Path with wildcard ensures we copy contents, not the directory itself
-    $sourcePath = Join-Path -Path $SourcePath -ChildPath '*'
-    Write-Verbose "Copying from: $sourcePath"
-    Write-Verbose "Copying to: $DestinationPath"
-    Copy-Item -Path $sourcePath -Destination $DestinationPath -Recurse -Force
+    # Copy each item individually to avoid path resolution issues on Windows
+    Get-ChildItem -Path $SourcePath -Force | ForEach-Object {
+        $itemName = $_.Name
+        $sourcePath = $_.FullName
+        $destPath = Join-Path -Path $DestinationPath -ChildPath $itemName
+
+        Write-Verbose "Copying: $itemName"
+
+        if ($_.PSIsContainer)
+        {
+            # For directories, ensure destination exists then copy contents
+            if (-not (Test-Path -Path $destPath))
+            {
+                New-Item -Path $destPath -ItemType Directory -Force | Out-Null
+            }
+            Copy-Item -Path (Join-Path -Path $sourcePath -ChildPath '*') -Destination $destPath -Recurse -Force
+        }
+        else
+        {
+            # For files, copy directly
+            Copy-Item -Path $sourcePath -Destination $destPath -Force
+        }
+    }
 }
 
 function Restore-FromBackup
