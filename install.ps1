@@ -104,6 +104,10 @@
         - SkipPreserveDirectories cannot be used with PreserveDirectories (contradictory options)
         - RestorePath cannot be used with PreserveDirectories or SkipPreserveDirectories (restore doesn't preserve selectively)
 
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/install.ps1
+
     .LINK
         https://github.com/jonlabelle/pwsh-profile
 #>
