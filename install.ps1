@@ -494,6 +494,7 @@ function Invoke-ZipDownload
             try
             {
                 New-Item -Path $Destination -ItemType Directory -Force | Out-Null
+                Write-Verbose "Created destination directory: $Destination"
             }
             catch
             {
@@ -509,10 +510,12 @@ function Invoke-ZipDownload
 
         try
         {
-            Get-ChildItem -Path $extractedDir.FullName -Force | ForEach-Object {
-                $destinationPath = Join-Path -Path $Destination -ChildPath $_.Name
-                Copy-Item -Path $_.FullName -Destination $destinationPath -Recurse -Force
-            }
+            # Copy all items from extracted directory into destination
+            # Using -Path with wildcard ensures we copy contents, not the directory itself
+            $sourcePath = Join-Path -Path $extractedDir.FullName -ChildPath '*'
+            Write-Verbose "Copying from: $sourcePath"
+            Write-Verbose "Copying to: $Destination"
+            Copy-Item -Path $sourcePath -Destination $Destination -Recurse -Force
         }
         catch
         {
@@ -552,6 +555,7 @@ function Copy-LocalSource
     if (-not (Test-Path -Path $DestinationPath))
     {
         New-Item -Path $DestinationPath -ItemType Directory -Force | Out-Null
+        Write-Verbose "Created destination directory: $DestinationPath"
     }
 
     # Verify the directory was created successfully
@@ -560,10 +564,12 @@ function Copy-LocalSource
         throw "Destination directory $DestinationPath does not exist after creation attempt"
     }
 
-    Get-ChildItem -Path $SourcePath -Force | ForEach-Object {
-        $destinationPath = Join-Path -Path $DestinationPath -ChildPath $_.Name
-        Copy-Item -Path $_.FullName -Destination $destinationPath -Recurse -Force
-    }
+    # Copy all items from source directory into destination
+    # Using -Path with wildcard ensures we copy contents, not the directory itself
+    $sourcePath = Join-Path -Path $SourcePath -ChildPath '*'
+    Write-Verbose "Copying from: $sourcePath"
+    Write-Verbose "Copying to: $DestinationPath"
+    Copy-Item -Path $sourcePath -Destination $DestinationPath -Recurse -Force
 }
 
 function Restore-FromBackup
