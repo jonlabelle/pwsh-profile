@@ -223,11 +223,6 @@ function Resolve-ProviderPath
         throw 'Path cannot be empty.'
     }
 
-    if ($PSCmdlet)
-    {
-        return $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($PathToResolve)
-    }
-
     return $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($PathToResolve)
 }
 
@@ -731,7 +726,7 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
         if (-not $RestorePath -and (Test-Path -Path $resolvedProfileRoot))
         {
             $currentLocation = $PWD.Path
-            $resolvedCurrent = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($currentLocation)
+            $resolvedCurrent = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($currentLocation)
             $isInsideProfile = $resolvedCurrent -eq $resolvedProfileRoot -or $resolvedCurrent.StartsWith($resolvedProfileRoot + [System.IO.Path]::DirectorySeparatorChar)
 
             if ($isInsideProfile)
