@@ -490,37 +490,64 @@ function Invoke-ZipDownload
 
         # Ensure parent directory exists first
         $parentDir = Split-Path -Parent $Destination
-        if ($parentDir -and -not (Test-Path -Path $parentDir))
+        Write-Verbose "Parent directory: $parentDir"
+
+        if ($parentDir)
         {
-            try
+            if (-not (Test-Path -Path $parentDir))
             {
-                New-Item -Path $parentDir -ItemType Directory -Force | Out-Null
-                Write-Verbose "Created parent directory: $parentDir"
+                Write-Verbose 'Parent directory does not exist, creating it...'
+                try
+                {
+                    $createdParent = New-Item -Path $parentDir -ItemType Directory -Force -ErrorAction Stop
+                    Write-Verbose "Successfully created parent directory: $($createdParent.FullName)"
+                }
+                catch
+                {
+                    throw "Failed to create parent directory $parentDir : $($_.Exception.Message)"
+                }
+
+                # Verify parent was created
+                if (-not (Test-Path -Path $parentDir -PathType Container))
+                {
+                    throw "Parent directory $parentDir does not exist after creation attempt"
+                }
             }
-            catch
+            else
             {
-                throw "Failed to create parent directory $parentDir : $($_.Exception.Message)"
+                Write-Verbose "Parent directory already exists: $parentDir"
             }
         }
 
         # Ensure destination directory exists and is accessible
+        Write-Verbose "Checking if destination exists: $Destination"
         if (-not (Test-Path -Path $Destination))
         {
+            Write-Verbose 'Destination does not exist, creating it...'
             try
             {
-                New-Item -Path $Destination -ItemType Directory -Force | Out-Null
-                Write-Verbose "Created destination directory: $Destination"
+                $createdDest = New-Item -Path $Destination -ItemType Directory -Force -ErrorAction Stop
+                Write-Verbose "Successfully created destination directory: $($createdDest.FullName)"
             }
             catch
             {
                 throw "Failed to create destination directory $Destination : $($_.Exception.Message)"
             }
-        }
 
-        # Verify the directory was created successfully
-        if (-not (Test-Path -Path $Destination -PathType Container))
+            # Wait a moment for filesystem to catch up (Windows sometimes has delays)
+            Start-Sleep -Milliseconds 100
+
+            # Verify the directory was created successfully
+            if (-not (Test-Path -Path $Destination -PathType Container))
+            {
+                throw "Destination directory $Destination does not exist after creation attempt. Parent exists: $(Test-Path -Path $parentDir)"
+            }
+
+            Write-Verbose 'Verified destination directory exists'
+        }
+        else
         {
-            throw "Destination directory $Destination does not exist after creation attempt"
+            Write-Verbose "Destination directory already exists: $Destination"
         }
 
         try
@@ -528,6 +555,7 @@ function Invoke-ZipDownload
             # Copy all items from extracted directory into destination
             Write-Verbose "Source directory: $($extractedDir.FullName)"
             Write-Verbose "Destination directory: $Destination"
+            Write-Verbose "Destination exists: $(Test-Path -Path $Destination)"
 
             # Copy each item individually to avoid path resolution issues on Windows
             Get-ChildItem -Path $extractedDir.FullName -Force | ForEach-Object {
@@ -542,7 +570,7 @@ function Invoke-ZipDownload
                     # For directories, ensure destination exists then copy contents
                     if (-not (Test-Path -Path $destPath))
                     {
-                        New-Item -Path $destPath -ItemType Directory -Force | Out-Null
+                        New-Item -Path $destPath -ItemType Directory -Force -ErrorAction Stop | Out-Null
                     }
                     Copy-Item -Path (Join-Path -Path $sourcePath -ChildPath '*') -Destination $destPath -Recurse -Force -ErrorAction Stop
                 }
@@ -555,7 +583,15 @@ function Invoke-ZipDownload
         }
         catch
         {
-            throw "Failed to copy extracted files to $Destination : $($_.Exception.Message)"
+            # Provide detailed error information
+            $errorDetails = "Failed to copy extracted files to $Destination"
+            $errorDetails += "`n  Error: $($_.Exception.Message)"
+            $errorDetails += "`n  Destination exists: $(Test-Path -Path $Destination)"
+            if (Test-Path -Path $Destination)
+            {
+                $errorDetails += "`n  Destination is directory: $(Test-Path -Path $Destination -PathType Container)"
+            }
+            throw $errorDetails
         }
 
         # Cleanup
