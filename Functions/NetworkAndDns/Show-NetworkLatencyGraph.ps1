@@ -592,8 +592,11 @@
             if ($ShowStats)
             {
                 $avgColor = if ($Avg -lt 50) { $script:Palette.Green } elseif ($Avg -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
-                $sampleCount = $Data.Count
-                $statsLine = "     ${script:Palette.Gray}Min: ${script:Palette.Cyan}$([Math]::Round($Min, 1))ms ${script:Palette.Gray}| Max: ${script:Palette.Cyan}$([Math]::Round($Max, 1))ms ${script:Palette.Gray}| Avg: $avgColor$([Math]::Round($Avg, 1))ms ${script:Palette.Gray}| Samples: ${script:Palette.Cyan}$sampleCount${script:Palette.Reset}"
+                # Count valid vs failed samples to avoid duplicate or confusing sample display
+                $validCount = @($Data | Where-Object { $null -ne $_ }).Count
+                $failedCount = @($Data | Where-Object { $null -eq $_ }).Count
+                $statsLine = "     ${script:Palette.Gray}Min: ${script:Palette.Cyan}$([Math]::Round($Min, 1))ms ${script:Palette.Gray}| Max: ${script:Palette.Cyan}$([Math]::Round($Max, 1))ms ${script:Palette.Gray}| Avg: $avgColor$([Math]::Round($Avg, 1))ms ${script:Palette.Gray}| Samples: ${script:Palette.Cyan}$validCount${script:Palette.Reset}"
+                if ($failedCount -gt 0) { $statsLine += " ${script:Palette.Gray}| Failed: ${script:Palette.Red}$failedCount${script:Palette.Reset}" }
                 [void]$output.AppendLine($statsLine)
             }
 
