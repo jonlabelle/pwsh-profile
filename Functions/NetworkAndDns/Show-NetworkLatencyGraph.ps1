@@ -445,6 +445,7 @@
     begin
     {
         Write-Verbose "Creating $GraphType graph"
+        $jitter = $null
 
         # ANSI color palette (respects -NoColor and OutputRendering=PlainText)
         $supportsColor = -not $NoColor.IsPresent
@@ -466,6 +467,52 @@
             Gray = if ($supportsColor) { "`e[90m" } else { '' }
         }
 
+        function script:Get-LatencyColor
+        {
+            param([double]$Value)
+            if ($Value -lt 50) { return $script:Palette.Green }
+            if ($Value -lt 100) { return $script:Palette.Yellow }
+            return $script:Palette.Red
+        }
+
+        function script:Get-JitterColor
+        {
+            param([double]$Value)
+            if ($Value -lt 10) { return $script:Palette.Green }
+            if ($Value -lt 30) { return $script:Palette.Yellow }
+            return $script:Palette.Red
+        }
+
+        function script:Calculate-Jitter
+        {
+            param([Object[]]$Values)
+            if (-not $Values -or $Values.Count -eq 0) { return $null }
+            if ($Values.Count -eq 1) { return 0 }
+
+            $numeric = @()
+            foreach ($v in $Values)
+            {
+                if ($null -ne $v)
+                {
+                    $numeric += [double]$v
+                }
+            }
+
+            if ($numeric.Count -eq 0) { return $null }
+            if ($numeric.Count -eq 1) { return 0 }
+
+            $avg = ($numeric | Measure-Object -Average).Average
+            $sumSq = 0.0
+            foreach ($v in $numeric)
+            {
+                $diff = $v - $avg
+                $sumSq += ($diff * $diff)
+            }
+
+            $variance = $sumSq / $numeric.Count
+            return [Math]::Sqrt([Math]::Max(0, $variance))
+        }
+
         # Block characters for sparklines (8 levels)
         $script:SparkChars = @([char]0x2581, [char]0x2582, [char]0x2583, [char]0x2584, [char]0x2585, [char]0x2586, [char]0x2587, [char]0x2588)
 
@@ -479,7 +526,8 @@
                 [Parameter(Mandatory)][int]$Height,
                 [Parameter(Mandatory)][bool]$ShowStats,
                 [Parameter(Mandatory)][double]$Avg,
-                [Parameter(Mandatory)][string]$Style
+                [Parameter(Mandatory)][string]$Style,
+                [Parameter()][Nullable[Double]]$Jitter
             )
 
             $range = if ($Max -eq $Min) { 1 } else { $Max - $Min }
@@ -488,6 +536,7 @@
 
             # Pre-calculate scaled positions for all data points
             $scaledPoints = @()
+            $rawValues = @()
             for ($col = 0; $col -lt $pointsToPlot; $col++)
             {
                 $dataIndex = [Math]::Floor($col * $Data.Count / $pointsToPlot)
@@ -496,6 +545,7 @@
                 if ($null -eq $value)
                 {
                     $scaledPoints += $null
+                    $rawValues += $null
                 }
                 else
                 {
@@ -504,6 +554,7 @@
                     $scaledRow = [Math]::Round(($Height - 1) - ($normalized * $scaleDenominator), 0)
                     $scaledRow = [Math]::Max(0, [Math]::Min($Height - 1, $scaledRow))
                     $scaledPoints += $scaledRow
+                    $rawValues += [double]$value
                 }
             }
 
@@ -525,17 +576,19 @@
                     if ($null -eq $scaledRow)
                     {
                         # Failed connection
-                        [void]$output.Append('✖')
+                        $failMark = "${script:Palette.Red}✖${script:Palette.Reset}"
+                        [void]$output.Append($failMark)
                         continue
                     }
 
+                    $pointColor = if ($rawValues[$col] -ne $null) { script:Get-LatencyColor -Value $rawValues[$col] } else { '' }
                     switch ($Style)
                     {
                         'Dots'
                         {
                             if ($scaledRow -eq $row)
                             {
-                                [void]$output.Append('●')
+                                [void]$output.Append("$pointColor●${script:Palette.Reset}")
                             }
                             else
                             {
@@ -548,7 +601,7 @@
                             $shouldFill = ($Height - 1 - $row) -le ($Height - 1 - $scaledRow)
                             if ($shouldFill)
                             {
-                                [void]$output.Append('█')
+                                [void]$output.Append("$pointColor█${script:Palette.Reset}")
                             }
                             else
                             {
@@ -560,17 +613,21 @@
                             # Simple line connecting points
                             if ($scaledRow -eq $row)
                             {
-                                [void]$output.Append('●')
+                                [void]$output.Append("$pointColor●${script:Palette.Reset}")
                             }
                             elseif ($col -gt 0 -and $null -ne $scaledPoints[$col - 1])
                             {
                                 # Check if line passes through this row between previous and current point
                                 $prevRow = $scaledPoints[$col - 1]
                                 $currRow = $scaledRow
+                                $prevValue = $rawValues[$col - 1]
+                                $currValue = $rawValues[$col]
+                                $connectorValue = if ($null -ne $prevValue -and $null -ne $currValue) { [Math]::Max($prevValue, $currValue) } else { $currValue }
+                                $connectorColor = if ($null -ne $connectorValue) { script:Get-LatencyColor -Value $connectorValue } else { '' }
 
                                 if (($prevRow -lt $row -and $currRow -gt $row) -or ($prevRow -gt $row -and $currRow -lt $row))
                                 {
-                                    [void]$output.Append('│')
+                                    [void]$output.Append("$connectorColor│${script:Palette.Reset}")
                                 }
                                 else
                                 {
@@ -597,7 +654,13 @@
                 # Count valid vs failed samples to avoid duplicate or confusing sample display
                 $validCount = @($Data | Where-Object { $null -ne $_ }).Count
                 $failedCount = @($Data | Where-Object { $null -eq $_ }).Count
-                $statsLine = "     ${script:Palette.Gray}Min: ${script:Palette.Cyan}$([Math]::Round($Min, 1))ms ${script:Palette.Gray}| Max: ${script:Palette.Cyan}$([Math]::Round($Max, 1))ms ${script:Palette.Gray}| Avg: $avgColor$([Math]::Round($Avg, 1))ms ${script:Palette.Gray}| Samples: ${script:Palette.Cyan}$validCount${script:Palette.Reset}"
+                $statsLine = "     ${script:Palette.Gray}Min: ${script:Palette.Cyan}$([Math]::Round($Min, 1))ms ${script:Palette.Gray}| Max: ${script:Palette.Cyan}$([Math]::Round($Max, 1))ms ${script:Palette.Gray}| Avg: $avgColor$([Math]::Round($Avg, 1))ms"
+                if ($null -ne $Jitter)
+                {
+                    $jitterColor = script:Get-JitterColor -Value $Jitter
+                    $statsLine += " ${script:Palette.Gray}| Jitter: $jitterColor$([Math]::Round($Jitter, 1))ms"
+                }
+                $statsLine += " ${script:Palette.Gray}| Samples: ${script:Palette.Cyan}$validCount${script:Palette.Reset}"
                 if ($failedCount -gt 0) { $statsLine += " ${script:Palette.Gray}| Failed: ${script:Palette.Red}$failedCount${script:Palette.Reset}" }
                 [void]$output.AppendLine($statsLine)
             }
@@ -648,6 +711,7 @@
             $min = ($validData | Measure-Object -Minimum).Minimum
             $max = ($validData | Measure-Object -Maximum).Maximum
             $avg = ($validData | Measure-Object -Average).Average
+            $jitter = script:Calculate-Jitter -Values $validData
 
             Write-Verbose "Data range: min=$min, max=$max, avg=$([Math]::Round($avg, 2))"
         }
@@ -705,6 +769,7 @@
                     $min = ($validData | Measure-Object -Minimum).Minimum
                     $max = ($validData | Measure-Object -Maximum).Maximum
                     $avg = ($validData | Measure-Object -Average).Average
+                    $jitter = script:Calculate-Jitter -Values $validData
 
                     # Generate and display graph
                     $graphOutput = switch ($GraphType)
@@ -716,7 +781,7 @@
                             {
                                 if ($null -eq $value)
                                 {
-                                    [void]$sparkline.Append(' ')
+                                    [void]$sparkline.Append("${script:Palette.Red}✖${script:Palette.Reset}")
                                 }
                                 else
                                 {
@@ -727,7 +792,8 @@
                                         $index = [Math]::Floor($normalized * 8)
                                         $index = [Math]::Min(7, [Math]::Max(0, $index))
                                     }
-                                    [void]$sparkline.Append($script:SparkChars[$index])
+                                    $color = script:Get-LatencyColor -Value $value
+                                    [void]$sparkline.Append("$color$($script:SparkChars[$index])${script:Palette.Reset}")
                                 }
                             }
                             $result = $sparkline.ToString()
@@ -736,6 +802,7 @@
                                 $statsText = " ${script:Palette.Gray}(min: ${script:Palette.Cyan}$([Math]::Round($min, 1))ms${script:Palette.Gray}, max: ${script:Palette.Cyan}$([Math]::Round($max, 1))ms${script:Palette.Gray}, avg: "
                                 $avgColor = if ($avg -lt 50) { $script:Palette.Green } elseif ($avg -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
                                 $statsText += "$avgColor$([Math]::Round($avg, 1))ms${script:Palette.Gray}"
+                                if ($null -ne $jitter) { $statsText += ", jitter: $(script:Get-JitterColor -Value $jitter)$([Math]::Round($jitter, 1))ms${script:Palette.Gray}" }
                                 if ($failedCount -gt 0) { $statsText += ", failed: ${script:Palette.Red}$failedCount${script:Palette.Gray}" }
                                 $statsText += ")${script:Palette.Reset}"
                                 $result += $statsText
@@ -744,7 +811,7 @@
                         }
                         'TimeSeries'
                         {
-                            script:Build-TimeSeriesGraph -Data $Data -Min $min -Max $max -Width $Width -Height $Height -ShowStats $ShowStats -Avg $avg -Style $Style
+                            script:Build-TimeSeriesGraph -Data $Data -Min $min -Max $max -Width $Width -Height $Height -ShowStats $ShowStats -Avg $avg -Style $Style -Jitter $jitter
                         }
                         'Distribution'
                         {
@@ -810,7 +877,7 @@
                 {
                     if ($null -eq $value)
                     {
-                        [void]$sparkline.Append('✖')
+                        [void]$sparkline.Append("${script:Palette.Red}✖${script:Palette.Reset}")
                     }
                     else
                     {
@@ -825,7 +892,8 @@
                             $index = [Math]::Floor($normalized * 8)
                             $index = [Math]::Min(7, [Math]::Max(0, $index))
                         }
-                        [void]$sparkline.Append($script:SparkChars[$index])
+                        $color = script:Get-LatencyColor -Value $value
+                        [void]$sparkline.Append("$color$($script:SparkChars[$index])${script:Palette.Reset}")
                     }
                 }
 
@@ -838,6 +906,10 @@
                     # Color avg based on value
                     $avgColor = if ($avg -lt 50) { $script:Palette.Green } elseif ($avg -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
                     $statsText += "$avgColor$([Math]::Round($avg, 1))ms${script:Palette.Gray}"
+                    if ($null -ne $jitter)
+                    {
+                        $statsText += ", jitter: $(script:Get-JitterColor -Value $jitter)$([Math]::Round($jitter, 1))ms${script:Palette.Gray}"
+                    }
 
                     if ($failedCount -gt 0)
                     {
@@ -852,7 +924,7 @@
 
             'TimeSeries'
             {
-                return script:Build-TimeSeriesGraph -Data $Data -Min $min -Max $max -Width $Width -Height $Height -ShowStats $ShowStats -Avg $avg -Style $Style
+                return script:Build-TimeSeriesGraph -Data $Data -Min $min -Max $max -Width $Width -Height $Height -ShowStats $ShowStats -Avg $avg -Style $Style -Jitter $jitter
             }
 
             'Distribution'

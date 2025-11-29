@@ -577,6 +577,47 @@
                 return $graph
             }
 
+            $buildIssueFlags = {
+                param($result)
+                $flags = [System.Collections.Generic.List[System.Management.Automation.PSCustomObject]]::new()
+
+                if ($result.SamplesSuccess -eq 0)
+                {
+                    $flags.Add([pscustomobject]@{ Text = 'Unreachable'; Color = 'Red' })
+                    return $flags
+                }
+
+                if ($result.PacketLoss -ge 10) { $flags.Add([pscustomobject]@{ Text = "Loss $($result.PacketLoss)%"; Color = 'Red' }) }
+                elseif ($result.PacketLoss -gt 2) { $flags.Add([pscustomobject]@{ Text = "Loss $($result.PacketLoss)%"; Color = 'Yellow' }) }
+
+                if ($null -ne $result.LatencyAvg)
+                {
+                    if ($result.LatencyAvg -ge 200) { $flags.Add([pscustomobject]@{ Text = "Latency $($result.LatencyAvg)ms"; Color = 'Red' }) }
+                    elseif ($result.LatencyAvg -ge 100) { $flags.Add([pscustomobject]@{ Text = "Latency $($result.LatencyAvg)ms"; Color = 'Yellow' }) }
+                }
+
+                if ($null -ne $result.Jitter)
+                {
+                    if ($result.Jitter -ge 50) { $flags.Add([pscustomobject]@{ Text = "Jitter $($result.Jitter)ms"; Color = 'Red' }) }
+                    elseif ($result.Jitter -ge 30) { $flags.Add([pscustomobject]@{ Text = "Jitter $($result.Jitter)ms"; Color = 'Yellow' }) }
+                }
+
+                if ($null -ne $result.DnsResolution)
+                {
+                    if ($result.DnsResolution -ge 150) { $flags.Add([pscustomobject]@{ Text = "DNS $($result.DnsResolution)ms"; Color = 'Yellow' }) }
+                    elseif ($result.DnsResolution -ge 100) { $flags.Add([pscustomobject]@{ Text = "DNS $($result.DnsResolution)ms"; Color = 'DarkYellow' }) }
+                }
+
+                if ($null -ne $result.LatencyMax -and $null -ne $result.LatencyAvg -and $result.LatencyAvg -gt 0)
+                {
+                    $ratio = $result.LatencyMax / $result.LatencyAvg
+                    if ($ratio -ge 2.5) { $flags.Add([pscustomobject]@{ Text = "Spikes to $($result.LatencyMax)ms"; Color = 'Red' }) }
+                    elseif ($ratio -ge 1.8) { $flags.Add([pscustomobject]@{ Text = "Spikes to $($result.LatencyMax)ms"; Color = 'Yellow' }) }
+                }
+
+                return $flags
+            }
+
             $clearTail = if ($InPlace) { "`e[K" } else { '' }
 
             Write-Host $clearTail
@@ -603,13 +644,23 @@
 
             foreach ($result in $Results)
             {
+                $flags = & $buildIssueFlags $result
+
                 # Determine overall status color based on packet loss and latency
                 $statusColor = 'Green'
-                if ($result.PacketLoss -gt 10 -or ($null -ne $result.LatencyAvg -and $result.LatencyAvg -gt 200))
+                if ($result.PacketLoss -gt 10 -or ($null -ne $result.LatencyAvg -and $result.LatencyAvg -gt 200) -or ($null -ne $result.Jitter -and $result.Jitter -ge 50))
                 {
                     $statusColor = 'Red'
                 }
-                elseif ($result.PacketLoss -gt 2 -or ($null -ne $result.LatencyAvg -and $result.LatencyAvg -gt 100))
+                elseif ($result.PacketLoss -gt 2 -or ($null -ne $result.LatencyAvg -and $result.LatencyAvg -gt 100) -or ($null -ne $result.Jitter -and $result.Jitter -ge 30))
+                {
+                    $statusColor = 'Yellow'
+                }
+                if ($flags | Where-Object { $_.Color -eq 'Red' })
+                {
+                    $statusColor = 'Red'
+                }
+                elseif ($statusColor -ne 'Red' -and ($flags | Where-Object { $_.Color -like '*Yellow*' }))
                 {
                     $statusColor = 'Yellow'
                 }
@@ -652,6 +703,17 @@
                             Write-Host ' | dns ' -NoNewline -ForegroundColor Gray
                             $dnsColor = if ($result.DnsResolution -lt 50) { 'Green' } elseif ($result.DnsResolution -lt 150) { 'Yellow' } else { 'Red' }
                             Write-Host "$($result.DnsResolution)ms" -NoNewline -ForegroundColor $dnsColor
+                        }
+                        if ($flags.Count -gt 0)
+                        {
+                            $flagPreview = ($flags | Select-Object -First 2 | ForEach-Object { $_.Text }) -join ', '
+                            $flagColor = ($flags | Select-Object -First 1).Color
+                            Write-Host ' | flags ' -NoNewline -ForegroundColor Gray
+                            Write-Host $flagPreview -NoNewline -ForegroundColor $flagColor
+                            if ($flags.Count -gt 2)
+                            {
+                                Write-Host " +$($flags.Count - 2)" -NoNewline -ForegroundColor DarkGray
+                            }
                         }
                         Write-Host $clearTail
                     }
@@ -713,6 +775,28 @@
                 Write-Host ') | Packet Loss: ' -NoNewline
                 $lossColor = if ($result.PacketLoss -eq 0) { 'Green' } elseif ($result.PacketLoss -lt 5) { 'Yellow' } else { 'Red' }
                 Write-Host ("$($result.PacketLoss)%$clearTail") -ForegroundColor $lossColor
+                $linesPrintedLocal++
+
+                # Call out issues inline with quick flags
+                Write-Host '│  Findings: ' -NoNewline
+                if ($flags.Count -eq 0)
+                {
+                    Write-Host ("Healthy$clearTail") -ForegroundColor Green
+                }
+                else
+                {
+                    $flagIndex = 0
+                    foreach ($flag in $flags)
+                    {
+                        if ($flagIndex -gt 0)
+                        {
+                            Write-Host ' | ' -NoNewline -ForegroundColor DarkGray
+                        }
+                        Write-Host $flag.Text -NoNewline -ForegroundColor $flag.Color
+                        $flagIndex++
+                    }
+                    Write-Host $clearTail
+                }
                 $linesPrintedLocal++
 
                 # DNS resolution time with color coding
