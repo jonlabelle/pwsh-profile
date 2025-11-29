@@ -9,6 +9,127 @@
         bar charts, and time-series graphs. Supports both inline sparklines and detailed
         multi-line graphs. Cross-platform compatible.
 
+        TROUBLESHOOTING USE CASES:
+
+        This function helps identify network performance patterns through visualization:
+
+        1. PATTERN RECOGNITION - Sparkline Graphs
+           Sparklines provide instant visual feedback on latency trends:
+           - Flat line (▂▂▂▂▂): Stable, healthy connection
+           - Gradual climb (▁▂▃▅▆▇): Progressive degradation (congestion building)
+           - Sudden spikes (▂▂▇▂▂): Intermittent issues (routing flaps, packet bursts)
+           - Gaps with ✖ marks: Packet loss or timeouts
+           - Highly variable (▁▇▂▇▃): High jitter (unsuitable for VoIP/gaming)
+
+        2. TREND ANALYSIS - Time Series Graphs
+           Time-series graphs reveal performance trends over longer periods:
+           - Ascending trend: Network congestion increasing over time
+           - Descending trend: Improvement (e.g., after route optimization)
+           - Periodic pattern: Time-based issues (backup windows, scheduled tasks)
+           - Stepped pattern: Route changes or failover events
+           - Chaotic pattern: Unstable network path requiring investigation
+
+        3. DISTRIBUTION ANALYSIS - Histogram Graphs
+           Distribution graphs identify latency consistency:
+           - Single peak (normal distribution): Consistent, predictable latency
+           - Bimodal distribution: Two routing paths or intermittent issues
+           - Flat distribution: Highly unpredictable, problematic connection
+           - Right-skewed: Occasional high latency outliers
+           - Left-skewed: Baseline issues with occasional good performance
+
+        4. CONTINUOUS MONITORING
+           Real-time visualization of network changes:
+           - Watch for sudden pattern changes indicating network events
+           - Monitor during maintenance windows to verify stability
+           - Identify the exact moment when performance degrades
+           - Compare before/after metrics for configuration changes
+
+        INTERPRETING GRAPH PATTERNS:
+
+        Healthy Network:
+        ▂▂▂▂▂▃▂▂▂▂▂▂▃▂▂ (min: 12ms, max: 15ms, avg: 13ms, jitter: 1.2ms)
+        - Tight range, low jitter, no gaps
+        - Suitable for all applications including real-time
+
+        Congested Network:
+        ▁▂▃▅▆▇██▇▆▅▃▂▁ (min: 15ms, max: 95ms, avg: 55ms, jitter: 28ms)
+        - Ascending then descending (congestion clearing)
+        - High jitter, unsuitable for VoIP/gaming
+        - Action: Investigate QoS, bandwidth utilization
+
+        Packet Loss:
+        ▂▂✖✖▂▂✖▂▂▂✖✖✖ (min: 12ms, max: 18ms, avg: 14ms, failed: 6)
+        - Multiple ✖ marks indicating failures
+        - Action: Check physical layer, firewall rules, routing
+
+        Route Flapping:
+        ▂▂▂████▂▂▂████▂▂▂ (min: 12ms, max: 120ms, avg: 45ms, jitter: 42ms)
+        - Periodic spikes at regular intervals
+        - Action: BGP route instability, check with ISP
+
+        DNS Issues:
+        First request: 250ms, subsequent: ▂▂▂▂▂ (avg: 13ms)
+        - High initial latency, then normal
+        - Action: DNS cache warming, check resolver performance
+
+        USING GRAPH FUNCTIONS TOGETHER:
+
+        Scenario 1: Quick Visual Triage
+        Step 1: Collect data from problem endpoint
+                $metrics = Get-NetworkMetrics -HostName 'slow-api.example.com' -Count 50
+        Step 2: Quick sparkline check
+                Show-NetworkLatencyGraph -Data $metrics.LatencyData -GraphType Sparkline -ShowStats
+        Step 3: If pattern looks concerning, get detailed view
+                Show-NetworkLatencyGraph -Data $metrics.LatencyData -GraphType TimeSeries -Width 80 -Height 15 -ShowStats
+        Step 4: Check distribution for consistency
+                Show-NetworkLatencyGraph -Data $metrics.LatencyData -GraphType Distribution
+        Resolution: Pattern shape tells you where to investigate
+
+        Scenario 2: Comparing Multiple Paths
+        Step 1: Collect metrics for primary and backup paths
+                $primary = Get-NetworkMetrics -HostName 'primary.example.com' -Count 100
+                $backup = Get-NetworkMetrics -HostName 'backup.example.com' -Count 100
+        Step 2: Visual side-by-side comparison
+                Write-Host "Primary: " -NoNewline
+                Show-NetworkLatencyGraph -Data $primary.LatencyData -GraphType Sparkline -ShowStats
+                Write-Host "Backup:  " -NoNewline
+                Show-NetworkLatencyGraph -Data $backup.LatencyData -GraphType Sparkline -ShowStats
+        Step 3: Detailed analysis of chosen path
+                Show-NetworkLatencyGraph -Data $primary.LatencyData -GraphType TimeSeries -ShowStats
+        Resolution: Quantify performance difference between paths
+
+        Scenario 3: Real-Time Performance Monitoring
+        Step 1: Live monitoring with auto-refresh
+                Show-NetworkLatencyGraph -HostName 'critical-service.com' -GraphType TimeSeries -Continuous -Interval 5
+        Step 2: Watch for pattern changes during maintenance
+                # Graph updates every 5 seconds showing current state
+        Step 3: When issue detected, switch to detailed diagnostic
+                Invoke-NetworkDiagnostic -HostName 'critical-service.com' -ShowGraph -Count 200
+        Resolution: Catch the exact moment performance degrades
+
+        Scenario 4: Historical Pattern Analysis
+        Step 1: Collect extended baseline
+                $morning = Get-NetworkMetrics -HostName 'database.local' -Port 5432 -Count 200
+                # ... collect at different times of day ...
+                $evening = Get-NetworkMetrics -HostName 'database.local' -Port 5432 -Count 200
+        Step 2: Compare distributions
+                Show-NetworkLatencyGraph -Data $morning.LatencyData -GraphType Distribution
+                Show-NetworkLatencyGraph -Data $evening.LatencyData -GraphType Distribution
+        Resolution: Identify time-based performance patterns (backup windows, usage peaks)
+
+        Scenario 5: Validating Network Changes
+        Step 1: Baseline before change
+                $before = Get-NetworkMetrics -HostName 'endpoint.com' -Count 100
+                Show-NetworkLatencyGraph -Data $before.LatencyData -GraphType Sparkline -ShowStats
+        Step 2: Apply network configuration change (QoS, routing, etc.)
+        Step 3: Measure after change
+                $after = Get-NetworkMetrics -HostName 'endpoint.com' -Count 100
+                Show-NetworkLatencyGraph -Data $after.LatencyData -GraphType Sparkline -ShowStats
+        Step 4: Compare distributions
+                Show-NetworkLatencyGraph -Data $before.LatencyData -GraphType Distribution -Width 60
+                Show-NetworkLatencyGraph -Data $after.LatencyData -GraphType Distribution -Width 60
+        Resolution: Quantify improvement (or degradation) from configuration change
+
         RELATED FUNCTIONS:
         This function is designed to work with:
         - Get-NetworkMetrics: Auto-loaded in continuous mode to collect latency samples
@@ -351,16 +472,22 @@
                 {
                     Clear-Host
                 }
-                elseif ($effectiveRender -eq 'InPlace' -and ($iteration -gt 1) -and $lastRenderLines -gt 0)
+                elseif ($effectiveRender -eq 'InPlace' -and $iteration -eq 1)
                 {
-                    # Move cursor up to the start of the previous block and reset to column 1
-                    Write-Host ("`e[{0}A" -f $lastRenderLines) -NoNewline
-                    Write-Host "`e[1G" -NoNewline
+                    # On first iteration in InPlace mode, save cursor position for restoration
+                    # This marks the start of our output block
+                    [Console]::Write("`e7")  # Save cursor position
+                }
+                elseif ($effectiveRender -eq 'InPlace' -and $iteration -gt 1)
+                {
+                    # Restore cursor to the saved position (start of output block)
+                    [Console]::Write("`e8")  # Restore cursor position
                 }
 
-                Write-Host "${script:Palette.Cyan}Network Latency Graph - Iteration $iteration (Press Ctrl+C to stop)${script:Palette.Reset}"
-                Write-Host "${script:Palette.Gray}Host: $HostName | Interval: ${Interval}s | Samples: $Count | Port: $Port${script:Palette.Reset}"
-                Write-Host
+                $clearTail = if ($effectiveRender -eq 'InPlace') { "`e[K" } else { '' }
+                Write-Host "${script:Palette.Cyan}Network Latency Graph - Iteration $iteration (Press Ctrl+C to stop)${script:Palette.Reset}$clearTail"
+                Write-Host "${script:Palette.Gray}Host: $HostName | Interval: ${Interval}s | Samples: $Count | Port: $Port${script:Palette.Reset}$clearTail"
+                Write-Host "$clearTail"
                 $linesPrinted = 3
 
                 # Collect metrics
@@ -461,30 +588,31 @@
                         'Distribution'
                         {
                             $output = New-Object System.Text.StringBuilder
-                            $bucketCount = 10
-                            $bucketSize = if (($max - $min) -eq 0) { 1 } else { ($max - $min) / $bucketCount }
+                            $numBuckets = 10
+                            $bucketSize = if (($max - $min) -eq 0) { 1 } else { ($max - $min) / $numBuckets }
                             $buckets = @{}
-                            0..($bucketCount - 1) | ForEach-Object { $buckets[$_] = 0 }
+                            0..($numBuckets - 1) | ForEach-Object { $buckets[$_] = 0 }
                             foreach ($value in $validData)
                             {
                                 $bucketIndex = [Math]::Floor(($value - $min) / $bucketSize)
-                                $bucketIndex = [Math]::Min($bucketCount - 1, [Math]::Max(0, $bucketIndex))
+                                $bucketIndex = [Math]::Min($numBuckets - 1, [Math]::Max(0, $bucketIndex))
                                 $buckets[$bucketIndex]++
                             }
                             $maxCount = if (($buckets.Values | Measure-Object -Maximum).Maximum -eq 0) { 1 } else { ($buckets.Values | Measure-Object -Maximum).Maximum }
-                            [void]$output.AppendLine("${script:Palette.Cyan}Latency Distribution:${script:Palette.Reset}")
-                            for ($i = 0; $i -lt $bucketCount; $i++)
+                            $clearTail = if ($effectiveRender -eq 'InPlace') { "`e[K" } else { '' }
+                            [void]$output.AppendLine("${script:Palette.Cyan}Latency Distribution:${script:Palette.Reset}$clearTail")
+                            for ($i = 0; $i -lt $numBuckets; $i++)
                             {
                                 $rangeStart = [Math]::Round($min + ($i * $bucketSize), 1)
                                 $rangeEnd = [Math]::Round($min + (($i + 1) * $bucketSize), 1)
-                                $count = $buckets[$i]
-                                $barWidth = [Math]::Floor(($count / $maxCount) * ($Width - 20))
+                                $itemCount = $buckets[$i]
+                                $barWidth = [Int32][Math]::Floor(($itemCount / $maxCount) * ($Width - 20))
                                 $midpoint = ($rangeStart + $rangeEnd) / 2
                                 $barColor = if ($midpoint -lt 50) { $script:Palette.Green } elseif ($midpoint -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
-                                $label = "${script:Palette.Gray}$rangeStart-$rangeEnd ms${script:Palette.Reset}".PadRight(15 + ($script:Palette.Gray.Length + $script:Palette.Reset.Length))
-                                $bar = "$barColor" + ('█' * $barWidth) + "$script:Palette.Reset"
-                                $percentage = [Math]::Round(($count / $validData.Count) * 100, 1)
-                                [void]$output.AppendLine("$label $bar ${script:Palette.Cyan}$count${script:Palette.Reset} ${script:Palette.Gray}($percentage%)${script:Palette.Reset}")
+                                $label = "$rangeStart-$rangeEnd ms".PadRight(15)
+                                $bar = $barColor + ([char]0x2588).ToString() * $barWidth + $script:Palette.Reset
+                                $percentage = [Math]::Round(($itemCount / $validData.Count) * 100, 1)
+                                [void]$output.AppendLine("${script:Palette.Gray}$label${script:Palette.Reset} $bar ${script:Palette.Cyan}$itemCount${script:Palette.Reset} ${script:Palette.Gray}($percentage%)${script:Palette.Reset}$clearTail")
                             }
                             $output.ToString()
                         }
@@ -504,7 +632,9 @@
                 # Packet loss and jitter with dynamic color coding (green=good, yellow=medium, red=bad)
                 $lossColor = if ($metrics.PacketLoss -eq 0) { $script:Palette.Green } elseif ($metrics.PacketLoss -lt 5) { $script:Palette.Yellow } else { $script:Palette.Red }
                 $jitterColor = if ($metrics.Jitter -lt 10) { $script:Palette.Green } elseif ($metrics.Jitter -lt 30) { $script:Palette.Yellow } else { $script:Palette.Red }
-                Write-Host "${script:Palette.Gray}Packet Loss: $lossColor$($metrics.PacketLoss)%${script:Palette.Gray} | Jitter: $jitterColor$($metrics.Jitter)ms${script:Palette.Reset}"
+                $clearTail = if ($effectiveRender -eq 'InPlace') { "`e[K" } else { '' }
+                Write-Host "${script:Palette.Gray}Packet Loss: $lossColor$($metrics.PacketLoss)%${script:Palette.Gray} | Jitter: $jitterColor$($metrics.Jitter)ms${script:Palette.Reset}$clearTail" -NoNewline
+                Write-Host  # Move to next line after stats
                 $linesPrinted += 2
                 $lastRenderLines = $linesPrinted
                 Start-Sleep -Seconds $Interval
@@ -528,16 +658,16 @@
                     }
                     else
                     {
-                        # Normalize value to 0-8 range
+                        # Normalize value to 0-7 range (8 characters in SparkChars array)
                         if ($max -eq $min)
                         {
-                            $index = 4
+                            $index = 3
                         }
                         else
                         {
                             $normalized = ($value - $min) / ($max - $min)
                             $index = [Math]::Floor($normalized * 8)
-                            $index = [Math]::Min(8, [Math]::Max(0, $index))
+                            $index = [Math]::Min(7, [Math]::Max(0, $index))
                         }
                         [void]$sparkline.Append($script:SparkChars[$index])
                     }
@@ -664,18 +794,18 @@
                 {
                     $rangeStart = [Math]::Round($min + ($i * $bucketSize), 1)
                     $rangeEnd = [Math]::Round($min + (($i + 1) * $bucketSize), 1)
-                    $count = $buckets[$i]
-                    $barWidth = [Math]::Floor(($count / $maxCount) * ($Width - 20))
+                    $bucketItemCount = $buckets[$i]
+                    $barWidth = [Math]::Floor(($bucketItemCount / $maxCount) * ($Width - 20))
 
                     # Color bar based on range midpoint
                     $midpoint = ($rangeStart + $rangeEnd) / 2
                     $barColor = if ($midpoint -lt 50) { $script:Palette.Green } elseif ($midpoint -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
 
-                    $label = "${script:Palette.Gray}$rangeStart-$rangeEnd ms${script:Palette.Reset}".PadRight(15 + ($script:Palette.Gray.Length + $script:Palette.Reset.Length))
+                    $label = "$rangeStart-$rangeEnd ms".PadRight(15)
                     $bar = "$barColor" + ([char]0x2588 * $barWidth) + "$script:Palette.Reset"
-                    $percentage = [Math]::Round(($count / $validData.Count) * 100, 1)
+                    $percentage = [Math]::Round(($bucketItemCount / $validData.Count) * 100, 1)
 
-                    [void]$output.AppendLine("$label $bar ${script:Palette.Cyan}$count${script:Palette.Reset} ${script:Palette.Gray}($percentage`%)${script:Palette.Reset}")
+                    [void]$output.AppendLine("${script:Palette.Gray}$label${script:Palette.Reset} $bar ${script:Palette.Cyan}$bucketItemCount${script:Palette.Reset} ${script:Palette.Gray}($percentage`%)${script:Palette.Reset}")
                 }
 
                 return $output.ToString()
