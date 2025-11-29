@@ -541,6 +541,10 @@
                 return '     (no data)'
             }
 
+            # Start with a reset so prior host color doesn't bleed into this graph block
+            $output = New-Object System.Text.StringBuilder
+            [void]$output.Append($script:Palette.Reset)
+
             $range = if ($Max -eq $Min) { 1 } else { $Max - $Min }
             $scaleDenominator = [Math]::Max(1, $Height - 1)
             $pointsToPlot = [Math]::Min($Width, $Data.Count)
@@ -568,8 +572,6 @@
                     $rawValues += [double]$value
                 }
             }
-
-            $output = New-Object System.Text.StringBuilder
 
             # Build each row of the graph based on style
             for ($row = 0; $row -lt $Height; $row++)
@@ -653,11 +655,12 @@
                     }
                 }
 
-                [void]$output.AppendLine()
+                # Ensure the line resets color before newline to avoid bleed
+                [void]$output.AppendLine($script:Palette.Reset)
             }
 
-            [void]$output.Append('     +')
-            [void]$output.AppendLine('-' * $pointsToPlot)
+            [void]$output.Append("${script:Palette.Reset}     +")
+            [void]$output.AppendLine(('-' * $pointsToPlot) + $script:Palette.Reset)
 
             if ($ShowStats)
             {
@@ -673,10 +676,10 @@
                 }
                 $statsLine += " ${script:Palette.Gray}| Samples: ${script:Palette.Cyan}$validCount${script:Palette.Reset}"
                 if ($failedCount -gt 0) { $statsLine += " ${script:Palette.Gray}| Failed: ${script:Palette.Red}$failedCount${script:Palette.Reset}" }
-                [void]$output.AppendLine($statsLine)
+                [void]$output.AppendLine($statsLine + $script:Palette.Reset)
             }
 
-            return $output.ToString()
+            return $script:Palette.Reset + $output.ToString() + $script:Palette.Reset
         }        # Load Get-NetworkMetrics if in continuous mode
         if ($Continuous)
         {
@@ -912,7 +915,7 @@
 
                 if ($ShowStats)
                 {
-                    $statsText = " ${script:Palette.Gray}(min: ${script:Palette.Cyan}$([Math]::Round($min, 1))ms${script:Palette.Gray}, max: ${script:Palette.Cyan}$([Math]::Round($max, 1))ms${script:Palette.Gray}, avg: "
+                    $statsText = " ${script:Palette.Reset}${script:Palette.Gray}(min: ${script:Palette.Cyan}$([Math]::Round($min, 1))ms${script:Palette.Reset}${script:Palette.Gray}, max: ${script:Palette.Cyan}$([Math]::Round($max, 1))ms${script:Palette.Reset}${script:Palette.Gray}, avg: "
 
                     # Color avg based on value
                     $avgColor = if ($avg -lt 50) { $script:Palette.Green } elseif ($avg -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
@@ -930,7 +933,7 @@
                     $result += $statsText
                 }
 
-                return $result
+                return $script:Palette.Reset + $result + $script:Palette.Reset
             }
 
             'TimeSeries'
@@ -984,7 +987,7 @@
                     [void]$output.AppendLine("${script:Palette.Gray}$label${script:Palette.Reset} $bar ${script:Palette.Cyan}$bucketItemCount${script:Palette.Reset} ${script:Palette.Gray}($percentage`%)${script:Palette.Reset}")
                 }
 
-                return $output.ToString()
+                return $script:Palette.Reset + $output.ToString() + $script:Palette.Reset
             }
         }
     }

@@ -620,6 +620,7 @@
             }
 
             $clearTail = if ($InPlace) { "`e[K" } else { '' }
+            $resetEsc = "`e[0m"
 
             if ($Results.Count -eq 0)
             {
@@ -728,13 +729,13 @@
                 {
                     Write-Host '│  Latency: ' -NoNewline
                     # Use default color to preserve ANSI codes in sparkline
-                    Write-Host ("$sparkline$clearTail")
+                    Write-Host ("$resetEsc$sparkline$resetEsc$clearTail")
                     $linesPrintedLocal++
                 }
                 else
                 {
                     Write-Host '│  Latency: ' -NoNewline
-                    Write-Host ("$sparkline$clearTail") -ForegroundColor Red
+                    Write-Host ("$resetEsc$sparkline$resetEsc$clearTail") -ForegroundColor Red
                     $linesPrintedLocal++
                 }
 
@@ -803,20 +804,24 @@
                     $linesPrintedLocal++
                 }
 
+                # Reset the console color so following graph text doesn't inherit previous foreground settings
+                try { [Console]::ResetColor() } catch { }
+
                 # Detailed graph if requested
                 if ($ShowGraph -and $result.LatencyData.Count -gt 0)
                 {
-                    Write-Host ("│$clearTail")
+                    Write-Host ("│$resetEsc$clearTail")
                     $graph = & $getCachedGraph $result.LatencyData 'TimeSeries' 70 8 $true $Style
                     $graphLineCount = 0
                     foreach ($line in $graph -split "`n")
                     {
                         # Don't override colors - graph has embedded ANSI codes
-                        Write-Host ("│  $line$clearTail")
+                        Write-Host ("│  $resetEsc$line$resetEsc$clearTail")
                         $graphLineCount++
                     }
                     # Include the pre-graph spacer line
                     $linesPrintedLocal += (1 + $graphLineCount)
+                    try { [Console]::ResetColor() } catch { }
                 }
 
                 Write-Host (('└' + ('─' * 79) + $clearTail)) -ForegroundColor $statusColor
