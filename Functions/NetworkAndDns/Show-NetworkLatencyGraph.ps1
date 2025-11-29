@@ -85,6 +85,12 @@
         - TimeSeries: Multi-line graph showing latency over time
         - Distribution: Histogram showing latency distribution
 
+    .PARAMETER Style
+        Visualization style for TimeSeries graphs:
+        - Dots: Clean dot plot showing only data points (default, easiest to read)
+        - Bars: Vertical bars from baseline showing magnitude
+        - Line: Simple line connections between points
+
     .PARAMETER Width
         Width of the graph in characters (for TimeSeries and Distribution types)
 
@@ -165,6 +171,24 @@
         PS > Show-NetworkLatencyGraph -Data $data -GraphType TimeSeries -Width 80 -Height 15
 
         Generate random latency data and display in a large detailed graph
+
+    .EXAMPLE
+        PS > $latencies = @(45, 50, 48, 52, 49, 51, 47, 53)
+        PS > Show-NetworkLatencyGraph -Data $latencies -GraphType TimeSeries -Style Dots
+
+        Display time-series with clean dot plot (default style, easiest to read)
+
+    .EXAMPLE
+        PS > $latencies = @(45, 50, 48, 52, 49, 51, 47, 53)
+        PS > Show-NetworkLatencyGraph -Data $latencies -GraphType TimeSeries -Style Bars
+
+        Display time-series with vertical bars showing magnitude from baseline
+
+    .EXAMPLE
+        PS > $latencies = @(45, 50, 48, 52, 49, 51, 47, 53)
+        PS > Show-NetworkLatencyGraph -Data $latencies -GraphType TimeSeries -Style Line
+
+        Display time-series with simple line connections between data points
 
     .EXAMPLE
         PS > $metrics = Get-NetworkMetrics -HostName 'cloudflare.com' -Count 40
@@ -371,6 +395,10 @@
         [String]$GraphType = 'Sparkline',
 
         [Parameter()]
+        [ValidateSet('Dots', 'Bars', 'Line')]
+        [String]$Style = 'Dots',
+
+        [Parameter()]
         [ValidateRange(20, 200)]
         [Int32]$Width = 60,
 
@@ -448,10 +476,10 @@
                 [Parameter(Mandatory)][int]$Width,
                 [Parameter(Mandatory)][int]$Height,
                 [Parameter(Mandatory)][bool]$ShowStats,
-                [Parameter(Mandatory)][double]$Avg
+                [Parameter(Mandatory)][double]$Avg,
+                [Parameter(Mandatory)][string]$Style
             )
 
-            # Create a line graph showing only the actual data points
             $range = if ($Max -eq $Min) { 1 } else { $Max - $Min }
             $scaleDenominator = [Math]::Max(1, $Height - 1)
             $pointsToPlot = [Math]::Min($Width, $Data.Count)
@@ -479,7 +507,7 @@
 
             $output = New-Object System.Text.StringBuilder
 
-            # Build each row of the graph
+            # Build each row of the graph based on style
             for ($row = 0; $row -lt $Height; $row++)
             {
                 # Calculate the latency value this row represents
@@ -487,7 +515,7 @@
                 [void]$output.Append([Math]::Round($levelValue, 0).ToString().PadLeft(5))
                 [void]$output.Append(' |')
 
-                # Draw the line for this row
+                # Draw based on selected style
                 for ($col = 0; $col -lt $pointsToPlot; $col++)
                 {
                     $scaledRow = $scaledPoints[$col]
@@ -496,54 +524,62 @@
                     {
                         # Failed connection
                         [void]$output.Append('✖')
+                        continue
                     }
-                    elseif ($scaledRow -eq $row)
+
+                    switch ($Style)
                     {
-                        # Data point is on this row - use different characters for better visibility
-                        if ($col -lt $pointsToPlot - 1 -and $null -ne $scaledPoints[$col + 1])
+                        'Dots'
                         {
-                            # Connect to next point if it exists
-                            $nextRow = $scaledPoints[$col + 1]
-                            if ($nextRow -eq $row)
+                            if ($scaledRow -eq $row)
                             {
-                                [void]$output.Append('─')  # Horizontal line
-                            }
-                            elseif ($nextRow -gt $row)
-                            {
-                                [void]$output.Append('┐')  # Descending
-                            }
-                            elseif ($nextRow -lt $row)
-                            {
-                                [void]$output.Append('┘')  # Ascending
+                                [void]$output.Append('●')
                             }
                             else
                             {
-                                [void]$output.Append('●')  # Point
+                                [void]$output.Append(' ')
                             }
                         }
-                        else
+                        'Bars'
                         {
-                            [void]$output.Append('●')  # Point
+                            # Vertical bar from bottom up to the data point
+                            $shouldFill = ($Height - 1 - $row) -le ($Height - 1 - $scaledRow)
+                            if ($shouldFill)
+                            {
+                                [void]$output.Append('█')
+                            }
+                            else
+                            {
+                                [void]$output.Append(' ')
+                            }
                         }
-                    }
-                    elseif ($col -gt 0 -and $null -ne $scaledPoints[$col - 1] -and $null -ne $scaledRow)
-                    {
-                        # Check if line passes through this row between previous and current point
-                        $prevRow = $scaledPoints[$col - 1]
-                        $currRow = $scaledRow
+                        'Line'
+                        {
+                            # Simple line connecting points
+                            if ($scaledRow -eq $row)
+                            {
+                                [void]$output.Append('●')
+                            }
+                            elseif ($col -gt 0 -and $null -ne $scaledPoints[$col - 1])
+                            {
+                                # Check if line passes through this row between previous and current point
+                                $prevRow = $scaledPoints[$col - 1]
+                                $currRow = $scaledRow
 
-                        if (($prevRow -lt $row -and $currRow -gt $row) -or ($prevRow -gt $row -and $currRow -lt $row))
-                        {
-                            [void]$output.Append('│')  # Vertical connection line
+                                if (($prevRow -lt $row -and $currRow -gt $row) -or ($prevRow -gt $row -and $currRow -lt $row))
+                                {
+                                    [void]$output.Append('│')
+                                }
+                                else
+                                {
+                                    [void]$output.Append(' ')
+                                }
+                            }
+                            else
+                            {
+                                [void]$output.Append(' ')
+                            }
                         }
-                        else
-                        {
-                            [void]$output.Append(' ')  # Empty space
-                        }
-                    }
-                    else
-                    {
-                        [void]$output.Append(' ')  # Empty space
                     }
                 }
 
@@ -562,9 +598,7 @@
             }
 
             return $output.ToString()
-        }
-
-        # Load Get-NetworkMetrics if in continuous mode
+        }        # Load Get-NetworkMetrics if in continuous mode
         if ($Continuous)
         {
             if (-not (Get-Command -Name 'Get-NetworkMetrics' -ErrorAction SilentlyContinue))
@@ -716,7 +750,7 @@
                         }
                         'TimeSeries'
                         {
-                            script:Build-TimeSeriesGraph -Data $Data -Min $min -Max $max -Width $Width -Height $Height -ShowStats $ShowStats -Avg $avg
+                            script:Build-TimeSeriesGraph -Data $Data -Min $min -Max $max -Width $Width -Height $Height -ShowStats $ShowStats -Avg $avg -Style $Style
                         }
                         'Distribution'
                         {
@@ -829,7 +863,7 @@
 
             'TimeSeries'
             {
-                return script:Build-TimeSeriesGraph -Data $Data -Min $min -Max $max -Width $Width -Height $Height -ShowStats $ShowStats -Avg $avg
+                return script:Build-TimeSeriesGraph -Data $Data -Min $min -Max $max -Width $Width -Height $Height -ShowStats $ShowStats -Avg $avg -Style $Style
             }
 
             'Distribution'

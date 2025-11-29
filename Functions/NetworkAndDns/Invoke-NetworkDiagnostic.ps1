@@ -102,6 +102,12 @@
     .PARAMETER ShowGraph
         Display detailed time-series graph for each host
 
+    .PARAMETER Style
+        Visualization style for time-series graphs when ShowGraph is used:
+        - Dots: Clean dot plot showing only data points (default, easiest to read)
+        - Bars: Vertical bars from baseline showing magnitude
+        - Line: Simple line connections between points
+
     .PARAMETER IncludeDns
         Measure and display DNS resolution time
 
@@ -151,6 +157,21 @@
         PS > Invoke-NetworkDiagnostic -HostName 'google.com' -Continuous -ShowGraph -Interval 5
 
         Monitor with detailed time-series graphs, auto-refreshing every 5 seconds
+
+    .EXAMPLE
+        PS > Invoke-NetworkDiagnostic -HostName 'api.example.com' -ShowGraph -Style Dots
+
+        Test with clean dot plot visualization (default style, easiest to read)
+
+    .EXAMPLE
+        PS > Invoke-NetworkDiagnostic -HostName 'api.example.com' -ShowGraph -Style Bars
+
+        Test with bar chart visualization showing magnitude from baseline
+
+    .EXAMPLE
+        PS > Invoke-NetworkDiagnostic -HostName 'api.example.com' -ShowGraph -Style Line
+
+        Test with line plot visualization connecting data points
 
     .EXAMPLE
         PS > Invoke-NetworkDiagnostic -HostName 'cloudflare.com' -Continuous -Interval 2 -RenderMode InPlace
@@ -387,6 +408,10 @@
         [Switch]$ShowGraph,
 
         [Parameter()]
+        [ValidateSet('Dots', 'Bars', 'Line')]
+        [String]$Style = 'Dots',
+
+        [Parameter()]
         [Switch]$IncludeDns,
 
         [Parameter()]
@@ -532,11 +557,12 @@
                     [String]$GraphType,
                     [Int32]$Width = 0,
                     [Int32]$Height = 0,
-                    [Bool]$ShowStats = $false
+                    [Bool]$ShowStats = $false,
+                    [String]$GraphStyle = 'Dots'
                 )
 
                 $dataKey = ($Data | ForEach-Object { if ($null -eq $_) { 'null' } else { $_ } }) -join ','
-                $key = [string]::Join('|', @($GraphType, $Width, $Height, $ShowStats, $dataKey))
+                $key = [string]::Join('|', @($GraphType, $Width, $Height, $ShowStats, $GraphStyle, $dataKey))
 
                 if ($graphCache.ContainsKey($key))
                 {
@@ -550,6 +576,7 @@
                 if ($Width -gt 0) { $graphParams['Width'] = $Width }
                 if ($Height -gt 0) { $graphParams['Height'] = $Height }
                 if ($ShowStats) { $graphParams['ShowStats'] = $true }
+                if ($GraphType -eq 'TimeSeries') { $graphParams['Style'] = $GraphStyle }
 
                 $graph = Show-NetworkLatencyGraph @graphParams
                 $graphCache[$key] = $graph
@@ -707,7 +734,7 @@
                 if ($ShowGraph -and $result.LatencyData.Count -gt 0)
                 {
                     Write-Host '│'
-                    $graph = & $getCachedGraph $result.LatencyData 'TimeSeries' 70 8 $true
+                    $graph = & $getCachedGraph $result.LatencyData 'TimeSeries' 70 8 $true $Style
                     $graphLineCount = 0
                     foreach ($line in $graph -split "`n")
                     {
