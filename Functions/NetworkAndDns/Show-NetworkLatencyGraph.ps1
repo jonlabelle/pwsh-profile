@@ -439,6 +439,131 @@
         # Block characters for sparklines (8 levels)
         $script:SparkChars = @([char]0x2581, [char]0x2582, [char]0x2583, [char]0x2584, [char]0x2585, [char]0x2586, [char]0x2587, [char]0x2588)
 
+        function script:Build-TimeSeriesGraph
+        {
+            param(
+                [Parameter(Mandatory)][Object[]]$Data,
+                [Parameter(Mandatory)][double]$Min,
+                [Parameter(Mandatory)][double]$Max,
+                [Parameter(Mandatory)][int]$Width,
+                [Parameter(Mandatory)][int]$Height,
+                [Parameter(Mandatory)][bool]$ShowStats,
+                [Parameter(Mandatory)][double]$Avg
+            )
+
+            # Create a line graph showing only the actual data points
+            $range = if ($Max -eq $Min) { 1 } else { $Max - $Min }
+            $scaleDenominator = [Math]::Max(1, $Height - 1)
+            $pointsToPlot = [Math]::Min($Width, $Data.Count)
+
+            # Pre-calculate scaled positions for all data points
+            $scaledPoints = @()
+            for ($col = 0; $col -lt $pointsToPlot; $col++)
+            {
+                $dataIndex = [Math]::Floor($col * $Data.Count / $pointsToPlot)
+                $value = $Data[$dataIndex]
+
+                if ($null -eq $value)
+                {
+                    $scaledPoints += $null
+                }
+                else
+                {
+                    # Scale value to graph height (inverted: higher values = lower row numbers)
+                    $normalized = ($value - $Min) / $range
+                    $scaledRow = [Math]::Round(($Height - 1) - ($normalized * $scaleDenominator), 0)
+                    $scaledRow = [Math]::Max(0, [Math]::Min($Height - 1, $scaledRow))
+                    $scaledPoints += $scaledRow
+                }
+            }
+
+            $output = New-Object System.Text.StringBuilder
+
+            # Build each row of the graph
+            for ($row = 0; $row -lt $Height; $row++)
+            {
+                # Calculate the latency value this row represents
+                $levelValue = $Min + (($Height - 1 - $row) / $scaleDenominator) * $range
+                [void]$output.Append([Math]::Round($levelValue, 0).ToString().PadLeft(5))
+                [void]$output.Append(' |')
+
+                # Draw the line for this row
+                for ($col = 0; $col -lt $pointsToPlot; $col++)
+                {
+                    $scaledRow = $scaledPoints[$col]
+
+                    if ($null -eq $scaledRow)
+                    {
+                        # Failed connection
+                        [void]$output.Append('✖')
+                    }
+                    elseif ($scaledRow -eq $row)
+                    {
+                        # Data point is on this row - use different characters for better visibility
+                        if ($col -lt $pointsToPlot - 1 -and $null -ne $scaledPoints[$col + 1])
+                        {
+                            # Connect to next point if it exists
+                            $nextRow = $scaledPoints[$col + 1]
+                            if ($nextRow -eq $row)
+                            {
+                                [void]$output.Append('─')  # Horizontal line
+                            }
+                            elseif ($nextRow -gt $row)
+                            {
+                                [void]$output.Append('┐')  # Descending
+                            }
+                            elseif ($nextRow -lt $row)
+                            {
+                                [void]$output.Append('┘')  # Ascending
+                            }
+                            else
+                            {
+                                [void]$output.Append('●')  # Point
+                            }
+                        }
+                        else
+                        {
+                            [void]$output.Append('●')  # Point
+                        }
+                    }
+                    elseif ($col -gt 0 -and $null -ne $scaledPoints[$col - 1] -and $null -ne $scaledRow)
+                    {
+                        # Check if line passes through this row between previous and current point
+                        $prevRow = $scaledPoints[$col - 1]
+                        $currRow = $scaledRow
+
+                        if (($prevRow -lt $row -and $currRow -gt $row) -or ($prevRow -gt $row -and $currRow -lt $row))
+                        {
+                            [void]$output.Append('│')  # Vertical connection line
+                        }
+                        else
+                        {
+                            [void]$output.Append(' ')  # Empty space
+                        }
+                    }
+                    else
+                    {
+                        [void]$output.Append(' ')  # Empty space
+                    }
+                }
+
+                [void]$output.AppendLine()
+            }
+
+            [void]$output.Append('     +')
+            [void]$output.AppendLine('-' * $pointsToPlot)
+
+            if ($ShowStats)
+            {
+                $avgColor = if ($Avg -lt 50) { $script:Palette.Green } elseif ($Avg -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
+                $sampleCount = $Data.Count
+                $statsLine = "     ${script:Palette.Gray}Min: ${script:Palette.Cyan}$([Math]::Round($Min, 1))ms ${script:Palette.Gray}| Max: ${script:Palette.Cyan}$([Math]::Round($Max, 1))ms ${script:Palette.Gray}| Avg: $avgColor$([Math]::Round($Avg, 1))ms ${script:Palette.Gray}| Samples: ${script:Palette.Cyan}$sampleCount${script:Palette.Reset}"
+                [void]$output.AppendLine($statsLine)
+            }
+
+            return $output.ToString()
+        }
+
         # Load Get-NetworkMetrics if in continuous mode
         if ($Continuous)
         {
@@ -582,7 +707,8 @@
                             {
                                 # Provide a compact stats line under the sparkline in continuous mode
                                 $avgColor = if ($avg -lt 50) { $script:Palette.Green } elseif ($avg -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
-                                $compact = "`n${script:Palette.Gray}Min: ${script:Palette.Cyan}$([Math]::Round($min,1))ms ${script:Palette.Gray}| Max: ${script:Palette.Cyan}$([Math]::Round($max,1))ms ${script:Palette.Gray}| Avg: $avgColor$([Math]::Round($avg,1))ms ${script:Palette.Gray}| Samples: ${script:Palette.Cyan}$($Data.Count)${script:Palette.Reset}"
+                                $sampleCount = $Data.Count
+                                $compact = "`n${script:Palette.Gray}Min: ${script:Palette.Cyan}$([Math]::Round($min,1))ms ${script:Palette.Gray}| Max: ${script:Palette.Cyan}$([Math]::Round($max,1))ms ${script:Palette.Gray}| Avg: $avgColor$([Math]::Round($avg,1))ms ${script:Palette.Gray}| Samples: ${script:Palette.Cyan}$sampleCount${script:Palette.Reset}"
                                 if ($failedCount -gt 0) { $compact += " ${script:Palette.Gray}| Failed: ${script:Palette.Red}$failedCount${script:Palette.Reset}" }
                                 $result += $compact
                             }
@@ -590,44 +716,7 @@
                         }
                         'TimeSeries'
                         {
-                            $output = New-Object System.Text.StringBuilder
-                            $range = if (($max - $min) -eq 0) { 1 } else { $max - $min }
-                            $pointsToPlot = [Math]::Min($Width, $Data.Count)
-                            for ($row = $Height - 1; $row -ge 0; $row--)
-                            {
-                                $threshold = $min + ($range * ($row + 0.5) / $Height)
-                                $yLabel = [Math]::Round($min + ($range * $row / $Height), 0)
-                                [void]$output.Append($yLabel.ToString().PadLeft(5))
-                                [void]$output.Append(' |')
-                                for ($col = 0; $col -lt $pointsToPlot; $col++)
-                                {
-                                    $dataIndex = [Math]::Floor($col * $Data.Count / $pointsToPlot)
-                                    $value = $Data[$dataIndex]
-                                    if ($null -eq $value) { [void]$output.Append('✖') }
-                                    elseif ($value -ge $threshold)
-                                    {
-                                        if ($row -eq $Height - 1 -or $value -ge ($min + ($range * ($row + 1) / $Height)))
-                                        { [void]$output.Append('█') }
-                                        else { [void]$output.Append('▄') }
-                                    }
-                                    else
-                                    {
-                                        if ($row -eq 0) { [void]$output.Append('_') }
-                                        else { [void]$output.Append(' ') }
-                                    }
-                                }
-                                [void]$output.AppendLine()
-                            }
-                            [void]$output.Append('     +')
-                            [void]$output.AppendLine('-' * $pointsToPlot)
-                            if ($ShowStats)
-                            {
-                                $statsLine = "     ${script:Palette.Gray}Min: ${script:Palette.Cyan}$([Math]::Round($min, 1))ms ${script:Palette.Gray}| Max: ${script:Palette.Cyan}$([Math]::Round($max, 1))ms ${script:Palette.Gray}| Avg: "
-                                $avgColor = if ($avg -lt 50) { $script:Palette.Green } elseif ($avg -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
-                                $statsLine += "$avgColor$([Math]::Round($avg, 1))ms ${script:Palette.Gray}| Samples: ${script:Palette.Cyan}$($Data.Count)${script:Palette.Reset}"
-                                [void]$output.AppendLine($statsLine)
-                            }
-                            $output.ToString()
+                            script:Build-TimeSeriesGraph -Data $Data -Min $min -Max $max -Width $Width -Height $Height -ShowStats $ShowStats -Avg $avg
                         }
                         'Distribution'
                         {
@@ -740,78 +829,7 @@
 
             'TimeSeries'
             {
-                $output = New-Object System.Text.StringBuilder
-
-                # Create Y-axis labels and grid
-                $range = $max - $min
-                if ($range -eq 0) { $range = 1 }
-                $pointsToPlot = [Math]::Min($Width, $Data.Count)
-
-                # Build graph line by line from top to bottom
-                for ($row = $Height - 1; $row -ge 0; $row--)
-                {
-                    $threshold = $min + ($range * ($row + 0.5) / $Height)
-                    $yLabel = [Math]::Round($min + ($range * $row / $Height), 0)
-
-                    # Y-axis label
-                    [void]$output.Append($yLabel.ToString().PadLeft(5))
-                    [void]$output.Append(' |')
-
-                    # Plot points
-                    for ($col = 0; $col -lt $pointsToPlot; $col++)
-                    {
-                        $dataIndex = [Math]::Floor($col * $Data.Count / $pointsToPlot)
-                        $value = $Data[$dataIndex]
-
-                        if ($null -eq $value)
-                        {
-                            [void]$output.Append('✖')
-                        }
-                        elseif ($value -ge $threshold)
-                        {
-                            # Determine character based on proximity
-                            if ($row -eq $Height - 1 -or $value -ge ($min + ($range * ($row + 1) / $Height)))
-                            {
-                                [void]$output.Append('█')
-                            }
-                            else
-                            {
-                                [void]$output.Append('▄')
-                            }
-                        }
-                        else
-                        {
-                            # Show baseline indicator for bottom row to indicate data exists
-                            if ($row -eq 0)
-                            {
-                                [void]$output.Append('_')
-                            }
-                            else
-                            {
-                                [void]$output.Append(' ')
-                            }
-                        }
-                    }
-
-                    [void]$output.AppendLine()
-                }
-
-                # X-axis
-                [void]$output.Append('     +')
-                [void]$output.AppendLine('-' * $pointsToPlot)
-
-                if ($ShowStats)
-                {
-                    $statsLine = "     ${script:Palette.Gray}Min: ${script:Palette.Cyan}$([Math]::Round($min, 1))ms ${script:Palette.Gray}| Max: ${script:Palette.Cyan}$([Math]::Round($max, 1))ms ${script:Palette.Gray}| Avg: "
-
-                    # Color avg based on value
-                    $avgColor = if ($avg -lt 50) { $script:Palette.Green } elseif ($avg -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
-                    $statsLine += "$avgColor$([Math]::Round($avg, 1))ms ${script:Palette.Gray}| Samples: ${script:Palette.Cyan}$($Data.Count)${script:Palette.Reset}"
-
-                    [void]$output.AppendLine($statsLine)
-                }
-
-                return $output.ToString()
+                return script:Build-TimeSeriesGraph -Data $Data -Min $min -Max $max -Width $Width -Height $Height -ShowStats $ShowStats -Avg $avg
             }
 
             'Distribution'
