@@ -373,7 +373,7 @@
         - PowerShell Desktop 5.1 does not support ANSI cursor control for in-place updates
         - Console is cleared between iterations using Clear-Host in continuous mode
         - ANSI colors are automatically disabled on 5.1 to prevent escape codes in output
-        - PowerShell Core (6+) supports ANSI colors; cursor movement avoided for compatibility
+        - PowerShell Core (6+) supports ANSI colors and uses ANSI cursor movement for in-place updates
 
         Author: Jon LaBelle
         License: MIT
@@ -657,7 +657,6 @@
         if ($Continuous)
         {
             $iteration = 0
-            $lastRenderLines = 0
             do
             {
                 $iteration++
@@ -690,7 +689,6 @@
                 Write-Host "${script:Palette.Cyan}Network Latency Graph - Iteration $iteration (Press Ctrl+C to stop)${script:Palette.Reset}$clearTail"
                 Write-Host "${script:Palette.Gray}Host: $HostName | Interval: ${Interval}s | Samples: $Count | Port: $Port${script:Palette.Reset}$clearTail"
                 Write-Host "$clearTail"
-                $linesPrinted = 3
 
                 # Collect metrics
                 $metrics = Get-NetworkMetrics -HostName $HostName -Count $Count -Port $Port -SampleDelayMilliseconds $SampleDelayMilliseconds
@@ -789,13 +787,10 @@
                     }
 
                     Write-Host $graphOutput
-                    $graphLineCount = ($graphOutput -split "`n" | Where-Object { $_.Trim() }).Count
-                    $linesPrinted += $graphLineCount
                 }
                 else
                 {
                     Write-Host "${script:Palette.Red}No successful connections${script:Palette.Reset}"
-                    $linesPrinted += 1
                 }
 
                 Write-Host
@@ -805,8 +800,6 @@
                 $clearTail = if ($effectiveRender -eq 'InPlace') { "`e[K" } else { '' }
                 Write-Host "${script:Palette.Gray}Packet Loss: $lossColor$($metrics.PacketLoss)%${script:Palette.Gray} | Jitter: $jitterColor$($metrics.Jitter)ms${script:Palette.Reset}$clearTail" -NoNewline
                 Write-Host  # Move to next line after stats
-                $linesPrinted += 2
-                $lastRenderLines = $linesPrinted
                 Start-Sleep -Seconds $Interval
 
             } while ($MaxIterations -eq 0 -or $iteration -lt $MaxIterations)
