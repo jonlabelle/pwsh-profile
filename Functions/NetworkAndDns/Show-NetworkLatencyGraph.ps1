@@ -366,7 +366,8 @@
         or degradation from QoS, routing, or other network modifications.
 
     .OUTPUTS
-        System.String
+        System.String (static mode)
+        None (continuous mode; writes directly to host)
 
     .NOTES
         POWERSHELL 5.1 BEHAVIOR:
@@ -380,11 +381,12 @@
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Show-NetworkLatencyGraph.ps1
     #>
     [CmdletBinding()]
-    [OutputType([String])]
+    [OutputType([String], ParameterSetName = 'Data')]
+    [OutputType([void], ParameterSetName = 'Continuous')]
     param(
         [Parameter(Mandatory, ValueFromPipeline, ParameterSetName = 'Data')]
         [AllowNull()]
-        [Double[]]$Data,
+        [Object[]]$Data,
 
         [Parameter(Mandatory, ParameterSetName = 'Continuous')]
         [ValidateNotNullOrEmpty()]
@@ -737,15 +739,6 @@
                                 if ($failedCount -gt 0) { $statsText += ", failed: ${script:Palette.Red}$failedCount${script:Palette.Gray}" }
                                 $statsText += ")${script:Palette.Reset}"
                                 $result += $statsText
-                            }
-                            else
-                            {
-                                # Provide a compact stats line under the sparkline in continuous mode
-                                $avgColor = if ($avg -lt 50) { $script:Palette.Green } elseif ($avg -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
-                                $sampleCount = $Data.Count
-                                $compact = "`n${script:Palette.Gray}Min: ${script:Palette.Cyan}$([Math]::Round($min,1))ms ${script:Palette.Gray}| Max: ${script:Palette.Cyan}$([Math]::Round($max,1))ms ${script:Palette.Gray}| Avg: $avgColor$([Math]::Round($avg,1))ms ${script:Palette.Gray}| Samples: ${script:Palette.Cyan}$sampleCount${script:Palette.Reset}"
-                                if ($failedCount -gt 0) { $compact += " ${script:Palette.Gray}| Failed: ${script:Palette.Red}$failedCount${script:Palette.Reset}" }
-                                $result += $compact
                             }
                             $result
                         }

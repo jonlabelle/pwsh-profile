@@ -10,7 +10,7 @@
         .NET methods for compatibility across Windows, macOS, and Linux.
 
         Metrics collected:
-        - Latency (min/max/avg/current)
+        - Latency (min/max/avg)
         - Packet loss percentage
         - Jitter (latency variance)
         - DNS resolution time
@@ -279,8 +279,8 @@
     {
         Write-Verbose "Starting network metrics collection for $HostName"
 
-        # Initialize collections
-        $latencies = [System.Collections.Generic.List[Double]]::new()
+        # Initialize collections (allow nulls so we can mark failed samples)
+        $latencies = [System.Collections.Generic.List[Nullable[Double]]]::new()
         $results = [System.Collections.Generic.List[Bool]]::new()
         $dnsTime = $null
 
@@ -393,11 +393,12 @@
                 continue
             }
 
+            $value = [double]$latency
             $validCount++
-            if ($latency -lt $minLatency) { $minLatency = $latency }
-            if ($latency -gt $maxLatency) { $maxLatency = $latency }
-            $sumLatency += $latency
-            $sumLatencySq += ($latency * $latency)
+            if ($value -lt $minLatency) { $minLatency = $value }
+            if ($value -gt $maxLatency) { $maxLatency = $value }
+            $sumLatency += $value
+            $sumLatencySq += ($value * $value)
         }
 
         if ($validCount -gt 0)

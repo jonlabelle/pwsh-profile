@@ -366,7 +366,7 @@
         Identify whether issues are service-specific or systemic network problems.
 
     .OUTPUTS
-        System.String (formatted diagnostic output)
+        None. Writes formatted diagnostic output to the host.
 
     .NOTES
         POWERSHELL 5.1 BEHAVIOR:
@@ -381,7 +381,7 @@
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Invoke-NetworkDiagnostic.ps1
     #>
     [CmdletBinding()]
-    [OutputType([String])]
+    [OutputType([void])]
     param(
         [Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [ValidateNotNullOrEmpty()]
@@ -534,9 +534,6 @@
                 [PSCustomObject[]]$Results,
 
                 [Parameter()]
-                [Switch]$Continuous,
-
-                [Parameter()]
                 [Switch]$ReturnLineCount,
 
                 [Parameter()]
@@ -546,10 +543,7 @@
                 [Switch]$SummaryOnly
             )
 
-            $output = New-Object System.Text.StringBuilder
             $linesPrintedLocal = 0
-
-            # Cache rendered graphs within an iteration to avoid duplicate string building
             $graphCache = [System.Collections.Generic.Dictionary[string, string]]::new()
             $getCachedGraph = {
                 param(
@@ -583,20 +577,21 @@
                 return $graph
             }
 
-            [void]$output.AppendLine()
-            [void]$output.AppendLine('═' * 80)
-            [void]$output.AppendLine('  NETWORK DIAGNOSTIC RESULTS')
-            [void]$output.AppendLine('═' * 80)
-            [void]$output.AppendLine()
-
             $clearTail = if ($InPlace) { "`e[K" } else { '' }
+
+            Write-Host $clearTail
+            Write-Host (('═' * 80) + $clearTail)
+            Write-Host ("  NETWORK DIAGNOSTIC RESULTS$clearTail")
+            Write-Host (('═' * 80) + $clearTail)
+            Write-Host $clearTail
+            $linesPrintedLocal += 5
 
             if ($Results.Count -eq 0)
             {
-                Write-Host
+                Write-Host $clearTail
                 Write-Host '  No results to display. All connection attempts may have failed.' -ForegroundColor Red
-                Write-Host '  Check your internet connection or firewall settings.' -ForegroundColor Yellow
-                Write-Host
+                Write-Host ("  Check your internet connection or firewall settings.$clearTail") -ForegroundColor Yellow
+                Write-Host $clearTail
                 $linesPrintedLocal += 3
 
                 if ($ReturnLineCount)
@@ -783,7 +778,6 @@
         do
         {
             $iteration++
-            $iterationTimer = [System.Diagnostics.Stopwatch]::StartNew()
             # Determine effective render mode
             $effectiveRender = switch ($RenderMode)
             {
@@ -905,7 +899,7 @@
             $results = @($results | Where-Object { $null -ne $_ })
 
             # Display formatted output and get accurate line count if needed
-            $countOut = Format-DiagnosticOutput -Results $results -Continuous:$Continuous.IsPresent -ReturnLineCount:$Continuous.IsPresent -InPlace:($Continuous.IsPresent -and $effectiveRender -eq 'InPlace') -SummaryOnly:$SummaryOnly.IsPresent
+            $countOut = Format-DiagnosticOutput -Results $results -ReturnLineCount:$Continuous.IsPresent -InPlace:($Continuous.IsPresent -and $effectiveRender -eq 'InPlace') -SummaryOnly:$SummaryOnly.IsPresent
 
             # Approximate lines printed per iteration for in-place refresh on Core and handle pacing
             if ($Continuous)
