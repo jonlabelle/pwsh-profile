@@ -739,28 +739,31 @@
                     $linesPrintedLocal++
                 }
 
-                # Statistics with color coding
-                if ($null -ne $result.LatencyAvg)
+                # Statistics with color coding (only show if not displaying detailed graph)
+                if (-not $ShowGraph)
                 {
-                    Write-Host '│  Stats  : ' -NoNewline
-                    Write-Host 'min: ' -NoNewline -ForegroundColor Gray
-                    Write-Host "$($result.LatencyMin)ms" -NoNewline -ForegroundColor Cyan
-                    Write-Host ' | max: ' -NoNewline -ForegroundColor Gray
-                    Write-Host "$($result.LatencyMax)ms" -NoNewline -ForegroundColor Cyan
-                    Write-Host ' | avg: ' -NoNewline -ForegroundColor Gray
-                    $avgColor = if ($result.LatencyAvg -lt 50) { 'Green' } elseif ($result.LatencyAvg -lt 100) { 'Yellow' } else { 'Red' }
-                    Write-Host "$($result.LatencyAvg)ms" -NoNewline -ForegroundColor $avgColor
-                    Write-Host ' | jitter: ' -NoNewline -ForegroundColor Gray
-                    $jitterColor = if ($result.Jitter -lt 10) { 'Green' } elseif ($result.Jitter -lt 30) { 'Yellow' } else { 'Red' }
-                    Write-Host "$($result.Jitter)ms" -NoNewline -ForegroundColor $jitterColor
-                    Write-Host ' | samples: ' -NoNewline -ForegroundColor Gray
-                    Write-Host ("$($result.SamplesTotal)$clearTail") -ForegroundColor Cyan
-                    $linesPrintedLocal++
-                }
-                else
-                {
-                    Write-Host ("│  Stats  : No successful connections$clearTail") -ForegroundColor Red
-                    $linesPrintedLocal++
+                    if ($null -ne $result.LatencyAvg)
+                    {
+                        Write-Host '│  Stats  : ' -NoNewline
+                        Write-Host 'min: ' -NoNewline -ForegroundColor Gray
+                        Write-Host "$($result.LatencyMin)ms" -NoNewline -ForegroundColor Cyan
+                        Write-Host ' | max: ' -NoNewline -ForegroundColor Gray
+                        Write-Host "$($result.LatencyMax)ms" -NoNewline -ForegroundColor Cyan
+                        Write-Host ' | avg: ' -NoNewline -ForegroundColor Gray
+                        $avgColor = if ($result.LatencyAvg -lt 50) { 'Green' } elseif ($result.LatencyAvg -lt 100) { 'Yellow' } else { 'Red' }
+                        Write-Host "$($result.LatencyAvg)ms" -NoNewline -ForegroundColor $avgColor
+                        Write-Host ' | jitter: ' -NoNewline -ForegroundColor Gray
+                        $jitterColor = if ($result.Jitter -lt 10) { 'Green' } elseif ($result.Jitter -lt 30) { 'Yellow' } else { 'Red' }
+                        Write-Host "$($result.Jitter)ms" -NoNewline -ForegroundColor $jitterColor
+                        Write-Host ' | samples: ' -NoNewline -ForegroundColor Gray
+                        Write-Host ("$($result.SamplesTotal)$clearTail") -ForegroundColor Cyan
+                        $linesPrintedLocal++
+                    }
+                    else
+                    {
+                        Write-Host ("│  Stats  : No successful connections$clearTail") -ForegroundColor Red
+                        $linesPrintedLocal++
+                    }
                 }
 
                 # Packet loss and success rate with color coding
