@@ -60,6 +60,9 @@
     .PARAMETER Port
         TCP port to test in continuous mode (default: 443)
 
+    .PARAMETER SampleDelayMilliseconds
+        Delay between samples in continuous mode (default: 100). Set to 0 for back-to-back samples.
+
     .PARAMETER RenderMode
         Controls how the output refreshes during continuous runs.
 
@@ -166,6 +169,17 @@
 
         Run one continuous iteration for testing/CI (hidden parameter)
 
+    .EXAMPLE
+        PS > Show-NetworkLatencyGraph -HostName 'google.com' -GraphType Sparkline -Continuous -Count 10 -SampleDelayMilliseconds 10
+
+        Faster sampling cadence by reducing the delay between samples in continuous mode
+
+    .EXAMPLE
+        PS > $latencies = @(20, $null, 30, 28, $null, 35, 32)
+        PS > Show-NetworkLatencyGraph -Data $latencies -GraphType TimeSeries -Width 30 -Height 8
+
+        Displays a time-series graph that preserves failed samples as ✖ gaps instead of collapsing the timeline
+
     .OUTPUTS
         System.String
 
@@ -224,6 +238,10 @@
         [ValidateRange(1, 65535)]
         [Int32]$Port = 443,
 
+        [Parameter(ParameterSetName = 'Continuous')]
+        [ValidateRange(0, 5000)]
+        [Int32]$SampleDelayMilliseconds = 100,
+
         # Hidden/testing-only: limit iterations for continuous mode (0 = infinite)
         [Parameter(ParameterSetName = 'Continuous')]
         [Int32]$MaxIterations = 0,
@@ -237,23 +255,24 @@
     {
         Write-Verbose "Creating $GraphType graph"
 
-        # ANSI color codes
-        $script:ColorReset = if ($NoColor) { '' } else { "`e[0m" }
-        $script:ColorGreen = if ($NoColor) { '' } else { "`e[32m" }
-        $script:ColorYellow = if ($NoColor) { '' } else { "`e[33m" }
-        $script:ColorRed = if ($NoColor) { '' } else { "`e[31m" }
-        $script:ColorCyan = if ($NoColor) { '' } else { "`e[36m" }
-        $script:ColorGray = if ($NoColor) { '' } else { "`e[90m" }
-
-        # Disable ANSI colors automatically on PowerShell Desktop 5.1
+        # ANSI color palette (respects -NoColor and OutputRendering=PlainText)
+        $supportsColor = -not $NoColor.IsPresent
         if ($PSVersionTable.PSVersion.Major -lt 6)
         {
-            $script:ColorReset = ''
-            $script:ColorGreen = ''
-            $script:ColorYellow = ''
-            $script:ColorRed = ''
-            $script:ColorCyan = ''
-            $script:ColorGray = ''
+            $supportsColor = $false
+        }
+        elseif ($supportsColor -and $PSStyle -and $PSStyle.OutputRendering -eq 'PlainText')
+        {
+            $supportsColor = $false
+        }
+
+        $script:Palette = [PSCustomObject]@{
+            Reset = if ($supportsColor) { "`e[0m" } else { '' }
+            Green = if ($supportsColor) { "`e[32m" } else { '' }
+            Yellow = if ($supportsColor) { "`e[33m" } else { '' }
+            Red = if ($supportsColor) { "`e[31m" } else { '' }
+            Cyan = if ($supportsColor) { "`e[36m" } else { '' }
+            Gray = if ($supportsColor) { "`e[90m" } else { '' }
         }
 
         # Block characters for sparklines (8 levels)
@@ -339,13 +358,13 @@
                     Write-Host "`e[1G" -NoNewline
                 }
 
-                Write-Host "${script:ColorCyan}Network Latency Graph - Iteration $iteration (Press Ctrl+C to stop)${script:ColorReset}"
-                Write-Host "${script:ColorGray}Host: $HostName | Interval: ${Interval}s | Samples: $Count | Port: $Port${script:ColorReset}"
+                Write-Host "${script:Palette.Cyan}Network Latency Graph - Iteration $iteration (Press Ctrl+C to stop)${script:Palette.Reset}"
+                Write-Host "${script:Palette.Gray}Host: $HostName | Interval: ${Interval}s | Samples: $Count | Port: $Port${script:Palette.Reset}"
                 Write-Host
                 $linesPrinted = 3
 
                 # Collect metrics
-                $metrics = Get-NetworkMetrics -HostName $HostName -Count $Count -Port $Port
+                $metrics = Get-NetworkMetrics -HostName $HostName -Count $Count -Port $Port -SampleDelayMilliseconds $SampleDelayMilliseconds
                 $Data = $metrics.LatencyData
 
                 # Filter and calculate for this iteration
@@ -385,19 +404,19 @@
                             $result = $sparkline.ToString()
                             if ($ShowStats)
                             {
-                                $statsText = " ${script:ColorGray}(min: ${script:ColorCyan}$([Math]::Round($min, 1))ms${script:ColorGray}, max: ${script:ColorCyan}$([Math]::Round($max, 1))ms${script:ColorGray}, avg: "
-                                $avgColor = if ($avg -lt 50) { $script:ColorGreen } elseif ($avg -lt 100) { $script:ColorYellow } else { $script:ColorRed }
-                                $statsText += "$avgColor$([Math]::Round($avg, 1))ms${script:ColorGray}"
-                                if ($failedCount -gt 0) { $statsText += ", failed: ${script:ColorRed}$failedCount${script:ColorGray}" }
-                                $statsText += ")${script:ColorReset}"
+                                $statsText = " ${script:Palette.Gray}(min: ${script:Palette.Cyan}$([Math]::Round($min, 1))ms${script:Palette.Gray}, max: ${script:Palette.Cyan}$([Math]::Round($max, 1))ms${script:Palette.Gray}, avg: "
+                                $avgColor = if ($avg -lt 50) { $script:Palette.Green } elseif ($avg -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
+                                $statsText += "$avgColor$([Math]::Round($avg, 1))ms${script:Palette.Gray}"
+                                if ($failedCount -gt 0) { $statsText += ", failed: ${script:Palette.Red}$failedCount${script:Palette.Gray}" }
+                                $statsText += ")${script:Palette.Reset}"
                                 $result += $statsText
                             }
                             else
                             {
                                 # Provide a compact stats line under the sparkline in continuous mode
-                                $avgColor = if ($avg -lt 50) { $script:ColorGreen } elseif ($avg -lt 100) { $script:ColorYellow } else { $script:ColorRed }
-                                $compact = "`n${script:ColorGray}Min: ${script:ColorCyan}$([Math]::Round($min,1))ms ${script:ColorGray}| Max: ${script:ColorCyan}$([Math]::Round($max,1))ms ${script:ColorGray}| Avg: $avgColor$([Math]::Round($avg,1))ms ${script:ColorGray}| Samples: ${script:ColorCyan}$($validData.Count)${script:ColorReset}"
-                                if ($failedCount -gt 0) { $compact += " ${script:ColorGray}| Failed: ${script:ColorRed}$failedCount${script:ColorReset}" }
+                                $avgColor = if ($avg -lt 50) { $script:Palette.Green } elseif ($avg -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
+                                $compact = "`n${script:Palette.Gray}Min: ${script:Palette.Cyan}$([Math]::Round($min,1))ms ${script:Palette.Gray}| Max: ${script:Palette.Cyan}$([Math]::Round($max,1))ms ${script:Palette.Gray}| Avg: $avgColor$([Math]::Round($avg,1))ms ${script:Palette.Gray}| Samples: ${script:Palette.Cyan}$($Data.Count)${script:Palette.Reset}"
+                                if ($failedCount -gt 0) { $compact += " ${script:Palette.Gray}| Failed: ${script:Palette.Red}$failedCount${script:Palette.Reset}" }
                                 $result += $compact
                             }
                             $result
@@ -406,21 +425,21 @@
                         {
                             $output = New-Object System.Text.StringBuilder
                             $range = if (($max - $min) -eq 0) { 1 } else { $max - $min }
+                            $pointsToPlot = [Math]::Min($Width, $Data.Count)
                             for ($row = $Height - 1; $row -ge 0; $row--)
                             {
                                 $threshold = $min + ($range * ($row + 0.5) / $Height)
                                 $yLabel = [Math]::Round($min + ($range * $row / $Height), 0)
                                 [void]$output.Append($yLabel.ToString().PadLeft(5))
                                 [void]$output.Append(' |')
-                                $pointsToPlot = [Math]::Min($Width, $validData.Count)
                                 for ($col = 0; $col -lt $pointsToPlot; $col++)
                                 {
-                                    $dataIndex = [Math]::Floor($col * $validData.Count / $pointsToPlot)
-                                    $value = $validData[$dataIndex]
-                                    if ($null -eq $value) { [void]$output.Append(' ') }
+                                    $dataIndex = [Math]::Floor($col * $Data.Count / $pointsToPlot)
+                                    $value = $Data[$dataIndex]
+                                    if ($null -eq $value) { [void]$output.Append('✖') }
                                     elseif ($value -ge $threshold)
                                     {
-                                        if ($row -eq $Height - 1 -or $validData[$dataIndex] -ge ($min + ($range * ($row + 1) / $Height)))
+                                        if ($row -eq $Height - 1 -or $value -ge ($min + ($range * ($row + 1) / $Height)))
                                         { [void]$output.Append('█') }
                                         else { [void]$output.Append('▄') }
                                     }
@@ -432,9 +451,9 @@
                             [void]$output.AppendLine('-' * $pointsToPlot)
                             if ($ShowStats)
                             {
-                                $statsLine = "     ${script:ColorGray}Min: ${script:ColorCyan}$([Math]::Round($min, 1))ms ${script:ColorGray}| Max: ${script:ColorCyan}$([Math]::Round($max, 1))ms ${script:ColorGray}| Avg: "
-                                $avgColor = if ($avg -lt 50) { $script:ColorGreen } elseif ($avg -lt 100) { $script:ColorYellow } else { $script:ColorRed }
-                                $statsLine += "$avgColor$([Math]::Round($avg, 1))ms ${script:ColorGray}| Samples: ${script:ColorCyan}$($validData.Count)${script:ColorReset}"
+                                $statsLine = "     ${script:Palette.Gray}Min: ${script:Palette.Cyan}$([Math]::Round($min, 1))ms ${script:Palette.Gray}| Max: ${script:Palette.Cyan}$([Math]::Round($max, 1))ms ${script:Palette.Gray}| Avg: "
+                                $avgColor = if ($avg -lt 50) { $script:Palette.Green } elseif ($avg -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
+                                $statsLine += "$avgColor$([Math]::Round($avg, 1))ms ${script:Palette.Gray}| Samples: ${script:Palette.Cyan}$($Data.Count)${script:Palette.Reset}"
                                 [void]$output.AppendLine($statsLine)
                             }
                             $output.ToString()
@@ -453,7 +472,7 @@
                                 $buckets[$bucketIndex]++
                             }
                             $maxCount = if (($buckets.Values | Measure-Object -Maximum).Maximum -eq 0) { 1 } else { ($buckets.Values | Measure-Object -Maximum).Maximum }
-                            [void]$output.AppendLine("${script:ColorCyan}Latency Distribution:${script:ColorReset}")
+                            [void]$output.AppendLine("${script:Palette.Cyan}Latency Distribution:${script:Palette.Reset}")
                             for ($i = 0; $i -lt $bucketCount; $i++)
                             {
                                 $rangeStart = [Math]::Round($min + ($i * $bucketSize), 1)
@@ -461,11 +480,11 @@
                                 $count = $buckets[$i]
                                 $barWidth = [Math]::Floor(($count / $maxCount) * ($Width - 20))
                                 $midpoint = ($rangeStart + $rangeEnd) / 2
-                                $barColor = if ($midpoint -lt 50) { $script:ColorGreen } elseif ($midpoint -lt 100) { $script:ColorYellow } else { $script:ColorRed }
-                                $label = "${script:ColorGray}$rangeStart-$rangeEnd ms${script:ColorReset}".PadRight(15 + ($script:ColorGray.Length + $script:ColorReset.Length))
-                                $bar = "$barColor" + ('█' * $barWidth) + "$script:ColorReset"
+                                $barColor = if ($midpoint -lt 50) { $script:Palette.Green } elseif ($midpoint -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
+                                $label = "${script:Palette.Gray}$rangeStart-$rangeEnd ms${script:Palette.Reset}".PadRight(15 + ($script:Palette.Gray.Length + $script:Palette.Reset.Length))
+                                $bar = "$barColor" + ('█' * $barWidth) + "$script:Palette.Reset"
                                 $percentage = [Math]::Round(($count / $validData.Count) * 100, 1)
-                                [void]$output.AppendLine("$label $bar ${script:ColorCyan}$count${script:ColorReset} ${script:ColorGray}($percentage%)${script:ColorReset}")
+                                [void]$output.AppendLine("$label $bar ${script:Palette.Cyan}$count${script:Palette.Reset} ${script:Palette.Gray}($percentage%)${script:Palette.Reset}")
                             }
                             $output.ToString()
                         }
@@ -477,15 +496,15 @@
                 }
                 else
                 {
-                    Write-Host "${script:ColorRed}No successful connections${script:ColorReset}"
+                    Write-Host "${script:Palette.Red}No successful connections${script:Palette.Reset}"
                     $linesPrinted += 1
                 }
 
                 Write-Host
                 # Packet loss and jitter with dynamic color coding (green=good, yellow=medium, red=bad)
-                $lossColor = if ($metrics.PacketLoss -eq 0) { $script:ColorGreen } elseif ($metrics.PacketLoss -lt 5) { $script:ColorYellow } else { $script:ColorRed }
-                $jitterColor = if ($metrics.Jitter -lt 10) { $script:ColorGreen } elseif ($metrics.Jitter -lt 30) { $script:ColorYellow } else { $script:ColorRed }
-                Write-Host "${script:ColorGray}Packet Loss: $lossColor$($metrics.PacketLoss)%${script:ColorGray} | Jitter: $jitterColor$($metrics.Jitter)ms${script:ColorReset}"
+                $lossColor = if ($metrics.PacketLoss -eq 0) { $script:Palette.Green } elseif ($metrics.PacketLoss -lt 5) { $script:Palette.Yellow } else { $script:Palette.Red }
+                $jitterColor = if ($metrics.Jitter -lt 10) { $script:Palette.Green } elseif ($metrics.Jitter -lt 30) { $script:Palette.Yellow } else { $script:Palette.Red }
+                Write-Host "${script:Palette.Gray}Packet Loss: $lossColor$($metrics.PacketLoss)%${script:Palette.Gray} | Jitter: $jitterColor$($metrics.Jitter)ms${script:Palette.Reset}"
                 $linesPrinted += 2
                 $lastRenderLines = $linesPrinted
                 Start-Sleep -Seconds $Interval
@@ -528,17 +547,17 @@
 
                 if ($ShowStats)
                 {
-                    $statsText = " ${script:ColorGray}(min: ${script:ColorCyan}$([Math]::Round($min, 1))ms${script:ColorGray}, max: ${script:ColorCyan}$([Math]::Round($max, 1))ms${script:ColorGray}, avg: "
+                    $statsText = " ${script:Palette.Gray}(min: ${script:Palette.Cyan}$([Math]::Round($min, 1))ms${script:Palette.Gray}, max: ${script:Palette.Cyan}$([Math]::Round($max, 1))ms${script:Palette.Gray}, avg: "
 
                     # Color avg based on value
-                    $avgColor = if ($avg -lt 50) { $script:ColorGreen } elseif ($avg -lt 100) { $script:ColorYellow } else { $script:ColorRed }
-                    $statsText += "$avgColor$([Math]::Round($avg, 1))ms${script:ColorGray}"
+                    $avgColor = if ($avg -lt 50) { $script:Palette.Green } elseif ($avg -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
+                    $statsText += "$avgColor$([Math]::Round($avg, 1))ms${script:Palette.Gray}"
 
                     if ($failedCount -gt 0)
                     {
-                        $statsText += ", failed: ${script:ColorRed}$failedCount${script:ColorGray}"
+                        $statsText += ", failed: ${script:Palette.Red}$failedCount${script:Palette.Gray}"
                     }
-                    $statsText += ")${script:ColorReset}"
+                    $statsText += ")${script:Palette.Reset}"
                     $result += $statsText
                 }
 
@@ -552,6 +571,7 @@
                 # Create Y-axis labels and grid
                 $range = $max - $min
                 if ($range -eq 0) { $range = 1 }
+                $pointsToPlot = [Math]::Min($Width, $Data.Count)
 
                 # Build graph line by line from top to bottom
                 for ($row = $Height - 1; $row -ge 0; $row--)
@@ -564,21 +584,19 @@
                     [void]$output.Append(' |')
 
                     # Plot points
-                    $pointsToPlot = [Math]::Min($Width, $validData.Count)
-
                     for ($col = 0; $col -lt $pointsToPlot; $col++)
                     {
-                        $dataIndex = [Math]::Floor($col * $validData.Count / $pointsToPlot)
-                        $value = $validData[$dataIndex]
+                        $dataIndex = [Math]::Floor($col * $Data.Count / $pointsToPlot)
+                        $value = $Data[$dataIndex]
 
                         if ($null -eq $value)
                         {
-                            [void]$output.Append(' ')
+                            [void]$output.Append('✖')
                         }
                         elseif ($value -ge $threshold)
                         {
                             # Determine character based on proximity
-                            if ($row -eq $Height - 1 -or $validData[$dataIndex] -ge ($min + ($range * ($row + 1) / $Height)))
+                            if ($row -eq $Height - 1 -or $value -ge ($min + ($range * ($row + 1) / $Height)))
                             {
                                 [void]$output.Append('█')
                             }
@@ -602,11 +620,11 @@
 
                 if ($ShowStats)
                 {
-                    $statsLine = "     ${script:ColorGray}Min: ${script:ColorCyan}$([Math]::Round($min, 1))ms ${script:ColorGray}| Max: ${script:ColorCyan}$([Math]::Round($max, 1))ms ${script:ColorGray}| Avg: "
+                    $statsLine = "     ${script:Palette.Gray}Min: ${script:Palette.Cyan}$([Math]::Round($min, 1))ms ${script:Palette.Gray}| Max: ${script:Palette.Cyan}$([Math]::Round($max, 1))ms ${script:Palette.Gray}| Avg: "
 
                     # Color avg based on value
-                    $avgColor = if ($avg -lt 50) { $script:ColorGreen } elseif ($avg -lt 100) { $script:ColorYellow } else { $script:ColorRed }
-                    $statsLine += "$avgColor$([Math]::Round($avg, 1))ms ${script:ColorGray}| Samples: ${script:ColorCyan}$($validData.Count)${script:ColorReset}"
+                    $avgColor = if ($avg -lt 50) { $script:Palette.Green } elseif ($avg -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
+                    $statsLine += "$avgColor$([Math]::Round($avg, 1))ms ${script:Palette.Gray}| Samples: ${script:Palette.Cyan}$($Data.Count)${script:Palette.Reset}"
 
                     [void]$output.AppendLine($statsLine)
                 }
@@ -640,7 +658,7 @@
                 $maxCount = ($buckets.Values | Measure-Object -Maximum).Maximum
                 if ($maxCount -eq 0) { $maxCount = 1 }
 
-                [void]$output.AppendLine("${script:ColorCyan}Latency Distribution:${script:ColorReset}")
+                [void]$output.AppendLine("${script:Palette.Cyan}Latency Distribution:${script:Palette.Reset}")
 
                 for ($i = 0; $i -lt $bucketCount; $i++)
                 {
@@ -651,13 +669,13 @@
 
                     # Color bar based on range midpoint
                     $midpoint = ($rangeStart + $rangeEnd) / 2
-                    $barColor = if ($midpoint -lt 50) { $script:ColorGreen } elseif ($midpoint -lt 100) { $script:ColorYellow } else { $script:ColorRed }
+                    $barColor = if ($midpoint -lt 50) { $script:Palette.Green } elseif ($midpoint -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
 
-                    $label = "${script:ColorGray}$rangeStart-$rangeEnd ms${script:ColorReset}".PadRight(15 + ($script:ColorGray.Length + $script:ColorReset.Length))
-                    $bar = "$barColor" + ([char]0x2588 * $barWidth) + "$script:ColorReset"
+                    $label = "${script:Palette.Gray}$rangeStart-$rangeEnd ms${script:Palette.Reset}".PadRight(15 + ($script:Palette.Gray.Length + $script:Palette.Reset.Length))
+                    $bar = "$barColor" + ([char]0x2588 * $barWidth) + "$script:Palette.Reset"
                     $percentage = [Math]::Round(($count / $validData.Count) * 100, 1)
 
-                    [void]$output.AppendLine("$label $bar ${script:ColorCyan}$count${script:ColorReset} ${script:ColorGray}($percentage`%)${script:ColorReset}")
+                    [void]$output.AppendLine("$label $bar ${script:Palette.Cyan}$count${script:Palette.Reset} ${script:Palette.Gray}($percentage`%)${script:Palette.Reset}")
                 }
 
                 return $output.ToString()

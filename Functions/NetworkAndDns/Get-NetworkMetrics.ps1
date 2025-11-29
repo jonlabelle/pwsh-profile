@@ -38,6 +38,9 @@
     .PARAMETER IncludeDns
         Include DNS resolution time in metrics
 
+    .PARAMETER SampleDelayMilliseconds
+        Delay between samples in milliseconds (default: 100). Set to 0 for back-to-back samples.
+
     .EXAMPLE
         PS > Get-NetworkMetrics -HostName 'google.com' -Count 20
 
@@ -114,7 +117,11 @@
         [Int32]$Port = 443,
 
         [Parameter()]
-        [Switch]$IncludeDns
+        [Switch]$IncludeDns,
+
+        [Parameter()]
+        [ValidateRange(0, 5000)]
+        [Int32]$SampleDelayMilliseconds = 100
     )
 
     begin
@@ -158,9 +165,9 @@
 
             try
             {
-                $tcpClient = New-Object System.Net.Sockets.TcpClient
+                $tcpClient = [System.Net.Sockets.TcpClient]::new()
 
-                # Use BeginConnect/EndConnect for timeout support
+                # Use BeginConnect/EndConnect with timeout for broad compatibility
                 $asyncResult = $tcpClient.BeginConnect($HostName, $Port, $null, $null)
                 $waitHandle = $asyncResult.AsyncWaitHandle
 
@@ -177,12 +184,14 @@
                     }
                     catch
                     {
+                        $stopwatch.Stop()
                         Write-Verbose "Sample $i/$Count : Connection failed - $($_.Exception.Message)"
                         $latencies.Add($null)
                     }
                 }
                 else
                 {
+                    $stopwatch.Stop()
                     Write-Verbose "Sample $i/$Count : Timeout"
                     $latencies.Add($null)
                     $tcpClient.Close()
@@ -206,34 +215,45 @@
             $results.Add($success)
 
             # Small delay between requests
-            if ($i -lt $Count)
+            if ($i -lt $Count -and $SampleDelayMilliseconds -gt 0)
             {
-                Start-Sleep -Milliseconds 100
+                Start-Sleep -Milliseconds $SampleDelayMilliseconds
             }
         }
     }
 
     end
     {
-        # Calculate metrics from valid latencies
-        $validLatencies = @($latencies | Where-Object { $null -ne $_ })
+        # Calculate metrics from valid latencies in a single pass
         $successCount = @($results | Where-Object { $_ -eq $true }).Count
         $failureCount = $results.Count - $successCount
         $packetLoss = [Math]::Round(($failureCount / $results.Count) * 100, 2)
 
-        if ($validLatencies.Count -gt 0)
-        {
-            $minLatency = ($validLatencies | Measure-Object -Minimum).Minimum
-            $maxLatency = ($validLatencies | Measure-Object -Maximum).Maximum
-            $avgLatency = ($validLatencies | Measure-Object -Average).Average
+        $validCount = 0
+        $minLatency = [Double]::PositiveInfinity
+        $maxLatency = [Double]::NegativeInfinity
+        $sumLatency = 0.0
+        $sumLatencySq = 0.0
 
-            # Calculate jitter (standard deviation)
-            $variance = 0
-            foreach ($latency in $validLatencies)
+        foreach ($latency in $latencies)
+        {
+            if ($null -eq $latency)
             {
-                $variance += [Math]::Pow($latency - $avgLatency, 2)
+                continue
             }
-            $jitter = [Math]::Sqrt($variance / $validLatencies.Count)
+
+            $validCount++
+            if ($latency -lt $minLatency) { $minLatency = $latency }
+            if ($latency -gt $maxLatency) { $maxLatency = $latency }
+            $sumLatency += $latency
+            $sumLatencySq += ($latency * $latency)
+        }
+
+        if ($validCount -gt 0)
+        {
+            $avgLatency = $sumLatency / $validCount
+            $variance = ([Math]::Max(0, ($sumLatencySq / $validCount) - ($avgLatency * $avgLatency)))
+            $jitter = [Math]::Sqrt($variance)
         }
         else
         {

@@ -2,18 +2,21 @@ BeforeAll {
     $invokePath = Join-Path -Path $PSScriptRoot -ChildPath '..\..\..\Functions\NetworkAndDns\Invoke-NetworkDiagnostic.ps1'
     $invokePath = [System.IO.Path]::GetFullPath($invokePath)
 
-    function Get-NetworkMetrics {
+    function Get-NetworkMetrics
+    {
         param(
             [Parameter(Mandatory)][string]$HostName,
             [int]$Count,
             [int]$Timeout,
             [int]$Port,
-            [switch]$IncludeDns
+            [switch]$IncludeDns,
+            [int]$SampleDelayMilliseconds
         )
         return $script:MockMetrics
     }
 
-    function Show-NetworkLatencyGraph {
+    function Show-NetworkLatencyGraph
+    {
         param(
             [double[]]$Data,
             [string]$GraphType,
@@ -33,17 +36,17 @@ Describe 'Invoke-NetworkDiagnostic (Continuous single iteration via -MaxIteratio
         # Prepare canned metrics
         $script:MockLatencies = @(61, 62, 63, 64, 65)
         $script:MockMetrics = [PSCustomObject]@{
-            HostName        = 'example.com'
-            Port            = 443
-            SamplesTotal    = 5
-            SamplesSuccess  = 5
-            PacketLoss      = 0
-            LatencyMin      = 61.0
-            LatencyMax      = 65.0
-            LatencyAvg      = 63.0
-            Jitter          = 5.12
-            DnsResolution   = $null
-            LatencyData     = $script:MockLatencies
+            HostName = 'example.com'
+            Port = 443
+            SamplesTotal = 5
+            SamplesSuccess = 5
+            PacketLoss = 0
+            LatencyMin = 61.0
+            LatencyMax = 65.0
+            LatencyAvg = 63.0
+            Jitter = 5.12
+            DnsResolution = $null
+            LatencyData = $script:MockLatencies
         }
 
         # Capture output

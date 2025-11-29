@@ -7,7 +7,8 @@
     .DESCRIPTION
         Tests network connectivity to one or more hosts and displays detailed metrics with
         ASCII graph visualizations. Collects latency, packet loss, jitter, and DNS resolution
-        data over multiple samples.
+        data over multiple samples. Per-host headers display the time spent collecting that
+        host's metrics (shown as "collect XXms").
 
         Features:
         - Multi-host testing with parallel execution
@@ -39,6 +40,9 @@
     .PARAMETER Port
         TCP port to test (default: 443 for HTTPS)
 
+    .PARAMETER SampleDelayMilliseconds
+        Delay between samples in milliseconds (default: 100). Set to 0 for back-to-back samples.
+
     .PARAMETER RenderMode
         Controls how the output refreshes during continuous runs.
 
@@ -53,6 +57,9 @@
 
     .PARAMETER IncludeDns
         Measure and display DNS resolution time
+
+    .PARAMETER SummaryOnly
+        Render a compact, summary-only view (no sparklines or time-series graphs)
 
     .PARAMETER Continuous
         Run continuously until stopped with Ctrl+C
@@ -69,6 +76,9 @@
     .PARAMETER MaxIterations
         Hidden parameter for testing/CI. Limits the number of iterations in continuous mode.
         Default: 0 (infinite). Set to a positive number to run a specific number of iterations and exit.
+
+    .PARAMETER ThrottleLimit
+        Degree of parallelism when testing multiple hosts on PowerShell 7+ (default: logical core count, minimum 2)
 
     .EXAMPLE
         PS > Invoke-NetworkDiagnostic -HostName 'google.com'
@@ -121,6 +131,11 @@
         Compare DNS server performance (Google DNS vs Cloudflare DNS) including DNS resolution time
 
     .EXAMPLE
+        PS > Invoke-NetworkDiagnostic -HostName 'cloudflare.com' -Count 10 -SampleDelayMilliseconds 10 -Interval 1 -Continuous -MaxIterations 1
+
+        Faster sampling cadence by reducing delay between samples while keeping interval short
+
+    .EXAMPLE
         PS > Invoke-NetworkDiagnostic -HostName 'github.com' -Continuous -Interval 2 -Count 15
 
         Quick continuous monitoring with 2-second refresh for troubleshooting intermittent issues
@@ -151,6 +166,16 @@
 
         Quick test using the 'netdiag' alias with 10 samples
 
+    .EXAMPLE
+        PS > Invoke-NetworkDiagnostic -HostName 'google.com','cloudflare.com','github.com' -Count 15 -SummaryOnly
+
+        Parallel tests (PowerShell 7+) with a compact summary-only view for multiple hosts
+
+    .EXAMPLE
+        PS > Invoke-NetworkDiagnostic -HostName 'api.example.com','db.example.com' -Continuous -Interval 3 -ThrottleLimit 4
+
+        Continuous monitoring of multiple hosts with capped parallelism (PowerShell 7+)
+
     .OUTPUTS
         System.String (formatted diagnostic output)
 
@@ -160,6 +185,7 @@
         - Console is cleared between iterations using Clear-Host in continuous mode
         - ANSI colors are automatically disabled on 5.1 to prevent escape codes in output
         - PowerShell Core (6+) supports ANSI colors and in-place rendering
+        - In continuous mode on Core, the default RenderMode is InPlace; use -RenderMode Clear for a full-screen refresh each loop or -RenderMode Stack to append output without clearing
 
         Author: Jon LaBelle
         License: MIT
@@ -186,10 +212,17 @@
         [Int32]$Port = 443,
 
         [Parameter()]
+        [ValidateRange(0, 5000)]
+        [Int32]$SampleDelayMilliseconds = 100,
+
+        [Parameter()]
         [Switch]$ShowGraph,
 
         [Parameter()]
         [Switch]$IncludeDns,
+
+        [Parameter()]
+        [Switch]$SummaryOnly,
 
         [Parameter()]
         [Switch]$Continuous,
@@ -204,7 +237,11 @@
 
         [Parameter()]
         [ValidateSet('Auto', 'InPlace', 'Clear', 'Stack')]
-        [String]$RenderMode = 'Auto'
+        [String]$RenderMode = 'Auto',
+
+        [Parameter()]
+        [ValidateRange(1, 256)]
+        [Int32]$ThrottleLimit = ([Math]::Max(2, [Environment]::ProcessorCount))
     )
 
     begin
@@ -237,6 +274,7 @@
             Write-Verbose 'Get-NetworkMetrics is required - attempting to load it'
             $metricsPath = Join-Path -Path $PSScriptRoot -ChildPath 'Get-NetworkMetrics.ps1'
             $metricsPath = [System.IO.Path]::GetFullPath($metricsPath)
+            $script:MetricsPath = $metricsPath
 
             if (Test-Path -Path $metricsPath -PathType Leaf)
             {
@@ -258,6 +296,9 @@
         else
         {
             Write-Verbose 'Get-NetworkMetrics is already loaded'
+            $existingMetricsPath = Join-Path -Path $PSScriptRoot -ChildPath 'Get-NetworkMetrics.ps1'
+            $existingMetricsPath = [System.IO.Path]::GetFullPath($existingMetricsPath)
+            $script:MetricsPath = $existingMetricsPath
         }
 
         # Load Show-NetworkLatencyGraph if needed
@@ -306,11 +347,46 @@
                 [Switch]$ReturnLineCount,
 
                 [Parameter()]
-                [Switch]$InPlace
+                [Switch]$InPlace,
+
+                [Parameter()]
+                [Switch]$SummaryOnly
             )
 
             $output = New-Object System.Text.StringBuilder
             $linesPrintedLocal = 0
+
+            # Cache rendered graphs within an iteration to avoid duplicate string building
+            $graphCache = [System.Collections.Generic.Dictionary[string, string]]::new()
+            $getCachedGraph = {
+                param(
+                    [AllowNull()][Object[]]$Data,
+                    [String]$GraphType,
+                    [Int32]$Width = 0,
+                    [Int32]$Height = 0,
+                    [Bool]$ShowStats = $false
+                )
+
+                $dataKey = ($Data | ForEach-Object { if ($null -eq $_) { 'null' } else { $_ } }) -join ','
+                $key = [string]::Join('|', @($GraphType, $Width, $Height, $ShowStats, $dataKey))
+
+                if ($graphCache.ContainsKey($key))
+                {
+                    return $graphCache[$key]
+                }
+
+                $graphParams = @{
+                    Data = $Data
+                    GraphType = $GraphType
+                }
+                if ($Width -gt 0) { $graphParams['Width'] = $Width }
+                if ($Height -gt 0) { $graphParams['Height'] = $Height }
+                if ($ShowStats) { $graphParams['ShowStats'] = $true }
+
+                $graph = Show-NetworkLatencyGraph @graphParams
+                $graphCache[$key] = $graph
+                return $graph
+            }
 
             [void]$output.AppendLine()
             [void]$output.AppendLine('═' * 80)
@@ -333,12 +409,55 @@
                     $statusColor = 'Yellow'
                 }
 
-                # Host header with color coding
-                Write-Host ("┌─ $($result.HostName):$($result.Port)$clearTail") -ForegroundColor $statusColor
+                $successRate = [Math]::Round((($result.SamplesSuccess / $result.SamplesTotal) * 100), 1)
+
+                # Host header with color coding and elapsed time if available
+                $elapsedText = ''
+                if ($result.PSObject.Properties.Match('ElapsedMs'))
+                {
+                    $elapsedText = " (collect $([Math]::Round($result.ElapsedMs, 1))ms)"
+                }
+                Write-Host ("┌─ $($result.HostName):$($result.Port)$elapsedText$clearTail") -ForegroundColor $statusColor
                 $linesPrintedLocal++
 
+                if ($SummaryOnly)
+                {
+                    if ($null -ne $result.LatencyAvg)
+                    {
+                        Write-Host '│  Summary: ' -NoNewline
+                        Write-Host 'avg ' -NoNewline -ForegroundColor Gray
+                        $avgColor = if ($result.LatencyAvg -lt 50) { 'Green' } elseif ($result.LatencyAvg -lt 100) { 'Yellow' } else { 'Red' }
+                        Write-Host "$($result.LatencyAvg)ms" -NoNewline -ForegroundColor $avgColor
+                        Write-Host ' | jitter ' -NoNewline -ForegroundColor Gray
+                        $jitterColor = if ($result.Jitter -lt 10) { 'Green' } elseif ($result.Jitter -lt 30) { 'Yellow' } else { 'Red' }
+                        Write-Host "$($result.Jitter)ms" -NoNewline -ForegroundColor $jitterColor
+                        Write-Host ' | loss ' -NoNewline -ForegroundColor Gray
+                        $lossColor = if ($result.PacketLoss -eq 0) { 'Green' } elseif ($result.PacketLoss -lt 5) { 'Yellow' } else { 'Red' }
+                        Write-Host "$($result.PacketLoss)%" -NoNewline -ForegroundColor $lossColor
+                        Write-Host ' | success ' -NoNewline -ForegroundColor Gray
+                        $qualityColor = if ($successRate -ge 98) { 'Green' } elseif ($successRate -ge 90) { 'Yellow' } else { 'Red' }
+                        Write-Host "$($result.SamplesSuccess)/$($result.SamplesTotal)" -NoNewline -ForegroundColor $qualityColor
+                        if ($null -ne $result.DnsResolution)
+                        {
+                            Write-Host ' | dns ' -NoNewline -ForegroundColor Gray
+                            $dnsColor = if ($result.DnsResolution -lt 50) { 'Green' } elseif ($result.DnsResolution -lt 150) { 'Yellow' } else { 'Red' }
+                            Write-Host "$($result.DnsResolution)ms" -NoNewline -ForegroundColor $dnsColor
+                        }
+                        Write-Host $clearTail
+                    }
+                    else
+                    {
+                        Write-Host ("│  Summary: No successful connections$clearTail") -ForegroundColor Red
+                    }
+                    $linesPrintedLocal++
+                    Write-Host (('└' + ('─' * 79) + $clearTail)) -ForegroundColor $statusColor
+                    Write-Host
+                    $linesPrintedLocal += 2
+                    continue
+                }
+
                 # Latency sparkline (already has color codes embedded)
-                $sparkline = Show-NetworkLatencyGraph -Data $result.LatencyData -GraphType Sparkline
+                $sparkline = & $getCachedGraph $result.LatencyData 'Sparkline' 0 0 $false
                 if ($null -ne $result.LatencyAvg)
                 {
                     Write-Host '│  Latency: ' -NoNewline
@@ -376,7 +495,6 @@
                 }
 
                 # Packet loss and success rate with color coding
-                $successRate = [Math]::Round((($result.SamplesSuccess / $result.SamplesTotal) * 100), 1)
                 Write-Host '│  Quality: ' -NoNewline
                 Write-Host "$($result.SamplesSuccess)/$($result.SamplesTotal)" -NoNewline -ForegroundColor Cyan
                 $qualityColor = if ($successRate -ge 98) { 'Green' } elseif ($successRate -ge 90) { 'Yellow' } else { 'Red' }
@@ -401,7 +519,7 @@
                 if ($ShowGraph -and $result.LatencyData.Count -gt 0)
                 {
                     Write-Host '│'
-                    $graph = Show-NetworkLatencyGraph -Data $result.LatencyData -GraphType TimeSeries -Width 70 -Height 8 -ShowStats
+                    $graph = & $getCachedGraph $result.LatencyData 'TimeSeries' 70 8 $true
                     $graphLineCount = 0
                     foreach ($line in $graph -split "`n")
                     {
@@ -450,6 +568,7 @@
         do
         {
             $iteration++
+            $iterationTimer = [System.Diagnostics.Stopwatch]::StartNew()
             # Determine effective render mode
             $effectiveRender = switch ($RenderMode)
             {
@@ -482,29 +601,112 @@
 
             # Collect metrics for all hosts
             $results = @()
-            foreach ($hostTarget in $allHosts)
+            $useParallel = ($PSVersionTable.PSVersion.Major -ge 7 -and $allHosts.Count -gt 1)
+            if ($useParallel)
             {
-                Write-Verbose "Collecting metrics for $hostTarget"
+                Write-Verbose "Collecting metrics in parallel (ThrottleLimit=$ThrottleLimit)"
+                $indexedHosts = for ($i = 0; $i -lt $allHosts.Count; $i++) { [PSCustomObject]@{ HostName = $allHosts[$i]; Index = $i } }
 
-                $metrics = Get-NetworkMetrics -HostName $hostTarget -Count $Count -Timeout $Timeout -Port $Port -IncludeDns:$IncludeDns
+                $results = $indexedHosts | ForEach-Object -Parallel {
+                    if (-not (Get-Command -Name 'Get-NetworkMetrics' -ErrorAction SilentlyContinue) -and $using:MetricsPath)
+                    {
+                        try { . $using:MetricsPath } catch {}
+                    }
 
-                $results += $metrics
+                    $buildFailure = {
+                        param($name, $port, $count)
+                        [PSCustomObject]@{
+                            HostName = $name
+                            Port = $port
+                            SamplesTotal = $count
+                            SamplesSuccess = 0
+                            SamplesFailure = $count
+                            PacketLoss = 100
+                            LatencyMin = $null
+                            LatencyMax = $null
+                            LatencyAvg = $null
+                            Jitter = $null
+                            DnsResolution = $null
+                            LatencyData = @()
+                            Timestamp = Get-Date
+                        }
+                    }
+
+                    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+                    $metrics = $null
+                    try
+                    {
+                        $metrics = Get-NetworkMetrics -HostName $_.HostName -Count $using:Count -Timeout $using:Timeout -Port $using:Port -IncludeDns:$using:IncludeDns -SampleDelayMilliseconds $using:SampleDelayMilliseconds
+                    }
+                    catch
+                    {
+                        $metrics = & $buildFailure $_.HostName $using:Port $using:Count
+                    }
+                    $sw.Stop()
+                    Add-Member -InputObject $metrics -NotePropertyName 'ElapsedMs' -NotePropertyValue ([Math]::Round($sw.Elapsed.TotalMilliseconds, 2)) -Force
+                    [PSCustomObject]@{ Index = $_.Index; Metrics = $metrics }
+                } -ThrottleLimit $ThrottleLimit
+
+                $results = $results | Sort-Object Index | ForEach-Object { $_.Metrics }
+            }
+            else
+            {
+                foreach ($hostTarget in $allHosts)
+                {
+                    Write-Verbose "Collecting metrics for $hostTarget"
+                    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+
+                    try
+                    {
+                        $metrics = Get-NetworkMetrics -HostName $hostTarget -Count $Count -Timeout $Timeout -Port $Port -IncludeDns:$IncludeDns -SampleDelayMilliseconds $SampleDelayMilliseconds
+                    }
+                    catch
+                    {
+                        $metrics = [PSCustomObject]@{
+                            HostName = $hostTarget
+                            Port = $Port
+                            SamplesTotal = $Count
+                            SamplesSuccess = 0
+                            SamplesFailure = $Count
+                            PacketLoss = 100
+                            LatencyMin = $null
+                            LatencyMax = $null
+                            LatencyAvg = $null
+                            Jitter = $null
+                            DnsResolution = $null
+                            LatencyData = @()
+                            Timestamp = Get-Date
+                        }
+                    }
+                    $sw.Stop()
+                    Add-Member -InputObject $metrics -NotePropertyName 'ElapsedMs' -NotePropertyValue ([Math]::Round($sw.Elapsed.TotalMilliseconds, 2)) -Force
+
+                    $results += $metrics
+                }
             }
 
-            # Display formatted output and get accurate line count if needed
-            $countOut = Format-DiagnosticOutput -Results $results -Continuous:$Continuous.IsPresent -ReturnLineCount:$Continuous.IsPresent -InPlace:($Continuous.IsPresent -and $effectiveRender -eq 'InPlace')
+            # Ensure we have a non-null collection for formatting
+            $results = @($results | Where-Object { $null -ne $_ })
 
-            # Approximate lines printed per iteration for in-place refresh on Core
+            # Display formatted output and get accurate line count if needed
+            $countOut = Format-DiagnosticOutput -Results $results -Continuous:$Continuous.IsPresent -ReturnLineCount:$Continuous.IsPresent -InPlace:($Continuous.IsPresent -and $effectiveRender -eq 'InPlace') -SummaryOnly:$SummaryOnly.IsPresent
+
+            # Approximate lines printed per iteration for in-place refresh on Core and handle pacing
             if ($Continuous)
             {
                 if ($null -ne $countOut) { $linesPrinted += [int]$countOut }
-                $lastRenderLines = $linesPrinted
-            }
 
-            # Wait for next iteration if continuous
-            if ($Continuous)
-            {
+                if ($effectiveRender -eq 'InPlace')
+                {
+                    $lastRenderLines = $linesPrinted
+                }
+                else
+                {
+                    $lastRenderLines = 0
+                }
+
                 Start-Sleep -Seconds $Interval
+
             }
 
         } while ($Continuous -and ($MaxIterations -eq 0 -or $iteration -lt $MaxIterations))
