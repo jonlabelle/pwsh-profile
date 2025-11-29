@@ -579,7 +579,8 @@
 
             $buildIssueFlags = {
                 param($result)
-                $flags = [System.Collections.Generic.List[System.Management.Automation.PSCustomObject]]::new()
+                # Use a flexible list so we don't trip over strict Add overloads on different PS versions
+                $flags = [System.Collections.Generic.List[Object]]::new()
 
                 if ($result.SamplesSuccess -eq 0)
                 {
@@ -619,13 +620,6 @@
             }
 
             $clearTail = if ($InPlace) { "`e[K" } else { '' }
-
-            Write-Host $clearTail
-            Write-Host (('═' * 80) + $clearTail)
-            Write-Host ("  NETWORK DIAGNOSTIC RESULTS$clearTail")
-            Write-Host (('═' * 80) + $clearTail)
-            Write-Host $clearTail
-            $linesPrintedLocal += 5
 
             if ($Results.Count -eq 0)
             {
@@ -812,13 +806,13 @@
                 # Detailed graph if requested
                 if ($ShowGraph -and $result.LatencyData.Count -gt 0)
                 {
-                    Write-Host '│'
+                    Write-Host ("│$clearTail")
                     $graph = & $getCachedGraph $result.LatencyData 'TimeSeries' 70 8 $true $Style
                     $graphLineCount = 0
                     foreach ($line in $graph -split "`n")
                     {
                         # Don't override colors - graph has embedded ANSI codes
-                        Write-Host ("│  $line")
+                        Write-Host ("│  $line$clearTail")
                         $graphLineCount++
                     }
                     # Include the pre-graph spacer line

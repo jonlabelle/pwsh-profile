@@ -519,7 +519,7 @@
         function script:Build-TimeSeriesGraph
         {
             param(
-                [Parameter(Mandatory)][Object[]]$Data,
+                [Parameter(Mandatory)][AllowNull()][Object[]]$Data,
                 [Parameter(Mandatory)][double]$Min,
                 [Parameter(Mandatory)][double]$Max,
                 [Parameter(Mandatory)][int]$Width,
@@ -529,6 +529,17 @@
                 [Parameter(Mandatory)][string]$Style,
                 [Parameter()][Nullable[Double]]$Jitter
             )
+
+            # Short-circuit empty or null data sets to avoid binding/scale errors
+            if (-not $Data -or $Data.Count -eq 0)
+            {
+                return '     (no data)'
+            }
+            $nonNullCount = @($Data | Where-Object { $null -ne $_ }).Count
+            if ($nonNullCount -eq 0)
+            {
+                return '     (no data)'
+            }
 
             $range = if ($Max -eq $Min) { 1 } else { $Max - $Min }
             $scaleDenominator = [Math]::Max(1, $Height - 1)
@@ -654,11 +665,11 @@
                 # Count valid vs failed samples to avoid duplicate or confusing sample display
                 $validCount = @($Data | Where-Object { $null -ne $_ }).Count
                 $failedCount = @($Data | Where-Object { $null -eq $_ }).Count
-                $statsLine = "     ${script:Palette.Gray}Min: ${script:Palette.Cyan}$([Math]::Round($Min, 1))ms ${script:Palette.Gray}| Max: ${script:Palette.Cyan}$([Math]::Round($Max, 1))ms ${script:Palette.Gray}| Avg: $avgColor$([Math]::Round($Avg, 1))ms"
+                $statsLine = "     ${script:Palette.Gray}Min: ${script:Palette.Cyan}$([Math]::Round($Min, 1))ms${script:Palette.Reset}${script:Palette.Gray} | Max: ${script:Palette.Cyan}$([Math]::Round($Max, 1))ms${script:Palette.Reset}${script:Palette.Gray} | Avg: $avgColor$([Math]::Round($Avg, 1))ms${script:Palette.Reset}"
                 if ($null -ne $Jitter)
                 {
                     $jitterColor = script:Get-JitterColor -Value $Jitter
-                    $statsLine += " ${script:Palette.Gray}| Jitter: $jitterColor$([Math]::Round($Jitter, 1))ms"
+                    $statsLine += " ${script:Palette.Gray}| Jitter: $jitterColor$([Math]::Round($Jitter, 1))ms${script:Palette.Reset}"
                 }
                 $statsLine += " ${script:Palette.Gray}| Samples: ${script:Palette.Cyan}$validCount${script:Palette.Reset}"
                 if ($failedCount -gt 0) { $statsLine += " ${script:Palette.Gray}| Failed: ${script:Palette.Red}$failedCount${script:Palette.Reset}" }
@@ -703,7 +714,7 @@
 
             if ($validData.Count -eq 0)
             {
-                Write-Warning 'No valid data points to graph'
+                Write-Verbose 'No valid data points to graph'
                 return '(no data)'
             }
 
@@ -799,11 +810,11 @@
                             $result = $sparkline.ToString()
                             if ($ShowStats)
                             {
-                                $statsText = " ${script:Palette.Gray}(min: ${script:Palette.Cyan}$([Math]::Round($min, 1))ms${script:Palette.Gray}, max: ${script:Palette.Cyan}$([Math]::Round($max, 1))ms${script:Palette.Gray}, avg: "
+                                $statsText = " ${script:Palette.Gray}(min: ${script:Palette.Cyan}$([Math]::Round($min, 1))ms${script:Palette.Reset}${script:Palette.Gray}, max: ${script:Palette.Cyan}$([Math]::Round($max, 1))ms${script:Palette.Reset}${script:Palette.Gray}, avg: "
                                 $avgColor = if ($avg -lt 50) { $script:Palette.Green } elseif ($avg -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
-                                $statsText += "$avgColor$([Math]::Round($avg, 1))ms${script:Palette.Gray}"
-                                if ($null -ne $jitter) { $statsText += ", jitter: $(script:Get-JitterColor -Value $jitter)$([Math]::Round($jitter, 1))ms${script:Palette.Gray}" }
-                                if ($failedCount -gt 0) { $statsText += ", failed: ${script:Palette.Red}$failedCount${script:Palette.Gray}" }
+                                $statsText += "$avgColor$([Math]::Round($avg, 1))ms${script:Palette.Reset}${script:Palette.Gray}"
+                                if ($null -ne $jitter) { $statsText += ", jitter: $(script:Get-JitterColor -Value $jitter)$([Math]::Round($jitter, 1))ms${script:Palette.Reset}${script:Palette.Gray}" }
+                                if ($failedCount -gt 0) { $statsText += ", failed: ${script:Palette.Red}$failedCount${script:Palette.Reset}${script:Palette.Gray}" }
                                 $statsText += ")${script:Palette.Reset}"
                                 $result += $statsText
                             }
@@ -905,15 +916,15 @@
 
                     # Color avg based on value
                     $avgColor = if ($avg -lt 50) { $script:Palette.Green } elseif ($avg -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
-                    $statsText += "$avgColor$([Math]::Round($avg, 1))ms${script:Palette.Gray}"
+                    $statsText += "$avgColor$([Math]::Round($avg, 1))ms${script:Palette.Reset}${script:Palette.Gray}"
                     if ($null -ne $jitter)
                     {
-                        $statsText += ", jitter: $(script:Get-JitterColor -Value $jitter)$([Math]::Round($jitter, 1))ms${script:Palette.Gray}"
+                        $statsText += ", jitter: $(script:Get-JitterColor -Value $jitter)$([Math]::Round($jitter, 1))ms${script:Palette.Reset}${script:Palette.Gray}"
                     }
 
                     if ($failedCount -gt 0)
                     {
-                        $statsText += ", failed: ${script:Palette.Red}$failedCount${script:Palette.Gray}"
+                        $statsText += ", failed: ${script:Palette.Red}$failedCount${script:Palette.Reset}${script:Palette.Gray}"
                     }
                     $statsText += ")${script:Palette.Reset}"
                     $result += $statsText
