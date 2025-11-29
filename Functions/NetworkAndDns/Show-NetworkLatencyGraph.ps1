@@ -668,14 +668,14 @@
                 # Count valid vs failed samples to avoid duplicate or confusing sample display
                 $validCount = @($Data | Where-Object { $null -ne $_ }).Count
                 $failedCount = @($Data | Where-Object { $null -eq $_ }).Count
-                $statsLine = "     ${script:Palette.Gray}Min: ${script:Palette.Cyan}$([Math]::Round($Min, 1))ms${script:Palette.Reset}${script:Palette.Gray} | Max: ${script:Palette.Cyan}$([Math]::Round($Max, 1))ms${script:Palette.Reset}${script:Palette.Gray} | Avg: $avgColor$([Math]::Round($Avg, 1))ms${script:Palette.Reset}"
+                $statsLine = "     $($script:Palette.Gray)Min: $($script:Palette.Cyan)$([Math]::Round($Min, 1))ms$($script:Palette.Reset)$($script:Palette.Gray) | Max: $($script:Palette.Cyan)$([Math]::Round($Max, 1))ms$($script:Palette.Reset)$($script:Palette.Gray) | Avg: $avgColor$([Math]::Round($Avg, 1))ms$($script:Palette.Reset)"
                 if ($null -ne $Jitter)
                 {
                     $jitterColor = script:Get-JitterColor -Value $Jitter
-                    $statsLine += " ${script:Palette.Gray}| Jitter: $jitterColor$([Math]::Round($Jitter, 1))ms${script:Palette.Reset}"
+                    $statsLine += "$($script:Palette.Gray) | Jitter: $jitterColor$([Math]::Round($Jitter, 1))ms$($script:Palette.Reset)"
                 }
-                $statsLine += " ${script:Palette.Gray}| Samples: ${script:Palette.Cyan}$validCount${script:Palette.Reset}"
-                if ($failedCount -gt 0) { $statsLine += " ${script:Palette.Gray}| Failed: ${script:Palette.Red}$failedCount${script:Palette.Reset}" }
+                $statsLine += "$($script:Palette.Gray) | Samples: $($script:Palette.Cyan)$validCount$($script:Palette.Reset)"
+                if ($failedCount -gt 0) { $statsLine += "$($script:Palette.Gray) | Failed: $($script:Palette.Red)$failedCount$($script:Palette.Reset)" }
                 [void]$output.AppendLine($statsLine + $script:Palette.Reset)
             }
 

@@ -752,7 +752,9 @@
                     Write-Host "$($result.LatencyAvg)ms" -NoNewline -ForegroundColor $avgColor
                     Write-Host ' | jitter: ' -NoNewline -ForegroundColor Gray
                     $jitterColor = if ($result.Jitter -lt 10) { 'Green' } elseif ($result.Jitter -lt 30) { 'Yellow' } else { 'Red' }
-                    Write-Host ("$($result.Jitter)ms$clearTail") -ForegroundColor $jitterColor
+                    Write-Host "$($result.Jitter)ms" -NoNewline -ForegroundColor $jitterColor
+                    Write-Host ' | samples: ' -NoNewline -ForegroundColor Gray
+                    Write-Host ("$($result.SamplesTotal)$clearTail") -ForegroundColor Cyan
                     $linesPrintedLocal++
                 }
                 else
