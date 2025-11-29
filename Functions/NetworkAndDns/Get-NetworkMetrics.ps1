@@ -16,38 +16,39 @@
         - DNS resolution time
         - Success/failure counts
 
-        TROUBLESHOOTING USE CASES:
+        UNDERSTANDING METRICS:
 
         This function provides the raw data needed for network diagnostics. Understanding
         these metrics helps identify specific network issues:
 
-        1. LATENCY METRICS INTERPRETATION
-           - LatencyMin/Max/Avg: Round-trip time for packets
-           - Good: < 50ms for most applications
+        1. LATENCY METRICS (LatencyMin/Max/Avg)
+           Round-trip time for packets to reach destination and return:
+           - Good: < 50ms (suitable for most applications)
            - Acceptable: 50-100ms (noticeable for interactive apps)
            - Poor: 100-200ms (degraded user experience)
            - Critical: > 200ms (unusable for real-time applications)
 
-           Min vs Max difference:
+           Min vs Max difference analysis:
            - Small difference (< 20ms): Stable, predictable connection
            - Medium difference (20-50ms): Some variance, generally acceptable
            - Large difference (> 50ms): High variability, investigate cause
 
         2. PACKET LOSS ANALYSIS
+           Percentage of packets that fail to reach destination:
            - 0%: Perfect connectivity (expected for most services)
            - 1-2%: Minor issues, acceptable for web browsing
            - 2-5%: Noticeable degradation for VoIP/video
            - 5-10%: Significant issues, poor user experience
            - > 10%: Critical problems requiring immediate attention
 
-           Causes to investigate:
-           - Network congestion (QoS needed)
-           - Firewall blocking packets
-           - Physical layer issues (bad cable, interference)
-           - Route flapping or unstable BGP
+           Common causes to investigate:
+           - Network congestion (QoS configuration needed)
+           - Firewall dropping packets (rule misconfiguration)
+           - Physical layer issues (bad cable, WiFi interference)
+           - Route flapping or unstable BGP routing
 
         3. JITTER ANALYSIS
-           - Jitter: Standard deviation of latency (measures consistency)
+           Standard deviation of latency measuring connection consistency:
            - Excellent: < 10ms (suitable for VoIP, gaming, real-time apps)
            - Good: 10-30ms (acceptable for most applications)
            - Poor: 30-50ms (degraded quality for real-time apps)
@@ -55,120 +56,31 @@
 
            High jitter indicates:
            - Network congestion with variable queuing delays
-           - Route changes during measurement period
-           - Shared bandwidth with bursty traffic
-           - WiFi interference or signal quality issues
+           - Route changes occurring during measurement period
+           - Shared bandwidth with bursty traffic patterns
+           - WiFi interference or poor signal quality
 
         4. DNS RESOLUTION TIME
-           - Fast: < 50ms (well-configured DNS)
-           - Acceptable: 50-100ms (typical for remote DNS)
-           - Slow: 100-200ms (DNS server overloaded or distant)
-           - Critical: > 200ms (DNS performance issue)
+           Time taken to resolve hostname to IP address:
+           - Fast: < 50ms (well-configured DNS infrastructure)
+           - Acceptable: 50-100ms (typical for remote DNS servers)
+           - Slow: 100-200ms (DNS server overloaded or geographically distant)
+           - Critical: > 200ms (DNS performance issue requiring attention)
 
            High DNS time suggests:
-           - DNS server overloaded or slow
+           - DNS server overloaded or performing slowly
            - Network path to DNS server is congested
-           - DNS server needs to be changed to closer one
+           - DNS server should be changed to closer/faster alternative
            - DNS cache not being utilized effectively
 
-        USING METRICS FOR PROBLEM SOLVING:
-
-        Scenario 1: Slow Application Performance
-        Step 1: Collect baseline metrics
-                $metrics = Get-NetworkMetrics -HostName 'app-server.com' -Count 30
-        Step 2: Interpret results
-                if ($metrics.LatencyAvg -gt 100) {
-                    "High latency detected: $($metrics.LatencyAvg)ms (threshold: 100ms)"
-                    "Check: Network path, routing, server location"
-                }
-                if ($metrics.Jitter -gt 30) {
-                    "High jitter detected: $($metrics.Jitter)ms (threshold: 30ms)"
-                    "Check: Network congestion, QoS configuration"
-                }
-        Resolution: Metrics point to specific network layer issue
-
-        Scenario 2: VoIP Quality Issues
-        Step 1: Test VoIP server during call
-                $voip = Get-NetworkMetrics -HostName 'sip.company.com' -Port 5060 -Count 100
-        Step 2: Evaluate against VoIP requirements
-                # VoIP needs: latency < 150ms, jitter < 30ms, packet loss < 1%
-                $issues = @()
-                if ($voip.LatencyAvg -gt 150) { $issues += "Latency: $($voip.LatencyAvg)ms" }
-                if ($voip.Jitter -gt 30) { $issues += "Jitter: $($voip.Jitter)ms" }
-                if ($voip.PacketLoss -gt 1) { $issues += "Packet Loss: $($voip.PacketLoss)%" }
-                if ($issues) { "VoIP quality issues: $($issues -join ', ')" }
-        Resolution: Specific metrics failing VoIP requirements identified
-
-        Scenario 3: Intermittent Connection Problems
-        Step 1: Extended monitoring to catch failures
-                $extended = Get-NetworkMetrics -HostName 'unreliable-host.com' -Count 200 -SampleDelayMilliseconds 50
-        Step 2: Analyze failure pattern
-                $failures = $extended.LatencyData | Where-Object { $null -eq $_ }
-                "Total failures: $($failures.Count) out of $($extended.SamplesTotal)"
-                "Failure rate: $($extended.PacketLoss)%"
-        Step 3: Check if failures are clustered or random
-                # Examine LatencyData array for patterns
-                $extended.LatencyData | ForEach-Object -Begin { $i=0 } -Process {
-                    if ($null -eq $_) { "Failure at sample $i" }
-                    $i++
-                }
-        Resolution: Pattern of failures (clustered vs random) indicates cause
-
-        Scenario 4: Comparing Service Endpoints
-        Step 1: Collect metrics from multiple endpoints
-                $endpoints = @('api-us-east.com', 'api-us-west.com', 'api-eu.com')
-                $results = foreach ($ep in $endpoints) {
-                    Get-NetworkMetrics -HostName $ep -Port 8080 -Count 50
-                }
-        Step 2: Compare key metrics
-                $results | Select-Object HostName,LatencyAvg,Jitter,PacketLoss | Format-Table
-        Step 3: Rank by overall quality
-                $results | Sort-Object -Property @(
-                    @{Expression={$_.PacketLoss}; Ascending=$true},
-                    @{Expression={$_.LatencyAvg}; Ascending=$true},
-                    @{Expression={$_.Jitter}; Ascending=$true}
-                ) | Select-Object -First 1
-        Resolution: Quantitative comparison identifies best endpoint
-
-        Scenario 5: DNS Performance Investigation
-        Step 1: Test multiple DNS servers
-                $dns1 = Get-NetworkMetrics -HostName '8.8.8.8' -Port 53 -IncludeDns -Count 30
-                $dns2 = Get-NetworkMetrics -HostName '1.1.1.1' -Port 53 -IncludeDns -Count 30
-        Step 2: Compare DNS resolution times
-                "Google DNS: $($dns1.DnsResolution)ms avg latency: $($dns1.LatencyAvg)ms"
-                "Cloudflare DNS: $($dns2.DnsResolution)ms avg latency: $($dns2.LatencyAvg)ms"
-        Step 3: Test actual hostname resolution
-                $site = Get-NetworkMetrics -HostName 'slow-website.com' -IncludeDns -Count 20
-                if ($site.DnsResolution -gt $site.LatencyAvg) {
-                    "DNS resolution ($($site.DnsResolution)ms) is slower than network latency ($($site.LatencyAvg)ms)"
-                    "Consider: Using different DNS server or checking DNS infrastructure"
-                }
-        Resolution: Identify whether DNS or network latency is the bottleneck
-
-        Scenario 6: Service Health Baseline
-        Step 1: Create performance baseline during healthy period
-                $baseline = Get-NetworkMetrics -HostName 'prod-database.com' -Port 3306 -Count 100
-                $baseline | Export-Clixml -Path 'db-baseline.xml'
-        Step 2: During incident, compare to baseline
-                $current = Get-NetworkMetrics -HostName 'prod-database.com' -Port 3306 -Count 100
-                $baseline = Import-Clixml -Path 'db-baseline.xml'
-
-                $degradation = [PSCustomObject]@{
-                    LatencyIncrease = $current.LatencyAvg - $baseline.LatencyAvg
-                    JitterIncrease = $current.Jitter - $baseline.Jitter
-                    PacketLossChange = $current.PacketLoss - $baseline.PacketLoss
-                }
-                $degradation | Format-List
-        Resolution: Quantify performance degradation vs. known good baseline
+        See EXAMPLES for practical troubleshooting workflows and metric analysis scenarios.
 
         RELATED FUNCTIONS:
         This function is designed to be used by:
         - Invoke-NetworkDiagnostic: Calls Get-NetworkMetrics to collect data for each host
         - Show-NetworkLatencyGraph: Uses Get-NetworkMetrics in continuous mode to gather latency samples
 
-        Can also be used standalone for custom network metric collection and analysis.
-
-    .PARAMETER HostName
+        Can also be used standalone for custom network metric collection and analysis.    .PARAMETER HostName
         Target hostname or IP address to test
 
     .PARAMETER Count
@@ -233,6 +145,100 @@
         PS > $metrics.LatencyData | Export-Csv -Path latency-log.csv -NoTypeInformation
 
         Collect metrics and export raw latency data to CSV for further analysis
+
+    .EXAMPLE
+        PS > # TROUBLESHOOTING: Slow application performance
+        PS > $metrics = Get-NetworkMetrics -HostName 'app-server.com' -Count 30
+        PS > if ($metrics.LatencyAvg -gt 100) {
+        >>       "High latency detected: $($metrics.LatencyAvg)ms (threshold: 100ms)"
+        >>       "Check: Network path, routing, server location"
+        >>   }
+        PS > if ($metrics.Jitter -gt 30) {
+        >>       "High jitter detected: $($metrics.Jitter)ms (threshold: 30ms)"
+        >>       "Check: Network congestion, QoS configuration"
+        >>   }
+
+        Diagnose application performance. Metrics point to specific network layer issues.
+        Latency >100ms or Jitter >30ms indicate network problems.
+
+    .EXAMPLE
+        PS > # TROUBLESHOOTING: VoIP quality issues
+        PS > # VoIP requirements: latency < 150ms, jitter < 30ms, packet loss < 1%
+        PS > $voip = Get-NetworkMetrics -HostName 'sip.company.com' -Port 5060 -Count 100
+        PS > $issues = @()
+        PS > if ($voip.LatencyAvg -gt 150) { $issues += "Latency: $($voip.LatencyAvg)ms" }
+        PS > if ($voip.Jitter -gt 30) { $issues += "Jitter: $($voip.Jitter)ms" }
+        PS > if ($voip.PacketLoss -gt 1) { $issues += "Packet Loss: $($voip.PacketLoss)%" }
+        PS > if ($issues) { "VoIP quality issues: $($issues -join ', ')" }
+
+        Evaluate VoIP connection quality. Identify specific metrics failing VoIP requirements.
+        Any metric exceeding thresholds will cause call quality degradation.
+
+    .EXAMPLE
+        PS > # TROUBLESHOOTING: Intermittent connection problems
+        PS > $extended = Get-NetworkMetrics -HostName 'unreliable-host.com' -Count 200 -SampleDelayMilliseconds 50
+        PS > $failures = $extended.LatencyData | Where-Object { $null -eq $_ }
+        PS > "Total failures: $($failures.Count) out of $($extended.SamplesTotal)"
+        PS > "Failure rate: $($extended.PacketLoss)%"
+        PS > # Check if failures are clustered or random
+        PS > $extended.LatencyData | ForEach-Object -Begin { $i=0 } -Process {
+        >>       if ($null -eq $_) { "Failure at sample $i" }
+        >>       $i++
+        >>   }
+
+        Diagnose intermittent issues. Pattern of failures (clustered vs random) indicates
+        cause: clustered = routing flaps, random = congestion/interference.
+
+    .EXAMPLE
+        PS > # WORKFLOW: Comparing service endpoints
+        PS > $endpoints = @('api-us-east.com', 'api-us-west.com', 'api-eu.com')
+        PS > $results = foreach ($ep in $endpoints) {
+        >>       Get-NetworkMetrics -HostName $ep -Port 8080 -Count 50
+        >>   }
+        PS > $results | Select-Object HostName,LatencyAvg,Jitter,PacketLoss | Format-Table
+        PS > # Rank by overall quality
+        PS > $best = $results | Sort-Object -Property @(
+        >>       @{Expression={$_.PacketLoss}; Ascending=$true},
+        >>       @{Expression={$_.LatencyAvg}; Ascending=$true},
+        >>       @{Expression={$_.Jitter}; Ascending=$true}
+        >>   ) | Select-Object -First 1
+        PS > "Best endpoint: $($best.HostName)"
+
+        Compare multiple endpoints quantitatively. Rank by packet loss (priority), then
+        latency, then jitter to identify optimal endpoint.
+
+    .EXAMPLE
+        PS > # WORKFLOW: DNS performance investigation
+        PS > $dns1 = Get-NetworkMetrics -HostName '8.8.8.8' -Port 53 -IncludeDns -Count 30
+        PS > $dns2 = Get-NetworkMetrics -HostName '1.1.1.1' -Port 53 -IncludeDns -Count 30
+        PS > "Google DNS: $($dns1.DnsResolution)ms avg latency: $($dns1.LatencyAvg)ms"
+        PS > "Cloudflare DNS: $($dns2.DnsResolution)ms avg latency: $($dns2.LatencyAvg)ms"
+        PS > $site = Get-NetworkMetrics -HostName 'slow-website.com' -IncludeDns -Count 20
+        PS > if ($site.DnsResolution -gt $site.LatencyAvg) {
+        >>     "DNS resolution ($($site.DnsResolution)ms) is slower than network latency ($($site.LatencyAvg)ms)"
+        >>     "Consider: Using different DNS server or checking DNS infrastructure"
+        >> }
+
+        Identify whether DNS or network latency is the bottleneck. Compare DNS resolution
+        time against network latency to isolate the problem.
+
+    .EXAMPLE
+        PS > # WORKFLOW: Service health baseline and comparison
+        PS > # Step 1: Create baseline during healthy period
+        PS > $baseline = Get-NetworkMetrics -HostName 'prod-database.com' -Port 3306 -Count 100
+        PS > $baseline | Export-Clixml -Path 'db-baseline.xml'
+        PS > # Step 2: During incident, compare to baseline
+        PS > $current = Get-NetworkMetrics -HostName 'prod-database.com' -Port 3306 -Count 100
+        PS > $baseline = Import-Clixml -Path 'db-baseline.xml'
+        PS > $degradation = [PSCustomObject]@{
+        >>       LatencyIncrease = $current.LatencyAvg - $baseline.LatencyAvg
+        >>       JitterIncrease = $current.Jitter - $baseline.Jitter
+        >>       PacketLossChange = $current.PacketLoss - $baseline.PacketLoss
+        >>   }
+        PS > $degradation | Format-List
+
+        Quantify performance degradation vs. known good baseline. Establish baseline during
+        healthy periods, then compare during incidents to measure impact.
 
     .OUTPUTS
         PSCustomObject with network metrics

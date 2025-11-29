@@ -26,103 +26,45 @@
 
         1. INTERMITTENT CONNECTIVITY ISSUES
            Problem: Users report occasional disconnections or slowness
-           Solution: Use continuous monitoring to catch sporadic failures
-           Example: Invoke-NetworkDiagnostic -HostName 'vpn.company.com' -Continuous -Interval 2
            What to look for: Sparkline graphs showing periodic spikes or gaps (✖ marks)
+           indicating packet loss patterns or connection timeouts
 
         2. NETWORK PATH DEGRADATION
            Problem: Application performance degrading over time
-           Solution: Monitor latency trends with visual graphs
-           Example: Invoke-NetworkDiagnostic -HostName 'api.example.com' -ShowGraph -Count 100
-           What to look for: Ascending latency trend or increasing jitter values
+           What to look for: Ascending latency trend or increasing jitter values indicating
+           progressive network congestion or routing changes
 
         3. PACKET LOSS DIAGNOSIS
            Problem: VoIP calls dropping or video conferencing issues
-           Solution: Measure packet loss percentage over sustained period
-           Example: Invoke-NetworkDiagnostic -HostName 'teams.microsoft.com' -Port 443 -Count 200
-           What to look for: Packet loss > 2% indicates quality issues
+           What to look for: Packet loss > 2% indicates quality issues affecting real-time
+           applications; > 5% is critical
 
         4. DNS RESOLUTION PROBLEMS
            Problem: Slow website loading or application startup delays
-           Solution: Include DNS resolution time in metrics
-           Example: Invoke-NetworkDiagnostic -HostName 'github.com' -IncludeDns -Count 50
-           What to look for: DNS resolution > 100ms or highly variable DNS times
+           What to look for: DNS resolution > 100ms or highly variable DNS times indicating
+           DNS server performance issues or network path to DNS
 
         5. MULTI-PATH COMPARISON
            Problem: Choosing between multiple servers or CDN endpoints
-           Solution: Test multiple hosts simultaneously to compare performance
-           Example: Invoke-NetworkDiagnostic -HostName 'cdn1.example.com','cdn2.example.com' -Count 100
-           What to look for: Lower average latency, lower jitter, zero packet loss
+           What to look for: Lower average latency, lower jitter, zero packet loss identifies
+           optimal endpoint for routing decisions
 
         6. SERVICE AVAILABILITY MONITORING
            Problem: Need to verify service uptime during maintenance
-           Solution: Continuous monitoring with auto-refresh
-           Example: Invoke-NetworkDiagnostic -HostName 'database.local' -Port 5432 -Continuous
            What to look for: Success rate dropping below 100% or sudden latency spikes
+           indicating service degradation or failures
 
         7. NETWORK JITTER ANALYSIS
            Problem: Real-time applications experiencing inconsistent performance
-           Solution: Monitor jitter (latency variance) over time
-           Example: Invoke-NetworkDiagnostic -HostName 'game-server.net' -Port 27015 -ShowGraph -Count 200
-           What to look for: Jitter > 30ms indicates unstable connection for real-time apps
+           What to look for: Jitter > 30ms indicates unstable connection unsuitable for
+           real-time apps; > 50ms is critical for VoIP/gaming
 
         8. FIREWALL/SECURITY TESTING
            Problem: Verify specific ports are accessible after firewall changes
-           Solution: Test custom ports with detailed metrics
-           Example: Invoke-NetworkDiagnostic -HostName 'smtp.company.com' -Port 587 -Count 20
-           What to look for: 100% packet loss indicates port blocked
+           What to look for: 100% packet loss indicates port blocked by firewall or
+           security policy; timeouts suggest filtering
 
-        USING NETWORK FUNCTIONS TOGETHER:
-
-        Scenario 1: Progressive Diagnosis - Website Loading Slowly
-        Step 1: Quick latency check
-                Get-NetworkMetrics -HostName 'website.com' -Count 10
-        Step 2: If high latency detected, visualize the pattern
-                $metrics = Get-NetworkMetrics -HostName 'website.com' -Count 50
-                Show-NetworkLatencyGraph -Data $metrics.LatencyData -GraphType TimeSeries -ShowStats
-        Step 3: Check if DNS is the culprit
-                Invoke-NetworkDiagnostic -HostName 'website.com' -IncludeDns -Count 30
-        Resolution: Identify whether latency is network (high LatencyAvg) or DNS (high DnsResolution)
-
-        Scenario 2: API Endpoint Comparison
-        Step 1: Collect metrics for multiple endpoints
-                $api1 = Get-NetworkMetrics -HostName 'api-us-east.example.com' -Port 8080 -Count 100
-                $api2 = Get-NetworkMetrics -HostName 'api-us-west.example.com' -Port 8080 -Count 100
-        Step 2: Visualize side-by-side
-                Show-NetworkLatencyGraph -Data $api1.LatencyData -GraphType Sparkline -ShowStats
-                Show-NetworkLatencyGraph -Data $api2.LatencyData -GraphType Sparkline -ShowStats
-        Step 3: Comprehensive comparison with full diagnostic
-                Invoke-NetworkDiagnostic -HostName 'api-us-east.example.com','api-us-west.example.com' -Port 8080 -Count 100 -ShowGraph
-        Resolution: Choose endpoint with lowest latency, jitter, and packet loss
-
-        Scenario 3: Intermittent Connection Drops
-        Step 1: Monitor continuously to catch failures
-                Invoke-NetworkDiagnostic -HostName 'vpn.company.com' -Continuous -Interval 3
-        Step 2: When drops occur, collect detailed samples
-                $metrics = Get-NetworkMetrics -HostName 'vpn.company.com' -Count 200 -SampleDelayMilliseconds 50
-        Step 3: Analyze distribution pattern
-                Show-NetworkLatencyGraph -Data $metrics.LatencyData -GraphType Distribution -Width 80
-        Resolution: Bimodal distribution suggests routing flaps; consistent failures suggest firewall/ACL issues
-
-        Scenario 4: Real-time Application Performance Issues
-        Step 1: Baseline measurement during known good period
-                $baseline = Get-NetworkMetrics -HostName 'game-server.net' -Port 27015 -Count 100
-        Step 2: Continuous monitoring during problem period
-                Invoke-NetworkDiagnostic -HostName 'game-server.net' -Port 27015 -Continuous -ShowGraph -Interval 5
-        Step 3: Compare jitter values
-                "Baseline Jitter: $($baseline.Jitter)ms" # Should be < 20ms for gaming
-        Resolution: Jitter increase > 50% indicates network path congestion or routing changes
-
-        Scenario 5: Multi-Service Health Check
-        Step 1: Quick parallel test of all critical services
-                $services = @('web.company.com:443', 'api.company.com:8080', 'db.company.com:5432')
-                foreach ($svc in $services) {
-                    $host,$port = $svc -split ':'
-                    Get-NetworkMetrics -HostName $host -Port $port -Count 10 | Select-Object HostName,Port,PacketLoss,LatencyAvg
-                }
-        Step 2: Deep dive on services showing issues
-                Invoke-NetworkDiagnostic -HostName 'db.company.com' -Port 5432 -ShowGraph -Count 100
-        Resolution: Identify which specific services are degraded vs. systemic network issues
+        See EXAMPLES for practical troubleshooting workflows and usage scenarios.
 
         RELATED FUNCTIONS:
         This function requires and auto-loads:
@@ -280,6 +222,127 @@
         PS > Invoke-NetworkDiagnostic -HostName 'api.example.com','db.example.com' -Continuous -Interval 3 -ThrottleLimit 4
 
         Continuous monitoring of multiple hosts with capped parallelism (PowerShell 7+)
+
+    .EXAMPLE
+        PS > # TROUBLESHOOTING: Intermittent connectivity issues
+        PS > # Problem: Users report occasional disconnections or slowness
+        PS > Invoke-NetworkDiagnostic -HostName 'vpn.company.com' -Continuous -Interval 2
+
+        Monitor continuously to catch sporadic failures. Look for sparkline graphs showing
+        periodic spikes or gaps (✖ marks) indicating packet loss.
+
+    .EXAMPLE
+        PS > # TROUBLESHOOTING: Network path degradation
+        PS > # Problem: Application performance degrading over time
+        PS > Invoke-NetworkDiagnostic -HostName 'api.example.com' -ShowGraph -Count 100
+
+        Monitor latency trends with visual graphs. Look for ascending latency trend or
+        increasing jitter values indicating network congestion.
+
+    .EXAMPLE
+        PS > # TROUBLESHOOTING: VoIP quality issues
+        PS > # Problem: VoIP calls dropping or video conferencing issues
+        PS > Invoke-NetworkDiagnostic -HostName 'teams.microsoft.com' -Port 443 -Count 200
+
+        Measure packet loss percentage over sustained period. Packet loss > 2% indicates
+        quality issues affecting real-time applications.
+
+    .EXAMPLE
+        PS > # TROUBLESHOOTING: DNS resolution problems
+        PS > # Problem: Slow website loading or application startup delays
+        PS > Invoke-NetworkDiagnostic -HostName 'github.com' -IncludeDns -Count 50
+
+        Include DNS resolution time in metrics. Look for DNS resolution > 100ms or highly
+        variable DNS times indicating DNS server performance issues.
+
+    .EXAMPLE
+        PS > # TROUBLESHOOTING: Choosing between CDN endpoints
+        PS > # Problem: Need to select optimal server from multiple options
+        PS > Invoke-NetworkDiagnostic -HostName 'cdn1.example.com','cdn2.example.com' -Count 100
+
+        Test multiple hosts simultaneously to compare performance. Choose endpoint with
+        lowest average latency, lower jitter, and zero packet loss.
+
+    .EXAMPLE
+        PS > # TROUBLESHOOTING: Service availability during maintenance
+        PS > # Problem: Need to verify service uptime during maintenance window
+        PS > Invoke-NetworkDiagnostic -HostName 'database.local' -Port 5432 -Continuous
+
+        Continuous monitoring with auto-refresh. Watch for success rate dropping below 100%
+        or sudden latency spikes indicating service issues.
+
+    .EXAMPLE
+        PS > # TROUBLESHOOTING: Real-time application performance
+        PS > # Problem: Gaming or real-time apps experiencing inconsistent performance
+        PS > Invoke-NetworkDiagnostic -HostName 'game-server.net' -Port 27015 -ShowGraph -Count 200
+
+        Monitor jitter (latency variance) over time. Jitter > 30ms indicates unstable
+        connection unsuitable for real-time applications.
+
+    .EXAMPLE
+        PS > # TROUBLESHOOTING: Firewall port accessibility
+        PS > # Problem: Verify specific ports are accessible after firewall changes
+        PS > Invoke-NetworkDiagnostic -HostName 'smtp.company.com' -Port 587 -Count 20
+
+        Test custom ports with detailed metrics. 100% packet loss indicates port blocked
+        by firewall or security policy.
+
+    .EXAMPLE
+        PS > # WORKFLOW: Progressive diagnosis for slow website
+        PS > # Step 1: Quick latency check
+        PS > Get-NetworkMetrics -HostName 'website.com' -Count 10
+        PS > # Step 2: If high latency, visualize the pattern
+        PS > $metrics = Get-NetworkMetrics -HostName 'website.com' -Count 50
+        PS > Show-NetworkLatencyGraph -Data $metrics.LatencyData -GraphType TimeSeries -ShowStats
+        PS > # Step 3: Check if DNS is the culprit
+        PS > Invoke-NetworkDiagnostic -HostName 'website.com' -IncludeDns -Count 30
+
+        Progressive diagnosis workflow. Compare LatencyAvg vs DnsResolution to identify
+        whether issue is network latency or DNS performance.
+
+    .EXAMPLE
+        PS > # WORKFLOW: API endpoint comparison
+        PS > $api1 = Get-NetworkMetrics -HostName 'api-us-east.example.com' -Port 8080 -Count 100
+        PS > $api2 = Get-NetworkMetrics -HostName 'api-us-west.example.com' -Port 8080 -Count 100
+        PS > Show-NetworkLatencyGraph -Data $api1.LatencyData -GraphType Sparkline -ShowStats
+        PS > Show-NetworkLatencyGraph -Data $api2.LatencyData -GraphType Sparkline -ShowStats
+        PS > Invoke-NetworkDiagnostic -HostName 'api-us-east.example.com','api-us-west.example.com' -Port 8080 -Count 100 -ShowGraph
+
+        Compare multiple API endpoints. Visualize side-by-side, then run comprehensive
+        diagnostic to choose endpoint with best performance characteristics.
+
+    .EXAMPLE
+        PS > # WORKFLOW: Diagnosing intermittent connection drops
+        PS > # Step 1: Monitor continuously to catch failures
+        PS > Invoke-NetworkDiagnostic -HostName 'vpn.company.com' -Continuous -Interval 3
+        PS > # Step 2: When drops occur, collect detailed samples
+        PS > $metrics = Get-NetworkMetrics -HostName 'vpn.company.com' -Count 200 -SampleDelayMilliseconds 50
+        PS > # Step 3: Analyze distribution pattern
+        PS > Show-NetworkLatencyGraph -Data $metrics.LatencyData -GraphType Distribution -Width 80
+
+        Diagnose intermittent issues. Bimodal distribution suggests routing flaps;
+        consistent failures suggest firewall/ACL issues.
+
+    .EXAMPLE
+        PS > # WORKFLOW: Real-time application baseline comparison
+        PS > $baseline = Get-NetworkMetrics -HostName 'game-server.net' -Port 27015 -Count 100
+        PS > Invoke-NetworkDiagnostic -HostName 'game-server.net' -Port 27015 -Continuous -ShowGraph -Interval 5
+        PS > "Baseline Jitter: $($baseline.Jitter)ms"  # Should be < 20ms for gaming
+
+        Baseline during good period, then monitor during problems. Jitter increase > 50%
+        indicates network path congestion or routing changes.
+
+    .EXAMPLE
+        PS > # WORKFLOW: Multi-service health check
+        PS > $services = @('web.company.com:443', 'api.company.com:8080', 'db.company.com:5432')
+        PS > foreach ($svc in $services) {
+        >>       $host,$port = $svc -split ':'
+        >>       Get-NetworkMetrics -HostName $host -Port $port -Count 10 | Select-Object HostName,Port,PacketLoss,LatencyAvg
+        >>   }
+        PS > Invoke-NetworkDiagnostic -HostName 'db.company.com' -Port 5432 -ShowGraph -Count 100
+
+        Quick parallel test of critical services, then deep dive on problematic ones.
+        Identify whether issues are service-specific or systemic network problems.
 
     .OUTPUTS
         System.String (formatted diagnostic output)

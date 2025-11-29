@@ -9,19 +9,19 @@
         bar charts, and time-series graphs. Supports both inline sparklines and detailed
         multi-line graphs. Cross-platform compatible.
 
-        TROUBLESHOOTING USE CASES:
+        PATTERN RECOGNITION:
 
         This function helps identify network performance patterns through visualization:
 
-        1. PATTERN RECOGNITION - Sparkline Graphs
-           Sparklines provide instant visual feedback on latency trends:
-           - Flat line (▂▂▂▂▂): Stable, healthy connection
-           - Gradual climb (▁▂▃▅▆▇): Progressive degradation (congestion building)
-           - Sudden spikes (▂▂▇▂▂): Intermittent issues (routing flaps, packet bursts)
-           - Gaps with ✖ marks: Packet loss or timeouts
-           - Highly variable (▁▇▂▇▃): High jitter (unsuitable for VoIP/gaming)
+        1. SPARKLINE GRAPHS - Instant Visual Feedback
+           Sparklines provide immediate insight into latency trends:
+           - Flat line (▂▂▂▂▂): Stable, healthy connection suitable for all applications
+           - Gradual climb (▁▂▃▅▆▇): Progressive degradation indicating congestion building
+           - Sudden spikes (▂▂▇▂▂): Intermittent issues from routing flaps or packet bursts
+           - Gaps with ✖ marks: Packet loss or timeouts requiring investigation
+           - Highly variable (▁▇▂▇▃): High jitter unsuitable for VoIP/gaming applications
 
-        2. TREND ANALYSIS - Time Series Graphs
+        2. TIME SERIES GRAPHS - Trend Analysis
            Time-series graphs reveal performance trends over longer periods:
            - Ascending trend: Network congestion increasing over time
            - Descending trend: Improvement (e.g., after route optimization)
@@ -29,20 +29,13 @@
            - Stepped pattern: Route changes or failover events
            - Chaotic pattern: Unstable network path requiring investigation
 
-        3. DISTRIBUTION ANALYSIS - Histogram Graphs
+        3. DISTRIBUTION GRAPHS - Consistency Analysis
            Distribution graphs identify latency consistency:
            - Single peak (normal distribution): Consistent, predictable latency
            - Bimodal distribution: Two routing paths or intermittent issues
            - Flat distribution: Highly unpredictable, problematic connection
            - Right-skewed: Occasional high latency outliers
            - Left-skewed: Baseline issues with occasional good performance
-
-        4. CONTINUOUS MONITORING
-           Real-time visualization of network changes:
-           - Watch for sudden pattern changes indicating network events
-           - Monitor during maintenance windows to verify stability
-           - Identify the exact moment when performance degrades
-           - Compare before/after metrics for configuration changes
 
         INTERPRETING GRAPH PATTERNS:
 
@@ -72,63 +65,7 @@
         - High initial latency, then normal
         - Action: DNS cache warming, check resolver performance
 
-        USING GRAPH FUNCTIONS TOGETHER:
-
-        Scenario 1: Quick Visual Triage
-        Step 1: Collect data from problem endpoint
-                $metrics = Get-NetworkMetrics -HostName 'slow-api.example.com' -Count 50
-        Step 2: Quick sparkline check
-                Show-NetworkLatencyGraph -Data $metrics.LatencyData -GraphType Sparkline -ShowStats
-        Step 3: If pattern looks concerning, get detailed view
-                Show-NetworkLatencyGraph -Data $metrics.LatencyData -GraphType TimeSeries -Width 80 -Height 15 -ShowStats
-        Step 4: Check distribution for consistency
-                Show-NetworkLatencyGraph -Data $metrics.LatencyData -GraphType Distribution
-        Resolution: Pattern shape tells you where to investigate
-
-        Scenario 2: Comparing Multiple Paths
-        Step 1: Collect metrics for primary and backup paths
-                $primary = Get-NetworkMetrics -HostName 'primary.example.com' -Count 100
-                $backup = Get-NetworkMetrics -HostName 'backup.example.com' -Count 100
-        Step 2: Visual side-by-side comparison
-                Write-Host "Primary: " -NoNewline
-                Show-NetworkLatencyGraph -Data $primary.LatencyData -GraphType Sparkline -ShowStats
-                Write-Host "Backup:  " -NoNewline
-                Show-NetworkLatencyGraph -Data $backup.LatencyData -GraphType Sparkline -ShowStats
-        Step 3: Detailed analysis of chosen path
-                Show-NetworkLatencyGraph -Data $primary.LatencyData -GraphType TimeSeries -ShowStats
-        Resolution: Quantify performance difference between paths
-
-        Scenario 3: Real-Time Performance Monitoring
-        Step 1: Live monitoring with auto-refresh
-                Show-NetworkLatencyGraph -HostName 'critical-service.com' -GraphType TimeSeries -Continuous -Interval 5
-        Step 2: Watch for pattern changes during maintenance
-                # Graph updates every 5 seconds showing current state
-        Step 3: When issue detected, switch to detailed diagnostic
-                Invoke-NetworkDiagnostic -HostName 'critical-service.com' -ShowGraph -Count 200
-        Resolution: Catch the exact moment performance degrades
-
-        Scenario 4: Historical Pattern Analysis
-        Step 1: Collect extended baseline
-                $morning = Get-NetworkMetrics -HostName 'database.local' -Port 5432 -Count 200
-                # ... collect at different times of day ...
-                $evening = Get-NetworkMetrics -HostName 'database.local' -Port 5432 -Count 200
-        Step 2: Compare distributions
-                Show-NetworkLatencyGraph -Data $morning.LatencyData -GraphType Distribution
-                Show-NetworkLatencyGraph -Data $evening.LatencyData -GraphType Distribution
-        Resolution: Identify time-based performance patterns (backup windows, usage peaks)
-
-        Scenario 5: Validating Network Changes
-        Step 1: Baseline before change
-                $before = Get-NetworkMetrics -HostName 'endpoint.com' -Count 100
-                Show-NetworkLatencyGraph -Data $before.LatencyData -GraphType Sparkline -ShowStats
-        Step 2: Apply network configuration change (QoS, routing, etc.)
-        Step 3: Measure after change
-                $after = Get-NetworkMetrics -HostName 'endpoint.com' -Count 100
-                Show-NetworkLatencyGraph -Data $after.LatencyData -GraphType Sparkline -ShowStats
-        Step 4: Compare distributions
-                Show-NetworkLatencyGraph -Data $before.LatencyData -GraphType Distribution -Width 60
-                Show-NetworkLatencyGraph -Data $after.LatencyData -GraphType Distribution -Width 60
-        Resolution: Quantify improvement (or degradation) from configuration change
+        See EXAMPLES for practical pattern interpretation workflows and usage scenarios.
 
         RELATED FUNCTIONS:
         This function is designed to work with:
@@ -238,8 +175,8 @@
     .EXAMPLE
         PS > $latencies = @(20, 22, $null, 21, $null, 23, 20, 21)
         PS > Show-NetworkLatencyGraph -Data $latencies -GraphType Sparkline -ShowStats
+             ▁▅✖▂✖█▁▂ (min: 20ms, max: 23ms, avg: 21.2ms, failed: 2)
 
-        ▁▅✖▂✖█▁▂ (min: 20ms, max: 23ms, avg: 21.2ms, failed: 2)
         Displays graph with failed requests marked as ✖
 
     .EXAMPLE
@@ -300,6 +237,109 @@
         PS > Show-NetworkLatencyGraph -Data $latencies -GraphType TimeSeries -Width 30 -Height 8
 
         Displays a time-series graph that preserves failed samples as ✖ gaps instead of collapsing the timeline
+
+    .EXAMPLE
+        PS > # PATTERN: Healthy network
+        PS > # ▂▂▂▂▂▃▂▂▂▂▂▂▃▂▂ (min: 12ms, max: 15ms, avg: 13ms, jitter: 1.2ms)
+        PS > # Interpretation: Tight range, low jitter, no gaps - suitable for all applications
+
+        Flat sparkline pattern indicates stable, healthy connection suitable for real-time
+        applications including VoIP and gaming.
+
+    .EXAMPLE
+        PS > # PATTERN: Congested network
+        PS > # ▁▂▃▅▆▇██▇▆▅▃▂▁ (min: 15ms, max: 95ms, avg: 55ms, jitter: 28ms)
+        PS > # Interpretation: Ascending then descending (congestion clearing)
+        PS > # Action: Investigate QoS, bandwidth utilization
+
+        Gradual climb pattern shows progressive degradation. High jitter makes connection
+        unsuitable for VoIP/gaming. Indicates network congestion building then clearing.
+
+    .EXAMPLE
+        PS > # PATTERN: Packet loss
+        PS > # ▂▂✖✖▂▂✖▂▂▂✖✖✖ (min: 12ms, max: 18ms, avg: 14ms, failed: 6)
+        PS > # Interpretation: Multiple ✖ marks indicating failures
+        PS > # Action: Check physical layer, firewall rules, routing
+
+        Multiple ✖ marks indicate packet loss or timeouts. Check physical connections,
+        firewall rules, and routing configuration.
+
+    .EXAMPLE
+        PS > # PATTERN: Route flapping
+        PS > # ▂▂▂████▂▂▂████▂▂▂ (min: 12ms, max: 120ms, avg: 45ms, jitter: 42ms)
+        PS > # Interpretation: Periodic spikes at regular intervals
+        PS > # Action: BGP route instability, check with ISP
+
+        Periodic spike pattern suggests route flapping or BGP instability.
+        Contact ISP to investigate routing issues.
+
+    .EXAMPLE
+        PS > # PATTERN: DNS cache issue
+        PS > # First request: 250ms, subsequent: ▂▂▂▂▂ (avg: 13ms)
+        PS > # Interpretation: High initial latency, then normal
+        PS > # Action: DNS cache warming, check resolver performance
+
+        High initial latency followed by normal performance indicates DNS caching behavior.
+        Consider DNS resolver performance or cache warming strategies.
+
+    .EXAMPLE
+        PS > # WORKFLOW: Quick visual triage
+        PS > $metrics = Get-NetworkMetrics -HostName 'slow-api.example.com' -Count 50
+        PS > Show-NetworkLatencyGraph -Data $metrics.LatencyData -GraphType Sparkline -ShowStats
+        PS > # If pattern looks concerning, get detailed view
+        PS > Show-NetworkLatencyGraph -Data $metrics.LatencyData -GraphType TimeSeries -Width 80 -Height 15 -ShowStats
+        PS > # Check distribution for consistency
+        PS > Show-NetworkLatencyGraph -Data $metrics.LatencyData -GraphType Distribution
+
+        Progressive visualization workflow. Start with sparkline for quick assessment,
+        expand to time-series for detail, check distribution for consistency.
+
+    .EXAMPLE
+        PS > # WORKFLOW: Comparing network paths
+        PS > $primary = Get-NetworkMetrics -HostName 'primary.example.com' -Count 100
+        PS > $backup = Get-NetworkMetrics -HostName 'backup.example.com' -Count 100
+        PS > Write-Host "Primary: " -NoNewline
+        PS > Show-NetworkLatencyGraph -Data $primary.LatencyData -GraphType Sparkline -ShowStats
+        PS > Write-Host "Backup:  " -NoNewline
+        PS > Show-NetworkLatencyGraph -Data $backup.LatencyData -GraphType Sparkline -ShowStats
+        PS > Show-NetworkLatencyGraph -Data $primary.LatencyData -GraphType TimeSeries -ShowStats
+
+        Side-by-side comparison of multiple network paths. Visual patterns quickly reveal
+        performance differences for path selection decisions.
+
+    .EXAMPLE
+        PS > # WORKFLOW: Real-time performance monitoring
+        PS > Show-NetworkLatencyGraph -HostName 'critical-service.com' -GraphType TimeSeries -Continuous -Interval 5
+        PS > # Watch for pattern changes during maintenance
+        PS > # When issue detected, switch to detailed diagnostic:
+        PS > Invoke-NetworkDiagnostic -HostName 'critical-service.com' -ShowGraph -Count 200
+
+        Live monitoring with auto-refresh. Graph updates every 5 seconds showing current
+        state. Catch the exact moment when performance degrades.
+
+    .EXAMPLE
+        PS > # WORKFLOW: Historical pattern analysis
+        PS > $morning = Get-NetworkMetrics -HostName 'database.local' -Port 5432 -Count 200
+        PS > # ... collect at different times of day ...
+        PS > $evening = Get-NetworkMetrics -HostName 'database.local' -Port 5432 -Count 200
+        PS > Show-NetworkLatencyGraph -Data $morning.LatencyData -GraphType Distribution
+        PS > Show-NetworkLatencyGraph -Data $evening.LatencyData -GraphType Distribution
+
+        Compare distribution patterns across time periods. Identify time-based performance
+        patterns like backup windows or usage peaks.
+
+    .EXAMPLE
+        PS > # WORKFLOW: Validating network configuration changes
+        PS > $before = Get-NetworkMetrics -HostName 'endpoint.com' -Count 100
+        PS > Show-NetworkLatencyGraph -Data $before.LatencyData -GraphType Sparkline -ShowStats
+        PS > # Apply network configuration change (QoS, routing, etc.)
+        PS > $after = Get-NetworkMetrics -HostName 'endpoint.com' -Count 100
+        PS > Show-NetworkLatencyGraph -Data $after.LatencyData -GraphType Sparkline -ShowStats
+        PS > Show-NetworkLatencyGraph -Data $before.LatencyData -GraphType Distribution -Width 60
+        PS > Show-NetworkLatencyGraph -Data $after.LatencyData -GraphType Distribution -Width 60
+
+        Baseline before/after comparison for configuration changes. Quantify improvement
+        or degradation from QoS, routing, or other network modifications.
 
     .OUTPUTS
         System.String
@@ -570,7 +610,11 @@
                                         { [void]$output.Append('█') }
                                         else { [void]$output.Append('▄') }
                                     }
-                                    else { [void]$output.Append(' ') }
+                                    else
+                                    {
+                                        if ($row -eq 0) { [void]$output.Append('_') }
+                                        else { [void]$output.Append(' ') }
+                                    }
                                 }
                                 [void]$output.AppendLine()
                             }
@@ -737,7 +781,15 @@
                         }
                         else
                         {
-                            [void]$output.Append(' ')
+                            # Show baseline indicator for bottom row to indicate data exists
+                            if ($row -eq 0)
+                            {
+                                [void]$output.Append('_')
+                            }
+                            else
+                            {
+                                [void]$output.Append(' ')
+                            }
                         }
                     }
 
