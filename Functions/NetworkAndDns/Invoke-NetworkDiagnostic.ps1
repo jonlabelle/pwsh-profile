@@ -867,37 +867,33 @@
         {
             $iteration++
             # Determine effective render mode
+            # Test if ANSI escape sequences are actually supported
+            $ansiSupported = $false
+            if ($PSVersionTable.PSVersion.Major -ge 6) {
+                try {
+                    # Test if we can actually use ANSI by checking console capabilities
+                    $ansiSupported = [Console]::IsOutputRedirected -eq $false -and
+                                   ([Environment]::GetEnvironmentVariable('TERM') -ne $null -or
+                                    $Host.UI.RawUI.BufferSize.Width -gt 0)
+                } catch {
+                    $ansiSupported = $false
+                }
+            }
+
             $effectiveRender = switch ($RenderMode)
             {
-                'InPlace' { if ($PSVersionTable.PSVersion.Major -lt 6) { 'Clear' } else { 'InPlace' } }
+                'InPlace' {
+                    if ($ansiSupported) { 'InPlace' } else { 'Stack' }  # Never fall back to Clear
+                }
                 'Clear' { 'Clear' }
                 'Stack' { 'Stack' }
-                default { if ($PSVersionTable.PSVersion.Major -lt 6) { 'Clear' } else { 'InPlace' } }
-            }
-
-            if ($Continuous)
-            {
-                if ($effectiveRender -eq 'Clear' -and ($iteration -gt 1 -or $MaxIterations -eq 0))
-                {
-                    Clear-Host
-                }
-                elseif ($effectiveRender -eq 'InPlace' -and ($iteration -gt 1) -and $lastRenderLines -gt 0)
-                {
-                    # Move cursor up to the start of the previous block and reset to column 1
-                    Write-Host ("`e[{0}A" -f $lastRenderLines) -NoNewline
-                    Write-Host "`e[1G" -NoNewline
+                default {
+                    # Auto mode: prefer InPlace if ANSI is supported, otherwise Stack
+                    if ($ansiSupported) { 'InPlace' } else { 'Stack' }
                 }
             }
-            if ($Continuous)
-            {
-                $clearTail = "`e[K"
-                Write-Host ("Network Diagnostic - Iteration $iteration (Press Ctrl+C to stop)$clearTail") -ForegroundColor DarkGray
-                Write-Host ("Interval: ${Interval}s | Samples per host: $Count | Port: $Port$clearTail") -ForegroundColor Gray
-                Write-Host
-            }
-            $linesPrinted = if ($Continuous) { 3 } else { 0 }
 
-            # Collect metrics for all hosts
+            # Collect metrics for all hosts FIRST, before any display changes
             $results = @()
             $useParallel = ($PSVersionTable.PSVersion.Major -ge 7 -and $allHosts.Count -gt 1)
             if ($useParallel)
@@ -987,6 +983,30 @@
                 }
             }
 
+            # NOW that we have all the data, handle the display refresh
+            if ($Continuous)
+            {
+                if ($effectiveRender -eq 'Clear' -and $iteration -gt 1)
+                {
+                    Clear-Host
+                }
+                elseif ($effectiveRender -eq 'InPlace' -and $iteration -gt 1 -and $lastRenderLines -gt 0)
+                {
+                    # For in-place rendering, move cursor up and clear remainder of screen
+                    # Use proper PowerShell escape character - no fallback to Clear-Host
+                    $esc = [char]27
+                    $upSequence = "$esc[{0}A" -f $lastRenderLines  # Move cursor up
+                    $clearSequence = "$esc[0J"                      # Clear from cursor to end of screen
+                    [Console]::Write($upSequence + $clearSequence)
+                }
+
+                # Print the header
+                Write-Host ("Network Diagnostic - Iteration $iteration (Press Ctrl+C to stop)") -ForegroundColor DarkGray
+                Write-Host ("Interval: ${Interval}s | Samples per host: $Count | Port: $Port") -ForegroundColor Gray
+                Write-Host
+            }
+            $linesPrinted = if ($Continuous) { 3 } else { 0 }
+
             # Ensure we have a non-null collection for formatting
             $results = @($results | Where-Object { $null -ne $_ })
 
@@ -998,6 +1018,7 @@
             {
                 if ($null -ne $countOut) { $linesPrinted += [int]$countOut }
 
+                # Set lastRenderLines BEFORE sleep so it's available for next iteration
                 if ($effectiveRender -eq 'InPlace')
                 {
                     $lastRenderLines = $linesPrinted
