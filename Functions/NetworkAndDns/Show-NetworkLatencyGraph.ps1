@@ -276,7 +276,7 @@
         }
 
         # Block characters for sparklines (8 levels)
-        $script:SparkChars = @(' ', [char]0x2581, [char]0x2582, [char]0x2583, [char]0x2584, [char]0x2585, [char]0x2586, [char]0x2587, [char]0x2588)
+        $script:SparkChars = @([char]0x2581, [char]0x2582, [char]0x2583, [char]0x2584, [char]0x2585, [char]0x2586, [char]0x2587, [char]0x2588)
 
         # Load Get-NetworkMetrics if in continuous mode
         if ($Continuous)
@@ -387,16 +387,16 @@
                             {
                                 if ($null -eq $value)
                                 {
-                                    [void]$sparkline.Append('✖')
+                                    [void]$sparkline.Append(' ')
                                 }
                                 else
                                 {
-                                    if ($max -eq $min) { $index = 4 }
+                                    if ($max -eq $min) { $index = 3 }
                                     else
                                     {
                                         $normalized = ($value - $min) / ($max - $min)
                                         $index = [Math]::Floor($normalized * 8)
-                                        $index = [Math]::Min(8, [Math]::Max(0, $index))
+                                        $index = [Math]::Min(7, [Math]::Max(0, $index))
                                     }
                                     [void]$sparkline.Append($script:SparkChars[$index])
                                 }

@@ -417,7 +417,12 @@
                 {
                     $elapsedText = " (collect $([Math]::Round($result.ElapsedMs, 1))ms)"
                 }
-                Write-Host ("┌─ $($result.HostName):$($result.Port)$elapsedText$clearTail") -ForegroundColor $statusColor
+                Write-Host ("┌─ $($result.HostName):$($result.Port)") -ForegroundColor $statusColor -NoNewline
+                if ($elapsedText)
+                {
+                    Write-Host "$elapsedText" -ForegroundColor DarkGray -NoNewline
+                }
+                Write-Host $clearTail -ForegroundColor $statusColor
                 $linesPrintedLocal++
 
                 if ($SummaryOnly)
@@ -594,10 +599,11 @@
             if ($Continuous)
             {
                 $clearTail = "`e[K"
-                Write-Host ("Network Diagnostic - Iteration $iteration (Press Ctrl+C to stop)$clearTail") -ForegroundColor Cyan
+                Write-Host ("Network Diagnostic - Iteration $iteration (Press Ctrl+C to stop)$clearTail") -ForegroundColor DarkGray
                 Write-Host ("Interval: ${Interval}s | Samples per host: $Count | Port: $Port$clearTail") -ForegroundColor Gray
+                Write-Host
             }
-            $linesPrinted = if ($Continuous) { 2 } else { 0 }
+            $linesPrinted = if ($Continuous) { 3 } else { 0 }
 
             # Collect metrics for all hosts
             $results = @()
