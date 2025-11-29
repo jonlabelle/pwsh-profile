@@ -396,6 +396,21 @@
 
             $clearTail = if ($InPlace) { "`e[K" } else { '' }
 
+            if ($Results.Count -eq 0)
+            {
+                Write-Host
+                Write-Host '  No results to display. All connection attempts may have failed.' -ForegroundColor Red
+                Write-Host '  Check your internet connection or firewall settings.' -ForegroundColor Yellow
+                Write-Host
+                $linesPrintedLocal += 3
+
+                if ($ReturnLineCount)
+                {
+                    return $linesPrintedLocal
+                }
+                return ''
+            }
+
             foreach ($result in $Results)
             {
                 # Determine overall status color based on packet loss and latency
