@@ -818,9 +818,13 @@
                 $indexedHosts = for ($i = 0; $i -lt $allHosts.Count; $i++) { [PSCustomObject]@{ HostName = $allHosts[$i]; Index = $i } }
 
                 $results = $indexedHosts | ForEach-Object -Parallel {
+                    # Each parallel runspace starts clean; ensure the dependency is loaded locally using the captured path
                     if (-not (Get-Command -Name 'Get-NetworkMetrics' -ErrorAction SilentlyContinue) -and $using:MetricsPath)
                     {
-                        try { . $using:MetricsPath } catch {}
+                        try { . $using:MetricsPath } catch
+                        {
+                            throw "Failed to load required dependency 'Get-NetworkMetrics' from '$using:MetricsPath': $($_.Exception.Message)"
+                        }
                     }
 
                     $buildFailure = {
