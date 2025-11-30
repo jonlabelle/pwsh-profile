@@ -15,7 +15,7 @@ Icon             # macOS custom icons (ends with \r)
 ._*              # macOS extended attributes
 
 node_modules
-/tmp
+tmp/
 
 # Local user functions (not committed to repository)
 # Ignore all PowerShell files in Functions/Local/ but keep README.md and .gitkeep
@@ -31,9 +31,8 @@ node_modules
 # Build output directory
 /dist
 
-# Local env files
-.env.local
-.env.*.local
+# All .env files
+.env*
 
 # PowerShell profile parts
 /Help/
