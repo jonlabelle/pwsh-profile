@@ -28,6 +28,10 @@ function Get-VideoDetails
         Path to the ffprobe executable. If not specified, attempts to use 'ffprobe' from PATH,
         then falls back to platform-specific default locations.
 
+    .PARAMETER TimeoutSeconds
+        Timeout in seconds for ffprobe execution. Default is 120 seconds (2 minutes).
+        For very large video files, you may need to increase this value. Valid range is 10-600 seconds.
+
     .EXAMPLE
         PS > Get-VideoDetails -Path "movie.mp4"
 
@@ -64,6 +68,11 @@ function Get-VideoDetails
         PS > Get-VideoDetails -Path "movie.mp4" -FFprobePath "/opt/ffmpeg/bin/ffprobe"
 
         Uses a custom ffprobe path to retrieve video information.
+
+    .EXAMPLE
+        PS > Get-VideoDetails -Path "large-movie.mkv" -TimeoutSeconds 300
+
+        Uses a 5-minute timeout for analyzing a large video file that might take longer to process.
 
     .EXAMPLE
         PS > Get-VideoDetails -Path "movie.mp4" -Extended
@@ -171,7 +180,12 @@ function Get-VideoDetails
         [Parameter()]
         [ValidateNotNullOrEmpty()]
         [string]
-        $FFprobePath
+        $FFprobePath,
+
+        [Parameter()]
+        [ValidateRange(10, 600)]
+        [int]
+        $TimeoutSeconds = 120
     )
 
     begin
@@ -295,7 +309,8 @@ function Get-VideoDetails
             param(
                 [System.IO.FileInfo]$FileInfo,
                 [string]$FFprobeExecutable,
-                [bool]$IncludeExtended
+                [bool]$IncludeExtended,
+                [int]$TimeoutSeconds = 120
             )
 
             try
@@ -334,12 +349,13 @@ function Get-VideoDetails
                 $process.StartInfo = $processInfo
                 [void]$process.Start()
 
-                # Set a timeout of 30 seconds for ffprobe
-                $timeoutMs = 30000
+                # Set a timeout for ffprobe (configurable, default 2 minutes for large files)
+                $timeoutMs = $TimeoutSeconds * 1000
+                Write-Verbose "Using timeout of $TimeoutSeconds seconds for $($FileInfo.Name)"
                 if (-not $process.WaitForExit($timeoutMs))
                 {
                     $process.Kill()
-                    Write-Error "ffprobe timed out after $($timeoutMs / 1000) seconds for $($FileInfo.Name)"
+                    Write-Error "ffprobe timed out after $TimeoutSeconds seconds for $($FileInfo.Name). For very large files, try increasing -TimeoutSeconds parameter."
                     return
                 }
 
@@ -686,7 +702,7 @@ function Get-VideoDetails
 
                     Write-Verbose "Processing: $($file.FullName)"
 
-                    Get-VideoInfo -FileInfo $file -FFprobeExecutable $resolvedFFprobePath -IncludeExtended $Extended
+                    Get-VideoInfo -FileInfo $file -FFprobeExecutable $resolvedFFprobePath -IncludeExtended $Extended -TimeoutSeconds $TimeoutSeconds
                 }
             }
             catch
