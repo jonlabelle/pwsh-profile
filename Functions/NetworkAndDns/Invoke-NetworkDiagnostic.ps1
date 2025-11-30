@@ -619,8 +619,10 @@
                 return $flags
             }
 
-            $clearTail = if ($InPlace) { "`e[K" } else { '' }
-            $resetEsc = "`e[0m"
+            # Only use ANSI clear tail on PowerShell Core
+            $clearTail = if ($InPlace -and $PSVersionTable.PSVersion.Major -ge 6) { "`e[K" } else { '' }
+            # Only use ANSI reset codes on PowerShell Core
+            $resetEsc = if ($PSVersionTable.PSVersion.Major -ge 6) { "`e[0m" } else { '' }
 
             if ($Results.Count -eq 0)
             {
@@ -825,12 +827,34 @@
                     Write-Host ("│$resetEsc$clearTail")
                     $graph = & $getCachedGraph $result.LatencyData 'TimeSeries' 70 8 $true $Style
                     $graphLineCount = 0
-                    foreach ($line in $graph -split "`n")
+
+                    # Check if graph actually contains content
+                    if ($graph -and $graph.Trim())
                     {
-                        # Don't override colors - graph has embedded ANSI codes
-                        Write-Host ("│  $resetEsc$line$resetEsc$clearTail")
-                        $graphLineCount++
+                        # Split and process each line of the graph output
+                        $graphLines = $graph -split "`r?`n"
+                        foreach ($line in $graphLines)
+                        {
+                            # Skip empty lines at the end
+                            if ($line.Trim() -or $graphLineCount -eq 0)
+                            {
+                                # Prefix with border and preserve embedded colors
+                                Write-Host "│  " -NoNewline
+                                # Write the graph line directly to preserve ANSI codes
+                                [Console]::Write($line)
+                                # Add clear tail if in-place rendering
+                                if ($clearTail) { [Console]::Write($clearTail) }
+                                [Console]::WriteLine()
+                                $graphLineCount++
+                            }
+                        }
                     }
+                    else
+                    {
+                        Write-Host ("│  (graph generation failed)$clearTail") -ForegroundColor Yellow
+                        $graphLineCount = 1
+                    }
+
                     # Include the pre-graph spacer line
                     $linesPrintedLocal += (1 + $graphLineCount)
                     try

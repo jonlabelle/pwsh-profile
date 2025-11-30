@@ -447,15 +447,65 @@
         Write-Verbose "Creating $GraphType graph"
         $jitter = $null
 
+        # Detect Unicode and ANSI capabilities
+        function Test-UnicodeSupport {
+            # PowerShell ISE has poor Unicode support
+            if ($host.Name -eq 'Windows PowerShell ISE Host') { return $false }
+
+            # PowerShell 5.1 on Windows generally has limited Unicode support in console
+            if ($PSVersionTable.PSVersion.Major -lt 6 -and [Environment]::OSVersion.Platform -eq 'Win32NT') {
+                Write-Verbose 'Unicode disabled: PowerShell 5.1 on Windows has limited console Unicode support'
+                return $false
+            }
+
+            # Check if we're in a modern terminal that supports Unicode
+            if ($env:WT_SESSION -or $env:TERM_PROGRAM -eq 'vscode' -or $env:ConEmuPID) {
+                # Even in modern terminals, check the output encoding
+                if ([Console]::OutputEncoding.CodePage -eq 437) {
+                    Write-Verbose 'Unicode disabled: Console using CP437 encoding'
+                    return $false
+                }
+                Write-Verbose 'Unicode enabled: Modern terminal with proper encoding detected'
+                return $true
+            }
+
+            # Check output encoding for Unicode support (must not be CP437)
+            if ([Console]::OutputEncoding.EncodingName -match 'UTF' -and [Console]::OutputEncoding.CodePage -ne 437) {
+                Write-Verbose 'Unicode enabled: UTF encoding detected'
+                return $true
+            }
+
+            # PowerShell Core with proper encoding
+            if ($PSVersionTable.PSVersion.Major -ge 6 -and [Console]::OutputEncoding.CodePage -ne 437) {
+                Write-Verbose 'Unicode enabled: PowerShell Core with proper encoding'
+                return $true
+            }
+
+            Write-Verbose "Unicode disabled: CodePage=$([Console]::OutputEncoding.CodePage), PSVersion=$($PSVersionTable.PSVersion.Major)"
+            return $false
+        }
+
+        $script:SupportsUnicode = Test-UnicodeSupport
+
         # ANSI color palette (respects -NoColor and OutputRendering=PlainText)
+        # Enhanced detection for Windows PowerShell compatibility
         $supportsColor = -not $NoColor.IsPresent
         if ($PSVersionTable.PSVersion.Major -lt 6)
         {
+            # PowerShell 5.1 and earlier don't support ANSI colors reliably
             $supportsColor = $false
+            Write-Verbose 'ANSI colors disabled for PowerShell 5.1 compatibility'
         }
         elseif ($supportsColor -and $PSStyle -and $PSStyle.OutputRendering -eq 'PlainText')
         {
             $supportsColor = $false
+            Write-Verbose 'ANSI colors disabled due to PlainText output rendering'
+        }
+        elseif ($supportsColor -and $host.Name -eq 'Windows PowerShell ISE Host')
+        {
+            # PowerShell ISE doesn't support ANSI escape sequences
+            $supportsColor = $false
+            Write-Verbose 'ANSI colors disabled for PowerShell ISE compatibility'
         }
 
         $script:Palette = [PSCustomObject]@{
@@ -544,6 +594,7 @@
             # Start with a reset so prior host color doesn't bleed into this graph block
             $output = New-Object System.Text.StringBuilder
             [void]$output.Append($script:Palette.Reset)
+            Write-Verbose "Building TimeSeries graph: Width=$Width, Height=$Height, Style=$Style, DataCount=$($Data.Count), Min=$Min, Max=$Max"
 
             $range = if ($Max -eq $Min) { 1 } else { $Max - $Min }
             $scaleDenominator = [Math]::Max(1, $Height - 1)
@@ -552,6 +603,7 @@
             # Pre-calculate scaled positions for all data points
             $scaledPoints = @()
             $rawValues = @()
+            Write-Verbose "Calculating $pointsToPlot scaled points from $($Data.Count) data points"
             for ($col = 0; $col -lt $pointsToPlot; $col++)
             {
                 $dataIndex = [Math]::Floor($col * $Data.Count / $pointsToPlot)
@@ -561,6 +613,7 @@
                 {
                     $scaledPoints += $null
                     $rawValues += $null
+                    Write-Verbose "Point $col (data[$dataIndex]): null (failed sample)"
                 }
                 else
                 {
@@ -570,6 +623,7 @@
                     $scaledRow = [Math]::Max(0, [Math]::Min($Height - 1, $scaledRow))
                     $scaledPoints += $scaledRow
                     $rawValues += [double]$value
+                    Write-Verbose "Point $col (data[$dataIndex]): $value ms -> row $scaledRow"
                 }
             }
 
@@ -588,8 +642,9 @@
 
                     if ($null -eq $scaledRow)
                     {
-                        # Failed connection
-                        $failMark = "${script:Palette.Red}✖${script:Palette.Reset}"
+                        # Failed connection - use Unicode X mark if supported
+                        $failChar = if ($script:SupportsUnicode) { '✖' } else { 'X' }
+                        $failMark = "${script:Palette.Red}$failChar${script:Palette.Reset}"
                         [void]$output.Append($failMark)
                         continue
                     }
@@ -601,7 +656,9 @@
                         {
                             if ($scaledRow -eq $row)
                             {
-                                [void]$output.Append("$pointColor●${script:Palette.Reset}")
+                                # Use Unicode bullet if supported, otherwise asterisk
+                                $dotChar = if ($script:SupportsUnicode) { '●' } else { '*' }
+                                [void]$output.Append("$pointColor$dotChar${script:Palette.Reset}")
                             }
                             else
                             {
@@ -626,7 +683,8 @@
                             # Simple line connecting points
                             if ($scaledRow -eq $row)
                             {
-                                [void]$output.Append("$pointColor●${script:Palette.Reset}")
+                                $dotChar = if ($script:SupportsUnicode) { '●' } else { '*' }
+                                [void]$output.Append("$pointColor$dotChar${script:Palette.Reset}")
                             }
                             elseif ($col -gt 0 -and $null -ne $scaledPoints[$col - 1])
                             {
@@ -640,7 +698,8 @@
 
                                 if (($prevRow -lt $row -and $currRow -gt $row) -or ($prevRow -gt $row -and $currRow -lt $row))
                                 {
-                                    [void]$output.Append("$connectorColor│${script:Palette.Reset}")
+                                    $lineChar = if ($script:SupportsUnicode) { '│' } else { '|' }
+                                    [void]$output.Append("$connectorColor$lineChar${script:Palette.Reset}")
                                 }
                                 else
                                 {
@@ -679,8 +738,12 @@
                 [void]$output.AppendLine($statsLine + $script:Palette.Reset)
             }
 
-            return $script:Palette.Reset + $output.ToString() + $script:Palette.Reset
-        }        # Load Get-NetworkMetrics if in continuous mode
+            $finalOutput = $script:Palette.Reset + $output.ToString() + $script:Palette.Reset
+            Write-Verbose "TimeSeries graph output length: $($finalOutput.Length) characters"
+            return $finalOutput
+        }
+
+        # Load Get-NetworkMetrics if in continuous mode
         if ($Continuous)
         {
             if (-not (Get-Command -Name 'Get-NetworkMetrics' -ErrorAction SilentlyContinue))
@@ -909,7 +972,8 @@
                 {
                     if ($null -eq $value)
                     {
-                        [void]$sparkline.Append("${script:Palette.Red}✖${script:Palette.Reset}")
+                        $failChar = if ($script:SupportsUnicode) { '✖' } else { 'X' }
+                        [void]$sparkline.Append("${script:Palette.Red}$failChar${script:Palette.Reset}")
                     }
                     else
                     {
