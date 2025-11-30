@@ -100,10 +100,6 @@ function Start-KeepAlive
         Returns a background job object when starting a new keep-alive job.
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Start-KeepAlive.ps1
-
         CLEANUP:
         Jobs are automatically cleaned up when they complete. For manual cleanup
         of orphaned jobs, use: Get-Job -Name $JobName | Remove-Job -Force
@@ -118,6 +114,10 @@ function Start-KeepAlive
 
         VERSION COMPATIBILITY:
         Compatible with PowerShell 5.1+ on Windows, PowerShell Core 6.2+ on macOS and Linux.
+
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Start-KeepAlive.ps1
     #>
     #
     [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingEmptyCatchBlock', '', Justification = '')]

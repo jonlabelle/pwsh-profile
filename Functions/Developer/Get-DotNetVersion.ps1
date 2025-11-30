@@ -110,13 +110,6 @@ function Get-DotNetVersion
         Returns custom objects with ComputerName, RuntimeType, Version, Release, InstallPath, and IsLatest properties.
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Get-DotNetVersion.ps1
-        Name: Get-DotNetVersion.ps1
-        Created: 8/20/2025
-        Enhanced cross-platform support for .NET detection
-
         .NET Framework detection uses Windows Registry (Windows only)
         .NET detection uses dotnet CLI when available, falls back to directory scanning
 
@@ -124,6 +117,10 @@ function Get-DotNetVersion
         - By default returns results for both .NET Framework and .NET, indicating "Not installed" when absent
         - Use -FrameworkOnly or -DotNetOnly to filter results to specific runtime types
         - The -IncludeSDKs parameter can be used with -DotNetOnly or the default parameter set, but not with -FrameworkOnly
+
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Get-DotNetVersion.ps1
 
     .LINK
         https://docs.microsoft.com/en-us/dotnet/framework/migration-guide/how-to-determine-which-versions-are-installed

@@ -190,12 +190,6 @@ function Get-SystemInfo
         - Uptime: System uptime as a timespan
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Get-SystemInfo.ps1
-        Name: Get-SystemInfo.ps1
-        Created: 10/10/2025
-
         Remote execution uses PowerShell remoting (WinRM) and requires:
         - Windows operating system
         - Appropriate permissions
@@ -205,8 +199,9 @@ function Get-SystemInfo
         - Only local computer queries are supported
         - Remote queries will generate a warning and skip non-local targets
 
-    .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Get-SystemInfo.ps1
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Get-SystemInfo.ps1
     #>
     [CmdletBinding(ConfirmImpact = 'Low')]
     [OutputType([System.Object[]])]

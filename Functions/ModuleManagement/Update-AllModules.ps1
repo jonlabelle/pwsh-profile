@@ -123,10 +123,6 @@ function Update-AllModules
         No output is returned, but progress information is displayed.
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Update-AllModules.ps1
-
         - Requires PowerShell 5.1 or later
         - Internet connection required to check for updates
         - May require elevated permissions on some systems for system-installed modules
@@ -150,6 +146,10 @@ function Update-AllModules
         - Check module details first: Get-InstalledModule ModuleName | Format-List
         - Review publisher changes: Find-Module ModuleName | Format-List Name, Author, CompanyName
         - Use PowerShellGet v3+ which has improved publisher validation handling
+
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Update-AllModules.ps1
 
     .LINK
         https://jonlabelle.com/snippets/view/markdown/powershellget-commands

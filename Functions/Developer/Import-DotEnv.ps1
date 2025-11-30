@@ -204,10 +204,6 @@ function Import-DotEnv
         With -ShowLoadedWithValues and -PassThru, returns an array of PSCustomObjects with Name and Value properties.
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Import-DotEnv.ps1
-
         The function tracks loaded variable names in $env:__DOTENV_LOADED_VARS (pipe-delimited)
         to enable unloading. This tracking variable is also removed when using -Unload.
 
@@ -227,7 +223,11 @@ function Import-DotEnv
 
         Dependencies:
         - Invoke-ElevatedCommand: Required when using -Scope Machine on Windows.
-          This function must be available in the session for Machine scope to work.
+          Auto-loaded only if necessary.
+
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Import-DotEnv.ps1
     #>
     [CmdletBinding(DefaultParameterSetName = 'Load')]
     [OutputType([System.Management.Automation.PSCustomObject])]

@@ -105,14 +105,14 @@ function Invoke-Ping
         https://docs.microsoft.com/en-us/dotnet/api/system.net.networkinformation.ping
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Invoke-Ping.ps1
-
         Platform Notes:
         - ICMP ping requires elevated privileges on some Linux systems
         - The DontFragment flag may not be supported on all platforms
         - Some firewalls block ICMP echo requests
+
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Invoke-Ping.ps1
     #>
     [CmdletBinding()]
     [OutputType([System.Management.Automation.PSCustomObject])]

@@ -166,12 +166,12 @@ function ConvertFrom-JwtToken
         - Signature: Raw signature string (only if -IncludeSignature is specified)
 
     .NOTES
+        This function does NOT validate the JWT signature. It only decodes the token contents.
+        For production authentication, always validate signatures using proper JWT libraries.
+
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Security/ConvertFrom-JwtToken.ps1
-
-        This function does NOT validate the JWT signature. It only decodes the token contents.
-        For production authentication, always validate signatures using proper JWT libraries.
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]

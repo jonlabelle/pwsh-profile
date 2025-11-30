@@ -144,10 +144,6 @@ function Get-IPAddress
         https://docs.microsoft.com/en-us/dotnet/api/system.net.networkinformation.networkinterface
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-IPAddress.ps1
-
         Public IP Services:
         - ipinfo.io - Provides geolocation data (city, region, country, org)
         - ifconfig.me - Simple IP return
@@ -155,6 +151,10 @@ function Get-IPAddress
         - api.ipify.org - Simple, reliable service
 
         Privacy Note: Public IP queries send requests to external services.
+
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-IPAddress.ps1
     #>
     [CmdletBinding(DefaultParameterSetName = 'Local')]
     [OutputType([System.Management.Automation.PSCustomObject])]

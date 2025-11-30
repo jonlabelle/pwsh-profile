@@ -115,13 +115,13 @@ function Get-StringHash
         - InputObject: The original input string
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Get-StringHash.ps1
-
         The function uses .NET cryptographic classes for hash computation, ensuring cross-platform
         compatibility. Hash values are returned in uppercase hexadecimal format to match the
         behavior of Get-FileHash.
+
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Get-StringHash.ps1
 
     .LINK
         Get-FileHash

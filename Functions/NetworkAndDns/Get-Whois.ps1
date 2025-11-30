@@ -95,10 +95,6 @@ function Get-Whois
         https://www.iana.org/whois
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-Whois.ps1
-
         WHOIS Server Selection:
         - Automatically selects appropriate server based on TLD
         - Falls back to IANA WHOIS for unknown TLDs
@@ -112,6 +108,10 @@ function Get-Whois
 
         Note: Some domains may be privacy-protected and show limited information.
         Rate limiting may apply for bulk queries.
+
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-Whois.ps1
     #>
     [CmdletBinding()]
     [OutputType([System.Management.Automation.PSCustomObject])]

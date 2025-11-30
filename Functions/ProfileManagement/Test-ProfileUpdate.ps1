@@ -52,14 +52,14 @@ function Test-ProfileUpdate
         When using -Async, returns the background job object instead.
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ProfileManagement/Test-ProfileUpdate.ps1
-
         This function requires Git to be available in the system PATH.
         Internet connectivity is required to check for remote updates.
 
         Compatible with PowerShell Desktop 5.1+ and PowerShell Core 6.2+.
+
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ProfileManagement/Test-ProfileUpdate.ps1
 
     .LINK
         https://github.com/jonlabelle/pwsh-profile

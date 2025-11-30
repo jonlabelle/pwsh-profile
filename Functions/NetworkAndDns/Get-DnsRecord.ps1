@@ -130,10 +130,6 @@ function Get-DnsRecord
         https://developers.google.com/speed/public-dns/docs/doh
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-DnsRecord.ps1
-
         DNS-over-HTTPS Providers:
         - Cloudflare: https://cloudflare-dns.com/dns-query
         - Google: https://dns.google/resolve
@@ -143,6 +139,10 @@ function Get-DnsRecord
         - If DoH is blocked, use -UseDNS flag for native DNS resolution (A/AAAA records only)
 
         For air-gapped or restricted environments, use -UseDNS flag with limited record type support.
+
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-DnsRecord.ps1
     #>
     [CmdletBinding(DefaultParameterSetName = 'DoH')]
     [OutputType([System.Management.Automation.PSCustomObject])]

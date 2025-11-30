@@ -118,14 +118,14 @@ function Test-Bandwidth
         https://docs.microsoft.com/en-us/dotnet/api/system.net.http.httpclient
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Test-Bandwidth.ps1
-
         Test servers used:
         - Default test files from publicly available CDN servers
         - Requires internet connectivity
         - Results may vary based on server load and network conditions
+
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Test-Bandwidth.ps1
     #>
     [CmdletBinding()]
     [OutputType([System.Management.Automation.PSCustomObject])]

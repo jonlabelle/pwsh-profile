@@ -85,11 +85,11 @@ function ConvertTo-Base64
         The Base64-encoded string.
 
     .NOTES
+        For URL-safe encoding, the output follows RFC 4648 Section 5.
+
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/ConvertTo-Base64.ps1
-
-        For URL-safe encoding, the output follows RFC 4648 Section 5.
     #>
     [CmdletBinding(DefaultParameterSetName = 'String')]
     [OutputType([String])]

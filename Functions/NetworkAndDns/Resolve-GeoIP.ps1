@@ -99,10 +99,6 @@ function Resolve-GeoIP
         https://ipinfo.io/developers
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Resolve-GeoIP.ps1
-
         API Service Details:
         - ipapi.co: 1000 requests/day free, HTTPS, detailed data
         - ip-api.com: 45 requests/minute, no key required, comprehensive
@@ -113,6 +109,10 @@ function Resolve-GeoIP
         between requests or use the auto service which handles fallback.
 
         Privacy: IP geolocation queries send IP addresses to external services.
+
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Resolve-GeoIP.ps1
     #>
     [CmdletBinding()]
     [OutputType([System.Management.Automation.PSCustomObject])]

@@ -79,10 +79,6 @@ function Invoke-ElevatedCommand
         If the elevated process fails, a terminating error is thrown.
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Invoke-ElevatedCommand.ps1
-
         Enhanced version based on Windows PowerShell Cookbook (O'Reilly)
         by Lee Holmes (http://www.leeholmes.com/guide)
 
@@ -92,6 +88,10 @@ function Invoke-ElevatedCommand
 
         The function automatically detects whether to use Windows PowerShell (powershell.exe)
         or PowerShell Core (pwsh.exe) based on the current session.
+
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Invoke-ElevatedCommand.ps1
 
     .LINK
         https://www.leeholmes.com/blog/

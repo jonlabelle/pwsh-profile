@@ -59,14 +59,14 @@ function Get-OutdatedModules
         Returns custom objects with properties: Name, CurrentVersion, AvailableVersion, IsUpToDate, Repository, Description, PublishedDate, Author
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Get-OutdatedModules.ps1
-
         - Requires PowerShell 5.1 or later with PowerShellGet module
         - Internet connection required to check for available versions
         - System modules are excluded by default for safety
         - Results can be piped to other cmdlets for filtering and processing
+
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Get-OutdatedModules.ps1
 
     .LINK
         https://jonlabelle.com/snippets/view/markdown/powershellget-commands

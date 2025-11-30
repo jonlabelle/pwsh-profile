@@ -289,11 +289,6 @@ function Convert-LineEndings
         - Skipped: Whether the file was skipped (all conversions already correct)
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Convert-LineEndings.ps1
-        Version: 1.1.0
-
         BINARY FILE DETECTION:
 
         The function automatically detects binary files using multiple methods:
@@ -354,6 +349,10 @@ function Convert-LineEndings
         make the conversion process transparent to file system monitoring tools. Files that are
         skipped (no conversion needed) are never touched, so their timestamps are naturally preserved
         regardless of the -PreserveTimestamps setting.
+
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Convert-LineEndings.ps1
 
     .LINK
         https://jonlabelle.com/snippets/view/powershell/convert-line-endings-in-powershell

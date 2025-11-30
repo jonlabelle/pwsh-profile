@@ -50,14 +50,14 @@ function Set-TlsSecurityProtocol
         When PassThru is specified, returns the current SecurityProtocol setting.
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Set-TlsSecurityProtocol.ps1
-
         - PowerShell Desktop (5.1) on older Windows supports up to TLS 1.2.
         - PowerShell Core (6+) and modern Windows versions may support TLS 1.3.
         - Using 'SystemDefault' is recommended for forward compatibility.
         - Changes apply globally to the current PowerShell session.
+
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Set-TlsSecurityProtocol.ps1
     #>
     [CmdletBinding()]
     [OutputType([System.Net.SecurityProtocolType])]

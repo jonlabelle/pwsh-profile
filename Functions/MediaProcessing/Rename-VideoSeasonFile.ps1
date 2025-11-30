@@ -67,16 +67,15 @@ function Rename-VideoSeasonFile
         When PassThru is specified, returns FileInfo objects for renamed files.
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/MediaProcessing/Rename-VideoSeasonFile.ps1
-        Version: 2.0.0
-
         Supported patterns:
         - S01E01, s01e01 (standard format)
         - S1E1, s1e1 (short format)
         - Season 1 Episode 1, season 1 episode 1
         - 1x01, 1X01 (alternative format)
+
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/MediaProcessing/Rename-VideoSeasonFile.ps1
 
     .LINK
         https://jonlabelle.com/snippets/view/powershell/rename-video-season-sequence-files-in-powershell

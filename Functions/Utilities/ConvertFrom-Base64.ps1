@@ -72,12 +72,12 @@ function ConvertFrom-Base64
         The decoded text (when OutputPath is not specified).
 
     .NOTES
+        For URL-safe decoding, the input follows RFC 4648 Section 5.
+        When writing to a file, the function handles binary data correctly.
+
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/ConvertFrom-Base64.ps1
-
-        For URL-safe decoding, the input follows RFC 4648 Section 5.
-        When writing to a file, the function handles binary data correctly.
     #>
     [CmdletBinding(DefaultParameterSetName = 'ToString')]
     [OutputType([String])]

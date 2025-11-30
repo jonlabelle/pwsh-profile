@@ -56,16 +56,16 @@ function Invoke-GroupPolicyUpdate
         None
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ActiveDirectory/Invoke-GroupPolicyUpdate.ps1
-
         This function uses Invoke-ElevatedCommand to ensure proper elevation, which handles
         complex scenarios like PIM (Privileged Identity Management) and elevated admin roles
         more reliably than simple administrator checks.
 
         DEPENDENCIES:
         - Invoke-ElevatedCommand function (Functions/SystemAdministration/Invoke-ElevatedCommand.ps1)
+
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ActiveDirectory/Invoke-GroupPolicyUpdate.ps1
 
     .LINK
         https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/gpupdate

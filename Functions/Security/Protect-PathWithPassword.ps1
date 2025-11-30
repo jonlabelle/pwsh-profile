@@ -120,10 +120,6 @@ function Protect-PathWithPassword
         Returns objects with OriginalPath, EncryptedPath, Success, and Error properties for each processed file.
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Security/Protect-PathWithPassword.ps1
-
         SECURITY:
         Uses cryptographically secure random number generation for salts and IVs.
         Each file gets a unique salt and IV, making identical files produce different encrypted output.
@@ -147,6 +143,10 @@ function Protect-PathWithPassword
 
         CLEANUP:
         Original files are only removed after successful encryption when -RemoveOriginal is specified.
+
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Security/Protect-PathWithPassword.ps1
     #>
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([PSCustomObject])]

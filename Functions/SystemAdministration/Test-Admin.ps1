@@ -93,10 +93,6 @@ function Test-Admin
         Returns $true if running with elevated privileges, otherwise $false.
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Test-Admin.ps1
-
         Platform-specific behavior:
 
         Windows:
@@ -112,6 +108,10 @@ function Test-Admin
         The function is designed to be fast and reliable, using platform-appropriate methods:
         - Windows: .NET security classes
         - Unix-like: id command to get effective user ID and environment variable checks
+
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Test-Admin.ps1
 
     .LINK
         https://jonlabelle.com/snippets/view/powershell/check-if-the-current-user-is-an-administrator

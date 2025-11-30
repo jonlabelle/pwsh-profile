@@ -115,14 +115,14 @@ function New-RandomString
         specified via the IncludeCharacters parameter.
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/New-RandomString.ps1
-
         - Compatible with PowerShell Desktop 5.1+ and PowerShell Core 6+
         - Works on Windows, macOS, and Linux
         - The -Secure parameter provides cryptographically strong randomness
         - For general use cases, the default (non-secure) method is sufficient
+
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/New-RandomString.ps1
 
     .LINK
         https://jonlabelle.com/snippets/view/powershell/generate-random-string-in-powershell

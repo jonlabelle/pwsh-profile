@@ -69,18 +69,18 @@ function Remove-DotNetBuildArtifacts
         - TotalSpaceFreed: Total disk space freed (unless -NoSizeCalculation is specified)
         - Errors: Number of errors encountered
 
-    .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-DotNetBuildArtifacts.ps1
+    .LINK
+        https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-clean
 
+    .NOTES
         - Requires PowerShell 5.1 or later
         - Only removes bin/obj folders when a .NET project file exists in the parent directory
         - Respects -WhatIf and -Confirm parameters for safety
         - Processes .csproj, .vbproj, .fsproj, and .sqlproj project files
 
-    .LINK
-        https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-clean
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-DotNetBuildArtifacts.ps1
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding(SupportsShouldProcess)]

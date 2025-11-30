@@ -119,10 +119,6 @@ function Unprotect-PathWithPassword
         Returns objects with EncryptedPath, DecryptedPath, Success, and Error properties for each processed file.
 
     .NOTES
-        Author: Jon LaBelle
-        License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Security/Unprotect-PathWithPassword.ps1
-
         SECURITY:
         Provides secure password verification and detects file corruption or tampering.
         Failed decryption attempts do not create partial files.
@@ -147,8 +143,9 @@ function Unprotect-PathWithPassword
         CLEANUP:
         Encrypted files are only removed after successful decryption unless -KeepEncrypted is specified.
 
-    .LINK
-        Protect-PathWithPassword
+        Author: Jon LaBelle
+        License: MIT
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Security/Unprotect-PathWithPassword.ps1
     #>
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([PSCustomObject])]
