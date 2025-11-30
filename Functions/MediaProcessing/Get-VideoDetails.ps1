@@ -756,7 +756,6 @@ function Get-VideoDetails
         try
         {
             $resolvedFFprobePath = Get-ValidFFprobePath -ProvidedPath $FFprobePath
-            Write-Verbose "Using ffprobe at: $resolvedFFprobePath"
         }
         catch
         {
