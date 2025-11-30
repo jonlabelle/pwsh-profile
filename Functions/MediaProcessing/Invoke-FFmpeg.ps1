@@ -313,18 +313,109 @@ function Invoke-FFmpeg
                     # Platform-specific default locations
                     if ($script:IsWindowsPlatform)
                     {
-                        $resolvedPath = 'C:\ffmpeg\bin\ffmpeg.exe'
+                        # Try common Windows locations
+                        $commonPaths = @(
+                            'C:\ffmpeg\bin\ffmpeg.exe',
+                            'C:\Program Files\ffmpeg\bin\ffmpeg.exe',
+                            'C:\Program Files (x86)\ffmpeg\bin\ffmpeg.exe',
+                            "$env:USERPROFILE\ffmpeg\bin\ffmpeg.exe",
+                            "$env:LOCALAPPDATA\ffmpeg\bin\ffmpeg.exe",
+                            'C:\tools\ffmpeg\bin\ffmpeg.exe',
+                            'C:\ProgramData\chocolatey\lib\ffmpeg\tools\ffmpeg\bin\ffmpeg.exe',
+                            "$env:USERPROFILE\scoop\apps\ffmpeg\current\bin\ffmpeg.exe",
+                            "$env:USERPROFILE\Documents\ffmpeg\bin\ffmpeg.exe",
+                            'D:\ffmpeg\bin\ffmpeg.exe'
+                        )
+
+                        $foundPath = $null
+                        foreach ($path in $commonPaths)
+                        {
+                            if (Test-Path $path -PathType Leaf)
+                            {
+                                $foundPath = $path
+                                break
+                            }
+                        }
+
+                        if ($foundPath)
+                        {
+                            $resolvedPath = $foundPath
+                            Write-VerboseMessage "Found FFmpeg at: $resolvedPath"
+                        }
+                        else
+                        {
+                            $resolvedPath = 'C:\ffmpeg\bin\ffmpeg.exe'
+                            Write-VerboseMessage "Using default Windows path (may not exist): $resolvedPath"
+                        }
                     }
                     elseif ($script:IsMacOSPlatform)
                     {
-                        $resolvedPath = '/usr/local/bin/ffmpeg'
+                        # Try common macOS locations
+                        $commonPaths = @(
+                            '/usr/local/bin/ffmpeg',
+                            '/opt/homebrew/bin/ffmpeg',
+                            '/usr/bin/ffmpeg',
+                            '/opt/local/bin/ffmpeg',
+                            "$env:HOME/.local/bin/ffmpeg",
+                            '/Applications/ffmpeg/ffmpeg',
+                            '/usr/local/opt/ffmpeg/bin/ffmpeg'
+                        )
+
+                        $foundPath = $null
+                        foreach ($path in $commonPaths)
+                        {
+                            if (Test-Path $path -PathType Leaf)
+                            {
+                                $foundPath = $path
+                                break
+                            }
+                        }
+
+                        if ($foundPath)
+                        {
+                            $resolvedPath = $foundPath
+                            Write-VerboseMessage "Found FFmpeg at: $resolvedPath"
+                        }
+                        else
+                        {
+                            $resolvedPath = '/usr/local/bin/ffmpeg'
+                            Write-VerboseMessage "Using default macOS path (may not exist): $resolvedPath"
+                        }
                     }
                     else
                     {
-                        # Linux or other
-                        $resolvedPath = '/usr/bin/ffmpeg'
+                        # Try common Linux locations
+                        $commonPaths = @(
+                            '/usr/bin/ffmpeg',
+                            '/usr/local/bin/ffmpeg',
+                            '/snap/bin/ffmpeg',
+                            '/opt/ffmpeg/bin/ffmpeg',
+                            "$env:HOME/.local/bin/ffmpeg",
+                            "$env:HOME/bin/ffmpeg",
+                            '/usr/local/share/ffmpeg/ffmpeg'
+                        )
+
+                        $foundPath = $null
+                        foreach ($path in $commonPaths)
+                        {
+                            if (Test-Path $path -PathType Leaf)
+                            {
+                                $foundPath = $path
+                                break
+                            }
+                        }
+
+                        if ($foundPath)
+                        {
+                            $resolvedPath = $foundPath
+                            Write-VerboseMessage "Found FFmpeg at: $resolvedPath"
+                        }
+                        else
+                        {
+                            $resolvedPath = '/usr/bin/ffmpeg'
+                            Write-VerboseMessage "Using default Linux path (may not exist): $resolvedPath"
+                        }
                     }
-                    Write-VerboseMessage "Using default FFmpeg path for platform: $resolvedPath"
                 }
             }
 

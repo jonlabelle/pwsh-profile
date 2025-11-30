@@ -244,7 +244,13 @@ function Get-VideoDetails
                             'C:\ffmpeg\bin\ffprobe.exe',
                             'C:\Program Files\ffmpeg\bin\ffprobe.exe',
                             'C:\Program Files (x86)\ffmpeg\bin\ffprobe.exe',
-                            "$env:USERPROFILE\ffmpeg\bin\ffprobe.exe"
+                            "$env:USERPROFILE\ffmpeg\bin\ffprobe.exe",
+                            "$env:LOCALAPPDATA\ffmpeg\bin\ffprobe.exe",
+                            'C:\tools\ffmpeg\bin\ffprobe.exe',
+                            'C:\ProgramData\chocolatey\lib\ffmpeg\tools\ffmpeg\bin\ffprobe.exe',
+                            "$env:USERPROFILE\scoop\apps\ffmpeg\current\bin\ffprobe.exe",
+                            "$env:USERPROFILE\Documents\ffmpeg\bin\ffprobe.exe",
+                            'D:\ffmpeg\bin\ffprobe.exe'
                         )
 
                         $foundPath = $null
@@ -270,12 +276,71 @@ function Get-VideoDetails
                     }
                     elseif ($script:IsMacOSPlatform)
                     {
-                        $resolvedPath = '/usr/local/bin/ffprobe'
+                        # Try common macOS locations
+                        $commonPaths = @(
+                            '/usr/local/bin/ffprobe',
+                            '/opt/homebrew/bin/ffprobe',
+                            '/usr/bin/ffprobe',
+                            '/opt/local/bin/ffprobe',
+                            "$env:HOME/.local/bin/ffprobe",
+                            '/Applications/ffmpeg/ffprobe',
+                            '/usr/local/opt/ffmpeg/bin/ffprobe'
+                        )
+
+                        $foundPath = $null
+                        foreach ($path in $commonPaths)
+                        {
+                            if (Test-Path $path -PathType Leaf)
+                            {
+                                $foundPath = $path
+                                break
+                            }
+                        }
+
+                        if ($foundPath)
+                        {
+                            $resolvedPath = $foundPath
+                            Write-Verbose "Found ffprobe at: $resolvedPath"
+                        }
+                        else
+                        {
+                            $resolvedPath = '/usr/local/bin/ffprobe'
+                            Write-Verbose "Using default macOS path (may not exist): $resolvedPath"
+                        }
                     }
                     else
                     {
-                        # Linux or other
-                        $resolvedPath = '/usr/bin/ffprobe'
+                        # Try common Linux locations
+                        $commonPaths = @(
+                            '/usr/bin/ffprobe',
+                            '/usr/local/bin/ffprobe',
+                            '/snap/bin/ffmpeg.ffprobe',
+                            '/opt/ffmpeg/bin/ffprobe',
+                            "$env:HOME/.local/bin/ffprobe",
+                            "$env:HOME/bin/ffprobe",
+                            '/usr/local/share/ffmpeg/ffprobe'
+                        )
+
+                        $foundPath = $null
+                        foreach ($path in $commonPaths)
+                        {
+                            if (Test-Path $path -PathType Leaf)
+                            {
+                                $foundPath = $path
+                                break
+                            }
+                        }
+
+                        if ($foundPath)
+                        {
+                            $resolvedPath = $foundPath
+                            Write-Verbose "Found ffprobe at: $resolvedPath"
+                        }
+                        else
+                        {
+                            $resolvedPath = '/usr/bin/ffprobe'
+                            Write-Verbose "Using default Linux path (may not exist): $resolvedPath"
+                        }
                     }
                 }
             }
