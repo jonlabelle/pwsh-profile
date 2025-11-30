@@ -13,7 +13,8 @@ function Get-VideoDetails
 
     .PARAMETER Path
         The path to the video file(s) to analyze. Accepts wildcards and pipeline input.
-        Supports both absolute and relative paths.
+        Supports both absolute and relative paths. If not specified, searches recursively
+        in the current working directory for common video file extensions.
 
     .PARAMETER Extended
         If specified, includes additional metadata such as aspect ratio, color space,
@@ -24,9 +25,24 @@ function Get-VideoDetails
         showing properties that have actual values, which is particularly useful when some metadata fields
         are not populated in the video file.
 
+    .PARAMETER NoRecursion
+        If specified, disables recursive searching when processing directories and only analyzes video files
+        in the specified directory. By default, search is recursive through all subdirectories.
+
+    .PARAMETER Exclude
+        Specifies directories to exclude when searching recursively.
+        Only applies when -NoRecursion is not specified.
+        Defaults to @('.git', 'node_modules').
+
     .PARAMETER FFprobePath
         Path to the ffprobe executable. If not specified, attempts to use 'ffprobe' from PATH,
         then falls back to platform-specific default locations.
+
+    .EXAMPLE
+        PS > Get-VideoDetails
+
+        Searches recursively in the current working directory for video files and retrieves
+        detailed information for all found video files (mp4, mkv, avi, mov, etc.).
 
     .EXAMPLE
         PS > Get-VideoDetails -Path "movie.mp4"
@@ -51,6 +67,12 @@ function Get-VideoDetails
         Retrieves comprehensive video information for movie.mp4.
 
     .EXAMPLE
+        PS > Get-VideoDetails -Path "C:\Videos"
+
+        Searches recursively through the C:\Videos directory for all video files and retrieves
+        detailed information for each found video file.
+
+    .EXAMPLE
         PS > Get-VideoDetails -Path "C:\Videos\*.mkv"
 
         Retrieves detailed information for all .mkv files in the specified directory.
@@ -59,6 +81,12 @@ function Get-VideoDetails
         PS > Get-ChildItem -Path "C:\Videos" -Filter "*.mp4" | Get-VideoDetails
 
         Retrieves detailed information for all .mp4 files via pipeline input.
+
+    .EXAMPLE
+        PS > Get-VideoDetails -Path "C:\Videos" -NoRecursion
+
+        Searches only the C:\Videos directory (non-recursive) for video files and retrieves
+        detailed information for each found video file.
 
     .EXAMPLE
         PS > Get-VideoDetails -Path "movie.mp4" -FFprobePath "/opt/ffmpeg/bin/ffprobe"
@@ -154,11 +182,11 @@ function Get-VideoDetails
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
     param(
-        [Parameter(Mandatory, Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Parameter(Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [Alias('FilePath', 'VideoFile', 'FullName')]
         [ValidateNotNullOrEmpty()]
         [string[]]
-        $Path,
+        $Path = (Get-Location),
 
         [Parameter()]
         [switch]
@@ -167,6 +195,14 @@ function Get-VideoDetails
         [Parameter()]
         [switch]
         $NoEmptyProps,
+
+        [Parameter()]
+        [switch]
+        $NoRecursion,
+
+        [Parameter()]
+        [string[]]
+        $Exclude = @('.git', 'node_modules'),
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
@@ -736,23 +772,84 @@ function Get-VideoDetails
         {
             try
             {
-                # Resolve path (handles ~, relative paths, wildcards)
+                # Resolve path (handles ~, relative paths)
                 $resolvedPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($videoPath)
 
-                # Handle wildcards
-                $files = Get-Item -Path $resolvedPath -ErrorAction Stop
-
-                foreach ($file in $files)
+                # Check if path exists
+                if (-not (Test-Path -Path $resolvedPath))
                 {
-                    if ($file.PSIsContainer)
+                    Write-Error "Path not found: '$resolvedPath'"
+                    continue
+                }
+
+                $pathItem = Get-Item -Path $resolvedPath -ErrorAction Stop
+
+                if ($pathItem.PSIsContainer)
+                {
+                    # Handle directory - search for video files with optional recursion
+                    if ($NoRecursion)
                     {
-                        Write-Warning "Skipping directory: $($file.FullName)"
+                        Write-Verbose "Searching directory (non-recursive): $resolvedPath"
+                    }
+                    else
+                    {
+                        Write-Verbose "Searching directory recursively: $resolvedPath"
+                    }
+
+                    # Common video file extensions
+                    $videoExtensions = @('*.mp4', '*.mkv', '*.avi', '*.mov', '*.wmv', '*.webm', '*.m4v', '*.mpg', '*.mpeg', '*.3gp', '*.ts', '*.mts', '*.m2ts')
+
+                    $videoFiles = @()
+                    foreach ($ext in $videoExtensions)
+                    {
+                        if ($NoRecursion)
+                        {
+                            $videoFiles += Get-ChildItem -Path $resolvedPath -Filter $ext -File -ErrorAction SilentlyContinue
+                        }
+                        else
+                        {
+                            $foundFiles = Get-ChildItem -Path $resolvedPath -Recurse -Filter $ext -File -ErrorAction SilentlyContinue
+                            # Apply exclusion filters for recursive search
+                            $filteredFiles = $foundFiles | Where-Object {
+                                $fullPath = $_.FullName
+                                -not ($Exclude | Where-Object { $fullPath -like "*$_*" })
+                            }
+                            $videoFiles += $filteredFiles
+                        }
+                    }
+
+                    if ($videoFiles.Count -eq 0)
+                    {
+                        $searchType = if ($NoRecursion) { 'directory' } else { 'directory (recursively)' }
+                        Write-Warning "No video files found in $searchType`: '$resolvedPath'"
                         continue
                     }
 
-                    Write-Verbose "Processing: $($file.FullName)"
+                    $searchType = if ($NoRecursion) { 'directory' } else { 'directory tree' }
+                    Write-Verbose "Found $($videoFiles.Count) video file(s) in $searchType"
 
-                    Get-VideoInfo -FileInfo $file -FFprobeExecutable $resolvedFFprobePath -IncludeExtended $Extended
+                    foreach ($file in $videoFiles)
+                    {
+                        Write-Verbose "Processing: $($file.FullName)"
+                        Get-VideoInfo -FileInfo $file -FFprobeExecutable $resolvedFFprobePath -IncludeExtended $Extended
+                    }
+                }
+                else
+                {
+                    # Handle individual file or wildcard pattern
+                    $files = Get-Item -Path $resolvedPath -ErrorAction Stop
+
+                    foreach ($file in $files)
+                    {
+                        if ($file.PSIsContainer)
+                        {
+                            Write-Warning "Skipping directory: $($file.FullName) (use directory path instead of file pattern)"
+                            continue
+                        }
+
+                        Write-Verbose "Processing: $($file.FullName)"
+                        Get-VideoInfo -FileInfo $file -FFprobeExecutable $resolvedFFprobePath -IncludeExtended $Extended
+                    }
                 }
             }
             catch
