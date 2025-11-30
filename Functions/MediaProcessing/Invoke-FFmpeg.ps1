@@ -1185,29 +1185,10 @@ function Invoke-FFmpeg
                 $displayArgs = $ffmpegArgs | ForEach-Object { $_.Trim('"') }
                 Write-VerboseMessage "Running FFmpeg: `"$script:ValidatedFFmpegPath`" $($displayArgs -join ' ')"
 
-                # Cross-platform FFmpeg execution to preserve TTY behavior for proper progress display
-                # Windows uses Start-Process for better process control, Unix systems use direct execution
-                if ($script:IsWindowsPlatform)
-                {
-                    # Windows: Use Start-Process with available parameters
-                    if ($PSVersionTable.PSVersion.Major -ge 6)
-                    {
-                        # PowerShell Core on Windows
-                        $process = Start-Process -FilePath $script:ValidatedFFmpegPath -ArgumentList $ffmpegArgs -Wait -PassThru
-                    }
-                    else
-                    {
-                        # PowerShell Desktop on Windows
-                        $process = Start-Process -FilePath $script:ValidatedFFmpegPath -ArgumentList $ffmpegArgs -NoNewWindow -Wait -PassThru
-                    }
-
-                    $LASTEXITCODE = $process.ExitCode
-                }
-                else
-                {
-                    # macOS/Linux: Use direct execution which preserves TTY behavior better
-                    & $script:ValidatedFFmpegPath @ffmpegArgs
-                }
+                # Cross-platform FFmpeg execution using direct invocation to preserve TTY behavior
+                # Direct execution (&) preserves FFmpeg's real-time progress display across all platforms
+                # Start-Process causes output buffering issues, especially in PowerShell Desktop 5.1
+                & $script:ValidatedFFmpegPath @ffmpegArgs
 
                 if ($LASTEXITCODE -ne 0)
                 {
