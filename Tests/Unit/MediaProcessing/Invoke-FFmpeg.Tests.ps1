@@ -113,7 +113,7 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
             }
 
             # Should warn when file extension doesn't match expected extension
-            $output = Invoke-FFmpeg -Path $script:testNonVideoFile -WhatIf -WarningVariable warnings 2>&1
+            Invoke-FFmpeg -Path $script:testNonVideoFile -WhatIf -WarningVariable warnings 2>&1 | Out-Null
             $warnings | Should -Not -BeNullOrEmpty
         }
 

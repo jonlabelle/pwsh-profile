@@ -9,7 +9,7 @@ function Invoke-FFmpeg
         For H.264: Supports 4K30 with High profile, Level 5.1, up to 100 Mbps bitrate for optimal Samsung TV compatibility.
         For H.265: Supports 4K60 with Level 5.2, up to 100 Mbps bitrate for better compression.
         Audio is converted to AAC-LC format at 48 kHz with 192 kbps bitrate.
-        By default, input files are deleted after successful conversion.
+        Source files are preserved by default unless -DeleteSourceFile is specified.
 
     .PARAMETER Path
         The directory containing the video files to be processed, or individual video file paths.
@@ -25,8 +25,8 @@ function Invoke-FFmpeg
     .PARAMETER Force
         If specified, overwrites output files that already exist.
 
-    .PARAMETER KeepSourceFile
-        If specified, input file(s) will not be deleted after successful conversion.
+    .PARAMETER DeleteSourceFile
+        If specified, input file(s) will be deleted after successful conversion.
 
     .PARAMETER PauseOnError
         If specified, the function will wait for user input when an error occurs instead of automatically continuing to the next file.
@@ -70,9 +70,9 @@ function Invoke-FFmpeg
         Processes videos using H.265 encoding for better compression and overwrites existing output files.
 
     .EXAMPLE
-        PS > Invoke-FFmpeg -Path "D:\Movies" -Extension "avi" -VideoEncoder "H.264" -KeepSourceFile
+        PS > Invoke-FFmpeg -Path "D:\Movies" -Extension "avi" -VideoEncoder "H.264"
 
-        Processes all .avi files using H.264 encoding without deleting the input files.
+        Processes all .avi files using H.264 encoding and preserves the input files.
 
     .EXAMPLE
         PS > Invoke-FFmpeg -Path "D:\Movies"
@@ -85,9 +85,9 @@ function Invoke-FFmpeg
         Processes all .mkv files in D:\Movies and all subdirectories recursively.
 
     .EXAMPLE
-        PS > Invoke-FFmpeg -Path "D:\Movies" -PassthroughVideo -KeepSourceFile
+        PS > Invoke-FFmpeg -Path "D:\Movies" -PassthroughVideo -DeleteSourceFile
 
-        Processes all .mkv files using video passthrough (no video re-encoding) and keeps the source files.
+        Processes all .mkv files using video passthrough (no video re-encoding) and deletes the source files after successful conversion.
 
     .EXAMPLE
         PS > Invoke-FFmpeg -Path "D:\Movies" -PassthroughAudio -VideoEncoder "H.265"
@@ -110,9 +110,9 @@ function Invoke-FFmpeg
         Processes all .mkv files in multiple directories using pipeline input.
 
     .EXAMPLE
-        PS > Invoke-FFmpeg -Path ".\Blazing Saddles.mkv" -KeepSourceFile -PassthroughVideo -PassthroughAudio
+        PS > Invoke-FFmpeg -Path ".\Blazing Saddles.mkv" -PassthroughVideo -PassthroughAudio
 
-        Processes a single video file with both video and audio passthrough (no re-encoding) and keeps the source file.
+        Processes a single video file with both video and audio passthrough (no re-encoding) and preserves the source file.
 
     .EXAMPLE
         PS > Get-ChildItem -Directory | Invoke-FFmpeg -VideoEncoder "H.265"
@@ -155,7 +155,7 @@ function Invoke-FFmpeg
 
         [Parameter()]
         [switch]
-        $KeepSourceFile,
+        $DeleteSourceFile,
 
         [Parameter()]
         [switch]
@@ -594,7 +594,7 @@ function Invoke-FFmpeg
             {
                 $operationDescription += ' with audio passthrough'
             }
-            if (-not $KeepSourceFile)
+            if ($DeleteSourceFile)
             {
                 $operationDescription += ' and delete source file'
             }
@@ -805,8 +805,8 @@ function Invoke-FFmpeg
                     Write-Host "Successfully converted '$inputFile' to '$outputFile'" -ForegroundColor Green
                     $script:totalSuccessful++
 
-                    # Delete input file unless KeepSourceFile is specified
-                    if (-not $KeepSourceFile)
+                    # Delete input file if DeleteSourceFile is specified
+                    if ($DeleteSourceFile)
                     {
                         if ($PSCmdlet.ShouldProcess($inputFile, 'Delete source file'))
                         {
