@@ -1108,7 +1108,7 @@ function Invoke-FFmpeg
             {
                 # Both passthrough mode: copy video and audio without re-encoding
                 $ffmpegArgs = @(
-                    '-i', "`"$inputFilePath`"",                      # Input file (properly quoted)
+                    '-i', $inputFilePath,                            # Input file
                     '-vcodec', 'copy',                               # Copy video stream without re-encoding
                     '-acodec', 'copy',                               # Copy audio stream without re-encoding
                     '-map', '0:v',                                   # Map video stream
@@ -1127,7 +1127,7 @@ function Invoke-FFmpeg
             {
                 # Video passthrough with intelligent audio encoding
                 $ffmpegArgs = @(
-                    '-i', "`"$inputFilePath`"",                      # Input file (properly quoted)
+                    '-i', $inputFilePath,                            # Input file
                     '-vcodec', 'copy',                               # Copy video stream without re-encoding
                     '-acodec', $audioStrategy.Codec,                 # Intelligent audio codec selection
                     '-b:a', $audioStrategy.Bitrate,                  # Optimized bitrate for Samsung Neo QLED
@@ -1176,7 +1176,7 @@ function Invoke-FFmpeg
                 }
 
                 $ffmpegArgs = @(
-                    '-i', "`"$inputFilePath`""                       # Input file (properly quoted)
+                    '-i', $inputFilePath                            # Input file
                 ) + $videoArgs + $audioArgs + @(
                     '-map', '0:v',                                   # Map video stream
                     '-map', '0:a'                                    # Map audio stream
@@ -1217,7 +1217,7 @@ function Invoke-FFmpeg
                 }
 
                 $ffmpegArgs = @(
-                    '-i', "`"$inputFilePath`""                       # Input file (properly quoted)
+                    '-i', $inputFilePath                            # Input file
                 ) + $videoArgs + $audioArgs + @(
                     '-map', '0:v',                                   # Map video stream
                     '-map', '0:a'                                    # Map audio stream
@@ -1238,25 +1238,14 @@ function Invoke-FFmpeg
                 $ffmpegArgs += '-y'
             }
 
-            # Add output file (properly quoted)
-            $ffmpegArgs += "`"$outputFilePath`""
+            # Add output file
+            $ffmpegArgs += $outputFilePath
 
             # Execute ffmpeg
             try
             {
-                # Display the FFmpeg command being executed (clean up quotes for display)
-                $displayArgs = $ffmpegArgs | ForEach-Object {
-                    if ($_ -match '^`".*`"$')
-                    {
-                        # Remove the backtick-quote wrapper for display
-                        $_.Substring(2, $_.Length - 4)
-                    }
-                    else
-                    {
-                        $_
-                    }
-                }
-                Write-VerboseMessage "Running FFmpeg: `"$script:ValidatedFFmpegPath`" $($displayArgs -join ' ')"
+                # Display the FFmpeg command being executed
+                Write-VerboseMessage "Running FFmpeg: `"$script:ValidatedFFmpegPath`" $($ffmpegArgs -join ' ')"
 
                 # Cross-platform FFmpeg execution with progress display optimization
                 # Note: PowerShell Desktop 5.1 doesn't support FFmpeg's real-time progress updates
