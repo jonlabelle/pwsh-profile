@@ -1185,10 +1185,32 @@ function Invoke-FFmpeg
                 $displayArgs = $ffmpegArgs | ForEach-Object { $_.Trim('"') }
                 Write-VerboseMessage "Running FFmpeg: `"$script:ValidatedFFmpegPath`" $($displayArgs -join ' ')"
 
-                # Cross-platform FFmpeg execution using direct invocation to preserve TTY behavior
-                # Direct execution (&) preserves FFmpeg's real-time progress display across all platforms
-                # Start-Process causes output buffering issues, especially in PowerShell Desktop 5.1
-                & $script:ValidatedFFmpegPath @ffmpegArgs
+                # Cross-platform FFmpeg execution with proper console handling for real-time progress
+                # PowerShell Desktop 5.1 requires special handling to preserve FFmpeg's TTY behavior
+                if ($script:IsWindowsPlatform -and $PSVersionTable.PSVersion.Major -lt 6)
+                {
+                    # PowerShell Desktop 5.1: Use Start-Process with specific parameters to preserve console behavior
+                    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+                    $startInfo.FileName = $script:ValidatedFFmpegPath
+                    $startInfo.Arguments = $ffmpegArgs -join ' '
+                    $startInfo.UseShellExecute = $false
+                    $startInfo.CreateNoWindow = $false
+                    $startInfo.RedirectStandardOutput = $false
+                    $startInfo.RedirectStandardError = $false
+                    $startInfo.RedirectStandardInput = $false
+
+                    $process = New-Object System.Diagnostics.Process
+                    $process.StartInfo = $startInfo
+                    $null = $process.Start()
+                    $process.WaitForExit()
+                    $LASTEXITCODE = $process.ExitCode
+                    $process.Dispose()
+                }
+                else
+                {
+                    # PowerShell Core and Unix systems: Use direct execution
+                    & $script:ValidatedFFmpegPath @ffmpegArgs
+                }
 
                 if ($LASTEXITCODE -ne 0)
                 {
