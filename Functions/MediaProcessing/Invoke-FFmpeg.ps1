@@ -1185,30 +1185,22 @@ function Invoke-FFmpeg
                 $displayArgs = $ffmpegArgs | ForEach-Object { $_.Trim('"') }
                 Write-VerboseMessage "Running FFmpeg: `"$script:ValidatedFFmpegPath`" $($displayArgs -join ' ')"
 
-                # Cross-platform FFmpeg execution with proper console handling for real-time progress
-                # PowerShell Desktop 5.1 requires special handling to preserve FFmpeg's TTY behavior
+                # Cross-platform FFmpeg execution with progress display optimization
+                # Note: PowerShell Desktop 5.1 doesn't support FFmpeg's real-time progress updates
+                # due to console host limitations with carriage return (\r) handling
                 if ($script:IsWindowsPlatform -and $PSVersionTable.PSVersion.Major -lt 6)
                 {
-                    # PowerShell Desktop 5.1: Use Start-Process with specific parameters to preserve console behavior
-                    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
-                    $startInfo.FileName = $script:ValidatedFFmpegPath
-                    $startInfo.Arguments = $ffmpegArgs -join ' '
-                    $startInfo.UseShellExecute = $false
-                    $startInfo.CreateNoWindow = $false
-                    $startInfo.RedirectStandardOutput = $false
-                    $startInfo.RedirectStandardError = $false
-                    $startInfo.RedirectStandardInput = $false
+                    # PowerShell Desktop 5.1: Inform user about progress display limitation
+                    Write-Host 'Note: Real-time progress updates are not supported in PowerShell Desktop 5.1.' -ForegroundColor Yellow
+                    Write-Host 'Progress will be shown in stacked lines. Consider using PowerShell Core (pwsh) for better progress display.' -ForegroundColor Yellow
+                    Write-Host ''
 
-                    $process = New-Object System.Diagnostics.Process
-                    $process.StartInfo = $startInfo
-                    $null = $process.Start()
-                    $process.WaitForExit()
-                    $LASTEXITCODE = $process.ExitCode
-                    $process.Dispose()
+                    # Use direct execution - simpler and more reliable
+                    & $script:ValidatedFFmpegPath @ffmpegArgs
                 }
                 else
                 {
-                    # PowerShell Core and Unix systems: Use direct execution
+                    # PowerShell Core and Unix systems: Use direct execution with proper progress display
                     & $script:ValidatedFFmpegPath @ffmpegArgs
                 }
 
