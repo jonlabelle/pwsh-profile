@@ -210,6 +210,11 @@ function Invoke-FFmpeg
 
         Converts a video with video passthrough and saves it to the user's Desktop with a custom filename.
 
+    .EXAMPLE
+        PS > Invoke-FFmpeg -Path "~/Downloads/sample.mkv" -OutputPath "~/Videos/converted-sample.mp4" -VideoEncoder "H.265"
+
+        Converts a specific video file from the Downloads folder using H.265 encoding and saves it to the Videos folder with a new filename.
+
     .LINK
         https://ffmpeg.org/documentation.html
 
