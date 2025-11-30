@@ -28,10 +28,6 @@ function Get-VideoDetails
         Path to the ffprobe executable. If not specified, attempts to use 'ffprobe' from PATH,
         then falls back to platform-specific default locations.
 
-    .PARAMETER TimeoutSeconds
-        Timeout in seconds for ffprobe execution. Default is 120 seconds (2 minutes).
-        For very large video files, you may need to increase this value. Valid range is 10-600 seconds.
-
     .EXAMPLE
         PS > Get-VideoDetails -Path "movie.mp4"
 
@@ -68,11 +64,6 @@ function Get-VideoDetails
         PS > Get-VideoDetails -Path "movie.mp4" -FFprobePath "/opt/ffmpeg/bin/ffprobe"
 
         Uses a custom ffprobe path to retrieve video information.
-
-    .EXAMPLE
-        PS > Get-VideoDetails -Path "large-movie.mkv" -TimeoutSeconds 300
-
-        Uses a 5-minute timeout for analyzing a large video file that might take longer to process.
 
     .EXAMPLE
         PS > Get-VideoDetails -Path "movie.mp4" -Extended
@@ -180,12 +171,7 @@ function Get-VideoDetails
         [Parameter()]
         [ValidateNotNullOrEmpty()]
         [string]
-        $FFprobePath,
-
-        [Parameter()]
-        [ValidateRange(10, 600)]
-        [int]
-        $TimeoutSeconds = 120
+        $FFprobePath
     )
 
     begin
@@ -309,8 +295,7 @@ function Get-VideoDetails
             param(
                 [System.IO.FileInfo]$FileInfo,
                 [string]$FFprobeExecutable,
-                [bool]$IncludeExtended,
-                [int]$TimeoutSeconds = 120
+                [bool]$IncludeExtended
             )
 
             try
@@ -333,48 +318,48 @@ function Get-VideoDetails
 
                 Write-Verbose "Running: $FFprobeExecutable -v quiet -print_format json -show_format -show_streams `"$($FileInfo.FullName)`""
 
-                $processInfo = New-Object System.Diagnostics.ProcessStartInfo
-                $processInfo.FileName = $FFprobeExecutable
+                # Build argument array like Invoke-FFmpeg does
+                $ffmpegArgs = @(
+                    '-v', 'quiet',
+                    '-print_format', 'json',
+                    '-show_format',
+                    '-show_streams',
+                    $FileInfo.FullName
+                )
 
-                # Properly quote the file path to handle spaces and special characters
-                $quotedFilePath = '"{0}"' -f $FileInfo.FullName.Replace('"', '""')
-                $processInfo.Arguments = '-v quiet -print_format json -show_format -show_streams {0}' -f $quotedFilePath
+                Write-Verbose "Executing: & `"$FFprobeExecutable`" $($ffmpegArgs -join ' ')"
 
-                $processInfo.RedirectStandardOutput = $true
-                $processInfo.RedirectStandardError = $true
-                $processInfo.UseShellExecute = $false
-                $processInfo.CreateNoWindow = $true
-
-                $process = New-Object System.Diagnostics.Process
-                $process.StartInfo = $processInfo
-                [void]$process.Start()
-
-                # Set a timeout for ffprobe (configurable, default 2 minutes for large files)
-                $timeoutMs = $TimeoutSeconds * 1000
-                Write-Verbose "Using timeout of $TimeoutSeconds seconds for $($FileInfo.Name)"
-                if (-not $process.WaitForExit($timeoutMs))
+                try
                 {
-                    $process.Kill()
-                    Write-Error "ffprobe timed out after $TimeoutSeconds seconds for $($FileInfo.Name). For very large files, try increasing -TimeoutSeconds parameter."
-                    return
+                    # Use the same pattern as Invoke-FFmpeg - direct execution with argument array
+                    $output = & $FFprobeExecutable @ffmpegArgs 2>&1
+
+                    # Separate stdout and stderr
+                    $stdout = ''
+                    $stderr = ''
+
+                    foreach ($line in $output)
+                    {
+                        if ($line -is [System.Management.Automation.ErrorRecord])
+                        {
+                            $stderr += $line.Exception.Message + "`n"
+                        }
+                        else
+                        {
+                            $stdout += $line + "`n"
+                        }
+                    }
+
+                    # Check if we got any JSON output
+                    if (-not $stdout -or $stdout.Trim().Length -eq 0)
+                    {
+                        Write-Error "No output received from ffprobe for $($FileInfo.Name). Error: $stderr"
+                        return
+                    }
                 }
-
-                $stdout = $process.StandardOutput.ReadToEnd()
-                $stderr = $process.StandardError.ReadToEnd()
-
-                if ($process.ExitCode -ne 0)
+                catch
                 {
-                    $errorMessage = "ffprobe failed for $($FileInfo.Name)"
-                    if ($stderr)
-                    {
-                        $errorMessage += ": $stderr"
-                    }
-                    if ($stdout)
-                    {
-                        $errorMessage += " (stdout: $stdout)"
-                    }
-                    $errorMessage += " (Exit code: $($process.ExitCode))"
-                    Write-Error $errorMessage
+                    Write-Error "Error running ffprobe for $($FileInfo.Name): $($_.Exception.Message)"
                     return
                 }
 
@@ -702,7 +687,7 @@ function Get-VideoDetails
 
                     Write-Verbose "Processing: $($file.FullName)"
 
-                    Get-VideoInfo -FileInfo $file -FFprobeExecutable $resolvedFFprobePath -IncludeExtended $Extended -TimeoutSeconds $TimeoutSeconds
+                    Get-VideoInfo -FileInfo $file -FFprobeExecutable $resolvedFFprobePath -IncludeExtended $Extended
                 }
             }
             catch
