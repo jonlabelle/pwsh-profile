@@ -426,7 +426,7 @@ function Get-VideoDetails
                     $FileInfo.FullName
                 )
 
-                Write-Verbose "Executing: & `"$FFprobeExecutable`" $($ffmpegArgs -join ' ')"
+                Write-Verbose "Executing: `"$FFprobeExecutable`" $($ffmpegArgs -join ' ')"
 
                 try
                 {

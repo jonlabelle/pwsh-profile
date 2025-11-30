@@ -731,7 +731,9 @@ function Invoke-FFmpeg
             # Execute ffmpeg
             try
             {
-                Write-VerboseMessage "Running FFmpeg with arguments: $($ffmpegArgs -join ' ')"
+                # Clean up the arguments for display (remove PowerShell quotes)
+                $displayArgs = $ffmpegArgs | ForEach-Object { $_.Trim('"') }
+                Write-VerboseMessage "Running FFmpeg: `"$script:ValidatedFFmpegPath`" $($displayArgs -join ' ')"
 
                 # Cross-platform FFmpeg execution to preserve TTY behavior for proper progress display
                 # Windows uses Start-Process for better process control, Unix systems use direct execution
