@@ -8,7 +8,9 @@ function Invoke-FFmpeg
         This function processes video files in a specified directory using Samsung-friendly encoding settings.
         For H.264: Supports 4K30 with High profile, Level 5.1, up to 100 Mbps bitrate for optimal Samsung TV compatibility.
         For H.265: Supports 4K60 with Level 5.2, up to 100 Mbps bitrate for better compression.
-        Audio is converted to AAC-LC format at 48 kHz with 192 kbps bitrate.
+        Audio is intelligently converted based on source characteristics: E-AC-3 for multichannel content,
+        enhanced AAC-LC for stereo, preserving original channel layout and sample rate when possible.
+        Optimized for Samsung Neo QLED QN70F (2025) and web streaming via built-in browser.
         Source files are preserved by default unless -DeleteSourceFile is specified.
 
     .PARAMETER Path
@@ -151,6 +153,30 @@ function Invoke-FFmpeg
         PS > Invoke-FFmpeg -Path "C:\Videos" -IncludeSubtitles "All" -PassthroughVideo -PassthroughAudio
 
         Processes videos with passthrough for video/audio and attempts to include all subtitle types (may fail with bitmap subtitles in MP4).
+
+    .EXAMPLE
+        PS > Invoke-FFmpeg -Path "C:\Movies" -VideoEncoder "H.264" -Verbose
+
+        Processes movies with H.264 encoding and shows detailed audio codec selection reasoning:
+        - Files with 5.1/7.1 surround sound: Automatically uses E-AC-3 at 640k for Samsung Neo QLED
+        - Stereo files: Uses enhanced AAC-LC at 256k-320k (vs legacy 192k)
+        - Preserves original sample rates ≥48kHz and channel layouts
+
+    .EXAMPLE
+        PS > Invoke-FFmpeg -Path "D:\TV Shows" -Extension "mkv" -Recurse -VideoEncoder "H.265"
+
+        Recursively processes TV show files with H.265 encoding and intelligent audio optimization:
+        - Multichannel episodes: Converted to E-AC-3 for surround sound preservation
+        - Stereo episodes: Enhanced to high-quality AAC-LC encoding
+        - All optimized for Samsung Neo QLED QN70F (2025) and web streaming
+
+    .EXAMPLE
+        PS > Invoke-FFmpeg -Path "movie-with-dts.mkv" -PassthroughVideo
+
+        Processes a single movie file with video passthrough while intelligently handling audio:
+        - If source has DTS 5.1: Converts to E-AC-3 640k for Samsung compatibility
+        - If source has stereo: Upgrades to AAC-LC 256k+ for better quality
+        - Maintains web streaming optimization with +faststart
 
     .LINK
         https://ffmpeg.org/documentation.html
@@ -331,6 +357,147 @@ function Invoke-FFmpeg
             else
             {
                 return '{0:D2}s' -f $remainingTime.Seconds
+            }
+        }
+
+        # Function to analyze audio streams and determine optimal encoding strategy for Samsung Neo QLED QN70F (2025)
+        function Get-AudioEncodingStrategy
+        {
+            param(
+                [String]$FilePath,
+                [String]$FFmpegPath
+            )
+
+            try
+            {
+                # Helper function to load Get-VideoDetails dependency if needed
+                function Import-DependencyIfNeeded
+                {
+                    param(
+                        [Parameter(Mandatory)]
+                        [String]$FunctionName,
+
+                        [Parameter(Mandatory)]
+                        [String]$RelativePath
+                    )
+
+                    if (-not (Get-Command -Name $FunctionName -ErrorAction SilentlyContinue))
+                    {
+                        Write-Verbose "$FunctionName is required - attempting to load it"
+
+                        # Resolve path from current script location
+                        $dependencyPath = Join-Path -Path $PSScriptRoot -ChildPath $RelativePath
+                        $dependencyPath = [System.IO.Path]::GetFullPath($dependencyPath)
+
+                        if (Test-Path -Path $dependencyPath -PathType Leaf)
+                        {
+                            try
+                            {
+                                . $dependencyPath
+                                Write-Verbose "Loaded $FunctionName from: $dependencyPath"
+                            }
+                            catch
+                            {
+                                throw "Failed to load required dependency '$FunctionName' from '$dependencyPath': $($_.Exception.Message)"
+                            }
+                        }
+                        else
+                        {
+                            throw "Required function '$FunctionName' could not be found. Expected location: $dependencyPath"
+                        }
+                    }
+                    else
+                    {
+                        Write-Verbose "$FunctionName is already loaded"
+                    }
+                }
+
+                # Load Get-VideoDetails if needed
+                Import-DependencyIfNeeded -FunctionName 'Get-VideoDetails' -RelativePath 'Get-VideoDetails.ps1'
+
+                # Try to find ffprobe path for Get-VideoDetails
+                $ffprobeExecutable = $FFmpegPath -replace 'ffmpeg(\.exe)?$', 'ffprobe$1'
+
+                if (-not (Test-Path $ffprobeExecutable))
+                {
+                    # Fallback: try ffprobe in PATH
+                    $ffprobeCommand = Get-Command -Name 'ffprobe' -ErrorAction SilentlyContinue
+                    if ($ffprobeCommand)
+                    {
+                        $ffprobeExecutable = $ffprobeCommand.Source
+                    }
+                    else
+                    {
+                        Write-Verbose 'FFprobe not found - using fallback audio settings'
+                        return @{
+                            Codec = 'aac'
+                            Bitrate = '256k'
+                            Channels = '2'
+                            SampleRate = '48000'
+                            Reasoning = 'Fallback: FFprobe unavailable'
+                        }
+                    }
+                }
+
+                # Use Get-VideoDetails to analyze the file
+                $videoDetails = Get-VideoDetails -Path $FilePath -FFprobePath $ffprobeExecutable -Extended -ErrorAction SilentlyContinue
+
+                if (-not $videoDetails -or -not $videoDetails.Audio -or $videoDetails.Audio.Count -eq 0)
+                {
+                    Write-Verbose 'No audio stream detected - using default settings'
+                    return @{
+                        Codec = 'aac'
+                        Bitrate = '256k'
+                        Channels = '2'
+                        SampleRate = '48000'
+                        Reasoning = 'No audio stream detected'
+                    }
+                }
+
+                # Analyze primary audio stream (first audio track)
+                $primaryAudio = $videoDetails.Audio[0]
+                $channels = [int]$primaryAudio.Channels
+                $sampleRate = [int]$primaryAudio.SampleRate
+                $sourceCodec = $primaryAudio.Codec.ToLower()
+
+                Write-Verbose "Source audio: $sourceCodec, $channels channels, $sampleRate Hz"
+
+                # Samsung Neo QLED QN70F (2025) intelligent codec selection
+                if ($channels -gt 2)
+                {
+                    # Multichannel content: Use E-AC-3 for Samsung Neo QLED optimal support
+                    $targetChannels = [Math]::Min($channels, 8)  # Cap at 7.1 (8 channels)
+                    return @{
+                        Codec = 'eac3'
+                        Bitrate = '640k'  # E-AC-3 supports up to 640k efficiently
+                        Channels = $targetChannels.ToString()
+                        SampleRate = ([Math]::Max($sampleRate, 48000)).ToString()
+                        Reasoning = "Multichannel ($channels ch) → E-AC-3 for Samsung Neo QLED surround support"
+                    }
+                }
+                else
+                {
+                    # Stereo content: Use enhanced AAC-LC with higher bitrate than legacy 192k
+                    $targetBitrate = if ($sampleRate -ge 96000) { '320k' } elseif ($sampleRate -ge 48000) { '256k' } else { '224k' }
+                    return @{
+                        Codec = 'aac'
+                        Bitrate = $targetBitrate
+                        Channels = '2'
+                        SampleRate = ([Math]::Max($sampleRate, 48000)).ToString()
+                        Reasoning = "Stereo → Enhanced AAC-LC ($targetBitrate) for Samsung Neo QLED quality"
+                    }
+                }
+            }
+            catch
+            {
+                Write-Verbose "Error analyzing audio stream: $($_.Exception.Message)"
+                return @{
+                    Codec = 'aac'
+                    Bitrate = '256k'
+                    Channels = '2'
+                    SampleRate = '48000'
+                    Reasoning = 'Error during analysis - using enhanced fallback'
+                }
             }
         }
 
@@ -861,8 +1028,12 @@ function Invoke-FFmpeg
                 }
             }
 
+            # Analyze audio streams for intelligent codec selection (Samsung Neo QLED QN70F 2025 optimized)
+            $audioStrategy = Get-AudioEncodingStrategy -FilePath $inputFilePath -FFmpegPath $script:ValidatedFFmpegPath
+            Write-VerboseMessage "Audio strategy: $($audioStrategy.Reasoning)"
+
             # Analyze subtitle streams and determine handling strategy
-            $subtitleStrategy = Get-SubtitleHandlingStrategy -FilePath $inputFilePath -FFmpegPath $resolvedFFmpegPath -IncludeSubtitles $IncludeSubtitles
+            $subtitleStrategy = Get-SubtitleHandlingStrategy -FilePath $inputFilePath -FFmpegPath $script:ValidatedFFmpegPath -IncludeSubtitles $IncludeSubtitles
 
             if ($subtitleStrategy.WarningMessage)
             {
@@ -891,14 +1062,14 @@ function Invoke-FFmpeg
             }
             elseif ($PassthroughVideo)
             {
-                # Video passthrough with audio encoding
+                # Video passthrough with intelligent audio encoding
                 $ffmpegArgs = @(
                     '-i', "`"$inputFilePath`"",                      # Input file (quoted)
                     '-vcodec', 'copy',                               # Copy video stream without re-encoding
-                    '-acodec', 'aac',                                # AAC audio codec
-                    '-b:a', '192k',                                  # Audio bitrate 192 kbps
-                    '-ac', '2',                                      # 2 audio channels (stereo)
-                    '-ar', '48000',                                  # Audio sample rate 48 kHz
+                    '-acodec', $audioStrategy.Codec,                 # Intelligent audio codec selection
+                    '-b:a', $audioStrategy.Bitrate,                  # Optimized bitrate for Samsung Neo QLED
+                    '-ac', $audioStrategy.Channels,                  # Preserve/optimize channel count
+                    '-ar', $audioStrategy.SampleRate,                # Preserve/optimize sample rate
                     '-map', '0:v',                                   # Map video stream
                     '-map', '0:a'                                    # Map audio stream
                 )
@@ -934,10 +1105,10 @@ function Invoke-FFmpeg
                 else
                 {
                     @(
-                        '-acodec', 'aac',                            # AAC audio codec
-                        '-b:a', '192k',                              # Audio bitrate 192 kbps
-                        '-ac', '2',                                  # 2 audio channels (stereo)
-                        '-ar', '48000'                               # Audio sample rate 48 kHz
+                        '-acodec', $audioStrategy.Codec,             # Intelligent audio codec (E-AC-3/AAC)
+                        '-b:a', $audioStrategy.Bitrate,              # Optimized bitrate for Samsung Neo QLED
+                        '-ac', $audioStrategy.Channels,              # Preserve/optimize channel count
+                        '-ar', $audioStrategy.SampleRate             # Preserve/optimize sample rate
                     )
                 }
 
@@ -975,10 +1146,10 @@ function Invoke-FFmpeg
                 else
                 {
                     @(
-                        '-acodec', 'aac',                            # AAC audio codec
-                        '-b:a', '192k',                              # Audio bitrate 192 kbps
-                        '-ac', '2',                                  # 2 audio channels (stereo)
-                        '-ar', '48000'                               # Audio sample rate 48 kHz
+                        '-acodec', $audioStrategy.Codec,             # Intelligent audio codec (E-AC-3/AAC)
+                        '-b:a', $audioStrategy.Bitrate,              # Optimized bitrate for Samsung Neo QLED
+                        '-ac', $audioStrategy.Channels,              # Preserve/optimize channel count
+                        '-ar', $audioStrategy.SampleRate             # Preserve/optimize sample rate
                     )
                 }
 
