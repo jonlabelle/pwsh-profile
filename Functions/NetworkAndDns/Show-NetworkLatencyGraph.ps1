@@ -448,34 +448,40 @@
         $jitter = $null
 
         # Detect Unicode and ANSI capabilities
-        function Test-UnicodeSupport {
+        function Test-UnicodeSupport
+        {
             # PowerShell ISE has poor Unicode support
-            if ($host.Name -eq 'Windows PowerShell ISE Host') {
+            if ($host.Name -eq 'Windows PowerShell ISE Host')
+            {
                 Write-Verbose 'Unicode disabled: PowerShell ISE detected'
                 return $false
             }
 
             # PowerShell 5.1 on Windows generally has limited Unicode support in console
-            if ($PSVersionTable.PSVersion.Major -lt 6 -and [Environment]::OSVersion.Platform -eq 'Win32NT') {
+            if ($PSVersionTable.PSVersion.Major -lt 6 -and [Environment]::OSVersion.Platform -eq 'Win32NT')
+            {
                 Write-Verbose 'Unicode disabled: PowerShell 5.1 on Windows has limited console Unicode support'
                 return $false
             }
 
             # Check if we're in a modern terminal that supports Unicode
             # These terminals can handle Unicode even if the encoding reports CP437
-            if ($env:WT_SESSION -or $env:TERM_PROGRAM -eq 'vscode' -or $env:ConEmuPID) {
+            if ($env:WT_SESSION -or $env:TERM_PROGRAM -eq 'vscode' -or $env:ConEmuPID)
+            {
                 Write-Verbose "Unicode enabled: Modern terminal detected (WT_SESSION=$env:WT_SESSION, TERM_PROGRAM=$env:TERM_PROGRAM, ConEmuPID=$env:ConEmuPID)"
                 return $true
             }
 
             # Check output encoding for Unicode support (must not be CP437)
-            if ([Console]::OutputEncoding.EncodingName -match 'UTF' -and [Console]::OutputEncoding.CodePage -ne 437) {
+            if ([Console]::OutputEncoding.EncodingName -match 'UTF' -and [Console]::OutputEncoding.CodePage -ne 437)
+            {
                 Write-Verbose 'Unicode enabled: UTF encoding detected'
                 return $true
             }
 
             # PowerShell Core with proper encoding (but not CP437)
-            if ($PSVersionTable.PSVersion.Major -ge 6 -and [Console]::OutputEncoding.CodePage -ne 437) {
+            if ($PSVersionTable.PSVersion.Major -ge 6 -and [Console]::OutputEncoding.CodePage -ne 437)
+            {
                 Write-Verbose 'Unicode enabled: PowerShell Core with proper encoding'
                 return $true
             }
@@ -532,7 +538,7 @@
             return $script:Palette.Red
         }
 
-        function script:Calculate-Jitter
+        function script:Get-Jitter
         {
             param([Object[]]$Values)
             if (-not $Values -or $Values.Count -eq 0) { return $null }
@@ -648,7 +654,7 @@
                         continue
                     }
 
-                    $pointColor = if ($rawValues[$col] -ne $null) { script:Get-LatencyColor -Value $rawValues[$col] } else { '' }
+                    $pointColor = if ($null -ne $rawValues[$col]) { script:Get-LatencyColor -Value $rawValues[$col] } else { '' }
                     switch ($Style)
                     {
                         'Dots'
@@ -787,7 +793,7 @@
             $min = ($validData | Measure-Object -Minimum).Minimum
             $max = ($validData | Measure-Object -Maximum).Maximum
             $avg = ($validData | Measure-Object -Average).Average
-            $jitter = script:Calculate-Jitter -Values $validData
+            $jitter = script:Get-Jitter -Values $validData
 
             Write-Verbose "Data range: min=$min, max=$max, avg=$([Math]::Round($avg, 2))"
         }
@@ -845,7 +851,7 @@
                     $min = ($validData | Measure-Object -Minimum).Minimum
                     $max = ($validData | Measure-Object -Maximum).Maximum
                     $avg = ($validData | Measure-Object -Average).Average
-                    $jitter = script:Calculate-Jitter -Values $validData
+                    $jitter = script:Get-Jitter -Values $validData
 
                     # Generate and display graph
                     $graphOutput = switch ($GraphType)
@@ -931,25 +937,33 @@
 
                 Write-Host
                 # Packet loss and jitter with dynamic color coding (green=good, yellow=medium, red=bad)
-                $lossColor = if ($metrics.PacketLoss -eq 0) { $script:Palette.Green } elseif ($metrics.PacketLoss -lt 5) { $script:Palette.Yellow } else { $script:Palette.Red }
-                $jitterColor = if ($metrics.Jitter -lt 10) { $script:Palette.Green } elseif ($metrics.Jitter -lt 30) { $script:Palette.Yellow } else { $script:Palette.Red }
                 $clearTail = if ($effectiveRender -eq 'InPlace') { "`e[K" } else { '' }
 
                 # Use individual Write-Host calls with explicit -ForegroundColor to ensure proper color isolation
                 Write-Host "$($script:Palette.Gray)Packet Loss: " -NoNewline
-                if ($metrics.PacketLoss -eq 0) {
+                if ($metrics.PacketLoss -eq 0)
+                {
                     Write-Host "$($metrics.PacketLoss)%" -ForegroundColor Green -NoNewline
-                } elseif ($metrics.PacketLoss -lt 5) {
+                }
+                elseif ($metrics.PacketLoss -lt 5)
+                {
                     Write-Host "$($metrics.PacketLoss)%" -ForegroundColor Yellow -NoNewline
-                } else {
+                }
+                else
+                {
                     Write-Host "$($metrics.PacketLoss)%" -ForegroundColor Red -NoNewline
                 }
                 Write-Host "$($script:Palette.Reset)$($script:Palette.Gray) | Jitter: " -NoNewline
-                if ($metrics.Jitter -lt 10) {
+                if ($metrics.Jitter -lt 10)
+                {
                     Write-Host "$($metrics.Jitter)ms" -ForegroundColor Green -NoNewline
-                } elseif ($metrics.Jitter -lt 30) {
+                }
+                elseif ($metrics.Jitter -lt 30)
+                {
                     Write-Host "$($metrics.Jitter)ms" -ForegroundColor Yellow -NoNewline
-                } else {
+                }
+                else
+                {
                     Write-Host "$($metrics.Jitter)ms" -ForegroundColor Red -NoNewline
                 }
                 Write-Host "$($script:Palette.Reset)$clearTail" -NoNewline
