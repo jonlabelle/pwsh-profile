@@ -121,7 +121,7 @@ function Get-IPSubnet
         https://jonlabelle.com/snippets/view/powershell/ip-subnet-calculator
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Get-IPSubnet.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-IPSubnet.ps1
 
     .NOTES
         Original Author: saw-friendship@yandex.ru
@@ -130,7 +130,7 @@ function Get-IPSubnet
 
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Get-IPSubnet.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-IPSubnet.ps1
     #>
     [CmdletBinding(DefaultParameterSetName = 'CIDR')]
     [OutputType('NetWork.IPCalcResult')]

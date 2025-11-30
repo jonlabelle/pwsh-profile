@@ -15,7 +15,7 @@
 
 BeforeAll {
     # Load the function
-    . "$PSScriptRoot/../../../Functions/Utilities/Get-IPSubnet.ps1"
+    . "$PSScriptRoot/../../../Functions/NetworkAndDns/Get-IPSubnet.ps1"
 }
 
 Describe 'Get-IPSubnet' {

@@ -17,13 +17,16 @@ Tests/
 │   ├── Security/                                   # Security function tests
 │   │   ├── Protect-PathWithPassword.Tests.ps1      # File encryption tests
 │   │   └── Unprotect-PathWithPassword.Tests.ps1    # File decryption tests
+│   ├── NetworkAndDns/                               # Network and DNS tests
+│   │   └── Get-IPSubnet.Tests.ps1                  # IP subnet calculation tests
+│   ├── Security/                                   # Security tests
+│   │   └── ConvertFrom-JwtToken.Tests.ps1           # JWT token decoding tests
 │   ├── SystemAdministration/                       # System administration tests
 │   │   ├── Set-TlsSecurityProtocol.Tests.ps1       # TLS protocol configuration tests
 │   │   └── Start-KeepAlive.Tests.ps1               # System sleep prevention tests
 │   └── Utilities/                                  # Utility function tests
 │       ├── Convert-LineEnding.Tests.ps1            # Line ending conversion tests
 │       ├── Get-CommandAlias.Tests.ps1              # Command alias lookup tests
-│       ├── Get-IPSubnet.Tests.ps1                  # IP subnet calculation tests
 │       ├── New-RandomString.Tests.ps1              # String generation utility tests
 │       └── Sync-Directory.Tests.ps1                # Directory synchronization tests
 ├── Integration/                                    # Integration and cross-system tests
