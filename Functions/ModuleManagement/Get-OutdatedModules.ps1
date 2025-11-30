@@ -30,19 +30,29 @@ function Get-OutdatedModules
         Gets module status while excluding specific modules from the check.
 
     .EXAMPLE
-        PS > Get-OutdatedModules | Format-Table Name, CurrentVersion, AvailableVersion, IsUpToDate
+        PS > Get-OutdatedModules | Format-Table Name, CurrentVersion, AvailableVersion, Status
 
-        Displays all modules in a formatted table showing version information and update status.
-
-    .EXAMPLE
-        PS > Get-OutdatedModules | Where-Object -Not IsUpToDate
-
-        Gets only modules that have updates available using pipeline filtering.
+        Displays all modules in a formatted table showing version information and detailed status.
 
     .EXAMPLE
-        PS > Get-OutdatedModules | Where-Object IsUpToDate
+        PS > Get-OutdatedModules | Where-Object Status -eq 'Outdated'
+
+        Gets only modules that have updates available using the new Status property.
+
+    .EXAMPLE
+        PS > Get-OutdatedModules | Where-Object Status -eq 'Current'
 
         Gets only modules that are already up-to-date.
+
+    .EXAMPLE
+        PS > Get-OutdatedModules | Where-Object IsPrerelease
+
+        Gets modules that are prerelease versions.
+
+    .EXAMPLE
+        PS > Get-OutdatedModules | Where-Object VersionAge -lt 30
+
+        Gets modules where the available version was published within the last 30 days.
 
     .EXAMPLE
         PS > Get-OutdatedModules | Where-Object Name -like 'Azure*'
@@ -56,7 +66,18 @@ function Get-OutdatedModules
 
     .OUTPUTS
         [PSCustomObject[]]
-        Returns custom objects with properties: Name, CurrentVersion, AvailableVersion, IsUpToDate, Repository, Description, PublishedDate, Author
+        Returns custom objects with properties:
+        - Name: Module name
+        - CurrentVersion: Currently installed version
+        - AvailableVersion: Latest version available in repository
+        - Status: 'Outdated', 'Current', or 'Newer' (detailed status)
+        - IsUpToDate: Boolean indicating if module is current
+        - IsPrerelease: Boolean indicating if version contains prerelease identifiers
+        - VersionAge: Number of days since the available version was published
+        - Repository: Source repository name
+        - Description: Module description
+        - PublishedDate: Date when available version was published
+        - Author: Module author
 
     .NOTES
         - Requires PowerShell 5.1 or later with PowerShellGet module
@@ -170,11 +191,41 @@ function Get-OutdatedModules
 
                     $isUpToDate = $latestModule.Version -le $installedModule.Version
 
+                    # Determine detailed status
+                    $status = if ($latestModule.Version -gt $installedModule.Version)
+                    {
+                        'Outdated'
+                    }
+                    elseif ($latestModule.Version -eq $installedModule.Version)
+                    {
+                        'Current'
+                    }
+                    else
+                    {
+                        'Newer'  # Local version is newer than repository version
+                    }
+
+                    # Check if this is a prerelease version
+                    $isPrerelease = $installedModule.Version.ToString().Contains('-') -or $latestModule.Version.ToString().Contains('-')
+
+                    # Calculate version age (days since published)
+                    $ageInDays = if ($latestModule.PublishedDate)
+                    {
+                        [Math]::Round(((Get-Date) - $latestModule.PublishedDate).TotalDays)
+                    }
+                    else
+                    {
+                        $null
+                    }
+
                     $moduleInfo = [PSCustomObject]@{
                         Name = $moduleName
                         CurrentVersion = $installedModule.Version
                         AvailableVersion = $latestModule.Version
+                        Status = $status
                         IsUpToDate = $isUpToDate
+                        IsPrerelease = $isPrerelease
+                        VersionAge = $ageInDays
                         Repository = $latestModule.Repository
                         Description = $latestModule.Description
                         PublishedDate = $latestModule.PublishedDate
@@ -185,11 +236,11 @@ function Get-OutdatedModules
 
                     if (-not $isUpToDate)
                     {
-                        Write-Verbose "Found outdated module: $moduleName ($($installedModule.Version) -> $($latestModule.Version))"
+                        Write-Verbose "Found outdated module: $moduleName ($($installedModule.Version) -> $($latestModule.Version)) - Status: $status"
                     }
                     else
                     {
-                        Write-Verbose "$moduleName is up to date"
+                        Write-Verbose "$moduleName is up to date - Status: $status"
                     }
                 }
                 catch [System.InvalidOperationException]
