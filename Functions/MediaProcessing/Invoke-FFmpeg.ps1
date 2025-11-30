@@ -55,6 +55,19 @@ function Invoke-FFmpeg
         If specified, passes through audio without re-encoding while still processing video according to other settings.
         This is faster but doesn't apply Samsung-friendly audio encoding settings.
 
+    .PARAMETER IncludeSubtitles
+        Controls subtitle handling behavior. Valid values are:
+        - 'Auto': Include text-based subtitles only (default for MP4 compatibility)
+        - 'All': Include all subtitles (may cause errors with bitmap subtitles in MP4)
+        - 'None': Exclude all subtitles from output
+        Defaults to 'Auto'.
+
+        The 'Auto' mode intelligently detects subtitle types and only includes text-based
+        subtitles (SRT, ASS, WebVTT) that are compatible with MP4, while skipping
+        bitmap subtitles (PGS, DVD) that can cause encoding errors. This resolves
+        the common "Subtitle encoding currently only possible from text to text or
+        bitmap to bitmap" error when processing files with PGS subtitles.
+
     .PARAMETER WhatIf
         If specified, shows what operations would be performed without actually executing them.
         Useful for previewing the conversion process before running it.
@@ -100,6 +113,16 @@ function Invoke-FFmpeg
         Shows what operations would be performed on all target files in C:\Videos without actually executing them.
 
     .EXAMPLE
+        PS > Invoke-FFmpeg -Path "C:\Videos" -IncludeSubtitles "None"
+
+        Processes all .mkv files in C:\Videos while excluding all subtitle streams from the output.
+
+    .EXAMPLE
+        PS > Invoke-FFmpeg -Path "C:\Videos" -IncludeSubtitles "All" -PassthroughVideo -PassthroughAudio
+
+        Processes videos with passthrough for video/audio and attempts to include all subtitle types (may fail with bitmap subtitles in MP4).
+
+    .EXAMPLE
         PS > Invoke-FFmpeg -Path @("C:\Videos", "D:\Movies") -Extension "mkv"
 
         Processes all .mkv files in multiple directories by passing an array to the Path parameter.
@@ -118,6 +141,16 @@ function Invoke-FFmpeg
         PS > Get-ChildItem -Directory | Invoke-FFmpeg -VideoEncoder "H.265"
 
         Processes videos in all subdirectories using H.265 encoding via pipeline input.
+
+    .EXAMPLE
+        PS > Invoke-FFmpeg -Path "C:\Videos" -IncludeSubtitles "None"
+
+        Processes all .mkv files in C:\Videos while excluding all subtitle streams from the output.
+
+    .EXAMPLE
+        PS > Invoke-FFmpeg -Path "C:\Videos" -IncludeSubtitles "All" -PassthroughVideo -PassthroughAudio
+
+        Processes videos with passthrough for video/audio and attempts to include all subtitle types (may fail with bitmap subtitles in MP4).
 
     .LINK
         https://ffmpeg.org/documentation.html
@@ -180,7 +213,12 @@ function Invoke-FFmpeg
 
         [Parameter()]
         [switch]
-        $PassthroughAudio
+        $PassthroughAudio,
+
+        [Parameter()]
+        [ValidateSet('Auto', 'All', 'None')]
+        [string]
+        $IncludeSubtitles = 'Auto'
     )
 
     begin
@@ -293,6 +331,188 @@ function Invoke-FFmpeg
             else
             {
                 return '{0:D2}s' -f $remainingTime.Seconds
+            }
+        }
+
+        # Function to analyze subtitle streams and determine handling strategy
+        function Get-SubtitleHandlingStrategy
+        {
+            param(
+                [String]$FilePath,
+                [String]$FFmpegPath,
+                [String]$IncludeSubtitles
+            )
+
+            if ($IncludeSubtitles -eq 'None')
+            {
+                return @{
+                    IncludeSubtitles = $false
+                    SubtitleArgs = @()
+                    WarningMessage = $null
+                }
+            }
+
+            try
+            {
+                # Use the existing Get-VideoDetails function to get subtitle information
+                # Helper function to load Get-VideoDetails dependency if needed
+                function Import-DependencyIfNeeded
+                {
+                    param(
+                        [Parameter(Mandatory)]
+                        [String]$FunctionName,
+
+                        [Parameter(Mandatory)]
+                        [String]$RelativePath
+                    )
+
+                    if (-not (Get-Command -Name $FunctionName -ErrorAction SilentlyContinue))
+                    {
+                        Write-Verbose "$FunctionName is required - attempting to load it"
+
+                        # Resolve path from current script location
+                        $dependencyPath = Join-Path -Path $PSScriptRoot -ChildPath $RelativePath
+                        $dependencyPath = [System.IO.Path]::GetFullPath($dependencyPath)
+
+                        if (Test-Path -Path $dependencyPath -PathType Leaf)
+                        {
+                            try
+                            {
+                                . $dependencyPath
+                                Write-Verbose "Loaded $FunctionName from: $dependencyPath"
+                            }
+                            catch
+                            {
+                                throw "Failed to load required dependency '$FunctionName' from '$dependencyPath': $($_.Exception.Message)"
+                            }
+                        }
+                        else
+                        {
+                            throw "Required function '$FunctionName' could not be found. Expected location: $dependencyPath"
+                        }
+                    }
+                    else
+                    {
+                        Write-Verbose "$FunctionName is already loaded"
+                    }
+                }
+
+                # Load Get-VideoDetails if needed
+                Import-DependencyIfNeeded -FunctionName 'Get-VideoDetails' -RelativePath 'Get-VideoDetails.ps1'
+
+                # Try to find ffprobe path for Get-VideoDetails
+                $ffprobeExecutable = $FFmpegPath -replace 'ffmpeg(\.exe)?$', 'ffprobe$1'
+
+                if (-not (Test-Path $ffprobeExecutable))
+                {
+                    # Fallback: try ffprobe in PATH
+                    $ffprobeCommand = Get-Command -Name 'ffprobe' -ErrorAction SilentlyContinue
+                    if ($ffprobeCommand)
+                    {
+                        $ffprobeExecutable = $ffprobeCommand.Source
+                    }
+                    else
+                    {
+                        Write-Verbose 'FFprobe not found - subtitle analysis skipped'
+                        return @{
+                            IncludeSubtitles = $false
+                            SubtitleArgs = @()
+                            WarningMessage = $null
+                        }
+                    }
+                }
+
+                # Use Get-VideoDetails to analyze the file
+                $videoDetails = Get-VideoDetails -Path $FilePath -FFprobePath $ffprobeExecutable -Extended -ErrorAction SilentlyContinue
+
+                if (-not $videoDetails -or -not $videoDetails.Subtitles -or $videoDetails.Subtitles.Count -eq 0)
+                {
+                    return @{
+                        IncludeSubtitles = $false
+                        SubtitleArgs = @()
+                        WarningMessage = $null
+                    }
+                }
+
+                # Categorize subtitle streams using the detailed subtitle information
+                $textBasedCodecs = @('subrip', 'ass', 'ssa', 'webvtt', 'mov_text', 'srt', 'text')
+                $bitmapCodecs = @('hdmv_pgs_subtitle', 'dvd_subtitle', 'pgssub', 'dvdsub', 'pgs')
+
+                $textSubtitles = @()
+                $bitmapSubtitles = @()
+
+                foreach ($subtitle in $videoDetails.Subtitles)
+                {
+                    if ($subtitle.Codec -in $textBasedCodecs)
+                    {
+                        $textSubtitles += $subtitle
+                    }
+                    elseif ($subtitle.Codec -in $bitmapCodecs)
+                    {
+                        $bitmapSubtitles += $subtitle
+                    }
+                    else
+                    {
+                        # Unknown codec, treat as bitmap for safety
+                        $bitmapSubtitles += $subtitle
+                    }
+                }
+
+                $warningMessage = $null
+                $subtitleArgs = @()
+                $includeSubtitles = $false
+
+                if ($IncludeSubtitles -eq 'All')
+                {
+                    if ($bitmapSubtitles.Count -gt 0)
+                    {
+                        $warningMessage = "Warning: File contains $($bitmapSubtitles.Count) bitmap subtitle stream(s) (e.g., PGS/DVD subtitles) which may not be compatible with MP4. Consider using -IncludeSubtitles 'Auto' or 'None'."
+                    }
+
+                    $subtitleArgs = @('-scodec', 'mov_text', '-map', '0:s?')
+                    $includeSubtitles = $true
+                }
+                elseif ($IncludeSubtitles -eq 'Auto')
+                {
+                    if ($textSubtitles.Count -gt 0)
+                    {
+                        # Map only text-based subtitle streams
+                        $subtitleArgs = @('-scodec', 'mov_text')
+                        foreach ($subtitle in $textSubtitles)
+                        {
+                            $subtitleArgs += @('-map', "0:$($subtitle.Index)")
+                        }
+                        $includeSubtitles = $true
+                    }
+
+                    if ($bitmapSubtitles.Count -gt 0)
+                    {
+                        $skippedMessage = "Skipping $($bitmapSubtitles.Count) bitmap subtitle stream(s) for MP4 compatibility"
+                        if ($textSubtitles.Count -gt 0)
+                        {
+                            $warningMessage = "$skippedMessage (including $($textSubtitles.Count) compatible text subtitle(s))"
+                        }
+                        else
+                        {
+                            $warningMessage = $skippedMessage
+                        }
+                    }
+                }
+
+                return @{
+                    IncludeSubtitles = $includeSubtitles
+                    SubtitleArgs = $subtitleArgs
+                    WarningMessage = $warningMessage
+                }
+            }
+            catch
+            {
+                Write-Verbose "Error analyzing subtitle streams: $($_.Exception.Message)"
+                return @{
+                    IncludeSubtitles = $false
+                    SubtitleArgs = @()
+                    WarningMessage = $null
+                }
             }
         }
 
@@ -641,20 +861,33 @@ function Invoke-FFmpeg
                 }
             }
 
+            # Analyze subtitle streams and determine handling strategy
+            $subtitleStrategy = Get-SubtitleHandlingStrategy -FilePath $inputFilePath -FFmpegPath $resolvedFFmpegPath -IncludeSubtitles $IncludeSubtitles
+
+            if ($subtitleStrategy.WarningMessage)
+            {
+                Write-Warning $subtitleStrategy.WarningMessage
+            }
+
             # Construct ffmpeg arguments using Samsung-friendly encoding settings
             if ($PassthroughVideo -and $PassthroughAudio)
             {
-                # Both passthrough mode: copy video and audio without re-encoding, only encode subtitles
+                # Both passthrough mode: copy video and audio without re-encoding
                 $ffmpegArgs = @(
                     '-i', "`"$inputFilePath`"",                      # Input file (quoted)
                     '-vcodec', 'copy',                               # Copy video stream without re-encoding
                     '-acodec', 'copy',                               # Copy audio stream without re-encoding
-                    '-scodec', 'mov_text',                           # Convert subtitles to mov_text format (MP4 compatible)
                     '-map', '0:v',                                   # Map video stream
-                    '-map', '0:a',                                   # Map audio stream
-                    '-map', '0:s?',                                  # Map subtitle streams if they exist (optional)
-                    '-movflags', '+faststart'                        # Web-optimized for progressive download
+                    '-map', '0:a'                                    # Map audio stream
                 )
+
+                # Add subtitle handling based on strategy
+                if ($subtitleStrategy.IncludeSubtitles)
+                {
+                    $ffmpegArgs += $subtitleStrategy.SubtitleArgs
+                }
+
+                $ffmpegArgs += @('-movflags', '+faststart')         # Web-optimized for progressive download
             }
             elseif ($PassthroughVideo)
             {
@@ -666,12 +899,17 @@ function Invoke-FFmpeg
                     '-b:a', '192k',                                  # Audio bitrate 192 kbps
                     '-ac', '2',                                      # 2 audio channels (stereo)
                     '-ar', '48000',                                  # Audio sample rate 48 kHz
-                    '-scodec', 'mov_text',                           # Convert subtitles to mov_text format (MP4 compatible)
                     '-map', '0:v',                                   # Map video stream
-                    '-map', '0:a',                                   # Map audio stream
-                    '-map', '0:s?',                                  # Map subtitle streams if they exist (optional)
-                    '-movflags', '+faststart'                        # Web-optimized for progressive download
+                    '-map', '0:a'                                    # Map audio stream
                 )
+
+                # Add subtitle handling based on strategy
+                if ($subtitleStrategy.IncludeSubtitles)
+                {
+                    $ffmpegArgs += $subtitleStrategy.SubtitleArgs
+                }
+
+                $ffmpegArgs += @('-movflags', '+faststart')         # Web-optimized for progressive download
             }
             elseif ($VideoEncoder -eq 'H.264')
             {
@@ -706,12 +944,17 @@ function Invoke-FFmpeg
                 $ffmpegArgs = @(
                     '-i', "`"$inputFilePath`""                       # Input file (quoted)
                 ) + $videoArgs + $audioArgs + @(
-                    '-scodec', 'mov_text',                           # Convert subtitles to mov_text format (MP4 compatible)
                     '-map', '0:v',                                   # Map video stream
-                    '-map', '0:a',                                   # Map audio stream
-                    '-map', '0:s?',                                  # Map subtitle streams if they exist (optional)
-                    '-movflags', '+faststart'                        # Web-optimized for progressive download
+                    '-map', '0:a'                                    # Map audio stream
                 )
+
+                # Add subtitle handling based on strategy
+                if ($subtitleStrategy.IncludeSubtitles)
+                {
+                    $ffmpegArgs += $subtitleStrategy.SubtitleArgs
+                }
+
+                $ffmpegArgs += @('-movflags', '+faststart')         # Web-optimized for progressive download
             }
             else # H.265
             {
@@ -742,12 +985,17 @@ function Invoke-FFmpeg
                 $ffmpegArgs = @(
                     '-i', "`"$inputFilePath`""                       # Input file (quoted)
                 ) + $videoArgs + $audioArgs + @(
-                    '-scodec', 'mov_text',                           # Convert subtitles to mov_text format (MP4 compatible)
                     '-map', '0:v',                                   # Map video stream
-                    '-map', '0:a',                                   # Map audio stream
-                    '-map', '0:s?',                                  # Map subtitle streams if they exist (optional)
-                    '-movflags', '+faststart'                        # Web-optimized for progressive download
+                    '-map', '0:a'                                    # Map audio stream
                 )
+
+                # Add subtitle handling based on strategy
+                if ($subtitleStrategy.IncludeSubtitles)
+                {
+                    $ffmpegArgs += $subtitleStrategy.SubtitleArgs
+                }
+
+                $ffmpegArgs += @('-movflags', '+faststart')         # Web-optimized for progressive download
             }
 
             # Add force overwrite if needed
