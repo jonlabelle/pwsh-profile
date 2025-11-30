@@ -31,13 +31,13 @@ function Invoke-FFmpeg
     .PARAMETER PauseOnError
         If specified, the function will wait for user input when an error occurs instead of automatically continuing to the next file.
 
-    .PARAMETER NoRecursion
-        If specified, disables recursive searching and only processes files in the specified Path.
-        By default, search is recursive through all subdirectories.
+    .PARAMETER Recurse
+        If specified, enables recursive searching through all subdirectories.
+        By default, search is non-recursive (current directory only).
 
     .PARAMETER Exclude
         Specifies directories to exclude when searching recursively.
-        Only applies when -NoRecursion is not specified.
+        Only applies when -Recurse is specified.
         Defaults to @('.git', 'node_modules').
 
     .PARAMETER VideoEncoder
@@ -75,9 +75,14 @@ function Invoke-FFmpeg
         Processes all .avi files using H.264 encoding without deleting the input files.
 
     .EXAMPLE
-        PS > Invoke-FFmpeg -Path "D:\Movies" -NoRecursion
+        PS > Invoke-FFmpeg -Path "D:\Movies"
 
-        Processes only the .mkv files directly in D:\Movies without searching subdirectories.
+        Processes only the .mkv files directly in D:\Movies without searching subdirectories (default behavior).
+
+    .EXAMPLE
+        PS > Invoke-FFmpeg -Path "D:\Movies" -Recurse
+
+        Processes all .mkv files in D:\Movies and all subdirectories recursively.
 
     .EXAMPLE
         PS > Invoke-FFmpeg -Path "D:\Movies" -PassthroughVideo -KeepSourceFile
@@ -153,7 +158,7 @@ function Invoke-FFmpeg
 
         [Parameter()]
         [switch]
-        $NoRecursion,
+        $Recurse,
 
         [Parameter()]
         [string[]]
@@ -471,18 +476,18 @@ function Invoke-FFmpeg
             }
 
             # Find files to process
-            if ($NoRecursion)
-            {
-                Write-VerboseMessage "Searching for *.$Extension files in current directory only"
-                $filesToProcess = Get-ChildItem -Path $normalizedPath -Filter "*.$Extension" -File
-            }
-            else
+            if ($Recurse)
             {
                 Write-VerboseMessage "Searching recursively for *.$Extension files (excluding $($Exclude -join ', '))"
                 $filesToProcess = Get-ChildItem -Path $normalizedPath -Recurse -Filter "*.$Extension" -File | Where-Object {
                     $fullPath = $_.FullName
                     -not ($Exclude | Where-Object { $fullPath -like "*$_*" })
                 }
+            }
+            else
+            {
+                Write-VerboseMessage "Searching for *.$Extension files in current directory only"
+                $filesToProcess = Get-ChildItem -Path $normalizedPath -Filter "*.$Extension" -File
             }
 
             foreach ($file in $filesToProcess)

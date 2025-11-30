@@ -25,13 +25,13 @@ function Get-VideoDetails
         showing properties that have actual values, which is particularly useful when some metadata fields
         are not populated in the video file.
 
-    .PARAMETER NoRecursion
-        If specified, disables recursive searching when processing directories and only analyzes video files
-        in the specified directory. By default, search is recursive through all subdirectories.
+    .PARAMETER Recurse
+        If specified, enables recursive searching when processing directories to analyze video files
+        in all subdirectories. By default, search is non-recursive (current directory only).
 
     .PARAMETER Exclude
         Specifies directories to exclude when searching recursively.
-        Only applies when -NoRecursion is not specified.
+        Only applies when -Recurse is specified.
         Defaults to @('.git', 'node_modules').
 
     .PARAMETER FFprobePath
@@ -41,7 +41,7 @@ function Get-VideoDetails
     .EXAMPLE
         PS > Get-VideoDetails
 
-        Searches recursively in the current working directory for video files and retrieves
+        Searches the current working directory (non-recursive) for video files and retrieves
         detailed information for all found video files (mp4, mkv, avi, mov, etc.).
 
     .EXAMPLE
@@ -67,7 +67,7 @@ function Get-VideoDetails
         Retrieves comprehensive video information for movie.mp4.
 
     .EXAMPLE
-        PS > Get-VideoDetails -Path "C:\Videos"
+        PS > Get-VideoDetails -Path "C:\Videos" -Recurse
 
         Searches recursively through the C:\Videos directory for all video files and retrieves
         detailed information for each found video file.
@@ -83,7 +83,7 @@ function Get-VideoDetails
         Retrieves detailed information for all .mp4 files via pipeline input.
 
     .EXAMPLE
-        PS > Get-VideoDetails -Path "C:\Videos" -NoRecursion
+        PS > Get-VideoDetails -Path "C:\Videos"
 
         Searches only the C:\Videos directory (non-recursive) for video files and retrieves
         detailed information for each found video file.
@@ -198,7 +198,7 @@ function Get-VideoDetails
 
         [Parameter()]
         [switch]
-        $NoRecursion,
+        $Recurse,
 
         [Parameter()]
         [string[]]
@@ -787,13 +787,13 @@ function Get-VideoDetails
                 if ($pathItem.PSIsContainer)
                 {
                     # Handle directory - search for video files with optional recursion
-                    if ($NoRecursion)
+                    if ($Recurse)
                     {
-                        Write-Verbose "Searching directory (non-recursive): $resolvedPath"
+                        Write-Verbose "Searching directory recursively: $resolvedPath"
                     }
                     else
                     {
-                        Write-Verbose "Searching directory recursively: $resolvedPath"
+                        Write-Verbose "Searching directory (non-recursive): $resolvedPath"
                     }
 
                     # Common video file extensions
@@ -802,11 +802,7 @@ function Get-VideoDetails
                     $videoFiles = @()
                     foreach ($ext in $videoExtensions)
                     {
-                        if ($NoRecursion)
-                        {
-                            $videoFiles += Get-ChildItem -Path $resolvedPath -Filter $ext -File -ErrorAction SilentlyContinue
-                        }
-                        else
+                        if ($Recurse)
                         {
                             $foundFiles = Get-ChildItem -Path $resolvedPath -Recurse -Filter $ext -File -ErrorAction SilentlyContinue
                             # Apply exclusion filters for recursive search
@@ -816,16 +812,20 @@ function Get-VideoDetails
                             }
                             $videoFiles += $filteredFiles
                         }
+                        else
+                        {
+                            $videoFiles += Get-ChildItem -Path $resolvedPath -Filter $ext -File -ErrorAction SilentlyContinue
+                        }
                     }
 
                     if ($videoFiles.Count -eq 0)
                     {
-                        $searchType = if ($NoRecursion) { 'directory' } else { 'directory (recursively)' }
+                        $searchType = if ($Recurse) { 'directory (recursively)' } else { 'directory' }
                         Write-Warning "No video files found in $searchType`: '$resolvedPath'"
                         continue
                     }
 
-                    $searchType = if ($NoRecursion) { 'directory' } else { 'directory tree' }
+                    $searchType = if ($Recurse) { 'directory tree' } else { 'directory' }
                     Write-Verbose "Found $($videoFiles.Count) video file(s) in $searchType"
 
                     foreach ($file in $videoFiles)

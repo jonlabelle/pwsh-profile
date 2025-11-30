@@ -26,7 +26,12 @@ function Rename-VideoSeasonFile
 
     .PARAMETER Exclude
         Specifies directory names to exclude from the search.
+        Only applies when -Recurse is specified.
         Default exclusions are @('.git', 'node_modules', '.vscode').
+
+    .PARAMETER Recurse
+        If specified, enables recursive searching through all subdirectories.
+        By default, search is non-recursive (current directory only).
 
     .PARAMETER PassThru
         Returns objects representing the renamed files.
@@ -39,13 +44,18 @@ function Rename-VideoSeasonFile
     .EXAMPLE
         PS > Rename-VideoSeasonFile -Path 'D:\TV Shows\Breaking Bad' -Filters '*.mp4' -Verbose
 
-        Renames all MP4 files in the specified directory that contain season identifiers to clean S##E##.mp4 format.
+        Renames all MP4 files in the specified directory (non-recursive) that contain season identifiers to clean S##E##.mp4 format.
         For example: "Breaking.Bad.S01E01.1080p.BluRay.x264-DEMAND.mp4" becomes "S01E01.mp4"
 
     .EXAMPLE
         PS > Rename-VideoSeasonFile -Path 'D:\Downloads' -Exclude @('.git', 'node_modules', 'temp') -PassThru
 
-        Renames video files in the Downloads folder, excluding specified directories, and returns information about renamed files.
+        Renames video files in the Downloads folder (non-recursive), excluding specified directories, and returns information about renamed files.
+
+    .EXAMPLE
+        PS > Rename-VideoSeasonFile -Path 'D:\TV Shows' -Recurse -Verbose
+
+        Recursively renames all video files in the TV Shows folder and all subdirectories that contain season identifiers.
 
     .EXAMPLE
         PS > Rename-VideoSeasonFile -Path @('D:\TV Shows\Breaking Bad', 'D:\TV Shows\Better Call Saul') -Filters '*.mp4' -Verbose
@@ -101,6 +111,9 @@ function Rename-VideoSeasonFile
         [Parameter()]
         [ValidateNotNullOrEmpty()]
         [String[]]$Exclude = @('.git', 'node_modules', '.vscode'),
+
+        [Parameter()]
+        [Switch]$Recurse,
 
         [Parameter()]
         [Switch]$PassThru
@@ -166,10 +179,17 @@ function Rename-VideoSeasonFile
             {
                 try
                 {
-                    $filesForFilter = Get-ChildItem -Path $normalizedPath -Filter $filter -Recurse -File -ErrorAction Stop
+                    if ($Recurse)
+                    {
+                        $filesForFilter = Get-ChildItem -Path $normalizedPath -Filter $filter -Recurse -File -ErrorAction Stop
+                    }
+                    else
+                    {
+                        $filesForFilter = Get-ChildItem -Path $normalizedPath -Filter $filter -File -ErrorAction Stop
+                    }
 
-                    # Apply exclusion filter if needed
-                    if ($Exclude.Count -gt 0)
+                    # Apply exclusion filter if needed (only for recursive searches)
+                    if ($Recurse -and $Exclude.Count -gt 0)
                     {
                         $filesForFilter = $filesForFilter | Where-Object {
                             $filePath = $_.DirectoryName
