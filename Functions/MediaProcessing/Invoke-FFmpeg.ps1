@@ -939,14 +939,8 @@ function Invoke-FFmpeg
                 # Handle individual file
                 Write-VerboseMessage "Processing individual file: $normalizedPath"
 
-                # Check if file has the correct extension
-                $fileExtension = [System.IO.Path]::GetExtension($pathItem.Name).TrimStart('.')
-                if ($fileExtension -ne $Extension)
-                {
-                    Write-Warning "File '$($pathItem.Name)' does not have the expected extension '.$Extension' (has '.$fileExtension'). Skipping."
-                    continue
-                }
-
+                # For individual files, process regardless of extension (user explicitly specified the file)
+                # Extension parameter only applies to directory scanning
                 $allFilesToProcess += [PSCustomObject]@{
                     File = $pathItem
                     SourcePath = $pathItem.DirectoryName
