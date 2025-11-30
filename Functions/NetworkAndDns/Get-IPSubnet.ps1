@@ -1,121 +1,305 @@
 function Get-IPSubnet
 {
     <#
+    .SYNOPSIS
+        Calculate IP subnet information including network address, broadcast address, and subnet mask.
+
     .DESCRIPTION
-        Calculate IP subnet information including network address, broadcast address, subnet mask, and other subnet details.
+        Calculates comprehensive IP subnet information including network address, broadcast address,
+        subnet mask, wildcard mask, IP count, and binary representations. Supports multiple input
+        formats including CIDR notation, IP address with subnet mask, IP address with prefix length,
+        and wildcard masks.
+
+        Compatible with PowerShell Desktop 5.1+ on Windows, macOS, and Linux.
+
+    .PARAMETER CIDR
+        IP address and prefix length in CIDR notation (e.g., '192.168.1.0/24').
+        Supports both forward slash and backslash as separators.
+
+    .PARAMETER IPAddress
+        The IP address to calculate subnet information for.
+        Used in combination with Mask, PrefixLength, or WildCard parameters.
+
+    .PARAMETER Mask
+        The subnet mask in dotted decimal notation (e.g., '255.255.255.0').
+
+    .PARAMETER PrefixLength
+        The subnet prefix length (0-32). Also known as network bits or CIDR prefix.
+
+    .PARAMETER WildCard
+        The wildcard mask (inverse of subnet mask).
+
+    .PARAMETER UsableIPs
+        When specified, includes usable IP address information in the output.
+        Adds UsableIPCount (excluding network and broadcast addresses) and
+        FirstUsableIP/LastUsableIP properties to the result object.
+
+        Special handling for edge cases:
+        - /32 subnets (host routes): 1 usable IP (the IP itself)
+        - /31 subnets (point-to-point links): 2 usable IPs per RFC 3021
+        - All other subnets: Total IPs minus 2 (network and broadcast)
 
     .EXAMPLE
-        PS > Get-IPSubnet -CIDR 192.168.0.0/24
+        PS > Get-IPSubnet -CIDR '192.168.0.0/24'
 
-        IP           : 192.168.0.0
+        IPAddress    : 192.168.0.0
         Mask         : 255.255.255.0
         PrefixLength : 24
         WildCard     : 0.0.0.255
-        IPcount      : 256
         Subnet       : 192.168.0.0
         Broadcast    : 192.168.0.255
         CIDR         : 192.168.0.0/24
         ToDecimal    : 3232235520
-        IPBin        : 11000000.10101000.00000000.00000000
-        MaskBin      : 11111111.11111111.11111111.00000000
-        SubnetBin    : 11000000.10101000.00000000.00000000
-        BroadcastBin : 11000000.10101000.00000000.11111111
 
-        Calculate subnet information using CIDR notation.
+        Calculate basic subnet information using CIDR notation.
 
     .EXAMPLE
-        PS > Get-IPSubnet -IPAddress 192.168.0.0 -Mask 255.255.255.0
+        PS > Get-IPSubnet -IPAddress '192.168.0.0' -Mask '255.255.255.0'
 
-        IP           : 192.168.0.0
+        IPAddress    : 192.168.0.0
         Mask         : 255.255.255.0
         PrefixLength : 24
         WildCard     : 0.0.0.255
-        IPcount      : 256
         Subnet       : 192.168.0.0
         Broadcast    : 192.168.0.255
         CIDR         : 192.168.0.0/24
         ToDecimal    : 3232235520
-        IPBin        : 11000000.10101000.00000000.00000000
-        MaskBin      : 11111111.11111111.11111111.00000000
-        SubnetBin    : 11000000.10101000.00000000.00000000
-        BroadcastBin : 11000000.10101000.00000000.11111111
 
         Calculate subnet information using IP address and subnet mask.
 
     .EXAMPLE
-        PS > Get-IPSubnet -IPAddress 192.168.3.0 -PrefixLength 23
+        PS > Get-IPSubnet -IPAddress '192.168.3.0' -PrefixLength 23
 
-        IP           : 192.168.3.0
+        IPAddress    : 192.168.3.0
         Mask         : 255.255.254.0
         PrefixLength : 23
         WildCard     : 0.0.1.255
-        IPcount      : 512
         Subnet       : 192.168.2.0
         Broadcast    : 192.168.3.255
         CIDR         : 192.168.2.0/23
         ToDecimal    : 3232236288
-        IPBin        : 11000000.10101000.00000011.00000000
-        MaskBin      : 11111111.11111111.11111110.00000000
-        SubnetBin    : 11000000.10101000.00000010.00000000
-        BroadcastBin : 11000000.10101000.00000011.11111111
 
         Calculate subnet information using IP address and prefix length.
 
     .EXAMPLE
-        PS > (Get-IPSubnet -IPAddress (Get-IPSubnet 192.168.99.56/28).Subnet -PrefixLength 32).Add(1).IPAddress
-        192.168.99.49
+        PS > Get-IPSubnet -IPAddress '10.0.0.0' -PrefixLength 8
 
-        Add 1 to the subnet network address to get the next IP address.
+        IPAddress    : 10.0.0.0
+        Mask         : 255.0.0.0
+        PrefixLength : 8
+        WildCard     : 0.255.255.255
+        Subnet       : 10.0.0.0
+        Broadcast    : 10.255.255.255
+        CIDR         : 10.0.0.0/8
+        ToDecimal    : 167772160
 
-    .EXAMPLE
-        PS > (Get-IPSubnet 192.168.99.56/28).Compare('192.168.99.50')
-        True
-
-        Test if an IP address belongs to a specific subnet.
-
-    .EXAMPLE
-        PS > (Get-IPSubnet 192.168.99.58/30).GetIPArray()
-
-        192.168.99.56
-        192.168.99.57
-        192.168.99.58
-        192.168.99.59
-
-        Get all IP addresses within a subnet range.
+        Calculate Class A network information.
 
     .EXAMPLE
-        PS > Get-NetRoute -AddressFamily IPv4 | ? {(Get-IPSubnet -CIDR $_.DestinationPrefix).Compare('8.8.8.8')} | Sort-Object -Property @(@{Expression = {$_.DestinationPrefix.Split('/')[1]}; Asc = $false},'RouteMetric','ifMetric')
+        PS > Get-IPSubnet -IPAddress '172.16.0.0' -PrefixLength 16
 
-        ifIndex DestinationPrefix                              NextHop                                  RouteMetric ifMetric PolicyStore
-        ------- -----------------                              -------                                  ----------- -------- -----------
-        22      0.0.0.0/0                                      192.168.0.1                                        0 25       ActiveStore
+        IPAddress    : 172.16.0.0
+        Mask         : 255.255.0.0
+        PrefixLength : 16
+        WildCard     : 0.0.255.255
+        Subnet       : 172.16.0.0
+        Broadcast    : 172.16.255.255
+        CIDR         : 172.16.0.0/16
+        ToDecimal    : 2886729728
 
-        Find the routing table entry that would be used to reach a specific IP address.
-
-    .EXAMPLE
-        PS > (Get-IPSubnet 0.0.0.0/0).GetLocalRoute('127.0.0.1')
-
-        ifIndex DestinationPrefix                              NextHop                                  RouteMetric ifMetric PolicyStore
-        ------- -----------------                              -------                                  ----------- -------- -----------
-        1       127.0.0.0/8                                    0.0.0.0                                          256 75       ActiveStore
-
-        Find the most specific local route for an IP address.
+        Calculate Class B network information.
 
     .EXAMPLE
-        PS > (Get-IPSubnet 0.0.0.0/0).GetLocalRoute('127.0.0.1', 2)
+        PS > Get-IPSubnet -IPAddress '192.168.1.0' -PrefixLength 30
 
-        ifIndex DestinationPrefix                              NextHop                                  RouteMetric ifMetric PolicyStore
-        ------- -----------------                              -------                                  ----------- -------- -----------
-        1       127.0.0.1/32                                   0.0.0.0                                          256 75       ActiveStore
-        1       127.0.0.0/8                                    0.0.0.0                                          256 75       ActiveStore
+        IPAddress    : 192.168.1.0
+        Mask         : 255.255.255.252
+        PrefixLength : 30
+        WildCard     : 0.0.0.3
+        Subnet       : 192.168.1.0
+        Broadcast    : 192.168.1.3
+        CIDR         : 192.168.1.0/30
+        ToDecimal    : 3232235776
 
-        Get multiple local routes for an IP address, ordered by specificity.
+        Calculate point-to-point link subnet (4 total IPs, 2 usable).
 
     .EXAMPLE
-        PS > (Get-IPSubnet 192.168.0.0/25).Overlaps('192.168.0.0/27')
-        True
+        PS > Get-IPSubnet -IPAddress '192.168.1.1' -PrefixLength 32
 
-        Check if two subnets overlap with each other.
+        IPAddress    : 192.168.1.1
+        Mask         : 255.255.255.255
+        PrefixLength : 32
+        WildCard     : 0.0.0.0
+        Subnet       : 192.168.1.1
+        Broadcast    : 192.168.1.1
+        CIDR         : 192.168.1.1/32
+        ToDecimal    : 3232235777
+
+        Calculate host route (single IP address).
+
+    .EXAMPLE
+        PS > $subnet = Get-IPSubnet -CIDR '192.168.1.0/24'
+        PS > $subnet.IPcount
+        256
+
+        Access the IP count property to see total addresses in subnet.
+
+    .EXAMPLE
+        PS > $subnet = Get-IPSubnet -CIDR '192.168.1.0/24'
+        PS > $subnet.IPBin
+        11000000.10101000.00000001.00000000
+
+        View the binary representation of the IP address.
+
+    .EXAMPLE
+        PS > $results = @('192.168.1.0/24', '10.0.0.0/8', '172.16.0.0/16') | ForEach-Object { Get-IPSubnet -CIDR $_ }
+        PS > $results | Select-Object CIDR, IPcount, Subnet, Broadcast
+
+        CIDR            IPcount Subnet      Broadcast
+        ----            ------- ------      ---------
+        192.168.1.0/24      256 192.168.1.0 192.168.1.255
+        10.0.0.0/8     16777216 10.0.0.0    10.255.255.255
+        172.16.0.0/16     65536 172.16.0.0  172.16.255.255
+
+        Calculate subnet information for multiple networks.
+
+    .EXAMPLE
+        PS > Get-IPSubnet -CIDR '192.168.100.50/28' | Select-Object Subnet, Broadcast, IPcount
+
+        Subnet      Broadcast       IPcount
+        ------      ---------       -------
+        192.168.100.48 192.168.100.63      16
+
+        Find which subnet a specific IP address belongs to.
+
+    .EXAMPLE
+        PS > $subnets = @('192.168.1.0/25', '192.168.1.128/25')
+        PS > $subnets | ForEach-Object { Get-IPSubnet -CIDR $_ } | Format-Table CIDR, IPcount, Subnet, Broadcast
+
+        CIDR              IPcount Subnet         Broadcast
+        ----              ------- ------         ---------
+        192.168.1.0/25        128 192.168.1.0    192.168.1.127
+        192.168.1.128/25      128 192.168.1.128  192.168.1.255
+
+        Calculate VLSM (Variable Length Subnet Mask) subnets.
+
+    .EXAMPLE
+        PS > $large = Get-IPSubnet -CIDR '10.0.0.0/8'
+        PS > "Network: {0}, Usable IPs: {1:N0}" -f $large.CIDR, ($large.IPcount - 2)
+        Network: 10.0.0.0/8, Usable IPs: 16,777,214
+
+        Calculate usable IP addresses (excluding network and broadcast).
+
+    .EXAMPLE
+        PS > Get-IPSubnet -CIDR '192.168.1.0/24' -UsableIPs
+
+        IPAddress      : 192.168.1.0
+        Mask           : 255.255.255.0
+        PrefixLength   : 24
+        WildCard       : 0.0.0.255
+        Subnet         : 192.168.1.0
+        Broadcast      : 192.168.1.255
+        CIDR           : 192.168.1.0/24
+        ToDecimal      : 3232235776
+        UsableIPCount  : 254
+        FirstUsableIP  : 192.168.1.1
+        LastUsableIP   : 192.168.1.254
+
+        Calculate subnet with usable IP information (excludes network and broadcast).
+
+    .EXAMPLE
+        PS > Get-IPSubnet -CIDR '192.168.1.0/30' -UsableIPs | Select-Object CIDR, IPcount, UsableIPCount, FirstUsableIP, LastUsableIP
+
+        CIDR           IPcount UsableIPCount FirstUsableIP LastUsableIP
+        ----           ------- ------------- ------------- ------------
+        192.168.1.0/30       4             2 192.168.1.1   192.168.1.2
+
+        Point-to-point subnet showing 2 usable IPs out of 4 total.
+
+    .EXAMPLE
+        PS > Get-IPSubnet -CIDR '192.168.1.1/32' -UsableIPs
+
+        IPAddress      : 192.168.1.1
+        Mask           : 255.255.255.255
+        PrefixLength   : 32
+        WildCard       : 0.0.0.0
+        Subnet         : 192.168.1.1
+        Broadcast      : 192.168.1.1
+        CIDR           : 192.168.1.1/32
+        ToDecimal      : 3232235777
+        UsableIPCount  : 1
+        FirstUsableIP  : 192.168.1.1
+        LastUsableIP   : 192.168.1.1
+
+        Host route showing the single usable IP address.
+
+    .EXAMPLE
+        PS > Get-IPSubnet -CIDR '192.168.1.0/31' -UsableIPs
+
+        IPAddress      : 192.168.1.0
+        Mask           : 255.255.255.254
+        PrefixLength   : 31
+        WildCard       : 0.0.0.1
+        Subnet         : 192.168.1.0
+        Broadcast      : 192.168.1.1
+        CIDR           : 192.168.1.0/31
+        ToDecimal      : 3232235776
+        UsableIPCount  : 2
+        FirstUsableIP  : 192.168.1.0
+        LastUsableIP   : 192.168.1.1
+
+        Point-to-point link (RFC 3021) showing both IPs are usable.
+
+    .EXAMPLE
+        PS > @('/24', '/25', '/26', '/27', '/28', '/29', '/30') | ForEach-Object { Get-IPSubnet -CIDR "192.168.1.0$_" -UsableIPs } | Select-Object PrefixLength, IPcount, UsableIPCount
+
+        PrefixLength IPcount UsableIPCount
+        ------------ ------- -------------
+                  24     256           254
+                  25     128           126
+                  26      64            62
+                  27      32            30
+                  28      16            14
+                  29       8             6
+                  30       4             2
+
+        Compare total vs usable IP counts across common subnet sizes.
+
+    .EXAMPLE
+        PS > Get-IPSubnet -IPAddress '192.168.1.100' -WildCard '0.0.0.31'
+
+        IPAddress    : 192.168.1.100
+        Mask         : 255.255.255.224
+        PrefixLength : 27
+        WildCard     : 0.0.0.31
+        Subnet       : 192.168.1.96
+        Broadcast    : 192.168.1.127
+        CIDR         : 192.168.1.96/27
+        ToDecimal    : 3232235876
+
+        Calculate subnet using wildcard mask (useful for ACLs and route maps).
+
+    .OUTPUTS
+        NetWork.IPCalcResult
+        Returns a custom object with subnet calculation results including:
+        - IPAddress: Original IP address
+        - Mask: Subnet mask in dotted decimal notation
+        - PrefixLength: CIDR prefix length (network bits)
+        - WildCard: Wildcard mask (inverse of subnet mask)
+        - IPcount: Total number of IP addresses in subnet
+        - Subnet: Network address
+        - Broadcast: Broadcast address
+        - CIDR: CIDR notation (network/prefix)
+        - ToDecimal: IP address in decimal format
+        - IPBin: Binary representation of IP address (dotted)
+        - MaskBin: Binary representation of subnet mask (dotted)
+        - SubnetBin: Binary representation of network address (dotted)
+        - BroadcastBin: Binary representation of broadcast address (dotted)
+
+        When -UsableIPs is specified, additional properties are included:
+        - UsableIPCount: Number of usable IP addresses (excluding network/broadcast)
+        - FirstUsableIP: First usable IP address in the subnet
+        - LastUsableIP: Last usable IP address in the subnet
 
     .LINK
         https://jonlabelle.com/snippets/view/powershell/ip-subnet-calculator
@@ -124,11 +308,27 @@ function Get-IPSubnet
         https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-IPSubnet.ps1
 
     .NOTES
+        Binary Representations:
+        All binary values are displayed in dotted octet format (e.g., 11000000.10101000.00000001.00000000)
+        for easy reading and comparison with subnet masks.
+
+        Decimal Conversion:
+        The ToDecimal property contains the 32-bit decimal representation of the IP address,
+        useful for IP address arithmetic and sorting operations.
+
+        Network Planning:
+        - IPcount includes all addresses (network, broadcast, and hosts)
+        - Standard subnets: Usable IPs = IPcount - 2 (subtract network and broadcast)
+        - /30 subnets: 2 usable IPs (common for point-to-point links)
+        - /31 subnets: 2 usable IPs per RFC 3021 (no network/broadcast concept)
+        - /32 subnets: 1 usable IP (host route, network=broadcast=usable)
+        - Use -UsableIPs switch for automatic usable IP calculations
+
         Original Author: saw-friendship@yandex.ru
         Description: IP Subnet Calculator WildCard CIDR
         URL: https://sawfriendship.wordpress.com/
 
-        Author: Jon LaBelle
+        Enhanced by: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-IPSubnet.ps1
     #>
@@ -153,7 +353,10 @@ function Get-IPSubnet
         [int]$PrefixLength,
 
         [parameter(Mandatory = $true, ParameterSetName = 'WildCard')]
-        [IPAddress]$WildCard
+        [IPAddress]$WildCard,
+
+        [Parameter()]
+        [switch]$UsableIPs
     )
 
     process
@@ -209,6 +412,54 @@ function Get-IPSubnet
         [string]$CIDR = "$($subnet.IPAddressToString)/$PrefixLength"
         [int64]$ipCount = [System.Math]::Pow(2, $(32 - $PrefixLength))
 
+        # Calculate usable IP information if requested
+        $usableIPCount = $null
+        $firstUsableIP = $null
+        $lastUsableIP = $null
+
+        if ($UsableIPs)
+        {
+            if ($PrefixLength -eq 32)
+            {
+                # /32 subnet (host route) - the IP itself is the only usable IP
+                $usableIPCount = 1
+                $firstUsableIP = $IPAddress
+                $lastUsableIP = $IPAddress
+            }
+            elseif ($PrefixLength -eq 31)
+            {
+                # /31 subnet (RFC 3021 point-to-point) - both IPs are usable, no network/broadcast
+                $usableIPCount = 2
+                $firstUsableIP = $subnet
+                $lastUsableIP = $broadcast
+            }
+            else
+            {
+                # Standard subnets - exclude network (first) and broadcast (last) addresses
+                $usableIPCount = $ipCount - 2
+                if ($usableIPCount -gt 0)
+                {
+                    # Calculate first usable IP (network + 1)
+                    $subnetBytes = $subnet.GetAddressBytes()
+                    $firstUsableBytes = $subnetBytes.Clone()
+                    $firstUsableBytes[3] = $firstUsableBytes[3] + 1
+                    $firstUsableIP = [IPAddress]($firstUsableBytes -join '.')
+
+                    # Calculate last usable IP (broadcast - 1)
+                    $broadcastBytes = $broadcast.GetAddressBytes()
+                    $lastUsableBytes = $broadcastBytes.Clone()
+                    $lastUsableBytes[3] = $lastUsableBytes[3] - 1
+                    $lastUsableIP = [IPAddress]($lastUsableBytes -join '.')
+                }
+                else
+                {
+                    # Edge case: no usable IPs (shouldn't happen with valid subnets)
+                    $firstUsableIP = $null
+                    $lastUsableIP = $null
+                }
+            }
+        }
+
         $object = [PSCustomObject][Ordered]@{
             IPAddress = $IPAddress.IPAddressToString
             Mask = $Mask.IPAddressToString
@@ -226,46 +477,25 @@ function Get-IPSubnet
             PSTypeName = 'NetWork.IPCalcResult'
         }
 
-        [string[]]$defaultProperties = @('IPAddress', 'Mask', 'PrefixLength', 'WildCard', 'Subnet', 'Broadcast', 'CIDR', 'ToDecimal')
+        # Add usable IP properties if requested
+        if ($UsableIPs)
+        {
+            Add-Member -InputObject $object -NotePropertyName 'UsableIPCount' -NotePropertyValue $usableIPCount
+            Add-Member -InputObject $object -NotePropertyName 'FirstUsableIP' -NotePropertyValue $firstUsableIP
+            Add-Member -InputObject $object -NotePropertyName 'LastUsableIP' -NotePropertyValue $lastUsableIP
+        }
+
+        # Set default display properties based on whether UsableIPs was requested
+        if ($UsableIPs)
+        {
+            [string[]]$defaultProperties = @('IPAddress', 'Mask', 'PrefixLength', 'WildCard', 'Subnet', 'Broadcast', 'CIDR', 'ToDecimal', 'UsableIPCount', 'FirstUsableIP', 'LastUsableIP')
+        }
+        else
+        {
+            [string[]]$defaultProperties = @('IPAddress', 'Mask', 'PrefixLength', 'WildCard', 'Subnet', 'Broadcast', 'CIDR', 'ToDecimal')
+        }
 
         Add-Member -InputObject $object -MemberType AliasProperty -Name IP -Value IPAddress
-
-        Add-Member -InputObject $object -MemberType:ScriptMethod -Name Add -Value {
-            param([int]$add, [int]$PrefixLength = $This.PrefixLength)
-            Get-IPSubnet -IPAddress ([IPAddress]([String]$($This.ToDecimal + $add))).IPAddressToString -PrefixLength $PrefixLength
-        }
-
-        Add-Member -InputObject $object -MemberType:ScriptMethod -Name Compare -Value {
-            param ([Parameter(Mandatory = $true)][IPAddress]$ip)
-            $ipBin = -join (($ip)).GetAddressBytes().ForEach({ [System.Convert]::ToString($_, 2).PadLeft(8, '0') })
-            $subnetBin = $This.SubnetBin.Replace('.', '')
-            for ($i = 0; $i -lt $This.PrefixLength; $i += 1) { if ($ipBin[$i] -ne $subnetBin[$i]) { return $false } }
-            return $true
-        }
-
-        Add-Member -InputObject $object -MemberType:ScriptMethod -Name Overlaps -Value {
-            param ([Parameter(Mandatory = $true)][string]$cidr = $This.CIDR)
-            $calc = Get-IPSubnet -Cidr $cidr
-            $This.Compare($calc.Subnet) -or $This.Compare($calc.Broadcast)
-        }
-
-        Add-Member -InputObject $object -MemberType:ScriptMethod -Name GetIParray -Value {
-            $firstOctet = @($This.Subnet.GetAddressBytes()[0]..$This.Broadcast.GetAddressBytes()[0])
-            $secondOctet = @($This.Subnet.GetAddressBytes()[1]..$This.Broadcast.GetAddressBytes()[1])
-            $thirdOctet = @($This.Subnet.GetAddressBytes()[2]..$This.Broadcast.GetAddressBytes()[2])
-            $fourthOctet = @($This.Subnet.GetAddressBytes()[3]..$This.Broadcast.GetAddressBytes()[3])
-            $firstOctet.ForEach({ $firstValue = $_; $secondOctet.ForEach({ $secondValue = $_; $thirdOctet.ForEach({ $thirdValue = $_; $fourthOctet.ForEach({ $fourthValue = $_; $firstValue, $secondValue, $thirdValue, $fourthValue -join '.' }) }) }) })
-        }
-
-        Add-Member -InputObject $object -MemberType:ScriptMethod -Name isLocal -Value {
-            param ([Parameter(Mandatory = $true)][IPAddress]$ip = $This.IPAddress)
-            [bool](@(Get-NetIPAddress -AddressFamily IPv4 -AddressState Preferred).Where({ (Get-IPSubnet -IPAddress $_.IPAddress -PrefixLength $_.PrefixLength).Compare($ip) }).Count)
-        }
-
-        Add-Member -InputObject $object -MemberType:ScriptMethod -Name GetLocalRoute -Value {
-            param ([Parameter(Mandatory = $true)][IPAddress]$ip = $This.IPAddress, [int]$count = 1)
-            @(Get-NetRoute -AddressFamily IPv4).Where({ (Get-IPSubnet -CIDR $_.DestinationPrefix).Compare($ip) }) | Sort-Object -Property @{Expression = { (Get-IPSubnet -CIDR $_.DestinationPrefix).PrefixLength } } -Descending | Select-Object -First $count
-        }
 
         Add-Member -InputObject $object -MemberType:ScriptMethod -Force -Name ToString -Value {
             $This.CIDR
