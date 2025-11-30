@@ -152,6 +152,17 @@ function Get-IPSubnet
         View the binary representation of the IP address.
 
     .EXAMPLE
+        PS > $result = Get-IPSubnet -CIDR '172.16.10.0/28'
+        PS > $result | Select-Object IPBin, MaskBin, SubnetBin, BroadcastBin
+
+        IPBin       : 10101100.00010000.00001010.00000000
+        MaskBin     : 11111111.11111111.11111111.11110000
+        SubnetBin   : 10101100.00010000.00001010.00000000
+        BroadcastBin: 10101100.00010000.00001010.00001111
+
+        Display binary representations and decimal conversion for detailed subnet analysis.
+
+    .EXAMPLE
         PS > $results = @('192.168.1.0/24', '10.0.0.0/8', '172.16.0.0/16') | ForEach-Object { Get-IPSubnet -CIDR $_ }
         PS > $results | Select-Object CIDR, IPcount, Subnet, Broadcast
 
