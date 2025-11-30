@@ -243,6 +243,6 @@ function Get-OutdatedModules
     end
     {
         Write-Verbose 'Module check process completed'
-        return $moduleResults
+        return [PSCustomObject[]]$moduleResults
     }
 }
