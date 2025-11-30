@@ -584,36 +584,36 @@
 
                 if ($result.SamplesSuccess -eq 0)
                 {
-                    $flags.Add([pscustomobject]@{ Text = 'Unreachable'; Color = 'Red' })
+                    $flags.Add([PSCustomObject]@{ Text = 'Unreachable'; Color = 'Red' })
                     return $flags
                 }
 
-                if ($result.PacketLoss -ge 10) { $flags.Add([pscustomobject]@{ Text = "Loss $($result.PacketLoss)%"; Color = 'Red' }) }
-                elseif ($result.PacketLoss -gt 2) { $flags.Add([pscustomobject]@{ Text = "Loss $($result.PacketLoss)%"; Color = 'Yellow' }) }
+                if ($result.PacketLoss -ge 10) { $flags.Add([PSCustomObject]@{ Text = "Loss $($result.PacketLoss)%"; Color = 'Red' }) }
+                elseif ($result.PacketLoss -gt 2) { $flags.Add([PSCustomObject]@{ Text = "Loss $($result.PacketLoss)%"; Color = 'Yellow' }) }
 
                 if ($null -ne $result.LatencyAvg)
                 {
-                    if ($result.LatencyAvg -ge 200) { $flags.Add([pscustomobject]@{ Text = "Latency $($result.LatencyAvg)ms"; Color = 'Red' }) }
-                    elseif ($result.LatencyAvg -ge 100) { $flags.Add([pscustomobject]@{ Text = "Latency $($result.LatencyAvg)ms"; Color = 'Yellow' }) }
+                    if ($result.LatencyAvg -ge 200) { $flags.Add([PSCustomObject]@{ Text = "Latency $($result.LatencyAvg)ms"; Color = 'Red' }) }
+                    elseif ($result.LatencyAvg -ge 100) { $flags.Add([PSCustomObject]@{ Text = "Latency $($result.LatencyAvg)ms"; Color = 'Yellow' }) }
                 }
 
                 if ($null -ne $result.Jitter)
                 {
-                    if ($result.Jitter -ge 50) { $flags.Add([pscustomobject]@{ Text = "Jitter $($result.Jitter)ms"; Color = 'Red' }) }
-                    elseif ($result.Jitter -ge 30) { $flags.Add([pscustomobject]@{ Text = "Jitter $($result.Jitter)ms"; Color = 'Yellow' }) }
+                    if ($result.Jitter -ge 50) { $flags.Add([PSCustomObject]@{ Text = "Jitter $($result.Jitter)ms"; Color = 'Red' }) }
+                    elseif ($result.Jitter -ge 30) { $flags.Add([PSCustomObject]@{ Text = "Jitter $($result.Jitter)ms"; Color = 'Yellow' }) }
                 }
 
                 if ($null -ne $result.DnsResolution)
                 {
-                    if ($result.DnsResolution -ge 150) { $flags.Add([pscustomobject]@{ Text = "DNS $($result.DnsResolution)ms"; Color = 'Yellow' }) }
-                    elseif ($result.DnsResolution -ge 100) { $flags.Add([pscustomobject]@{ Text = "DNS $($result.DnsResolution)ms"; Color = 'DarkYellow' }) }
+                    if ($result.DnsResolution -ge 150) { $flags.Add([PSCustomObject]@{ Text = "DNS $($result.DnsResolution)ms"; Color = 'Yellow' }) }
+                    elseif ($result.DnsResolution -ge 100) { $flags.Add([PSCustomObject]@{ Text = "DNS $($result.DnsResolution)ms"; Color = 'DarkYellow' }) }
                 }
 
                 if ($null -ne $result.LatencyMax -and $null -ne $result.LatencyAvg -and $result.LatencyAvg -gt 0)
                 {
                     $ratio = $result.LatencyMax / $result.LatencyAvg
-                    if ($ratio -ge 2.5) { $flags.Add([pscustomobject]@{ Text = "Spikes to $($result.LatencyMax)ms"; Color = 'Red' }) }
-                    elseif ($ratio -ge 1.8) { $flags.Add([pscustomobject]@{ Text = "Spikes to $($result.LatencyMax)ms"; Color = 'Yellow' }) }
+                    if ($ratio -ge 2.5) { $flags.Add([PSCustomObject]@{ Text = "Spikes to $($result.LatencyMax)ms"; Color = 'Red' }) }
+                    elseif ($ratio -ge 1.8) { $flags.Add([PSCustomObject]@{ Text = "Spikes to $($result.LatencyMax)ms"; Color = 'Yellow' }) }
                 }
 
                 return $flags
@@ -810,7 +810,14 @@
                 }
 
                 # Reset the console color so following graph text doesn't inherit previous foreground settings
-                try { [Console]::ResetColor() } catch { }
+                try
+                {
+                    [Console]::ResetColor()
+                }
+                catch
+                {
+                    Write-Verbose "Failed to reset console color: $($_.Exception.Message)"
+                }
 
                 # Detailed graph if requested
                 if ($ShowGraph -and $result.LatencyData.Count -gt 0)
@@ -826,7 +833,14 @@
                     }
                     # Include the pre-graph spacer line
                     $linesPrintedLocal += (1 + $graphLineCount)
-                    try { [Console]::ResetColor() } catch { }
+                    try
+                    {
+                        [Console]::ResetColor()
+                    }
+                    catch
+                    {
+                        Write-Verbose "Failed to reset console color: $($_.Exception.Message)"
+                    }
                 }
 
                 Write-Host (('└' + ('─' * 79) + $clearTail)) -ForegroundColor $statusColor
@@ -875,7 +889,7 @@
                 {
                     # Test if we can actually use ANSI by checking console capabilities
                     $ansiSupported = [Console]::IsOutputRedirected -eq $false -and
-                    ([Environment]::GetEnvironmentVariable('TERM') -ne $null -or
+                    ($null -ne [Environment]::GetEnvironmentVariable('TERM') -or
                     $Host.UI.RawUI.BufferSize.Width -gt 0)
                 }
                 catch
@@ -1029,7 +1043,8 @@
             $countOut = Format-DiagnosticOutput -Results $results -ReturnLineCount:$Continuous.IsPresent -InPlace:($Continuous.IsPresent -and $effectiveRender -eq 'InPlace') -SummaryOnly:$SummaryOnly.IsPresent
 
             # Ensure all output is flushed before proceeding to timing calculations
-            if ($Continuous) {
+            if ($Continuous)
+            {
                 [Console]::Out.Flush()
             }
 
