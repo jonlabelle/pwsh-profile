@@ -869,29 +869,37 @@
             # Determine effective render mode
             # Test if ANSI escape sequences are actually supported
             $ansiSupported = $false
-            if ($PSVersionTable.PSVersion.Major -ge 6) {
-                try {
+            if ($PSVersionTable.PSVersion.Major -ge 6)
+            {
+                try
+                {
                     # Test if we can actually use ANSI by checking console capabilities
                     $ansiSupported = [Console]::IsOutputRedirected -eq $false -and
-                                   ([Environment]::GetEnvironmentVariable('TERM') -ne $null -or
-                                    $Host.UI.RawUI.BufferSize.Width -gt 0)
-                } catch {
+                    ([Environment]::GetEnvironmentVariable('TERM') -ne $null -or
+                    $Host.UI.RawUI.BufferSize.Width -gt 0)
+                }
+                catch
+                {
                     $ansiSupported = $false
                 }
             }
 
             $effectiveRender = switch ($RenderMode)
             {
-                'InPlace' {
+                'InPlace'
+                {
                     if ($ansiSupported) { 'InPlace' } else { 'Stack' }  # Never fall back to Clear
                 }
                 'Clear' { 'Clear' }
                 'Stack' { 'Stack' }
-                default {
-                    # Auto mode: prefer InPlace if ANSI is supported, otherwise Stack
+                default
+                {
+                    # Auto mode: always prefer InPlace if ANSI is supported
                     if ($ansiSupported) { 'InPlace' } else { 'Stack' }
                 }
             }
+
+            Write-Verbose "Render mode: $RenderMode -> $effectiveRender (ANSI: $ansiSupported)"
 
             # Collect metrics for all hosts FIRST, before any display changes
             $results = @()
@@ -992,12 +1000,19 @@
                 }
                 elseif ($effectiveRender -eq 'InPlace' -and $iteration -gt 1 -and $lastRenderLines -gt 0)
                 {
+                    # CRITICAL: Ensure all previous output is completely finished before cursor movement
+                    [Console]::Out.Flush()
+                    Start-Sleep -Milliseconds 100  # Brief pause to ensure output completion
+
                     # For in-place rendering, move cursor up and clear remainder of screen
                     # Use proper PowerShell escape character - no fallback to Clear-Host
                     $esc = [char]27
-                    $upSequence = "$esc[{0}A" -f $lastRenderLines  # Move cursor up
-                    $clearSequence = "$esc[0J"                      # Clear from cursor to end of screen
+                    # Move up more lines than calculated to ensure we clear everything
+                    $moveUpLines = [Math]::Max(15, $lastRenderLines + 2)
+                    $upSequence = "$esc[{0}A" -f $moveUpLines  # Move cursor up
+                    $clearSequence = "$esc[0J"                # Clear from cursor to end of screen
                     [Console]::Write($upSequence + $clearSequence)
+                    [Console]::Out.Flush()  # Ensure cursor movement is applied immediately
                 }
 
                 # Print the header
@@ -1012,6 +1027,11 @@
 
             # Display formatted output and get accurate line count if needed
             $countOut = Format-DiagnosticOutput -Results $results -ReturnLineCount:$Continuous.IsPresent -InPlace:($Continuous.IsPresent -and $effectiveRender -eq 'InPlace') -SummaryOnly:$SummaryOnly.IsPresent
+
+            # Ensure all output is flushed before proceeding to timing calculations
+            if ($Continuous) {
+                [Console]::Out.Flush()
+            }
 
             # Approximate lines printed per iteration for in-place refresh on Core and handle pacing
             if ($Continuous)
@@ -1028,6 +1048,8 @@
                     $lastRenderLines = 0
                 }
 
+                # Final flush before sleep to ensure all output is complete
+                [Console]::Out.Flush()
                 Start-Sleep -Seconds $Interval
 
             }
