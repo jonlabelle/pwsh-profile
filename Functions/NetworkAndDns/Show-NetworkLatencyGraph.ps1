@@ -450,7 +450,10 @@
         # Detect Unicode and ANSI capabilities
         function Test-UnicodeSupport {
             # PowerShell ISE has poor Unicode support
-            if ($host.Name -eq 'Windows PowerShell ISE Host') { return $false }
+            if ($host.Name -eq 'Windows PowerShell ISE Host') {
+                Write-Verbose 'Unicode disabled: PowerShell ISE detected'
+                return $false
+            }
 
             # PowerShell 5.1 on Windows generally has limited Unicode support in console
             if ($PSVersionTable.PSVersion.Major -lt 6 -and [Environment]::OSVersion.Platform -eq 'Win32NT') {
@@ -459,13 +462,9 @@
             }
 
             # Check if we're in a modern terminal that supports Unicode
+            # These terminals can handle Unicode even if the encoding reports CP437
             if ($env:WT_SESSION -or $env:TERM_PROGRAM -eq 'vscode' -or $env:ConEmuPID) {
-                # Even in modern terminals, check the output encoding
-                if ([Console]::OutputEncoding.CodePage -eq 437) {
-                    Write-Verbose 'Unicode disabled: Console using CP437 encoding'
-                    return $false
-                }
-                Write-Verbose 'Unicode enabled: Modern terminal with proper encoding detected'
+                Write-Verbose "Unicode enabled: Modern terminal detected (WT_SESSION=$env:WT_SESSION, TERM_PROGRAM=$env:TERM_PROGRAM, ConEmuPID=$env:ConEmuPID)"
                 return $true
             }
 
@@ -475,13 +474,13 @@
                 return $true
             }
 
-            # PowerShell Core with proper encoding
+            # PowerShell Core with proper encoding (but not CP437)
             if ($PSVersionTable.PSVersion.Major -ge 6 -and [Console]::OutputEncoding.CodePage -ne 437) {
                 Write-Verbose 'Unicode enabled: PowerShell Core with proper encoding'
                 return $true
             }
 
-            Write-Verbose "Unicode disabled: CodePage=$([Console]::OutputEncoding.CodePage), PSVersion=$($PSVersionTable.PSVersion.Major)"
+            Write-Verbose "Unicode disabled: CodePage=$([Console]::OutputEncoding.CodePage), PSVersion=$($PSVersionTable.PSVersion.Major), Environment not recognized as Unicode-capable"
             return $false
         }
 

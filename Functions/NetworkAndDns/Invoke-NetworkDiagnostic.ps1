@@ -838,13 +838,8 @@
                             # Skip empty lines at the end
                             if ($line.Trim() -or $graphLineCount -eq 0)
                             {
-                                # Prefix with border and preserve embedded colors
-                                Write-Host "│  " -NoNewline
-                                # Write the graph line directly to preserve ANSI codes
-                                [Console]::Write($line)
-                                # Add clear tail if in-place rendering
-                                if ($clearTail) { [Console]::Write($clearTail) }
-                                [Console]::WriteLine()
+                                # Use Write-Host for better Unicode handling in modern terminals
+                                Write-Host ("│  $line$clearTail")
                                 $graphLineCount++
                             }
                         }
