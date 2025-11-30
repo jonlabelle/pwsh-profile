@@ -80,4 +80,64 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
             { Invoke-FFmpeg -Path $testRoot -Recurse -WhatIf } | Should -Not -Throw
         }
     }
+
+    Context 'Individual File Support' {
+        BeforeAll {
+            # Create test directory and files
+            $testRoot = Join-Path $TestDrive 'FFmpegFileTest'
+            New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
+
+            # Create mock video files
+            $script:testVideoFile = Join-Path $testRoot 'test-video.mkv'
+            $script:testNonVideoFile = Join-Path $testRoot 'test-document.txt'
+            New-Item -Path $script:testVideoFile -ItemType File -Force | Out-Null
+            New-Item -Path $script:testNonVideoFile -ItemType File -Force | Out-Null
+        }
+
+        It 'Should accept individual video file paths with -WhatIf' -Skip:(-not $script:HasFFmpeg) {
+            if (-not $script:HasFFmpeg)
+            {
+                Set-ItResult -Skipped -Because 'ffmpeg is not available on this system'
+                return
+            }
+
+            # Should not throw when given an individual video file
+            { Invoke-FFmpeg -Path $script:testVideoFile -WhatIf } | Should -Not -Throw
+        }
+
+        It 'Should validate file extension for individual files' -Skip:(-not $script:HasFFmpeg) {
+            if (-not $script:HasFFmpeg)
+            {
+                Set-ItResult -Skipped -Because 'ffmpeg is not available on this system'
+                return
+            }
+
+            # Should warn when file extension doesn't match expected extension
+            $output = Invoke-FFmpeg -Path $script:testNonVideoFile -WhatIf -WarningVariable warnings 2>&1
+            $warnings | Should -Not -BeNullOrEmpty
+        }
+
+        It 'Should handle non-existent file paths gracefully' -Skip:(-not $script:HasFFmpeg) {
+            if (-not $script:HasFFmpeg)
+            {
+                Set-ItResult -Skipped -Because 'ffmpeg is not available on this system'
+                return
+            }
+
+            $nonExistentFile = Join-Path $TestDrive 'does-not-exist.mkv'
+
+            # Should handle gracefully and not crash
+            { Invoke-FFmpeg -Path $nonExistentFile -WhatIf -ErrorAction SilentlyContinue } | Should -Not -Throw
+        }
+
+        It 'Should support pipeline input for individual files' {
+            $command = Get-Command Invoke-FFmpeg
+            $pathParam = $command.Parameters['Path']
+
+            # Check that Path parameter supports pipeline input
+            $pipelineAttributes = $pathParam.Attributes | Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] }
+            $pipelineSupport = $pipelineAttributes | Where-Object { $_.ValueFromPipeline -eq $true -or $_.ValueFromPipelineByPropertyName -eq $true }
+            $pipelineSupport | Should -Not -BeNullOrEmpty
+        }
+    }
 }

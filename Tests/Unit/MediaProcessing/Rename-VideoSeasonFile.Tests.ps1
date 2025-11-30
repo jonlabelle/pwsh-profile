@@ -94,4 +94,67 @@ Describe 'Rename-VideoSeasonFile' -Tag 'Unit' {
             { Rename-VideoSeasonFile -Path $testRoot -WhatIf -Verbose } | Should -Not -Throw
         }
     }
+
+    Context 'Individual File Support' {
+        BeforeAll {
+            # Create test directory and files
+            $testRoot = Join-Path $TestDrive 'RenameFileTest'
+            New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
+
+            # Create mock video files
+            $script:testSeasonFile = Join-Path $testRoot 'Breaking.Bad.S01E01.1080p.BluRay.x264-DEMAND.mkv'
+            $script:testNonSeasonFile = Join-Path $testRoot 'regular-movie.mkv'
+            $script:testNonVideoFile = Join-Path $testRoot 'document.txt'
+
+            New-Item -Path $script:testSeasonFile -ItemType File -Force | Out-Null
+            New-Item -Path $script:testNonSeasonFile -ItemType File -Force | Out-Null
+            New-Item -Path $script:testNonVideoFile -ItemType File -Force | Out-Null
+        }
+
+        It 'Should accept individual video file paths with -WhatIf' {
+            # Should not throw when given an individual video file with season pattern
+            { Rename-VideoSeasonFile -Path $script:testSeasonFile -WhatIf } | Should -Not -Throw
+        }
+
+        It 'Should validate file extension for individual files' {
+            # Should warn when file extension doesn't match supported filters
+            $output = Rename-VideoSeasonFile -Path $script:testNonVideoFile -WhatIf -WarningVariable warnings 2>&1
+            $warnings | Should -Not -BeNullOrEmpty
+        }
+
+        It 'Should handle files without season patterns gracefully' {
+            # Should not crash when file has no season/episode pattern
+            { Rename-VideoSeasonFile -Path $script:testNonSeasonFile -WhatIf -Verbose } | Should -Not -Throw
+        }
+
+        It 'Should handle non-existent file paths gracefully' {
+            $nonExistentFile = Join-Path $TestDrive 'does-not-exist.mkv'
+
+            # Should handle gracefully by producing appropriate error message
+            $ErrorActionPreference = 'SilentlyContinue'
+            $result = Rename-VideoSeasonFile -Path $nonExistentFile -WhatIf -ErrorVariable errors 2>&1
+            $errors.Count | Should -BeGreaterThan 0
+            $errors[0].Exception.Message | Should -BeLike '*not found*'
+        }
+
+        It 'Should support pipeline input for individual files' {
+            $command = Get-Command Rename-VideoSeasonFile
+            $pathParam = $command.Parameters['Path']
+
+            # Check that Path parameter supports pipeline input
+            $pipelineAttributes = $pathParam.Attributes | Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] }
+            $pipelineSupport = $pipelineAttributes | Where-Object { $_.ValueFromPipeline -eq $true -or $_.ValueFromPipelineByPropertyName -eq $true }
+            $pipelineSupport | Should -Not -BeNullOrEmpty
+        }
+
+        It 'Should include FilePath and FullName aliases for individual file support' {
+            $command = Get-Command Rename-VideoSeasonFile
+            $pathParam = $command.Parameters['Path']
+
+            # Check for aliases that support file input
+            $aliases = $pathParam.Aliases
+            $aliases | Should -Contain 'FilePath'
+            $aliases | Should -Contain 'FullName'
+        }
+    }
 }

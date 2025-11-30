@@ -15,10 +15,10 @@ function Rename-VideoSeasonFile
         regardless of the original filename complexity.
 
     .PARAMETER Path
-        The directory path(s) to search for video files.
+        The directory path(s) to search for video files, or individual video file paths.
         Accepts an array of paths and supports pipeline input.
         Default is the current working directory.
-        Must be valid directory paths.
+        Supports both files and directories.
 
     .PARAMETER Filters
         The file extensions to search for.
@@ -72,6 +72,11 @@ function Rename-VideoSeasonFile
 
         Processes video files in all subdirectories of the TV Shows folder via pipeline input.
 
+    .EXAMPLE
+        PS > Rename-VideoSeasonFile -Path '.\Breaking.Bad.S01E01.1080p.BluRay.x264-DEMAND.mkv' -Verbose
+
+        Renames a single video file to clean S01E01.mkv format.
+
     .OUTPUTS
         System.IO.FileInfo
         When PassThru is specified, returns FileInfo objects for renamed files.
@@ -94,14 +99,8 @@ function Rename-VideoSeasonFile
     [OutputType([System.IO.FileInfo])]
     param(
         [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [Alias('Directory', 'Folder', 'Location')]
-        [ValidateScript({
-                if (-not (Test-Path -Path $_ -PathType Container))
-                {
-                    throw "Path '$_' does not exist or is not a directory."
-                }
-                $true
-            })]
+        [Alias('Directory', 'Folder', 'Location', 'FilePath', 'FullName')]
+        [ValidateNotNullOrEmpty()]
         [String[]]$Path = @($PWD.Path),
 
         [Parameter()]
@@ -166,62 +165,99 @@ function Rename-VideoSeasonFile
             $normalizedPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($currentPath)
             Write-Verbose "Scanning path: $normalizedPath"
 
-            # Validate Input Directory
-            if (-not (Test-Path -Path $normalizedPath -PathType Container))
+            # Validate that the path exists
+            if (-not (Test-Path -Path $normalizedPath))
             {
-                Write-Error "Input directory not found: '$normalizedPath'"
+                Write-Error "Path not found: '$normalizedPath'"
                 continue
             }
 
-            # Get all video files for current path
-            $allVideoFiles = @()
-            foreach ($filter in $Filters)
+            $pathItem = Get-Item -Path $normalizedPath -ErrorAction Stop
+
+            if ($pathItem.PSIsContainer)
             {
-                try
-                {
-                    if ($Recurse)
-                    {
-                        $filesForFilter = Get-ChildItem -Path $normalizedPath -Filter $filter -Recurse -File -ErrorAction Stop
-                    }
-                    else
-                    {
-                        $filesForFilter = Get-ChildItem -Path $normalizedPath -Filter $filter -File -ErrorAction Stop
-                    }
+                # Handle directory - search for video files with optional recursion
+                Write-Verbose "Processing directory: $normalizedPath"
 
-                    # Apply exclusion filter if needed (only for recursive searches)
-                    if ($Recurse -and $Exclude.Count -gt 0)
+                # Get all video files for current path
+                $allVideoFiles = @()
+                foreach ($filter in $Filters)
+                {
+                    try
                     {
-                        $filesForFilter = $filesForFilter | Where-Object {
-                            $filePath = $_.DirectoryName
-                            $shouldExclude = $false
-                            foreach ($excludeDir in $Exclude)
-                            {
-                                if ($filePath -like "*$([System.IO.Path]::DirectorySeparatorChar)$excludeDir" -or
-                                    $filePath -like "*$([System.IO.Path]::DirectorySeparatorChar)$excludeDir$([System.IO.Path]::DirectorySeparatorChar)*")
-                                {
-                                    $shouldExclude = $true
-                                    break
-                                }
-                            }
-                            -not $shouldExclude
+                        if ($Recurse)
+                        {
+                            $filesForFilter = Get-ChildItem -Path $normalizedPath -Filter $filter -Recurse -File -ErrorAction Stop
                         }
-                    }
+                        else
+                        {
+                            $filesForFilter = Get-ChildItem -Path $normalizedPath -Filter $filter -File -ErrorAction Stop
+                        }
 
-                    Write-Verbose "Found $($filesForFilter.Count) files with filter '$filter'"
-                    $allVideoFiles += $filesForFilter
+                        # Apply exclusion filter if needed (only for recursive searches)
+                        if ($Recurse -and $Exclude.Count -gt 0)
+                        {
+                            $filesForFilter = $filesForFilter | Where-Object {
+                                $filePath = $_.DirectoryName
+                                $shouldExclude = $false
+                                foreach ($excludeDir in $Exclude)
+                                {
+                                    if ($filePath -like "*$([System.IO.Path]::DirectorySeparatorChar)$excludeDir" -or
+                                        $filePath -like "*$([System.IO.Path]::DirectorySeparatorChar)$excludeDir$([System.IO.Path]::DirectorySeparatorChar)*")
+                                    {
+                                        $shouldExclude = $true
+                                        break
+                                    }
+                                }
+                                -not $shouldExclude
+                            }
+                        }
+
+                        Write-Verbose "Found $($filesForFilter.Count) files with filter '$filter'"
+                        $allVideoFiles += $filesForFilter
+                    }
+                    catch
+                    {
+                        Write-Error "Error searching for files with filter '$filter' in path '$normalizedPath': $($_.Exception.Message)"
+                        continue
+                    }
                 }
-                catch
+
+                foreach ($file in $allVideoFiles)
                 {
-                    Write-Error "Error searching for files with filter '$filter' in path '$normalizedPath': $($_.Exception.Message)"
-                    continue
+                    $allFilesToProcess += [PSCustomObject]@{
+                        File = $file
+                        SourcePath = $normalizedPath
+                    }
                 }
             }
-
-            foreach ($file in $allVideoFiles)
+            else
             {
+                # Handle individual file
+                Write-Verbose "Processing individual file: $normalizedPath"
+
+                # Check if file extension matches any of the filters
+                $fileExtension = $pathItem.Extension
+                $matchesFilter = $false
+                foreach ($filter in $Filters)
+                {
+                    $filterPattern = $filter.Replace('*', '')
+                    if ($fileExtension -eq $filterPattern)
+                    {
+                        $matchesFilter = $true
+                        break
+                    }
+                }
+
+                if (-not $matchesFilter)
+                {
+                    Write-Warning "File '$($pathItem.Name)' does not match any of the supported extensions: $($Filters -join ', '). Skipping."
+                    continue
+                }
+
                 $allFilesToProcess += [PSCustomObject]@{
-                    File = $file
-                    SourcePath = $normalizedPath
+                    File = $pathItem
+                    SourcePath = $pathItem.DirectoryName
                 }
             }
         }

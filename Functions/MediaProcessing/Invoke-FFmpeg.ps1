@@ -12,7 +12,7 @@ function Invoke-FFmpeg
         By default, input files are deleted after successful conversion.
 
     .PARAMETER Path
-        The directory containing the video files to be processed.
+        The directory containing the video files to be processed, or individual video file paths.
         Accepts an array of paths and supports pipeline input.
 
     .PARAMETER Extension
@@ -108,6 +108,11 @@ function Invoke-FFmpeg
         PS > @("C:\Videos", "D:\Movies") | Invoke-FFmpeg -Extension "mkv"
 
         Processes all .mkv files in multiple directories using pipeline input.
+
+    .EXAMPLE
+        PS > Invoke-FFmpeg -Path ".\Blazing Saddles.mkv" -KeepSourceFile -PassthroughVideo -PassthroughAudio
+
+        Processes a single video file with both video and audio passthrough (no re-encoding) and keeps the source file.
 
     .EXAMPLE
         PS > Get-ChildItem -Directory | Invoke-FFmpeg -VideoEncoder "H.265"
@@ -467,34 +472,60 @@ function Invoke-FFmpeg
             $normalizedPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($currentPath)
             Write-Verbose "Scanning path: $normalizedPath"
 
-            # Validate Input Directory
-            if (-not (Test-Path -Path $normalizedPath -PathType Container))
+            # Validate that the path exists
+            if (-not (Test-Path -Path $normalizedPath))
             {
-                Write-Error "Input directory not found: '$normalizedPath'"
+                Write-Error "Path not found: '$normalizedPath'"
                 $script:totalFailed++
                 continue
             }
 
-            # Find files to process
-            if ($Recurse)
+            $pathItem = Get-Item -Path $normalizedPath -ErrorAction Stop
+
+            if ($pathItem.PSIsContainer)
             {
-                Write-VerboseMessage "Searching recursively for *.$Extension files (excluding $($Exclude -join ', '))"
-                $filesToProcess = Get-ChildItem -Path $normalizedPath -Recurse -Filter "*.$Extension" -File | Where-Object {
-                    $fullPath = $_.FullName
-                    -not ($Exclude | Where-Object { $fullPath -like "*$_*" })
+                # Handle directory - search for video files with optional recursion
+                Write-VerboseMessage "Processing directory: $normalizedPath"
+
+                # Find files to process
+                if ($Recurse)
+                {
+                    Write-VerboseMessage "Searching recursively for *.$Extension files (excluding $($Exclude -join ', '))"
+                    $filesToProcess = Get-ChildItem -Path $normalizedPath -Recurse -Filter "*.$Extension" -File | Where-Object {
+                        $fullPath = $_.FullName
+                        -not ($Exclude | Where-Object { $fullPath -like "*$_*" })
+                    }
+                }
+                else
+                {
+                    Write-VerboseMessage "Searching for *.$Extension files in current directory only"
+                    $filesToProcess = Get-ChildItem -Path $normalizedPath -Filter "*.$Extension" -File
+                }
+
+                foreach ($file in $filesToProcess)
+                {
+                    $allFilesToProcess += [PSCustomObject]@{
+                        File = $file
+                        SourcePath = $normalizedPath
+                    }
                 }
             }
             else
             {
-                Write-VerboseMessage "Searching for *.$Extension files in current directory only"
-                $filesToProcess = Get-ChildItem -Path $normalizedPath -Filter "*.$Extension" -File
-            }
+                # Handle individual file
+                Write-VerboseMessage "Processing individual file: $normalizedPath"
 
-            foreach ($file in $filesToProcess)
-            {
+                # Check if file has the correct extension
+                $fileExtension = [System.IO.Path]::GetExtension($pathItem.Name).TrimStart('.')
+                if ($fileExtension -ne $Extension)
+                {
+                    Write-Warning "File '$($pathItem.Name)' does not have the expected extension '.$Extension' (has '.$fileExtension'). Skipping."
+                    continue
+                }
+
                 $allFilesToProcess += [PSCustomObject]@{
-                    File = $file
-                    SourcePath = $normalizedPath
+                    File = $pathItem
+                    SourcePath = $pathItem.DirectoryName
                 }
             }
         }
