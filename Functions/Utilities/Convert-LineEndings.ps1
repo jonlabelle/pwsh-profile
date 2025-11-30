@@ -293,7 +293,6 @@ function Convert-LineEndings
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Convert-LineEndings.ps1
         Version: 1.1.0
-        Date: September 24, 2025
 
         BINARY FILE DETECTION:
 

@@ -98,7 +98,6 @@ function Get-Whois
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-Whois.ps1
-        Date: November 9, 2025
 
         WHOIS Server Selection:
         - Automatically selects appropriate server based on TLD

@@ -147,7 +147,6 @@ function Get-IPAddress
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-IPAddress.ps1
-        Date: November 9, 2025
 
         Public IP Services:
         - ipinfo.io - Provides geolocation data (city, region, country, org)

@@ -102,7 +102,6 @@ function Resolve-GeoIP
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Resolve-GeoIP.ps1
-        Date: November 9, 2025
 
         API Service Details:
         - ipapi.co: 1000 requests/day free, HTTPS, detailed data
