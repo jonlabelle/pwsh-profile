@@ -872,7 +872,25 @@
                 $lossColor = if ($metrics.PacketLoss -eq 0) { $script:Palette.Green } elseif ($metrics.PacketLoss -lt 5) { $script:Palette.Yellow } else { $script:Palette.Red }
                 $jitterColor = if ($metrics.Jitter -lt 10) { $script:Palette.Green } elseif ($metrics.Jitter -lt 30) { $script:Palette.Yellow } else { $script:Palette.Red }
                 $clearTail = if ($effectiveRender -eq 'InPlace') { "`e[K" } else { '' }
-                Write-Host "${script:Palette.Gray}Packet Loss: $lossColor$($metrics.PacketLoss)%${script:Palette.Gray} | Jitter: $jitterColor$($metrics.Jitter)ms${script:Palette.Reset}$clearTail" -NoNewline
+
+                # Use individual Write-Host calls with explicit -ForegroundColor to ensure proper color isolation
+                Write-Host "$($script:Palette.Gray)Packet Loss: " -NoNewline
+                if ($metrics.PacketLoss -eq 0) {
+                    Write-Host "$($metrics.PacketLoss)%" -ForegroundColor Green -NoNewline
+                } elseif ($metrics.PacketLoss -lt 5) {
+                    Write-Host "$($metrics.PacketLoss)%" -ForegroundColor Yellow -NoNewline
+                } else {
+                    Write-Host "$($metrics.PacketLoss)%" -ForegroundColor Red -NoNewline
+                }
+                Write-Host "$($script:Palette.Reset)$($script:Palette.Gray) | Jitter: " -NoNewline
+                if ($metrics.Jitter -lt 10) {
+                    Write-Host "$($metrics.Jitter)ms" -ForegroundColor Green -NoNewline
+                } elseif ($metrics.Jitter -lt 30) {
+                    Write-Host "$($metrics.Jitter)ms" -ForegroundColor Yellow -NoNewline
+                } else {
+                    Write-Host "$($metrics.Jitter)ms" -ForegroundColor Red -NoNewline
+                }
+                Write-Host "$($script:Palette.Reset)$clearTail" -NoNewline
                 Write-Host  # Move to next line after stats
                 Start-Sleep -Seconds $Interval
 
