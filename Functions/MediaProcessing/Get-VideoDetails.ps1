@@ -417,8 +417,6 @@ function Get-VideoDetails
                     $FileInfo.FullName
                 )
 
-                Write-Verbose "Running: $FFprobeExecutable -v quiet -print_format json -show_format -show_streams `"$($FileInfo.FullName)`""
-
                 # Build argument array like Invoke-FFmpeg does
                 $ffmpegArgs = @(
                     '-v', 'quiet',
