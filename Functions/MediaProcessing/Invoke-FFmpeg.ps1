@@ -1112,7 +1112,7 @@ function Invoke-FFmpeg
                     '-vcodec', 'copy',                               # Copy video stream without re-encoding
                     '-acodec', 'copy',                               # Copy audio stream without re-encoding
                     '-map', '0:v',                                   # Map video stream
-                    '-map', '0:a'                                    # Map audio stream
+                    '-map', '0:a?'                                   # Map audio stream (optional)
                 )
 
                 # Add subtitle handling based on strategy
@@ -1134,7 +1134,7 @@ function Invoke-FFmpeg
                     '-ac', $audioStrategy.Channels,                  # Preserve/optimize channel count
                     '-ar', $audioStrategy.SampleRate,                # Preserve/optimize sample rate
                     '-map', '0:v',                                   # Map video stream
-                    '-map', '0:a'                                    # Map audio stream
+                    '-map', '0:a?'                                   # Map audio stream (optional)
                 )
 
                 # Add subtitle handling based on strategy
@@ -1179,7 +1179,7 @@ function Invoke-FFmpeg
                     '-i', $inputFilePath                            # Input file
                 ) + $videoArgs + $audioArgs + @(
                     '-map', '0:v',                                   # Map video stream
-                    '-map', '0:a'                                    # Map audio stream
+                    '-map', '0:a?'                                   # Map audio stream (optional)
                 )
 
                 # Add subtitle handling based on strategy
@@ -1220,7 +1220,7 @@ function Invoke-FFmpeg
                     '-i', $inputFilePath                            # Input file
                 ) + $videoArgs + $audioArgs + @(
                     '-map', '0:v',                                   # Map video stream
-                    '-map', '0:a'                                    # Map audio stream
+                    '-map', '0:a?'                                   # Map audio stream (optional)
                 )
 
                 # Add subtitle handling based on strategy
