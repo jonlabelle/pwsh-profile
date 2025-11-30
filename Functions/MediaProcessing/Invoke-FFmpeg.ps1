@@ -70,6 +70,18 @@ function Invoke-FFmpeg
         the common "Subtitle encoding currently only possible from text to text or
         bitmap to bitmap" error when processing files with PGS subtitles.
 
+    .PARAMETER OutputPath
+        Specifies the output file path or directory for the converted video.
+
+        If a file path is provided (with extension), the output will be saved to that exact location.
+        If a directory path is provided, the output file will be saved in that directory with the
+        original filename but with .mp4 extension.
+        If not specified, the output file will be created in the same directory as the input file
+        with .mp4 extension (existing behavior).
+
+        This parameter only applies when processing individual files. When processing directories,
+        the original directory structure is preserved.
+
     .PARAMETER WhatIf
         If specified, shows what operations would be performed without actually executing them.
         Useful for previewing the conversion process before running it.
@@ -178,6 +190,26 @@ function Invoke-FFmpeg
         - If source has stereo: Upgrades to AAC-LC 256k+ for better quality
         - Maintains web streaming optimization with +faststart
 
+    .EXAMPLE
+        PS > Invoke-FFmpeg -Path "movie.mkv" -OutputPath "converted\movie.mp4"
+
+        Converts a single movie file and saves it to the specified output path.
+
+    .EXAMPLE
+        PS > Invoke-FFmpeg -Path "video.mkv" -OutputPath "C:\Converted"
+
+        Converts a single video file and saves it to the specified directory with the original filename but .mp4 extension.
+
+    .EXAMPLE
+        PS > Invoke-FFmpeg -Path "source.mkv" -OutputPath "final-output.mp4" -VideoEncoder "H.265"
+
+        Converts a video using H.265 encoding and saves it with a custom filename.
+
+    .EXAMPLE
+        PS > Invoke-FFmpeg -Path "movie.mkv" -OutputPath "~/Desktop/converted.mp4" -PassthroughVideo
+
+        Converts a video with video passthrough and saves it to the user's Desktop with a custom filename.
+
     .LINK
         https://ffmpeg.org/documentation.html
 
@@ -244,7 +276,12 @@ function Invoke-FFmpeg
         [Parameter()]
         [ValidateSet('Auto', 'All', 'None')]
         [string]
-        $IncludeSubtitles = 'Auto'
+        $IncludeSubtitles = 'Auto',
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string]
+        $OutputPath
     )
 
     begin
@@ -928,6 +965,13 @@ function Invoke-FFmpeg
 
         Write-Host "Found $script:totalFilesAcrossAllPaths file(s) to process across all paths" -ForegroundColor Green
 
+        # Validate OutputPath parameter usage
+        if ($OutputPath -and $script:totalFilesAcrossAllPaths -gt 1)
+        {
+            Write-Warning 'OutputPath parameter is only supported when processing a single file. When processing multiple files or directories, files will be saved with default naming in their respective locations.'
+            $OutputPath = $null
+        }
+
         # Second pass: process all files with unified progress reporting
         foreach ($fileInfo in $allFilesToProcess)
         {
@@ -936,8 +980,33 @@ function Invoke-FFmpeg
             $currentPath = $fileInfo.SourcePath
 
             $inputFilePath = $file.FullName
-            $outputFilePath = [System.IO.Path]::ChangeExtension($inputFilePath, 'mp4')
             $inputFile = $file.Name
+
+            # Determine output file path based on OutputPath parameter
+            if ($OutputPath)
+            {
+                # Normalize the output path
+                $normalizedOutputPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
+
+                # Check if OutputPath is a directory or file
+                if ([System.IO.Path]::HasExtension($normalizedOutputPath))
+                {
+                    # OutputPath is a file path
+                    $outputFilePath = $normalizedOutputPath
+                }
+                else
+                {
+                    # OutputPath is a directory - use original filename with .mp4 extension
+                    $outputFileName = [System.IO.Path]::GetFileNameWithoutExtension($inputFile) + '.mp4'
+                    $outputFilePath = Join-Path -Path $normalizedOutputPath -ChildPath $outputFileName
+                }
+            }
+            else
+            {
+                # Use existing behavior - change extension to .mp4 in same directory
+                $outputFilePath = [System.IO.Path]::ChangeExtension($inputFilePath, 'mp4')
+            }
+
             $outputFile = [System.IO.Path]::GetFileName($outputFilePath)
 
             # Get file size for progress display
