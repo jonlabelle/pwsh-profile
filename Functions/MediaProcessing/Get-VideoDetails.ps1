@@ -239,7 +239,34 @@ function Get-VideoDetails
                     # Platform-specific default locations
                     if ($script:IsWindowsPlatform)
                     {
-                        $resolvedPath = 'C:\ffmpeg\bin\ffprobe.exe'
+                        # Try common Windows locations
+                        $commonPaths = @(
+                            'C:\ffmpeg\bin\ffprobe.exe',
+                            'C:\Program Files\ffmpeg\bin\ffprobe.exe',
+                            'C:\Program Files (x86)\ffmpeg\bin\ffprobe.exe',
+                            "$env:USERPROFILE\ffmpeg\bin\ffprobe.exe"
+                        )
+
+                        $foundPath = $null
+                        foreach ($path in $commonPaths)
+                        {
+                            if (Test-Path $path -PathType Leaf)
+                            {
+                                $foundPath = $path
+                                break
+                            }
+                        }
+
+                        if ($foundPath)
+                        {
+                            $resolvedPath = $foundPath
+                            Write-Verbose "Found ffprobe at: $resolvedPath"
+                        }
+                        else
+                        {
+                            $resolvedPath = 'C:\ffmpeg\bin\ffprobe.exe'
+                            Write-Verbose "Using default Windows path (may not exist): $resolvedPath"
+                        }
                     }
                     elseif ($script:IsMacOSPlatform)
                     {
@@ -250,8 +277,6 @@ function Get-VideoDetails
                         # Linux or other
                         $resolvedPath = '/usr/bin/ffprobe'
                     }
-
-                    Write-Verbose "Using platform-specific default: $resolvedPath"
                 }
             }
 
@@ -275,6 +300,13 @@ function Get-VideoDetails
 
             try
             {
+                # Validate that the file exists and is readable
+                if (-not (Test-Path -Path $FileInfo.FullName -PathType Leaf))
+                {
+                    Write-Error "File not found: $($FileInfo.FullName)"
+                    return
+                }
+
                 # Use ffprobe to get JSON output with all stream and format information
                 $ffprobeArgs = @(
                     '-v', 'quiet'
@@ -284,11 +316,15 @@ function Get-VideoDetails
                     $FileInfo.FullName
                 )
 
-                Write-Verbose "Running: $FFprobeExecutable $($ffprobeArgs -join ' ')"
+                Write-Verbose "Running: $FFprobeExecutable -v quiet -print_format json -show_format -show_streams `"$($FileInfo.FullName)`""
 
                 $processInfo = New-Object System.Diagnostics.ProcessStartInfo
                 $processInfo.FileName = $FFprobeExecutable
-                $processInfo.Arguments = $ffprobeArgs -join ' '
+
+                # Properly quote the file path to handle spaces and special characters
+                $quotedFilePath = '"{0}"' -f $FileInfo.FullName.Replace('"', '""')
+                $processInfo.Arguments = '-v quiet -print_format json -show_format -show_streams {0}' -f $quotedFilePath
+
                 $processInfo.RedirectStandardOutput = $true
                 $processInfo.RedirectStandardError = $true
                 $processInfo.UseShellExecute = $false
@@ -298,18 +334,51 @@ function Get-VideoDetails
                 $process.StartInfo = $processInfo
                 [void]$process.Start()
 
+                # Set a timeout of 30 seconds for ffprobe
+                $timeoutMs = 30000
+                if (-not $process.WaitForExit($timeoutMs))
+                {
+                    $process.Kill()
+                    Write-Error "ffprobe timed out after $($timeoutMs / 1000) seconds for $($FileInfo.Name)"
+                    return
+                }
+
                 $stdout = $process.StandardOutput.ReadToEnd()
                 $stderr = $process.StandardError.ReadToEnd()
-                $process.WaitForExit()
 
                 if ($process.ExitCode -ne 0)
                 {
-                    Write-Error "ffprobe failed for $($FileInfo.Name): $stderr"
+                    $errorMessage = "ffprobe failed for $($FileInfo.Name)"
+                    if ($stderr)
+                    {
+                        $errorMessage += ": $stderr"
+                    }
+                    if ($stdout)
+                    {
+                        $errorMessage += " (stdout: $stdout)"
+                    }
+                    $errorMessage += " (Exit code: $($process.ExitCode))"
+                    Write-Error $errorMessage
                     return
                 }
 
                 # Parse JSON output
-                $probeData = $stdout | ConvertFrom-Json
+                if (-not $stdout)
+                {
+                    Write-Error "No output received from ffprobe for $($FileInfo.Name)"
+                    return
+                }
+
+                try
+                {
+                    $probeData = $stdout | ConvertFrom-Json
+                }
+                catch
+                {
+                    Write-Error "Failed to parse JSON output from ffprobe for $($FileInfo.Name): $($_.Exception.Message)"
+                    Write-Verbose "ffprobe output was: $stdout"
+                    return
+                }
 
                 # Extract stream information by type
                 $videoStream = $probeData.streams | Where-Object { $_.codec_type -eq 'video' } | Select-Object -First 1
