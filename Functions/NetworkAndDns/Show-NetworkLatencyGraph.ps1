@@ -568,8 +568,10 @@
             return [Math]::Sqrt([Math]::Max(0, $variance))
         }
 
-        # Block characters for sparklines (8 levels)
+        # Cache sparkline characters and fail marks as constants to avoid per-call array creation
         $script:SparkChars = @([char]0x2581, [char]0x2582, [char]0x2583, [char]0x2584, [char]0x2585, [char]0x2586, [char]0x2587, [char]0x2588)
+        $script:FailCharUnicode = '✖'
+        $script:FailCharAscii = 'X'
 
         function script:Build-TimeSeriesGraph
         {
@@ -596,14 +598,18 @@
                 return '     (no data)'
             }
 
-            # Start with a reset so prior host color doesn't bleed into this graph block
-            $output = New-Object System.Text.StringBuilder
-            [void]$output.Append($script:Palette.Reset)
             Write-Verbose "Building TimeSeries graph: Width=$Width, Height=$Height, Style=$Style, DataCount=$($Data.Count), Min=$Min, Max=$Max"
 
+            # Precompute scaling factors once and reuse across all rows
             $range = if ($Max -eq $Min) { 1 } else { $Max - $Min }
             $scaleDenominator = [Math]::Max(1, $Height - 1)
             $pointsToPlot = [Math]::Min($Width, $Data.Count)
+            $failChar = if ($script:SupportsUnicode) { $script:FailCharUnicode } else { $script:FailCharAscii }
+
+            # Reuse a single StringBuilder and clear between uses
+            $rowBuilder = New-Object System.Text.StringBuilder
+            $output = New-Object System.Text.StringBuilder
+            [void]$output.Append($script:Palette.Reset)
 
             # Pre-calculate scaled positions for all data points
             $scaledPoints = @()
@@ -635,10 +641,13 @@
             # Build each row of the graph based on style
             for ($row = 0; $row -lt $Height; $row++)
             {
+                # Clear and reuse the row builder to reduce allocations
+                [void]$rowBuilder.Clear()
+
                 # Calculate the latency value this row represents
                 $levelValue = $Min + (($Height - 1 - $row) / $scaleDenominator) * $range
-                [void]$output.Append([Math]::Round($levelValue, 0).ToString().PadLeft(5))
-                [void]$output.Append(' |')
+                [void]$rowBuilder.Append([Math]::Round($levelValue, 0).ToString().PadLeft(5))
+                [void]$rowBuilder.Append(' |')
 
                 # Draw based on selected style
                 for ($col = 0; $col -lt $pointsToPlot; $col++)
@@ -647,10 +656,9 @@
 
                     if ($null -eq $scaledRow)
                     {
-                        # Failed connection - use Unicode X mark if supported
-                        $failChar = if ($script:SupportsUnicode) { '✖' } else { 'X' }
+                        # Failed connection - use cached fail character
                         $failMark = "${script:Palette.Red}$failChar${script:Palette.Reset}"
-                        [void]$output.Append($failMark)
+                        [void]$rowBuilder.Append($failMark)
                         continue
                     }
 
@@ -663,11 +671,11 @@
                             {
                                 # Use Unicode bullet if supported, otherwise asterisk
                                 $dotChar = if ($script:SupportsUnicode) { '●' } else { '*' }
-                                [void]$output.Append("$pointColor$dotChar${script:Palette.Reset}")
+                                [void]$rowBuilder.Append("$pointColor$dotChar${script:Palette.Reset}")
                             }
                             else
                             {
-                                [void]$output.Append(' ')
+                                [void]$rowBuilder.Append(' ')
                             }
                         }
                         'Bars'
@@ -676,11 +684,11 @@
                             $shouldFill = ($Height - 1 - $row) -le ($Height - 1 - $scaledRow)
                             if ($shouldFill)
                             {
-                                [void]$output.Append("$pointColor█${script:Palette.Reset}")
+                                [void]$rowBuilder.Append("$pointColor█${script:Palette.Reset}")
                             }
                             else
                             {
-                                [void]$output.Append(' ')
+                                [void]$rowBuilder.Append(' ')
                             }
                         }
                         'Line'
@@ -689,7 +697,7 @@
                             if ($scaledRow -eq $row)
                             {
                                 $dotChar = if ($script:SupportsUnicode) { '●' } else { '*' }
-                                [void]$output.Append("$pointColor$dotChar${script:Palette.Reset}")
+                                [void]$rowBuilder.Append("$pointColor$dotChar${script:Palette.Reset}")
                             }
                             elseif ($col -gt 0 -and $null -ne $scaledPoints[$col - 1])
                             {
@@ -704,23 +712,24 @@
                                 if (($prevRow -lt $row -and $currRow -gt $row) -or ($prevRow -gt $row -and $currRow -lt $row))
                                 {
                                     $lineChar = if ($script:SupportsUnicode) { '│' } else { '|' }
-                                    [void]$output.Append("$connectorColor$lineChar${script:Palette.Reset}")
+                                    [void]$rowBuilder.Append("$connectorColor$lineChar${script:Palette.Reset}")
                                 }
                                 else
                                 {
-                                    [void]$output.Append(' ')
+                                    [void]$rowBuilder.Append(' ')
                                 }
                             }
                             else
                             {
-                                [void]$output.Append(' ')
+                                [void]$rowBuilder.Append(' ')
                             }
                         }
                     }
                 }
 
-                # Ensure the line resets color before newline to avoid bleed
-                [void]$output.AppendLine($script:Palette.Reset)
+                # Append complete row to output at once (chunked write)
+                [void]$rowBuilder.Append($script:Palette.Reset)
+                [void]$output.AppendLine($rowBuilder.ToString())
             }
 
             [void]$output.Append("${script:Palette.Reset}     +")
@@ -859,11 +868,14 @@
                         'Sparkline'
                         {
                             $sparkline = New-Object System.Text.StringBuilder
+                            # Use cached fail character to avoid repeated conditionals
+                            $failChar = if ($script:SupportsUnicode) { $script:FailCharUnicode } else { $script:FailCharAscii }
+
                             foreach ($value in $Data)
                             {
                                 if ($null -eq $value)
                                 {
-                                    [void]$sparkline.Append("${script:Palette.Red}✖${script:Palette.Reset}")
+                                    [void]$sparkline.Append("${script:Palette.Red}$failChar${script:Palette.Reset}")
                                 }
                                 else
                                 {
@@ -899,6 +911,7 @@
                         {
                             $output = New-Object System.Text.StringBuilder
                             $numBuckets = 10
+                            # Precompute bucket scaling once
                             $bucketSize = if (($max - $min) -eq 0) { 1 } else { ($max - $min) / $numBuckets }
                             $buckets = @{}
                             0..($numBuckets - 1) | ForEach-Object { $buckets[$_] = 0 }
@@ -909,6 +922,8 @@
                                 $buckets[$bucketIndex]++
                             }
                             $maxCount = if (($buckets.Values | Measure-Object -Maximum).Maximum -eq 0) { 1 } else { ($buckets.Values | Measure-Object -Maximum).Maximum }
+                            # Precompute bar width scaling factor
+                            $barWidthScale = ($Width - 20) / $maxCount
                             $clearTail = if ($effectiveRender -eq 'InPlace') { "`e[K" } else { '' }
                             [void]$output.AppendLine("${script:Palette.Cyan}Latency Distribution:${script:Palette.Reset}$clearTail")
                             for ($i = 0; $i -lt $numBuckets; $i++)
@@ -916,7 +931,8 @@
                                 $rangeStart = [Math]::Round($min + ($i * $bucketSize), 1)
                                 $rangeEnd = [Math]::Round($min + (($i + 1) * $bucketSize), 1)
                                 $itemCount = $buckets[$i]
-                                $barWidth = [Int32][Math]::Floor(($itemCount / $maxCount) * ($Width - 20))
+                                # Use precomputed scale factor to reduce repeated division
+                                $barWidth = [Int32][Math]::Floor($itemCount * $barWidthScale)
                                 $midpoint = ($rangeStart + $rangeEnd) / 2
                                 $barColor = if ($midpoint -lt 50) { $script:Palette.Green } elseif ($midpoint -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
                                 $label = "$rangeStart-$rangeEnd ms".PadRight(15)
@@ -981,11 +997,13 @@
             {
                 $sparkline = New-Object System.Text.StringBuilder
 
+                # Use cached fail character to avoid repeated conditionals
+                $failChar = if ($script:SupportsUnicode) { $script:FailCharUnicode } else { $script:FailCharAscii }
+
                 foreach ($value in $Data)
                 {
                     if ($null -eq $value)
                     {
-                        $failChar = if ($script:SupportsUnicode) { '✖' } else { 'X' }
                         [void]$sparkline.Append("${script:Palette.Red}$failChar${script:Palette.Reset}")
                     }
                     else
@@ -1061,6 +1079,8 @@
 
                 $maxCount = ($buckets.Values | Measure-Object -Maximum).Maximum
                 if ($maxCount -eq 0) { $maxCount = 1 }
+                # Precompute bar width scaling factor
+                $barWidthScale = ($Width - 20) / $maxCount
 
                 [void]$output.AppendLine("${script:Palette.Cyan}Latency Distribution:${script:Palette.Reset}")
 
@@ -1069,7 +1089,8 @@
                     $rangeStart = [Math]::Round($min + ($i * $bucketSize), 1)
                     $rangeEnd = [Math]::Round($min + (($i + 1) * $bucketSize), 1)
                     $bucketItemCount = $buckets[$i]
-                    $barWidth = [Math]::Floor(($bucketItemCount / $maxCount) * ($Width - 20))
+                    # Use precomputed scale factor to reduce repeated division
+                    $barWidth = [Math]::Floor($bucketItemCount * $barWidthScale)
 
                     # Color bar based on range midpoint
                     $midpoint = ($rangeStart + $rangeEnd) / 2
