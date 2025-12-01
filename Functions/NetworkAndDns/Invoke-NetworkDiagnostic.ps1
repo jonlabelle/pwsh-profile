@@ -99,6 +99,9 @@
         - Clear  : Clear the screen between iterations
         - Stack  : Append output without clearing (useful for logs/debugging)
 
+        Note: When testing multiple hosts in parallel (PowerShell 7+), there may be brief output
+        mixing during transitions. Use -RenderMode Clear for the cleanest output with multiple hosts.
+
     .PARAMETER ShowGraph
         Display detailed time-series graph for each host
 
@@ -725,25 +728,59 @@
                     continue
                 }
 
-                # Latency sparkline (already has color codes embedded)
-                $sparkline = & $getCachedGraph $result.LatencyData 'Sparkline' 0 0 $false
-                if ($null -ne $result.LatencyAvg)
+                # Latency visualization - show appropriate graph based on ShowGraph parameter
+                if ($ShowGraph)
                 {
-                    Write-Host '│  Latency: ' -NoNewline
-                    # Use default color to preserve ANSI codes in sparkline
-                    Write-Host ("$resetEsc$sparkline$resetEsc$clearTail")
-                    $linesPrintedLocal++
+                    # Show detailed TimeSeries graph only
+                    if ($result.LatencyData.Count -gt 0)
+                    {
+                        Write-Host ("│$resetEsc$clearTail")
+                        $graph = & $getCachedGraph $result.LatencyData 'TimeSeries' 70 8 $true $Style
+                        $graphLineCount = 0
+
+                        # Check if graph actually contains content
+                        if ($graph -and $graph.Trim())
+                        {
+                            # Split and process each line of the graph output
+                            $graphLines = $graph -split "`r?`n"
+                            foreach ($line in $graphLines)
+                            {
+                                # Skip empty lines at the end
+                                if ($line.Trim() -or $graphLineCount -eq 0)
+                                {
+                                    # Use Write-Host for better Unicode handling in modern terminals
+                                    Write-Host ("│  $line$clearTail")
+                                    $graphLineCount++
+                                }
+                            }
+                        }
+                        else
+                        {
+                            Write-Host ("│  Graph data unavailable$clearTail") -ForegroundColor DarkGray
+                            $graphLineCount = 1
+                        }
+                        $linesPrintedLocal += ($graphLineCount + 1)
+                    }
                 }
                 else
                 {
-                    Write-Host '│  Latency: ' -NoNewline
-                    Write-Host ("$resetEsc$sparkline$resetEsc$clearTail") -ForegroundColor Red
-                    $linesPrintedLocal++
-                }
+                    # Show sparkline and stats for compact view
+                    $sparkline = & $getCachedGraph $result.LatencyData 'Sparkline' 0 0 $false
+                    if ($null -ne $result.LatencyAvg)
+                    {
+                        Write-Host '│  Latency: ' -NoNewline
+                        # Use default color to preserve ANSI codes in sparkline
+                        Write-Host ("$resetEsc$sparkline$resetEsc$clearTail")
+                        $linesPrintedLocal++
+                    }
+                    else
+                    {
+                        Write-Host '│  Latency: ' -NoNewline
+                        Write-Host ("$resetEsc$sparkline$resetEsc$clearTail") -ForegroundColor Red
+                        $linesPrintedLocal++
+                    }
 
-                # Statistics with color coding (only show if not displaying detailed graph)
-                if (-not $ShowGraph)
-                {
+                    # Statistics with color coding
                     if ($null -ne $result.LatencyAvg)
                     {
                         Write-Host '│  Stats  : ' -NoNewline
@@ -811,7 +848,7 @@
                     $linesPrintedLocal++
                 }
 
-                # Reset the console color so following graph text doesn't inherit previous foreground settings
+                # Reset the console color so following output doesn't inherit previous foreground settings
                 try
                 {
                     [Console]::ResetColor()
@@ -819,47 +856,6 @@
                 catch
                 {
                     Write-Verbose "Failed to reset console color: $($_.Exception.Message)"
-                }
-
-                # Detailed graph if requested
-                if ($ShowGraph -and $result.LatencyData.Count -gt 0)
-                {
-                    Write-Host ("│$resetEsc$clearTail")
-                    $graph = & $getCachedGraph $result.LatencyData 'TimeSeries' 70 8 $true $Style
-                    $graphLineCount = 0
-
-                    # Check if graph actually contains content
-                    if ($graph -and $graph.Trim())
-                    {
-                        # Split and process each line of the graph output
-                        $graphLines = $graph -split "`r?`n"
-                        foreach ($line in $graphLines)
-                        {
-                            # Skip empty lines at the end
-                            if ($line.Trim() -or $graphLineCount -eq 0)
-                            {
-                                # Use Write-Host for better Unicode handling in modern terminals
-                                Write-Host ("│  $line$clearTail")
-                                $graphLineCount++
-                            }
-                        }
-                    }
-                    else
-                    {
-                        Write-Host ("│  (graph generation failed)$clearTail") -ForegroundColor Yellow
-                        $graphLineCount = 1
-                    }
-
-                    # Include the pre-graph spacer line
-                    $linesPrintedLocal += (1 + $graphLineCount)
-                    try
-                    {
-                        [Console]::ResetColor()
-                    }
-                    catch
-                    {
-                        Write-Verbose "Failed to reset console color: $($_.Exception.Message)"
-                    }
                 }
 
                 Write-Host (('└' + ('─' * 79) + $clearTail)) -ForegroundColor $statusColor
@@ -907,9 +903,13 @@
                 try
                 {
                     # Test if we can actually use ANSI by checking console capabilities
-                    $ansiSupported = [Console]::IsOutputRedirected -eq $false -and
-                    ($null -ne [Environment]::GetEnvironmentVariable('TERM') -or
-                    $Host.UI.RawUI.BufferSize.Width -gt 0)
+                    # More robust ANSI detection - check multiple indicators
+                    $hasTermVar = -not [String]::IsNullOrEmpty([Environment]::GetEnvironmentVariable('TERM'))
+                    $hasValidBufferSize = $Host.UI.RawUI.BufferSize.Width -gt 0
+                    $isNotRedirected = [Console]::IsOutputRedirected -eq $false
+                    $isInteractiveHost = $Host.Name -ne 'Default Host' -and $Host.UI.SupportsVirtualTerminal
+
+                    $ansiSupported = $isNotRedirected -and ($hasTermVar -or $hasValidBufferSize -or $isInteractiveHost)
                 }
                 catch
                 {
@@ -921,14 +921,14 @@
             {
                 'InPlace'
                 {
-                    if ($ansiSupported) { 'InPlace' } else { 'Stack' }  # Never fall back to Clear
+                    if ($ansiSupported) { 'InPlace' } else { 'Clear' }  # Fall back to Clear if ANSI not supported
                 }
                 'Clear' { 'Clear' }
                 'Stack' { 'Stack' }
                 default
                 {
-                    # Auto mode: always prefer InPlace if ANSI is supported
-                    if ($ansiSupported) { 'InPlace' } else { 'Stack' }
+                    # Auto mode: prefer InPlace if ANSI is supported, otherwise Clear (not Stack)
+                    if ($ansiSupported) { 'InPlace' } else { 'Clear' }
                 }
             }
 
@@ -942,51 +942,58 @@
                 Write-Verbose "Collecting metrics in parallel (ThrottleLimit=$ThrottleLimit)"
                 $indexedHosts = for ($i = 0; $i -lt $allHosts.Count; $i++) { [PSCustomObject]@{ HostName = $allHosts[$i]; Index = $i } }
 
-                $results = $indexedHosts | ForEach-Object -Parallel {
-                    # Each parallel runspace starts clean; ensure the dependency is loaded locally using the captured path
-                    if (-not (Get-Command -Name 'Get-NetworkMetrics' -ErrorAction SilentlyContinue) -and $using:MetricsPath)
-                    {
-                        try { . $using:MetricsPath } catch
+                # Use pipeline with proper completion waiting
+                $parallelResults = @($indexedHosts | ForEach-Object -Parallel {
+                        # Each parallel runspace starts clean; ensure the dependency is loaded locally using the captured path
+                        if (-not (Get-Command -Name 'Get-NetworkMetrics' -ErrorAction SilentlyContinue) -and $using:MetricsPath)
                         {
-                            throw "Failed to load required dependency 'Get-NetworkMetrics' from '$using:MetricsPath': $($_.Exception.Message)"
+                            try { . $using:MetricsPath } catch
+                            {
+                                throw "Failed to load required dependency 'Get-NetworkMetrics' from '$using:MetricsPath': $($_.Exception.Message)"
+                            }
                         }
-                    }
 
-                    $buildFailure = {
-                        param($name, $port, $count)
-                        [PSCustomObject]@{
-                            HostName = $name
-                            Port = $port
-                            SamplesTotal = $count
-                            SamplesSuccess = 0
-                            SamplesFailure = $count
-                            PacketLoss = 100
-                            LatencyMin = $null
-                            LatencyMax = $null
-                            LatencyAvg = $null
-                            Jitter = $null
-                            DnsResolution = $null
-                            LatencyData = @()
-                            Timestamp = Get-Date
+                        $buildFailure = {
+                            param($name, $port, $count)
+                            [PSCustomObject]@{
+                                HostName = $name
+                                Port = $port
+                                SamplesTotal = $count
+                                SamplesSuccess = 0
+                                SamplesFailure = $count
+                                PacketLoss = 100
+                                LatencyMin = $null
+                                LatencyMax = $null
+                                LatencyAvg = $null
+                                Jitter = $null
+                                DnsResolution = $null
+                                LatencyData = @()
+                                Timestamp = Get-Date
+                            }
                         }
-                    }
 
-                    $sw = [System.Diagnostics.Stopwatch]::StartNew()
-                    $metrics = $null
-                    try
-                    {
-                        $metrics = Get-NetworkMetrics -HostName $_.HostName -Count $using:Count -Timeout $using:Timeout -Port $using:Port -IncludeDns:$using:IncludeDns -SampleDelayMilliseconds $using:SampleDelayMilliseconds
-                    }
-                    catch
-                    {
-                        $metrics = & $buildFailure $_.HostName $using:Port $using:Count
-                    }
-                    $sw.Stop()
-                    Add-Member -InputObject $metrics -NotePropertyName 'ElapsedMs' -NotePropertyValue ([Math]::Round($sw.Elapsed.TotalMilliseconds, 2)) -Force
-                    [PSCustomObject]@{ Index = $_.Index; Metrics = $metrics }
-                } -ThrottleLimit $ThrottleLimit
+                        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+                        $metrics = $null
+                        try
+                        {
+                            $metrics = Get-NetworkMetrics -HostName $_.HostName -Count $using:Count -Timeout $using:Timeout -Port $using:Port -IncludeDns:$using:IncludeDns -SampleDelayMilliseconds $using:SampleDelayMilliseconds
+                        }
+                        catch
+                        {
+                            $metrics = & $buildFailure $_.HostName $using:Port $using:Count
+                        }
+                        $sw.Stop()
+                        Add-Member -InputObject $metrics -NotePropertyName 'ElapsedMs' -NotePropertyValue ([Math]::Round($sw.Elapsed.TotalMilliseconds, 2)) -Force
+                        [PSCustomObject]@{ Index = $_.Index; Metrics = $metrics }
+                    } -ThrottleLimit $ThrottleLimit)
 
-                $results = $results | Sort-Object Index | ForEach-Object { $_.Metrics }
+                # Wait for all parallel jobs to complete and sort results by index to maintain host order
+                $results = @($parallelResults | Sort-Object Index | ForEach-Object { $_.Metrics })
+
+                # Ensure all parallel outputs are flushed
+                [Console]::Out.Flush()
+                [Console]::Error.Flush()
+                Start-Sleep -Milliseconds 50
             }
             else
             {
@@ -1027,6 +1034,15 @@
             # NOW that we have all the data, handle the display refresh
             if ($Continuous)
             {
+                # For parallel execution, add extra synchronization to prevent mixed output
+                if ($useParallel)
+                {
+                    # Allow any background output to complete
+                    [Console]::Out.Flush()
+                    [Console]::Error.Flush()
+                    Start-Sleep -Milliseconds 200
+                }
+
                 if ($effectiveRender -eq 'Clear' -and $iteration -gt 1)
                 {
                     Clear-Host
@@ -1035,23 +1051,27 @@
                 {
                     # CRITICAL: Ensure all previous output is completely finished before cursor movement
                     [Console]::Out.Flush()
-                    Start-Sleep -Milliseconds 100  # Brief pause to ensure output completion
+                    [Console]::Error.Flush()
+                    Start-Sleep -Milliseconds 150  # Longer pause for parallel execution
 
                     # For in-place rendering, move cursor up and clear remainder of screen
                     # Use proper PowerShell escape character - no fallback to Clear-Host
                     $esc = [char]27
                     # Move up more lines than calculated to ensure we clear everything
-                    $moveUpLines = [Math]::Max(15, $lastRenderLines + 2)
+                    $moveUpLines = [Math]::Max(20, $lastRenderLines + 5)  # More conservative for parallel
                     $upSequence = "$esc[{0}A" -f $moveUpLines  # Move cursor up
                     $clearSequence = "$esc[0J"                # Clear from cursor to end of screen
                     [Console]::Write($upSequence + $clearSequence)
                     [Console]::Out.Flush()  # Ensure cursor movement is applied immediately
                 }
 
-                # Print the header
-                Write-Host ("Network Diagnostic - Iteration $iteration (Press Ctrl+C to stop)") -ForegroundColor DarkGray
-                Write-Host ("Interval: ${Interval}s | Samples per host: $Count | Port: $Port") -ForegroundColor Gray
-                Write-Host
+                # Print the header only on the first iteration to avoid repetitive noise
+                if ($iteration -eq 1)
+                {
+                    Write-Host ('Network Diagnostic - Continuous Mode (Press Ctrl+C to stop)') -ForegroundColor DarkGray
+                    Write-Host ("Interval: ${Interval}s | Samples per host: $Count | Port: $Port") -ForegroundColor Gray
+                    Write-Host
+                }
             }
             $linesPrinted = if ($Continuous) { 3 } else { 0 }
 
@@ -1065,6 +1085,13 @@
             if ($Continuous)
             {
                 [Console]::Out.Flush()
+                [Console]::Error.Flush()
+
+                # For parallel execution, add extra stabilization time
+                if ($useParallel)
+                {
+                    Start-Sleep -Milliseconds 100
+                }
             }
 
             # Approximate lines printed per iteration for in-place refresh on Core and handle pacing
@@ -1084,8 +1111,8 @@
 
                 # Final flush before sleep to ensure all output is complete
                 [Console]::Out.Flush()
+                [Console]::Error.Flush()
                 Start-Sleep -Seconds $Interval
-
             }
 
         } while ($Continuous -and ($MaxIterations -eq 0 -or $iteration -lt $MaxIterations))
