@@ -309,9 +309,12 @@
     {
         Write-Verbose "Testing connectivity to ${HostName}:${Port} ($Count samples)"
 
+        # Reuse stopwatch across iterations to reduce allocations
+        $stopwatch = [System.Diagnostics.Stopwatch]::new()
+
         for ($i = 1; $i -le $Count; $i++)
         {
-            $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+            $stopwatch.Restart()
             $tcpClient = $null
 
             try
@@ -344,11 +347,14 @@
                 }
                 else
                 {
+                    # Timeout occurred - dispose immediately to avoid lingering handles
                     $stopwatch.Stop()
                     Write-Verbose "Sample $i/$Count : Timeout"
                     $latencies.Add($null)
                     $failureCount++
                     $tcpClient.Close()
+                    $tcpClient.Dispose()
+                    $tcpClient = $null
                 }
             }
             catch
