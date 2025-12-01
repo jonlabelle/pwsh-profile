@@ -320,7 +320,6 @@
             try
             {
                 $tcpClient = [System.Net.Sockets.TcpClient]::new()
-                $tcpClient.NoDelay = $true
 
                 # Use BeginConnect/EndConnect with timeout for broad compatibility
                 $asyncResult = $tcpClient.BeginConnect($HostName, $Port, $null, $null)
