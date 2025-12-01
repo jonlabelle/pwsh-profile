@@ -281,7 +281,8 @@
 
         # Initialize collections (allow nulls so we can mark failed samples)
         $latencies = [System.Collections.Generic.List[Nullable[Double]]]::new()
-        $results = [System.Collections.Generic.List[Bool]]::new()
+        $successCount = 0
+        $failureCount = 0
         $dnsTime = $null
 
         # DNS resolution if requested
@@ -311,12 +312,12 @@
         for ($i = 1; $i -le $Count; $i++)
         {
             $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-            $success = $false
             $tcpClient = $null
 
             try
             {
                 $tcpClient = [System.Net.Sockets.TcpClient]::new()
+                $tcpClient.NoDelay = $true
 
                 # Use BeginConnect/EndConnect with timeout for broad compatibility
                 $asyncResult = $tcpClient.BeginConnect($HostName, $Port, $null, $null)
@@ -330,7 +331,7 @@
                         $stopwatch.Stop()
                         $latency = $stopwatch.Elapsed.TotalMilliseconds
                         $latencies.Add($latency)
-                        $success = $true
+                        $successCount++
                         Write-Verbose "Sample $i/$Count : $([Math]::Round($latency, 2))ms"
                     }
                     catch
@@ -338,6 +339,7 @@
                         $stopwatch.Stop()
                         Write-Verbose "Sample $i/$Count : Connection failed - $($_.Exception.Message)"
                         $latencies.Add($null)
+                        $failureCount++
                     }
                 }
                 else
@@ -345,6 +347,7 @@
                     $stopwatch.Stop()
                     Write-Verbose "Sample $i/$Count : Timeout"
                     $latencies.Add($null)
+                    $failureCount++
                     $tcpClient.Close()
                 }
             }
@@ -353,6 +356,7 @@
                 $stopwatch.Stop()
                 Write-Verbose "Sample $i/$Count : Failed - $($_.Exception.Message)"
                 $latencies.Add($null)
+                $failureCount++
             }
             finally
             {
@@ -362,8 +366,6 @@
                     $tcpClient.Dispose()
                 }
             }
-
-            $results.Add($success)
 
             # Small delay between requests
             if ($i -lt $Count -and $SampleDelayMilliseconds -gt 0)
@@ -376,9 +378,7 @@
     end
     {
         # Calculate metrics from valid latencies in a single pass
-        $successCount = @($results | Where-Object { $_ -eq $true }).Count
-        $failureCount = $results.Count - $successCount
-        $packetLoss = [Math]::Round(($failureCount / $results.Count) * 100, 2)
+        $packetLoss = if ($Count -gt 0) { [Math]::Round(($failureCount / $Count) * 100, 2) } else { 0 }
 
         $validCount = 0
         $minLatency = [Double]::PositiveInfinity
