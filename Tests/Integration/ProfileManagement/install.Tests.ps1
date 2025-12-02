@@ -181,7 +181,7 @@ Describe 'install.ps1 integration tests' {
 
             try
             {
-                { & $script:installScript -ProfileRoot $profileRoot -RestorePath $missingBackup -SkipBackup -Verbose:$false } | Should -Throw
+                { & $script:installScript -ProfileRoot $profileRoot -RestorePath $missingBackup -Verbose:$false } | Should -Throw
             }
             finally
             {
@@ -273,7 +273,7 @@ Describe 'install.ps1 integration tests' {
     }
 
     Context 'Restore mode' {
-        It 'restores profile contents from a supplied backup path' {
+        It 'restores profile contents from a supplied backup path without creating a backup by default' {
             $testRoot = Join-Path $TestDrive ('RestoreProfile_{0}' -f ([guid]::NewGuid().ToString('N')))
             $profileRoot = Join-Path $testRoot 'ProfileRoot'
             $backupRoot = Join-Path $testRoot 'BackupSource'
@@ -291,7 +291,8 @@ Describe 'install.ps1 integration tests' {
 
             try
             {
-                & $script:installScript -ProfileRoot $profileRoot -RestorePath $backupRoot -SkipBackup -Verbose:$false
+                # Restore without -SkipBackup should NOT create a backup (new default behavior)
+                & $script:installScript -ProfileRoot $profileRoot -RestorePath $backupRoot -Verbose:$false
 
                 $restoredProfile = Join-Path $profileRoot 'profile.ps1'
                 Test-Path $restoredProfile | Should -BeTrue
@@ -300,6 +301,47 @@ Describe 'install.ps1 integration tests' {
                 $modulesFile = Join-Path (Join-Path $profileRoot 'Modules') 'module.psm1'
                 Test-Path $modulesFile | Should -BeTrue
                 Test-Path (Join-Path $profileRoot 'stale.ps1') | Should -BeFalse
+
+                # Verify no backup was created
+                $profileParent = Split-Path -Parent $profileRoot
+                $profileLeaf = Split-Path -Leaf $profileRoot
+                $backupPattern = "$profileLeaf-backup-*"
+                (Get-ChildItem -Path $profileParent -Directory -Filter $backupPattern -ErrorAction SilentlyContinue).Count | Should -Be 0
+            }
+            finally
+            {
+                if (Test-Path -Path $testRoot)
+                {
+                    Remove-TestDirectory -Path $testRoot
+                }
+            }
+        }
+
+        It 'creates a backup during restore when BackupPath is explicitly provided' {
+            $testRoot = Join-Path $TestDrive ('RestoreWithBackup_{0}' -f ([guid]::NewGuid().ToString('N')))
+            $profileRoot = Join-Path $testRoot 'ProfileRoot'
+            $backupRoot = Join-Path $testRoot 'BackupSource'
+            $explicitBackup = Join-Path $testRoot 'ExplicitBackup'
+            New-Item -ItemType Directory -Path $profileRoot -Force | Out-Null
+            New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
+
+            # Current profile content that should be backed up
+            Set-Content -Path (Join-Path $profileRoot 'current.ps1') -Value 'current profile'
+
+            # Backup payload to restore
+            Set-Content -Path (Join-Path $backupRoot 'restored.ps1') -Value 'restored profile'
+
+            try
+            {
+                & $script:installScript -ProfileRoot $profileRoot -RestorePath $backupRoot -BackupPath $explicitBackup -Verbose:$false
+
+                # Verify restore happened
+                Test-Path (Join-Path $profileRoot 'restored.ps1') | Should -BeTrue
+                Test-Path (Join-Path $profileRoot 'current.ps1') | Should -BeFalse
+
+                # Verify backup was created with the pre-restore content
+                Test-Path (Join-Path $explicitBackup 'current.ps1') | Should -BeTrue
+                (Get-Content (Join-Path $explicitBackup 'current.ps1')) | Should -Be 'current profile'
             }
             finally
             {
@@ -355,7 +397,7 @@ Describe 'install.ps1 integration tests' {
 
             try
             {
-                { & $script:installScript -ProfileRoot $profileRoot -RestorePath $missingBackup -SkipBackup -Verbose:$false } | Should -Throw
+                { & $script:installScript -ProfileRoot $profileRoot -RestorePath $missingBackup -Verbose:$false } | Should -Throw
             }
             finally
             {
@@ -414,7 +456,7 @@ Describe 'install.ps1 integration tests' {
 
             try
             {
-                Should -Throw -ActualValue { & $script:installScript -ProfileRoot $profileRoot -RestorePath $missingRestore -SkipBackup -Verbose:$false }
+                Should -Throw -ActualValue { & $script:installScript -ProfileRoot $profileRoot -RestorePath $missingRestore -Verbose:$false }
             }
             finally
             {

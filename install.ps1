@@ -28,7 +28,9 @@
         Optional explicit destination for the backup folder. When omitted a timestamped directory is created beside the profile.
 
     .PARAMETER SkipBackup
-        Prevents the script from backing up the current profile directory before installing or restoring.
+        Prevents the script from backing up the current profile directory before installing.
+        Note: Backups are automatically skipped during restore operations (when using -RestorePath)
+        unless you explicitly provide -BackupPath to force a backup during restore.
 
     .PARAMETER SkipPreserveDirectories
         Skips saving and restoring the `Functions/Local`, `Help`, `Modules`, `PSReadLine`, and `Scripts` directories during installation.
@@ -79,6 +81,14 @@
         # Restore from the most recent backup
         PS > pwsh -NoProfile -File ./install.ps1 -RestorePath 'C:\Users\YourName\Documents\WindowsPowerShell-backup-20250116-143022'
 
+        Restores the profile without creating an additional backup (default behavior for restore operations).
+
+    .EXAMPLE
+        PS > pwsh -NoProfile -File ./install.ps1 -RestorePath 'C:\Backups\old-backup' -BackupPath 'C:\Backups\pre-restore-backup'
+
+        Restores from a backup while explicitly creating a backup of the current state first.
+        This is useful if you want to preserve the current state before restoring.
+
     .EXAMPLE
         PS > pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -LocalSourcePath (Get-Location) -WhatIf -Verbose
 
@@ -96,6 +106,11 @@
         PS > Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
         The CurrentUser scope affects only your user account and does not require administrator privileges.
+
+        Backup Behavior:
+        - During installation: A backup is created automatically unless -SkipBackup is specified
+        - During restore: No backup is created by default (since you're restoring to a previous state)
+        - To force a backup during restore, explicitly provide -BackupPath with a destination path
 
         Parameter Conflicts:
         The following parameter combinations are not allowed and will produce clear error messages:
@@ -741,12 +756,16 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
         if ($RestorePath)
         {
             $resolvedRestorePath = Resolve-ProviderPath -PathToResolve $RestorePath
-            if (-not $SkipBackup -and (Test-Path -Path $resolvedProfileRoot))
+
+            # Only create a backup during restore if BackupPath is explicitly provided
+            # This prevents the awkward situation of creating a backup when restoring from one
+            if ($PSBoundParameters.ContainsKey('BackupPath') -and (Test-Path -Path $resolvedProfileRoot))
             {
                 $createdBackup = New-ProfileBackup -SourcePath $resolvedProfileRoot -DestinationPath $BackupPath
                 if ($createdBackup)
                 {
                     Write-Host "Profile backup created at $createdBackup"
+                    Write-Host ''
                 }
             }
 

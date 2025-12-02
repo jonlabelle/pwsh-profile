@@ -6,13 +6,13 @@
 
 ## Screenshot
 
-![PowerShell Profile in Windows Terminal](term-screen-shot.png 'PowerShell Profile in Windows Terminal')
+![PowerShell Profile in Windows Terminal](term-screen-shot.png "PowerShell Profile in Windows Terminal")
 
 > [`Show-ProfileFunctions`](Functions/ProfileManagement/Show-ProfileFunctions.ps1) output in Windows Terminal with custom prompt and color scheme.
 
 ---
 
-![Invoke-NetworkDiagnostic screenshot](netdiag.png 'Invoke-NetworkDiagnostic in action')
+![Invoke-NetworkDiagnostic screenshot](netdiag.png "Invoke-NetworkDiagnostic in action")
 
 [`Invoke-NetworkDiagnostic`](Functions/NetworkAndDns/Invoke-NetworkDiagnostic.ps1) performing network diagnostics with visual graphs.
 
@@ -48,7 +48,7 @@
 
 ## Install
 
-Use the provided [install.ps1](install.ps1) script to automate backups, preserve your existing `Functions/Local`, `Help`, `Modules`, `PSReadLine`, and `Scripts` directories, and deploy the latest profile files. The script works on PowerShell Desktop 5.1 and PowerShell Core 6+.
+Use the provided [install.ps1](install.ps1) script to automate backups (during install), preserve your existing `Functions/Local`, `Help`, `Modules`, `PSReadLine`, and `Scripts` directories, and deploy the latest profile files. The script works on PowerShell Desktop 5.1 and PowerShell Core 6+.
 
 > [!Note]
 > **Git is optional:** If Git is available, the script clones the repository. Otherwise, it automatically downloads and extracts the repository as a zip file from GitHub.
@@ -91,13 +91,14 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1
 <details>
 <summary><strong>Optional Install Parameters</strong></summary>
 
-#### Optional Install Parameters
+#### Optional Parameters
 
-- `-SkipBackup` — install without creating a backup of the existing profile directory
-- `-SkipPreserveDirectories` — do not restore the `Functions/Local`, `Help`, `Modules`, `PSReadLine`, and `Scripts` directories after installation
-- `-PreserveDirectories @('Dir1','Dir2')` — override the default directories that are restored
-- `-LocalSourcePath <path>` — copy profile files from an existing local clone instead of running `git clone`
-- `-ProfileRoot <path>` — override the detected profile directory (defaults to `Split-Path -Parent $PROFILE`)
+- `-SkipBackup` — Install without creating a backup of your current profile directory. Only applies to install, not restore.
+- `-BackupPath <path>` — When restoring, save a backup of your current profile before restoring from the backup. By default, restore does not create a backup.
+- `-SkipPreserveDirectories` — Do not restore the `Functions/Local`, `Help`, `Modules`, `PSReadLine`, and `Scripts` directories after installation.
+- `-PreserveDirectories @('Dir1','Dir2')` — Only restore the directories you specify.
+- `-LocalSourcePath <path>` — Copy profile files from a local directory instead of cloning from Git.
+- `-ProfileRoot <path>` — Use a custom profile directory instead of the default.
 
 For more examples, see the [install.ps1](install.ps1) script documentation.
 
@@ -110,11 +111,20 @@ For more examples, see the [install.ps1](install.ps1) script documentation.
 
 #### Restore from a Backup
 
-`install.ps1` can restore a previous snapshot created during installation. Provide the full path to the backup directory (for example, `C:\Users\you\Documents\WindowsPowerShell-backup-20251116-110000`).
+You can restore your profile from a previous backup created by the install script. When you restore, the script does not create a new backup of your current profile unless you ask for one.
+
+**Restore from a backup (no new backup is made):**
 
 ```powershell
 irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' |
     pwsh -NoProfile -ExecutionPolicy Bypass - -RestorePath 'C:\Users\you\Documents\WindowsPowerShell-backup-20251116-110000'
+```
+
+**Restore and save a backup of your current profile before restoring:**
+
+```powershell
+irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' |
+    pwsh -NoProfile -ExecutionPolicy Bypass - -RestorePath 'C:\Users\you\Documents\WindowsPowerShell-backup-20251116-110000' -BackupPath 'C:\Users\you\Documents\WindowsPowerShell-backup-pre-restore'
 ```
 
 ---
@@ -155,7 +165,7 @@ Remove-Item -Path $profileDir -Recurse -Force
 Move-Item -Path "$profileDir-backup-20250118-120000" -Destination $profileDir
 ```
 
-**Better alternative:** Use [install.ps1](install.ps1) with the `-RestorePath` parameter for safer restoration with validation and error handling.
+**Recommended:** Use [install.ps1](install.ps1) with the `-RestorePath` parameter for safe restoration. If you want to keep a copy of your current profile before restoring, add the `-BackupPath` option.
 
 ---
 
