@@ -245,6 +245,189 @@ function Unprotect-PathWithPassword
                 }
             }
         }
+
+        # Internal helper function for file decryption
+        function Invoke-FileDecryption
+        {
+            [CmdletBinding(SupportsShouldProcess)]
+            param(
+                [String]$FilePath,
+                [SecureString]$Password,
+                [String]$OutputPath,
+                [Switch]$Force,
+                [Switch]$KeepEncrypted
+            )
+
+            try
+            {
+                # Determine output file path
+                if ($OutputPath)
+                {
+                    if (Test-Path $OutputPath -PathType Container)
+                    {
+                        $fileName = [System.IO.Path]::GetFileName($FilePath)
+                        if ($fileName.EndsWith('.enc'))
+                        {
+                            $fileName = $fileName.Substring(0, $fileName.Length - 4)
+                        }
+                        $outputFile = Join-Path $OutputPath $fileName
+                    }
+                    else
+                    {
+                        $outputFile = $OutputPath
+                    }
+                }
+                else
+                {
+                    if ($FilePath.EndsWith('.enc'))
+                    {
+                        $outputFile = $FilePath.Substring(0, $FilePath.Length - 4)
+                    }
+                    else
+                    {
+                        $outputFile = $FilePath + '.dec'
+                    }
+                }
+
+                # Check if output file exists
+                if ((Test-Path $outputFile) -and -not $Force)
+                {
+                    Write-Warning "Skipping file: $FilePath (file exists, use -Force to overwrite)"
+                    return [PSCustomObject]@{
+                        EncryptedPath = $FilePath
+                        DecryptedPath = $outputFile
+                        Success = $false
+                        Error = 'File exists and Force not specified'
+                    }
+                }
+
+                if ($PSCmdlet.ShouldProcess($FilePath, 'Decrypt file'))
+                {
+                    # Convert SecureString to bytes for key derivation
+                    $passwordPtr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
+                    try
+                    {
+                        $passwordPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPtr)
+                        $passwordBytes = [System.Text.Encoding]::UTF8.GetBytes($passwordPlain)
+                    }
+                    finally
+                    {
+                        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPtr)
+                        if ($passwordPlain)
+                        {
+                            $passwordPlain = $null
+                        }
+                    }
+
+                    # Read encrypted file
+                    $encryptedData = [System.IO.File]::ReadAllBytes($FilePath)
+
+                    # Validate minimum file size (32 bytes salt + 16 bytes IV + at least 16 bytes data)
+                    if ($encryptedData.Length -lt 64)
+                    {
+                        throw 'Invalid encrypted file format: file too small'
+                    }
+
+                    # Extract salt, IV, and encrypted data
+                    $salt = $encryptedData[0..31]
+                    $initializationVector = $encryptedData[32..47]
+                    $encryptedBytes = $encryptedData[48..($encryptedData.Length - 1)]
+
+                    # Derive key using PBKDF2 (same parameters as encryption)
+                    $pbkdf2 = New-Object System.Security.Cryptography.Rfc2898DeriveBytes($passwordBytes, $salt, 100000, [System.Security.Cryptography.HashAlgorithmName]::SHA256)
+                    $key = $pbkdf2.GetBytes(32) # 256-bit key
+                    $pbkdf2.Dispose()
+
+                    # Clear password bytes
+                    [Array]::Clear($passwordBytes, 0, $passwordBytes.Length)
+
+                    # Decrypt using AES
+                    $aes = [System.Security.Cryptography.Aes]::Create()
+                    $aes.Key = $key
+                    $aes.IV = $initializationVector
+                    $aes.Mode = [System.Security.Cryptography.CipherMode]::CBC
+                    $aes.Padding = [System.Security.Cryptography.PaddingMode]::PKCS7
+
+                    try
+                    {
+                        $decryptor = $aes.CreateDecryptor()
+                        $decryptedBytes = $decryptor.TransformFinalBlock($encryptedBytes, 0, $encryptedBytes.Length)
+                        $decryptor.Dispose()
+                    }
+                    catch
+                    {
+                        throw 'Decryption failed. Invalid password or corrupted file.'
+                    }
+                    finally
+                    {
+                        $aes.Dispose()
+                        [Array]::Clear($key, 0, $key.Length)
+                    }
+
+                    # Validate magic header (8 bytes: PWDPROT1)
+                    if ($decryptedBytes.Length -lt 8)
+                    {
+                        throw 'Decryption failed. Invalid password or corrupted file.'
+                    }
+                    $magicHeader = [System.Text.Encoding]::ASCII.GetBytes('PWDPROT1')
+                    $headerMatch = $true
+                    for ($i = 0; $i -lt 8; $i++)
+                    {
+                        if ($decryptedBytes[$i] -ne $magicHeader[$i])
+                        {
+                            $headerMatch = $false
+                            break
+                        }
+                    }
+                    if (-not $headerMatch)
+                    {
+                        throw 'Decryption failed. Invalid password or corrupted file.'
+                    }
+
+                    # Remove magic header from decrypted data
+                    $actualData = New-Object byte[] ($decryptedBytes.Length - 8)
+                    [System.Buffer]::BlockCopy($decryptedBytes, 8, $actualData, 0, $actualData.Length)
+
+                    # Write decrypted file
+                    [System.IO.File]::WriteAllBytes($outputFile, $actualData)
+
+                    # Remove encrypted file if requested
+                    if (-not $KeepEncrypted)
+                    {
+                        Remove-Item -Path $FilePath -Force
+                        Write-Verbose "Removed encrypted file: $FilePath"
+                    }
+
+                    Write-Verbose "Successfully decrypted '$FilePath' to '$outputFile'"
+                    [PSCustomObject]@{
+                        EncryptedPath = $FilePath
+                        DecryptedPath = $outputFile
+                        Success = $true
+                        Error = $null
+                    }
+                }
+                else
+                {
+                    # WhatIf - return what would happen
+                    [PSCustomObject]@{
+                        EncryptedPath = $FilePath
+                        DecryptedPath = $outputFile
+                        Success = $true
+                        Error = $null
+                    }
+                }
+            }
+            catch
+            {
+                Write-Error "Failed to decrypt file '$FilePath': $($_.Exception.Message)"
+                [PSCustomObject]@{
+                    EncryptedPath = $FilePath
+                    DecryptedPath = $outputFile
+                    Success = $false
+                    Error = $_.Exception.Message
+                }
+            }
+        }
     }
 
     process
@@ -297,188 +480,6 @@ function Unprotect-PathWithPassword
     end
     {
         Write-Verbose 'Decryption process completed'
-    }
-}
-
-function Invoke-FileDecryption
-{
-    [CmdletBinding(SupportsShouldProcess)]
-    param(
-        [String]$FilePath,
-        [SecureString]$Password,
-        [String]$OutputPath,
-        [Switch]$Force,
-        [Switch]$KeepEncrypted
-    )
-
-    try
-    {
-        # Determine output file path
-        if ($OutputPath)
-        {
-            if (Test-Path $OutputPath -PathType Container)
-            {
-                $fileName = [System.IO.Path]::GetFileName($FilePath)
-                if ($fileName.EndsWith('.enc'))
-                {
-                    $fileName = $fileName.Substring(0, $fileName.Length - 4)
-                }
-                $outputFile = Join-Path $OutputPath $fileName
-            }
-            else
-            {
-                $outputFile = $OutputPath
-            }
-        }
-        else
-        {
-            if ($FilePath.EndsWith('.enc'))
-            {
-                $outputFile = $FilePath.Substring(0, $FilePath.Length - 4)
-            }
-            else
-            {
-                $outputFile = $FilePath + '.dec'
-            }
-        }
-
-        # Check if output file exists
-        if ((Test-Path $outputFile) -and -not $Force)
-        {
-            Write-Warning "Skipping file: $FilePath (file exists, use -Force to overwrite)"
-            return [PSCustomObject]@{
-                EncryptedPath = $FilePath
-                DecryptedPath = $outputFile
-                Success = $false
-                Error = 'File exists and Force not specified'
-            }
-        }
-
-        if ($PSCmdlet.ShouldProcess($FilePath, 'Decrypt file'))
-        {
-            # Convert SecureString to bytes for key derivation
-            $passwordPtr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
-            try
-            {
-                $passwordPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPtr)
-                $passwordBytes = [System.Text.Encoding]::UTF8.GetBytes($passwordPlain)
-            }
-            finally
-            {
-                [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPtr)
-                if ($passwordPlain)
-                {
-                    $passwordPlain = $null
-                }
-            }
-
-            # Read encrypted file
-            $encryptedData = [System.IO.File]::ReadAllBytes($FilePath)
-
-            # Validate minimum file size (32 bytes salt + 16 bytes IV + at least 16 bytes data)
-            if ($encryptedData.Length -lt 64)
-            {
-                throw 'Invalid encrypted file format: file too small'
-            }
-
-            # Extract salt, IV, and encrypted data
-            $salt = $encryptedData[0..31]
-            $initializationVector = $encryptedData[32..47]
-            $encryptedBytes = $encryptedData[48..($encryptedData.Length - 1)]
-
-            # Derive key using PBKDF2 (same parameters as encryption)
-            $pbkdf2 = New-Object System.Security.Cryptography.Rfc2898DeriveBytes($passwordBytes, $salt, 100000, [System.Security.Cryptography.HashAlgorithmName]::SHA256)
-            $key = $pbkdf2.GetBytes(32) # 256-bit key
-            $pbkdf2.Dispose()
-
-            # Clear password bytes
-            [Array]::Clear($passwordBytes, 0, $passwordBytes.Length)
-
-            # Decrypt using AES
-            $aes = [System.Security.Cryptography.Aes]::Create()
-            $aes.Key = $key
-            $aes.IV = $initializationVector
-            $aes.Mode = [System.Security.Cryptography.CipherMode]::CBC
-            $aes.Padding = [System.Security.Cryptography.PaddingMode]::PKCS7
-
-            try
-            {
-                $decryptor = $aes.CreateDecryptor()
-                $decryptedBytes = $decryptor.TransformFinalBlock($encryptedBytes, 0, $encryptedBytes.Length)
-                $decryptor.Dispose()
-            }
-            catch
-            {
-                throw 'Decryption failed. Invalid password or corrupted file.'
-            }
-            finally
-            {
-                $aes.Dispose()
-                [Array]::Clear($key, 0, $key.Length)
-            }
-
-            # Validate magic header (8 bytes: PWDPROT1)
-            if ($decryptedBytes.Length -lt 8)
-            {
-                throw 'Decryption failed. Invalid password or corrupted file.'
-            }
-            $magicHeader = [System.Text.Encoding]::ASCII.GetBytes('PWDPROT1')
-            $headerMatch = $true
-            for ($i = 0; $i -lt 8; $i++)
-            {
-                if ($decryptedBytes[$i] -ne $magicHeader[$i])
-                {
-                    $headerMatch = $false
-                    break
-                }
-            }
-            if (-not $headerMatch)
-            {
-                throw 'Decryption failed. Invalid password or corrupted file.'
-            }
-
-            # Remove magic header from decrypted data
-            $actualData = New-Object byte[] ($decryptedBytes.Length - 8)
-            [System.Buffer]::BlockCopy($decryptedBytes, 8, $actualData, 0, $actualData.Length)
-
-            # Write decrypted file
-            [System.IO.File]::WriteAllBytes($outputFile, $actualData)
-
-            # Remove encrypted file if requested
-            if (-not $KeepEncrypted)
-            {
-                Remove-Item -Path $FilePath -Force
-                Write-Verbose "Removed encrypted file: $FilePath"
-            }
-
-            Write-Verbose "Successfully decrypted '$FilePath' to '$outputFile'"
-            [PSCustomObject]@{
-                EncryptedPath = $FilePath
-                DecryptedPath = $outputFile
-                Success = $true
-                Error = $null
-            }
-        }
-        else
-        {
-            # WhatIf - return what would happen
-            [PSCustomObject]@{
-                EncryptedPath = $FilePath
-                DecryptedPath = $outputFile
-                Success = $true
-                Error = $null
-            }
-        }
-    }
-    catch
-    {
-        Write-Error "Failed to decrypt file '$FilePath': $($_.Exception.Message)"
-        [PSCustomObject]@{
-            EncryptedPath = $FilePath
-            DecryptedPath = $outputFile
-            Success = $false
-            Error = $_.Exception.Message
-        }
     }
 }
 

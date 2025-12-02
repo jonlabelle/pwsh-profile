@@ -246,6 +246,151 @@ function Protect-PathWithPassword
                 }
             }
         }
+
+        # Internal helper function for file encryption
+        function Invoke-FileEncryption
+        {
+            [CmdletBinding(SupportsShouldProcess)]
+            param(
+                [String]$FilePath,
+                [SecureString]$Password,
+                [String]$OutputPath,
+                [Switch]$Force,
+                [Switch]$RemoveOriginal
+            )
+
+            try
+            {
+                # Determine output file path
+                if ($OutputPath)
+                {
+                    if (Test-Path $OutputPath -PathType Container)
+                    {
+                        $outputFile = Join-Path $OutputPath ([System.IO.Path]::GetFileName($FilePath) + '.enc')
+                    }
+                    else
+                    {
+                        $outputFile = $OutputPath
+                    }
+                }
+                else
+                {
+                    $outputFile = $FilePath + '.enc'
+                }
+
+                # Check if output file exists
+                if ((Test-Path $outputFile) -and -not $Force)
+                {
+                    Write-Warning "Skipping file: $FilePath (file exists, use -Force to overwrite)"
+                    return [PSCustomObject]@{
+                        OriginalPath = $FilePath
+                        EncryptedPath = $outputFile
+                        Success = $false
+                        Error = 'File exists and Force not specified'
+                    }
+                }
+
+                if ($PSCmdlet.ShouldProcess($FilePath, 'Encrypt file'))
+                {
+                    # Convert SecureString to bytes for key derivation
+                    $passwordPtr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
+                    try
+                    {
+                        $passwordPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPtr)
+                        $passwordBytes = [System.Text.Encoding]::UTF8.GetBytes($passwordPlain)
+                    }
+                    finally
+                    {
+                        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPtr)
+                        if ($passwordPlain)
+                        {
+                            $passwordPlain = $null
+                        }
+                    }
+
+                    # Generate random salt and IV
+                    $salt = New-Object byte[] 32
+                    $initializationVector = New-Object byte[] 16
+                    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+                    $rng.GetBytes($salt)
+                    $rng.GetBytes($initializationVector)
+                    $rng.Dispose()
+
+                    # Derive key using PBKDF2
+                    $pbkdf2 = New-Object System.Security.Cryptography.Rfc2898DeriveBytes($passwordBytes, $salt, 100000, [System.Security.Cryptography.HashAlgorithmName]::SHA256)
+                    $key = $pbkdf2.GetBytes(32) # 256-bit key
+                    $pbkdf2.Dispose()
+
+                    # Clear password bytes
+                    [Array]::Clear($passwordBytes, 0, $passwordBytes.Length)
+
+                    # Read input file
+                    $inputBytes = [System.IO.File]::ReadAllBytes($FilePath)
+
+                    # Add magic header for password validation (8 bytes: PWDPROT1)
+                    $magicHeader = [System.Text.Encoding]::ASCII.GetBytes('PWDPROT1')
+                    $dataToEncrypt = New-Object byte[] ($magicHeader.Length + $inputBytes.Length)
+                    [System.Buffer]::BlockCopy($magicHeader, 0, $dataToEncrypt, 0, $magicHeader.Length)
+                    [System.Buffer]::BlockCopy($inputBytes, 0, $dataToEncrypt, $magicHeader.Length, $inputBytes.Length)
+
+                    # Encrypt using AES
+                    $aes = [System.Security.Cryptography.Aes]::Create()
+                    $aes.Key = $key
+                    $aes.IV = $initializationVector
+                    $aes.Mode = [System.Security.Cryptography.CipherMode]::CBC
+                    $aes.Padding = [System.Security.Cryptography.PaddingMode]::PKCS7
+
+                    $encryptor = $aes.CreateEncryptor()
+                    $encryptedBytes = $encryptor.TransformFinalBlock($dataToEncrypt, 0, $dataToEncrypt.Length)
+
+                    # Clean up
+                    $encryptor.Dispose()
+                    $aes.Dispose()
+                    [Array]::Clear($key, 0, $key.Length)
+
+                    # Create output: salt + iv + encrypted data
+                    $outputBytes = $salt + $initializationVector + $encryptedBytes
+
+                    # Write encrypted file
+                    [System.IO.File]::WriteAllBytes($outputFile, $outputBytes)
+
+                    # Remove original file if requested
+                    if ($RemoveOriginal)
+                    {
+                        Remove-Item -Path $FilePath -Force
+                        Write-Verbose "Removed original file: $FilePath"
+                    }
+
+                    Write-Verbose "Successfully encrypted '$FilePath' to '$outputFile'"
+                    [PSCustomObject]@{
+                        OriginalPath = $FilePath
+                        EncryptedPath = $outputFile
+                        Success = $true
+                        Error = $null
+                    }
+                }
+                else
+                {
+                    # WhatIf - return what would happen
+                    [PSCustomObject]@{
+                        OriginalPath = $FilePath
+                        EncryptedPath = $outputFile
+                        Success = $true
+                        Error = $null
+                    }
+                }
+            }
+            catch
+            {
+                Write-Error "Failed to encrypt file '$FilePath': $($_.Exception.Message)"
+                [PSCustomObject]@{
+                    OriginalPath = $FilePath
+                    EncryptedPath = $outputFile
+                    Success = $false
+                    Error = $_.Exception.Message
+                }
+            }
+        }
     }
 
     process
@@ -295,150 +440,6 @@ function Protect-PathWithPassword
     end
     {
         Write-Verbose 'Encryption process completed'
-    }
-}
-
-function Invoke-FileEncryption
-{
-    [CmdletBinding(SupportsShouldProcess)]
-    param(
-        [String]$FilePath,
-        [SecureString]$Password,
-        [String]$OutputPath,
-        [Switch]$Force,
-        [Switch]$RemoveOriginal
-    )
-
-    try
-    {
-        # Determine output file path
-        if ($OutputPath)
-        {
-            if (Test-Path $OutputPath -PathType Container)
-            {
-                $outputFile = Join-Path $OutputPath ([System.IO.Path]::GetFileName($FilePath) + '.enc')
-            }
-            else
-            {
-                $outputFile = $OutputPath
-            }
-        }
-        else
-        {
-            $outputFile = $FilePath + '.enc'
-        }
-
-        # Check if output file exists
-        if ((Test-Path $outputFile) -and -not $Force)
-        {
-            Write-Warning "Skipping file: $FilePath (file exists, use -Force to overwrite)"
-            return [PSCustomObject]@{
-                OriginalPath = $FilePath
-                EncryptedPath = $outputFile
-                Success = $false
-                Error = 'File exists and Force not specified'
-            }
-        }
-
-        if ($PSCmdlet.ShouldProcess($FilePath, 'Encrypt file'))
-        {
-            # Convert SecureString to bytes for key derivation
-            $passwordPtr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
-            try
-            {
-                $passwordPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPtr)
-                $passwordBytes = [System.Text.Encoding]::UTF8.GetBytes($passwordPlain)
-            }
-            finally
-            {
-                [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPtr)
-                if ($passwordPlain)
-                {
-                    $passwordPlain = $null
-                }
-            }
-
-            # Generate random salt and IV
-            $salt = New-Object byte[] 32
-            $initializationVector = New-Object byte[] 16
-            $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-            $rng.GetBytes($salt)
-            $rng.GetBytes($initializationVector)
-            $rng.Dispose()
-
-            # Derive key using PBKDF2
-            $pbkdf2 = New-Object System.Security.Cryptography.Rfc2898DeriveBytes($passwordBytes, $salt, 100000, [System.Security.Cryptography.HashAlgorithmName]::SHA256)
-            $key = $pbkdf2.GetBytes(32) # 256-bit key
-            $pbkdf2.Dispose()
-
-            # Clear password bytes
-            [Array]::Clear($passwordBytes, 0, $passwordBytes.Length)
-
-            # Read input file
-            $inputBytes = [System.IO.File]::ReadAllBytes($FilePath)
-
-            # Add magic header for password validation (8 bytes: PWDPROT1)
-            $magicHeader = [System.Text.Encoding]::ASCII.GetBytes('PWDPROT1')
-            $dataToEncrypt = New-Object byte[] ($magicHeader.Length + $inputBytes.Length)
-            [System.Buffer]::BlockCopy($magicHeader, 0, $dataToEncrypt, 0, $magicHeader.Length)
-            [System.Buffer]::BlockCopy($inputBytes, 0, $dataToEncrypt, $magicHeader.Length, $inputBytes.Length)
-
-            # Encrypt using AES
-            $aes = [System.Security.Cryptography.Aes]::Create()
-            $aes.Key = $key
-            $aes.IV = $initializationVector
-            $aes.Mode = [System.Security.Cryptography.CipherMode]::CBC
-            $aes.Padding = [System.Security.Cryptography.PaddingMode]::PKCS7
-
-            $encryptor = $aes.CreateEncryptor()
-            $encryptedBytes = $encryptor.TransformFinalBlock($dataToEncrypt, 0, $dataToEncrypt.Length)
-
-            # Clean up
-            $encryptor.Dispose()
-            $aes.Dispose()
-            [Array]::Clear($key, 0, $key.Length)
-
-            # Create output: salt + iv + encrypted data
-            $outputBytes = $salt + $initializationVector + $encryptedBytes
-
-            # Write encrypted file
-            [System.IO.File]::WriteAllBytes($outputFile, $outputBytes)
-
-            # Remove original file if requested
-            if ($RemoveOriginal)
-            {
-                Remove-Item -Path $FilePath -Force
-                Write-Verbose "Removed original file: $FilePath"
-            }
-
-            Write-Verbose "Successfully encrypted '$FilePath' to '$outputFile'"
-            [PSCustomObject]@{
-                OriginalPath = $FilePath
-                EncryptedPath = $outputFile
-                Success = $true
-                Error = $null
-            }
-        }
-        else
-        {
-            # WhatIf - return what would happen
-            [PSCustomObject]@{
-                OriginalPath = $FilePath
-                EncryptedPath = $outputFile
-                Success = $true
-                Error = $null
-            }
-        }
-    }
-    catch
-    {
-        Write-Error "Failed to encrypt file '$FilePath': $($_.Exception.Message)"
-        [PSCustomObject]@{
-            OriginalPath = $FilePath
-            EncryptedPath = $outputFile
-            Success = $false
-            Error = $_.Exception.Message
-        }
     }
 }
 
