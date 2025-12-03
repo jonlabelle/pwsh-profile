@@ -51,7 +51,8 @@ function Remove-DockerArtifacts
     .EXAMPLE
         PS > Remove-DockerArtifacts -IncludeStoppedContainers -WhatIf
 
-        Shows what a full system prune would remove without actually deleting anything.
+        Shows what a full system prune would remove without actually deleting anything and displays an
+        estimated reclaimable size for unused images.
 
     .EXAMPLE
         PS > Remove-DockerArtifacts -IncludeVolumes -Confirm
@@ -64,7 +65,7 @@ function Remove-DockerArtifacts
         - ContainersPruned      : $true if stopped containers were included
         - VolumesPruned         : $true if volumes were included
         - ImageMode             : 'AllUnused' or 'DanglingOnly'
-        - EstimatedReclaimable  : What could be reclaimed (unused images) when running with -WhatIf
+        - EstimatedReclaimable  : Estimated unused image size in -WhatIf runs; otherwise reports not calculated
         - TotalSpaceFreed       : Total space freed based on prune output (formatted string)
         - Errors                : Number of errors encountered
 

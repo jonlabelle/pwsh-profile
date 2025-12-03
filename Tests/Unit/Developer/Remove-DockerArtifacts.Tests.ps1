@@ -115,6 +115,7 @@ Describe 'Remove-DockerArtifacts' {
             $result = Remove-DockerArtifacts
 
             $result.TotalSpaceFreed | Should -Be '1.20 GB'
+            $result.EstimatedReclaimable | Should -Be 'Not calculated (use -WhatIf to preview)'
         }
 
         It 'Estimates reclaimable space from unused images when no preview is available' {
