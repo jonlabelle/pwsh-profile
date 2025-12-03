@@ -305,12 +305,16 @@ function Remove-DockerArtifacts
 
     process
     {
-        # Estimate unused image space by scanning unused images
-        $estimate = Get-UnusedImageEstimate -DanglingOnly:$DanglingImagesOnly
-        if ($estimate)
+        # Estimate unused image space only for WhatIf previews
+        $shouldEstimate = $WhatIfPreference -eq $true
+        if ($shouldEstimate)
         {
-            $stats.EstimatedReclaimableEstimateSucceeded = $true
-            $stats.EstimatedReclaimableBytes = $estimate.Bytes
+            $estimate = Get-UnusedImageEstimate -DanglingOnly:$DanglingImagesOnly
+            if ($estimate)
+            {
+                $stats.EstimatedReclaimableEstimateSucceeded = $true
+                $stats.EstimatedReclaimableBytes = $estimate.Bytes
+            }
         }
 
         $reclaimedTotal = [int64]0
@@ -365,17 +369,24 @@ function Remove-DockerArtifacts
 
         $isWhatIf = $WhatIfPreference -eq $true
         $estimateSucceeded = $stats.EstimatedReclaimableEstimateSucceeded -eq $true
-        $estimatedDisplay = if (-not $estimateSucceeded)
+        $estimatedDisplay = if ($isWhatIf)
         {
-            'Unable to estimate (unknown)'
-        }
-        elseif ($stats.EstimatedReclaimableBytes -gt 0)
-        {
-            Format-ByteSize $stats.EstimatedReclaimableBytes
+            if (-not $estimateSucceeded)
+            {
+                'Unable to estimate (unknown)'
+            }
+            elseif ($stats.EstimatedReclaimableBytes -gt 0)
+            {
+                Format-ByteSize $stats.EstimatedReclaimableBytes
+            }
+            else
+            {
+                '0 bytes (nothing unused detected)'
+            }
         }
         else
         {
-            '0 bytes (nothing unused detected)'
+            'Not calculated (use -WhatIf to preview)'
         }
 
         $result = [PSCustomObject]@{
@@ -392,9 +403,9 @@ function Remove-DockerArtifacts
         Write-Host "  Volumes pruned    : $($result.VolumesPruned)" -ForegroundColor White
         Write-Host "  Image mode        : $($result.ImageMode)" -ForegroundColor White
 
-        Write-Host "  Estimated reclaimable: $($result.EstimatedReclaimable)" -ForegroundColor Yellow
         if ($isWhatIf)
         {
+            Write-Host "  Estimated reclaimable: $($result.EstimatedReclaimable)" -ForegroundColor Yellow
             Write-Host '  No changes made (WhatIf).' -ForegroundColor Yellow
         }
 
