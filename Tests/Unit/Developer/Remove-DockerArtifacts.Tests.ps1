@@ -31,6 +31,8 @@ Describe 'Remove-DockerArtifacts' {
                     Source = '/usr/local/bin/docker'
                 }
             }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'ps' -and $args[1] -eq '-a' } -MockWith { @() }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'ls' } -MockWith { @() }
         }
 
         It 'Prunes images, networks, and build cache without touching containers by default' {
@@ -76,12 +78,20 @@ Describe 'Remove-DockerArtifacts' {
         }
 
         It 'Honors -WhatIf and does not invoke Docker commands' {
-            Mock -CommandName docker -MockWith { throw 'Docker should not be called under -WhatIf' }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'ps' -and $args[1] -eq '-a' } -MockWith { @() }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'ls' } -MockWith { @() }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' } -MockWith { throw 'Should not prune images under -WhatIf' }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'network' -and $args[1] -eq 'prune' } -MockWith { throw 'Should not prune networks under -WhatIf' }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'builder' -and $args[1] -eq 'prune' } -MockWith { throw 'Should not prune builder cache under -WhatIf' }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'system' -and $args[1] -eq 'prune' } -MockWith { throw 'Should not system prune under -WhatIf' }
 
             $result = Remove-DockerArtifacts -IncludeStoppedContainers -SkipPreview -WhatIf
 
             $result.TotalSpaceFreed | Should -Be '0 bytes'
-            Assert-MockCalled -CommandName docker -Times 0
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' } -Times 0
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'network' -and $args[1] -eq 'prune' } -Times 0
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'builder' -and $args[1] -eq 'prune' } -Times 0
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'system' -and $args[1] -eq 'prune' } -Times 0
         }
     }
 
@@ -93,6 +103,8 @@ Describe 'Remove-DockerArtifacts' {
                     Source = '/usr/local/bin/docker'
                 }
             }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'ps' -and $args[1] -eq '-a' } -MockWith { @() }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'ls' } -MockWith { @() }
         }
 
         It 'Reports reclaimable space and remaining usage with previews' {
@@ -127,6 +139,20 @@ Describe 'Remove-DockerArtifacts' {
             $result.TotalSpaceFreed | Should -Be '3.00 GB'
 
             Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'system' -and $args[1] -eq 'df' } -Times 2
+        }
+
+        It 'Estimates reclaimable space from unused images when preview is skipped' {
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'ls' } -MockWith {
+                @'
+{"Repository":"jonlabelle/network-tools","Tag":"latest","ID":"sha256:abcd1234efgh","Size":"400MB"}
+'@
+            }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'ps' -and $args[1] -eq '-a' } -MockWith { @() }
+
+            $result = Remove-DockerArtifacts -SkipPreview -WhatIf
+
+            $result.EstimatedReclaimable | Should -Be '400.00 MB'
+            $result.TotalSpaceFreed | Should -Be '0 bytes'
         }
     }
 }

@@ -7,7 +7,8 @@ function Remove-DockerArtifacts
     .DESCRIPTION
         Removes unused Docker images, networks, build cache, and (optionally) stopped containers and volumes.
         Provides a reclaimable-space preview via 'docker system df', supports -WhatIf/-Confirm, and lets you
-        choose between pruning all unused images or only dangling ones.
+        choose between pruning all unused images or only dangling ones. In -WhatIf, an EstimatedReclaimable
+        value combines preview data with a scan of unused images for clearer expectations.
 
         By default:
         - Unused images (not just dangling) are pruned
@@ -70,13 +71,14 @@ function Remove-DockerArtifacts
     .OUTPUTS
         [PSCustomObject]
         Returns an object with summary information:
-        - ContainersPruned     : $true if stopped containers were included
-        - VolumesPruned        : $true if volumes were included
-        - ImageMode            : 'AllUnused' or 'DanglingOnly'
-        - PreviewReclaimable   : Reclaimable space reported before pruning (formatted string)
-        - ReclaimableRemaining : Reclaimable space reported after pruning (formatted string)
-        - TotalSpaceFreed      : Total space freed based on prune output and usage diff (formatted string)
-        - Errors               : Number of errors encountered
+        - ContainersPruned      : $true if stopped containers were included
+        - VolumesPruned         : $true if volumes were included
+        - ImageMode             : 'AllUnused' or 'DanglingOnly'
+        - PreviewReclaimable    : Reclaimable space reported before pruning (formatted string)
+        - ReclaimableRemaining  : Reclaimable space reported after pruning (formatted string)
+        - EstimatedReclaimable  : What could be reclaimed in -WhatIf mode (uses preview plus static analysis)
+        - TotalSpaceFreed       : Total space freed based on prune output and usage diff (formatted string)
+        - Errors                : Number of errors encountered
 
     .NOTES
         - Requires Docker CLI
@@ -123,6 +125,7 @@ function Remove-DockerArtifacts
             PreviewReclaimableBytes = [int64]0
             RemainingReclaimableBytes = [int64]0
             SpaceFreedBytes = [int64]0
+            EstimatedReclaimableBytes = [int64]0
             Errors = 0
         }
 
@@ -214,6 +217,105 @@ function Remove-DockerArtifacts
             {
                 Write-Verbose "Failed to capture docker usage snapshot: $($_.Exception.Message)"
                 return $null
+            }
+        }
+
+        function Convert-ImageId
+        {
+            param([string]$Id)
+            if ([string]::IsNullOrWhiteSpace($Id))
+            {
+                return $null
+            }
+
+            $trimmed = $Id.Trim()
+            if ($trimmed.Length -gt 12)
+            {
+                return $trimmed.Substring(0, 12)
+            }
+
+            return $trimmed
+        }
+
+        function Get-UnusedImageEstimate
+        {
+            param([Switch]$DanglingOnly)
+
+            try
+            {
+                $inUseIds = @()
+                try
+                {
+                    $inUseIds = & $dockerCommand.Name ps -a --format '{{.ImageID}}' 2>&1 | Where-Object { $_ -and $_.Trim() -ne '' }
+                }
+                catch
+                {
+                    Write-Verbose "Failed to collect in-use container images: $($_.Exception.Message)"
+                }
+
+                $inUseSet = New-Object System.Collections.Generic.HashSet[string]
+                foreach ($id in $inUseIds)
+                {
+                    $normalized = Convert-ImageId $id
+                    if ($normalized) { $null = $inUseSet.Add($normalized) }
+                }
+
+                $imagesOutput = & $dockerCommand.Name image ls --format '{{json .}}' 2>&1
+                $totalBytes = [int64]0
+                $count = 0
+
+                foreach ($line in $imagesOutput)
+                {
+                    if (-not $line -or $line.Trim() -eq '') { continue }
+                    try
+                    {
+                        $img = $line | ConvertFrom-Json
+                        $imageId = Convert-ImageId $img.ID
+                        $isDangling = ($img.Repository -eq '<none>') -or ($img.Tag -eq '<none>')
+
+                        if ($DanglingOnly -and -not $isDangling)
+                        {
+                            continue
+                        }
+
+                        $isInUse = $false
+                        if ($imageId)
+                        {
+                            foreach ($inUse in $inUseSet)
+                            {
+                                if ($inUse -and ($imageId.StartsWith($inUse, [System.StringComparison]::OrdinalIgnoreCase) -or
+                                        $inUse.StartsWith($imageId, [System.StringComparison]::OrdinalIgnoreCase)))
+                                {
+                                    $isInUse = $true
+                                    break
+                                }
+                            }
+                        }
+
+                        if (-not $isInUse)
+                        {
+                            $count++
+                            $totalBytes += Convert-SizeStringToBytes $img.Size
+                        }
+                    }
+                    catch
+                    {
+                        Write-Verbose "Failed to parse docker image entry for estimation: $($_.Exception.Message)"
+                    }
+                }
+
+                return [PSCustomObject]@{
+                    Count = $count
+                    Bytes = $totalBytes
+                }
+            }
+            catch
+            {
+                Write-Verbose "Failed to estimate unused images: $($_.Exception.Message)"
+                return [PSCustomObject]@{
+                    Count = 0
+                    Bytes = 0
+                }
             }
         }
 
@@ -337,12 +439,27 @@ function Remove-DockerArtifacts
             $stats.SpaceFreedBytes = $reclaimedTotal
         }
 
+        $estimate = Get-UnusedImageEstimate -DanglingOnly:$DanglingImagesOnly
+        $stats.EstimatedReclaimableBytes = $estimate.Bytes
+
+        $isWhatIf = $WhatIfPreference -eq $true
+        $estimatedBytes = [Math]::Max($stats.PreviewReclaimableBytes, $stats.EstimatedReclaimableBytes)
+        $estimatedReclaimable = if ($SkipPreview -and $estimatedBytes -eq 0)
+        {
+            'Skipped (use without -SkipPreview for details)'
+        }
+        else
+        {
+            Format-ByteSize $estimatedBytes
+        }
+
         $result = [PSCustomObject]@{
             ContainersPruned = $stats.ContainersPruned
             VolumesPruned = $stats.VolumesPruned
             ImageMode = $stats.ImageMode
             PreviewReclaimable = if ($SkipPreview) { 'Skipped (use without -SkipPreview for details)' } else { Format-ByteSize $stats.PreviewReclaimableBytes }
             ReclaimableRemaining = if ($SkipPreview) { 'Skipped (use without -SkipPreview for details)' } else { Format-ByteSize $stats.RemainingReclaimableBytes }
+            EstimatedReclaimable = if ($isWhatIf) { $estimatedReclaimable } else { 'Not applicable (changes executed)' }
             TotalSpaceFreed = Format-ByteSize $stats.SpaceFreedBytes
             Errors = $stats.Errors
         }
@@ -356,6 +473,12 @@ function Remove-DockerArtifacts
         {
             Write-Host "  Reclaimable before: $($result.PreviewReclaimable)" -ForegroundColor White
             Write-Host "  Reclaimable after : $($result.ReclaimableRemaining)" -ForegroundColor White
+        }
+
+        if ($isWhatIf)
+        {
+            Write-Host "  Estimated reclaimable (WhatIf): $($result.EstimatedReclaimable)" -ForegroundColor Yellow
+            Write-Host '  No changes made (WhatIf).' -ForegroundColor Yellow
         }
 
         Write-Host "  Space freed       : $($result.TotalSpaceFreed)" -ForegroundColor Green
