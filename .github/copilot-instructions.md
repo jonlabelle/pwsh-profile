@@ -7,7 +7,7 @@
 
 ## Architecture Overview
 
-This is a **cross-platform PowerShell profile system** that provides utility functions for Windows, macOS, and Linux. Functions are auto-loaded via dot-sourcing from the `Functions/{Category}` directory.
+This is a modern, **cross-platform PowerShell profile system** that provides utility functions for Windows, macOS, and Linux. Functions are auto-loaded via dot-sourcing from the `Functions/{Category}` directory.
 
 **Core Structure:**
 
