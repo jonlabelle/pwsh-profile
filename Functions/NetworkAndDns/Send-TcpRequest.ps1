@@ -42,7 +42,8 @@ function Send-TcpRequest
         Default is 30 seconds.
 
     .EXAMPLE
-        PS > Send-TcpRequest -ComputerName "www.google.com" -Port 80 -Test
+        PS > Send-TcpRequest -ComputerName "bing.com" -Port 443 -Test
+        True
 
         Test if a web server is accessible.
 

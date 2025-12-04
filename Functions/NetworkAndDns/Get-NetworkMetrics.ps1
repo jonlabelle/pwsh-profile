@@ -99,9 +99,9 @@
         Delay between samples in milliseconds (default: 100). Set to 0 for back-to-back samples.
 
     .EXAMPLE
-        PS > Get-NetworkMetrics -HostName 'google.com' -Count 20
+        PS > Get-NetworkMetrics -HostName 'bing.com' -Count 20
 
-        Collects 20 samples of network metrics for google.com
+        Collects 20 samples of network metrics for bing.com
 
     .EXAMPLE
         PS > Get-NetworkMetrics -HostName '1.1.1.1' -Port 53 -IncludeDns
@@ -125,7 +125,7 @@
         Test database server with 5-second timeout and 30 samples
 
     .EXAMPLE
-        PS > 'google.com', 'cloudflare.com', 'github.com' | Get-NetworkMetrics -Count 25
+        PS > 'bing.com', 'cloudflare.com', 'github.com' | Get-NetworkMetrics -Count 25
 
         Test multiple hosts via pipeline with 25 samples each
 

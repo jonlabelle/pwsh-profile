@@ -46,30 +46,43 @@ function Invoke-Ping
         Default is 1000 (1 second). Valid range: 0-10000.
 
     .EXAMPLE
-        PS > Invoke-Ping -ComputerName 'google.com'
+        PS > Invoke-Ping -ComputerName 'bing.com'
 
-        Host        : google.com
+        Host        : bing.com
         Sent        : 4
         Received    : 4
         Lost        : 0
         LossPercent : 0
-        MinTime     : 49
-        MaxTime     : 75
-        AvgTime     : 60.75
+        MinTime     : 25
+        MaxTime     : 33
+        AvgTime     : 29
         BufferSize  : 32
         Status      : Success
-        IPAddress   : 142.251.34.238
+        IPAddress   : 150.171.27.10
         TTL         : 128
 
-        Sends 4 ping requests to google.com and displays response details.
+        Sends 4 ping requests to bing.com and displays response details.
 
     .EXAMPLE
-        PS > Invoke-Ping -ComputerName 'google.com' -Count 10 -Timeout 2000
+        PS > Invoke-Ping -ComputerName 'bing.com' -Count 10 -Timeout 2000
+
+        Host        : bing.com
+        Sent        : 10
+        Received    : 10
+        Lost        : 0
+        LossPercent : 0
+        MinTime     : 25
+        MaxTime     : 37
+        AvgTime     : 31.8
+        BufferSize  : 32
+        Status      : Success
+        IPAddress   : 150.171.27.10
+        TTL         : 128
 
         Sends 10 ping requests with a 2-second timeout.
 
     .EXAMPLE
-        PS > @('google.com', 'github.com', '8.8.8.8') | Invoke-Ping -Quiet
+        PS > @('bing.com', 'github.com', '8.8.8.8') | Invoke-Ping -Quiet
 
         Tests connectivity to multiple hosts and returns boolean results.
 

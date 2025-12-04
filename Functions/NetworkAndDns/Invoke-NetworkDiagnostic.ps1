@@ -137,12 +137,12 @@
         Degree of parallelism when testing multiple hosts on PowerShell 7+ (default: logical core count, minimum 2)
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'google.com'
+        PS > Invoke-NetworkDiagnostic -HostName 'bing.com'
 
-        Tests google.com with default settings (20 samples, port 443)
+        Tests bing.com with default settings (20 samples, port 443)
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'google.com', '1.1.1.1', 'github.com' -Count 30
+        PS > Invoke-NetworkDiagnostic -HostName 'bing.com', '1.1.1.1', 'github.com' -Count 30
 
         Tests multiple hosts with 30 samples each
 
@@ -157,7 +157,7 @@
         Continuously monitors cloudflare.com, updating every 10 seconds until Ctrl+C is pressed
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'google.com' -Continuous -ShowGraph -Interval 5
+        PS > Invoke-NetworkDiagnostic -HostName 'bing.com' -Continuous -ShowGraph -Interval 5
 
         Monitor with detailed time-series graphs, auto-refreshing every 5 seconds
 
@@ -192,7 +192,7 @@
         Append a single iteration (good for logs/tests); no clear or in-place refresh
 
     .EXAMPLE
-        PS > 'google.com', 'cloudflare.com' | Invoke-NetworkDiagnostic -Count 50
+        PS > 'bing.com', 'cloudflare.com' | Invoke-NetworkDiagnostic -Count 50
 
         Tests hosts via pipeline with 50 samples each
 
@@ -233,12 +233,12 @@
         Monitor VPN gateway continuously with visual graphs (default 5-second interval)
 
     .EXAMPLE
-        PS > netdiag -HostName 'google.com' -Count 10
+        PS > netdiag -HostName 'bing.com' -Count 10
 
         Quick test using the 'netdiag' alias with 10 samples
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'google.com','cloudflare.com','github.com' -Count 15 -SummaryOnly
+        PS > Invoke-NetworkDiagnostic -HostName 'bing.com','cloudflare.com','github.com' -Count 15 -SummaryOnly
 
         Parallel tests (PowerShell 7+) with a compact summary-only view for multiple hosts
 

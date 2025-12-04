@@ -29,37 +29,37 @@ function Test-TlsProtocol
         Valid values: Tls, Tls11, Tls12, Tls13
 
     .EXAMPLE
-        PS > Test-TlsProtocol -ComputerName 'google.com'
+        PS > Test-TlsProtocol -ComputerName 'bing.com'
 
-        Server       : google.com
+        Server       : bing.com
         Port         : 443
         Protocol     : Tls
         Supported    : False
         Status       : Connection failed
         ResponseTime : 00:00:00.0234567
 
-        Server       : google.com
+        Server       : bing.com
         Port         : 443
         Protocol     : Tls11
         Supported    : False
         Status       : Connection failed
         ResponseTime : 00:00:00.0187654
 
-        Server       : google.com
+        Server       : bing.com
         Port         : 443
         Protocol     : Tls12
         Supported    : True
         Status       : Success
         ResponseTime : 00:00:00.1234567
 
-        Server       : google.com
+        Server       : bing.com
         Port         : 443
         Protocol     : Tls13
         Supported    : True
         Status       : Success
         ResponseTime : 00:00:00.1123456
 
-        Tests all TLS protocols on google.com:443.
+        Tests all TLS protocols on bing.com:443.
 
     .EXAMPLE
         PS > Test-TlsProtocol -ComputerName 'github.com' -Protocol Tls12,Tls13

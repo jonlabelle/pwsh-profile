@@ -31,16 +31,16 @@ function Test-Port
         Use this switch to test UDP ports.
 
     .EXAMPLE
-        PS > Test-Port -ComputerName 'google.com' -Port 80
+        PS > Test-Port -ComputerName 'bing.com' -Port 80
 
-        Server       : google.com
+        Server       : bing.com
         Port         : 80
         Protocol     : TCP
         Open         : True
         Status       : Connection successful
         ResponseTime : 35
 
-        Tests if TCP port 80 is open on 'google.com'.
+        Tests if TCP port 80 is open on 'bing.com'.
 
     .EXAMPLE
         PS > 80 | Test-Port

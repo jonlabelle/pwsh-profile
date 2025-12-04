@@ -66,7 +66,7 @@ function Test-HttpResponse
     .EXAMPLE
         PS > Test-HttpResponse -Uri 'https://api.github.com/users/octocat' -IncludeHeaders
 
-        Uri               : https://www.google.com
+        Uri               : https://www.bing.com
         StatusCode        : 200
         StatusDescription : OK
         Success           : True
@@ -80,7 +80,7 @@ function Test-HttpResponse
         Tests GitHub API endpoint and includes response headers.
 
     .EXAMPLE
-        PS > @('https://google.com', 'https://github.com', 'https://stackoverflow.com') | Test-HttpResponse
+        PS > @('https://bing.com', 'https://github.com', 'https://stackoverflow.com') | Test-HttpResponse
 
         Tests multiple URLs using pipeline input.
 

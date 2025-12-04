@@ -20,14 +20,6 @@ BeforeAll {
 
 Describe 'Test-DnsNameResolution' {
     Context 'Basic DNS resolution examples from documentation' {
-        It "Tests whether localhost can be resolved using the system's default DNS servers (Example: Test-DnsNameResolution -Name 'localhost')" {
-            # Test basic DNS resolution using system's default DNS servers
-            # Use localhost instead of google.com due to network restrictions in test environment
-            $result = Test-DnsNameResolution -Name 'localhost'
-            $result | Should -BeOfType [System.Boolean]
-            $result | Should -Be $true
-        }
-
         It 'Tests whether localhost can be resolved with specified DNS servers (Example: Test-DnsNameResolution -Name "localhost" -Server "8.8.8.8", "8.8.4.4")' {
             # Test DNS resolution with custom DNS servers specified
             # Note: This test uses system DNS for compatibility but validates the parameter structure

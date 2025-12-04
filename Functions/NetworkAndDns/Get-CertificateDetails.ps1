@@ -51,7 +51,7 @@ function Get-CertificateDetails
         FriendlyName        :
         Archived            : False
 
-        Gets detailed SSL certificate information for google.com on port 443.
+        Gets detailed SSL certificate information for bing.com on port 443.
 
     .EXAMPLE
         PS > Get-CertificateDetails -ComputerName 'example.com' -Port 8443
@@ -59,7 +59,7 @@ function Get-CertificateDetails
         Gets detailed SSL certificate information for example.com on port 8443.
 
     .EXAMPLE
-        PS > @('google.com', 'github.com', 'stackoverflow.com') | Get-CertificateDetails
+        PS > @('bing.com', 'github.com', 'stackoverflow.com') | Get-CertificateDetails
 
         Gets detailed SSL certificate information for multiple hosts using pipeline input.
 
@@ -69,7 +69,7 @@ function Get-CertificateDetails
         Gets certificate details with a 5-second timeout and includes certificate chain information.
 
     .EXAMPLE
-        PS > Get-CertificateDetails -ComputerName 'google.com' -IncludeExtensions
+        PS > Get-CertificateDetails -ComputerName 'bing.com' -IncludeExtensions
 
         ComputerName        : jonlabelle.com
         Port                : 443

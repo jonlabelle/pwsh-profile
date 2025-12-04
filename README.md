@@ -310,7 +310,7 @@ After installation, try these commands to explore what the profile offers:
 Show-ProfileFunctions
 
 # Test network connectivity
-Test-Port -ComputerName google.com -Port 443
+Test-Port -ComputerName bing.com -Port 443
 
 # Get your public IP with geolocation
 Get-IPAddress
@@ -376,7 +376,7 @@ For example, to use a profile function in the remote session:
 
 ```powershell
 # Use a function from the loaded profile
-Invoke-Command -Session $session -ScriptBlock { Test-Port -ComputerName google.com -Port 443 }
+Invoke-Command -Session $session -ScriptBlock { Test-Port -ComputerName bing.com -Port 443 }
 
 # Or enter the session interactively
 Enter-PSSession $session
@@ -488,7 +488,7 @@ Functions can be used without loading the profile by dot-sourcing them directly:
 . ~/.config/powershell/Functions/NetworkAndDns/Test-Port.ps1
 
 # Use it
-Test-Port -ComputerName google.com -Port 443
+Test-Port -ComputerName bing.com -Port 443
 ```
 
 > Functions with dependencies automatically load what they need, so you only need to dot-source the function you want to use.

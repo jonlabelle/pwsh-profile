@@ -36,62 +36,62 @@ function Get-DnsRecord
         Default is 10 seconds. Valid range: 1-60 seconds.
 
     .EXAMPLE
-        PS > Get-DnsRecord -Name 'google.com'
+        PS > Get-DnsRecord -Name 'bing.com'
 
         Name       Type TTL Data
         ----       ---- --- ----
-        google.com A     29 142.251.167.139
-        google.com A     29 142.251.167.101
-        google.com A     29 142.251.167.100
-        google.com A     29 142.251.167.102
-        google.com A     29 142.251.167.138
-        google.com A     29 142.251.167.113
+        bing.com A     29 142.251.167.139
+        bing.com A     29 142.251.167.101
+        bing.com A     29 142.251.167.100
+        bing.com A     29 142.251.167.102
+        bing.com A     29 142.251.167.138
+        bing.com A     29 142.251.167.113
 
-        Retrieves A records for google.com using Cloudflare DoH.
+        Retrieves A records for bing.com using Cloudflare DoH.
 
     .EXAMPLE
-        PS > Get-DnsRecord -Name 'google.com' -Type MX
+        PS > Get-DnsRecord -Name 'bing.com' -Type MX
 
         Name       Type TTL Data
         ----       ---- --- ----
-        google.com MX    85 10 smtp.google.com.
+        bing.com MX    85 10 smtp.bing.com.
 
-        Retrieves MX (mail exchange) records for google.com.
+        Retrieves MX (mail exchange) records for bing.com.
 
     .EXAMPLE
-        PS > Get-DnsRecord -Name 'google.com' -Type TXT
+        PS > Get-DnsRecord -Name 'bing.com' -Type TXT
 
         Name       Type TTL Data
         ----       ---- --- ----
-        google.com TXT  201 docusign=1b0a6754-49b1-4db5-8540-d2c12664b289
-        google.com TXT  201 onetrust-domain-verification=de01ed21f2fa4d8781cbc3ffb89cf4ef
+        bing.com TXT  201 docusign=1b0a6754-49b1-4db5-8540-d2c12664b289
+        bing.com TXT  201 onetrust-domain-verification=de01ed21f2fa4d8781cbc3ffb89cf4ef
         ...
         ...
 
         Retrieves TXT records (often used for SPF, DKIM, domain verification).
 
     .EXAMPLE
-        PS > @('google.com', 'github.com', 'microsoft.com') | Get-DnsRecord -Type A
+        PS > @('bing.com', 'github.com', 'microsoft.com') | Get-DnsRecord -Type A
 
         Retrieves A records for multiple domains using pipeline input.
 
     .EXAMPLE
-        PS > Get-DnsRecord -Name 'google.com' -Type AAAA -Server google
+        PS > Get-DnsRecord -Name 'bing.com' -Type AAAA -Server google
 
         Retrieves IPv6 (AAAA) records using Google's DNS-over-HTTPS service.
 
     .EXAMPLE
-        PS > Get-DnsRecord -Name '_dmarc.google.com' -Type TXT
+        PS > Get-DnsRecord -Name '_dmarc.bing.com' -Type TXT
 
         Retrieves DMARC policy TXT record.
 
     .EXAMPLE
-        PS > Get-DnsRecord -Name 'google.com' -Type NS
+        PS > Get-DnsRecord -Name 'bing.com' -Type NS
 
-        Retrieves nameserver (NS) records for google.com.
+        Retrieves nameserver (NS) records for bing.com.
 
     .EXAMPLE
-        PS > Get-DnsRecord -Name 'google.com' -Type SOA
+        PS > Get-DnsRecord -Name 'bing.com' -Type SOA
 
         Retrieves Start of Authority (SOA) record.
 

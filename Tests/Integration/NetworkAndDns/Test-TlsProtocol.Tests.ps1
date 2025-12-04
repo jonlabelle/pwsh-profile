@@ -27,10 +27,10 @@ Describe 'Test-TlsProtocol Integration Tests' {
     Context 'Real-world TLS protocol testing' {
         It 'Should successfully test TLS 1.2 on a known HTTPS endpoint' {
             # Test against a reliable public endpoint that supports TLS 1.2
-            $result = Test-TlsProtocol -ComputerName 'www.google.com' -Protocol Tls12 -Timeout 10000
+            $result = Test-TlsProtocol -ComputerName 'bing.com' -Protocol Tls12 -Timeout 10000
 
             $result | Should -Not -BeNullOrEmpty
-            $result.Server | Should -Be 'www.google.com'
+            $result.Server | Should -Be 'bing.com'
             $result.Port | Should -Be 443
             $result.Protocol | Should -Be 'Tls12'
             $result.Supported | Should -Be $true
@@ -52,7 +52,7 @@ Describe 'Test-TlsProtocol Integration Tests' {
 
         It 'Should test multiple TLS protocols on modern endpoints' {
             # Test TLS 1.0 and 1.1 (whether supported or not depends on server configuration)
-            $result = Test-TlsProtocol -ComputerName 'www.google.com' -Protocol Tls, Tls11 -Timeout 10000
+            $result = Test-TlsProtocol -ComputerName 'bing.com' -Protocol Tls, Tls11 -Timeout 10000
 
             $result | Should -Not -BeNullOrEmpty
             $result | Should -HaveCount 2
@@ -110,7 +110,7 @@ Describe 'Test-TlsProtocol Integration Tests' {
 
         It 'Should handle non-HTTPS ports gracefully' {
             # Test a known HTTP port (80) which doesn't support TLS
-            $result = Test-TlsProtocol -ComputerName 'www.google.com' -Port 80 -Protocol Tls12 -Timeout 5000
+            $result = Test-TlsProtocol -ComputerName 'bing.com' -Port 80 -Protocol Tls12 -Timeout 5000
 
             $result | Should -Not -BeNullOrEmpty
             # Connection might succeed but TLS handshake should fail
@@ -121,7 +121,7 @@ Describe 'Test-TlsProtocol Integration Tests' {
     Context 'Performance characteristics' {
         It 'Should complete TLS testing within reasonable time' {
             $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-            $result = Test-TlsProtocol -ComputerName 'www.google.com' -Protocol Tls12 -Timeout 10000
+            $result = Test-TlsProtocol -ComputerName 'bing.com' -Protocol Tls12 -Timeout 10000
             $stopwatch.Stop()
 
             # Should complete within timeout plus overhead (15 seconds total)
@@ -142,12 +142,12 @@ Describe 'Test-TlsProtocol Integration Tests' {
 
     Context 'Pipeline input with real endpoints' {
         It 'Should handle multiple servers via pipeline' {
-            $servers = @('www.google.com', 'www.github.com')
+            $servers = @('bing.com', 'www.github.com')
             $result = $servers | Test-TlsProtocol -Protocol Tls12 -Timeout 10000
 
             $result | Should -Not -BeNullOrEmpty
             $result | Should -HaveCount 2
-            $result[0].Server | Should -Be 'www.google.com'
+            $result[0].Server | Should -Be 'bing.com'
             $result[1].Server | Should -Be 'www.github.com'
 
             # Both should support TLS 1.2
@@ -161,7 +161,7 @@ Describe 'Test-TlsProtocol Integration Tests' {
     Context 'Custom ports' {
         It 'Should work with custom HTTPS ports if available' {
             # Most public services use 443, but this validates the port parameter works
-            $result = Test-TlsProtocol -ComputerName 'www.google.com' -Port 443 -Protocol Tls12 -Timeout 10000
+            $result = Test-TlsProtocol -ComputerName 'bing.com' -Port 443 -Protocol Tls12 -Timeout 10000
 
             $result | Should -Not -BeNullOrEmpty
             $result.Port | Should -Be 443

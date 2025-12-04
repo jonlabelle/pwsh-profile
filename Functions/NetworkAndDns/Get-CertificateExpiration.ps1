@@ -34,11 +34,11 @@ function Get-CertificateExpiration
         Defaults to 30 days.
 
     .EXAMPLE
-        PS > Get-CertificateExpiration -ComputerName 'google.com'
+        PS > Get-CertificateExpiration -ComputerName 'bing.com'
 
         Monday, January 5, 2026 3:37:32 AM
 
-        Gets the SSL certificate expiration date for google.com on port 443.
+        Gets the SSL certificate expiration date for bing.com on port 443.
 
     .EXAMPLE
         PS > Get-CertificateExpiration -ComputerName 'example.com' -Port 8443
@@ -46,7 +46,7 @@ function Get-CertificateExpiration
         Gets the SSL certificate expiration date for example.com on port 8443.
 
     .EXAMPLE
-        PS > @('google.com', 'github.com', 'stackoverflow.com') | Get-CertificateExpiration
+        PS > @('bing.com', 'github.com', 'stackoverflow.com') | Get-CertificateExpiration
 
         Gets SSL certificate expiration dates for multiple hosts using pipeline input.
 

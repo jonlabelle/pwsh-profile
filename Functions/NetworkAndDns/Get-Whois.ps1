@@ -17,7 +17,7 @@ function Get-Whois
     .PARAMETER Domain
         The domain name or IP address to query.
         Accepts pipeline input for bulk WHOIS lookups.
-        Examples: 'google.com', 'github.com', '8.8.8.8'
+        Examples: 'bing.com', 'github.com', '8.8.8.8'
 
     .PARAMETER Server
         Specify a custom WHOIS server to query.
@@ -38,9 +38,9 @@ function Get-Whois
         Useful for debugging or when you need the complete unprocessed output.
 
     .EXAMPLE
-        PS > Get-Whois -Domain 'google.com'
+        PS > Get-Whois -Domain 'bing.com'
 
-        Domain         : google.com
+        Domain         : bing.com
         WhoisServer    : whois.markmonitor.com
         Registrar      : MarkMonitor, Inc.
         CreationDate   : 9/15/1997 12:00:00 AM
@@ -50,11 +50,11 @@ function Get-Whois
                         (https://www.icann.org/epp#clientTransferProhibited), clientDeleteProhibited
                         (https://www.icann.org/epp#clientDeleteProhibited), serverUpdateProhibited
                         (https://www.icann.org/epp#serverUpdateProhibited)…}
-        NameServers    : {ns1.google.com, ns3.google.com, ns4.google.com, ns2.google.com}
+        NameServers    : {ns1.bing.com, ns3.bing.com, ns4.bing.com, ns2.bing.com}
         ...
         ...
 
-        Performs a WHOIS lookup for google.com and returns parsed registration information.
+        Performs a WHOIS lookup for bing.com and returns parsed registration information.
 
     .EXAMPLE
         PS > Get-Whois -Domain 'github.com' -Raw
@@ -62,7 +62,7 @@ function Get-Whois
         Returns the raw WHOIS response for github.com without parsing.
 
     .EXAMPLE
-        PS > @('google.com', 'github.com', 'microsoft.com') | Get-Whois
+        PS > @('bing.com', 'github.com', 'microsoft.com') | Get-Whois
 
         Performs WHOIS lookups for multiple domains using pipeline input.
 

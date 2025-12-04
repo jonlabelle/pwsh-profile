@@ -155,7 +155,7 @@
         ▂▁▂▅▂▁▁▂ (min: 13ms, max: 22ms, avg: 15.6ms)
 
     .EXAMPLE
-        PS > $metrics = Get-NetworkMetrics -HostName 'google.com' -Count 30
+        PS > $metrics = Get-NetworkMetrics -HostName 'bing.com' -Count 30
         PS > Show-NetworkLatencyGraph -Data $metrics.LatencyData -GraphType TimeSeries -ShowStats
 
         Collect metrics and display as a time-series graph with statistics
@@ -227,9 +227,9 @@
         Collect multiple metric sets over time and display combined time-series graph
 
     .EXAMPLE
-        PS > Show-NetworkLatencyGraph -HostName 'google.com' -GraphType TimeSeries -Continuous -Interval 3
+        PS > Show-NetworkLatencyGraph -HostName 'bing.com' -GraphType TimeSeries -Continuous -Interval 3
 
-        Continuously monitor google.com with animated time-series graph, updating every 3 seconds
+        Continuously monitor bing.com with animated time-series graph, updating every 3 seconds
 
     .EXAMPLE
         PS > Show-NetworkLatencyGraph -HostName 'cloudflare.com' -GraphType Sparkline -Continuous -ShowStats
@@ -252,7 +252,7 @@
         Run one continuous iteration for testing/CI (hidden parameter)
 
     .EXAMPLE
-        PS > Show-NetworkLatencyGraph -HostName 'google.com' -GraphType Sparkline -Continuous -Count 10 -SampleDelayMilliseconds 10
+        PS > Show-NetworkLatencyGraph -HostName 'bing.com' -GraphType Sparkline -Continuous -Count 10 -SampleDelayMilliseconds 10
 
         Faster sampling cadence by reducing the delay between samples in continuous mode
 

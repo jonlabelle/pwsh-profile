@@ -23,23 +23,23 @@ function Test-DnsNameResolution
         Defaults to 'A' record.
 
     .EXAMPLE
-        PS > Test-DnsNameResolution -Name 'google.com'
+        PS > Test-DnsNameResolution -Name 'bing.com'
         True
 
-        Tests whether google.com can be resolved using the system's default DNS servers.
+        Tests whether bing.com can be resolved using the system's default DNS servers.
 
     .EXAMPLE
-        PS > Test-DnsNameResolution -Name 'google.com' -Server '8.8.8.8','8.8.4.4'
+        PS > Test-DnsNameResolution -Name 'bing.com' -Server '8.8.8.8','8.8.4.4'
         True
 
-        Tests whether google.com can be resolved.
+        Tests whether bing.com can be resolved.
         Note: Custom DNS servers are specified but system DNS will be used for cross-platform compatibility.
 
     .EXAMPLE
-        PS > Test-DnsNameResolution -Name 'google.com' -Type 'AAAA' -Verbose
+        PS > Test-DnsNameResolution -Name 'bing.com' -Type 'AAAA' -Verbose
         True
 
-        Tests whether google.com has an IPv6 (AAAA) record with verbose output.
+        Tests whether bing.com has an IPv6 (AAAA) record with verbose output.
 
     .EXAMPLE
         PS > 'api.internal.contoso.com','db.internal.contoso.com' | Test-DnsNameResolution -Verbose
