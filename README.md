@@ -310,16 +310,16 @@ After installation, try these commands to explore what the profile offers:
 Show-ProfileFunctions
 
 # Test network connectivity
-Test-Port -ComputerName bing.com -Port 443
+Test-Port bing.com -Port 443
 
 # Get your public IP with geolocation
 Get-IPAddress
 
 # Check DNS resolution
-Test-DnsNameResolution -Name github.com
+Test-DnsNameResolution github.com
 
 # Get SSL certificate expiration
-Get-CertificateExpiration -ComputerName github.com
+Get-CertificateExpiration github.com
 ```
 
 Explore the full list of functions in the [Functions](#functions) section below.
@@ -381,7 +381,7 @@ Invoke-Command -Session $session -ScriptBlock { Test-Port -ComputerName bing.com
 # Or enter the session interactively
 Enter-PSSession $session
 # Now you can use profile functions directly
-Test-DnsNameResolution -Name example.com
+Test-DnsNameResolution example.com
 Exit-PSSession
 ```
 
