@@ -47,7 +47,7 @@ function Replace-StringInFile
         The pattern is automatically converted to be separator-aware. For example, searching for
         'userName' with -PreserveCase will find and replace: 'userName' → 'newName', 'UserName' →
         'NewName', 'USERNAME' → 'NEWNAME', 'user_name' → 'new_name', 'USER_NAME' → 'NEW_NAME',
-        'user-name' → 'new-name', etc.
+        'user-name' → 'new-name', 'user name' → 'new name', etc.
 
         Supported case patterns:
         - ALL CAPS: Converts replacement to uppercase
