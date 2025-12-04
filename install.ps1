@@ -728,6 +728,16 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
 {
     try
     {
+        # Enforce minimum supported PowerShell version
+        $minimumSupportedVersion = [version]'5.1'
+        if ($PSVersionTable.PSVersion -lt $minimumSupportedVersion)
+        {
+            $upgradeLink = 'https://learn.microsoft.com/powershell/scripting/install/installing-powershell'
+            throw (
+                'PowerShell {0} detected. This profile requires either Windows PowerShell Desktop 5.1 (Windows only) or PowerShell Core (6.2+). Please install or switch to a supported PowerShell edition. Learn more: {1}' -f $PSVersionTable.PSVersion, $upgradeLink
+            )
+        }
+
         # Validate parameter combinations
         if (-not (Test-ParameterConflicts))
         {
