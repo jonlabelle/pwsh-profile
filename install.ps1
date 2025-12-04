@@ -184,6 +184,9 @@ function Test-ParameterConflicts
     .DESCRIPTION
         Checks for conflicting parameter combinations and throws clear error messages
         when incompatible parameters are used together.
+
+    .NOTES
+        This approach requires more code, but provides clearer error messaging than Parameter Sets.
     #>
     param()
 
