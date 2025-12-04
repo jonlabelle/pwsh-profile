@@ -309,7 +309,7 @@ After installation, try these commands to explore what the profile offers:
 # View all available functions
 Show-ProfileFunctions
 
-# Test network connectivity
+# Test network connectivity to a host and port
 Test-Port bing.com -Port 443
 
 # Get your public IP with geolocation
@@ -320,6 +320,27 @@ Test-DnsNameResolution github.com
 
 # Get SSL certificate expiration
 Get-CertificateExpiration github.com
+```
+
+Or dig deeper with a more complex example:
+
+```console
+# Perform comprehensive network diagnostics on multiple hosts
+PS > Invoke-NetworkDiagnostic 'bing.com', 'microsoft.com'
+
+┌─ bing.com:443 (collect 2584.9ms)
+│  Latency: ▂▂▃▄▄▅▆▅▆▅▄▄▇▅▇▇█▅▅▁
+│  Stats  : min: 27.35ms | max: 36.26ms | avg: 32.1ms | jitter: 2ms | samples: 20
+│  Quality: 20/20 successful (100%) | Packet Loss: 0%
+│  Findings: Healthy
+└───────────────────────────────────────────────────────────────────────────────
+
+┌─ microsoft.com:443 (collect 2586ms)
+│  Latency: ▁▁▂▄▄▅▆▄▇▄▄▃▇▆███▅▆▁
+│  Stats  : min: 28.68ms | max: 35ms | avg: 32.08ms | jitter: 2ms | samples: 20
+│  Quality: 20/20 successful (100%) | Packet Loss: 0%
+│  Findings: Healthy
+└───────────────────────────────────────────────────────────────────────────────
 ```
 
 Explore the full list of functions in the [Functions](#functions) section below.
@@ -485,10 +506,10 @@ Functions can be used without loading the profile by dot-sourcing them directly:
 
 ```powershell
 # Load a specific function (any dependencies are auto-loaded)
-. ~/.config/powershell/Functions/NetworkAndDns/Test-Port.ps1
+. '~/.config/powershell/Functions/NetworkAndDns/Test-Port.ps1'
 
 # Use it
-Test-Port -ComputerName bing.com -Port 443
+Test-Port bing.com -Port 443
 ```
 
 > Functions with dependencies automatically load what they need, so you only need to dot-source the function you want to use.
