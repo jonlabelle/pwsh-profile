@@ -313,7 +313,7 @@ Show-ProfileFunctions
 Test-Port bing.com -Port 443
 
 # Get your public IP with geolocation
-Get-IPAddress
+Get-IPAddress -Public
 
 # Check DNS resolution
 Test-DnsNameResolution github.com
