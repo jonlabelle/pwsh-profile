@@ -313,6 +313,9 @@ function Get-IPSubnet
         - LastUsableIP: Last usable IP address in the subnet
 
     .LINK
+        https://jonlabelle.com/snippets/view/markdown/ipv4-cidr-notation-reference-guide
+
+    .LINK
         https://jonlabelle.com/snippets/view/powershell/ip-subnet-calculator
 
     .LINK
