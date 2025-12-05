@@ -1,4 +1,4 @@
-function Copy-DirectoryWithExclusions
+function Copy-Directory
 {
     <#
     .SYNOPSIS
@@ -38,23 +38,23 @@ function Copy-DirectoryWithExclusions
         Prompts for confirmation before copying files.
 
     .EXAMPLE
-        PS > Copy-DirectoryWithExclusions -Source '.\MyProject' -Destination 'C:\Backup\MyProject' -ExcludeDirectories '.git', 'node_modules'
+        PS > Copy-Directory -Source '.\MyProject' -Destination 'C:\Backup\MyProject' -ExcludeDirectories '.git', 'node_modules'
 
         Copies the MyProject directory to C:\Backup\MyProject, excluding '.git' and 'node_modules' directories.
 
     .EXAMPLE
-        PS > Copy-DirectoryWithExclusions -Source 'C:\Dev\Project' -Destination 'D:\Archive\Project' -ExcludeDirectories 'bin', 'obj', '.vs' -UpdateMode Overwrite
+        PS > Copy-Directory -Source 'C:\Dev\Project' -Destination 'D:\Archive\Project' -ExcludeDirectories 'bin', 'obj', '.vs' -UpdateMode Overwrite
 
         Copies the project directory excluding build artifacts, overwriting existing files without prompting.
 
     .EXAMPLE
-        PS > Copy-DirectoryWithExclusions -Source '~/Documents/Code' -Destination '~/Backup/Code' -ExcludeDirectories '.git', 'dist', 'build'
+        PS > Copy-Directory -Source '~/Documents/Code' -Destination '~/Backup/Code' -ExcludeDirectories '.git', 'dist', 'build'
 
         Copies the Code directory from Documents to Backup, excluding version control and build directories.
         Uses tilde expansion which works cross-platform.
 
     .EXAMPLE
-        PS > Copy-DirectoryWithExclusions -Source './app' -Destination './staging/app' -ExcludeDirectories '.git', '.github', 'node_modules', 'tests'
+        PS > Copy-Directory -Source './app' -Destination './staging/app' -ExcludeDirectories '.git', '.github', 'node_modules', 'tests'
         PS > Compress-Archive -Path './staging/app/*' -DestinationPath './artifacts/app.zip' -Force
 
         Prepares a clean deployable archive by copying only runtime assets before zipping for release.
@@ -70,7 +70,7 @@ function Copy-DirectoryWithExclusions
 
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Copy-DirectoryWithExclusions.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Copy-Directory.ps1
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding(SupportsShouldProcess)]
@@ -95,7 +95,7 @@ function Copy-DirectoryWithExclusions
 
     begin
     {
-        Write-Verbose 'Starting Copy-DirectoryWithExclusions'
+        Write-Verbose 'Starting Copy-Directory'
 
         # Resolve paths to absolute paths (cross-platform compatible)
         $Source = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Source)

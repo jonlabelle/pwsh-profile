@@ -12,7 +12,7 @@ function Sync-Directory
 
         This function is optimized for large directory operations and provides better performance
         than pure PowerShell file copying. For smaller operations or when native tools are not
-        available, consider using Copy-DirectoryWithExclusions instead.
+        available, consider using Copy-Directory instead.
 
     .PARAMETER Source
         The source directory path to synchronize from. Supports relative paths and tilde (~) expansion.

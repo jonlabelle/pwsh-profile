@@ -2,10 +2,10 @@
 
 <#
 .SYNOPSIS
-    Integration tests for Copy-DirectoryWithExclusions function.
+    Integration tests for Copy-Directory function.
 
 .DESCRIPTION
-    Integration tests that verify Copy-DirectoryWithExclusions works correctly in real-world
+    Integration tests that verify Copy-Directory works correctly in real-world
     scenarios with actual file systems, complex directory structures, and various UpdateMode options.
 
 .NOTES
@@ -21,13 +21,13 @@
 
 BeforeAll {
     # Import the function under test
-    . "$PSScriptRoot/../../../Functions/Utilities/Copy-DirectoryWithExclusions.ps1"
+    . "$PSScriptRoot/../../../Functions/Utilities/Copy-Directory.ps1"
 
     # Import cleanup utilities
     . "$PSScriptRoot/../../TestCleanupUtilities.ps1"
 }
 
-Describe 'Copy-DirectoryWithExclusions Integration Tests' {
+Describe 'Copy-Directory Integration Tests' {
     Context 'Basic Copy Operations' {
         BeforeAll {
             $script:testDir = Join-Path $TestDrive 'BasicCopy'
@@ -46,7 +46,7 @@ Describe 'Copy-DirectoryWithExclusions Integration Tests' {
             'file1 content' | Set-Content -Path "$sourceDir\file1.txt"
             'file2 content' | Set-Content -Path "$sourceDir\file2.txt"
 
-            $result = Copy-DirectoryWithExclusions -Source $sourceDir -Destination $destDir -UpdateMode Skip
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip
 
             $result.TotalFiles | Should -Be 2
             $result.TotalDirectories | Should -Be 0
@@ -65,7 +65,7 @@ Describe 'Copy-DirectoryWithExclusions Integration Tests' {
             'content2' | Set-Content -Path "$sourceDir\dir1\subdir1\file2.txt"
             'content3' | Set-Content -Path "$sourceDir\dir2\file3.txt"
 
-            $result = Copy-DirectoryWithExclusions -Source $sourceDir -Destination $destDir -UpdateMode Skip
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip
 
             $result.TotalFiles | Should -Be 3
             $result.TotalDirectories | Should -Be 3
@@ -82,7 +82,7 @@ Describe 'Copy-DirectoryWithExclusions Integration Tests' {
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
             $testContent | Set-Content -Path "$sourceDir\test.txt"
 
-            Copy-DirectoryWithExclusions -Source $sourceDir -Destination $destDir -UpdateMode Skip | Out-Null
+            Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip | Out-Null
 
             (Get-Content -Path "$destDir\test.txt") | Should -Be $testContent
         }
@@ -108,7 +108,7 @@ Describe 'Copy-DirectoryWithExclusions Integration Tests' {
             'new content' | Set-Content -Path "$sourceDir\existing.txt"
             'old content' | Set-Content -Path "$destDir\existing.txt"
 
-            $result = Copy-DirectoryWithExclusions -Source $sourceDir -Destination $destDir -UpdateMode Skip
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip
 
             $result.FilesSkipped | Should -Be 1
             $result.FilesOverwritten | Should -Be 0
@@ -122,7 +122,7 @@ Describe 'Copy-DirectoryWithExclusions Integration Tests' {
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
             'new file' | Set-Content -Path "$sourceDir\newfile.txt"
 
-            $result = Copy-DirectoryWithExclusions -Source $sourceDir -Destination $destDir -UpdateMode Skip
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip
 
             $result.TotalFiles | Should -Be 1
             $result.FilesSkipped | Should -Be 0
@@ -140,7 +140,7 @@ Describe 'Copy-DirectoryWithExclusions Integration Tests' {
             'new 2' | Set-Content -Path "$sourceDir\file2.txt"
             'old 2' | Set-Content -Path "$destDir\file2.txt"
 
-            $result = Copy-DirectoryWithExclusions -Source $sourceDir -Destination $destDir -UpdateMode Skip
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip
 
             # TotalFiles tracks copied files, FilesSkipped tracks skipped files
             $result.TotalFiles | Should -Be 1
@@ -170,7 +170,7 @@ Describe 'Copy-DirectoryWithExclusions Integration Tests' {
             'new content' | Set-Content -Path "$sourceDir\file.txt"
             'old content' | Set-Content -Path "$destDir\file.txt"
 
-            $result = Copy-DirectoryWithExclusions -Source $sourceDir -Destination $destDir -UpdateMode Overwrite
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Overwrite
 
             $result.FilesOverwritten | Should -Be 1
             (Get-Content -Path "$destDir\file.txt") | Should -Be 'new content'
@@ -188,7 +188,7 @@ Describe 'Copy-DirectoryWithExclusions Integration Tests' {
             'old1' | Set-Content -Path "$destDir\file1.txt"
             'old2' | Set-Content -Path "$destDir\file2.txt"
 
-            $result = Copy-DirectoryWithExclusions -Source $sourceDir -Destination $destDir -UpdateMode Overwrite
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Overwrite
 
             $result.FilesOverwritten | Should -Be 2
             (Get-Content -Path "$destDir\file1.txt") | Should -Be 'new1'
@@ -220,7 +220,7 @@ Describe 'Copy-DirectoryWithExclusions Integration Tests' {
             $destFile = Get-Item -Path "$destDir\file.txt"
             $destFile.LastWriteTime = (Get-Date).AddDays(-1)
 
-            $result = Copy-DirectoryWithExclusions -Source $sourceDir -Destination $destDir -UpdateMode IfNewer
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode IfNewer
 
             $result.FilesOverwritten | Should -Be 1
             (Get-Content -Path "$destDir\file.txt") | Should -Be 'new content'
@@ -240,7 +240,7 @@ Describe 'Copy-DirectoryWithExclusions Integration Tests' {
             $sourceFile = Get-Item -Path "$sourceDir\file.txt"
             $sourceFile.LastWriteTime = (Get-Date).AddDays(-1)
 
-            $result = Copy-DirectoryWithExclusions -Source $sourceDir -Destination $destDir -UpdateMode IfNewer
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode IfNewer
 
             $result.FilesSkipped | Should -Be 1
             (Get-Content -Path "$destDir\file.txt") | Should -Be 'old content'
@@ -263,7 +263,7 @@ Describe 'Copy-DirectoryWithExclusions Integration Tests' {
             $sourceFile.LastWriteTime = $now
             $destFile.LastWriteTime = $now
 
-            $result = Copy-DirectoryWithExclusions -Source $sourceDir -Destination $destDir -UpdateMode IfNewer
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode IfNewer
 
             # Should skip if timestamps are equal (not newer)
             $result.FilesSkipped | Should -Be 1
@@ -294,7 +294,7 @@ Describe 'Copy-DirectoryWithExclusions Integration Tests' {
             'app git config' | Set-Content -Path "$sourceDir\src\app\.git\config"
             'lib code' | Set-Content -Path "$sourceDir\src\lib\helper.ps1"
 
-            $result = Copy-DirectoryWithExclusions -Source $sourceDir -Destination $destDir -ExcludeDirectories '.git' -UpdateMode Skip
+            Copy-Directory -Source $sourceDir -Destination $destDir -ExcludeDirectories '.git' -UpdateMode Skip
 
             Test-Path "$destDir\.git" | Should -Be $false
             Test-Path "$destDir\src\app\.git" | Should -Be $false
@@ -316,7 +316,7 @@ Describe 'Copy-DirectoryWithExclusions Integration Tests' {
             'minified' | Set-Content -Path "$sourceDir\dist\app.min.js"
             'source' | Set-Content -Path "$sourceDir\src\main.ps1"
 
-            $result = Copy-DirectoryWithExclusions -Source $sourceDir -Destination $destDir `
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir `
                 -ExcludeDirectories 'bin', 'obj', 'dist' -UpdateMode Skip
 
             $result.ExcludedDirectories | Should -Be 3
@@ -344,7 +344,7 @@ Describe 'Copy-DirectoryWithExclusions Integration Tests' {
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
             'content' | Set-Content -Path "$sourceDir\file.txt"
 
-            Copy-DirectoryWithExclusions -Source $sourceDir -Destination $destDir -UpdateMode Skip -WhatIf
+            Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip -WhatIf
 
             # Destination should not exist with WhatIf
             Test-Path $destDir | Should -Be $false
@@ -374,7 +374,7 @@ Describe 'Copy-DirectoryWithExclusions Integration Tests' {
             'file4' | Set-Content -Path "$sourceDir\dir1\subdir1\file4.txt"
             'file5' | Set-Content -Path "$sourceDir\dir2\file5.txt"
 
-            $result = Copy-DirectoryWithExclusions -Source $sourceDir -Destination $destDir -UpdateMode Skip
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip
 
             # 5 files total
             $result.TotalFiles | Should -Be 5
@@ -389,7 +389,7 @@ Describe 'Copy-DirectoryWithExclusions Integration Tests' {
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
             'content' | Set-Content -Path "$sourceDir\file.txt"
 
-            $result = Copy-DirectoryWithExclusions -Source $sourceDir -Destination $destDir -UpdateMode Skip
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip
 
             $result.Duration | Should -Not -BeNullOrEmpty
             $result.Duration.TotalMilliseconds | Should -BeGreaterThan 0
@@ -411,7 +411,7 @@ Describe 'Copy-DirectoryWithExclusions Integration Tests' {
             'old2' | Set-Content -Path "$destDir\file2.txt"
             'old3' | Set-Content -Path "$destDir\file3.txt"
 
-            $result = Copy-DirectoryWithExclusions -Source $sourceDir -Destination $destDir -UpdateMode Skip
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip
 
             # TotalFiles = copied files, FilesSkipped = files that existed and were skipped
             $result.TotalFiles | Should -Be 1  # Only file1 was copied

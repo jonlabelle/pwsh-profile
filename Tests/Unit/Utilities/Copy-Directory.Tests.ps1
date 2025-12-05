@@ -2,10 +2,10 @@
 
 <#
 .SYNOPSIS
-    Unit tests for Copy-DirectoryWithExclusions function.
+    Unit tests for Copy-Directory function.
 
 .DESCRIPTION
-    Tests the Copy-DirectoryWithExclusions function which copies directories recursively
+    Tests the Copy-Directory function which copies directories recursively
     with support for excluding specific directories and controlling how existing files
     are handled.
 
@@ -22,37 +22,37 @@
 
 BeforeAll {
     # Import the function under test
-    . "$PSScriptRoot/../../../Functions/Utilities/Copy-DirectoryWithExclusions.ps1"
+    . "$PSScriptRoot/../../../Functions/Utilities/Copy-Directory.ps1"
 }
 
-Describe 'Copy-DirectoryWithExclusions' {
+Describe 'Copy-Directory' {
     Context 'Parameter Validation' {
         It 'Should have mandatory Source parameter' {
-            $command = Get-Command Copy-DirectoryWithExclusions
+            $command = Get-Command Copy-Directory
             $sourceParam = $command.Parameters['Source']
             $sourceParam.Attributes.Mandatory | Should -Contain $true
         }
 
         It 'Should have mandatory Destination parameter' {
-            $command = Get-Command Copy-DirectoryWithExclusions
+            $command = Get-Command Copy-Directory
             $destParam = $command.Parameters['Destination']
             $destParam.Attributes.Mandatory | Should -Contain $true
         }
 
         It 'Should have optional ExcludeDirectories parameter' {
-            $command = Get-Command Copy-DirectoryWithExclusions
+            $command = Get-Command Copy-Directory
             $excludeParam = $command.Parameters['ExcludeDirectories']
             $excludeParam.Attributes.Mandatory | Should -Not -Contain $true
         }
 
         It 'Should have UpdateMode parameter with correct default' {
-            $command = Get-Command Copy-DirectoryWithExclusions
+            $command = Get-Command Copy-Directory
             $updateModeParam = $command.Parameters['UpdateMode']
             $updateModeParam | Should -Not -BeNullOrEmpty
         }
 
         It 'Should validate UpdateMode parameter has correct values' {
-            $command = Get-Command Copy-DirectoryWithExclusions
+            $command = Get-Command Copy-Directory
             $updateModeParam = $command.Parameters['UpdateMode']
             $validateSet = $updateModeParam.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }
             $validateSet.ValidValues | Should -Contain 'Skip'
@@ -63,7 +63,7 @@ Describe 'Copy-DirectoryWithExclusions' {
         }
 
         It 'Should support ShouldProcess (WhatIf/Confirm)' {
-            $command = Get-Command Copy-DirectoryWithExclusions
+            $command = Get-Command Copy-Directory
             $command.Parameters.ContainsKey('WhatIf') | Should -Be $true
             $command.Parameters.ContainsKey('Confirm') | Should -Be $true
         }
@@ -80,7 +80,7 @@ Describe 'Copy-DirectoryWithExclusions' {
             New-Item -ItemType Directory -Path $testDest -Force | Out-Null
             'old content' | Set-Content -Path "$testDest\test.txt"
 
-            $result = Copy-DirectoryWithExclusions -Source $testSource -Destination $testDest
+            $result = Copy-Directory -Source $testSource -Destination $testDest
 
             $result.FilesSkipped | Should -Be 1
             (Get-Content -Path "$testDest\test.txt") | Should -Be 'old content'
@@ -90,7 +90,7 @@ Describe 'Copy-DirectoryWithExclusions' {
             $testDest = Join-Path $TestDrive 'destination'
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
 
-            $result = Copy-DirectoryWithExclusions -Source $testSource -Destination $testDest -UpdateMode Skip
+            $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip
 
             $result | Should -Not -BeNullOrEmpty
             $result.PSObject.Properties.Name | Should -Contain 'TotalFiles'
@@ -106,7 +106,7 @@ Describe 'Copy-DirectoryWithExclusions' {
             $testDest = Join-Path $TestDrive 'destination'
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
 
-            $result = Copy-DirectoryWithExclusions -Source $testSource -Destination $testDest -UpdateMode Skip
+            $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip
 
             $result.TotalFiles | Should -BeOfType [Int32]
             $result.TotalDirectories | Should -BeOfType [Int32]
@@ -121,7 +121,7 @@ Describe 'Copy-DirectoryWithExclusions' {
             $testDest = Join-Path $TestDrive 'empty_dest'
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
 
-            $result = Copy-DirectoryWithExclusions -Source $testSource -Destination $testDest -UpdateMode Skip
+            $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip
 
             $result.TotalFiles | Should -Be 0
             $result.TotalDirectories | Should -Be 0
@@ -138,7 +138,7 @@ Describe 'Copy-DirectoryWithExclusions' {
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
             'test content' | Set-Content -Path (Join-Path $testSource 'test.txt')
 
-            { Copy-DirectoryWithExclusions -Source $testSource -Destination $testDest -UpdateMode Skip } | Should -Not -Throw
+            { Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip } | Should -Not -Throw
 
             Test-Path $testDest | Should -Be $true
         }
@@ -151,7 +151,7 @@ Describe 'Copy-DirectoryWithExclusions' {
                 New-Item -ItemType Directory -Path 'relative_source' -Force | Out-Null
                 'test' | Set-Content -Path 'relative_source\test.txt'
 
-                { Copy-DirectoryWithExclusions -Source './relative_source' -Destination './relative_dest' -UpdateMode Skip } | Should -Not -Throw
+                { Copy-Directory -Source './relative_source' -Destination './relative_dest' -UpdateMode Skip } | Should -Not -Throw
 
                 Test-Path 'relative_dest' | Should -Be $true
             }
@@ -165,7 +165,7 @@ Describe 'Copy-DirectoryWithExclusions' {
             $nonExistentSource = Join-Path $TestDrive 'non_existent'
             $testDest = Join-Path $TestDrive 'dest'
 
-            { Copy-DirectoryWithExclusions -Source $nonExistentSource -Destination $testDest -UpdateMode Skip } | Should -Throw
+            { Copy-Directory -Source $nonExistentSource -Destination $testDest -UpdateMode Skip } | Should -Throw
         }
     }
 
@@ -179,7 +179,7 @@ Describe 'Copy-DirectoryWithExclusions' {
             'test' | Set-Content -Path "$testSource\.git\config"
             'test' | Set-Content -Path "$testSource\include\file.txt"
 
-            $result = Copy-DirectoryWithExclusions -Source $testSource -Destination $testDest -ExcludeDirectories '.git' -UpdateMode Skip
+            $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeDirectories '.git' -UpdateMode Skip
 
             $result.ExcludedDirectories | Should -Be 1
             Test-Path "$testDest\.git" | Should -Be $false
@@ -196,7 +196,7 @@ Describe 'Copy-DirectoryWithExclusions' {
             New-Item -ItemType Directory -Path "$testSource\src" -Force | Out-Null
             'test' | Set-Content -Path "$testSource\src\main.ps1"
 
-            $result = Copy-DirectoryWithExclusions -Source $testSource -Destination $testDest -ExcludeDirectories '.git', 'node_modules', 'bin' -UpdateMode Skip
+            $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeDirectories '.git', 'node_modules', 'bin' -UpdateMode Skip
 
             $result.ExcludedDirectories | Should -Be 3
             Test-Path "$testDest\.git" | Should -Be $false
@@ -212,7 +212,7 @@ Describe 'Copy-DirectoryWithExclusions' {
             New-Item -ItemType Directory -Path "$testSource\.GIT" -Force | Out-Null
             'test' | Set-Content -Path "$testSource\.GIT\config"
 
-            $result = Copy-DirectoryWithExclusions -Source $testSource -Destination $testDest -ExcludeDirectories '.git' -UpdateMode Skip
+            $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeDirectories '.git' -UpdateMode Skip
 
             $result.ExcludedDirectories | Should -Be 1
             Test-Path "$testDest\.GIT" | Should -Be $false
@@ -227,7 +227,7 @@ Describe 'Copy-DirectoryWithExclusions' {
             New-Item -ItemType Directory -Path $testDest -Force | Out-Null
             'old content' | Set-Content -Path "$testDest\test.txt"
 
-            $result = Copy-DirectoryWithExclusions -Source $testSource -Destination $testDest -UpdateMode Skip
+            $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip
 
             $result.FilesSkipped | Should -Be 1
             (Get-Content -Path "$testDest\test.txt") | Should -Be 'old content'
@@ -243,7 +243,7 @@ Describe 'Copy-DirectoryWithExclusions' {
             New-Item -ItemType Directory -Path $testDest -Force | Out-Null
             'old content' | Set-Content -Path "$testDest\test.txt"
 
-            $result = Copy-DirectoryWithExclusions -Source $testSource -Destination $testDest -UpdateMode Overwrite
+            $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Overwrite
 
             $result.FilesOverwritten | Should -Be 1
             (Get-Content -Path "$testDest\test.txt") | Should -Be 'new content'
@@ -260,7 +260,7 @@ Describe 'Copy-DirectoryWithExclusions' {
             'old content' | Set-Content -Path "$testDest\test.txt"
             (Get-Item -Path "$testDest\test.txt").LastWriteTime = (Get-Date).AddDays(-1)
 
-            $result = Copy-DirectoryWithExclusions -Source $testSource -Destination $testDest -UpdateMode IfNewer
+            $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode IfNewer
 
             $result.FilesOverwritten | Should -Be 1
             (Get-Content -Path "$testDest\test.txt") | Should -Be 'new content'
@@ -277,7 +277,7 @@ Describe 'Copy-DirectoryWithExclusions' {
             'old content' | Set-Content -Path "$testDest\test.txt"
 
             # Mock WhatIf to avoid actual prompt
-            $result = Copy-DirectoryWithExclusions -Source $testSource -Destination $testDest -UpdateMode Prompt -WhatIf
+            Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Prompt -WhatIf | Out-Null
 
             # With -WhatIf, no actual copy happens
             (Get-Content -Path "$testDest\test.txt") | Should -Be 'old content'

@@ -39,6 +39,7 @@
     "basenames",
     "boottime",
     "BSTR",
+    "buildartifact",
     "caffeinate",
     "ciphertext",
     "cira",
