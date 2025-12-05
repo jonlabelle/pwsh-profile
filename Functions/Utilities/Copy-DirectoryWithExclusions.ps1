@@ -22,8 +22,14 @@ function Copy-DirectoryWithExclusions
         matched case-insensitively. Common examples include: .git, node_modules, bin, obj,
         .vs, .vscode, packages, dist, build, out.
 
-    .PARAMETER Force
-        If specified, overwrites existing files at the destination without prompting.
+    .PARAMETER UpdateMode
+        Specifies how to handle existing files at the destination.
+
+        Valid values are:
+        - Skip: Do not copy files if they already exist at the destination (default)
+        - Overwrite: Always overwrite existing files without prompting
+        - IfNewer: Only overwrite if the source file is newer than the destination file
+        - Prompt: Ask for confirmation for each existing file
 
     .PARAMETER WhatIf
         Shows what would happen if the cmdlet runs without actually performing the copy operation.
@@ -34,10 +40,10 @@ function Copy-DirectoryWithExclusions
     .EXAMPLE
         PS > Copy-DirectoryWithExclusions -Source '.\MyProject' -Destination 'C:\Backup\MyProject' -ExcludeDirectories '.git', 'node_modules'
 
-        Copies the MyProject directory to C:\Backup\MyProject, excluding .git and node_modules directories.
+        Copies the MyProject directory to C:\Backup\MyProject, excluding '.git' and 'node_modules' directories.
 
     .EXAMPLE
-        PS > Copy-DirectoryWithExclusions -Source 'C:\Dev\Project' -Destination 'D:\Archive\Project' -ExcludeDirectories 'bin', 'obj', '.vs' -Force
+        PS > Copy-DirectoryWithExclusions -Source 'C:\Dev\Project' -Destination 'D:\Archive\Project' -ExcludeDirectories 'bin', 'obj', '.vs' -UpdateMode Overwrite
 
         Copies the project directory excluding build artifacts, overwriting existing files without prompting.
 
@@ -55,7 +61,8 @@ function Copy-DirectoryWithExclusions
 
     .OUTPUTS
         System.Management.Automation.PSCustomObject
-        Returns an object with TotalFiles, TotalDirectories, ExcludedDirectories, and Duration properties.
+        Returns an object with TotalFiles, TotalDirectories, ExcludedDirectories, FilesSkipped,
+        FilesOverwritten, and Duration properties.
 
     .NOTES
         Cross-platform compatible with PowerShell 5.1+ and PowerShell Core 6.2+.
@@ -82,7 +89,8 @@ function Copy-DirectoryWithExclusions
         [String[]]$ExcludeDirectories = @(),
 
         [Parameter()]
-        [Switch]$Force
+        [ValidateSet('Skip', 'Overwrite', 'IfNewer', 'Prompt')]
+        [String]$UpdateMode = 'Skip'
     )
 
     begin
@@ -116,11 +124,14 @@ function Copy-DirectoryWithExclusions
         $script:FilesCopied = 0
         $script:DirectoriesCreated = 0
         $script:DirectoriesExcluded = 0
+        $script:FilesSkipped = 0
+        $script:FilesOverwritten = 0
 
         # Convert exclude list to lowercase for case-insensitive comparison
         $ExcludeLower = $ExcludeDirectories | ForEach-Object { $_.ToLowerInvariant() }
 
         Write-Verbose "Excluding directories: $($ExcludeDirectories -join ', ')"
+        Write-Verbose "UpdateMode: $UpdateMode"
 
         $StartTime = Get-Date
     }
@@ -133,7 +144,8 @@ function Copy-DirectoryWithExclusions
             param(
                 [String]$SourcePath,
                 [String]$DestPath,
-                [String[]]$Exclude
+                [String[]]$Exclude,
+                [String]$Mode
             )
 
             Write-Verbose "Processing directory: $SourcePath"
@@ -172,12 +184,61 @@ function Copy-DirectoryWithExclusions
             {
                 $DestFilePath = Join-Path -Path $DestPath -ChildPath $File.Name
 
-                if ($PSCmdlet.ShouldProcess($DestFilePath, "Copy file from $($File.FullName)"))
+                # Check if file already exists and handle based on UpdateMode
+                $shouldCopyFile = $true
+                if (Test-Path -Path $DestFilePath -PathType Leaf)
+                {
+                    switch ($Mode)
+                    {
+                        'Skip'
+                        {
+                            Write-Verbose "Skipping existing file: $DestFilePath"
+                            $script:FilesSkipped++
+                            $shouldCopyFile = $false
+                        }
+                        'Overwrite'
+                        {
+                            Write-Verbose "Overwriting existing file: $DestFilePath"
+                            $script:FilesOverwritten++
+                        }
+                        'IfNewer'
+                        {
+                            $destFile = Get-Item -Path $DestFilePath
+                            if ($File.LastWriteTime -gt $destFile.LastWriteTime)
+                            {
+                                Write-Verbose "Overwriting with newer file: $DestFilePath"
+                                $script:FilesOverwritten++
+                            }
+                            else
+                            {
+                                Write-Verbose "Destination file is up-to-date, skipping: $DestFilePath"
+                                $script:FilesSkipped++
+                                $shouldCopyFile = $false
+                            }
+                        }
+                        'Prompt'
+                        {
+                            if (-not $PSCmdlet.ShouldProcess($DestFilePath, "Overwrite existing file from $($File.FullName)"))
+                            {
+                                Write-Verbose "User declined to overwrite: $DestFilePath"
+                                $script:FilesSkipped++
+                                $shouldCopyFile = $false
+                            }
+                            else
+                            {
+                                Write-Verbose "User confirmed overwriting: $DestFilePath"
+                                $script:FilesOverwritten++
+                            }
+                        }
+                    }
+                }
+
+                if ($shouldCopyFile -and $PSCmdlet.ShouldProcess($DestFilePath, "Copy file from $($File.FullName)"))
                 {
                     try
                     {
                         Write-Verbose "Copying file: $($File.FullName) -> $DestFilePath"
-                        Copy-Item -Path $File.FullName -Destination $DestFilePath -Force:$Force -ErrorAction Stop
+                        Copy-Item -Path $File.FullName -Destination $DestFilePath -Force -ErrorAction Stop
                         $script:FilesCopied++
                     }
                     catch
@@ -204,12 +265,12 @@ function Copy-DirectoryWithExclusions
                 }
 
                 # Recurse into subdirectory
-                Copy-DirectoryRecursive -SourcePath $Directory.FullName -DestPath $DestDirPath -Exclude $Exclude
+                Copy-DirectoryRecursive -SourcePath $Directory.FullName -DestPath $DestDirPath -Exclude $Exclude -Mode $Mode
             }
         }
 
         # Start the recursive copy
-        Copy-DirectoryRecursive -SourcePath $Source -DestPath $Destination -Exclude $ExcludeLower
+        Copy-DirectoryRecursive -SourcePath $Source -DestPath $Destination -Exclude $ExcludeLower -Mode $UpdateMode
     }
 
     end
@@ -221,6 +282,8 @@ function Copy-DirectoryWithExclusions
         Write-Verbose "Files copied: $script:FilesCopied"
         Write-Verbose "Directories created: $script:DirectoriesCreated"
         Write-Verbose "Directories excluded: $script:DirectoriesExcluded"
+        Write-Verbose "Files skipped: $script:FilesSkipped"
+        Write-Verbose "Files overwritten: $script:FilesOverwritten"
         Write-Verbose "Duration: $($Duration.TotalSeconds) seconds"
 
         # Return summary object
@@ -228,6 +291,8 @@ function Copy-DirectoryWithExclusions
             TotalFiles = $script:FilesCopied
             TotalDirectories = $script:DirectoriesCreated
             ExcludedDirectories = $script:DirectoriesExcluded
+            FilesSkipped = $script:FilesSkipped
+            FilesOverwritten = $script:FilesOverwritten
             Duration = $Duration
         }
     }
