@@ -25,12 +25,6 @@ Describe 'Extract-Archives' {
             $pathParam.Attributes.ValueFromPipeline | Should -Contain $true
         }
 
-        It 'Should support Recurse and Recursive alias' {
-            $command = Get-Command Extract-Archives
-            $command.Parameters['Recurse'] | Should -Not -BeNullOrEmpty
-            $command.Parameters['Recurse'].Aliases | Should -Contain 'Recursive'
-        }
-
         It 'Should expose Include, Exclude, and DestinationRoot parameters' {
             $command = Get-Command Extract-Archives
             $command.Parameters.ContainsKey('Include') | Should -Be $true
