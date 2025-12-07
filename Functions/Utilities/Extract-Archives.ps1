@@ -373,10 +373,10 @@ function Extract-Archives
     end
     {
         $summary = [PSCustomObject]@{
-            TotalArchives = $results.Count
-            Extracted = ($results | Where-Object { $_.Status -eq 'Extracted' }).Count
-            Skipped = ($results | Where-Object { $_.Status -like 'Skipped*' }).Count
-            Failed = ($results | Where-Object { $_.Status -eq 'Failed' }).Count
+            TotalArchives = @($results).Count
+            Extracted = @($results | Where-Object { $_.Status -eq 'Extracted' }).Count
+            Skipped = @($results | Where-Object { $_.Status -like 'Skipped*' }).Count
+            Failed = @($results | Where-Object { $_.Status -eq 'Failed' }).Count
             Results = $results
         }
 
