@@ -1973,7 +1973,8 @@ function Convert-LineEndings
 
                     if ($analysis.Error)
                     {
-                        Write-Warning "Error analyzing file '$($file.FullName)': $($analysis.Error)"
+                        # Surface analysis failures as non-terminating errors so caller ErrorAction/ErrorVariable capture them (warnings would bypass these settings)
+                        Write-Error -Message "Error analyzing file '$($file.FullName)': $($analysis.Error)" -Category ReadError -TargetObject $file.FullName
                         continue
                     }
 
@@ -2085,7 +2086,8 @@ function Convert-LineEndings
 
                 if ($analysis.Error)
                 {
-                    Write-Warning "Error analyzing file '$resolvedPath': $($analysis.Error)"
+                    # Surface analysis failures as non-terminating errors so caller ErrorAction/ErrorVariable capture them (warnings would bypass these settings)
+                    Write-Error -Message "Error analyzing file '$resolvedPath': $($analysis.Error)" -Category ReadError -TargetObject $resolvedPath
                     continue
                 }
 
