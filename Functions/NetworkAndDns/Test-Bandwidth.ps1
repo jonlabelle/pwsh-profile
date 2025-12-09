@@ -28,24 +28,26 @@ function Test-Bandwidth
     .PARAMETER TestServer
         The test server URL to use for bandwidth testing.
         If not specified, uses a default public test file server.
+        Not compatible with -UseSpeedtestNet (Speedtest.net auto-selects servers).
 
     .PARAMETER SkipUpload
-        Skip upload speed testing when supported by the Speedtest.net CLI (Python `speedtest-cli` only).
-        Ignored for the built-in HTTP download test (download-only).
+        Skip upload speed testing (supported only with -UseSpeedtestNet when using Python `speedtest-cli`).
+        Not available for the built-in HTTP download test (download-only) or the Ookla `speedtest` binary.
 
     .PARAMETER SkipLatency
         Skip latency testing and only measure download speed.
 
     .PARAMETER PingCount
-        Number of ping requests to send for latency measurement.
-        Default is 5. Valid range: 1-20.
+        Number of ping requests to send for latency measurement (built-in HTTP mode only).
+        Default is 5. Valid range: 1-20. Not compatible with -UseSpeedtestNet.
 
     .PARAMETER Detailed
         Show detailed progress and intermediate results during testing.
+        Not compatible with -UseSpeedtestNet.
 
     .PARAMETER UseSpeedtestNet
         Use the locally installed Speedtest.net CLI (Ookla `speedtest` or Python `speedtest-cli`) when available.
-        Incompatible with -TestDuration and -TestFileSize. Fails immediately if the CLI is not installed.
+        Incompatible with -TestDuration, -TestFileSize, -Detailed, -TestServer, and -PingCount. Fails immediately if the CLI is not installed.
         Falls back to the built-in HTTP download test when not specified.
 
     .EXAMPLE
@@ -54,10 +56,9 @@ function Test-Bandwidth
         Runs a standard bandwidth test with default settings (10MB file, 10 seconds).
 
     .EXAMPLE
-        PS > Test-Bandwidth -UseSpeedtestNet -Detailed
+        PS > Test-Bandwidth -UseSpeedtestNet
 
-        Uses the installed Speedtest.net CLI for the test and shows detailed progress (where supported).
-        Fails if the required CLI is not present.
+        Uses the installed Speedtest.net CLI for the test. Fails if the required CLI is not present.
 
     .EXAMPLE
         PS > Test-Bandwidth -TestFileSize 50 -TestDuration 15
@@ -135,7 +136,8 @@ function Test-Bandwidth
         Test servers used:
         - Default test files from publicly available CDN servers
         - Optional: Speedtest.net CLI (Ookla `speedtest` or Python `speedtest-cli`) when -UseSpeedtestNet is specified; required if the switch is used
-        - -UseSpeedtestNet cannot be combined with -TestDuration or -TestFileSize
+        - -UseSpeedtestNet cannot be combined with -TestDuration, -TestFileSize, -Detailed, -TestServer, or -PingCount
+        - -SkipUpload requires -UseSpeedtestNet and Python speedtest-cli; unsupported in other modes
         - Requires internet connectivity
         - Results may vary based on server load and network conditions
 
@@ -179,6 +181,16 @@ function Test-Bandwidth
         Write-Verbose 'Initializing bandwidth test'
 
         # Validate parameter combinations
+        if ($SkipUpload -and -not $UseSpeedtestNet)
+        {
+            throw '-SkipUpload requires -UseSpeedtestNet and Python speedtest-cli; the built-in HTTP test is download-only.'
+        }
+
+        if ($UseSpeedtestNet -and $PSBoundParameters.ContainsKey('Detailed'))
+        {
+            throw '-Detailed cannot be used with -UseSpeedtestNet. Speedtest.net CLI JSON output does not provide progress updates.'
+        }
+
         if ($UseSpeedtestNet -and $PSBoundParameters.ContainsKey('TestDuration'))
         {
             throw '-TestDuration cannot be used with -UseSpeedtestNet. The Speedtest.net CLI controls test duration.'
@@ -187,6 +199,16 @@ function Test-Bandwidth
         if ($UseSpeedtestNet -and $PSBoundParameters.ContainsKey('TestFileSize'))
         {
             throw '-TestFileSize cannot be used with -UseSpeedtestNet. The Speedtest.net CLI selects data sizes dynamically.'
+        }
+
+        if ($UseSpeedtestNet -and $PSBoundParameters.ContainsKey('TestServer'))
+        {
+            throw '-TestServer cannot be used with -UseSpeedtestNet. Speedtest.net CLI selects servers automatically.'
+        }
+
+        if ($UseSpeedtestNet -and $PSBoundParameters.ContainsKey('PingCount'))
+        {
+            throw '-PingCount cannot be used with -UseSpeedtestNet. The Speedtest.net CLI controls latency sampling.'
         }
 
         if ($UseSpeedtestNet)
@@ -198,6 +220,11 @@ function Test-Bandwidth
             if (-not $speedtestCli)
             {
                 throw "Speedtest.net CLI not found. Install Ookla 'speedtest' or Python 'speedtest-cli' and ensure it is on PATH."
+            }
+
+            if ($SkipUpload -and $speedtestCli.Name -eq 'speedtest')
+            {
+                throw '-SkipUpload with -UseSpeedtestNet requires Python speedtest-cli; the Ookla speedtest binary does not support disabling uploads.'
             }
 
             Write-Verbose "Using Speedtest.net CLI: $($speedtestCli.Source)"
@@ -250,10 +277,6 @@ function Test-Bandwidth
 
         if ($UseSpeedtestNet)
         {
-            if ($Detailed)
-            {
-                Write-Host 'Running Speedtest.net CLI...' -ForegroundColor Cyan
-            }
 
             try
             {
