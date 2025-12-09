@@ -2,36 +2,39 @@ function Test-Bandwidth
 {
     <#
     .SYNOPSIS
-        Tests network bandwidth with download/upload speed and latency measurements.
+        Tests network bandwidth with download speed and latency measurements.
 
     .DESCRIPTION
         Measures network bandwidth by downloading test files from various sources and calculating
-        download speeds, upload speeds (if supported), and network latency. This function provides
-        a comprehensive view of network performance without requiring external tools.
+        download speeds and network latency. Optionally, it can use the locally installed
+        Speedtest.net CLI (Ookla `speedtest` or Python `speedtest-cli`) for provider-grade testing
+        (no upload measurement is performed).
 
         Uses publicly available test files and endpoints for measurements. Results include download
-        speed in Mbps, latency in milliseconds, and other performance metrics.
+        speed in Mbps, latency in milliseconds, and other performance metrics. When -UseSpeedtestNet
+        is used, test duration and file size are controlled by the CLI and cannot be set here.
 
         Compatible with PowerShell Desktop 5.1+ on Windows, macOS, and Linux.
 
     .PARAMETER TestDuration
         Duration of the speed test in seconds. Longer tests provide more accurate results.
-        Default is 10 seconds. Valid range: 5-60 seconds.
+        Default is 10 seconds. Valid range: 5-60 seconds. Not compatible with -UseSpeedtestNet.
 
     .PARAMETER TestFileSize
         Size of the test file to download in MB. Options: 1, 10, 25, 50, 100
         Default is 10 MB. Larger files provide more accurate results for fast connections.
+        Not compatible with -UseSpeedtestNet.
 
     .PARAMETER TestServer
         The test server URL to use for bandwidth testing.
         If not specified, uses a default public test file server.
 
     .PARAMETER SkipUpload
-        Skip upload speed testing and only measure download speed and latency.
-        Upload testing is skipped by default as it requires specific server support.
+        Skip upload speed testing when supported by the Speedtest.net CLI (Python `speedtest-cli` only).
+        Ignored for the built-in HTTP download test (download-only).
 
     .PARAMETER SkipLatency
-        Skip latency testing and only measure download/upload speeds.
+        Skip latency testing and only measure download speed.
 
     .PARAMETER PingCount
         Number of ping requests to send for latency measurement.
@@ -40,10 +43,21 @@ function Test-Bandwidth
     .PARAMETER Detailed
         Show detailed progress and intermediate results during testing.
 
+    .PARAMETER UseSpeedtestNet
+        Use the locally installed Speedtest.net CLI (Ookla `speedtest` or Python `speedtest-cli`) when available.
+        Incompatible with -TestDuration and -TestFileSize. Fails immediately if the CLI is not installed.
+        Falls back to the built-in HTTP download test when not specified.
+
     .EXAMPLE
         PS > Test-Bandwidth
 
         Runs a standard bandwidth test with default settings (10MB file, 10 seconds).
+
+    .EXAMPLE
+        PS > Test-Bandwidth -UseSpeedtestNet -Detailed
+
+        Uses the installed Speedtest.net CLI for the test and shows detailed progress (where supported).
+        Fails if the required CLI is not present.
 
     .EXAMPLE
         PS > Test-Bandwidth -TestFileSize 50 -TestDuration 15
@@ -120,6 +134,8 @@ function Test-Bandwidth
     .NOTES
         Test servers used:
         - Default test files from publicly available CDN servers
+        - Optional: Speedtest.net CLI (Ookla `speedtest` or Python `speedtest-cli`) when -UseSpeedtestNet is specified; required if the switch is used
+        - -UseSpeedtestNet cannot be combined with -TestDuration or -TestFileSize
         - Requires internet connectivity
         - Results may vary based on server load and network conditions
 
@@ -152,37 +168,72 @@ function Test-Bandwidth
         [Int32]$PingCount = 5,
 
         [Parameter()]
-        [Switch]$Detailed
+        [Switch]$Detailed,
+
+        [Parameter()]
+        [Switch]$UseSpeedtestNet
     )
 
     begin
     {
         Write-Verbose 'Initializing bandwidth test'
 
-        # Default test file URLs for different sizes (using public CDN/mirror servers)
-        $testUrls = @{
-            1 = 'http://ipv4.download.thinkbroadband.com/1MB.zip'
-            10 = 'http://ipv4.download.thinkbroadband.com/10MB.zip'
-            25 = 'http://ipv4.download.thinkbroadband.com/20MB.zip'
-            50 = 'http://ipv4.download.thinkbroadband.com/50MB.zip'
-            100 = 'http://ipv4.download.thinkbroadband.com/100MB.zip'
+        # Validate parameter combinations
+        if ($UseSpeedtestNet -and $PSBoundParameters.ContainsKey('TestDuration'))
+        {
+            throw '-TestDuration cannot be used with -UseSpeedtestNet. The Speedtest.net CLI controls test duration.'
         }
 
-        # Use custom test server if provided, otherwise use default
-        if ($TestServer)
+        if ($UseSpeedtestNet -and $PSBoundParameters.ContainsKey('TestFileSize'))
         {
-            $downloadUrl = $TestServer
+            throw '-TestFileSize cannot be used with -UseSpeedtestNet. The Speedtest.net CLI selects data sizes dynamically.'
+        }
+
+        if ($UseSpeedtestNet)
+        {
+            $speedtestCli = @('speedtest', 'speedtest-cli') |
+            ForEach-Object { Get-Command $_ -ErrorAction SilentlyContinue } |
+            Select-Object -First 1
+
+            if (-not $speedtestCli)
+            {
+                throw "Speedtest.net CLI not found. Install Ookla 'speedtest' or Python 'speedtest-cli' and ensure it is on PATH."
+            }
+
+            Write-Verbose "Using Speedtest.net CLI: $($speedtestCli.Source)"
         }
         else
         {
-            $downloadUrl = $testUrls[$TestFileSize]
-        }
+            # Default test file URLs for different sizes (using public CDN/mirror servers)
+            $testUrls = @{
+                1 = 'http://ipv4.download.thinkbroadband.com/1MB.zip'
+                10 = 'http://ipv4.download.thinkbroadband.com/10MB.zip'
+                25 = 'http://ipv4.download.thinkbroadband.com/20MB.zip'
+                50 = 'http://ipv4.download.thinkbroadband.com/50MB.zip'
+                100 = 'http://ipv4.download.thinkbroadband.com/100MB.zip'
+            }
 
-        Write-Verbose "Using test URL: $downloadUrl"
+            # Use custom test server if provided, otherwise use default
+            if ($TestServer)
+            {
+                $downloadUrl = $TestServer
+            }
+            else
+            {
+                $downloadUrl = $testUrls[$TestFileSize]
+            }
+
+            Write-Verbose "Using test URL: $downloadUrl"
+        }
     }
 
     process
     {
+        if ($UseSpeedtestNet -and -not $speedtestCli)
+        {
+            throw "Speedtest.net CLI not found. Install Ookla 'speedtest' or Python 'speedtest-cli' and ensure it is on PATH."
+        }
+
         $results = [PSCustomObject]@{
             TestDate = Get-Date
             DownloadSpeedMbps = $null
@@ -192,9 +243,165 @@ function Test-Bandwidth
             Jitter = $null
             PacketLoss = $null
             TestDuration = $null
-            TestFileSize = "${TestFileSize}MB"
-            TestServer = $downloadUrl
+            TestFileSize = if ($UseSpeedtestNet) { 'Speedtest.net dynamic' } else { "${TestFileSize}MB" }
+            TestServer = if ($UseSpeedtestNet) { 'speedtest.net (auto)' } else { $downloadUrl }
             Status = 'Running'
+        }
+
+        if ($UseSpeedtestNet)
+        {
+            if ($Detailed)
+            {
+                Write-Host 'Running Speedtest.net CLI...' -ForegroundColor Cyan
+            }
+
+            try
+            {
+                $speedtestArgs = @()
+
+                if ($speedtestCli.Name -eq 'speedtest')
+                {
+                    $speedtestArgs += @('--accept-license', '--accept-gdpr', '--format=json')
+                }
+                else
+                {
+                    $speedtestArgs += '--json'
+                }
+
+                if ($SkipUpload -and $speedtestCli.Name -eq 'speedtest-cli')
+                {
+                    $speedtestArgs += '--no-upload'
+                }
+                elseif ($SkipUpload)
+                {
+                    Write-Verbose 'SkipUpload not forwarded to Speedtest.net CLI (option not supported by detected binary).'
+                }
+
+                $rawSpeedtestOutput = & $speedtestCli.Source @speedtestArgs
+
+                if (-not $rawSpeedtestOutput)
+                {
+                    throw "Speedtest.net CLI produced no output. Command: $($speedtestCli.Source)"
+                }
+
+                $speedtestData = $rawSpeedtestOutput | ConvertFrom-Json
+
+                # Map Speedtest.net JSON (Ookla CLI or Python speedtest-cli)
+                if ($speedtestData.PSObject.Properties['download'])
+                {
+                    $downloadMbps = $null
+
+                    if ($speedtestData.download -is [PSCustomObject] -and $speedtestData.download.PSObject.Properties['bandwidth'])
+                    {
+                        $downloadBandwidth = [double]$speedtestData.download.bandwidth
+                        $downloadMbps = [Math]::Round(($downloadBandwidth * 8) / 1000000, 2)
+                    }
+                    else
+                    {
+                        $downloadMbps = [Math]::Round(([double]$speedtestData.download) / 1000000, 2)
+                    }
+
+                    if ($null -ne $downloadMbps)
+                    {
+                        $results.DownloadSpeedMbps = $downloadMbps
+                    }
+                }
+
+                if (-not $SkipLatency -and $speedtestData.PSObject.Properties['ping'])
+                {
+                    $latency = $null
+
+                    if ($speedtestData.ping -is [PSCustomObject] -and $speedtestData.ping.PSObject.Properties['latency'])
+                    {
+                        $latency = $speedtestData.ping.latency
+                    }
+                    else
+                    {
+                        $latency = $speedtestData.ping
+                    }
+
+                    if ($null -ne $latency)
+                    {
+                        $results.LatencyMs = [Math]::Round([double]$latency, 2)
+                    }
+
+                    if ($speedtestData.ping -is [PSCustomObject] -and $speedtestData.ping.PSObject.Properties['low'])
+                    {
+                        $results.MinLatencyMs = [Math]::Round([double]$speedtestData.ping.low, 2)
+                    }
+                    elseif ($results.LatencyMs)
+                    {
+                        $results.MinLatencyMs = $results.LatencyMs
+                    }
+
+                    if ($speedtestData.ping -is [PSCustomObject] -and $speedtestData.ping.PSObject.Properties['high'])
+                    {
+                        $results.MaxLatencyMs = [Math]::Round([double]$speedtestData.ping.high, 2)
+                    }
+                    elseif ($results.LatencyMs)
+                    {
+                        $results.MaxLatencyMs = $results.LatencyMs
+                    }
+
+                    if ($speedtestData.ping -is [PSCustomObject] -and $speedtestData.ping.PSObject.Properties['jitter'])
+                    {
+                        $results.Jitter = [Math]::Round([double]$speedtestData.ping.jitter, 2)
+                    }
+                }
+
+                if ($speedtestData.PSObject.Properties['packetLoss'] -and $null -ne $speedtestData.packetLoss)
+                {
+                    $results.PacketLoss = "$([Math]::Round([double]$speedtestData.packetLoss, 2))%"
+                }
+
+                if ($speedtestData.PSObject.Properties['download'] -and
+                    $speedtestData.download -is [PSCustomObject] -and
+                    $speedtestData.download.PSObject.Properties['elapsed'])
+                {
+                    $durationSeconds = [Math]::Round([double]$speedtestData.download.elapsed / 1000, 2)
+                    $results.TestDuration = "${durationSeconds}s"
+                }
+
+                if ($speedtestData.PSObject.Properties['server'])
+                {
+                    $server = $speedtestData.server
+                    $serverParts = @()
+
+                    if ($server.PSObject.Properties['name'] -and $server.name)
+                    {
+                        $serverParts += $server.name
+                    }
+
+                    if ($server.PSObject.Properties['location'] -and $server.location)
+                    {
+                        $serverParts += "($($server.location))"
+                    }
+                    elseif ($server.PSObject.Properties['country'] -and $server.country)
+                    {
+                        $serverParts += "($($server.country))"
+                    }
+
+                    if ($server.PSObject.Properties['host'] -and $server.host)
+                    {
+                        $serverParts += "[${server.host}]"
+                    }
+
+                    if ($serverParts.Count -gt 0)
+                    {
+                        $results.TestServer = "speedtest.net: $($serverParts -join ' ')"
+                    }
+                }
+
+                $results.Status = 'Completed'
+            }
+            catch
+            {
+                $results.Status = "Failed: $($_.Exception.Message)"
+                Write-Error "Speedtest.net run failed: $($_.Exception.Message)"
+            }
+
+            Write-Output $results
+            return
         }
 
         try
