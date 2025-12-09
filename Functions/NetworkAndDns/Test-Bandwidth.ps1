@@ -12,7 +12,9 @@ function Test-Bandwidth
 
         Uses publicly available test files and endpoints for measurements. Results include download
         speed in Mbps, latency in milliseconds, and other performance metrics. When -UseSpeedtestNet
-        is used, test duration and file size are controlled by the CLI and cannot be set here.
+        is used, test duration and file size are controlled by the CLI and cannot be set here. The
+        official Ookla `speedtest` CLI JSON output includes elapsed time, jitter, and packet loss.
+        The Python `speedtest-cli` does not return elapsed time, jitter, or packet loss.
 
         Compatible with PowerShell Desktop 5.1+ on Windows, macOS, and Linux.
 
@@ -58,6 +60,21 @@ function Test-Bandwidth
     .EXAMPLE
         PS > Test-Bandwidth -UseSpeedtestNet
 
+        Uses the installed Speedtest.net CLI; CLI chooses server, duration, and size.
+
+    .EXAMPLE
+        PS > Test-Bandwidth -UseSpeedtestNet -SkipUpload
+
+        Uses Python `speedtest-cli` with uploads disabled (fails if Ookla binary is detected).
+
+    .EXAMPLE
+        PS > Test-Bandwidth -TestFileSize 50 -TestDuration 20 -Detailed
+
+        Built-in HTTP download test with a 50MB file over ~20s, showing per-second progress.
+
+    .EXAMPLE
+        PS > Test-Bandwidth -UseSpeedtestNet
+
         Uses the installed Speedtest.net CLI for the test. Fails if the required CLI is not present.
 
     .EXAMPLE
@@ -81,6 +98,11 @@ function Test-Bandwidth
         PS > Test-Bandwidth -SkipLatency
 
         Tests only download speed without latency measurements.
+
+    .EXAMPLE
+        PS > Test-Bandwidth -PingCount 10
+
+        Built-in HTTP mode measuring latency with 10 pings before the download test.
 
     .EXAMPLE
         PS > Test-Bandwidth -Detailed
@@ -128,6 +150,9 @@ function Test-Bandwidth
     .OUTPUTS
         System.Management.Automation.PSCustomObject
         Returns an object with DownloadSpeedMbps, LatencyMs, Jitter, PacketLoss, and TestDuration properties.
+        When -UseSpeedtestNet is used, TestDuration may be reported as 'Not provided by Speedtest.net CLI'
+        if the selected CLI variant does not return elapsed time. Jitter and PacketLoss may also be marked
+        as 'Not provided by Speedtest.net CLI' when those fields are absent in the CLI JSON.
 
     .LINK
         https://docs.microsoft.com/en-us/dotnet/api/system.net.http.httpclient
@@ -138,6 +163,7 @@ function Test-Bandwidth
         - Optional: Speedtest.net CLI (Ookla `speedtest` or Python `speedtest-cli`) when -UseSpeedtestNet is specified; required if the switch is used
         - -UseSpeedtestNet cannot be combined with -TestDuration, -TestFileSize, -Detailed, -TestServer, or -PingCount
         - -SkipUpload requires -UseSpeedtestNet and Python speedtest-cli; unsupported in other modes
+        - Only the official Ookla `speedtest` CLI JSON output includes elapsed time, jitter, and packet loss. Python `speedtest-cli` omits them.
         - Requires internet connectivity
         - Results may vary based on server load and network conditions
 
@@ -277,7 +303,7 @@ function Test-Bandwidth
 
         if ($UseSpeedtestNet)
         {
-
+            $speedtestStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
             try
             {
                 $speedtestArgs = @()
@@ -308,6 +334,7 @@ function Test-Bandwidth
                 }
 
                 $speedtestData = $rawSpeedtestOutput | ConvertFrom-Json
+                $speedtestStopwatch.Stop()
 
                 # Map Speedtest.net JSON (Ookla CLI or Python speedtest-cli)
                 if ($speedtestData.PSObject.Properties['download'])
@@ -376,6 +403,15 @@ function Test-Bandwidth
                 {
                     $results.PacketLoss = "$([Math]::Round([double]$speedtestData.packetLoss, 2))%"
                 }
+                elseif (-not $results.PacketLoss)
+                {
+                    $results.PacketLoss = 'Not provided by Speedtest.net CLI'
+                }
+
+                if ($UseSpeedtestNet -and -not $results.Jitter)
+                {
+                    $results.Jitter = 'Not provided by Speedtest.net CLI'
+                }
 
                 if ($speedtestData.PSObject.Properties['download'] -and
                     $speedtestData.download -is [PSCustomObject] -and
@@ -383,6 +419,10 @@ function Test-Bandwidth
                 {
                     $durationSeconds = [Math]::Round([double]$speedtestData.download.elapsed / 1000, 2)
                     $results.TestDuration = "${durationSeconds}s"
+                }
+                elseif (-not $results.TestDuration)
+                {
+                    $results.TestDuration = "$([Math]::Round($speedtestStopwatch.Elapsed.TotalSeconds, 2))s"
                 }
 
                 if ($speedtestData.PSObject.Properties['server'])
