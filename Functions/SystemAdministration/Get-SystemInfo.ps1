@@ -2,7 +2,7 @@ function Get-SystemInfo
 {
     <#
     .SYNOPSIS
-        Gets basic system information from local or remote computers.
+        Gets system information from local or remote computers.
 
     .DESCRIPTION
         Retrieves comprehensive system information including CPU architecture, processor speed,
