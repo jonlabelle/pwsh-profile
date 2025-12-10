@@ -1,4 +1,4 @@
-BeforeAll {
+﻿BeforeAll {
     # Load the function
     . "$PSScriptRoot/../../../Functions/Developer/Remove-GitIgnoredFiles.ps1"
 
@@ -202,7 +202,8 @@ temp/
             # Create multiple repositories
             $script:Repo1 = Join-Path -Path $script:WorkspacePath -ChildPath 'project1'
             $script:Repo2 = Join-Path -Path $script:WorkspacePath -ChildPath 'project2'
-            $script:Repo3 = Join-Path -Path (Join-Path -ChildPath $script:WorkspacePath 'nested') 'project3'
+            $nestedRepo = Join-Path -Path $script:WorkspacePath -ChildPath 'nested'
+            $script:Repo3 = Join-Path -Path $nestedRepo -ChildPath 'project3'
 
             foreach ($repoPath in @($script:Repo1, $script:Repo2, $script:Repo3))
             {

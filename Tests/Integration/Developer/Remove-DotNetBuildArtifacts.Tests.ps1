@@ -1,4 +1,4 @@
-BeforeAll {
+﻿BeforeAll {
     # Load the function
     . "$PSScriptRoot/../../../Functions/Developer/Remove-DotNetBuildArtifacts.ps1"
 
@@ -189,7 +189,8 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             # Create multiple projects
             $Project1 = Join-Path -Path $script:WorkspacePath -ChildPath 'Project1'
             $Project2 = Join-Path -Path $script:WorkspacePath -ChildPath 'Project2'
-            $Project3 = Join-Path -Path (Join-Path -ChildPath $script:WorkspacePath 'nested') 'Project3'
+            $nestedDir = Join-Path -Path $script:WorkspacePath -ChildPath 'nested'
+            $Project3 = Join-Path -Path $nestedDir -ChildPath 'Project3'
 
             foreach ($proj in @($Project1, $Project2, $Project3))
             {
@@ -222,7 +223,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
 
         It 'Should limit scope without Recurse' {
             $rootProject = Join-Path -Path $script:WorkspacePath -ChildPath 'Api'
-            $nestedProject = Join-Path -Path (Join-Path -ChildPath $script:WorkspacePath 'src') 'Worker'
+            $nestedProject = Join-Path -Path (Join-Path -Path $script:WorkspacePath -ChildPath 'src') -ChildPath 'Worker'
 
             foreach ($proj in @($rootProject, $nestedProject))
             {

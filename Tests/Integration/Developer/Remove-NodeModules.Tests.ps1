@@ -1,4 +1,4 @@
-BeforeAll {
+﻿BeforeAll {
     # Load the function
     . "$PSScriptRoot/../../../Functions/Developer/Remove-NodeModules.ps1"
 
@@ -158,7 +158,8 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
             # Create multiple projects
             $Project1 = Join-Path -Path $script:WorkspacePath -ChildPath 'frontend'
             $Project2 = Join-Path -Path $script:WorkspacePath -ChildPath 'backend'
-            $Project3 = Join-Path -Path (Join-Path -ChildPath $script:WorkspacePath 'packages') 'shared'
+            $packagesDir = Join-Path -Path $script:WorkspacePath -ChildPath 'packages'
+            $Project3 = Join-Path -Path $packagesDir -ChildPath 'shared'
 
             foreach ($proj in @($Project1, $Project2, $Project3))
             {
@@ -186,7 +187,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
 
         It 'Should limit scope without Recurse' {
             $rootProject = Join-Path -Path $script:WorkspacePath -ChildPath 'app'
-            $nestedProject = Join-Path -Path (Join-Path -ChildPath $script:WorkspacePath 'packages') 'lib'
+            $nestedProject = Join-Path -Path (Join-Path -Path $script:WorkspacePath -ChildPath 'packages') -ChildPath 'lib'
 
             foreach ($proj in @($rootProject, $nestedProject))
             {

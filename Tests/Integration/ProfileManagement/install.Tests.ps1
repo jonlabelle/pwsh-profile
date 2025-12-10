@@ -1,4 +1,4 @@
-#Requires -Modules Pester
+﻿#Requires -Modules Pester
 
 BeforeAll {
     $script:repoRoot = (Resolve-Path "$PSScriptRoot/../../..").Path
@@ -76,7 +76,8 @@ Describe 'install.ps1 integration tests' {
 
                 foreach ($name in @('Functions/Local', 'Help', 'Modules', 'PSReadLine', 'Scripts'))
                 {
-                    $preservedFile = Join-Path -Path (Join-Path -ChildPath $profileRoot $name) 'original.txt'
+                    $nameDir = Join-Path -Path $profileRoot -ChildPath $name
+                    $preservedFile = Join-Path -Path $nameDir -ChildPath 'original.txt'
                     Test-Path $preservedFile | Should -BeTrue
                     (Get-Content $preservedFile) | Should -Be "original-$name"
                 }
@@ -158,7 +159,7 @@ Describe 'install.ps1 integration tests' {
 
                 foreach ($name in @('Functions/Local', 'Help', 'Modules', 'PSReadLine', 'Scripts'))
                 {
-                    $preservedFile = Join-Path -Path (Join-Path -ChildPath $profileRoot $name) 'original.txt'
+                    $preservedFile = Join-Path -Path (Join-Path -Path $profileRoot -ChildPath $name) -ChildPath 'original.txt'
                     Test-Path $preservedFile | Should -BeFalse
                 }
             }
@@ -211,13 +212,13 @@ Describe 'install.ps1 integration tests' {
                 & $script:installScript -ProfileRoot $profileRoot -LocalSourcePath $script:repoRoot -SkipBackup -SkipPreserveDirectories -Verbose:$false
 
                 # Functions/Local exists in the repo, so check if user files were NOT preserved
-                $funcLocalTestFile = Join-Path -Path (Join-Path -ChildPath $profileRoot 'Functions/Local') 'test.txt'
+                $funcLocalTestFile = Join-Path -Path (Join-Path -Path $profileRoot -ChildPath 'Functions/Local') -ChildPath 'test.txt'
                 Test-Path $funcLocalTestFile | Should -BeFalse
 
                 # These directories should be reinstalled fresh (no preserved user files)
                 foreach ($name in @('Help', 'Modules', 'PSReadLine'))
                 {
-                    $testFile = Join-Path -Path (Join-Path -ChildPath $profileRoot $name) 'test.txt'
+                    $testFile = Join-Path -Path (Join-Path -Path $profileRoot -ChildPath $name) -ChildPath 'test.txt'
                     Test-Path $testFile | Should -BeFalse
                 }
 
@@ -299,7 +300,7 @@ Describe 'install.ps1 integration tests' {
                 Test-Path $restoredProfile | Should -BeTrue
                 (Get-Content $restoredProfile) | Should -Be 'restored profile'
 
-                $modulesFile = Join-Path -Path (Join-Path -ChildPath $profileRoot 'Modules') 'module.psm1'
+                $modulesFile = Join-Path -Path (Join-Path -Path $profileRoot -ChildPath 'Modules') -ChildPath 'module.psm1'
                 Test-Path $modulesFile | Should -BeTrue
                 Test-Path (Join-Path -Path $profileRoot -ChildPath 'stale.ps1') | Should -BeFalse
 
@@ -371,9 +372,9 @@ Describe 'install.ps1 integration tests' {
             {
                 & $script:installScript -ProfileRoot $profileRoot -LocalSourcePath $script:repoRoot -PreserveDirectories @('Scripts') -SkipBackup -Verbose:$false
 
-                $scriptsFile = Join-Path -Path (Join-Path -ChildPath $profileRoot 'Scripts') 'original.txt'
-                $modulesFile = Join-Path -Path (Join-Path -ChildPath $profileRoot 'Modules') 'original.txt'
-                $helpFile = Join-Path -Path (Join-Path -ChildPath $profileRoot 'Help') 'original.txt'
+                $scriptsFile = Join-Path -Path (Join-Path -Path $profileRoot -ChildPath 'Scripts') -ChildPath 'original.txt'
+                $modulesFile = Join-Path -Path (Join-Path -Path $profileRoot -ChildPath 'Modules') -ChildPath 'original.txt'
+                $helpFile = Join-Path -Path (Join-Path -Path $profileRoot -ChildPath 'Help') -ChildPath 'original.txt'
 
                 Test-Path $scriptsFile | Should -BeTrue
                 Test-Path $modulesFile | Should -BeFalse
@@ -433,7 +434,7 @@ Describe 'install.ps1 integration tests' {
 
                 foreach ($name in @('Functions/Local', 'Help', 'Modules', 'PSReadLine', 'Scripts'))
                 {
-                    $preservedFile = Join-Path -Path (Join-Path -ChildPath $profileRoot $name) 'keep.txt'
+                    $preservedFile = Join-Path -Path (Join-Path -Path $profileRoot -ChildPath $name) -ChildPath 'keep.txt'
                     Test-Path $preservedFile | Should -BeFalse
                 }
             }
