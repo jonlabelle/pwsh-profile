@@ -244,7 +244,7 @@ Describe 'Remove-OldFiles Integration Tests' {
         }
 
         It 'Should exclude specified directories from processing' {
-            $result = Remove-OldFiles -Path $script:dirExcludeTest -OlderThan 7 -ExcludeDirectory 'KeepMe' -Confirm:$false
+            $result = Remove-OldFiles -Path $script:dirExcludeTest -OlderThan 7 -ExcludeDirectory 'KeepMe' -Recurse -Confirm:$false
 
             $result.FilesRemoved | Should -Be 1
 
@@ -288,7 +288,7 @@ Describe 'Remove-OldFiles Integration Tests' {
         }
 
         It 'Should remove empty directories when specified' {
-            $result = Remove-OldFiles -Path $script:emptyDirTest -OlderThan 7 -RemoveEmptyDirectories -Confirm:$false -ErrorAction SilentlyContinue
+            $result = Remove-OldFiles -Path $script:emptyDirTest -OlderThan 7 -RemoveEmptyDirectories -Recurse -Confirm:$false -ErrorAction SilentlyContinue
 
             $result.FilesRemoved | Should -Be 2
             $result.DirectoriesRemoved | Should -BeGreaterOrEqual 2
@@ -312,7 +312,7 @@ Describe 'Remove-OldFiles Integration Tests' {
             'content' | Set-Content -Path $file
             (Get-Item $file).LastWriteTime = (Get-Date).AddDays(-30)
 
-            $result = Remove-OldFiles -Path $noRemoveDir -OlderThan 7 -Confirm:$false
+            $result = Remove-OldFiles -Path $noRemoveDir -OlderThan 7 -Recurse -Confirm:$false
 
             $result.FilesRemoved | Should -Be 1
             $result.DirectoriesRemoved | Should -Be 0

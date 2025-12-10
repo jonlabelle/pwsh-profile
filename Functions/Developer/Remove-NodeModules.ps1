@@ -2,12 +2,13 @@ function Remove-NodeModules
 {
     <#
     .SYNOPSIS
-        Removes node_modules folders from Node.js project directories.
+        Removes node_modules folders from Node.js project directories with optional recursion.
 
     .DESCRIPTION
-        Recursively searches for Node.js project files (package.json) and removes
-        their associated node_modules folders. Only removes folders when a package.json file
-        is found in the parent directory, ensuring only legitimate Node.js projects are cleaned.
+        Searches for Node.js project files (package.json) and removes their associated node_modules
+        folders. Only removes folders when a package.json file is found in the parent directory,
+        ensuring only legitimate Node.js projects are cleaned. Recursion is controlled by the
+        -Recurse switch.
 
         Cross-platform compatible with PowerShell 5.1+ on Windows, macOS, and Linux.
 
@@ -24,6 +25,10 @@ function Remove-NodeModules
         to provide detailed space freed information. Use this switch for large directory structures
         to significantly speed up execution.
 
+    .PARAMETER Recurse
+        When specified, searches for projects in subdirectories. Without this switch, only the
+        specified path is inspected.
+
     .PARAMETER WhatIf
         Shows what would be removed without actually removing anything.
 
@@ -31,9 +36,9 @@ function Remove-NodeModules
         Prompts for confirmation before removing each folder.
 
     .EXAMPLE
-        PS > Remove-NodeModules
+        PS > Remove-NodeModules -Recurse
 
-        Removes all node_modules folders from Node.js projects in the current directory and subdirectories,
+        Removes node_modules folders from Node.js projects in the current directory and subdirectories,
         showing the total space freed.
 
     .EXAMPLE
@@ -42,12 +47,12 @@ function Remove-NodeModules
         Removes node_modules folders without calculating space freed (faster for large directory structures).
 
     .EXAMPLE
-        PS > Remove-NodeModules -Path ~/Projects -WhatIf
+        PS > Remove-NodeModules -Path ~/Projects -Recurse -WhatIf
 
-        Shows what would be removed in the ~/Projects directory without actually removing anything.
+        Shows what would be removed in the ~/Projects directory and its subdirectories without actually removing anything.
 
     .EXAMPLE
-        PS > Remove-NodeModules -Path C:\MyProjects -Confirm
+        PS > Remove-NodeModules -Path C:\MyProjects -Recurse -Confirm
 
         Removes node_modules folders with confirmation prompts for each folder.
 
@@ -94,7 +99,10 @@ function Remove-NodeModules
         [String[]]$ExcludeDirectory = @('.git'),
 
         [Parameter()]
-        [Switch]$NoSizeCalculation
+        [Switch]$NoSizeCalculation,
+
+        [Parameter()]
+        [Switch]$Recurse
     )
 
     begin
@@ -134,13 +142,16 @@ function Remove-NodeModules
 
             Write-Verbose "Searching for Node.js projects in: $resolvedPath"
 
-            # Build Get-ChildItem parameters
+            # Build Get-ChildItem parameters and filter reliably across PS versions
             $getChildItemParams = @{
                 Path = $resolvedPath
-                Filter = $projectPattern
                 File = $true
-                Recurse = $true
                 ErrorAction = 'SilentlyContinue'
+            }
+
+            if ($Recurse.IsPresent)
+            {
+                $getChildItemParams.Recurse = $true
             }
 
             # Disable progress bar for recursive file search (PowerShell 7.4+)
@@ -149,33 +160,40 @@ function Remove-NodeModules
                 $getChildItemParams['ProgressAction'] = 'SilentlyContinue'
             }
 
-            # Find all package.json files
+            function Test-IsExcludedPath
+            {
+                param(
+                    [String]$FilePath,
+                    [String[]]$ExcludedDirs
+                )
+
+                foreach ($excludeDir in $ExcludedDirs)
+                {
+                    $escaped = [regex]::Escape([System.IO.Path]::DirectorySeparatorChar + $excludeDir + [System.IO.Path]::DirectorySeparatorChar)
+                    $escapedEnd = [regex]::Escape([System.IO.Path]::DirectorySeparatorChar + $excludeDir + '$')
+                    if ($FilePath -match $escaped -or $FilePath -match $escapedEnd)
+                    {
+                        return $true
+                    }
+                }
+                return $false
+            }
+
             $allProjectFiles = Get-ChildItem @getChildItemParams
 
-            # Additional filtering for excluded directories
-            # Get-ChildItem -Exclude only works on names, not paths, so we need manual filtering
-            if ($ExcludeDirectory -and $ExcludeDirectory.Count -gt 0)
-            {
-                $projectFiles = $allProjectFiles | Where-Object {
-                    $filePath = $_.FullName
-                    $isExcluded = $false
-                    foreach ($excludeDir in $ExcludeDirectory)
-                    {
-                        # Check if the file path contains the excluded directory
-                        if ($filePath -match [regex]::Escape([System.IO.Path]::DirectorySeparatorChar + $excludeDir + [System.IO.Path]::DirectorySeparatorChar) -or
-                            $filePath -match [regex]::Escape([System.IO.Path]::DirectorySeparatorChar + $excludeDir + '$'))
-                        {
-                            $isExcluded = $true
-                            Write-Verbose "Excluding project in $excludeDir directory: $filePath"
-                            break
-                        }
-                    }
-                    -not $isExcluded
+            # Filter to package.json and exclusions
+            $projectFiles = $allProjectFiles | Where-Object {
+                if ($_.Name -ne $projectPattern)
+                {
+                    return $false
                 }
-            }
-            else
-            {
-                $projectFiles = $allProjectFiles
+
+                if ($ExcludeDirectory -and $ExcludeDirectory.Count -gt 0)
+                {
+                    return -not (Test-IsExcludedPath -FilePath $_.FullName -ExcludedDirs $ExcludeDirectory)
+                }
+
+                return $true
             }
 
             if (-not $projectFiles -or $projectFiles.Count -eq 0)

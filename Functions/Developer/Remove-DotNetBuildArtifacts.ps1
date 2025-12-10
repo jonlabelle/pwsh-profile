@@ -2,12 +2,13 @@ function Remove-DotNetBuildArtifacts
 {
     <#
     .SYNOPSIS
-        Removes bin and obj folders from .NET project directories.
+        Removes bin and obj folders from .NET project directories with optional recursion.
 
     .DESCRIPTION
-        Recursively searches for .NET project files (.csproj, .vbproj, .fsproj, .sqlproj) and removes
-        their associated bin and obj build artifact folders. Only removes folders when a project file
-        is found in the parent directory, similar to 'dotnet clean' but more thorough.
+        Searches for .NET project files (.csproj, .vbproj, .fsproj, .sqlproj) and removes their
+        associated bin and obj build artifact folders. Only removes folders when a project file is
+        found in the parent directory, similar to 'dotnet clean' but more thorough. Recursion is
+        controlled by the -Recurse switch.
 
         Cross-platform compatible with PowerShell 5.1+ on Windows, macOS, and Linux.
 
@@ -24,6 +25,10 @@ function Remove-DotNetBuildArtifacts
         to provide detailed space freed information. Use this switch for large directory structures
         to significantly speed up execution.
 
+    .PARAMETER Recurse
+        When specified, searches for projects in subdirectories. Without this switch, only the
+        specified path is inspected.
+
     .PARAMETER WhatIf
         Shows what would be removed without actually removing anything.
 
@@ -31,9 +36,9 @@ function Remove-DotNetBuildArtifacts
         Prompts for confirmation before removing each folder.
 
     .EXAMPLE
-        PS > Remove-DotNetBuildArtifacts
+        PS > Remove-DotNetBuildArtifacts -Recurse
 
-        Removes all bin and obj folders from .NET projects in the current directory and subdirectories,
+        Removes bin and obj folders from .NET projects in the current directory and subdirectories,
         showing the total space freed.
 
     .EXAMPLE
@@ -42,12 +47,12 @@ function Remove-DotNetBuildArtifacts
         Removes build artifacts without calculating space freed (faster for large directory structures).
 
     .EXAMPLE
-        PS > Remove-DotNetBuildArtifacts -Path ~/Projects -WhatIf
+        PS > Remove-DotNetBuildArtifacts -Path ~/Projects -Recurse -WhatIf
 
-        Shows what would be removed in the ~/Projects directory without actually removing anything.
+        Shows what would be removed in the ~/Projects directory and its subdirectories without actually removing anything.
 
     .EXAMPLE
-        PS > Remove-DotNetBuildArtifacts -Path C:\MyProjects -Confirm
+        PS > Remove-DotNetBuildArtifacts -Path C:\MyProjects -Recurse -Confirm
 
         Removes build artifacts with confirmation prompts for each folder.
 
@@ -94,7 +99,10 @@ function Remove-DotNetBuildArtifacts
         [String[]]$ExcludeDirectory = @('.git', 'node_modules'),
 
         [Parameter()]
-        [Switch]$NoSizeCalculation
+        [Switch]$NoSizeCalculation,
+
+        [Parameter()]
+        [Switch]$Recurse
     )
 
     begin
@@ -134,13 +142,16 @@ function Remove-DotNetBuildArtifacts
 
             Write-Verbose "Searching for .NET projects in: $resolvedPath"
 
-            # Build Get-ChildItem parameters
+            # Build Get-ChildItem parameters (filtering by extension after retrieval for reliability across PS versions)
             $getChildItemParams = @{
                 Path = $resolvedPath
-                Include = $projectPatterns
                 File = $true
-                Recurse = $true
                 ErrorAction = 'SilentlyContinue'
+            }
+
+            if ($Recurse.IsPresent)
+            {
+                $getChildItemParams.Recurse = $true
             }
 
             # Disable progress bar for recursive file search (PowerShell 7.4+)
@@ -149,39 +160,43 @@ function Remove-DotNetBuildArtifacts
                 $getChildItemParams['ProgressAction'] = 'SilentlyContinue'
             }
 
-            # Add exclusions if specified
-            if ($ExcludeDirectory -and $ExcludeDirectory.Count -gt 0)
+            # Helper to check excluded directories in a path
+            function Test-IsExcludedPath
             {
-                $getChildItemParams['Exclude'] = $ExcludeDirectory
+                param(
+                    [String]$FilePath,
+                    [String[]]$ExcludedDirs
+                )
+
+                foreach ($excludeDir in $ExcludedDirs)
+                {
+                    $escaped = [regex]::Escape([System.IO.Path]::DirectorySeparatorChar + $excludeDir + [System.IO.Path]::DirectorySeparatorChar)
+                    $escapedEnd = [regex]::Escape([System.IO.Path]::DirectorySeparatorChar + $excludeDir + '$')
+                    if ($FilePath -match $escaped -or $FilePath -match $escapedEnd)
+                    {
+                        return $true
+                    }
+                }
+                return $false
             }
 
-            # Find all .NET project files
             $allProjectFiles = Get-ChildItem @getChildItemParams
 
-            # Additional filtering for excluded directories (Get-ChildItem -Exclude only works on names, not paths)
-            # So we need to filter out any files that are inside excluded directories
-            if ($ExcludeDirectory -and $ExcludeDirectory.Count -gt 0)
-            {
-                $projectFiles = $allProjectFiles | Where-Object {
-                    $filePath = $_.FullName
-                    $isExcluded = $false
-                    foreach ($excludeDir in $ExcludeDirectory)
-                    {
-                        # Check if the file path contains the excluded directory
-                        if ($filePath -match [regex]::Escape([System.IO.Path]::DirectorySeparatorChar + $excludeDir + [System.IO.Path]::DirectorySeparatorChar) -or
-                            $filePath -match [regex]::Escape([System.IO.Path]::DirectorySeparatorChar + $excludeDir + '$'))
-                        {
-                            $isExcluded = $true
-                            Write-Verbose "Excluding project in $excludeDir directory: $filePath"
-                            break
-                        }
-                    }
-                    -not $isExcluded
+            # Filter by project extensions and exclusions
+            $projectFiles = $allProjectFiles | Where-Object {
+                $ext = $_.Extension.ToLowerInvariant()
+                $isProject = $ext -in @('.csproj', '.vbproj', '.fsproj', '.sqlproj')
+                if (-not $isProject)
+                {
+                    return $false
                 }
-            }
-            else
-            {
-                $projectFiles = $allProjectFiles
+
+                if ($ExcludeDirectory -and $ExcludeDirectory.Count -gt 0)
+                {
+                    return -not (Test-IsExcludedPath -FilePath $_.FullName -ExcludedDirs $ExcludeDirectory)
+                }
+
+                return $true
             }
 
             if (-not $projectFiles -or $projectFiles.Count -eq 0)

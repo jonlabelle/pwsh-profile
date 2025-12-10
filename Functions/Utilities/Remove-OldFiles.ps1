@@ -2,12 +2,12 @@ function Remove-OldFiles
 {
     <#
     .SYNOPSIS
-        Removes files older than a specified time period.
+        Removes files older than a specified time period with optional recursion.
 
     .DESCRIPTION
-        Recursively searches for files older than a specified age and removes them. Supports
-        filtering by file patterns, excluding specific files/directories, and optionally removing
-        empty directories after cleanup.
+        Searches for files older than a specified age and removes them. Supports optional recursion
+        into subdirectories, filtering by file patterns, excluding specific files/directories, and
+        optionally removing empty directories after cleanup.
 
         Cross-platform compatible with PowerShell 5.1+ on Windows, macOS, and Linux.
 
@@ -36,6 +36,10 @@ function Remove-OldFiles
         These directories and their subdirectories will not be searched.
         Supports multiple patterns as an array.
 
+    .PARAMETER Recurse
+        When specified, searches subdirectories recursively. Without this switch, only the
+        files directly within the provided path are evaluated.
+
     .PARAMETER RemoveEmptyDirectories
         After removing old files, also remove any directories that are now empty.
         This is done recursively from the deepest level up.
@@ -53,12 +57,12 @@ function Remove-OldFiles
     .EXAMPLE
         PS > Remove-OldFiles -OlderThan 30
 
-        Removes all files in the current directory (and subdirectories) older than 30 days.
+        Removes files in the current directory older than 30 days.
 
     .EXAMPLE
-        PS > Remove-OldFiles -Path C:\Logs -OlderThan 7 -Include '*.log','*.txt'
+        PS > Remove-OldFiles -Path C:\Logs -OlderThan 7 -Include '*.log','*.txt' -Recurse
 
-        Removes .log and .txt files from C:\Logs that are older than 7 days.
+        Removes .log and .txt files from C:\Logs and subdirectories that are older than 7 days.
 
     .EXAMPLE
         PS > Remove-OldFiles -OlderThan 12 -Unit Hours -RemoveEmptyDirectories
@@ -134,6 +138,9 @@ function Remove-OldFiles
         [Parameter()]
         [ValidateNotNullOrEmpty()]
         [String[]]$ExcludeDirectory,
+
+        [Parameter()]
+        [Switch]$Recurse,
 
         [Parameter()]
         [Switch]$RemoveEmptyDirectories,
@@ -238,7 +245,7 @@ function Remove-OldFiles
         $getChildItemParams = @{
             LiteralPath = $resolvedPath
             File = $true
-            Recurse = $true
+            Recurse = $Recurse.IsPresent
             Force = $Force
             ErrorAction = 'SilentlyContinue'
         }

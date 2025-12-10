@@ -46,7 +46,7 @@ Describe 'Copy-Directory Integration Tests' {
             'file1 content' | Set-Content -Path "$sourceDir\file1.txt"
             'file2 content' | Set-Content -Path "$sourceDir\file2.txt"
 
-            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip -Recurse
 
             $result.TotalFiles | Should -Be 2
             $result.TotalDirectories | Should -Be 0
@@ -65,7 +65,7 @@ Describe 'Copy-Directory Integration Tests' {
             'content2' | Set-Content -Path "$sourceDir\dir1\subdir1\file2.txt"
             'content3' | Set-Content -Path "$sourceDir\dir2\file3.txt"
 
-            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip -Recurse
 
             $result.TotalFiles | Should -Be 3
             $result.TotalDirectories | Should -Be 3
@@ -108,7 +108,7 @@ Describe 'Copy-Directory Integration Tests' {
             'new content' | Set-Content -Path "$sourceDir\existing.txt"
             'old content' | Set-Content -Path "$destDir\existing.txt"
 
-            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip -Recurse
 
             $result.FilesSkipped | Should -Be 1
             $result.FilesOverwritten | Should -Be 0
@@ -294,7 +294,7 @@ Describe 'Copy-Directory Integration Tests' {
             'app git config' | Set-Content -Path "$sourceDir\src\app\.git\config"
             'lib code' | Set-Content -Path "$sourceDir\src\lib\helper.ps1"
 
-            Copy-Directory -Source $sourceDir -Destination $destDir -ExcludeDirectories '.git' -UpdateMode Skip
+            Copy-Directory -Source $sourceDir -Destination $destDir -ExcludeDirectories '.git' -UpdateMode Skip -Recurse
 
             Test-Path "$destDir\.git" | Should -Be $false
             Test-Path "$destDir\src\app\.git" | Should -Be $false
@@ -317,7 +317,7 @@ Describe 'Copy-Directory Integration Tests' {
             'source' | Set-Content -Path "$sourceDir\src\main.ps1"
 
             $result = Copy-Directory -Source $sourceDir -Destination $destDir `
-                -ExcludeDirectories 'bin', 'obj', 'dist' -UpdateMode Skip
+                -ExcludeDirectories 'bin', 'obj', 'dist' -UpdateMode Skip -Recurse
 
             $result.ExcludedDirectories | Should -Be 3
             Test-Path "$destDir\bin" | Should -Be $false
@@ -374,7 +374,7 @@ Describe 'Copy-Directory Integration Tests' {
             'file4' | Set-Content -Path "$sourceDir\dir1\subdir1\file4.txt"
             'file5' | Set-Content -Path "$sourceDir\dir2\file5.txt"
 
-            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip -Recurse
 
             # 5 files total
             $result.TotalFiles | Should -Be 5

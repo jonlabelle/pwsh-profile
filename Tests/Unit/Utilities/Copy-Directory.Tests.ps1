@@ -67,6 +67,31 @@ Describe 'Copy-Directory' {
             $command.Parameters.ContainsKey('WhatIf') | Should -Be $true
             $command.Parameters.ContainsKey('Confirm') | Should -Be $true
         }
+
+        It 'Should expose optional Recurse switch' {
+            $command = Get-Command Copy-Directory
+            $recurseParam = $command.Parameters['Recurse']
+            $recurseParam | Should -Not -BeNullOrEmpty
+            $recurseParam.Attributes.Mandatory | Should -Not -Contain $true
+        }
+    }
+
+    Context 'Non-recursive behavior' {
+        It 'Should skip subdirectories when Recurse is not specified' {
+            $testSource = Join-Path $TestDrive 'nonrecursive_source'
+            $testDest = Join-Path $TestDrive 'nonrecursive_dest'
+
+            New-Item -ItemType Directory -Path $testSource -Force | Out-Null
+            New-Item -ItemType Directory -Path (Join-Path $testSource 'subdir') -Force | Out-Null
+            'root content' | Set-Content -Path (Join-Path $testSource 'root.txt')
+            'nested content' | Set-Content -Path (Join-Path $testSource 'subdir/nested.txt')
+
+            $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip
+
+            Test-Path (Join-Path $testDest 'root.txt') | Should -BeTrue
+            Test-Path (Join-Path $testDest 'subdir/nested.txt') | Should -BeFalse
+            $result.TotalDirectories | Should -Be 0
+        }
     }
 
     Context 'UpdateMode Parameter' {
@@ -80,7 +105,7 @@ Describe 'Copy-Directory' {
             New-Item -ItemType Directory -Path $testDest -Force | Out-Null
             'old content' | Set-Content -Path "$testDest\test.txt"
 
-            $result = Copy-Directory -Source $testSource -Destination $testDest
+            $result = Copy-Directory -Source $testSource -Destination $testDest -Recurse
 
             $result.FilesSkipped | Should -Be 1
             (Get-Content -Path "$testDest\test.txt") | Should -Be 'old content'
@@ -90,7 +115,7 @@ Describe 'Copy-Directory' {
             $testDest = Join-Path $TestDrive 'destination'
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
 
-            $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip
+            $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip -Recurse
 
             $result | Should -Not -BeNullOrEmpty
             $result.PSObject.Properties.Name | Should -Contain 'TotalFiles'
@@ -106,7 +131,7 @@ Describe 'Copy-Directory' {
             $testDest = Join-Path $TestDrive 'destination'
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
 
-            $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip
+            $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip -Recurse
 
             $result.TotalFiles | Should -BeOfType [Int32]
             $result.TotalDirectories | Should -BeOfType [Int32]
@@ -121,7 +146,7 @@ Describe 'Copy-Directory' {
             $testDest = Join-Path $TestDrive 'empty_dest'
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
 
-            $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip
+            $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip -Recurse
 
             $result.TotalFiles | Should -Be 0
             $result.TotalDirectories | Should -Be 0
@@ -138,7 +163,7 @@ Describe 'Copy-Directory' {
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
             'test content' | Set-Content -Path (Join-Path $testSource 'test.txt')
 
-            { Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip } | Should -Not -Throw
+            { Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip -Recurse } | Should -Not -Throw
 
             Test-Path $testDest | Should -Be $true
         }
@@ -151,7 +176,7 @@ Describe 'Copy-Directory' {
                 New-Item -ItemType Directory -Path 'relative_source' -Force | Out-Null
                 'test' | Set-Content -Path 'relative_source\test.txt'
 
-                { Copy-Directory -Source './relative_source' -Destination './relative_dest' -UpdateMode Skip } | Should -Not -Throw
+                { Copy-Directory -Source './relative_source' -Destination './relative_dest' -UpdateMode Skip -Recurse } | Should -Not -Throw
 
                 Test-Path 'relative_dest' | Should -Be $true
             }
@@ -165,7 +190,7 @@ Describe 'Copy-Directory' {
             $nonExistentSource = Join-Path $TestDrive 'non_existent'
             $testDest = Join-Path $TestDrive 'dest'
 
-            { Copy-Directory -Source $nonExistentSource -Destination $testDest -UpdateMode Skip } | Should -Throw
+            { Copy-Directory -Source $nonExistentSource -Destination $testDest -UpdateMode Skip -Recurse } | Should -Throw
         }
     }
 
@@ -179,7 +204,7 @@ Describe 'Copy-Directory' {
             'test' | Set-Content -Path "$testSource\.git\config"
             'test' | Set-Content -Path "$testSource\include\file.txt"
 
-            $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeDirectories '.git' -UpdateMode Skip
+            $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeDirectories '.git' -UpdateMode Skip -Recurse
 
             $result.ExcludedDirectories | Should -Be 1
             Test-Path "$testDest\.git" | Should -Be $false
@@ -196,7 +221,7 @@ Describe 'Copy-Directory' {
             New-Item -ItemType Directory -Path "$testSource\src" -Force | Out-Null
             'test' | Set-Content -Path "$testSource\src\main.ps1"
 
-            $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeDirectories '.git', 'node_modules', 'bin' -UpdateMode Skip
+            $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeDirectories '.git', 'node_modules', 'bin' -UpdateMode Skip -Recurse
 
             $result.ExcludedDirectories | Should -Be 3
             Test-Path "$testDest\.git" | Should -Be $false
@@ -212,7 +237,7 @@ Describe 'Copy-Directory' {
             New-Item -ItemType Directory -Path "$testSource\.GIT" -Force | Out-Null
             'test' | Set-Content -Path "$testSource\.GIT\config"
 
-            $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeDirectories '.git' -UpdateMode Skip
+            $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeDirectories '.git' -UpdateMode Skip -Recurse
 
             $result.ExcludedDirectories | Should -Be 1
             Test-Path "$testDest\.GIT" | Should -Be $false
@@ -227,7 +252,7 @@ Describe 'Copy-Directory' {
             New-Item -ItemType Directory -Path $testDest -Force | Out-Null
             'old content' | Set-Content -Path "$testDest\test.txt"
 
-            $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip
+            $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip -Recurse
 
             $result.FilesSkipped | Should -Be 1
             (Get-Content -Path "$testDest\test.txt") | Should -Be 'old content'
@@ -243,7 +268,7 @@ Describe 'Copy-Directory' {
             New-Item -ItemType Directory -Path $testDest -Force | Out-Null
             'old content' | Set-Content -Path "$testDest\test.txt"
 
-            $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Overwrite
+            $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Overwrite -Recurse
 
             $result.FilesOverwritten | Should -Be 1
             (Get-Content -Path "$testDest\test.txt") | Should -Be 'new content'
@@ -260,7 +285,7 @@ Describe 'Copy-Directory' {
             'old content' | Set-Content -Path "$testDest\test.txt"
             (Get-Item -Path "$testDest\test.txt").LastWriteTime = (Get-Date).AddDays(-1)
 
-            $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode IfNewer
+            $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode IfNewer -Recurse
 
             $result.FilesOverwritten | Should -Be 1
             (Get-Content -Path "$testDest\test.txt") | Should -Be 'new content'
@@ -277,7 +302,7 @@ Describe 'Copy-Directory' {
             'old content' | Set-Content -Path "$testDest\test.txt"
 
             # Mock WhatIf to avoid actual prompt
-            Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Prompt -WhatIf | Out-Null
+            Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Prompt -WhatIf -Recurse | Out-Null
 
             # With -WhatIf, no actual copy happens
             (Get-Content -Path "$testDest\test.txt") | Should -Be 'old content'

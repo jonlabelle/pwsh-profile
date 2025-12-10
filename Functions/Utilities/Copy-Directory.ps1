@@ -2,13 +2,13 @@ function Copy-Directory
 {
     <#
     .SYNOPSIS
-        Copies a directory recursively with the ability to exclude specific directories.
+        Copies a directory with optional recursion and directory exclusions.
 
     .DESCRIPTION
-        Copies all files and directories from a source path to a destination path recursively.
-        Provides the ability to exclude specific directories (e.g., .git, node_modules, bin, obj)
-        from the copy operation. This is cross-platform compatible with PowerShell 5.1+ and
-        PowerShell Core 6.2+.
+        Copies files from a source path to a destination path, optionally recursing into
+        subdirectories. Provides the ability to exclude specific directories (e.g., .git,
+        node_modules, bin, obj) from the copy operation. This is cross-platform compatible with
+        PowerShell 5.1+ and PowerShell Core 6.2+.
 
     .PARAMETER Source
         The source directory path to copy from. Supports relative paths and tilde (~) expansion.
@@ -31,6 +31,10 @@ function Copy-Directory
         - IfNewer: Only overwrite if the source file is newer than the destination file
         - Prompt: Ask for confirmation for each existing file
 
+    .PARAMETER Recurse
+        When specified, copies subdirectories recursively. Without this switch, only files in the
+        root of the source directory are copied.
+
     .PARAMETER WhatIf
         Shows what would happen if the cmdlet runs without actually performing the copy operation.
 
@@ -38,23 +42,23 @@ function Copy-Directory
         Prompts for confirmation before copying files.
 
     .EXAMPLE
-        PS > Copy-Directory -Source '.\MyProject' -Destination 'C:\Backup\MyProject' -ExcludeDirectories '.git', 'node_modules'
+        PS > Copy-Directory -Source '.\MyProject' -Destination 'C:\Backup\MyProject' -ExcludeDirectories '.git', 'node_modules' -Recurse
 
         Copies the MyProject directory to C:\Backup\MyProject, excluding '.git' and 'node_modules' directories.
 
     .EXAMPLE
-        PS > Copy-Directory -Source 'C:\Dev\Project' -Destination 'D:\Archive\Project' -ExcludeDirectories 'bin', 'obj', '.vs' -UpdateMode Overwrite
+        PS > Copy-Directory -Source 'C:\Dev\Project' -Destination 'D:\Archive\Project' -ExcludeDirectories 'bin', 'obj', '.vs' -UpdateMode Overwrite -Recurse
 
         Copies the project directory excluding build artifacts, overwriting existing files without prompting.
 
     .EXAMPLE
-        PS > Copy-Directory -Source '~/Documents/Code' -Destination '~/Backup/Code' -ExcludeDirectories '.git', 'dist', 'build'
+        PS > Copy-Directory -Source '~/Documents/Code' -Destination '~/Backup/Code' -ExcludeDirectories '.git', 'dist', 'build' -Recurse
 
         Copies the Code directory from Documents to Backup, excluding version control and build directories.
         Uses tilde expansion which works cross-platform.
 
     .EXAMPLE
-        PS > Copy-Directory -Source './app' -Destination './staging/app' -ExcludeDirectories '.git', '.github', 'node_modules', 'tests'
+        PS > Copy-Directory -Source './app' -Destination './staging/app' -ExcludeDirectories '.git', '.github', 'node_modules', 'tests' -Recurse
         PS > Compress-Archive -Path './staging/app/*' -DestinationPath './artifacts/app.zip' -Force
 
         Prepares a clean deployable archive by copying only runtime assets before zipping for release.
@@ -90,7 +94,10 @@ function Copy-Directory
 
         [Parameter()]
         [ValidateSet('Skip', 'Overwrite', 'IfNewer', 'Prompt')]
-        [String]$UpdateMode = 'Skip'
+        [String]$UpdateMode = 'Skip',
+
+        [Parameter()]
+        [Switch]$Recurse
     )
 
     begin
@@ -145,7 +152,8 @@ function Copy-Directory
                 [String]$SourcePath,
                 [String]$DestPath,
                 [String[]]$Exclude,
-                [String]$Mode
+                [String]$Mode,
+                [Bool]$EnableRecurse
             )
 
             Write-Verbose "Processing directory: $SourcePath"
@@ -253,6 +261,13 @@ function Copy-Directory
             {
                 $DestDirPath = Join-Path -Path $DestPath -ChildPath $Directory.Name
 
+                if (-not $EnableRecurse)
+                {
+                    $script:DirectoriesExcluded++
+                    Write-Verbose "Skipping subdirectory (Recurse not specified): $($Directory.FullName)"
+                    continue
+                }
+
                 # Create directory at destination
                 if (-not (Test-Path -Path $DestDirPath))
                 {
@@ -265,12 +280,12 @@ function Copy-Directory
                 }
 
                 # Recurse into subdirectory
-                Copy-DirectoryRecursive -SourcePath $Directory.FullName -DestPath $DestDirPath -Exclude $Exclude -Mode $Mode
+                Copy-DirectoryRecursive -SourcePath $Directory.FullName -DestPath $DestDirPath -Exclude $Exclude -Mode $Mode -EnableRecurse $EnableRecurse
             }
         }
 
         # Start the recursive copy
-        Copy-DirectoryRecursive -SourcePath $Source -DestPath $Destination -Exclude $ExcludeLower -Mode $UpdateMode
+        Copy-DirectoryRecursive -SourcePath $Source -DestPath $Destination -Exclude $ExcludeLower -Mode $UpdateMode -EnableRecurse $Recurse.IsPresent
     }
 
     end

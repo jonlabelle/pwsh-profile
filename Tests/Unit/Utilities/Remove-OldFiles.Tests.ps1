@@ -78,6 +78,13 @@ Describe 'Remove-OldFiles' {
             $command.Parameters.ContainsKey('Confirm') | Should -Be $true
         }
 
+        It 'Should expose optional Recurse switch' {
+            $command = Get-Command Remove-OldFiles
+            $recurseParam = $command.Parameters['Recurse']
+            $recurseParam | Should -Not -BeNullOrEmpty
+            $recurseParam.Attributes.Mandatory | Should -Not -Contain $true
+        }
+
         It 'Should have OutputType attribute defined' {
             $command = Get-Command Remove-OldFiles
             $outputType = $command.OutputType
@@ -226,6 +233,27 @@ Describe 'Remove-OldFiles' {
             $result = Remove-OldFiles -Path $script:testDir -OlderThan 7 -WhatIf
 
             $result.FilesRemoved | Should -Be 0
+        }
+    }
+
+    Context 'Recursion control' {
+        It 'Should not process subdirectories without Recurse' {
+            $root = Join-Path $TestDrive 'RecursionControl'
+            $child = Join-Path $root 'child'
+            New-Item -ItemType Directory -Path $child -Force | Out-Null
+
+            $rootFile = Join-Path $root 'root.txt'
+            $childFile = Join-Path $child 'child.txt'
+            'root' | Set-Content -Path $rootFile
+            'child' | Set-Content -Path $childFile
+            (Get-Item $rootFile).LastWriteTime = (Get-Date).AddDays(-40)
+            (Get-Item $childFile).LastWriteTime = (Get-Date).AddDays(-40)
+
+            $result = Remove-OldFiles -Path $root -OlderThan 30 -WhatIf
+
+            $result.FilesRemoved | Should -Be 0
+            Test-Path $rootFile | Should -BeTrue
+            Test-Path $childFile | Should -BeTrue
         }
     }
 }

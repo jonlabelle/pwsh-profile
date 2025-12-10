@@ -214,10 +214,11 @@ Describe 'install.ps1 integration tests' {
                 $funcLocalTestFile = Join-Path (Join-Path $profileRoot 'Functions/Local') 'test.txt'
                 Test-Path $funcLocalTestFile | Should -BeFalse
 
-                # These directories should not exist at all
+                # These directories should be reinstalled fresh (no preserved user files)
                 foreach ($name in @('Help', 'Modules', 'PSReadLine'))
                 {
-                    Test-Path (Join-Path $profileRoot $name) | Should -BeFalse
+                    $testFile = Join-Path (Join-Path $profileRoot $name) 'test.txt'
+                    Test-Path $testFile | Should -BeFalse
                 }
 
                 $profileParent = Split-Path -Parent $profileRoot

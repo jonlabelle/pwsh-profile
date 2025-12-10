@@ -47,7 +47,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             'cache content' | Out-File (Join-Path $ObjPath 'cache.txt')
 
             # Run cleanup
-            $Result = Remove-DotNetBuildArtifacts -Path $script:ProjectPath
+            $Result = Remove-DotNetBuildArtifacts -Path $script:ProjectPath -Recurse
 
             # Verify folders are removed
             Test-Path $BinPath | Should -BeFalse
@@ -66,7 +66,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             'exe content' | Out-File (Join-Path $BinPath 'output.exe')
 
             # Run cleanup
-            $Result = Remove-DotNetBuildArtifacts -Path $script:ProjectPath
+            $Result = Remove-DotNetBuildArtifacts -Path $script:ProjectPath -Recurse
 
             # Verify
             Test-Path $BinPath | Should -BeFalse
@@ -83,7 +83,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             'cache' | Out-File (Join-Path $ObjPath 'project.assets.json')
 
             # Run cleanup
-            $Result = Remove-DotNetBuildArtifacts -Path $script:ProjectPath
+            $Result = Remove-DotNetBuildArtifacts -Path $script:ProjectPath -Recurse
 
             # Verify
             Test-Path $ObjPath | Should -BeFalse
@@ -99,8 +99,8 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             New-Item -ItemType Directory -Path $BinPath -Force | Out-Null
             'dacpac' | Out-File (Join-Path $BinPath 'database.dacpac')
 
-            # Run cleanup
-            $Result = Remove-DotNetBuildArtifacts -Path $script:ProjectPath
+            # Run cleanup (explicit recursion for nested projects)
+            $Result = Remove-DotNetBuildArtifacts -Path $script:ProjectPath -Recurse
 
             # Verify
             Test-Path $BinPath | Should -BeFalse
@@ -206,7 +206,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             }
 
             # Run cleanup
-            $Result = Remove-DotNetBuildArtifacts -Path $script:WorkspacePath
+            $Result = Remove-DotNetBuildArtifacts -Path $script:WorkspacePath -Recurse
 
             # Verify all artifacts removed
             Test-Path (Join-Path $Project1 'bin') | Should -BeFalse
@@ -218,6 +218,27 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
 
             $Result.TotalProjectsFound | Should -Be 3
             $Result.FoldersRemoved | Should -Be 6
+        }
+
+        It 'Should limit scope without Recurse' {
+            $rootProject = Join-Path $script:WorkspacePath 'Api'
+            $nestedProject = Join-Path (Join-Path $script:WorkspacePath 'src') 'Worker'
+
+            foreach ($proj in @($rootProject, $nestedProject))
+            {
+                New-Item -ItemType Directory -Path $proj -Force | Out-Null
+                '<Project></Project>' | Set-Content (Join-Path $proj 'Project.csproj')
+                New-Item -ItemType Directory -Path (Join-Path $proj 'bin') -Force | Out-Null
+                New-Item -ItemType Directory -Path (Join-Path $proj 'obj') -Force | Out-Null
+            }
+
+            $Result = Remove-DotNetBuildArtifacts -Path $rootProject
+
+            Test-Path (Join-Path $rootProject 'bin') | Should -BeFalse
+            Test-Path (Join-Path $rootProject 'obj') | Should -BeFalse
+            Test-Path (Join-Path $nestedProject 'bin') | Should -BeTrue
+            Test-Path (Join-Path $nestedProject 'obj') | Should -BeTrue
+            $Result.FoldersRemoved | Should -Be 2
         }
 
         It 'Should handle projects with only bin or only obj' {
@@ -236,7 +257,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             New-Item -ItemType Directory -Path $ObjPath -Force | Out-Null
 
             # Run cleanup
-            $Result = Remove-DotNetBuildArtifacts -Path $script:WorkspacePath
+            $Result = Remove-DotNetBuildArtifacts -Path $script:WorkspacePath -Recurse
 
             # Verify
             Test-Path $BinPath | Should -BeFalse
@@ -261,7 +282,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             'release.dll' | Out-File (Join-Path $BinRelease 'output.dll')
 
             # Run cleanup
-            $Result = Remove-DotNetBuildArtifacts -Path $script:WorkspacePath
+            $Result = Remove-DotNetBuildArtifacts -Path $script:WorkspacePath -Recurse
 
             # Verify entire bin directory is removed
             Test-Path $BinPath | Should -BeFalse
@@ -299,7 +320,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             New-Item -ItemType Directory -Path $NormalBin -Force | Out-Null
 
             # Run cleanup
-            $Result = Remove-DotNetBuildArtifacts -Path $script:WorkspacePath
+            $Result = Remove-DotNetBuildArtifacts -Path $script:WorkspacePath -Recurse
 
             # Verify .git project was excluded
             Test-Path $BinPath | Should -BeTrue
@@ -341,7 +362,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             New-Item -ItemType Directory -Path $NormalBin -Force | Out-Null
 
             # Run cleanup with custom exclusion
-            $Result = Remove-DotNetBuildArtifacts -Path $script:WorkspacePath -ExcludeDirectory @('.git', 'node_modules', 'vendor')
+            $Result = Remove-DotNetBuildArtifacts -Path $script:WorkspacePath -ExcludeDirectory @('.git', 'node_modules', 'vendor') -Recurse
 
             # Verify vendor was excluded, normal was cleaned
             Test-Path $VendorBin | Should -BeTrue
@@ -486,7 +507,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             New-Item -ItemType Directory -Path $ObjPath -Force | Out-Null
 
             # Run cleanup
-            $Result = Remove-DotNetBuildArtifacts -Path $script:ProjectPath
+            $Result = Remove-DotNetBuildArtifacts -Path $script:ProjectPath -Recurse
 
             # Verify both projects cleaned
             Test-Path $BinPath1 | Should -BeFalse
