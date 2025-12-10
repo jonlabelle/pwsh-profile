@@ -270,7 +270,7 @@ function Unprotect-PathWithPassword
                         {
                             $fileName = $fileName.Substring(0, $fileName.Length - 4)
                         }
-                        $outputFile = Join-Path $OutputPath $fileName
+                        $outputFile = Join-Path -Path $OutputPath -ChildPath $fileName
                     }
                     else
                     {

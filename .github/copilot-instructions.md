@@ -49,6 +49,20 @@ else
 
 - **DNS Resolution:** Use `[System.Net.Dns]::GetHostAddresses()` instead of Windows-only `Resolve-DnsName`
 - **File Paths:** Use `[System.IO.Path]::` methods for cross-platform compatibility
+- **Join-Path Usage:** Always use named parameters `-Path` and `-ChildPath` for PowerShell 5.1 compatibility. Never use `-AdditionalChildPath` (not available in PS 5.1):
+
+  ```powershell
+  # CORRECT - Works in PS 5.1 and Core
+  $fullPath = Join-Path -Path $baseDir -ChildPath 'subdir'
+  $nestedPath = Join-Path -Path (Join-Path -Path $baseDir -ChildPath 'subdir') -ChildPath 'file.txt'
+
+  # WRONG - Positional parameters (avoid for clarity)
+  $fullPath = Join-Path $baseDir 'subdir'
+
+  # WRONG - Not available in PowerShell 5.1
+  $fullPath = Join-Path -Path $baseDir -ChildPath 'subdir' -AdditionalChildPath 'file.txt'
+  ```
+
 - **Path Resolution:** For arbitrary strings/variables (and to normalize to an absolute path without requiring the path to exist), including the `~` symbol:
 
   ```powershell

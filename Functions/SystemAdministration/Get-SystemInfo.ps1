@@ -1834,7 +1834,7 @@ function Get-SystemInfo
                                     $temps = @()
                                     foreach ($zone in $thermalZones)
                                     {
-                                        $tempFile = Join-Path $zone.FullName 'temp'
+                                        $tempFile = Join-Path -Path $zone.FullName -ChildPath 'temp'
                                         if (Test-Path $tempFile)
                                         {
                                             $tempValue = Get-Content $tempFile -ErrorAction SilentlyContinue
@@ -2266,7 +2266,7 @@ function Get-SystemInfo
                                 if (Test-Path $batteryPath)
                                 {
                                     # Get battery status
-                                    $statusFile = Join-Path $batteryPath 'status'
+                                    $statusFile = Join-Path -Path $batteryPath -ChildPath 'status'
                                     if (Test-Path $statusFile)
                                     {
                                         $status = (Get-Content $statusFile -ErrorAction SilentlyContinue).Trim()
@@ -2293,7 +2293,7 @@ function Get-SystemInfo
                                     }
 
                                     # Get battery capacity percentage
-                                    $capacityFile = Join-Path $batteryPath 'capacity'
+                                    $capacityFile = Join-Path -Path $batteryPath -ChildPath 'capacity'
                                     if (Test-Path $capacityFile)
                                     {
                                         $capacity = Get-Content $capacityFile -ErrorAction SilentlyContinue

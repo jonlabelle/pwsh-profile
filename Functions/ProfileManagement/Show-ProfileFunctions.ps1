@@ -78,7 +78,7 @@ function Show-ProfileFunctions
             $profilePath = $PSCommandPath
         }
 
-        $functionsPath = Join-Path (Split-Path $profilePath -Parent) 'Functions'
+        $functionsPath = Join-Path -Path (Split-Path $profilePath -Parent) -ChildPath 'Functions'
 
         if (-not (Test-Path $functionsPath))
         {

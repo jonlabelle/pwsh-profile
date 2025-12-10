@@ -266,7 +266,7 @@ function Protect-PathWithPassword
                 {
                     if (Test-Path $OutputPath -PathType Container)
                     {
-                        $outputFile = Join-Path $OutputPath ([System.IO.Path]::GetFileName($FilePath) + '.enc')
+                        $outputFile = Join-Path -Path $OutputPath -ChildPath ([System.IO.Path]::GetFileName($FilePath) + '.enc')
                     }
                     else
                     {

@@ -207,7 +207,7 @@ function Test-PendingReboot
             $updatesPath = 'HKLM:\SOFTWARE\Microsoft\Updates'
             if (Test-Path $updatesPath -PathType Container)
             {
-                $volatilePath = Join-Path $updatesPath 'UpdateExeVolatile'
+                $volatilePath = Join-Path -Path $updatesPath -ChildPath 'UpdateExeVolatile'
                 if (Test-Path $volatilePath)
                 {
                     $volatileValue = Get-ItemProperty -Path $updatesPath -Name 'UpdateExeVolatile' -ErrorAction SilentlyContinue
@@ -340,7 +340,7 @@ function Test-PendingReboot
             $updatesPath = 'HKLM:\SOFTWARE\Microsoft\Updates'
             if (Test-Path $updatesPath -PathType Container)
             {
-                $volatilePath = Join-Path $updatesPath 'UpdateExeVolatile'
+                $volatilePath = Join-Path -Path $updatesPath -ChildPath 'UpdateExeVolatile'
                 if (Test-Path $volatilePath)
                 {
                     $volatileValue = Get-ItemProperty -Path $updatesPath -Name 'UpdateExeVolatile' -ErrorAction SilentlyContinue

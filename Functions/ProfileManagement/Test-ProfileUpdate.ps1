@@ -94,7 +94,7 @@ function Test-ProfileUpdate
             $profileRoot = $PSScriptRoot
 
             # Navigate up the directory tree until we find the .git directory or reach root
-            while ($profileRoot -and -not (Test-Path (Join-Path $profileRoot '.git')))
+            while ($profileRoot -and -not (Test-Path (Join-Path -Path $profileRoot -ChildPath '.git')))
             {
                 $parent = Split-Path -Parent $profileRoot
                 if ($parent -eq $profileRoot)
@@ -110,7 +110,7 @@ function Test-ProfileUpdate
             $profileRoot = Split-Path -Parent $PSCommandPath
 
             # Navigate up the directory tree until we find the .git directory
-            while ($profileRoot -and -not (Test-Path (Join-Path $profileRoot '.git')))
+            while ($profileRoot -and -not (Test-Path (Join-Path -Path $profileRoot -ChildPath '.git')))
             {
                 $parent = Split-Path -Parent $profileRoot
                 if ($parent -eq $profileRoot)
