@@ -78,26 +78,26 @@ Describe 'Copy-Directory' {
 
     Context 'Non-recursive behavior' {
         It 'Should skip subdirectories when Recurse is not specified' {
-            $testSource = Join-Path $TestDrive 'nonrecursive_source'
-            $testDest = Join-Path $TestDrive 'nonrecursive_dest'
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'nonrecursive_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'nonrecursive_dest'
 
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
-            New-Item -ItemType Directory -Path (Join-Path $testSource 'subdir') -Force | Out-Null
-            'root content' | Set-Content -Path (Join-Path $testSource 'root.txt')
-            'nested content' | Set-Content -Path (Join-Path $testSource 'subdir/nested.txt')
+            New-Item -ItemType Directory -Path (Join-Path -Path $testSource -ChildPath 'subdir') -Force | Out-Null
+            'root content' | Set-Content -Path (Join-Path -Path $testSource -ChildPath 'root.txt')
+            'nested content' | Set-Content -Path (Join-Path -Path $testSource -ChildPath 'subdir/nested.txt')
 
             $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip
 
-            Test-Path (Join-Path $testDest 'root.txt') | Should -BeTrue
-            Test-Path (Join-Path $testDest 'subdir/nested.txt') | Should -BeFalse
+            Test-Path (Join-Path -Path $testDest -ChildPath 'root.txt') | Should -BeTrue
+            Test-Path (Join-Path -Path $testDest -ChildPath 'subdir/nested.txt') | Should -BeFalse
             $result.TotalDirectories | Should -Be 0
         }
     }
 
     Context 'UpdateMode Parameter' {
         It 'Should default to Skip mode' {
-            $testSource = Join-Path $TestDrive 'default_mode_source'
-            $testDest = Join-Path $TestDrive 'default_mode_dest'
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'default_mode_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'default_mode_dest'
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
             'content' | Set-Content -Path "$testSource\test.txt"
 
@@ -111,8 +111,8 @@ Describe 'Copy-Directory' {
             (Get-Content -Path "$testDest\test.txt") | Should -Be 'old content'
         }
         It 'Should return PSCustomObject with expected properties' {
-            $testSource = Join-Path $TestDrive 'source'
-            $testDest = Join-Path $TestDrive 'destination'
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'destination'
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
 
             $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip -Recurse
@@ -127,8 +127,8 @@ Describe 'Copy-Directory' {
         }
 
         It 'Should have correct property types' {
-            $testSource = Join-Path $TestDrive 'source'
-            $testDest = Join-Path $TestDrive 'destination'
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'destination'
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
 
             $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip -Recurse
@@ -142,8 +142,8 @@ Describe 'Copy-Directory' {
         }
 
         It 'Should have zero values for empty source directory' {
-            $testSource = Join-Path $TestDrive 'empty_source'
-            $testDest = Join-Path $TestDrive 'empty_dest'
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'empty_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'empty_dest'
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
 
             $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip -Recurse
@@ -158,10 +158,10 @@ Describe 'Copy-Directory' {
 
     Context 'Path Resolution' {
         It 'Should handle absolute paths' {
-            $testSource = Join-Path $TestDrive 'absolute_source'
-            $testDest = Join-Path $TestDrive 'absolute_dest'
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'absolute_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'absolute_dest'
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
-            'test content' | Set-Content -Path (Join-Path $testSource 'test.txt')
+            'test content' | Set-Content -Path (Join-Path -Path $testSource -ChildPath 'test.txt')
 
             { Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip -Recurse } | Should -Not -Throw
 
@@ -187,8 +187,8 @@ Describe 'Copy-Directory' {
         }
 
         It 'Should throw error for non-existent source directory' {
-            $nonExistentSource = Join-Path $TestDrive 'non_existent'
-            $testDest = Join-Path $TestDrive 'dest'
+            $nonExistentSource = Join-Path -Path $TestDrive -ChildPath 'non_existent'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'dest'
 
             { Copy-Directory -Source $nonExistentSource -Destination $testDest -UpdateMode Skip -Recurse } | Should -Throw
         }
@@ -196,8 +196,8 @@ Describe 'Copy-Directory' {
 
     Context 'Directory Exclusion' {
         It 'Should exclude specified directories' {
-            $testSource = Join-Path $TestDrive 'exclude_source'
-            $testDest = Join-Path $TestDrive 'exclude_dest'
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'exclude_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'exclude_dest'
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
             New-Item -ItemType Directory -Path "$testSource\.git" -Force | Out-Null
             New-Item -ItemType Directory -Path "$testSource\include" -Force | Out-Null
@@ -212,8 +212,8 @@ Describe 'Copy-Directory' {
         }
 
         It 'Should exclude multiple directories' {
-            $testSource = Join-Path $TestDrive 'multi_exclude_source'
-            $testDest = Join-Path $TestDrive 'multi_exclude_dest'
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'multi_exclude_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'multi_exclude_dest'
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
             New-Item -ItemType Directory -Path "$testSource\.git" -Force | Out-Null
             New-Item -ItemType Directory -Path "$testSource\node_modules" -Force | Out-Null
@@ -231,8 +231,8 @@ Describe 'Copy-Directory' {
         }
 
         It 'Should perform case-insensitive directory exclusion' {
-            $testSource = Join-Path $TestDrive 'case_exclude_source'
-            $testDest = Join-Path $TestDrive 'case_exclude_dest'
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'case_exclude_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'case_exclude_dest'
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
             New-Item -ItemType Directory -Path "$testSource\.GIT" -Force | Out-Null
             'test' | Set-Content -Path "$testSource\.GIT\config"
@@ -243,8 +243,8 @@ Describe 'Copy-Directory' {
             Test-Path "$testDest\.GIT" | Should -Be $false
         }
         It 'Should accept Skip mode explicitly' {
-            $testSource = Join-Path $TestDrive 'skip_source'
-            $testDest = Join-Path $TestDrive 'skip_dest'
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'skip_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'skip_dest'
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
             'new content' | Set-Content -Path "$testSource\test.txt"
 
@@ -259,8 +259,8 @@ Describe 'Copy-Directory' {
         }
 
         It 'Should accept Overwrite mode' {
-            $testSource = Join-Path $TestDrive 'overwrite_source'
-            $testDest = Join-Path $TestDrive 'overwrite_dest'
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'overwrite_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'overwrite_dest'
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
             'new content' | Set-Content -Path "$testSource\test.txt"
 
@@ -275,8 +275,8 @@ Describe 'Copy-Directory' {
         }
 
         It 'Should accept IfNewer mode' {
-            $testSource = Join-Path $TestDrive 'ifnewer_source'
-            $testDest = Join-Path $TestDrive 'ifnewer_dest'
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'ifnewer_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'ifnewer_dest'
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
             'new content' | Set-Content -Path "$testSource\test.txt"
 
@@ -292,8 +292,8 @@ Describe 'Copy-Directory' {
         }
 
         It 'Should accept Prompt mode' {
-            $testSource = Join-Path $TestDrive 'prompt_source'
-            $testDest = Join-Path $TestDrive 'prompt_dest'
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'prompt_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'prompt_dest'
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
             'new content' | Set-Content -Path "$testSource\test.txt"
 

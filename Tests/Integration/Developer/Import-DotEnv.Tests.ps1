@@ -169,7 +169,7 @@ EXPANDED="${BASE_VAR}_expanded"
 
 Describe 'Import-DotEnv Integration Tests' {
     BeforeAll {
-        $script:TestDir = Join-Path $TestDrive 'dotenv'
+        $script:TestDir = Join-Path -Path $TestDrive -ChildPath 'dotenv'
         if (-not (Test-Path $script:TestDir))
         {
             New-Item -Path $script:TestDir -ItemType Directory -Force | Out-Null
@@ -182,7 +182,7 @@ Describe 'Import-DotEnv Integration Tests' {
 
     Context 'Real-World Application Scenarios' {
         It 'Should load standard application configuration' {
-            $envFile = Join-Path $script:TestDir 'app.env'
+            $envFile = Join-Path -Path $script:TestDir -ChildPath 'app.env'
             New-RealisticEnvFile -Path $envFile -Type 'Standard'
 
             $result = Import-DotEnv -Path $envFile -PassThru
@@ -219,7 +219,7 @@ Describe 'Import-DotEnv Integration Tests' {
         }
 
         It 'Should load Docker configuration' {
-            $envFile = Join-Path $script:TestDir 'docker.env'
+            $envFile = Join-Path -Path $script:TestDir -ChildPath 'docker.env'
             New-RealisticEnvFile -Path $envFile -Type 'Docker'
 
             Import-DotEnv -Path $envFile
@@ -234,7 +234,7 @@ Describe 'Import-DotEnv Integration Tests' {
         }
 
         It 'Should load AWS configuration with secrets' {
-            $envFile = Join-Path $script:TestDir 'aws.env'
+            $envFile = Join-Path -Path $script:TestDir -ChildPath 'aws.env'
             New-RealisticEnvFile -Path $envFile -Type 'AWS'
 
             Import-DotEnv -Path $envFile
@@ -249,7 +249,7 @@ Describe 'Import-DotEnv Integration Tests' {
         }
 
         It 'Should warn and not load when Path targets a directory' {
-            $envDir = Join-Path $script:TestDir 'dotenv-dir'
+            $envDir = Join-Path -Path $script:TestDir -ChildPath 'dotenv-dir'
             New-Item -Path $envDir -ItemType Directory -Force | Out-Null
 
             $warnings = @()
@@ -264,7 +264,7 @@ Describe 'Import-DotEnv Integration Tests' {
         }
 
         It 'Should load UTF-8 BOM encoded files' {
-            $envFile = Join-Path $script:TestDir 'bom.env'
+            $envFile = Join-Path -Path $script:TestDir -ChildPath 'bom.env'
             $utf8WithBom = [System.Text.UTF8Encoding]::new($true)
             [System.IO.File]::WriteAllText($envFile, 'BOM_VAR=value_with_bom', $utf8WithBom)
 
@@ -277,7 +277,7 @@ Describe 'Import-DotEnv Integration Tests' {
         }
 
         It 'Should not overwrite existing variables without Force' {
-            $envFile = Join-Path $script:TestDir 'no-force-overwrite.env'
+            $envFile = Join-Path -Path $script:TestDir -ChildPath 'no-force-overwrite.env'
             [System.IO.File]::WriteAllText($envFile, @'
 APP_NAME=FirstLoad
 API_URL=https://first.example.com
@@ -308,8 +308,8 @@ API_URL=https://second.example.com
 
     Context 'Multi-File Loading' {
         It 'Should load multiple .env files sequentially' {
-            $baseEnvFile = Join-Path $script:TestDir '.env'
-            $localEnvFile = Join-Path $script:TestDir '.env.local'
+            $baseEnvFile = Join-Path -Path $script:TestDir -ChildPath '.env'
+            $localEnvFile = Join-Path -Path $script:TestDir -ChildPath '.env.local'
 
             # Base configuration
             [System.IO.File]::WriteAllText($baseEnvFile, @'
@@ -356,14 +356,14 @@ DB_PORT=5432'
 
             foreach ($fileName in $envFiles.Keys)
             {
-                $path = Join-Path $script:TestDir $fileName
+                $path = Join-Path -Path $script:TestDir -ChildPath $fileName
                 [System.IO.File]::WriteAllText($path, $envFiles[$fileName], [System.Text.Encoding]::UTF8)
             }
 
             # Load in priority order
-            Import-DotEnv -Path (Join-Path $script:TestDir '.env')
-            Import-DotEnv -Path (Join-Path $script:TestDir '.env.development') -Force
-            Import-DotEnv -Path (Join-Path $script:TestDir '.env.local') -Force
+            Import-DotEnv -Path (Join-Path -Path $script:TestDir -ChildPath '.env')
+            Import-DotEnv -Path (Join-Path -Path $script:TestDir -ChildPath '.env.development') -Force
+            Import-DotEnv -Path (Join-Path -Path $script:TestDir -ChildPath '.env.local') -Force
 
             $env:APP_NAME | Should -Be 'MyApp'
             $env:APP_ENV | Should -Be 'development'
@@ -372,14 +372,14 @@ DB_PORT=5432'
 
             foreach ($fileName in $envFiles.Keys)
             {
-                Remove-Item -Path (Join-Path $script:TestDir $fileName) -Force
+                Remove-Item -Path (Join-Path -Path $script:TestDir -ChildPath $fileName) -Force
             }
         }
     }
 
     Context 'Variable Expansion in Real Scenarios' {
         It 'Should expand path variables correctly' {
-            $envFile = Join-Path $script:TestDir 'paths.env'
+            $envFile = Join-Path -Path $script:TestDir -ChildPath 'paths.env'
             New-RealisticEnvFile -Path $envFile -Type 'WithExpansion'
 
             Import-DotEnv -Path $envFile
@@ -394,7 +394,7 @@ DB_PORT=5432'
         }
 
         It 'Should expand URL variables correctly' {
-            $envFile = Join-Path $script:TestDir 'urls.env'
+            $envFile = Join-Path -Path $script:TestDir -ChildPath 'urls.env'
             [System.IO.File]::WriteAllText($envFile, @'
 API_BASE=https://api.example.com
 API_VERSION=v2
@@ -413,7 +413,7 @@ API_ENDPOINT="${API_BASE}/${API_VERSION}"
 
     Context 'Complex Format Handling' {
         It 'Should handle all complex formats in one file' {
-            $envFile = Join-Path $script:TestDir 'complex.env'
+            $envFile = Join-Path -Path $script:TestDir -ChildPath 'complex.env'
             New-RealisticEnvFile -Path $envFile -Type 'Complex'
 
             Import-DotEnv -Path $envFile
@@ -435,7 +435,7 @@ API_ENDPOINT="${API_BASE}/${API_VERSION}"
 
     Context 'Load and Unload Workflow' {
         It 'Should support complete load-use-unload workflow' {
-            $envFile = Join-Path $script:TestDir 'workflow.env'
+            $envFile = Join-Path -Path $script:TestDir -ChildPath 'workflow.env'
             [System.IO.File]::WriteAllText($envFile, @'
 WORKFLOW_VAR1=value1
 WORKFLOW_VAR2=value2
@@ -465,7 +465,7 @@ WORKFLOW_VAR3=value3
         }
 
         It 'Should reload after unload' {
-            $envFile = Join-Path $script:TestDir 'reload.env'
+            $envFile = Join-Path -Path $script:TestDir -ChildPath 'reload.env'
             [System.IO.File]::WriteAllText($envFile, @'
 RELOAD_VAR=initial_value
 '@, [System.Text.Encoding]::UTF8)
@@ -492,8 +492,8 @@ RELOAD_VAR=new_value
 
     Context 'Error Handling' {
         It 'Should continue processing when one file fails' {
-            $validFile = Join-Path $script:TestDir 'valid.env'
-            $invalidFile = Join-Path $script:TestDir 'nonexistent.env'
+            $validFile = Join-Path -Path $script:TestDir -ChildPath 'valid.env'
+            $invalidFile = Join-Path -Path $script:TestDir -ChildPath 'nonexistent.env'
 
             [System.IO.File]::WriteAllText($validFile, 'VALID_VAR=value', [System.Text.Encoding]::UTF8)
 
@@ -507,7 +507,7 @@ RELOAD_VAR=new_value
         }
 
         It 'Should surface warning message for missing file' {
-            $missingFile = Join-Path $script:TestDir 'missing.env'
+            $missingFile = Join-Path -Path $script:TestDir -ChildPath 'missing.env'
             $escapedMissingFile = [Regex]::Escape($missingFile)
 
             $warnings = @()
@@ -519,7 +519,7 @@ RELOAD_VAR=new_value
         }
 
         It 'Should handle file read permissions gracefully' {
-            $envFile = Join-Path $script:TestDir 'protected.env'
+            $envFile = Join-Path -Path $script:TestDir -ChildPath 'protected.env'
             [System.IO.File]::WriteAllText($envFile, 'PROTECTED=value', [System.Text.Encoding]::UTF8)
 
             # This test varies by platform, just ensure it doesn't crash
@@ -531,7 +531,7 @@ RELOAD_VAR=new_value
 
     Context 'Cross-Platform Path Handling' {
         It 'Should handle paths with forward slashes' {
-            $envFile = Join-Path $script:TestDir 'paths-forward.env'
+            $envFile = Join-Path -Path $script:TestDir -ChildPath 'paths-forward.env'
             [System.IO.File]::WriteAllText($envFile, @'
 UNIX_PATH=/usr/local/bin
 RELATIVE_PATH=./config/app.json
@@ -546,7 +546,7 @@ RELATIVE_PATH=./config/app.json
         }
 
         It 'Should handle paths with backslashes' {
-            $envFile = Join-Path $script:TestDir 'paths-back.env'
+            $envFile = Join-Path -Path $script:TestDir -ChildPath 'paths-back.env'
             [System.IO.File]::WriteAllText($envFile, @'
 WIN_PATH="C:\\Program Files\\MyApp"
 NETWORK_PATH="\\\\server\\share"
@@ -563,7 +563,7 @@ NETWORK_PATH="\\\\server\\share"
 
     Context 'Performance and Scale' {
         It 'Should handle large .env file efficiently' {
-            $envFile = Join-Path $script:TestDir 'large.env'
+            $envFile = Join-Path -Path $script:TestDir -ChildPath 'large.env'
             $content = @()
             for ($i = 1; $i -le 100; $i++)
             {
@@ -589,7 +589,7 @@ NETWORK_PATH="\\\\server\\share"
 
     Context 'ShowLoadedWithValues Integration' {
         It 'Should display values from realistic application configuration' {
-            $envFile = Join-Path $script:TestDir 'app-showvalues.env'
+            $envFile = Join-Path -Path $script:TestDir -ChildPath 'app-showvalues.env'
             New-RealisticEnvFile -Path $envFile -Type 'Standard'
 
             Import-DotEnv -Path $envFile
@@ -610,8 +610,8 @@ NETWORK_PATH="\\\\server\\share"
         }
 
         It 'Should handle multi-file scenario showing all loaded variables' {
-            $file1 = Join-Path $script:TestDir 'base-showvalues.env'
-            $file2 = Join-Path $script:TestDir 'override-showvalues.env'
+            $file1 = Join-Path -Path $script:TestDir -ChildPath 'base-showvalues.env'
+            $file2 = Join-Path -Path $script:TestDir -ChildPath 'override-showvalues.env'
 
             [System.IO.File]::WriteAllText($file1, @'
 APP_NAME=BaseApp
@@ -641,7 +641,7 @@ DEBUG=true
         }
 
         It 'Should show expanded variable values' {
-            $envFile = Join-Path $script:TestDir 'expansion-showvalues.env'
+            $envFile = Join-Path -Path $script:TestDir -ChildPath 'expansion-showvalues.env'
             [System.IO.File]::WriteAllText($envFile, @'
 BASE_PATH=/home/user
 PROJECT_PATH="${BASE_PATH}/projects"
@@ -660,7 +660,7 @@ CONFIG_PATH="${PROJECT_PATH}/config"
         }
 
         It 'Should handle load, modify, show workflow' {
-            $envFile = Join-Path $script:TestDir 'workflow-showvalues.env'
+            $envFile = Join-Path -Path $script:TestDir -ChildPath 'workflow-showvalues.env'
             [System.IO.File]::WriteAllText($envFile, @'
 CONFIG_MODE=initial
 API_ENDPOINT=https://api.example.com

@@ -48,14 +48,14 @@ Describe 'Get-VideoDetails' -Tag 'Unit' {
     Context 'Parameter Behavior' {
         BeforeAll {
             # Create test directory structure
-            $testRoot = Join-Path $TestDrive 'VideoDetailsTest'
-            $subDir = Join-Path $testRoot 'SubDirectory'
+            $testRoot = Join-Path -Path $TestDrive -ChildPath 'VideoDetailsTest'
+            $subDir = Join-Path -Path $testRoot -ChildPath 'SubDirectory'
             New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
             New-Item -Path $subDir -ItemType Directory -Force | Out-Null
 
             # Create mock video files (empty files for testing)
-            New-Item -Path (Join-Path $testRoot 'video1.mp4') -ItemType File -Force | Out-Null
-            New-Item -Path (Join-Path $subDir 'video2.mkv') -ItemType File -Force | Out-Null
+            New-Item -Path (Join-Path -Path $testRoot -ChildPath 'video1.mp4') -ItemType File -Force | Out-Null
+            New-Item -Path (Join-Path -Path $subDir -ChildPath 'video2.mkv') -ItemType File -Force | Out-Null
         }
 
         It 'Should search non-recursively by default' -Skip:(-not $script:HasFFprobe) {

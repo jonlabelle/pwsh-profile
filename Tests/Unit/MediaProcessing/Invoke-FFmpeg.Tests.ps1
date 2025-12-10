@@ -46,14 +46,14 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
     Context 'Default Behavior' {
         BeforeAll {
             # Create test directory structure
-            $testRoot = Join-Path $TestDrive 'FFmpegTest'
-            $subDir = Join-Path $testRoot 'SubDirectory'
+            $testRoot = Join-Path -Path $TestDrive -ChildPath 'FFmpegTest'
+            $subDir = Join-Path -Path $testRoot -ChildPath 'SubDirectory'
             New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
             New-Item -Path $subDir -ItemType Directory -Force | Out-Null
 
             # Create mock video files
-            New-Item -Path (Join-Path $testRoot 'video1.mkv') -ItemType File -Force | Out-Null
-            New-Item -Path (Join-Path $subDir 'video2.mkv') -ItemType File -Force | Out-Null
+            New-Item -Path (Join-Path -Path $testRoot -ChildPath 'video1.mkv') -ItemType File -Force | Out-Null
+            New-Item -Path (Join-Path -Path $subDir -ChildPath 'video2.mkv') -ItemType File -Force | Out-Null
         }
 
         It 'Should process non-recursively by default with -WhatIf' -Skip:(-not $script:HasFFmpeg) {
@@ -84,12 +84,12 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
     Context 'Individual File Support' {
         BeforeAll {
             # Create test directory and files
-            $testRoot = Join-Path $TestDrive 'FFmpegFileTest'
+            $testRoot = Join-Path -Path $TestDrive -ChildPath 'FFmpegFileTest'
             New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
 
             # Create mock video files
-            $script:testVideoFile = Join-Path $testRoot 'test-video.mkv'
-            $script:testNonVideoFile = Join-Path $testRoot 'test-document.txt'
+            $script:testVideoFile = Join-Path -Path $testRoot -ChildPath 'test-video.mkv'
+            $script:testNonVideoFile = Join-Path -Path $testRoot -ChildPath 'test-document.txt'
             New-Item -Path $script:testVideoFile -ItemType File -Force | Out-Null
             New-Item -Path $script:testNonVideoFile -ItemType File -Force | Out-Null
         }
@@ -124,7 +124,7 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
                 return
             }
 
-            $nonExistentFile = Join-Path $TestDrive 'does-not-exist.mkv'
+            $nonExistentFile = Join-Path -Path $TestDrive -ChildPath 'does-not-exist.mkv'
 
             # Should handle gracefully and not crash
             { Invoke-FFmpeg -Path $nonExistentFile -WhatIf -ErrorAction SilentlyContinue } | Should -Not -Throw

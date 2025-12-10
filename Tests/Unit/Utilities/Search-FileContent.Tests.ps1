@@ -114,11 +114,11 @@ Describe 'Search-FileContent' {
     Context 'Basic Pattern Matching' {
         BeforeAll {
             # Create test directory and files
-            $script:testDir = Join-Path $TestDrive 'SearchTests'
+            $script:testDir = Join-Path -Path $TestDrive -ChildPath 'SearchTests'
             New-Item -ItemType Directory -Path $script:testDir -Force | Out-Null
 
             # Test file 1: Simple content
-            $testFile1 = Join-Path $script:testDir 'test1.txt'
+            $testFile1 = Join-Path -Path $script:testDir -ChildPath 'test1.txt'
             @'
 This is line one
 This is line two with PATTERN
@@ -128,7 +128,7 @@ This is line five
 '@ | Set-Content -Path $testFile1 -NoNewline
 
             # Test file 2: Different content
-            $testFile2 = Join-Path $script:testDir 'test2.txt'
+            $testFile2 = Join-Path -Path $script:testDir -ChildPath 'test2.txt'
             @'
 First line
 Second line contains MATCH
@@ -136,7 +136,7 @@ Third line
 '@ | Set-Content -Path $testFile2 -NoNewline
 
             # Test file 3: No matches
-            $testFile3 = Join-Path $script:testDir 'test3.txt'
+            $testFile3 = Join-Path -Path $script:testDir -ChildPath 'test3.txt'
             @'
 Nothing here
 Just some text
@@ -185,10 +185,10 @@ No matches
 
     Context 'Literal vs Regex Matching' {
         BeforeAll {
-            $script:testDir = Join-Path $TestDrive 'RegexTests'
+            $script:testDir = Join-Path -Path $TestDrive -ChildPath 'RegexTests'
             New-Item -ItemType Directory -Path $script:testDir -Force | Out-Null
 
-            $testFile = Join-Path $script:testDir 'regex.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'regex.txt'
             @'
 test.file.name
 test*file*name
@@ -229,10 +229,10 @@ function Get-Item
 
     Context 'Context Lines' {
         BeforeAll {
-            $script:testDir = Join-Path $TestDrive 'ContextTests'
+            $script:testDir = Join-Path -Path $TestDrive -ChildPath 'ContextTests'
             New-Item -ItemType Directory -Path $script:testDir -Force | Out-Null
 
-            $testFile = Join-Path $script:testDir 'context.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'context.txt'
             @'
 Line 1
 Line 2
@@ -277,14 +277,14 @@ Line 9
 
     Context 'File Filtering' {
         BeforeAll {
-            $script:testDir = Join-Path $TestDrive 'FilterTests'
+            $script:testDir = Join-Path -Path $TestDrive -ChildPath 'FilterTests'
             New-Item -ItemType Directory -Path $script:testDir -Force | Out-Null
 
             # Create different file types
-            'MATCH in txt' | Set-Content -Path (Join-Path $script:testDir 'file1.txt')
-            'MATCH in ps1' | Set-Content -Path (Join-Path $script:testDir 'file2.ps1')
-            'MATCH in log' | Set-Content -Path (Join-Path $script:testDir 'file3.log')
-            'MATCH in md' | Set-Content -Path (Join-Path $script:testDir 'readme.md')
+            'MATCH in txt' | Set-Content -Path (Join-Path -Path $script:testDir -ChildPath 'file1.txt')
+            'MATCH in ps1' | Set-Content -Path (Join-Path -Path $script:testDir -ChildPath 'file2.ps1')
+            'MATCH in log' | Set-Content -Path (Join-Path -Path $script:testDir -ChildPath 'file3.log')
+            'MATCH in md' | Set-Content -Path (Join-Path -Path $script:testDir -ChildPath 'readme.md')
         }
 
         It 'Should search all files when no filter specified' {
@@ -321,22 +321,22 @@ Line 9
 
     Context 'Directory Exclusion' {
         BeforeAll {
-            $script:testDir = Join-Path $TestDrive 'DirExcludeTests'
+            $script:testDir = Join-Path -Path $TestDrive -ChildPath 'DirExcludeTests'
             New-Item -ItemType Directory -Path $script:testDir -Force | Out-Null
 
             # Create subdirectories
-            $gitDir = Join-Path $script:testDir '.git'
-            $nodeDir = Join-Path $script:testDir 'node_modules'
-            $srcDir = Join-Path $script:testDir 'src'
+            $gitDir = Join-Path -Path $script:testDir -ChildPath '.git'
+            $nodeDir = Join-Path -Path $script:testDir -ChildPath 'node_modules'
+            $srcDir = Join-Path -Path $script:testDir -ChildPath 'src'
 
             New-Item -ItemType Directory -Path $gitDir -Force | Out-Null
             New-Item -ItemType Directory -Path $nodeDir -Force | Out-Null
             New-Item -ItemType Directory -Path $srcDir -Force | Out-Null
 
             # Create files in different directories
-            'MATCH in git' | Set-Content -Path (Join-Path $gitDir 'config')
-            'MATCH in node' | Set-Content -Path (Join-Path $nodeDir 'package.json')
-            'MATCH in src' | Set-Content -Path (Join-Path $srcDir 'main.ps1')
+            'MATCH in git' | Set-Content -Path (Join-Path -Path $gitDir -ChildPath 'config')
+            'MATCH in node' | Set-Content -Path (Join-Path -Path $nodeDir -ChildPath 'package.json')
+            'MATCH in src' | Set-Content -Path (Join-Path -Path $srcDir -ChildPath 'main.ps1')
         }
 
         It 'Should exclude .git directories by default' {
@@ -362,10 +362,10 @@ Line 9
 
     Context 'Output Modes' {
         BeforeAll {
-            $script:testDir = Join-Path $TestDrive 'OutputTests'
+            $script:testDir = Join-Path -Path $TestDrive -ChildPath 'OutputTests'
             New-Item -ItemType Directory -Path $script:testDir -Force | Out-Null
 
-            $testFile = Join-Path $script:testDir 'output.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'output.txt'
             @'
 Line with MATCH
 Another line
@@ -401,22 +401,22 @@ Final line
 
     Context 'Recursion and Depth' {
         BeforeAll {
-            $script:testDir = Join-Path $TestDrive 'RecursionTests'
+            $script:testDir = Join-Path -Path $TestDrive -ChildPath 'RecursionTests'
             New-Item -ItemType Directory -Path $script:testDir -Force | Out-Null
 
             # Create nested directory structure
-            $level1 = Join-Path $script:testDir 'level1'
-            $level2 = Join-Path $level1 'level2'
-            $level3 = Join-Path $level2 'level3'
+            $level1 = Join-Path -Path $script:testDir -ChildPath 'level1'
+            $level2 = Join-Path -Path $level1 -ChildPath 'level2'
+            $level3 = Join-Path -Path $level2 -ChildPath 'level3'
 
             New-Item -ItemType Directory -Path $level1 -Force | Out-Null
             New-Item -ItemType Directory -Path $level2 -Force | Out-Null
             New-Item -ItemType Directory -Path $level3 -Force | Out-Null
 
-            'MATCH at root' | Set-Content -Path (Join-Path $script:testDir 'root.txt')
-            'MATCH at level1' | Set-Content -Path (Join-Path $level1 'file1.txt')
-            'MATCH at level2' | Set-Content -Path (Join-Path $level2 'file2.txt')
-            'MATCH at level3' | Set-Content -Path (Join-Path $level3 'file3.txt')
+            'MATCH at root' | Set-Content -Path (Join-Path -Path $script:testDir -ChildPath 'root.txt')
+            'MATCH at level1' | Set-Content -Path (Join-Path -Path $level1 -ChildPath 'file1.txt')
+            'MATCH at level2' | Set-Content -Path (Join-Path -Path $level2 -ChildPath 'file2.txt')
+            'MATCH at level3' | Set-Content -Path (Join-Path -Path $level3 -ChildPath 'file3.txt')
         }
 
         It 'Should search recursively by default' {
@@ -438,11 +438,11 @@ Final line
 
     Context 'Pipeline Support' {
         BeforeAll {
-            $script:testDir = Join-Path $TestDrive 'PipelineTests'
+            $script:testDir = Join-Path -Path $TestDrive -ChildPath 'PipelineTests'
             New-Item -ItemType Directory -Path $script:testDir -Force | Out-Null
 
-            'MATCH in file1' | Set-Content -Path (Join-Path $script:testDir 'file1.txt')
-            'MATCH in file2' | Set-Content -Path (Join-Path $script:testDir 'file2.txt')
+            'MATCH in file1' | Set-Content -Path (Join-Path -Path $script:testDir -ChildPath 'file1.txt')
+            'MATCH in file2' | Set-Content -Path (Join-Path -Path $script:testDir -ChildPath 'file2.txt')
         }
 
         It 'Should accept file objects from pipeline' {
@@ -458,16 +458,16 @@ Final line
 
     Context 'Binary File Handling' {
         BeforeAll {
-            $script:testDir = Join-Path $TestDrive 'BinaryTests'
+            $script:testDir = Join-Path -Path $TestDrive -ChildPath 'BinaryTests'
             New-Item -ItemType Directory -Path $script:testDir -Force | Out-Null
 
             # Create a binary-like file with null bytes
-            $binaryFile = Join-Path $script:testDir 'binary.dat'
+            $binaryFile = Join-Path -Path $script:testDir -ChildPath 'binary.dat'
             $bytes = [byte[]]@(0, 1, 2, 3, 0, 0, 77, 65, 84, 67, 72) # Contains "MATCH" in ASCII
             [System.IO.File]::WriteAllBytes($binaryFile, $bytes)
 
             # Create a text file
-            'MATCH in text' | Set-Content -Path (Join-Path $script:testDir 'text.txt')
+            'MATCH in text' | Set-Content -Path (Join-Path -Path $script:testDir -ChildPath 'text.txt')
         }
 
         It 'Should skip binary files' {
@@ -480,13 +480,13 @@ Final line
 
     Context 'Error Handling' {
         It 'Should warn about non-existent paths' {
-            $nonExistentPath = Join-Path $TestDrive 'DoesNotExist'
+            $nonExistentPath = Join-Path -Path $TestDrive -ChildPath 'DoesNotExist'
             $null = Search-FileContent -Pattern 'test' -Path $nonExistentPath -Simple -WarningVariable warnings -WarningAction SilentlyContinue
             $warnings | Should -Not -BeNullOrEmpty
         }
 
         It 'Should throw error for invalid regex' {
-            $testFile = Join-Path $TestDrive 'test.txt'
+            $testFile = Join-Path -Path $TestDrive -ChildPath 'test.txt'
             'test' | Set-Content -Path $testFile
             { Search-FileContent -Pattern '[invalid' -Path $testFile -Simple } | Should -Throw
         }
@@ -494,11 +494,11 @@ Final line
 
     Context 'Case Variations' {
         BeforeAll {
-            $script:testDir = Join-Path $TestDrive 'CaseVariationTests'
+            $script:testDir = Join-Path -Path $TestDrive -ChildPath 'CaseVariationTests'
             New-Item -ItemType Directory -Path $script:testDir -Force | Out-Null
 
             # Create test file with various case patterns of 'username' (without separators)
-            $testFile1 = Join-Path $script:testDir 'code.js'
+            $testFile1 = Join-Path -Path $script:testDir -ChildPath 'code.js'
             @'
 const userName = getUser();
 const UserName = parseData();
@@ -508,7 +508,7 @@ const Username = config.Username;
 '@ | Set-Content -Path $testFile1
 
             # Create another test file with different patterns
-            $testFile2 = Join-Path $script:testDir 'code.py'
+            $testFile2 = Join-Path -Path $script:testDir -ChildPath 'code.py'
             @'
 username = get_user()
 userName = some_function()
@@ -516,7 +516,7 @@ userName = some_function()
 '@ | Set-Content -Path $testFile2
 
             # Create test file with separated patterns (NOW WILL match with separator-aware matching)
-            $testFile3 = Join-Path $script:testDir 'config.py'
+            $testFile3 = Join-Path -Path $script:testDir -ChildPath 'config.py'
             @'
 user_name = dbQuery()
 USER_NAME = config.USER_NAME
@@ -570,7 +570,7 @@ USER-NAME = cssConstant
         It 'Should track files for each variation' {
             $results = Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
             $usernameResult = $results | Where-Object { $_.Variation -ceq 'username' }
-            $usernameResult.Files | Should -Contain (Join-Path $script:testDir 'code.js')
+            $usernameResult.Files | Should -Contain (Join-Path -Path $script:testDir -ChildPath 'code.js')
         }
 
         It 'Should identify camelCase pattern' {

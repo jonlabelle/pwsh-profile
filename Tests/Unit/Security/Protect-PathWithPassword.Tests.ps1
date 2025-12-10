@@ -21,17 +21,17 @@ BeforeAll {
 Describe 'Protect-PathWithPassword Unit Tests' {
     BeforeEach {
         # Create test directory structure
-        $script:TestDir = Join-Path ([System.IO.Path]::GetTempPath()) ('ProtectPathTest_' + [System.Guid]::NewGuid().ToString('N')[0..7] -join '')
+        $script:TestDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ('ProtectPathTest_' + [System.Guid]::NewGuid().ToString('N')[0..7] -join '')
         New-Item -Path $script:TestDir -ItemType Directory -Force | Out-Null
 
         # Create test password
         $script:TestPassword = ConvertTo-SecureString 'TestPassword123!' -AsPlainText -Force
 
         # Create test files
-        $script:TestFile1 = Join-Path $script:TestDir 'test1.txt'
-        $script:TestFile2 = Join-Path $script:TestDir 'test2.txt'
-        $script:SubDir = Join-Path $script:TestDir 'subdir'
-        $script:TestFile3 = Join-Path $script:SubDir 'test3.txt'
+        $script:TestFile1 = Join-Path -Path $script:TestDir -ChildPath 'test1.txt'
+        $script:TestFile2 = Join-Path -Path $script:TestDir -ChildPath 'test2.txt'
+        $script:SubDir = Join-Path -Path $script:TestDir -ChildPath 'subdir'
+        $script:TestFile3 = Join-Path -Path $script:SubDir -ChildPath 'test3.txt'
 
         'Test content 1' | Out-File -FilePath $script:TestFile1 -Encoding UTF8
         'Test content 2' | Out-File -FilePath $script:TestFile2 -Encoding UTF8
@@ -102,7 +102,7 @@ Describe 'Protect-PathWithPassword Unit Tests' {
         }
 
         It 'Should respect custom output path' {
-            $customOutput = Join-Path $script:TestDir 'custom.encrypted'
+            $customOutput = Join-Path -Path $script:TestDir -ChildPath 'custom.encrypted'
             # Ensure the custom output file doesn't exist
             if (Test-Path $customOutput) { Remove-Item $customOutput -Force }
 
@@ -172,8 +172,8 @@ Describe 'Protect-PathWithPassword Unit Tests' {
     Context 'Security Features' {
         It 'Should generate different encrypted files for same input' {
             # Encrypt the same file twice
-            $result1 = Protect-PathWithPassword -Path $script:TestFile1 -Password $script:TestPassword -OutputPath (Join-Path $script:TestDir 'enc1.dat') -Force
-            $result2 = Protect-PathWithPassword -Path $script:TestFile1 -Password $script:TestPassword -OutputPath (Join-Path $script:TestDir 'enc2.dat') -Force
+            $result1 = Protect-PathWithPassword -Path $script:TestFile1 -Password $script:TestPassword -OutputPath (Join-Path -Path $script:TestDir -ChildPath 'enc1.dat') -Force
+            $result2 = Protect-PathWithPassword -Path $script:TestFile1 -Password $script:TestPassword -OutputPath (Join-Path -Path $script:TestDir -ChildPath 'enc2.dat') -Force
 
             $both = $result1, $result2
             $both | ForEach-Object { $_.Success | Should -Be $true }

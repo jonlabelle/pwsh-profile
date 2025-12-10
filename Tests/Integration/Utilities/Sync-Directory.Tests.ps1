@@ -19,7 +19,7 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
         }
 
         # Create base test directory
-        $script:TestRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sync-integration-$(Get-Random)"
+        $script:TestRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "sync-integration-$(Get-Random)"
         New-Item -ItemType Directory -Path $script:TestRoot -Force | Out-Null
     }
 
@@ -33,24 +33,24 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
 
     Context 'Basic Synchronization' {
         It 'Should synchronize files from source to destination' {
-            $Source = Join-Path $script:TestRoot 'basic-source'
-            $Dest = Join-Path $script:TestRoot 'basic-dest'
+            $Source = Join-Path -Path $script:TestRoot -ChildPath 'basic-source'
+            $Dest = Join-Path -Path $script:TestRoot -ChildPath 'basic-dest'
 
             try
             {
                 # Create source directory with files
                 New-Item -ItemType Directory -Path $Source -Force | Out-Null
-                'File 1 content' | Out-File (Join-Path $Source 'file1.txt')
-                'File 2 content' | Out-File (Join-Path $Source 'file2.txt')
+                'File 1 content' | Out-File (Join-Path -Path $Source -ChildPath 'file1.txt')
+                'File 2 content' | Out-File (Join-Path -Path $Source -ChildPath 'file2.txt')
 
                 # Sync
                 $Result = Sync-Directory -Source $Source -Destination $Dest
 
                 # Verify
                 $Result.Success | Should -BeTrue
-                Test-Path (Join-Path $Dest 'file1.txt') | Should -BeTrue
-                Test-Path (Join-Path $Dest 'file2.txt') | Should -BeTrue
-                Get-Content (Join-Path $Dest 'file1.txt') | Should -Be 'File 1 content'
+                Test-Path (Join-Path -Path $Dest -ChildPath 'file1.txt') | Should -BeTrue
+                Test-Path (Join-Path -Path $Dest -ChildPath 'file2.txt') | Should -BeTrue
+                Get-Content (Join-Path -Path $Dest -ChildPath 'file1.txt') | Should -Be 'File 1 content'
             }
             finally
             {
@@ -60,28 +60,28 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should synchronize nested directory structure' {
-            $Source = Join-Path $script:TestRoot 'nested-source'
-            $Dest = Join-Path $script:TestRoot 'nested-dest'
+            $Source = Join-Path -Path $script:TestRoot -ChildPath 'nested-source'
+            $Dest = Join-Path -Path $script:TestRoot -ChildPath 'nested-dest'
 
             try
             {
                 # Create nested structure
-                $SubDir1 = Join-Path $Source 'subdir1'
-                $SubDir2 = Join-Path $SubDir1 'subdir2'
+                $SubDir1 = Join-Path -Path $Source -ChildPath 'subdir1'
+                $SubDir2 = Join-Path -Path $SubDir1 -ChildPath 'subdir2'
                 New-Item -ItemType Directory -Path $SubDir2 -Force | Out-Null
 
-                'Root file' | Out-File (Join-Path $Source 'root.txt')
-                'Level 1 file' | Out-File (Join-Path $SubDir1 'level1.txt')
-                'Level 2 file' | Out-File (Join-Path $SubDir2 'level2.txt')
+                'Root file' | Out-File (Join-Path -Path $Source -ChildPath 'root.txt')
+                'Level 1 file' | Out-File (Join-Path -Path $SubDir1 -ChildPath 'level1.txt')
+                'Level 2 file' | Out-File (Join-Path -Path $SubDir2 -ChildPath 'level2.txt')
 
                 # Sync
                 $Result = Sync-Directory -Source $Source -Destination $Dest
 
                 # Verify
                 $Result.Success | Should -BeTrue
-                Test-Path (Join-Path $Dest 'root.txt') | Should -BeTrue
-                Test-Path (Join-Path (Join-Path $Dest 'subdir1') 'level1.txt') | Should -BeTrue
-                Test-Path (Join-Path (Join-Path (Join-Path $Dest 'subdir1') 'subdir2') 'level2.txt') | Should -BeTrue
+                Test-Path (Join-Path -Path $Dest -ChildPath 'root.txt') | Should -BeTrue
+                Test-Path (Join-Path -Path (Join-Path -Path $Dest -ChildPath 'subdir1') -ChildPath 'level1.txt') | Should -BeTrue
+                Test-Path (Join-Path -Path (Join-Path -Path (Join-Path -Path $Dest -ChildPath 'subdir1') -ChildPath 'subdir2') -ChildPath 'level2.txt') | Should -BeTrue
             }
             finally
             {
@@ -91,23 +91,23 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should handle empty directories' {
-            $Source = Join-Path $script:TestRoot 'empty-source'
-            $Dest = Join-Path $script:TestRoot 'empty-dest'
+            $Source = Join-Path -Path $script:TestRoot -ChildPath 'empty-source'
+            $Dest = Join-Path -Path $script:TestRoot -ChildPath 'empty-dest'
 
             try
             {
                 # Create source with empty subdirectory
-                $EmptyDir = Join-Path $Source 'empty-subdir'
+                $EmptyDir = Join-Path -Path $Source -ChildPath 'empty-subdir'
                 New-Item -ItemType Directory -Path $EmptyDir -Force | Out-Null
-                'file.txt' | Out-File (Join-Path $Source 'file.txt')
+                'file.txt' | Out-File (Join-Path -Path $Source -ChildPath 'file.txt')
 
                 # Sync
                 $Result = Sync-Directory -Source $Source -Destination $Dest
 
                 # Verify - both tools should preserve empty directories
                 $Result.Success | Should -BeTrue
-                Test-Path (Join-Path $Dest 'empty-subdir') | Should -BeTrue
-                Test-Path (Join-Path $Dest 'file.txt') | Should -BeTrue
+                Test-Path (Join-Path -Path $Dest -ChildPath 'empty-subdir') | Should -BeTrue
+                Test-Path (Join-Path -Path $Dest -ChildPath 'file.txt') | Should -BeTrue
             }
             finally
             {
@@ -119,31 +119,31 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
 
     Context 'Incremental Synchronization' {
         It 'Should only copy new or modified files on subsequent syncs' {
-            $Source = Join-Path $script:TestRoot 'incremental-source'
-            $Dest = Join-Path $script:TestRoot 'incremental-dest'
+            $Source = Join-Path -Path $script:TestRoot -ChildPath 'incremental-source'
+            $Dest = Join-Path -Path $script:TestRoot -ChildPath 'incremental-dest'
 
             try
             {
                 # Initial sync
                 New-Item -ItemType Directory -Path $Source -Force | Out-Null
-                'Original content' | Out-File (Join-Path $Source 'file1.txt')
+                'Original content' | Out-File (Join-Path -Path $Source -ChildPath 'file1.txt')
 
                 $Result1 = Sync-Directory -Source $Source -Destination $Dest
                 $Result1.Success | Should -BeTrue
 
                 # Modify source and add new file
                 Start-Sleep -Seconds 1 # Ensure timestamp difference (rsync uses seconds)
-                'Modified content' | Out-File (Join-Path $Source 'file1.txt') -Force
-                (Get-Item (Join-Path $Source 'file1.txt')).LastWriteTime = (Get-Date).AddSeconds(2)
-                'New file' | Out-File (Join-Path $Source 'file2.txt')
+                'Modified content' | Out-File (Join-Path -Path $Source -ChildPath 'file1.txt') -Force
+                (Get-Item (Join-Path -Path $Source -ChildPath 'file1.txt')).LastWriteTime = (Get-Date).AddSeconds(2)
+                'New file' | Out-File (Join-Path -Path $Source -ChildPath 'file2.txt')
 
                 # Second sync
                 $Result2 = Sync-Directory -Source $Source -Destination $Dest
                 $Result2.Success | Should -BeTrue
 
                 # Verify both files exist with correct content
-                Get-Content (Join-Path $Dest 'file1.txt') | Should -Be 'Modified content'
-                Get-Content (Join-Path $Dest 'file2.txt') | Should -Be 'New file'
+                Get-Content (Join-Path -Path $Dest -ChildPath 'file1.txt') | Should -Be 'Modified content'
+                Get-Content (Join-Path -Path $Dest -ChildPath 'file2.txt') | Should -Be 'New file'
             }
             finally
             {
@@ -155,8 +155,8 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
 
     Context 'Mirror Mode (Delete)' {
         It 'Should delete files in destination not present in source when -Delete is used' {
-            $Source = Join-Path $script:TestRoot 'mirror-source'
-            $Dest = Join-Path $script:TestRoot 'mirror-dest'
+            $Source = Join-Path -Path $script:TestRoot -ChildPath 'mirror-source'
+            $Dest = Join-Path -Path $script:TestRoot -ChildPath 'mirror-dest'
 
             try
             {
@@ -164,17 +164,17 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
                 New-Item -ItemType Directory -Path $Source -Force | Out-Null
                 New-Item -ItemType Directory -Path $Dest -Force | Out-Null
 
-                'Keep this' | Out-File (Join-Path $Source 'keep.txt')
-                'Keep this' | Out-File (Join-Path $Dest 'keep.txt')
-                'Delete this' | Out-File (Join-Path $Dest 'delete.txt')
+                'Keep this' | Out-File (Join-Path -Path $Source -ChildPath 'keep.txt')
+                'Keep this' | Out-File (Join-Path -Path $Dest -ChildPath 'keep.txt')
+                'Delete this' | Out-File (Join-Path -Path $Dest -ChildPath 'delete.txt')
 
                 # Sync with delete
                 $Result = Sync-Directory -Source $Source -Destination $Dest -Delete
 
                 # Verify
                 $Result.Success | Should -BeTrue
-                Test-Path (Join-Path $Dest 'keep.txt') | Should -BeTrue
-                Test-Path (Join-Path $Dest 'delete.txt') | Should -BeFalse
+                Test-Path (Join-Path -Path $Dest -ChildPath 'keep.txt') | Should -BeTrue
+                Test-Path (Join-Path -Path $Dest -ChildPath 'delete.txt') | Should -BeFalse
             }
             finally
             {
@@ -184,8 +184,8 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should preserve extra files in destination when -Delete is NOT used' {
-            $Source = Join-Path $script:TestRoot 'preserve-source'
-            $Dest = Join-Path $script:TestRoot 'preserve-dest'
+            $Source = Join-Path -Path $script:TestRoot -ChildPath 'preserve-source'
+            $Dest = Join-Path -Path $script:TestRoot -ChildPath 'preserve-dest'
 
             try
             {
@@ -193,16 +193,16 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
                 New-Item -ItemType Directory -Path $Source -Force | Out-Null
                 New-Item -ItemType Directory -Path $Dest -Force | Out-Null
 
-                'Source file' | Out-File (Join-Path $Source 'source.txt')
-                'Extra file' | Out-File (Join-Path $Dest 'extra.txt')
+                'Source file' | Out-File (Join-Path -Path $Source -ChildPath 'source.txt')
+                'Extra file' | Out-File (Join-Path -Path $Dest -ChildPath 'extra.txt')
 
                 # Sync without delete
                 $Result = Sync-Directory -Source $Source -Destination $Dest
 
                 # Verify both files exist
                 $Result.Success | Should -BeTrue
-                Test-Path (Join-Path $Dest 'source.txt') | Should -BeTrue
-                Test-Path (Join-Path $Dest 'extra.txt') | Should -BeTrue
+                Test-Path (Join-Path -Path $Dest -ChildPath 'source.txt') | Should -BeTrue
+                Test-Path (Join-Path -Path $Dest -ChildPath 'extra.txt') | Should -BeTrue
             }
             finally
             {
@@ -214,25 +214,25 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
 
     Context 'Exclusion Patterns' {
         It 'Should exclude files matching patterns' {
-            $Source = Join-Path $script:TestRoot 'exclude-source'
-            $Dest = Join-Path $script:TestRoot 'exclude-dest'
+            $Source = Join-Path -Path $script:TestRoot -ChildPath 'exclude-source'
+            $Dest = Join-Path -Path $script:TestRoot -ChildPath 'exclude-dest'
 
             try
             {
                 # Create source with various files
                 New-Item -ItemType Directory -Path $Source -Force | Out-Null
-                'Include this' | Out-File (Join-Path $Source 'include.txt')
-                'Exclude this' | Out-File (Join-Path $Source 'exclude.log')
-                'Also exclude' | Out-File (Join-Path $Source 'temp.tmp')
+                'Include this' | Out-File (Join-Path -Path $Source -ChildPath 'include.txt')
+                'Exclude this' | Out-File (Join-Path -Path $Source -ChildPath 'exclude.log')
+                'Also exclude' | Out-File (Join-Path -Path $Source -ChildPath 'temp.tmp')
 
                 # Sync with exclusions
                 $Result = Sync-Directory -Source $Source -Destination $Dest -Exclude '*.log', '*.tmp'
 
                 # Verify
                 $Result.Success | Should -BeTrue
-                Test-Path (Join-Path $Dest 'include.txt') | Should -BeTrue
-                Test-Path (Join-Path $Dest 'exclude.log') | Should -BeFalse
-                Test-Path (Join-Path $Dest 'temp.tmp') | Should -BeFalse
+                Test-Path (Join-Path -Path $Dest -ChildPath 'include.txt') | Should -BeTrue
+                Test-Path (Join-Path -Path $Dest -ChildPath 'exclude.log') | Should -BeFalse
+                Test-Path (Join-Path -Path $Dest -ChildPath 'temp.tmp') | Should -BeFalse
             }
             finally
             {
@@ -242,27 +242,27 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should exclude directories matching patterns' {
-            $Source = Join-Path $script:TestRoot 'exclude-dir-source'
-            $Dest = Join-Path $script:TestRoot 'exclude-dir-dest'
+            $Source = Join-Path -Path $script:TestRoot -ChildPath 'exclude-dir-source'
+            $Dest = Join-Path -Path $script:TestRoot -ChildPath 'exclude-dir-dest'
 
             try
             {
                 # Create source with directories
-                $IncludeDir = Join-Path $Source 'include-dir'
-                $ExcludeDir = Join-Path $Source 'node_modules'
+                $IncludeDir = Join-Path -Path $Source -ChildPath 'include-dir'
+                $ExcludeDir = Join-Path -Path $Source -ChildPath 'node_modules'
                 New-Item -ItemType Directory -Path $IncludeDir -Force | Out-Null
                 New-Item -ItemType Directory -Path $ExcludeDir -Force | Out-Null
 
-                'Include' | Out-File (Join-Path $IncludeDir 'file.txt')
-                'Exclude' | Out-File (Join-Path $ExcludeDir 'package.json')
+                'Include' | Out-File (Join-Path -Path $IncludeDir -ChildPath 'file.txt')
+                'Exclude' | Out-File (Join-Path -Path $ExcludeDir -ChildPath 'package.json')
 
                 # Sync with directory exclusion
                 $Result = Sync-Directory -Source $Source -Destination $Dest -Exclude 'node_modules'
 
                 # Verify
                 $Result.Success | Should -BeTrue
-                Test-Path (Join-Path $Dest 'include-dir') | Should -BeTrue
-                Test-Path (Join-Path $Dest 'node_modules') | Should -BeFalse
+                Test-Path (Join-Path -Path $Dest -ChildPath 'include-dir') | Should -BeTrue
+                Test-Path (Join-Path -Path $Dest -ChildPath 'node_modules') | Should -BeFalse
             }
             finally
             {
@@ -274,18 +274,18 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
 
     Context 'Special Characters in Paths' {
         It 'Should handle paths with spaces' {
-            $Source = Join-Path $script:TestRoot 'source with spaces'
-            $Dest = Join-Path $script:TestRoot 'dest with spaces'
+            $Source = Join-Path -Path $script:TestRoot -ChildPath 'source with spaces'
+            $Dest = Join-Path -Path $script:TestRoot -ChildPath 'dest with spaces'
 
             try
             {
                 New-Item -ItemType Directory -Path $Source -Force | Out-Null
-                'Content' | Out-File (Join-Path $Source 'file with spaces.txt')
+                'Content' | Out-File (Join-Path -Path $Source -ChildPath 'file with spaces.txt')
 
                 $Result = Sync-Directory -Source $Source -Destination $Dest
 
                 $Result.Success | Should -BeTrue
-                Test-Path (Join-Path $Dest 'file with spaces.txt') | Should -BeTrue
+                Test-Path (Join-Path -Path $Dest -ChildPath 'file with spaces.txt') | Should -BeTrue
             }
             finally
             {
@@ -297,8 +297,8 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
 
     Context 'Large File Operations' {
         It 'Should handle multiple files efficiently' {
-            $Source = Join-Path $script:TestRoot 'many-files-source'
-            $Dest = Join-Path $script:TestRoot 'many-files-dest'
+            $Source = Join-Path -Path $script:TestRoot -ChildPath 'many-files-source'
+            $Dest = Join-Path -Path $script:TestRoot -ChildPath 'many-files-dest'
 
             try
             {
@@ -306,7 +306,7 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
 
                 # Create 50 files
                 1..50 | ForEach-Object {
-                    "Content $_" | Out-File (Join-Path $Source "file$_.txt")
+                    "Content $_" | Out-File (Join-Path -Path $Source -ChildPath "file$_.txt")
                 }
 
                 $Result = Sync-Directory -Source $Source -Destination $Dest
@@ -324,8 +324,8 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
 
     Context 'Error Handling' {
         It 'Should return false for non-existent source' {
-            $NonExistent = Join-Path $script:TestRoot 'does-not-exist'
-            $Dest = Join-Path $script:TestRoot 'error-dest'
+            $NonExistent = Join-Path -Path $script:TestRoot -ChildPath 'does-not-exist'
+            $Dest = Join-Path -Path $script:TestRoot -ChildPath 'error-dest'
 
             { Sync-Directory -Source $NonExistent -Destination $Dest -ErrorAction Stop } |
             Should -Throw '*does not exist*'

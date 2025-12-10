@@ -43,14 +43,14 @@ Describe 'Rename-VideoSeasonFile' -Tag 'Unit' {
     Context 'Default Behavior' {
         BeforeAll {
             # Create test directory structure
-            $testRoot = Join-Path $TestDrive 'RenameTest'
-            $subDir = Join-Path $testRoot 'SubDirectory'
+            $testRoot = Join-Path -Path $TestDrive -ChildPath 'RenameTest'
+            $subDir = Join-Path -Path $testRoot -ChildPath 'SubDirectory'
             New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
             New-Item -Path $subDir -ItemType Directory -Force | Out-Null
 
             # Create mock video files with season/episode patterns
-            New-Item -Path (Join-Path $testRoot 'Show.S01E01.mkv') -ItemType File -Force | Out-Null
-            New-Item -Path (Join-Path $subDir 'Show.S01E02.mkv') -ItemType File -Force | Out-Null
+            New-Item -Path (Join-Path -Path $testRoot -ChildPath 'Show.S01E01.mkv') -ItemType File -Force | Out-Null
+            New-Item -Path (Join-Path -Path $subDir -ChildPath 'Show.S01E02.mkv') -ItemType File -Force | Out-Null
         }
 
         It 'Should process non-recursively by default with -WhatIf' {
@@ -72,7 +72,7 @@ Describe 'Rename-VideoSeasonFile' -Tag 'Unit' {
     Context 'Pattern Matching' {
         BeforeAll {
             # Create test directory
-            $testRoot = Join-Path $TestDrive 'PatternTest'
+            $testRoot = Join-Path -Path $TestDrive -ChildPath 'PatternTest'
             New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
         }
 
@@ -87,7 +87,7 @@ Describe 'Rename-VideoSeasonFile' -Tag 'Unit' {
 
             foreach ($file in $testFiles)
             {
-                New-Item -Path (Join-Path $testRoot $file) -ItemType File -Force | Out-Null
+                New-Item -Path (Join-Path -Path $testRoot -ChildPath $file) -ItemType File -Force | Out-Null
             }
 
             # Test pattern recognition with -WhatIf
@@ -98,13 +98,13 @@ Describe 'Rename-VideoSeasonFile' -Tag 'Unit' {
     Context 'Individual File Support' {
         BeforeAll {
             # Create test directory and files
-            $testRoot = Join-Path $TestDrive 'RenameFileTest'
+            $testRoot = Join-Path -Path $TestDrive -ChildPath 'RenameFileTest'
             New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
 
             # Create mock video files
-            $script:testSeasonFile = Join-Path $testRoot 'Breaking.Bad.S01E01.1080p.BluRay.x264-DEMAND.mkv'
-            $script:testNonSeasonFile = Join-Path $testRoot 'regular-movie.mkv'
-            $script:testNonVideoFile = Join-Path $testRoot 'document.txt'
+            $script:testSeasonFile = Join-Path -Path $testRoot -ChildPath 'Breaking.Bad.S01E01.1080p.BluRay.x264-DEMAND.mkv'
+            $script:testNonSeasonFile = Join-Path -Path $testRoot -ChildPath 'regular-movie.mkv'
+            $script:testNonVideoFile = Join-Path -Path $testRoot -ChildPath 'document.txt'
 
             New-Item -Path $script:testSeasonFile -ItemType File -Force | Out-Null
             New-Item -Path $script:testNonSeasonFile -ItemType File -Force | Out-Null
@@ -128,7 +128,7 @@ Describe 'Rename-VideoSeasonFile' -Tag 'Unit' {
         }
 
         It 'Should handle non-existent file paths gracefully' {
-            $nonExistentFile = Join-Path $TestDrive 'does-not-exist.mkv'
+            $nonExistentFile = Join-Path -Path $TestDrive -ChildPath 'does-not-exist.mkv'
 
             # Should handle gracefully by producing appropriate error message
             $ErrorActionPreference = 'SilentlyContinue'

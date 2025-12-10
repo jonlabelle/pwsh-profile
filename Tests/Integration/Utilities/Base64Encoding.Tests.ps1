@@ -5,7 +5,7 @@ BeforeAll {
 
 Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
     BeforeEach {
-        $script:testDir = Join-Path $TestDrive "base64-integration-$(New-Guid)"
+        $script:testDir = Join-Path -Path $TestDrive -ChildPath "base64-integration-$(New-Guid)"
         New-Item -Path $testDir -ItemType Directory -Force | Out-Null
     }
 
@@ -34,7 +34,7 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should work with Get-Content pipeline' {
-            $testFile = Join-Path $testDir 'input.txt'
+            $testFile = Join-Path -Path $testDir -ChildPath 'input.txt'
             'Line 1', 'Line 2', 'Line 3' | Set-Content -Path $testFile
 
             $encoded = Get-Content $testFile | ConvertTo-Base64
@@ -44,8 +44,8 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
 
     Context 'File Round-Trip' {
         It 'Should encode and decode text file' {
-            $sourceFile = Join-Path $testDir 'source.txt'
-            $outputFile = Join-Path $testDir 'output.txt'
+            $sourceFile = Join-Path -Path $testDir -ChildPath 'source.txt'
+            $outputFile = Join-Path -Path $testDir -ChildPath 'output.txt'
             $content = 'Test content with special chars: !@#$%^&*()'
 
             $content | Set-Content -Path $sourceFile -NoNewline
@@ -58,8 +58,8 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should encode and decode binary file' {
-            $sourceFile = Join-Path $testDir 'binary.dat'
-            $outputFile = Join-Path $testDir 'binary-output.dat'
+            $sourceFile = Join-Path -Path $testDir -ChildPath 'binary.dat'
+            $outputFile = Join-Path -Path $testDir -ChildPath 'binary-output.dat'
             $bytes = [byte[]](0..255)
 
             [System.IO.File]::WriteAllBytes($sourceFile, $bytes)
@@ -72,8 +72,8 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should handle large text file' {
-            $sourceFile = Join-Path $testDir 'large.txt'
-            $outputFile = Join-Path $testDir 'large-output.txt'
+            $sourceFile = Join-Path -Path $testDir -ChildPath 'large.txt'
+            $outputFile = Join-Path -Path $testDir -ChildPath 'large-output.txt'
 
             # Create a large file (1000 lines)
             $lines = 1..1000 | ForEach-Object { "Line ${_}: Some test content here" }
@@ -88,7 +88,7 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should handle empty file' {
-            $sourceFile = Join-Path $testDir 'empty.txt'
+            $sourceFile = Join-Path -Path $testDir -ChildPath 'empty.txt'
 
             '' | Set-Content -Path $sourceFile -NoNewline
 
@@ -106,8 +106,8 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should round-trip with URL-safe encoding for files' {
-            $sourceFile = Join-Path $testDir 'url-safe.txt'
-            $outputFile = Join-Path $testDir 'url-safe-output.txt'
+            $sourceFile = Join-Path -Path $testDir -ChildPath 'url-safe.txt'
+            $outputFile = Join-Path -Path $testDir -ChildPath 'url-safe-output.txt'
             $content = 'URL-safe encoding test!?&='
 
             $content | Set-Content -Path $sourceFile -NoNewline
@@ -206,8 +206,8 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should encode small image file' {
-            $sourceFile = Join-Path $testDir 'image.bin'
-            $outputFile = Join-Path $testDir 'image-output.bin'
+            $sourceFile = Join-Path -Path $testDir -ChildPath 'image.bin'
+            $outputFile = Join-Path -Path $testDir -ChildPath 'image-output.bin'
 
             # Simulate a small binary image (random bytes)
             $imageBytes = [byte[]](0..255 | Get-Random -Count 100)
@@ -251,8 +251,8 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
 
         It 'Should handle null bytes in binary data' {
             $bytes = [byte[]](0x00, 0xFF, 0x00, 0xFF, 0x00)
-            $sourceFile = Join-Path $testDir 'null-bytes.bin'
-            $outputFile = Join-Path $testDir 'null-bytes-output.bin'
+            $sourceFile = Join-Path -Path $testDir -ChildPath 'null-bytes.bin'
+            $outputFile = Join-Path -Path $testDir -ChildPath 'null-bytes-output.bin'
 
             [System.IO.File]::WriteAllBytes($sourceFile, $bytes)
 

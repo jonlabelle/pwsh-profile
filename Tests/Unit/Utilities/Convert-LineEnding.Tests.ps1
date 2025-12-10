@@ -23,7 +23,7 @@ BeforeAll {
     . "$PSScriptRoot/../../../Functions/Utilities/Convert-LineEndings.ps1"
 
     # Create a test directory
-    $script:TestDir = Join-Path $TestDrive 'LineEndingTests'
+    $script:TestDir = Join-Path -Path $TestDrive -ChildPath 'LineEndingTests'
     New-Item -Path $script:TestDir -ItemType Directory -Force | Out-Null
 }
 
@@ -50,14 +50,14 @@ Describe 'Convert-LineEndings' {
         }
 
         It 'Should validate LineEnding values' {
-            $testFile = Join-Path $script:TestDir 'validation-test.txt'
+            $testFile = Join-Path -Path $script:TestDir -ChildPath 'validation-test.txt'
             'test' | Out-File -FilePath $testFile -NoNewline
             { Convert-LineEndings -Path $testFile -LineEnding 'Invalid' -ErrorAction Stop } | Should -Throw
         }
 
         It 'Should accept valid LineEnding values' {
             # These should not throw (testing parameter validation only)
-            $testFile = Join-Path $script:TestDir 'validation-test.txt'
+            $testFile = Join-Path -Path $script:TestDir -ChildPath 'validation-test.txt'
             'test' | Out-File -FilePath $testFile -NoNewline
 
             { Convert-LineEndings -Path $testFile -LineEnding 'Auto' -WhatIf } | Should -Not -Throw
@@ -66,7 +66,7 @@ Describe 'Convert-LineEndings' {
         }
 
         It 'Should work without specifying LineEnding parameter (defaults to Auto)' {
-            $testFile = Join-Path $script:TestDir 'default-test.txt'
+            $testFile = Join-Path -Path $script:TestDir -ChildPath 'default-test.txt'
             'test content' | Out-File -FilePath $testFile -NoNewline
 
             { Convert-LineEndings -Path $testFile -WhatIf } | Should -Not -Throw
@@ -75,7 +75,7 @@ Describe 'Convert-LineEndings' {
 
     Context 'Line Ending Conversion' {
         BeforeEach {
-            $script:TestFile = Join-Path $script:TestDir 'lineending-test.txt'
+            $script:TestFile = Join-Path -Path $script:TestDir -ChildPath 'lineending-test.txt'
         }
 
         AfterEach {
@@ -145,7 +145,7 @@ Describe 'Convert-LineEndings' {
 
     Context 'Encoding Preservation' {
         BeforeEach {
-            $script:TestFile = Join-Path $script:TestDir 'encoding-test.txt'
+            $script:TestFile = Join-Path -Path $script:TestDir -ChildPath 'encoding-test.txt'
         }
 
         AfterEach {
@@ -212,7 +212,7 @@ Describe 'Convert-LineEndings' {
 
     Context 'Encoding Conversion Parameter' {
         BeforeEach {
-            $script:TestFile = Join-Path $script:TestDir 'encoding-conversion-test.txt'
+            $script:TestFile = Join-Path -Path $script:TestDir -ChildPath 'encoding-conversion-test.txt'
         }
 
         AfterEach {
@@ -612,9 +612,9 @@ Describe 'Convert-LineEndings' {
     Context 'Binary File Detection' {
         BeforeEach {
             # Use different extensions to test different detection methods
-            $script:ContentBinaryFile = Join-Path $script:TestDir 'content-binary.dat'  # For content-based detection
-            $script:ImageFile = Join-Path $script:TestDir 'image-test.jpg'            # For extension-based detection
-            $script:ExecutableFile = Join-Path $script:TestDir 'executable-test.exe'  # For extension-based detection
+            $script:ContentBinaryFile = Join-Path -Path $script:TestDir -ChildPath 'content-binary.dat'  # For content-based detection
+            $script:ImageFile = Join-Path -Path $script:TestDir -ChildPath 'image-test.jpg'            # For extension-based detection
+            $script:ExecutableFile = Join-Path -Path $script:TestDir -ChildPath 'executable-test.exe'  # For extension-based detection
         }
 
         AfterEach {
@@ -668,24 +668,24 @@ Describe 'Convert-LineEndings' {
 
     Context 'Directory Processing' {
         BeforeEach {
-            $script:SubDir = Join-Path $script:TestDir 'subdir'
+            $script:SubDir = Join-Path -Path $script:TestDir -ChildPath 'subdir'
             New-Item -Path $script:SubDir -ItemType Directory -Force | Out-Null
 
             # Create test files with explicit CRLF line endings using direct file writing
-            [System.IO.File]::WriteAllText((Join-Path $script:TestDir 'test1.txt'), "Line 1`r`nLine 2", [System.Text.Encoding]::UTF8)
-            [System.IO.File]::WriteAllText((Join-Path $script:TestDir 'test1.ps1'), "Line A`r`nLine B", [System.Text.Encoding]::UTF8)
-            [System.IO.File]::WriteAllText((Join-Path $script:SubDir 'test2.txt'), "Line X`r`nLine Y", [System.Text.Encoding]::UTF8)
+            [System.IO.File]::WriteAllText((Join-Path -Path $script:TestDir -ChildPath 'test1.txt'), "Line 1`r`nLine 2", [System.Text.Encoding]::UTF8)
+            [System.IO.File]::WriteAllText((Join-Path -Path $script:TestDir -ChildPath 'test1.ps1'), "Line A`r`nLine B", [System.Text.Encoding]::UTF8)
+            [System.IO.File]::WriteAllText((Join-Path -Path $script:SubDir -ChildPath 'test2.txt'), "Line X`r`nLine Y", [System.Text.Encoding]::UTF8)
 
             # Create binary file that should be skipped
-            [System.IO.File]::WriteAllBytes((Join-Path $script:TestDir 'binary.exe'), [byte[]](1, 2, 3, 0, 4, 5))
+            [System.IO.File]::WriteAllBytes((Join-Path -Path $script:TestDir -ChildPath 'binary.exe'), [byte[]](1, 2, 3, 0, 4, 5))
         }
 
         AfterEach {
             # Clean up test files created in this context
             $filesToClean = @(
-                (Join-Path $script:TestDir 'test1.txt'),
-                (Join-Path $script:TestDir 'test1.ps1'),
-                (Join-Path $script:TestDir 'binary.exe')
+                (Join-Path -Path $script:TestDir -ChildPath 'test1.txt'),
+                (Join-Path -Path $script:TestDir -ChildPath 'test1.ps1'),
+                (Join-Path -Path $script:TestDir -ChildPath 'binary.exe')
             )
 
             foreach ($file in $filesToClean)
@@ -706,10 +706,10 @@ Describe 'Convert-LineEndings' {
             Convert-LineEndings -Path $script:TestDir -LineEnding 'LF'
 
             # Check that text files were converted
-            $result1 = Get-Content -Path (Join-Path $script:TestDir 'test1.txt') -Raw
+            $result1 = Get-Content -Path (Join-Path -Path $script:TestDir -ChildPath 'test1.txt') -Raw
             $result1 | Should -Not -Match "`r"
 
-            $result2 = Get-Content -Path (Join-Path $script:TestDir 'test1.ps1') -Raw
+            $result2 = Get-Content -Path (Join-Path -Path $script:TestDir -ChildPath 'test1.ps1') -Raw
             $result2 | Should -Not -Match "`r"
         }
 
@@ -717,7 +717,7 @@ Describe 'Convert-LineEndings' {
             Convert-LineEndings -Path $script:TestDir -LineEnding 'LF' -Recurse
 
             # Check that file in subdirectory was also converted
-            $result = Get-Content -Path (Join-Path $script:SubDir 'test2.txt') -Raw
+            $result = Get-Content -Path (Join-Path -Path $script:SubDir -ChildPath 'test2.txt') -Raw
             $result | Should -Not -Match "`r"
         }
 
@@ -725,7 +725,7 @@ Describe 'Convert-LineEndings' {
             Convert-LineEndings -Path $script:TestDir -LineEnding 'LF'
 
             # File in subdirectory should not be processed (still has CRLF)
-            $result = Get-Content -Path (Join-Path $script:SubDir 'test2.txt') -Raw
+            $result = Get-Content -Path (Join-Path -Path $script:SubDir -ChildPath 'test2.txt') -Raw
             $result | Should -Match "`r"
         }
 
@@ -733,11 +733,11 @@ Describe 'Convert-LineEndings' {
             Convert-LineEndings -Path $script:TestDir -LineEnding 'LF' -Include '*.ps1'
 
             # Only .ps1 file should be converted
-            $ps1Result = Get-Content -Path (Join-Path $script:TestDir 'test1.ps1') -Raw
+            $ps1Result = Get-Content -Path (Join-Path -Path $script:TestDir -ChildPath 'test1.ps1') -Raw
             $ps1Result | Should -Not -Match "`r"
 
             # .txt file should not be converted
-            $txtResult = Get-Content -Path (Join-Path $script:TestDir 'test1.txt') -Raw
+            $txtResult = Get-Content -Path (Join-Path -Path $script:TestDir -ChildPath 'test1.txt') -Raw
             $txtResult | Should -Match "`r"
         }
 
@@ -745,18 +745,18 @@ Describe 'Convert-LineEndings' {
             Convert-LineEndings -Path $script:TestDir -LineEnding 'LF' -Exclude '*.txt'
 
             # .ps1 file should be converted
-            $ps1Result = Get-Content -Path (Join-Path $script:TestDir 'test1.ps1') -Raw
+            $ps1Result = Get-Content -Path (Join-Path -Path $script:TestDir -ChildPath 'test1.ps1') -Raw
             $ps1Result | Should -Not -Match "`r"
 
             # .txt file should not be converted (excluded)
-            $txtResult = Get-Content -Path (Join-Path $script:TestDir 'test1.txt') -Raw
+            $txtResult = Get-Content -Path (Join-Path -Path $script:TestDir -ChildPath 'test1.txt') -Raw
             $txtResult | Should -Match "`r"
         }
     }
 
     Context 'WhatIf Support' {
         BeforeEach {
-            $script:TestFile = Join-Path $script:TestDir 'whatif-test.txt'
+            $script:TestFile = Join-Path -Path $script:TestDir -ChildPath 'whatif-test.txt'
             [System.IO.File]::WriteAllText($script:TestFile, "Line 1`r`nLine 2", [System.Text.Encoding]::UTF8)
         }
 
@@ -789,7 +789,7 @@ Describe 'Convert-LineEndings' {
 
     Context 'PassThru Functionality' {
         BeforeEach {
-            $script:TestFile = Join-Path $script:TestDir 'passthru-test.txt'
+            $script:TestFile = Join-Path -Path $script:TestDir -ChildPath 'passthru-test.txt'
             [System.IO.File]::WriteAllText($script:TestFile, "Line 1`r`nLine 2`nLine 3", [System.Text.Encoding]::UTF8)
         }
 
@@ -827,7 +827,7 @@ Describe 'Convert-LineEndings' {
 
     Context 'Error Handling' {
         It 'Should handle non-existent files gracefully' {
-            $nonExistentFile = Join-Path $script:TestDir 'does-not-exist.txt'
+            $nonExistentFile = Join-Path -Path $script:TestDir -ChildPath 'does-not-exist.txt'
 
             $errorMessages = @()
             Convert-LineEndings -Path $nonExistentFile -LineEnding 'LF' -ErrorVariable errorMessages -ErrorAction SilentlyContinue
@@ -836,7 +836,7 @@ Describe 'Convert-LineEndings' {
         }
 
         It 'Should handle read-only files when Force is not specified' {
-            $script:ReadOnlyFile = Join-Path $script:TestDir 'readonly.txt'
+            $script:ReadOnlyFile = Join-Path -Path $script:TestDir -ChildPath 'readonly.txt'
             [System.IO.File]::WriteAllText($script:ReadOnlyFile, "Test content`r`n", [System.Text.Encoding]::UTF8)
 
             try
@@ -859,7 +859,7 @@ Describe 'Convert-LineEndings' {
         }
 
         It 'Should handle read-only files when Force is specified' {
-            $script:ReadOnlyFile = Join-Path $script:TestDir 'readonly-force.txt'
+            $script:ReadOnlyFile = Join-Path -Path $script:TestDir -ChildPath 'readonly-force.txt'
             [System.IO.File]::WriteAllText($script:ReadOnlyFile, "Test content`r`n", [System.Text.Encoding]::UTF8)
 
             try
@@ -891,7 +891,7 @@ Describe 'Convert-LineEndings' {
             $script:PipelineFiles = @()
             for ($i = 1; $i -le 3; $i++)
             {
-                $file = Join-Path $script:TestDir "pipeline-test$i.txt"
+                $file = Join-Path -Path $script:TestDir -ChildPath "pipeline-test$i.txt"
                 [System.IO.File]::WriteAllText($file, "Content $i`r`nLine 2", [System.Text.Encoding]::UTF8)
                 $script:PipelineFiles += $file
             }
@@ -931,7 +931,7 @@ Describe 'Convert-LineEndings' {
 
     Context 'EnsureEndingNewline Parameter' {
         BeforeEach {
-            $script:TestFile = Join-Path $script:TestDir 'ending-newline-test.txt'
+            $script:TestFile = Join-Path -Path $script:TestDir -ChildPath 'ending-newline-test.txt'
         }
 
         AfterEach {
@@ -1105,7 +1105,7 @@ Describe 'Convert-LineEndings' {
 
     Context 'Auto LineEnding Parameter' {
         BeforeEach {
-            $script:TestFile = Join-Path $script:TestDir 'auto-test.txt'
+            $script:TestFile = Join-Path -Path $script:TestDir -ChildPath 'auto-test.txt'
         }
 
         AfterEach {
@@ -1181,7 +1181,7 @@ Describe 'Convert-LineEndings' {
         }
 
         It 'Should show Auto resolution in verbose output' {
-            $testFile = Join-Path $script:TestDir 'verbose-test.txt'
+            $testFile = Join-Path -Path $script:TestDir -ChildPath 'verbose-test.txt'
             'test content' | Out-File -FilePath $testFile -NoNewline
 
             # Use WhatIf to test without actually modifying files
@@ -1199,7 +1199,7 @@ Describe 'Convert-LineEndings' {
 
     Context 'Timestamp Preservation' {
         BeforeEach {
-            $script:TestFile = Join-Path $script:TestDir 'timestamp-test.txt'
+            $script:TestFile = Join-Path -Path $script:TestDir -ChildPath 'timestamp-test.txt'
         }
 
         AfterEach {
@@ -1376,7 +1376,7 @@ Describe 'Convert-LineEndings' {
             Set-Content -Path $script:TestFile -Value $content -NoNewline -Encoding ASCII
 
             # Create a read-only test file to trigger potential access issues
-            $readOnlyFile = Join-Path $script:TestDir 'readonly-timestamp-test.txt'
+            $readOnlyFile = Join-Path -Path $script:TestDir -ChildPath 'readonly-timestamp-test.txt'
             Set-Content -Path $readOnlyFile -Value $content -NoNewline -Encoding ASCII
             Set-ItemProperty -Path $readOnlyFile -Name IsReadOnly -Value $true
 

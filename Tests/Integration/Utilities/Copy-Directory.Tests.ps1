@@ -30,7 +30,7 @@ BeforeAll {
 Describe 'Copy-Directory Integration Tests' {
     Context 'Basic Copy Operations' {
         BeforeAll {
-            $script:testDir = Join-Path $TestDrive 'BasicCopy'
+            $script:testDir = Join-Path -Path $TestDrive -ChildPath 'BasicCopy'
             New-Item -ItemType Directory -Path $script:testDir -Force | Out-Null
         }
 
@@ -39,8 +39,8 @@ Describe 'Copy-Directory Integration Tests' {
         }
 
         It 'Should copy simple directory structure' {
-            $sourceDir = Join-Path $script:testDir 'simple_source'
-            $destDir = Join-Path $script:testDir 'simple_dest'
+            $sourceDir = Join-Path -Path $script:testDir -ChildPath 'simple_source'
+            $destDir = Join-Path -Path $script:testDir -ChildPath 'simple_dest'
 
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
             'file1 content' | Set-Content -Path "$sourceDir\file1.txt"
@@ -56,8 +56,8 @@ Describe 'Copy-Directory Integration Tests' {
         }
 
         It 'Should copy nested directory structure' {
-            $sourceDir = Join-Path $script:testDir 'nested_source'
-            $destDir = Join-Path $script:testDir 'nested_dest'
+            $sourceDir = Join-Path -Path $script:testDir -ChildPath 'nested_source'
+            $destDir = Join-Path -Path $script:testDir -ChildPath 'nested_dest'
 
             New-Item -ItemType Directory -Path "$sourceDir\dir1\subdir1" -Force | Out-Null
             New-Item -ItemType Directory -Path "$sourceDir\dir2" -Force | Out-Null
@@ -75,8 +75,8 @@ Describe 'Copy-Directory Integration Tests' {
         }
 
         It 'Should preserve file contents during copy' {
-            $sourceDir = Join-Path $script:testDir 'content_source'
-            $destDir = Join-Path $script:testDir 'content_dest'
+            $sourceDir = Join-Path -Path $script:testDir -ChildPath 'content_source'
+            $destDir = Join-Path -Path $script:testDir -ChildPath 'content_dest'
             $testContent = 'This is test content with special characters: áéíóú @#$%^&*()'
 
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
@@ -90,7 +90,7 @@ Describe 'Copy-Directory Integration Tests' {
 
     Context 'UpdateMode: Skip' {
         BeforeAll {
-            $script:skipTestDir = Join-Path $TestDrive 'SkipMode'
+            $script:skipTestDir = Join-Path -Path $TestDrive -ChildPath 'SkipMode'
             New-Item -ItemType Directory -Path $script:skipTestDir -Force | Out-Null
         }
 
@@ -99,8 +99,8 @@ Describe 'Copy-Directory Integration Tests' {
         }
 
         It 'Should skip existing files in Skip mode' {
-            $sourceDir = Join-Path $script:skipTestDir 'skip_source'
-            $destDir = Join-Path $script:skipTestDir 'skip_dest'
+            $sourceDir = Join-Path -Path $script:skipTestDir -ChildPath 'skip_source'
+            $destDir = Join-Path -Path $script:skipTestDir -ChildPath 'skip_dest'
 
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
             New-Item -ItemType Directory -Path $destDir -Force | Out-Null
@@ -116,8 +116,8 @@ Describe 'Copy-Directory Integration Tests' {
         }
 
         It 'Should copy new files in Skip mode' {
-            $sourceDir = Join-Path $script:skipTestDir 'skip_new_source'
-            $destDir = Join-Path $script:skipTestDir 'skip_new_dest'
+            $sourceDir = Join-Path -Path $script:skipTestDir -ChildPath 'skip_new_source'
+            $destDir = Join-Path -Path $script:skipTestDir -ChildPath 'skip_new_dest'
 
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
             'new file' | Set-Content -Path "$sourceDir\newfile.txt"
@@ -130,8 +130,8 @@ Describe 'Copy-Directory Integration Tests' {
         }
 
         It 'Should track mixed skip and copy operations' {
-            $sourceDir = Join-Path $script:skipTestDir 'skip_mixed_source'
-            $destDir = Join-Path $script:skipTestDir 'skip_mixed_dest'
+            $sourceDir = Join-Path -Path $script:skipTestDir -ChildPath 'skip_mixed_source'
+            $destDir = Join-Path -Path $script:skipTestDir -ChildPath 'skip_mixed_dest'
 
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
             New-Item -ItemType Directory -Path $destDir -Force | Out-Null
@@ -152,7 +152,7 @@ Describe 'Copy-Directory Integration Tests' {
 
     Context 'UpdateMode: Overwrite' {
         BeforeAll {
-            $script:overwriteTestDir = Join-Path $TestDrive 'OverwriteMode'
+            $script:overwriteTestDir = Join-Path -Path $TestDrive -ChildPath 'OverwriteMode'
             New-Item -ItemType Directory -Path $script:overwriteTestDir -Force | Out-Null
         }
 
@@ -161,8 +161,8 @@ Describe 'Copy-Directory Integration Tests' {
         }
 
         It 'Should overwrite existing files in Overwrite mode' {
-            $sourceDir = Join-Path $script:overwriteTestDir 'overwrite_source'
-            $destDir = Join-Path $script:overwriteTestDir 'overwrite_dest'
+            $sourceDir = Join-Path -Path $script:overwriteTestDir -ChildPath 'overwrite_source'
+            $destDir = Join-Path -Path $script:overwriteTestDir -ChildPath 'overwrite_dest'
 
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
             New-Item -ItemType Directory -Path $destDir -Force | Out-Null
@@ -177,8 +177,8 @@ Describe 'Copy-Directory Integration Tests' {
         }
 
         It 'Should overwrite multiple files in Overwrite mode' {
-            $sourceDir = Join-Path $script:overwriteTestDir 'overwrite_multi_source'
-            $destDir = Join-Path $script:overwriteTestDir 'overwrite_multi_dest'
+            $sourceDir = Join-Path -Path $script:overwriteTestDir -ChildPath 'overwrite_multi_source'
+            $destDir = Join-Path -Path $script:overwriteTestDir -ChildPath 'overwrite_multi_dest'
 
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
             New-Item -ItemType Directory -Path $destDir -Force | Out-Null
@@ -198,7 +198,7 @@ Describe 'Copy-Directory Integration Tests' {
 
     Context 'UpdateMode: IfNewer' {
         BeforeAll {
-            $script:ifnewerTestDir = Join-Path $TestDrive 'IfNewerMode'
+            $script:ifnewerTestDir = Join-Path -Path $TestDrive -ChildPath 'IfNewerMode'
             New-Item -ItemType Directory -Path $script:ifnewerTestDir -Force | Out-Null
         }
 
@@ -207,8 +207,8 @@ Describe 'Copy-Directory Integration Tests' {
         }
 
         It 'Should overwrite if source is newer' {
-            $sourceDir = Join-Path $script:ifnewerTestDir 'ifnewer_newer_source'
-            $destDir = Join-Path $script:ifnewerTestDir 'ifnewer_newer_dest'
+            $sourceDir = Join-Path -Path $script:ifnewerTestDir -ChildPath 'ifnewer_newer_source'
+            $destDir = Join-Path -Path $script:ifnewerTestDir -ChildPath 'ifnewer_newer_dest'
 
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
             New-Item -ItemType Directory -Path $destDir -Force | Out-Null
@@ -227,8 +227,8 @@ Describe 'Copy-Directory Integration Tests' {
         }
 
         It 'Should skip if destination is newer or equal' {
-            $sourceDir = Join-Path $script:ifnewerTestDir 'ifnewer_older_source'
-            $destDir = Join-Path $script:ifnewerTestDir 'ifnewer_older_dest'
+            $sourceDir = Join-Path -Path $script:ifnewerTestDir -ChildPath 'ifnewer_older_source'
+            $destDir = Join-Path -Path $script:ifnewerTestDir -ChildPath 'ifnewer_older_dest'
 
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
             New-Item -ItemType Directory -Path $destDir -Force | Out-Null
@@ -247,8 +247,8 @@ Describe 'Copy-Directory Integration Tests' {
         }
 
         It 'Should handle timestamp comparison correctly' {
-            $sourceDir = Join-Path $script:ifnewerTestDir 'ifnewer_exact_source'
-            $destDir = Join-Path $script:ifnewerTestDir 'ifnewer_exact_dest'
+            $sourceDir = Join-Path -Path $script:ifnewerTestDir -ChildPath 'ifnewer_exact_source'
+            $destDir = Join-Path -Path $script:ifnewerTestDir -ChildPath 'ifnewer_exact_dest'
 
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
             New-Item -ItemType Directory -Path $destDir -Force | Out-Null
@@ -272,7 +272,7 @@ Describe 'Copy-Directory Integration Tests' {
 
     Context 'Directory Exclusion with Complex Hierarchies' {
         BeforeAll {
-            $script:excludeTestDir = Join-Path $TestDrive 'ExclusionTests'
+            $script:excludeTestDir = Join-Path -Path $TestDrive -ChildPath 'ExclusionTests'
             New-Item -ItemType Directory -Path $script:excludeTestDir -Force | Out-Null
         }
 
@@ -281,8 +281,8 @@ Describe 'Copy-Directory Integration Tests' {
         }
 
         It 'Should exclude .git directories at all levels' {
-            $sourceDir = Join-Path $script:excludeTestDir 'git_exclude_source'
-            $destDir = Join-Path $script:excludeTestDir 'git_exclude_dest'
+            $sourceDir = Join-Path -Path $script:excludeTestDir -ChildPath 'git_exclude_source'
+            $destDir = Join-Path -Path $script:excludeTestDir -ChildPath 'git_exclude_dest'
 
             New-Item -ItemType Directory -Path "$sourceDir\.git\objects" -Force | Out-Null
             New-Item -ItemType Directory -Path "$sourceDir\src\app\.git" -Force | Out-Null
@@ -303,8 +303,8 @@ Describe 'Copy-Directory Integration Tests' {
         }
 
         It 'Should exclude multiple build artifact directories' {
-            $sourceDir = Join-Path $script:excludeTestDir 'buildartifact_source'
-            $destDir = Join-Path $script:excludeTestDir 'buildartifact_dest'
+            $sourceDir = Join-Path -Path $script:excludeTestDir -ChildPath 'buildartifact_source'
+            $destDir = Join-Path -Path $script:excludeTestDir -ChildPath 'buildartifact_dest'
 
             New-Item -ItemType Directory -Path "$sourceDir\bin\Debug" -Force | Out-Null
             New-Item -ItemType Directory -Path "$sourceDir\obj\Release" -Force | Out-Null
@@ -329,7 +329,7 @@ Describe 'Copy-Directory Integration Tests' {
 
     Context 'WhatIf Support' {
         BeforeAll {
-            $script:whatifTestDir = Join-Path $TestDrive 'WhatIfTests'
+            $script:whatifTestDir = Join-Path -Path $TestDrive -ChildPath 'WhatIfTests'
             New-Item -ItemType Directory -Path $script:whatifTestDir -Force | Out-Null
         }
 
@@ -338,8 +338,8 @@ Describe 'Copy-Directory Integration Tests' {
         }
 
         It 'Should support -WhatIf without copying files' {
-            $sourceDir = Join-Path $script:whatifTestDir 'whatif_source'
-            $destDir = Join-Path $script:whatifTestDir 'whatif_dest'
+            $sourceDir = Join-Path -Path $script:whatifTestDir -ChildPath 'whatif_source'
+            $destDir = Join-Path -Path $script:whatifTestDir -ChildPath 'whatif_dest'
 
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
             'content' | Set-Content -Path "$sourceDir\file.txt"
@@ -353,7 +353,7 @@ Describe 'Copy-Directory Integration Tests' {
 
     Context 'Output Statistics Accuracy' {
         BeforeAll {
-            $script:statsTestDir = Join-Path $TestDrive 'StatsTests'
+            $script:statsTestDir = Join-Path -Path $TestDrive -ChildPath 'StatsTests'
             New-Item -ItemType Directory -Path $script:statsTestDir -Force | Out-Null
         }
 
@@ -362,8 +362,8 @@ Describe 'Copy-Directory Integration Tests' {
         }
 
         It 'Should accurately report file and directory counts' {
-            $sourceDir = Join-Path $script:statsTestDir 'stats_source'
-            $destDir = Join-Path $script:statsTestDir 'stats_dest'
+            $sourceDir = Join-Path -Path $script:statsTestDir -ChildPath 'stats_source'
+            $destDir = Join-Path -Path $script:statsTestDir -ChildPath 'stats_dest'
 
             New-Item -ItemType Directory -Path "$sourceDir\dir1\subdir1" -Force | Out-Null
             New-Item -ItemType Directory -Path "$sourceDir\dir2" -Force | Out-Null
@@ -383,8 +383,8 @@ Describe 'Copy-Directory Integration Tests' {
         }
 
         It 'Should measure duration correctly' {
-            $sourceDir = Join-Path $script:statsTestDir 'duration_source'
-            $destDir = Join-Path $script:statsTestDir 'duration_dest'
+            $sourceDir = Join-Path -Path $script:statsTestDir -ChildPath 'duration_source'
+            $destDir = Join-Path -Path $script:statsTestDir -ChildPath 'duration_dest'
 
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
             'content' | Set-Content -Path "$sourceDir\file.txt"
@@ -396,8 +396,8 @@ Describe 'Copy-Directory Integration Tests' {
         }
 
         It 'Should correctly count skipped vs overwritten files' {
-            $sourceDir = Join-Path $script:statsTestDir 'counts_source'
-            $destDir = Join-Path $script:statsTestDir 'counts_dest'
+            $sourceDir = Join-Path -Path $script:statsTestDir -ChildPath 'counts_source'
+            $destDir = Join-Path -Path $script:statsTestDir -ChildPath 'counts_dest'
 
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
             New-Item -ItemType Directory -Path $destDir -Force | Out-Null

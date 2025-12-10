@@ -95,12 +95,12 @@ Describe 'Remove-OldFiles' {
     Context 'Date Calculation' {
         BeforeAll {
             # Create a temporary test directory
-            $script:testDir = Join-Path $TestDrive 'DateTests'
+            $script:testDir = Join-Path -Path $TestDrive -ChildPath 'DateTests'
             New-Item -ItemType Directory -Path $script:testDir -Force | Out-Null
         }
 
         It 'Should calculate cutoff date for Days unit' {
-            $testFile = Join-Path $script:testDir 'test_days.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'test_days.txt'
             'test' | Set-Content -Path $testFile
 
             # Set file date to 10 days ago
@@ -113,7 +113,7 @@ Describe 'Remove-OldFiles' {
         }
 
         It 'Should calculate cutoff date for Hours unit' {
-            $testFile = Join-Path $script:testDir 'test_hours.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'test_hours.txt'
             'test' | Set-Content -Path $testFile
 
             $result = Remove-OldFiles -Path $script:testDir -OlderThan 24 -Unit Hours -WhatIf
@@ -125,7 +125,7 @@ Describe 'Remove-OldFiles' {
         }
 
         It 'Should calculate cutoff date for Months unit' {
-            $testFile = Join-Path $script:testDir 'test_months.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'test_months.txt'
             'test' | Set-Content -Path $testFile
 
             $result = Remove-OldFiles -Path $script:testDir -OlderThan 3 -Unit Months -WhatIf
@@ -136,7 +136,7 @@ Describe 'Remove-OldFiles' {
         }
 
         It 'Should calculate cutoff date for Years unit' {
-            $testFile = Join-Path $script:testDir 'test_years.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'test_years.txt'
             'test' | Set-Content -Path $testFile
 
             $result = Remove-OldFiles -Path $script:testDir -OlderThan 1 -Unit Years -WhatIf
@@ -148,7 +148,7 @@ Describe 'Remove-OldFiles' {
 
     Context 'Path Resolution' {
         BeforeAll {
-            $script:testDir = Join-Path $TestDrive 'PathTests'
+            $script:testDir = Join-Path -Path $TestDrive -ChildPath 'PathTests'
             New-Item -ItemType Directory -Path $script:testDir -Force | Out-Null
         }
 
@@ -169,7 +169,7 @@ Describe 'Remove-OldFiles' {
         }
 
         It 'Should handle non-existent path gracefully' {
-            $nonExistentPath = Join-Path $TestDrive 'NonExistent'
+            $nonExistentPath = Join-Path -Path $TestDrive -ChildPath 'NonExistent'
 
             { Remove-OldFiles -Path $nonExistentPath -OlderThan 1 -ErrorAction Stop } | Should -Throw
         }
@@ -177,7 +177,7 @@ Describe 'Remove-OldFiles' {
 
     Context 'Summary Output' {
         BeforeAll {
-            $script:testDir = Join-Path $TestDrive 'SummaryTests'
+            $script:testDir = Join-Path -Path $TestDrive -ChildPath 'SummaryTests'
             New-Item -ItemType Directory -Path $script:testDir -Force | Out-Null
         }
 
@@ -212,17 +212,17 @@ Describe 'Remove-OldFiles' {
 
     Context 'WhatIf Support' {
         BeforeAll {
-            $script:testDir = Join-Path $TestDrive 'WhatIfTests'
+            $script:testDir = Join-Path -Path $TestDrive -ChildPath 'WhatIfTests'
             New-Item -ItemType Directory -Path $script:testDir -Force | Out-Null
 
             # Create old test file
-            $testFile = Join-Path $script:testDir 'old_file.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'old_file.txt'
             'test content' | Set-Content -Path $testFile
             (Get-Item $testFile).LastWriteTime = (Get-Date).AddDays(-30)
         }
 
         It 'Should not remove files with WhatIf' {
-            $testFile = Join-Path $script:testDir 'old_file.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'old_file.txt'
 
             Remove-OldFiles -Path $script:testDir -OlderThan 7 -WhatIf
 
@@ -238,12 +238,12 @@ Describe 'Remove-OldFiles' {
 
     Context 'Recursion control' {
         It 'Should not process subdirectories without Recurse' {
-            $root = Join-Path $TestDrive 'RecursionControl'
-            $child = Join-Path $root 'child'
+            $root = Join-Path -Path $TestDrive -ChildPath 'RecursionControl'
+            $child = Join-Path -Path $root -ChildPath 'child'
             New-Item -ItemType Directory -Path $child -Force | Out-Null
 
-            $rootFile = Join-Path $root 'root.txt'
-            $childFile = Join-Path $child 'child.txt'
+            $rootFile = Join-Path -Path $root -ChildPath 'root.txt'
+            $childFile = Join-Path -Path $child -ChildPath 'child.txt'
             'root' | Set-Content -Path $rootFile
             'child' | Set-Content -Path $childFile
             (Get-Item $rootFile).LastWriteTime = (Get-Date).AddDays(-40)

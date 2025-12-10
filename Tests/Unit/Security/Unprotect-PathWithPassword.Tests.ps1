@@ -23,7 +23,7 @@ BeforeAll {
 Describe 'Unprotect-PathWithPassword Unit Tests' {
     BeforeEach {
         # Create test directory structure
-        $script:TestDir = Join-Path ([System.IO.Path]::GetTempPath()) ('UnprotectPathTest_' + [System.Guid]::NewGuid().ToString('N')[0..7] -join '')
+        $script:TestDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ('UnprotectPathTest_' + [System.Guid]::NewGuid().ToString('N')[0..7] -join '')
         New-Item -Path $script:TestDir -ItemType Directory -Force | Out-Null
 
         # Create test password
@@ -31,10 +31,10 @@ Describe 'Unprotect-PathWithPassword Unit Tests' {
         $script:WrongPassword = ConvertTo-SecureString 'WrongPassword456!' -AsPlainText -Force
 
         # Create test files and encrypt them
-        $script:TestFile1 = Join-Path $script:TestDir 'test1.txt'
-        $script:TestFile2 = Join-Path $script:TestDir 'test2.txt'
-        $script:SubDir = Join-Path $script:TestDir 'subdir'
-        $script:TestFile3 = Join-Path $script:SubDir 'test3.txt'
+        $script:TestFile1 = Join-Path -Path $script:TestDir -ChildPath 'test1.txt'
+        $script:TestFile2 = Join-Path -Path $script:TestDir -ChildPath 'test2.txt'
+        $script:SubDir = Join-Path -Path $script:TestDir -ChildPath 'subdir'
+        $script:TestFile3 = Join-Path -Path $script:SubDir -ChildPath 'test3.txt'
 
         'Test content 1' | Out-File -FilePath $script:TestFile1 -Encoding UTF8
         'Test content 2' | Out-File -FilePath $script:TestFile2 -Encoding UTF8
@@ -126,7 +126,7 @@ Describe 'Unprotect-PathWithPassword Unit Tests' {
         }
 
         It 'Should respect custom output path' {
-            $customOutput = Join-Path $script:TestDir 'custom.decrypted'
+            $customOutput = Join-Path -Path $script:TestDir -ChildPath 'custom.decrypted'
             $result = Unprotect-PathWithPassword -Path $script:EncFile1 -Password $script:TestPassword -OutputPath $customOutput -Force
 
             $result.DecryptedPath | Should -Be $customOutput
@@ -168,7 +168,7 @@ Describe 'Unprotect-PathWithPassword Unit Tests' {
 
         It 'Should only process .enc files in directories' {
             # Create a non-.enc file
-            $nonEncFile = Join-Path $script:TestDir 'regular.txt'
+            $nonEncFile = Join-Path -Path $script:TestDir -ChildPath 'regular.txt'
             'Regular content' | Out-File -FilePath $nonEncFile -Encoding UTF8
 
             Unprotect-PathWithPassword -Path $script:TestDir -Password $script:TestPassword -Force | Out-Null
@@ -221,7 +221,7 @@ Describe 'Unprotect-PathWithPassword Unit Tests' {
 
             foreach ($case in $testCases)
             {
-                $testFile = Join-Path $script:TestDir $case.Name
+                $testFile = Join-Path -Path $script:TestDir -ChildPath $case.Name
                 $case.Content | Out-File -FilePath $testFile -Encoding UTF8 -NoNewline
 
                 # Encrypt then decrypt

@@ -29,7 +29,7 @@ BeforeAll {
 Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Tests' {
     BeforeEach {
         # Create test directory structure
-        $script:TestDir = Join-Path ([System.IO.Path]::GetTempPath()) ('PathProtectionIntegration_' + [System.Guid]::NewGuid().ToString('N')[0..7] -join '')
+        $script:TestDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ('PathProtectionIntegration_' + [System.Guid]::NewGuid().ToString('N')[0..7] -join '')
         New-Item -Path $script:TestDir -ItemType Directory -Force | Out-Null
 
         # Create test password - suppress lint warning as this is needed for testing
@@ -68,7 +68,7 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
         It 'Should handle binary files correctly (validates encryption of non-text data like images, executables, etc.)' {
             # Create a binary test file (simulate an image or other binary content)
             # This test ensures the encryption/decryption process preserves binary data integrity
-            $binaryFile = Join-Path $script:TestDir 'test.bin'
+            $binaryFile = Join-Path -Path $script:TestDir -ChildPath 'test.bin'
             $binaryData = [byte[]](0..255)
             [System.IO.File]::WriteAllBytes($binaryFile, $binaryData)
 
@@ -84,7 +84,7 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
 
         It 'Should handle large files efficiently' {
             # Create a large text file (1MB)
-            $largeFile = Join-Path $script:TestDir 'large.txt'
+            $largeFile = Join-Path -Path $script:TestDir -ChildPath 'large.txt'
             $largeContent = [String]::new('A', 1024) * 1024  # 1MB of 'A's
             [System.IO.File]::WriteAllText($largeFile, $largeContent)
 
@@ -124,7 +124,7 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
 
             foreach ($enc in $encodings)
             {
-                $testFile = Join-Path $script:TestDir "encoding_$($enc.Name).txt"
+                $testFile = Join-Path -Path $script:TestDir -ChildPath "encoding_$($enc.Name).txt"
                 $testContent = "Test content for $($enc.Name) encoding"
 
                 # Write file with specific encoding using WriteAllBytes to avoid BOM issues
@@ -145,12 +145,12 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
 
     Context 'Security and Robustness' {
         It 'Should produce different encrypted output for same input with same password' {
-            $testFile = Join-Path $script:TestDir 'security_test.txt'
+            $testFile = Join-Path -Path $script:TestDir -ChildPath 'security_test.txt'
             'Identical content for security testing' | Out-File -FilePath $testFile -Encoding UTF8
 
             # Encrypt the same file twice
-            $enc1 = Protect-PathWithPassword -Path $testFile -Password $script:TestPassword -OutputPath (Join-Path $script:TestDir 'enc1.dat')
-            $enc2 = Protect-PathWithPassword -Path $testFile -Password $script:TestPassword -OutputPath (Join-Path $script:TestDir 'enc2.dat')
+            $enc1 = Protect-PathWithPassword -Path $testFile -Password $script:TestPassword -OutputPath (Join-Path -Path $script:TestDir -ChildPath 'enc1.dat')
+            $enc2 = Protect-PathWithPassword -Path $testFile -Password $script:TestPassword -OutputPath (Join-Path -Path $script:TestDir -ChildPath 'enc2.dat')
 
             # Read encrypted files as bytes
             $encBytes1 = [System.IO.File]::ReadAllBytes($enc1.EncryptedPath)
@@ -161,8 +161,8 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
 
             # But both should decrypt to the same content
             Remove-Item $testFile -Force
-            $dec1 = Unprotect-PathWithPassword -Path $enc1.EncryptedPath -Password $script:TestPassword -OutputPath (Join-Path $script:TestDir 'dec1.txt')
-            $dec2 = Unprotect-PathWithPassword -Path $enc2.EncryptedPath -Password $script:TestPassword -OutputPath (Join-Path $script:TestDir 'dec2.txt')
+            $dec1 = Unprotect-PathWithPassword -Path $enc1.EncryptedPath -Password $script:TestPassword -OutputPath (Join-Path -Path $script:TestDir -ChildPath 'dec1.txt')
+            $dec2 = Unprotect-PathWithPassword -Path $enc2.EncryptedPath -Password $script:TestPassword -OutputPath (Join-Path -Path $script:TestDir -ChildPath 'dec2.txt')
 
             $content1 = Get-Content $dec1.DecryptedPath -Raw
             $content2 = Get-Content $dec2.DecryptedPath -Raw
@@ -170,7 +170,7 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
         }
 
         It 'Should fail gracefully with incorrect password' {
-            $testFile = Join-Path $script:TestDir 'password_test.txt'
+            $testFile = Join-Path -Path $script:TestDir -ChildPath 'password_test.txt'
             'Secret content that should not be accessible' | Out-File -FilePath $testFile -Encoding UTF8
 
             $correctPassword = $script:TestPassword
@@ -198,7 +198,7 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             $testFiles = @()
             for ($i = 1; $i -le 5; $i++)
             {
-                $testFile = Join-Path $script:TestDir "batch_test_$i.txt"
+                $testFile = Join-Path -Path $script:TestDir -ChildPath "batch_test_$i.txt"
                 "Batch content for file $i" | Out-File -FilePath $testFile -Encoding UTF8
                 $testFiles += $testFile
             }
@@ -223,7 +223,7 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             # Verify all files are restored with correct content
             for ($i = 1; $i -le 5; $i++)
             {
-                $restoredFile = Join-Path $script:TestDir "batch_test_$i.txt"
+                $restoredFile = Join-Path -Path $script:TestDir -ChildPath "batch_test_$i.txt"
                 Test-Path $restoredFile | Should -Be $true
                 $content = Get-Content $restoredFile -Raw
                 $content.Trim() | Should -Be "Batch content for file $i"
@@ -232,16 +232,16 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
 
         It 'Should handle recursive directory operations' {
             # Create nested directory structure
-            $subDir1 = Join-Path $script:TestDir 'subdir1'
-            $subDir2 = Join-Path $subDir1 'subdir2'
+            $subDir1 = Join-Path -Path $script:TestDir -ChildPath 'subdir1'
+            $subDir2 = Join-Path -Path $subDir1 -ChildPath 'subdir2'
             New-Item -Path $subDir1 -ItemType Directory -Force | Out-Null
             New-Item -Path $subDir2 -ItemType Directory -Force | Out-Null
 
             # Create files at different levels
             $files = @(
-                @{ Path = (Join-Path $script:TestDir 'root.txt'); Content = 'Root level content' }
-                @{ Path = (Join-Path $subDir1 'level1.txt'); Content = 'Level 1 content' }
-                @{ Path = (Join-Path $subDir2 'level2.txt'); Content = 'Level 2 content' }
+                @{ Path = (Join-Path -Path $script:TestDir -ChildPath 'root.txt'); Content = 'Root level content' }
+                @{ Path = (Join-Path -Path $subDir1 -ChildPath 'level1.txt'); Content = 'Level 1 content' }
+                @{ Path = (Join-Path -Path $subDir2 -ChildPath 'level2.txt'); Content = 'Level 2 content' }
             )
 
             foreach ($file in $files)
@@ -270,7 +270,7 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
 
     Context 'Cross-Platform Compatibility' {
         It 'Should create consistent file format across all platforms' {
-            $testFile = Join-Path $script:TestDir 'cross_platform.txt'
+            $testFile = Join-Path -Path $script:TestDir -ChildPath 'cross_platform.txt'
             'Cross-platform test content' | Out-File -FilePath $testFile -Encoding UTF8 -NoNewline
 
             # Encrypt the file
@@ -301,7 +301,7 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
 
         It 'Should handle files encrypted on different PowerShell versions' {
             # This test simulates the file format that should work across PS 5.1 and PS 7+
-            $testFile = Join-Path $script:TestDir 'version_test.txt'
+            $testFile = Join-Path -Path $script:TestDir -ChildPath 'version_test.txt'
             'PowerShell version compatibility test' | Out-File -FilePath $testFile -Encoding UTF8 -NoNewline
 
             # Encrypt and get the file structure
@@ -332,7 +332,7 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             else
             {
                 # Check if the bash script and OpenSSL with KDF support are available
-                $BashScriptPath = Join-Path $PSScriptRoot 'scripts/pwsh-encrypt-compat.sh'
+                $BashScriptPath = Join-Path -Path $PSScriptRoot -ChildPath 'scripts/pwsh-encrypt-compat.sh'
                 $script:BashScriptAvailable = (Test-Path $BashScriptPath) -and
                 ($null -ne (Get-Command bash -ErrorAction SilentlyContinue)) -and
                 ($null -ne (Get-Command openssl -ErrorAction SilentlyContinue))
@@ -370,13 +370,13 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
                 return
             }
 
-            $testFile = Join-Path $script:TestDir 'bash_encrypted.txt'
+            $testFile = Join-Path -Path $script:TestDir -ChildPath 'bash_encrypted.txt'
             $originalContent = 'Encrypted by bash, decrypted by PowerShell'
             $originalContent | Out-File -FilePath $testFile -Encoding UTF8 -NoNewline
 
             $encryptedFile = $testFile + '.enc'
             $testPassword = 'BashTest_Password_2025!'
-            $BashScriptPath = Join-Path $PSScriptRoot 'scripts/pwsh-encrypt-compat.sh'
+            $BashScriptPath = Join-Path -Path $PSScriptRoot -ChildPath 'scripts/pwsh-encrypt-compat.sh'
 
             # Encrypt with bash script
             $bashOutput = & bash $BashScriptPath encrypt -i $testFile -o $encryptedFile -p $testPassword 2>&1 | Out-String
@@ -406,16 +406,16 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             }
 
             # Create test file with PowerShell
-            $TestFile = Join-Path $script:TestDir 'test_roundtrip.txt'
+            $TestFile = Join-Path -Path $script:TestDir -ChildPath 'test_roundtrip.txt'
             Set-Content -Path $TestFile -Value 'Testing PowerShell -> bash decryption'
 
-            $BashScriptPath = Join-Path $PSScriptRoot 'scripts/pwsh-encrypt-compat.sh'
-            $testFile = Join-Path $script:TestDir 'pwsh_encrypted.txt'
+            $BashScriptPath = Join-Path -Path $PSScriptRoot -ChildPath 'scripts/pwsh-encrypt-compat.sh'
+            $testFile = Join-Path -Path $script:TestDir -ChildPath 'pwsh_encrypted.txt'
             $originalContent = 'Encrypted by PowerShell, decrypted by bash'
             $originalContent | Out-File -FilePath $testFile -Encoding UTF8 -NoNewline
 
             $testPassword = 'PwshTest_Password_2025!'
-            $BashScriptPath = Join-Path $PSScriptRoot 'scripts/pwsh-encrypt-compat.sh'
+            $BashScriptPath = Join-Path -Path $PSScriptRoot -ChildPath 'scripts/pwsh-encrypt-compat.sh'
 
             # Encrypt with PowerShell
             $pwPassword = ConvertTo-SecureString $testPassword -AsPlainText -Force
@@ -449,13 +449,13 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
                 return
             }
 
-            $testFile = Join-Path $script:TestDir 'binary_test.bin'
+            $testFile = Join-Path -Path $script:TestDir -ChildPath 'binary_test.bin'
             $binaryData = [byte[]](0..255)
             [System.IO.File]::WriteAllBytes($testFile, $binaryData)
 
             $encryptedFile = $testFile + '.enc'
             $testPassword = 'Binary_Password_2025!'
-            $BashScriptPath = Join-Path $PSScriptRoot 'scripts/pwsh-encrypt-compat.sh'
+            $BashScriptPath = Join-Path -Path $PSScriptRoot -ChildPath 'scripts/pwsh-encrypt-compat.sh'
 
             # Encrypt with bash
             $bashOutput = & bash $BashScriptPath encrypt -i $testFile -o $encryptedFile -p $testPassword 2>&1 | Out-String

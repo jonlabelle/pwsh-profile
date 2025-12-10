@@ -40,7 +40,7 @@ BeforeAll {
 
 Describe 'Import-DotEnv' {
     BeforeAll {
-        $script:TestDir = Join-Path ([System.IO.Path]::GetTempPath()) "dotenv-tests-$(Get-Random)"
+        $script:TestDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "dotenv-tests-$(Get-Random)"
         New-Item -Path $script:TestDir -ItemType Directory -Force | Out-Null
     }
 
@@ -53,7 +53,7 @@ Describe 'Import-DotEnv' {
 
     Context 'Basic Loading' {
         BeforeEach {
-            $script:TestEnvFile = Join-Path $script:TestDir 'basic.env'
+            $script:TestEnvFile = Join-Path -Path $script:TestDir -ChildPath 'basic.env'
             Clear-TestEnvVars -VarNames @('TEST_VAR1', 'TEST_VAR2', 'TEST_VAR3', '__DOTENV_LOADED_VARS')
         }
 
@@ -168,7 +168,7 @@ TEST_VAR2=value2
 
     Context 'Quoted Values' {
         BeforeEach {
-            $script:TestEnvFile = Join-Path $script:TestDir 'quoted.env'
+            $script:TestEnvFile = Join-Path -Path $script:TestDir -ChildPath 'quoted.env'
             Clear-TestEnvVars -VarNames @('TEST_DOUBLE', 'TEST_SINGLE', 'TEST_UNQUOTED', '__DOTENV_LOADED_VARS')
         }
 
@@ -264,7 +264,7 @@ TEST_VAR2=value2
 
     Context 'Variable Expansion' {
         BeforeEach {
-            $script:TestEnvFile = Join-Path $script:TestDir 'expansion.env'
+            $script:TestEnvFile = Join-Path -Path $script:TestDir -ChildPath 'expansion.env'
             $env:EXISTING_VAR = 'existing_value'
             Clear-TestEnvVars -VarNames @('TEST_EXPAND1', 'TEST_EXPAND2', 'TEST_NO_EXPAND', 'NEW_VAR', '__DOTENV_LOADED_VARS')
         }
@@ -371,7 +371,7 @@ PATH_TWO="${PATH_ONE}/tools"
 
     Context 'Force Parameter' {
         BeforeEach {
-            $script:TestEnvFile = Join-Path $script:TestDir 'force.env'
+            $script:TestEnvFile = Join-Path -Path $script:TestDir -ChildPath 'force.env'
             $env:EXISTING_VAR = 'original_value'
             Clear-TestEnvVars -VarNames @('__DOTENV_LOADED_VARS')
         }
@@ -415,7 +415,7 @@ PATH_TWO="${PATH_ONE}/tools"
 
     Context 'Unload Functionality' {
         BeforeEach {
-            $script:TestEnvFile = Join-Path $script:TestDir 'unload.env'
+            $script:TestEnvFile = Join-Path -Path $script:TestDir -ChildPath 'unload.env'
             Clear-TestEnvVars -VarNames @('UNLOAD_VAR1', 'UNLOAD_VAR2', 'UNLOAD_VAR3', '__DOTENV_LOADED_VARS')
         }
 
@@ -489,7 +489,7 @@ UNLOAD_VAR2=value2
             New-TestEnvFile -Path $script:TestEnvFile -Content $content1
             Import-DotEnv -Path $script:TestEnvFile
 
-            $testEnvFile2 = Join-Path $script:TestDir 'unload2.env'
+            $testEnvFile2 = Join-Path -Path $script:TestDir -ChildPath 'unload2.env'
             $content2 = 'UNLOAD_VAR2=value2'
             New-TestEnvFile -Path $testEnvFile2 -Content $content2
             Import-DotEnv -Path $testEnvFile2
@@ -520,7 +520,7 @@ UNLOAD_VAR2=value2
         }
 
         It 'Should use .env in current directory by default' {
-            $defaultEnvFile = Join-Path $script:TestDir '.env'
+            $defaultEnvFile = Join-Path -Path $script:TestDir -ChildPath '.env'
             $content = 'PATH_VAR=default'
             New-TestEnvFile -Path $defaultEnvFile -Content $content
 
@@ -541,7 +541,7 @@ UNLOAD_VAR2=value2
         }
 
         It 'Should accept absolute path' {
-            $absoluteFile = Join-Path $script:TestDir 'absolute.env'
+            $absoluteFile = Join-Path -Path $script:TestDir -ChildPath 'absolute.env'
             $content = 'PATH_VAR=absolute'
             New-TestEnvFile -Path $absoluteFile -Content $content
 
@@ -556,8 +556,8 @@ UNLOAD_VAR2=value2
         }
 
         It 'Should handle multiple paths via pipeline' {
-            $file1 = Join-Path $script:TestDir 'file1.env'
-            $file2 = Join-Path $script:TestDir 'file2.env'
+            $file1 = Join-Path -Path $script:TestDir -ChildPath 'file1.env'
+            $file2 = Join-Path -Path $script:TestDir -ChildPath 'file2.env'
             New-TestEnvFile -Path $file1 -Content 'VAR1=value1'
             New-TestEnvFile -Path $file2 -Content 'VAR2=value2'
 
@@ -571,7 +571,7 @@ UNLOAD_VAR2=value2
         }
 
         It 'Should warn when file does not exist' {
-            $nonExistent = Join-Path $script:TestDir 'nonexistent.env'
+            $nonExistent = Join-Path -Path $script:TestDir -ChildPath 'nonexistent.env'
 
             { Import-DotEnv -Path $nonExistent -WarningAction Stop } | Should -Throw
         }
@@ -579,7 +579,7 @@ UNLOAD_VAR2=value2
 
     Context 'Variable Name Validation' {
         BeforeEach {
-            $script:TestEnvFile = Join-Path $script:TestDir 'validation.env'
+            $script:TestEnvFile = Join-Path -Path $script:TestDir -ChildPath 'validation.env'
             Clear-TestEnvVars -VarNames @('VALID_VAR', 'VALID_VAR_123', '_VALID_VAR', '__DOTENV_LOADED_VARS')
         }
 
@@ -636,7 +636,7 @@ ANOTHER_VALID=valid2
 
     Context 'Edge Cases' {
         BeforeEach {
-            $script:TestEnvFile = Join-Path $script:TestDir 'edge.env'
+            $script:TestEnvFile = Join-Path -Path $script:TestDir -ChildPath 'edge.env'
             Clear-TestEnvVars -VarNames @('EMPTY_VAR', 'EQUALS_VAR', 'SPECIAL_VAR', '__DOTENV_LOADED_VARS')
         }
 
@@ -737,7 +737,7 @@ ANOTHER_VALID=valid2
 
     Context 'Scope Validation' {
         BeforeEach {
-            $script:TestEnvFile = Join-Path $script:TestDir 'scope.env'
+            $script:TestEnvFile = Join-Path -Path $script:TestDir -ChildPath 'scope.env'
             Clear-TestEnvVars -VarNames @('SCOPE_VAR', '__DOTENV_LOADED_VARS')
         }
 
@@ -774,7 +774,7 @@ ANOTHER_VALID=valid2
 
     Context 'Invalid and Malformed Input' {
         BeforeEach {
-            $script:TestEnvFile = Join-Path $script:TestDir 'invalid.env'
+            $script:TestEnvFile = Join-Path -Path $script:TestDir -ChildPath 'invalid.env'
             Clear-TestEnvVars -VarNames @('VALID_VAR', 'KEY', 'TEST_VAR', '__DOTENV_LOADED_VARS')
         }
 
@@ -883,7 +883,7 @@ MixedCase_Var=mixed
 
     Context 'Whitespace Handling' {
         BeforeEach {
-            $script:TestEnvFile = Join-Path $script:TestDir 'whitespace.env'
+            $script:TestEnvFile = Join-Path -Path $script:TestDir -ChildPath 'whitespace.env'
             Clear-TestEnvVars -VarNames @('KEY1', 'KEY2', 'KEY3', '__DOTENV_LOADED_VARS')
         }
 
@@ -926,7 +926,7 @@ MixedCase_Var=mixed
 
     Context 'Security - No Value Leakage' {
         BeforeEach {
-            $script:TestEnvFile = Join-Path $script:TestDir 'secrets.env'
+            $script:TestEnvFile = Join-Path -Path $script:TestDir -ChildPath 'secrets.env'
             Clear-TestEnvVars -VarNames @('SECRET_KEY', 'API_TOKEN', 'PASSWORD', '__DOTENV_LOADED_VARS')
         }
 
@@ -1016,8 +1016,8 @@ API_TOKEN=token_abcdef67890
         }
 
         It 'Should preserve first loaded value when same variable in multiple files without Force' {
-            $file1 = Join-Path $script:TestDir 'first.env'
-            $file2 = Join-Path $script:TestDir 'second.env'
+            $file1 = Join-Path -Path $script:TestDir -ChildPath 'first.env'
+            $file2 = Join-Path -Path $script:TestDir -ChildPath 'second.env'
 
             New-TestEnvFile -Path $file1 -Content 'SHARED_VAR=first_value'
             New-TestEnvFile -Path $file2 -Content 'SHARED_VAR=second_value'
@@ -1032,8 +1032,8 @@ API_TOKEN=token_abcdef67890
         }
 
         It 'Should use last loaded value when same variable in multiple files with Force' {
-            $file1 = Join-Path $script:TestDir 'first.env'
-            $file2 = Join-Path $script:TestDir 'second.env'
+            $file1 = Join-Path -Path $script:TestDir -ChildPath 'first.env'
+            $file2 = Join-Path -Path $script:TestDir -ChildPath 'second.env'
 
             New-TestEnvFile -Path $file1 -Content 'SHARED_VAR=first_value'
             New-TestEnvFile -Path $file2 -Content 'SHARED_VAR=second_value'
@@ -1048,8 +1048,8 @@ API_TOKEN=token_abcdef67890
         }
 
         It 'Should track variables from all files' {
-            $file1 = Join-Path $script:TestDir 'file1.env'
-            $file2 = Join-Path $script:TestDir 'file2.env'
+            $file1 = Join-Path -Path $script:TestDir -ChildPath 'file1.env'
+            $file2 = Join-Path -Path $script:TestDir -ChildPath 'file2.env'
 
             New-TestEnvFile -Path $file1 -Content 'FILE1_VAR=value1'
             New-TestEnvFile -Path $file2 -Content 'FILE2_VAR=value2'
@@ -1066,7 +1066,7 @@ API_TOKEN=token_abcdef67890
 
     Context 'Tracking Variable Edge Cases' {
         BeforeEach {
-            $script:TestEnvFile = Join-Path $script:TestDir 'tracking.env'
+            $script:TestEnvFile = Join-Path -Path $script:TestDir -ChildPath 'tracking.env'
             Clear-TestEnvVars -VarNames @('TEST_VAR1', 'TEST_VAR2', '__DOTENV_LOADED_VARS')
         }
 
@@ -1121,7 +1121,7 @@ TEST_VAR1=second_value
 
     Context 'ShowLoadedWithValues Functionality' {
         BeforeEach {
-            $script:TestEnvFile = Join-Path $script:TestDir 'showvalues.env'
+            $script:TestEnvFile = Join-Path -Path $script:TestDir -ChildPath 'showvalues.env'
             Clear-TestEnvVars -VarNames @('SHOW_VAR1', 'SHOW_VAR2', 'SHOW_VAR3', 'SECRET_KEY', '__DOTENV_LOADED_VARS')
         }
 

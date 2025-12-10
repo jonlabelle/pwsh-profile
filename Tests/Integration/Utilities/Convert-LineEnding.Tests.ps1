@@ -22,12 +22,12 @@ BeforeAll {
     . "$PSScriptRoot/../../../Functions/Utilities/Convert-LineEndings.ps1"
 
     # Create a comprehensive test directory structure
-    $script:TestDir = Join-Path $TestDrive 'LineEndingIntegrationTests'
-    $script:SourceDir = Join-Path $script:TestDir 'source'
-    $script:DocsDir = Join-Path $script:TestDir 'docs'
-    $script:ScriptsDir = Join-Path $script:TestDir 'scripts'
-    $script:BinaryDir = Join-Path $script:TestDir 'binaries'
-    $script:NodeModulesDir = Join-Path $script:TestDir 'node_modules'
+    $script:TestDir = Join-Path -Path $TestDrive -ChildPath 'LineEndingIntegrationTests'
+    $script:SourceDir = Join-Path -Path $script:TestDir -ChildPath 'source'
+    $script:DocsDir = Join-Path -Path $script:TestDir -ChildPath 'docs'
+    $script:ScriptsDir = Join-Path -Path $script:TestDir -ChildPath 'scripts'
+    $script:BinaryDir = Join-Path -Path $script:TestDir -ChildPath 'binaries'
+    $script:NodeModulesDir = Join-Path -Path $script:TestDir -ChildPath 'node_modules'
 
     @($script:TestDir, $script:SourceDir, $script:DocsDir, $script:ScriptsDir, $script:BinaryDir, $script:NodeModulesDir) | ForEach-Object {
         New-Item -Path $_ -ItemType Directory -Force | Out-Null
@@ -47,26 +47,26 @@ Describe 'Convert-LineEndings Integration Tests' {
         BeforeAll {
             # Create a realistic project structure with various file types
             $projectFiles = @{
-                (Join-Path $script:SourceDir 'main.ps1') = "# Main PowerShell script`r`nWrite-Host 'Hello World'`r`n"
-                (Join-Path $script:SourceDir 'module.psm1') = "function Test-Function {`r`n    return 'test'`r`n}`r`n"
-                (Join-Path $script:SourceDir 'config.json') = "{`r`n  `"setting`": `"value`"`r`n}`r`n"
-                (Join-Path $script:DocsDir 'README.md') = "# Project Documentation`r`n`r`nThis is a test project.`r`n"
-                (Join-Path $script:DocsDir 'CHANGELOG.md') = "# Changelog`r`n`r`n## Version 1.0`r`n- Initial release`r`n"
-                (Join-Path $script:ScriptsDir 'build.sh') = "#!/bin/bash`necho 'Building project'`n"
-                (Join-Path $script:ScriptsDir 'deploy.bat') = "@echo off`r`necho Deploying project`r`n"
+                (Join-Path -Path $script:SourceDir -ChildPath 'main.ps1') = "# Main PowerShell script`r`nWrite-Host 'Hello World'`r`n"
+                (Join-Path -Path $script:SourceDir -ChildPath 'module.psm1') = "function Test-Function {`r`n    return 'test'`r`n}`r`n"
+                (Join-Path -Path $script:SourceDir -ChildPath 'config.json') = "{`r`n  `"setting`": `"value`"`r`n}`r`n"
+                (Join-Path -Path $script:DocsDir -ChildPath 'README.md') = "# Project Documentation`r`n`r`nThis is a test project.`r`n"
+                (Join-Path -Path $script:DocsDir -ChildPath 'CHANGELOG.md') = "# Changelog`r`n`r`n## Version 1.0`r`n- Initial release`r`n"
+                (Join-Path -Path $script:ScriptsDir -ChildPath 'build.sh') = "#!/bin/bash`necho 'Building project'`n"
+                (Join-Path -Path $script:ScriptsDir -ChildPath 'deploy.bat') = "@echo off`r`necho Deploying project`r`n"
             }
 
             # Create binary files that should be skipped
             $binaryFiles = @{
-                (Join-Path $script:BinaryDir 'app.exe') = [byte[]](77, 90, 144, 0, 3, 0, 0, 0)  # MZ header
-                (Join-Path $script:BinaryDir 'image.png') = [byte[]](137, 80, 78, 71, 13, 10, 26, 10)  # PNG header
-                (Join-Path $script:BinaryDir 'archive.zip') = [byte[]](80, 75, 3, 4, 20, 0, 0, 0)  # ZIP header
+                (Join-Path -Path $script:BinaryDir -ChildPath 'app.exe') = [byte[]](77, 90, 144, 0, 3, 0, 0, 0)  # MZ header
+                (Join-Path -Path $script:BinaryDir -ChildPath 'image.png') = [byte[]](137, 80, 78, 71, 13, 10, 26, 10)  # PNG header
+                (Join-Path -Path $script:BinaryDir -ChildPath 'archive.zip') = [byte[]](80, 75, 3, 4, 20, 0, 0, 0)  # ZIP header
             }
 
             # Create files that should be excluded by default
             $excludedFiles = @{
-                (Join-Path $script:NodeModulesDir 'package.json') = "{`r`n  `"name`": `"test`"`r`n}`r`n"
-                (Join-Path $script:NodeModulesDir 'index.js') = "console.log('test');`r`n"
+                (Join-Path -Path $script:NodeModulesDir -ChildPath 'package.json') = "{`r`n  `"name`": `"test`"`r`n}`r`n"
+                (Join-Path -Path $script:NodeModulesDir -ChildPath 'index.js') = "console.log('test');`r`n"
             }
 
             # Write all text files
@@ -93,33 +93,33 @@ Describe 'Convert-LineEndings Integration Tests' {
             Convert-LineEndings -Path $script:TestDir -LineEnding 'LF' -Recurse
 
             # Verify PowerShell files were converted
-            $mainContent = [System.IO.File]::ReadAllText((Join-Path $script:SourceDir 'main.ps1'))
+            $mainContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:SourceDir -ChildPath 'main.ps1'))
             $mainContent | Should -Not -Match "`r"
             $mainContent | Should -Match "Write-Host 'Hello World'"
 
             # Verify JSON files were converted
-            $jsonContent = [System.IO.File]::ReadAllText((Join-Path $script:SourceDir 'config.json'))
+            $jsonContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:SourceDir -ChildPath 'config.json'))
             $jsonContent | Should -Not -Match "`r"
             $jsonContent | Should -Match '"setting"'
 
             # Verify Markdown files were converted
-            $readmeContent = [System.IO.File]::ReadAllText((Join-Path $script:DocsDir 'README.md'))
+            $readmeContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:DocsDir -ChildPath 'README.md'))
             $readmeContent | Should -Not -Match "`r"
             $readmeContent | Should -Match 'Project Documentation'
 
             # Verify shell scripts were converted
-            $shellContent = [System.IO.File]::ReadAllText((Join-Path $script:ScriptsDir 'build.sh'))
+            $shellContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:ScriptsDir -ChildPath 'build.sh'))
             $shellContent | Should -Not -Match "`r"
             $shellContent | Should -Match 'Building project'
         }
 
         It 'Should preserve binary files unchanged' {
             # Binary files should not be modified
-            $exeBytes = [System.IO.File]::ReadAllBytes((Join-Path $script:BinaryDir 'app.exe'))
+            $exeBytes = [System.IO.File]::ReadAllBytes((Join-Path -Path $script:BinaryDir -ChildPath 'app.exe'))
             $exeBytes[0] | Should -Be 77  # MZ header intact
             $exeBytes[1] | Should -Be 90
 
-            $pngBytes = [System.IO.File]::ReadAllBytes((Join-Path $script:BinaryDir 'image.png'))
+            $pngBytes = [System.IO.File]::ReadAllBytes((Join-Path -Path $script:BinaryDir -ChildPath 'image.png'))
             $pngBytes[0] | Should -Be 137  # PNG header intact
             $pngBytes[1] | Should -Be 80
         }
@@ -130,7 +130,7 @@ Describe 'Convert-LineEndings Integration Tests' {
 
             # Verify that node_modules was excluded by checking if files were processed
             # This test ensures the exclude patterns work correctly
-            $nodeContent = [System.IO.File]::ReadAllText((Join-Path $script:NodeModulesDir 'package.json'))
+            $nodeContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:NodeModulesDir -ChildPath 'package.json'))
             Write-Verbose "Node modules content preserved: $($nodeContent.Length) characters"
             # The actual line ending check depends on whether the exclude worked
         }
@@ -139,9 +139,9 @@ Describe 'Convert-LineEndings Integration Tests' {
     Context 'Cross-Platform File Processing' {
         BeforeAll {
             # Create files with different encodings and line endings
-            $script:Utf8File = Join-Path $script:TestDir 'utf8-test.txt'
-            $script:Utf8BomFile = Join-Path $script:TestDir 'utf8-bom-test.txt'
-            $script:AsciiFile = Join-Path $script:TestDir 'ascii-test.txt'
+            $script:Utf8File = Join-Path -Path $script:TestDir -ChildPath 'utf8-test.txt'
+            $script:Utf8BomFile = Join-Path -Path $script:TestDir -ChildPath 'utf8-bom-test.txt'
+            $script:AsciiFile = Join-Path -Path $script:TestDir -ChildPath 'ascii-test.txt'
 
             # UTF-8 without BOM
             $utf8Content = "Testing UTF-8: café, naïve, résumé`r`nSecond line`r`n"
@@ -191,9 +191,9 @@ Describe 'Convert-LineEndings Integration Tests' {
     Context 'PowerShell Pipeline Integration' {
         BeforeAll {
             # Create a mixed directory structure for pipeline testing
-            $script:PipelineDir = Join-Path $script:TestDir 'pipeline'
-            $script:SubDir1 = Join-Path $script:PipelineDir 'sub1'
-            $script:SubDir2 = Join-Path $script:PipelineDir 'sub2'
+            $script:PipelineDir = Join-Path -Path $script:TestDir -ChildPath 'pipeline'
+            $script:SubDir1 = Join-Path -Path $script:PipelineDir -ChildPath 'sub1'
+            $script:SubDir2 = Join-Path -Path $script:PipelineDir -ChildPath 'sub2'
 
             @($script:PipelineDir, $script:SubDir1, $script:SubDir2) | ForEach-Object {
                 New-Item -Path $_ -ItemType Directory -Force | Out-Null
@@ -201,12 +201,12 @@ Describe 'Convert-LineEndings Integration Tests' {
 
             # Create various file types
             $pipelineFiles = @{
-                (Join-Path $script:PipelineDir 'main.ps1') = "Write-Host 'Main'`r`n"
-                (Join-Path $script:PipelineDir 'config.json') = "{`r`n  `"test`": true`r`n}`r`n"
-                (Join-Path $script:SubDir1 'helper.ps1') = "function Get-Help { }`r`n"
-                (Join-Path $script:SubDir1 'data.xml') = "<?xml version=`"1.0`"?>`r`n<root></root>`r`n"
-                (Join-Path $script:SubDir2 'readme.md') = "# Test`r`nContent`r`n"
-                (Join-Path $script:SubDir2 'script.py') = "print('hello')`r`n"
+                (Join-Path -Path $script:PipelineDir -ChildPath 'main.ps1') = "Write-Host 'Main'`r`n"
+                (Join-Path -Path $script:PipelineDir -ChildPath 'config.json') = "{`r`n  `"test`": true`r`n}`r`n"
+                (Join-Path -Path $script:SubDir1 -ChildPath 'helper.ps1') = "function Get-Help { }`r`n"
+                (Join-Path -Path $script:SubDir1 -ChildPath 'data.xml') = "<?xml version=`"1.0`"?>`r`n<root></root>`r`n"
+                (Join-Path -Path $script:SubDir2 -ChildPath 'readme.md') = "# Test`r`nContent`r`n"
+                (Join-Path -Path $script:SubDir2 -ChildPath 'script.py') = "print('hello')`r`n"
             }
 
             foreach ($file in $pipelineFiles.GetEnumerator())
@@ -221,14 +221,14 @@ Describe 'Convert-LineEndings Integration Tests' {
             Convert-LineEndings -LineEnding 'LF'
 
             # PowerShell files should be converted
-            $mainContent = [System.IO.File]::ReadAllText((Join-Path $script:PipelineDir 'main.ps1'))
+            $mainContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:PipelineDir -ChildPath 'main.ps1'))
             $mainContent | Should -Not -Match "`r"
 
-            $helperContent = [System.IO.File]::ReadAllText((Join-Path $script:SubDir1 'helper.ps1'))
+            $helperContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:SubDir1 -ChildPath 'helper.ps1'))
             $helperContent | Should -Not -Match "`r"
 
             # Other files should remain unchanged
-            $jsonContent = [System.IO.File]::ReadAllText((Join-Path $script:PipelineDir 'config.json'))
+            $jsonContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:PipelineDir -ChildPath 'config.json'))
             $jsonContent | Should -Match "`r"  # Should still have CRLF
         }
 
@@ -264,7 +264,7 @@ Describe 'Convert-LineEndings Integration Tests' {
 
     Context 'Real-World Error Scenarios' {
         It 'Should handle permission denied scenarios gracefully' {
-            $permissionFile = Join-Path $script:TestDir 'permission-test.txt'
+            $permissionFile = Join-Path -Path $script:TestDir -ChildPath 'permission-test.txt'
             [System.IO.File]::WriteAllText($permissionFile, "Test content`r`n", [System.Text.Encoding]::UTF8)
 
             try
@@ -291,7 +291,7 @@ Describe 'Convert-LineEndings Integration Tests' {
         }
 
         It 'Should handle corrupted or inaccessible files' {
-            $lockedFile = Join-Path $script:TestDir 'locked-test.txt'
+            $lockedFile = Join-Path -Path $script:TestDir -ChildPath 'locked-test.txt'
             [System.IO.File]::WriteAllText($lockedFile, "Test content`r`n", [System.Text.Encoding]::UTF8)
 
             try
@@ -323,10 +323,10 @@ Describe 'Convert-LineEndings Integration Tests' {
     Context 'Complex Include/Exclude Pattern Scenarios' {
         BeforeAll {
             # Create a complex directory structure with various file types
-            $script:ComplexDir = Join-Path $script:TestDir 'complex'
-            $script:SourceCodeDir = Join-Path $script:ComplexDir 'src'
-            $script:TestsDir = Join-Path $script:ComplexDir 'tests'
-            $script:DistDir = Join-Path $script:ComplexDir 'dist'
+            $script:ComplexDir = Join-Path -Path $script:TestDir -ChildPath 'complex'
+            $script:SourceCodeDir = Join-Path -Path $script:ComplexDir -ChildPath 'src'
+            $script:TestsDir = Join-Path -Path $script:ComplexDir -ChildPath 'tests'
+            $script:DistDir = Join-Path -Path $script:ComplexDir -ChildPath 'dist'
 
             @($script:ComplexDir, $script:SourceCodeDir, $script:TestsDir, $script:DistDir) | ForEach-Object {
                 New-Item -Path $_ -ItemType Directory -Force | Out-Null
@@ -334,12 +334,12 @@ Describe 'Convert-LineEndings Integration Tests' {
 
             # Create various files
             $complexFiles = @{
-                (Join-Path $script:SourceCodeDir 'main.js') = "console.log('main');`r`n"
-                (Join-Path $script:SourceCodeDir 'utils.ts') = "export function test() {}`r`n"
-                (Join-Path $script:TestsDir 'main.test.js') = "test('should work', () => {});`r`n"
-                (Join-Path $script:TestsDir 'utils.spec.ts') = "describe('utils', () => {});`r`n"
-                (Join-Path $script:DistDir 'bundle.min.js') = "console.log('minified');`r`n"
-                (Join-Path $script:DistDir 'app.min.css') = "body{color:red}`r`n"
+                (Join-Path -Path $script:SourceCodeDir -ChildPath 'main.js') = "console.log('main');`r`n"
+                (Join-Path -Path $script:SourceCodeDir -ChildPath 'utils.ts') = "export function test() {}`r`n"
+                (Join-Path -Path $script:TestsDir -ChildPath 'main.test.js') = "test('should work', () => {});`r`n"
+                (Join-Path -Path $script:TestsDir -ChildPath 'utils.spec.ts') = "describe('utils', () => {});`r`n"
+                (Join-Path -Path $script:DistDir -ChildPath 'bundle.min.js') = "console.log('minified');`r`n"
+                (Join-Path -Path $script:DistDir -ChildPath 'app.min.css') = "body{color:red}`r`n"
             }
 
             foreach ($file in $complexFiles.GetEnumerator())
@@ -351,12 +351,12 @@ Describe 'Convert-LineEndings Integration Tests' {
         It 'Should handle complex include patterns for source files only' {
             # Reset files to CRLF before this test
             $complexFiles = @{
-                (Join-Path $script:SourceCodeDir 'main.js') = "console.log('main');`r`n"
-                (Join-Path $script:SourceCodeDir 'utils.ts') = "export function test() {}`r`n"
-                (Join-Path $script:TestsDir 'main.test.js') = "test('should work', () => {});`r`n"
-                (Join-Path $script:TestsDir 'utils.spec.ts') = "describe('utils', () => {});`r`n"
-                (Join-Path $script:DistDir 'bundle.min.js') = "console.log('minified');`r`n"
-                (Join-Path $script:DistDir 'app.min.css') = "body{color:red}`r`n"
+                (Join-Path -Path $script:SourceCodeDir -ChildPath 'main.js') = "console.log('main');`r`n"
+                (Join-Path -Path $script:SourceCodeDir -ChildPath 'utils.ts') = "export function test() {}`r`n"
+                (Join-Path -Path $script:TestsDir -ChildPath 'main.test.js') = "test('should work', () => {});`r`n"
+                (Join-Path -Path $script:TestsDir -ChildPath 'utils.spec.ts') = "describe('utils', () => {});`r`n"
+                (Join-Path -Path $script:DistDir -ChildPath 'bundle.min.js') = "console.log('minified');`r`n"
+                (Join-Path -Path $script:DistDir -ChildPath 'app.min.css') = "body{color:red}`r`n"
             }
 
             foreach ($file in $complexFiles.GetEnumerator())
@@ -367,30 +367,30 @@ Describe 'Convert-LineEndings Integration Tests' {
             Convert-LineEndings -Path $script:ComplexDir -LineEnding 'LF' -Recurse -Include '*.js', '*.ts' -Exclude '*.min.*', 'dist'
 
             # Source files should be converted
-            $mainJsContent = [System.IO.File]::ReadAllText((Join-Path $script:SourceCodeDir 'main.js'))
+            $mainJsContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:SourceCodeDir -ChildPath 'main.js'))
             $mainJsContent | Should -Not -Match "`r"
 
-            $utilsTsContent = [System.IO.File]::ReadAllText((Join-Path $script:SourceCodeDir 'utils.ts'))
+            $utilsTsContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:SourceCodeDir -ChildPath 'utils.ts'))
             $utilsTsContent | Should -Not -Match "`r"
 
             # Test files should be converted (not in dist, not minified)
-            $testJsContent = [System.IO.File]::ReadAllText((Join-Path $script:TestsDir 'main.test.js'))
+            $testJsContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:TestsDir -ChildPath 'main.test.js'))
             $testJsContent | Should -Not -Match "`r"
 
             # Minified files should be excluded
-            $minJsContent = [System.IO.File]::ReadAllText((Join-Path $script:DistDir 'bundle.min.js'))
+            $minJsContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:DistDir -ChildPath 'bundle.min.js'))
             $minJsContent | Should -Match "`r"  # Should still have CRLF
         }
 
         It 'Should handle multiple exclude patterns effectively' {
             # Reset files to CRLF before this test
             $complexFiles = @{
-                (Join-Path $script:SourceCodeDir 'main.js') = "console.log('main');`r`n"
-                (Join-Path $script:SourceCodeDir 'utils.ts') = "export function test() {}`r`n"
-                (Join-Path $script:TestsDir 'main.test.js') = "test('should work', () => {});`r`n"
-                (Join-Path $script:TestsDir 'utils.spec.ts') = "describe('utils', () => {});`r`n"
-                (Join-Path $script:DistDir 'bundle.min.js') = "console.log('minified');`r`n"
-                (Join-Path $script:DistDir 'app.min.css') = "body{color:red}`r`n"
+                (Join-Path -Path $script:SourceCodeDir -ChildPath 'main.js') = "console.log('main');`r`n"
+                (Join-Path -Path $script:SourceCodeDir -ChildPath 'utils.ts') = "export function test() {}`r`n"
+                (Join-Path -Path $script:TestsDir -ChildPath 'main.test.js') = "test('should work', () => {});`r`n"
+                (Join-Path -Path $script:TestsDir -ChildPath 'utils.spec.ts') = "describe('utils', () => {});`r`n"
+                (Join-Path -Path $script:DistDir -ChildPath 'bundle.min.js') = "console.log('minified');`r`n"
+                (Join-Path -Path $script:DistDir -ChildPath 'app.min.css') = "body{color:red}`r`n"
             }
 
             foreach ($file in $complexFiles.GetEnumerator())
@@ -401,18 +401,18 @@ Describe 'Convert-LineEndings Integration Tests' {
             Convert-LineEndings -Path $script:ComplexDir -LineEnding 'LF' -Recurse -Exclude '*.min.*', 'dist', '*.test.*', '*.spec.*'
 
             # Only main source files should be converted
-            $mainJsContent = [System.IO.File]::ReadAllText((Join-Path $script:SourceCodeDir 'main.js'))
+            $mainJsContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:SourceCodeDir -ChildPath 'main.js'))
             $mainJsContent | Should -Not -Match "`r"
 
-            $utilsTsContent = [System.IO.File]::ReadAllText((Join-Path $script:SourceCodeDir 'utils.ts'))
+            $utilsTsContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:SourceCodeDir -ChildPath 'utils.ts'))
             $utilsTsContent | Should -Not -Match "`r"
 
             # Test files should be excluded
-            $testJsContent = [System.IO.File]::ReadAllText((Join-Path $script:TestsDir 'main.test.js'))
+            $testJsContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:TestsDir -ChildPath 'main.test.js'))
             $testJsContent | Should -Match "`r"  # Should still have CRLF
 
             # Dist files should be excluded
-            $minJsContent = [System.IO.File]::ReadAllText((Join-Path $script:DistDir 'bundle.min.js'))
+            $minJsContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:DistDir -ChildPath 'bundle.min.js'))
             $minJsContent | Should -Match "`r"  # Should still have CRLF
         }
     }
@@ -420,35 +420,35 @@ Describe 'Convert-LineEndings Integration Tests' {
     Context 'EnsureEndingNewline Integration Tests' {
         BeforeAll {
             # Create test files with various ending scenarios
-            $script:EndingTestDir = Join-Path $script:TestDir 'ending-tests'
+            $script:EndingTestDir = Join-Path -Path $script:TestDir -ChildPath 'ending-tests'
             New-Item -Path $script:EndingTestDir -ItemType Directory -Force | Out-Null
 
             # File with no ending newline
-            $script:NoEndingFile = Join-Path $script:EndingTestDir 'no-ending.txt'
+            $script:NoEndingFile = Join-Path -Path $script:EndingTestDir -ChildPath 'no-ending.txt'
             $content = 'Line 1' + [char]13 + [char]10 + 'Line 2 no ending'
             [System.IO.File]::WriteAllText($script:NoEndingFile, $content, [System.Text.Encoding]::UTF8)
 
             # File with proper ending newline
-            $script:WithEndingFile = Join-Path $script:EndingTestDir 'with-ending.txt'
+            $script:WithEndingFile = Join-Path -Path $script:EndingTestDir -ChildPath 'with-ending.txt'
             $contentWithEnding = 'Line 1' + [char]13 + [char]10 + 'Line 2' + [char]13 + [char]10
             [System.IO.File]::WriteAllText($script:WithEndingFile, $contentWithEnding, [System.Text.Encoding]::UTF8)
 
             # Empty file
-            $script:EmptyFile = Join-Path $script:EndingTestDir 'empty.txt'
+            $script:EmptyFile = Join-Path -Path $script:EndingTestDir -ChildPath 'empty.txt'
             [System.IO.File]::WriteAllText($script:EmptyFile, '', [System.Text.Encoding]::UTF8)
 
             # Single line file without ending
-            $script:SingleLineFile = Join-Path $script:EndingTestDir 'single-line.txt'
+            $script:SingleLineFile = Join-Path -Path $script:EndingTestDir -ChildPath 'single-line.txt'
             [System.IO.File]::WriteAllText($script:SingleLineFile, 'Single line content', [System.Text.Encoding]::UTF8)
 
             # Mix of files in subdirectories
-            $script:SubDir = Join-Path $script:EndingTestDir 'subdir'
+            $script:SubDir = Join-Path -Path $script:EndingTestDir -ChildPath 'subdir'
             New-Item -Path $script:SubDir -ItemType Directory -Force | Out-Null
 
-            $script:SubFileNoEnding = Join-Path $script:SubDir 'sub-no-ending.js'
+            $script:SubFileNoEnding = Join-Path -Path $script:SubDir -ChildPath 'sub-no-ending.js'
             [System.IO.File]::WriteAllText($script:SubFileNoEnding, "console.log('test');", [System.Text.Encoding]::UTF8)
 
-            $script:SubFileWithEnding = Join-Path $script:SubDir 'sub-with-ending.js'
+            $script:SubFileWithEnding = Join-Path -Path $script:SubDir -ChildPath 'sub-with-ending.js'
             $jsContentWithEnding = "console.log('test');" + [char]10  # LF ending
             [System.IO.File]::WriteAllText($script:SubFileWithEnding, $jsContentWithEnding, [System.Text.Encoding]::UTF8)
         }
@@ -528,7 +528,7 @@ Describe 'Convert-LineEndings Integration Tests' {
 
         It 'Should work correctly with encoding conversion and ending newline' {
             # Create a UTF8 file without BOM and without ending newline
-            $testFile = Join-Path $script:EndingTestDir 'encoding-test.txt'
+            $testFile = Join-Path -Path $script:EndingTestDir -ChildPath 'encoding-test.txt'
             $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
             [System.IO.File]::WriteAllText($testFile, 'Test content with café', $utf8NoBom)
 
@@ -551,14 +551,14 @@ Describe 'Convert-LineEndings Integration Tests' {
 
         It 'Should handle large number of files efficiently with EnsureEndingNewline' {
             # Create multiple test files
-            $manyFilesDir = Join-Path $script:EndingTestDir 'many-files'
+            $manyFilesDir = Join-Path -Path $script:EndingTestDir -ChildPath 'many-files'
             New-Item -Path $manyFilesDir -ItemType Directory -Force | Out-Null
 
             $fileCount = 20
             $filesCreated = @()
             for ($i = 1; $i -le $fileCount; $i++)
             {
-                $filePath = Join-Path $manyFilesDir "test$i.txt"
+                $filePath = Join-Path -Path $manyFilesDir -ChildPath "test$i.txt"
                 $hasEnding = ($i % 2) -eq 0  # Every other file has ending newline
                 $content = "File $i content"
                 if ($hasEnding)
@@ -589,7 +589,7 @@ Describe 'Convert-LineEndings Integration Tests' {
 
         It 'Should preserve file attributes when adding ending newlines' {
             # Create a file and set it read-only initially
-            $attributeTestFile = Join-Path $script:EndingTestDir 'readonly-test.txt'
+            $attributeTestFile = Join-Path -Path $script:EndingTestDir -ChildPath 'readonly-test.txt'
             [System.IO.File]::WriteAllText($attributeTestFile, 'Test content', [System.Text.Encoding]::UTF8)
 
             # Note: On macOS/Linux, we'll test with normal permissions since read-only behavior is different
@@ -611,21 +611,21 @@ Describe 'Convert-LineEndings Integration Tests' {
     Context 'Auto LineEnding Integration Tests' {
         BeforeAll {
             # Create test files with various line endings for Auto testing
-            $script:AutoTestDir = Join-Path $script:TestDir 'auto-tests'
+            $script:AutoTestDir = Join-Path -Path $script:TestDir -ChildPath 'auto-tests'
             New-Item -Path $script:AutoTestDir -ItemType Directory -Force | Out-Null
 
             # Mixed line endings file
-            $script:MixedFile = Join-Path $script:AutoTestDir 'mixed-endings.txt'
+            $script:MixedFile = Join-Path -Path $script:AutoTestDir -ChildPath 'mixed-endings.txt'
             $mixedContent = "Line 1`r`nLine 2`nLine 3`r`nLine 4"
             [System.IO.File]::WriteAllText($script:MixedFile, $mixedContent, [System.Text.Encoding]::UTF8)
 
             # CRLF file
-            $script:CrlfFile = Join-Path $script:AutoTestDir 'crlf-file.txt'
+            $script:CrlfFile = Join-Path -Path $script:AutoTestDir -ChildPath 'crlf-file.txt'
             $crlfContent = "Line 1`r`nLine 2`r`nLine 3`r`n"
             [System.IO.File]::WriteAllText($script:CrlfFile, $crlfContent, [System.Text.Encoding]::UTF8)
 
             # LF file
-            $script:LfFile = Join-Path $script:AutoTestDir 'lf-file.txt'
+            $script:LfFile = Join-Path -Path $script:AutoTestDir -ChildPath 'lf-file.txt'
             $lfContent = "Line 1`nLine 2`nLine 3`n"
             [System.IO.File]::WriteAllText($script:LfFile, $lfContent, [System.Text.Encoding]::UTF8)
         }
@@ -729,7 +729,7 @@ Describe 'Convert-LineEndings Integration Tests' {
     Context 'Timestamp Preservation in Real Scenarios' {
         BeforeAll {
             # Create test files with realistic content and timestamps
-            $script:TimestampTestDir = Join-Path $script:TestDir 'timestamp-tests'
+            $script:TimestampTestDir = Join-Path -Path $script:TestDir -ChildPath 'timestamp-tests'
             New-Item -Path $script:TimestampTestDir -ItemType Directory -Force | Out-Null
 
             # Create various file types that would be processed in a real project
@@ -755,7 +755,7 @@ Describe 'Convert-LineEndings Integration Tests' {
             $script:TestFileInfo = @{}
             foreach ($fileName in $testFiles.Keys)
             {
-                $filePath = Join-Path $script:TimestampTestDir $fileName
+                $filePath = Join-Path -Path $script:TimestampTestDir -ChildPath $fileName
                 $fileData = $testFiles[$fileName]
 
                 # Create file with specific encoding
@@ -792,7 +792,7 @@ Describe 'Convert-LineEndings Integration Tests' {
 
         It 'Should preserve timestamps when PreserveTimestamps switch is specified' {
             # Create a single test file that we know will be converted
-            $singleTestFile = Join-Path $script:TimestampTestDir 'timestamp-single-test.txt'
+            $singleTestFile = Join-Path -Path $script:TimestampTestDir -ChildPath 'timestamp-single-test.txt'
             $crlfContent = "Line 1`r`nLine 2`r`nLine 3`r`n"
             $crlfBytes = [System.Text.Encoding]::UTF8.GetBytes($crlfContent)
             [System.IO.File]::WriteAllBytes($singleTestFile, $crlfBytes)
@@ -833,7 +833,7 @@ Describe 'Convert-LineEndings Integration Tests' {
 
         It 'Should update timestamps by default when not preserving timestamps' {
             # Create a single test file that we know will be converted
-            $singleTestFile = Join-Path $script:TimestampTestDir 'no-preserve-test.txt'
+            $singleTestFile = Join-Path -Path $script:TimestampTestDir -ChildPath 'no-preserve-test.txt'
             $crlfContent = "Test content`r`nLine 2`r`n"
             $crlfBytes = [System.Text.Encoding]::UTF8.GetBytes($crlfContent)
             [System.IO.File]::WriteAllBytes($singleTestFile, $crlfBytes)
@@ -867,12 +867,12 @@ Describe 'Convert-LineEndings Integration Tests' {
 
         It 'Should handle mixed scenarios with some files converted and some skipped' {
             # Create a fresh subdirectory for this test to avoid interference
-            $mixedTestDir = Join-Path $script:TimestampTestDir 'mixed-test'
+            $mixedTestDir = Join-Path -Path $script:TimestampTestDir -ChildPath 'mixed-test'
             New-Item -Path $mixedTestDir -ItemType Directory -Force | Out-Null
 
             # Create files with different line endings
-            $convertFile = Join-Path $mixedTestDir 'convert-me.txt'
-            $skipFile = Join-Path $mixedTestDir 'skip-me.txt'
+            $convertFile = Join-Path -Path $mixedTestDir -ChildPath 'convert-me.txt'
+            $skipFile = Join-Path -Path $mixedTestDir -ChildPath 'skip-me.txt'
 
             # File that needs conversion (CRLF)
             $crlfContent = "Convert this`r`nFile with CRLF`r`n"

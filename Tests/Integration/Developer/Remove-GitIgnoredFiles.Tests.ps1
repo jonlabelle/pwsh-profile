@@ -12,7 +12,7 @@ BeforeAll {
 Describe 'Remove-GitIgnoredFiles Integration Tests' -Tag 'Integration' {
     BeforeAll {
         # Create base test directory
-        $script:TestRoot = Join-Path ([System.IO.Path]::GetTempPath()) "git-cleanup-integration-$(Get-Random)"
+        $script:TestRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "git-cleanup-integration-$(Get-Random)"
         New-Item -ItemType Directory -Path $script:TestRoot -Force | Out-Null
     }
 
@@ -26,7 +26,7 @@ Describe 'Remove-GitIgnoredFiles Integration Tests' -Tag 'Integration' {
     Context 'Single Repository Mode' {
         BeforeEach {
             # Create a test repository
-            $script:RepoPath = Join-Path $script:TestRoot "test-repo-$(Get-Random)"
+            $script:RepoPath = Join-Path -Path $script:TestRoot -ChildPath "test-repo-$(Get-Random)"
             New-Item -ItemType Directory -Path $script:RepoPath -Force | Out-Null
 
             # Initialize Git repository
@@ -41,7 +41,7 @@ Describe 'Remove-GitIgnoredFiles Integration Tests' -Tag 'Integration' {
 *.tmp
 build/
 temp/
-'@ | Set-Content (Join-Path $script:RepoPath '.gitignore')
+'@ | Set-Content (Join-Path -Path $script:RepoPath -ChildPath '.gitignore')
 
             # Add and commit .gitignore
             $null = & git -C $script:RepoPath add .gitignore 2>&1
@@ -57,23 +57,23 @@ temp/
 
         It 'Should remove ignored files' {
             # Create ignored files
-            'test log' | Out-File (Join-Path $script:RepoPath 'test.log')
-            'test tmp' | Out-File (Join-Path $script:RepoPath 'test.tmp')
+            'test log' | Out-File (Join-Path -Path $script:RepoPath -ChildPath 'test.log')
+            'test tmp' | Out-File (Join-Path -Path $script:RepoPath -ChildPath 'test.tmp')
 
             # Run cleanup
             $Result = Remove-GitIgnoredFiles -Path $script:RepoPath
 
             # Verify files are removed
-            Test-Path (Join-Path $script:RepoPath 'test.log') | Should -BeFalse
-            Test-Path (Join-Path $script:RepoPath 'test.tmp') | Should -BeFalse
+            Test-Path (Join-Path -Path $script:RepoPath -ChildPath 'test.log') | Should -BeFalse
+            Test-Path (Join-Path -Path $script:RepoPath -ChildPath 'test.tmp') | Should -BeFalse
             $Result.FilesRemoved | Should -Be 2
         }
 
         It 'Should remove ignored directories' {
             # Create ignored directory with files
-            $BuildDir = Join-Path $script:RepoPath 'build'
+            $BuildDir = Join-Path -Path $script:RepoPath -ChildPath 'build'
             New-Item -ItemType Directory -Path $BuildDir -Force | Out-Null
-            'artifact' | Out-File (Join-Path $BuildDir 'output.dll')
+            'artifact' | Out-File (Join-Path -Path $BuildDir -ChildPath 'output.dll')
 
             # Run cleanup
             $Result = Remove-GitIgnoredFiles -Path $script:RepoPath
@@ -85,61 +85,61 @@ temp/
 
         It 'Should not remove tracked files' {
             # Create a tracked file
-            'readme content' | Out-File (Join-Path $script:RepoPath 'README.md')
+            'readme content' | Out-File (Join-Path -Path $script:RepoPath -ChildPath 'README.md')
             $null = & git -C $script:RepoPath add 'README.md' 2>&1
             $null = & git -C $script:RepoPath commit -m 'Add README' 2>&1
 
             # Create ignored file
-            'log' | Out-File (Join-Path $script:RepoPath 'test.log')
+            'log' | Out-File (Join-Path -Path $script:RepoPath -ChildPath 'test.log')
 
             # Run cleanup
             $null = Remove-GitIgnoredFiles -Path $script:RepoPath
 
             # Verify tracked file still exists
-            Test-Path (Join-Path $script:RepoPath 'README.md') | Should -BeTrue
-            Test-Path (Join-Path $script:RepoPath 'test.log') | Should -BeFalse
+            Test-Path (Join-Path -Path $script:RepoPath -ChildPath 'README.md') | Should -BeTrue
+            Test-Path (Join-Path -Path $script:RepoPath -ChildPath 'test.log') | Should -BeFalse
         }
 
         It 'Should not remove untracked files by default' {
             # Create untracked file (not in .gitignore)
-            'untracked' | Out-File (Join-Path $script:RepoPath 'untracked.txt')
+            'untracked' | Out-File (Join-Path -Path $script:RepoPath -ChildPath 'untracked.txt')
 
             # Create ignored file
-            'log' | Out-File (Join-Path $script:RepoPath 'test.log')
+            'log' | Out-File (Join-Path -Path $script:RepoPath -ChildPath 'test.log')
 
             # Run cleanup without -IncludeUntracked
             $null = Remove-GitIgnoredFiles -Path $script:RepoPath
 
             # Verify untracked file still exists, ignored file removed
-            Test-Path (Join-Path $script:RepoPath 'untracked.txt') | Should -BeTrue
-            Test-Path (Join-Path $script:RepoPath 'test.log') | Should -BeFalse
+            Test-Path (Join-Path -Path $script:RepoPath -ChildPath 'untracked.txt') | Should -BeTrue
+            Test-Path (Join-Path -Path $script:RepoPath -ChildPath 'test.log') | Should -BeFalse
         }
 
         It 'Should remove untracked files with -IncludeUntracked' {
             # Create untracked file
-            'untracked' | Out-File (Join-Path $script:RepoPath 'untracked.txt')
+            'untracked' | Out-File (Join-Path -Path $script:RepoPath -ChildPath 'untracked.txt')
 
             # Create ignored file
-            'log' | Out-File (Join-Path $script:RepoPath 'test.log')
+            'log' | Out-File (Join-Path -Path $script:RepoPath -ChildPath 'test.log')
 
             # Run cleanup with -IncludeUntracked
             $Result = Remove-GitIgnoredFiles -Path $script:RepoPath -IncludeUntracked
 
             # Verify both files are removed
-            Test-Path (Join-Path $script:RepoPath 'untracked.txt') | Should -BeFalse
-            Test-Path (Join-Path $script:RepoPath 'test.log') | Should -BeFalse
+            Test-Path (Join-Path -Path $script:RepoPath -ChildPath 'untracked.txt') | Should -BeFalse
+            Test-Path (Join-Path -Path $script:RepoPath -ChildPath 'test.log') | Should -BeFalse
             $Result.FilesRemoved | Should -Be 2
         }
 
         It 'Should respect -WhatIf parameter' {
             # Create ignored files
-            'test log' | Out-File (Join-Path $script:RepoPath 'test.log')
+            'test log' | Out-File (Join-Path -Path $script:RepoPath -ChildPath 'test.log')
 
             # Run with -WhatIf
             $null = Remove-GitIgnoredFiles -Path $script:RepoPath -WhatIf
 
             # Verify file still exists
-            Test-Path (Join-Path $script:RepoPath 'test.log') | Should -BeTrue
+            Test-Path (Join-Path -Path $script:RepoPath -ChildPath 'test.log') | Should -BeTrue
         }
 
         It 'Should handle repository with no ignored files' {
@@ -154,7 +154,7 @@ temp/
 
         It 'Should calculate space freed' {
             # Create ignored file with known size
-            $TestFile = Join-Path $script:RepoPath 'test.log'
+            $TestFile = Join-Path -Path $script:RepoPath -ChildPath 'test.log'
             'x' * 1000 | Out-File $TestFile -NoNewline
 
             # Run cleanup
@@ -167,7 +167,7 @@ temp/
 
         It 'Should skip size calculation with -NoSizeCalculation' {
             # Create ignored file
-            'test log' | Out-File (Join-Path $script:RepoPath 'test.log')
+            'test log' | Out-File (Join-Path -Path $script:RepoPath -ChildPath 'test.log')
 
             # Run cleanup with -NoSizeCalculation
             $Result = Remove-GitIgnoredFiles -Path $script:RepoPath -NoSizeCalculation
@@ -178,7 +178,7 @@ temp/
         }
 
         It 'Should error when path is not a Git repository' {
-            $NonGitPath = Join-Path $script:TestRoot "not-a-repo-$(Get-Random)"
+            $NonGitPath = Join-Path -Path $script:TestRoot -ChildPath "not-a-repo-$(Get-Random)"
             New-Item -ItemType Directory -Path $NonGitPath -Force | Out-Null
 
             try
@@ -196,13 +196,13 @@ temp/
     Context 'Recursive Mode - Multiple Repositories' {
         BeforeEach {
             # Create workspace directory
-            $script:WorkspacePath = Join-Path $script:TestRoot "workspace-$(Get-Random)"
+            $script:WorkspacePath = Join-Path -Path $script:TestRoot -ChildPath "workspace-$(Get-Random)"
             New-Item -ItemType Directory -Path $script:WorkspacePath -Force | Out-Null
 
             # Create multiple repositories
-            $script:Repo1 = Join-Path $script:WorkspacePath 'project1'
-            $script:Repo2 = Join-Path $script:WorkspacePath 'project2'
-            $script:Repo3 = Join-Path (Join-Path $script:WorkspacePath 'nested') 'project3'
+            $script:Repo1 = Join-Path -Path $script:WorkspacePath -ChildPath 'project1'
+            $script:Repo2 = Join-Path -Path $script:WorkspacePath -ChildPath 'project2'
+            $script:Repo3 = Join-Path -Path (Join-Path -ChildPath $script:WorkspacePath 'nested') 'project3'
 
             foreach ($repoPath in @($script:Repo1, $script:Repo2, $script:Repo3))
             {
@@ -213,7 +213,7 @@ temp/
                 $null = & git -C $repoPath config core.autocrlf false 2>&1
 
                 # Create .gitignore
-                '*.log' | Set-Content (Join-Path $repoPath '.gitignore')
+                '*.log' | Set-Content (Join-Path -Path $repoPath -ChildPath '.gitignore')
                 $null = & git -C $repoPath add .gitignore 2>&1
                 $null = & git -C $repoPath commit -m 'Initial commit' 2>&1
             }
@@ -228,24 +228,24 @@ temp/
 
         It 'Should find and clean multiple repositories' {
             # Create ignored files in each repository
-            'log1' | Out-File (Join-Path $script:Repo1 'test.log')
-            'log2' | Out-File (Join-Path $script:Repo2 'test.log')
-            'log3' | Out-File (Join-Path $script:Repo3 'test.log')
+            'log1' | Out-File (Join-Path -Path $script:Repo1 -ChildPath 'test.log')
+            'log2' | Out-File (Join-Path -Path $script:Repo2 -ChildPath 'test.log')
+            'log3' | Out-File (Join-Path -Path $script:Repo3 -ChildPath 'test.log')
 
             # Run cleanup with -Recurse
             $Result = Remove-GitIgnoredFiles -Path $script:WorkspacePath -Recurse
 
             # Verify all files are removed
-            Test-Path (Join-Path $script:Repo1 'test.log') | Should -BeFalse
-            Test-Path (Join-Path $script:Repo2 'test.log') | Should -BeFalse
-            Test-Path (Join-Path $script:Repo3 'test.log') | Should -BeFalse
+            Test-Path (Join-Path -Path $script:Repo1 -ChildPath 'test.log') | Should -BeFalse
+            Test-Path (Join-Path -Path $script:Repo2 -ChildPath 'test.log') | Should -BeFalse
+            Test-Path (Join-Path -Path $script:Repo3 -ChildPath 'test.log') | Should -BeFalse
             $Result.RepositoriesProcessed | Should -Be 3
             $Result.FilesRemoved | Should -Be 3
         }
 
         It 'Should handle repositories with no ignored files' {
             # Create ignored file in only one repository
-            'log' | Out-File (Join-Path $script:Repo1 'test.log')
+            'log' | Out-File (Join-Path -Path $script:Repo1 -ChildPath 'test.log')
 
             # Run cleanup with -Recurse
             $Result = Remove-GitIgnoredFiles -Path $script:WorkspacePath -Recurse
@@ -257,20 +257,20 @@ temp/
 
         It 'Should respect -WhatIf in recursive mode' {
             # Create ignored files
-            'log1' | Out-File (Join-Path $script:Repo1 'test.log')
-            'log2' | Out-File (Join-Path $script:Repo2 'test.log')
+            'log1' | Out-File (Join-Path -Path $script:Repo1 -ChildPath 'test.log')
+            'log2' | Out-File (Join-Path -Path $script:Repo2 -ChildPath 'test.log')
 
             # Run with -WhatIf
             $null = Remove-GitIgnoredFiles -Path $script:WorkspacePath -Recurse -WhatIf
 
             # Verify files still exist
-            Test-Path (Join-Path $script:Repo1 'test.log') | Should -BeTrue
-            Test-Path (Join-Path $script:Repo2 'test.log') | Should -BeTrue
+            Test-Path (Join-Path -Path $script:Repo1 -ChildPath 'test.log') | Should -BeTrue
+            Test-Path (Join-Path -Path $script:Repo2 -ChildPath 'test.log') | Should -BeTrue
         }
 
         It 'Should handle workspace with no repositories' {
             # Create directory with no Git repositories
-            $EmptyWorkspace = Join-Path $script:TestRoot "empty-workspace-$(Get-Random)"
+            $EmptyWorkspace = Join-Path -Path $script:TestRoot -ChildPath "empty-workspace-$(Get-Random)"
             New-Item -ItemType Directory -Path $EmptyWorkspace -Force | Out-Null
 
             try
@@ -290,8 +290,8 @@ temp/
 
         It 'Should calculate total space freed across all repositories' {
             # Create ignored files with known sizes
-            'x' * 500 | Out-File (Join-Path $script:Repo1 'test.log') -NoNewline
-            'x' * 500 | Out-File (Join-Path $script:Repo2 'test.log') -NoNewline
+            'x' * 500 | Out-File (Join-Path -Path $script:Repo1 -ChildPath 'test.log') -NoNewline
+            'x' * 500 | Out-File (Join-Path -Path $script:Repo2 -ChildPath 'test.log') -NoNewline
 
             # Run cleanup
             $Result = Remove-GitIgnoredFiles -Path $script:WorkspacePath -Recurse
@@ -305,7 +305,7 @@ temp/
 
     Context 'Path Resolution' {
         BeforeEach {
-            $script:RepoPath = Join-Path $script:TestRoot "path-test-repo-$(Get-Random)"
+            $script:RepoPath = Join-Path -Path $script:TestRoot -ChildPath "path-test-repo-$(Get-Random)"
             New-Item -ItemType Directory -Path $script:RepoPath -Force | Out-Null
 
             $null = & git -C $script:RepoPath init 2>&1
@@ -313,7 +313,7 @@ temp/
             $null = & git -C $script:RepoPath config user.name 'Test User' 2>&1
             $null = & git -C $script:RepoPath config core.autocrlf false 2>&1
 
-            '*.log' | Set-Content (Join-Path $script:RepoPath '.gitignore')
+            '*.log' | Set-Content (Join-Path -Path $script:RepoPath -ChildPath '.gitignore')
             $null = & git -C $script:RepoPath add .gitignore 2>&1
             $null = & git -C $script:RepoPath commit -m 'Initial commit' 2>&1
         }
@@ -327,7 +327,7 @@ temp/
 
         It 'Should resolve relative paths' {
             # Create ignored file
-            'log' | Out-File (Join-Path $script:RepoPath 'test.log')
+            'log' | Out-File (Join-Path -Path $script:RepoPath -ChildPath 'test.log')
 
             # Change to parent directory
             Push-Location (Split-Path $script:RepoPath -Parent)
@@ -347,7 +347,7 @@ temp/
 
         It 'Should handle current directory (default path)' {
             # Create ignored file
-            'log' | Out-File (Join-Path $script:RepoPath 'test.log')
+            'log' | Out-File (Join-Path -Path $script:RepoPath -ChildPath 'test.log')
 
             # Change to repository directory
             Push-Location $script:RepoPath
@@ -367,7 +367,7 @@ temp/
 
     Context 'Error Handling' {
         It 'Should handle invalid path' {
-            $InvalidPath = Join-Path $script:TestRoot 'nonexistent-path'
+            $InvalidPath = Join-Path -Path $script:TestRoot -ChildPath 'nonexistent-path'
 
             # Should handle gracefully
             { Remove-GitIgnoredFiles -Path $InvalidPath -ErrorAction Stop } | Should -Throw

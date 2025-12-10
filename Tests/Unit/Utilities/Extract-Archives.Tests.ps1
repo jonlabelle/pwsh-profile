@@ -46,165 +46,165 @@ Describe 'Extract-Archives' {
 
     Context 'Extraction behavior' {
         It 'Extracts zip archive to folder named after archive' {
-            $root = Join-Path $TestDrive 'zip-basic'
-            $sourceDir = Join-Path $root 'source'
+            $root = Join-Path -Path $TestDrive -ChildPath 'zip-basic'
+            $sourceDir = Join-Path -Path $root -ChildPath 'source'
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
-            'hello world' | Set-Content -Path (Join-Path $sourceDir 'file.txt')
+            'hello world' | Set-Content -Path (Join-Path -Path $sourceDir -ChildPath 'file.txt')
 
-            $zipPath = Join-Path $root 'archive.zip'
-            Compress-Archive -Path (Join-Path $sourceDir '*') -DestinationPath $zipPath -Force
+            $zipPath = Join-Path -Path $root -ChildPath 'archive.zip'
+            Compress-Archive -Path (Join-Path -Path $sourceDir -ChildPath '*') -DestinationPath $zipPath -Force
 
             $result = Extract-Archives -Path $root
 
-            $destination = Join-Path $root 'archive'
+            $destination = Join-Path -Path $root -ChildPath 'archive'
             Test-Path $destination | Should -Be $true
-            (Get-Content -Path (Join-Path $destination 'file.txt')) | Should -Be 'hello world'
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'hello world'
             ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should -Be 'Extracted'
         }
 
         It 'Extracts archives recursively when -Recurse is specified' {
-            $root = Join-Path $TestDrive 'recursive'
-            $nested = Join-Path $root 'nested'
-            $sourceDir = Join-Path $nested 'payload'
+            $root = Join-Path -Path $TestDrive -ChildPath 'recursive'
+            $nested = Join-Path -Path $root -ChildPath 'nested'
+            $sourceDir = Join-Path -Path $nested -ChildPath 'payload'
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
-            'nested content' | Set-Content -Path (Join-Path $sourceDir 'data.txt')
+            'nested content' | Set-Content -Path (Join-Path -Path $sourceDir -ChildPath 'data.txt')
 
-            $zipPath = Join-Path $nested 'nested.zip'
-            Compress-Archive -Path (Join-Path $sourceDir '*') -DestinationPath $zipPath -Force
+            $zipPath = Join-Path -Path $nested -ChildPath 'nested.zip'
+            Compress-Archive -Path (Join-Path -Path $sourceDir -ChildPath '*') -DestinationPath $zipPath -Force
 
             $result = Extract-Archives -Path $root -Recurse
 
-            $destination = Join-Path $nested 'nested'
+            $destination = Join-Path -Path $nested -ChildPath 'nested'
             Test-Path $destination | Should -Be $true
-            (Get-Content -Path (Join-Path $destination 'data.txt')) | Should -Be 'nested content'
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'data.txt')) | Should -Be 'nested content'
             $result.Extracted | Should -BeGreaterThan 0
         }
     }
 
     Context 'Force handling' {
         It 'Skips extraction when destination exists and Force is not provided' {
-            $root = Join-Path $TestDrive 'force-skip'
-            $sourceDir = Join-Path $root 'source'
+            $root = Join-Path -Path $TestDrive -ChildPath 'force-skip'
+            $sourceDir = Join-Path -Path $root -ChildPath 'source'
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
-            'original' | Set-Content -Path (Join-Path $sourceDir 'file.txt')
+            'original' | Set-Content -Path (Join-Path -Path $sourceDir -ChildPath 'file.txt')
 
-            $zipPath = Join-Path $root 'archive.zip'
-            Compress-Archive -Path (Join-Path $sourceDir '*') -DestinationPath $zipPath -Force
+            $zipPath = Join-Path -Path $root -ChildPath 'archive.zip'
+            Compress-Archive -Path (Join-Path -Path $sourceDir -ChildPath '*') -DestinationPath $zipPath -Force
 
             # First extraction
             Extract-Archives -Path $root | Out-Null
 
             # Modify extracted content
-            $destination = Join-Path $root 'archive'
-            'modified' | Set-Content -Path (Join-Path $destination 'file.txt')
+            $destination = Join-Path -Path $root -ChildPath 'archive'
+            'modified' | Set-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')
 
             $result = Extract-Archives -Path $root
 
-            (Get-Content -Path (Join-Path $destination 'file.txt')) | Should -Be 'modified'
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'modified'
             ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should -Be 'SkippedExisting'
         }
 
         It 'Overwrites destination when Force is provided' {
-            $root = Join-Path $TestDrive 'force-overwrite'
-            $sourceDir = Join-Path $root 'source'
+            $root = Join-Path -Path $TestDrive -ChildPath 'force-overwrite'
+            $sourceDir = Join-Path -Path $root -ChildPath 'source'
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
-            'fresh' | Set-Content -Path (Join-Path $sourceDir 'file.txt')
+            'fresh' | Set-Content -Path (Join-Path -Path $sourceDir -ChildPath 'file.txt')
 
-            $zipPath = Join-Path $root 'archive.zip'
-            Compress-Archive -Path (Join-Path $sourceDir '*') -DestinationPath $zipPath -Force
+            $zipPath = Join-Path -Path $root -ChildPath 'archive.zip'
+            Compress-Archive -Path (Join-Path -Path $sourceDir -ChildPath '*') -DestinationPath $zipPath -Force
 
             # Initial extraction
             Extract-Archives -Path $root | Out-Null
 
-            $destination = Join-Path $root 'archive'
-            'stale' | Set-Content -Path (Join-Path $destination 'file.txt')
+            $destination = Join-Path -Path $root -ChildPath 'archive'
+            'stale' | Set-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')
 
             $result = Extract-Archives -Path $root -Force
 
-            (Get-Content -Path (Join-Path $destination 'file.txt')) | Should -Be 'fresh'
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'fresh'
             ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should -Be 'Extracted'
         }
 
         It 'Respects WhatIf when Force would overwrite destination' {
-            $root = Join-Path $TestDrive 'force-whatif'
-            $sourceDir = Join-Path $root 'source'
+            $root = Join-Path -Path $TestDrive -ChildPath 'force-whatif'
+            $sourceDir = Join-Path -Path $root -ChildPath 'source'
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
-            'original' | Set-Content -Path (Join-Path $sourceDir 'file.txt')
+            'original' | Set-Content -Path (Join-Path -Path $sourceDir -ChildPath 'file.txt')
 
-            $zipPath = Join-Path $root 'archive.zip'
-            Compress-Archive -Path (Join-Path $sourceDir '*') -DestinationPath $zipPath -Force
+            $zipPath = Join-Path -Path $root -ChildPath 'archive.zip'
+            Compress-Archive -Path (Join-Path -Path $sourceDir -ChildPath '*') -DestinationPath $zipPath -Force
 
             # Initial extraction
             Extract-Archives -Path $root | Out-Null
 
-            $destination = Join-Path $root 'archive'
-            'stale' | Set-Content -Path (Join-Path $destination 'file.txt')
+            $destination = Join-Path -Path $root -ChildPath 'archive'
+            'stale' | Set-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')
 
             $result = Extract-Archives -Path $root -Force -WhatIf
 
-            (Get-Content -Path (Join-Path $destination 'file.txt')) | Should -Be 'stale'
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'stale'
             ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should -Be 'SkippedWhatIf'
         }
     }
 
     Context 'Filtering and destination options' {
         It 'Applies Include patterns to limit extracted archives' {
-            $root = Join-Path $TestDrive 'include-filter'
-            $alphaSource = Join-Path $root 'alpha-src'
-            $betaSource = Join-Path $root 'beta-src'
+            $root = Join-Path -Path $TestDrive -ChildPath 'include-filter'
+            $alphaSource = Join-Path -Path $root -ChildPath 'alpha-src'
+            $betaSource = Join-Path -Path $root -ChildPath 'beta-src'
             New-Item -ItemType Directory -Path $alphaSource -Force | Out-Null
             New-Item -ItemType Directory -Path $betaSource -Force | Out-Null
-            'alpha' | Set-Content -Path (Join-Path $alphaSource 'file.txt')
-            'beta' | Set-Content -Path (Join-Path $betaSource 'file.txt')
+            'alpha' | Set-Content -Path (Join-Path -Path $alphaSource -ChildPath 'file.txt')
+            'beta' | Set-Content -Path (Join-Path -Path $betaSource -ChildPath 'file.txt')
 
-            $alphaZip = Join-Path $root 'alpha.zip'
-            $betaZip = Join-Path $root 'beta.zip'
-            Compress-Archive -Path (Join-Path $alphaSource '*') -DestinationPath $alphaZip -Force
-            Compress-Archive -Path (Join-Path $betaSource '*') -DestinationPath $betaZip -Force
+            $alphaZip = Join-Path -Path $root -ChildPath 'alpha.zip'
+            $betaZip = Join-Path -Path $root -ChildPath 'beta.zip'
+            Compress-Archive -Path (Join-Path -Path $alphaSource -ChildPath '*') -DestinationPath $alphaZip -Force
+            Compress-Archive -Path (Join-Path -Path $betaSource -ChildPath '*') -DestinationPath $betaZip -Force
 
             $result = Extract-Archives -Path $root -Include 'alpha*'
 
-            Test-Path (Join-Path $root 'alpha') | Should -Be $true
-            Test-Path (Join-Path $root 'beta') | Should -Be $false
+            Test-Path (Join-Path -Path $root -ChildPath 'alpha') | Should -Be $true
+            Test-Path (Join-Path -Path $root -ChildPath 'beta') | Should -Be $false
             $result.TotalArchives | Should -Be 1
         }
 
         It 'Applies Exclude patterns to skip archives' {
-            $root = Join-Path $TestDrive 'exclude-filter'
-            $alphaSource = Join-Path $root 'alpha-src'
-            $betaSource = Join-Path $root 'beta-src'
+            $root = Join-Path -Path $TestDrive -ChildPath 'exclude-filter'
+            $alphaSource = Join-Path -Path $root -ChildPath 'alpha-src'
+            $betaSource = Join-Path -Path $root -ChildPath 'beta-src'
             New-Item -ItemType Directory -Path $alphaSource -Force | Out-Null
             New-Item -ItemType Directory -Path $betaSource -Force | Out-Null
-            'alpha' | Set-Content -Path (Join-Path $alphaSource 'file.txt')
-            'beta' | Set-Content -Path (Join-Path $betaSource 'file.txt')
+            'alpha' | Set-Content -Path (Join-Path -Path $alphaSource -ChildPath 'file.txt')
+            'beta' | Set-Content -Path (Join-Path -Path $betaSource -ChildPath 'file.txt')
 
-            $alphaZip = Join-Path $root 'alpha.zip'
-            $betaZip = Join-Path $root 'beta.zip'
-            Compress-Archive -Path (Join-Path $alphaSource '*') -DestinationPath $alphaZip -Force
-            Compress-Archive -Path (Join-Path $betaSource '*') -DestinationPath $betaZip -Force
+            $alphaZip = Join-Path -Path $root -ChildPath 'alpha.zip'
+            $betaZip = Join-Path -Path $root -ChildPath 'beta.zip'
+            Compress-Archive -Path (Join-Path -Path $alphaSource -ChildPath '*') -DestinationPath $alphaZip -Force
+            Compress-Archive -Path (Join-Path -Path $betaSource -ChildPath '*') -DestinationPath $betaZip -Force
 
             $result = Extract-Archives -Path $root -Exclude 'beta*'
 
-            Test-Path (Join-Path $root 'alpha') | Should -Be $true
-            Test-Path (Join-Path $root 'beta') | Should -Be $false
+            Test-Path (Join-Path -Path $root -ChildPath 'alpha') | Should -Be $true
+            Test-Path (Join-Path -Path $root -ChildPath 'beta') | Should -Be $false
             $result.TotalArchives | Should -Be 1
         }
 
         It 'Extracts into a custom DestinationRoot while keeping per-archive folders' {
-            $root = Join-Path $TestDrive 'destination-root'
-            $sourceDir = Join-Path $root 'source'
+            $root = Join-Path -Path $TestDrive -ChildPath 'destination-root'
+            $sourceDir = Join-Path -Path $root -ChildPath 'source'
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
-            'payload' | Set-Content -Path (Join-Path $sourceDir 'file.txt')
+            'payload' | Set-Content -Path (Join-Path -Path $sourceDir -ChildPath 'file.txt')
 
-            $zipPath = Join-Path $root 'archive.zip'
-            Compress-Archive -Path (Join-Path $sourceDir '*') -DestinationPath $zipPath -Force
+            $zipPath = Join-Path -Path $root -ChildPath 'archive.zip'
+            Compress-Archive -Path (Join-Path -Path $sourceDir -ChildPath '*') -DestinationPath $zipPath -Force
 
-            $customRoot = Join-Path $root 'extracted'
+            $customRoot = Join-Path -Path $root -ChildPath 'extracted'
             $result = Extract-Archives -Path $root -DestinationRoot $customRoot
 
-            $destination = Join-Path $customRoot 'archive'
+            $destination = Join-Path -Path $customRoot -ChildPath 'archive'
             Test-Path $destination | Should -Be $true
-            (Get-Content -Path (Join-Path $destination 'file.txt')) | Should -Be 'payload'
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'payload'
             $result.Results | Where-Object { $_.Destination -eq $destination } | Should -Not -BeNullOrEmpty
         }
     }
@@ -212,12 +212,12 @@ Describe 'Extract-Archives' {
     Context 'Archive type support' {
         It 'Extracts tar archives when tar is available' -Skip:($null -eq (Get-Command -Name 'tar' -ErrorAction SilentlyContinue | Select-Object -First 1)) {
             $tar = Get-Command -Name 'tar' -ErrorAction SilentlyContinue | Select-Object -First 1
-            $root = Join-Path $TestDrive 'tar-support'
-            $sourceDir = Join-Path $root 'source'
+            $root = Join-Path -Path $TestDrive -ChildPath 'tar-support'
+            $sourceDir = Join-Path -Path $root -ChildPath 'source'
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
-            'tar content' | Set-Content -Path (Join-Path $sourceDir 'file.txt')
+            'tar content' | Set-Content -Path (Join-Path -Path $sourceDir -ChildPath 'file.txt')
 
-            $tarPath = Join-Path $root 'archive.tar'
+            $tarPath = Join-Path -Path $root -ChildPath 'archive.tar'
             Push-Location $sourceDir
             try
             {
@@ -230,20 +230,20 @@ Describe 'Extract-Archives' {
 
             $result = Extract-Archives -Path $root
 
-            $destination = Join-Path $root 'archive'
+            $destination = Join-Path -Path $root -ChildPath 'archive'
             Test-Path $destination | Should -Be $true
-            (Get-Content -Path (Join-Path $destination 'file.txt')) | Should -Be 'tar content'
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'tar content'
             ($result.Results | Where-Object { $_.Archive -eq $tarPath }).Status | Should -Be 'Extracted'
         }
 
         It 'Extracts 7z archives when 7z/7za is available' -Skip:($null -eq (Get-Command -Name '7z', '7za' -ErrorAction SilentlyContinue | Select-Object -First 1)) {
             $sevenZip = Get-Command -Name '7z', '7za' -ErrorAction SilentlyContinue | Select-Object -First 1
-            $root = Join-Path $TestDrive 'sevenzip-support'
-            $sourceDir = Join-Path $root 'source'
+            $root = Join-Path -Path $TestDrive -ChildPath 'sevenzip-support'
+            $sourceDir = Join-Path -Path $root -ChildPath 'source'
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
-            '7z content' | Set-Content -Path (Join-Path $sourceDir 'file.txt')
+            '7z content' | Set-Content -Path (Join-Path -Path $sourceDir -ChildPath 'file.txt')
 
-            $sevenZipPath = Join-Path $root 'archive.7z'
+            $sevenZipPath = Join-Path -Path $root -ChildPath 'archive.7z'
             Push-Location $sourceDir
             try
             {
@@ -256,20 +256,20 @@ Describe 'Extract-Archives' {
 
             $result = Extract-Archives -Path $root
 
-            $destination = Join-Path $root 'archive'
+            $destination = Join-Path -Path $root -ChildPath 'archive'
             Test-Path $destination | Should -Be $true
-            (Get-Content -Path (Join-Path $destination 'file.txt')) | Should -Be '7z content'
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be '7z content'
             ($result.Results | Where-Object { $_.Archive -eq $sevenZipPath }).Status | Should -Be 'Extracted'
         }
 
         It 'Extracts rar archives via 7z/7za when available' -Skip:($null -eq (Get-Command -Name '7z', '7za' -ErrorAction SilentlyContinue | Select-Object -First 1)) {
             $sevenZip = Get-Command -Name '7z', '7za' -ErrorAction SilentlyContinue | Select-Object -First 1
-            $root = Join-Path $TestDrive 'rar-support'
-            $sourceDir = Join-Path $root 'source'
+            $root = Join-Path -Path $TestDrive -ChildPath 'rar-support'
+            $sourceDir = Join-Path -Path $root -ChildPath 'source'
             New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
-            'rar content' | Set-Content -Path (Join-Path $sourceDir 'file.txt')
+            'rar content' | Set-Content -Path (Join-Path -Path $sourceDir -ChildPath 'file.txt')
 
-            $rarPath = Join-Path $root 'archive.rar'
+            $rarPath = Join-Path -Path $root -ChildPath 'archive.rar'
             Push-Location $sourceDir
             try
             {
@@ -282,9 +282,9 @@ Describe 'Extract-Archives' {
 
             $result = Extract-Archives -Path $root
 
-            $destination = Join-Path $root 'archive'
+            $destination = Join-Path -Path $root -ChildPath 'archive'
             Test-Path $destination | Should -Be $true
-            (Get-Content -Path (Join-Path $destination 'file.txt')) | Should -Be 'rar content'
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'rar content'
             ($result.Results | Where-Object { $_.Archive -eq $rarPath }).Status | Should -Be 'Extracted'
         }
     }
@@ -293,31 +293,31 @@ Describe 'Extract-Archives' {
         It 'Skips tar archives when tar dependency is missing' {
             Mock -CommandName Get-Command -MockWith { return $null } -ParameterFilter { $Name -contains 'tar' -or $Name -eq 'tar' }
 
-            $root = Join-Path $TestDrive 'missing-tar'
+            $root = Join-Path -Path $TestDrive -ChildPath 'missing-tar'
             New-Item -ItemType Directory -Path $root -Force | Out-Null
-            'dummy' | Set-Content -Path (Join-Path $root 'archive.tar')
+            'dummy' | Set-Content -Path (Join-Path -Path $root -ChildPath 'archive.tar')
 
             $result = Extract-Archives -Path $root
 
-            $entry = $result.Results | Where-Object { $_.Archive -eq (Join-Path $root 'archive.tar') }
+            $entry = $result.Results | Where-Object { $_.Archive -eq (Join-Path -Path $root -ChildPath 'archive.tar') }
             $entry.Status | Should -Be 'SkippedMissingDependency'
             $entry.ErrorMessage | Should -Match 'tar'
-            Test-Path (Join-Path $root 'archive') | Should -Be $false
+            Test-Path (Join-Path -Path $root -ChildPath 'archive') | Should -Be $false
         }
 
         It 'Skips 7z/rar archives when 7z dependency is missing' {
             Mock -CommandName Get-Command -MockWith { return $null } -ParameterFilter { ($Name -contains '7z') -or ($Name -contains '7za') -or $Name -eq '7z' -or $Name -eq '7za' }
 
-            $root = Join-Path $TestDrive 'missing-7z'
+            $root = Join-Path -Path $TestDrive -ChildPath 'missing-7z'
             New-Item -ItemType Directory -Path $root -Force | Out-Null
-            'dummy' | Set-Content -Path (Join-Path $root 'archive.7z')
+            'dummy' | Set-Content -Path (Join-Path -Path $root -ChildPath 'archive.7z')
 
             $result = Extract-Archives -Path $root
 
-            $entry = $result.Results | Where-Object { $_.Archive -eq (Join-Path $root 'archive.7z') }
+            $entry = $result.Results | Where-Object { $_.Archive -eq (Join-Path -Path $root -ChildPath 'archive.7z') }
             $entry.Status | Should -Be 'SkippedMissingDependency'
             $entry.ErrorMessage | Should -Match '7z'
-            Test-Path (Join-Path $root 'archive') | Should -Be $false
+            Test-Path (Join-Path -Path $root -ChildPath 'archive') | Should -Be $false
         }
     }
 }

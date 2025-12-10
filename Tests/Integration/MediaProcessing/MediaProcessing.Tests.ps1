@@ -68,10 +68,10 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
     Context 'Default Behavior Verification' {
         BeforeAll {
             # Create test directory structure
-            $testRoot = Join-Path $TestDrive 'IntegrationTest'
-            $subDir = Join-Path $testRoot 'SubDirectory'
-            $gitDir = Join-Path $testRoot '.git'
-            $nodeDir = Join-Path $testRoot 'node_modules'
+            $testRoot = Join-Path -Path $TestDrive -ChildPath 'IntegrationTest'
+            $subDir = Join-Path -Path $testRoot -ChildPath 'SubDirectory'
+            $gitDir = Join-Path -Path $testRoot -ChildPath '.git'
+            $nodeDir = Join-Path -Path $testRoot -ChildPath 'node_modules'
 
             New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
             New-Item -Path $subDir -ItemType Directory -Force | Out-Null
@@ -79,13 +79,13 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
             New-Item -Path $nodeDir -ItemType Directory -Force | Out-Null
 
             # Create mock files in different directories
-            New-Item -Path (Join-Path $testRoot 'video1.mp4') -ItemType File -Force | Out-Null
-            New-Item -Path (Join-Path $testRoot 'video1.mkv') -ItemType File -Force | Out-Null
-            New-Item -Path (Join-Path $testRoot 'Show.S01E01.mkv') -ItemType File -Force | Out-Null
-            New-Item -Path (Join-Path $subDir 'video2.mkv') -ItemType File -Force | Out-Null
-            New-Item -Path (Join-Path $subDir 'Show.S01E02.mkv') -ItemType File -Force | Out-Null
-            New-Item -Path (Join-Path $gitDir 'somefile.mkv') -ItemType File -Force | Out-Null
-            New-Item -Path (Join-Path $nodeDir 'package.mkv') -ItemType File -Force | Out-Null
+            New-Item -Path (Join-Path -Path $testRoot -ChildPath 'video1.mp4') -ItemType File -Force | Out-Null
+            New-Item -Path (Join-Path -Path $testRoot -ChildPath 'video1.mkv') -ItemType File -Force | Out-Null
+            New-Item -Path (Join-Path -Path $testRoot -ChildPath 'Show.S01E01.mkv') -ItemType File -Force | Out-Null
+            New-Item -Path (Join-Path -Path $subDir -ChildPath 'video2.mkv') -ItemType File -Force | Out-Null
+            New-Item -Path (Join-Path -Path $subDir -ChildPath 'Show.S01E02.mkv') -ItemType File -Force | Out-Null
+            New-Item -Path (Join-Path -Path $gitDir -ChildPath 'somefile.mkv') -ItemType File -Force | Out-Null
+            New-Item -Path (Join-Path -Path $nodeDir -ChildPath 'package.mkv') -ItemType File -Force | Out-Null
         }
 
         It 'Should demonstrate non-recursive default behavior for all functions' -Skip:(-not ($script:HasFFprobe -and $script:HasFFmpeg)) {

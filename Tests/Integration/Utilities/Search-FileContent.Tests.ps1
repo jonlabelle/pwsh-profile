@@ -32,11 +32,11 @@ Describe 'Search-FileContent Integration Tests' {
     Context 'Real-World Directory Search' {
         BeforeAll {
             # Create a realistic project structure
-            $script:projectDir = Join-Path $TestDrive 'TestProject'
+            $script:projectDir = Join-Path -Path $TestDrive -ChildPath 'TestProject'
             New-Item -ItemType Directory -Path $script:projectDir -Force | Out-Null
 
             # Create source directory
-            $srcDir = Join-Path $script:projectDir 'src'
+            $srcDir = Join-Path -Path $script:projectDir -ChildPath 'src'
             New-Item -ItemType Directory -Path $srcDir -Force | Out-Null
 
             # Create PowerShell files
@@ -47,7 +47,7 @@ function Get-UserData {
     Write-Verbose "Getting data for user $UserId"
     return $userData
 }
-'@ | Set-Content -Path (Join-Path $srcDir 'UserModule.ps1')
+'@ | Set-Content -Path (Join-Path -Path $srcDir -ChildPath 'UserModule.ps1')
 
             @'
 function Set-UserData {
@@ -56,10 +56,10 @@ function Set-UserData {
     Write-Host "Setting data for user $UserId"
     $script:userData = $Data
 }
-'@ | Set-Content -Path (Join-Path $srcDir 'DataModule.ps1')
+'@ | Set-Content -Path (Join-Path -Path $srcDir -ChildPath 'DataModule.ps1')
 
             # Create tests directory
-            $testsDir = Join-Path $script:projectDir 'tests'
+            $testsDir = Join-Path -Path $script:projectDir -ChildPath 'tests'
             New-Item -ItemType Directory -Path $testsDir -Force | Out-Null
 
             @'
@@ -70,7 +70,7 @@ Describe 'UserModule Tests' {
         $result | Should -Not -BeNullOrEmpty
     }
 }
-'@ | Set-Content -Path (Join-Path $testsDir 'UserModule.Tests.ps1')
+'@ | Set-Content -Path (Join-Path -Path $testsDir -ChildPath 'UserModule.Tests.ps1')
 
             # Create config files
             @'
@@ -79,7 +79,7 @@ Describe 'UserModule Tests' {
     "author": "Test Author",
     "description": "Test project configuration"
 }
-'@ | Set-Content -Path (Join-Path $script:projectDir 'config.json')
+'@ | Set-Content -Path (Join-Path -Path $script:projectDir -ChildPath 'config.json')
 
             @'
 # Test Project
@@ -93,12 +93,12 @@ TODO: Add installation instructions
 ## Usage
 
 Write-Host "Example usage"
-'@ | Set-Content -Path (Join-Path $script:projectDir 'README.md')
+'@ | Set-Content -Path (Join-Path -Path $script:projectDir -ChildPath 'README.md')
 
             # Create .git directory (should be excluded)
-            $gitDir = Join-Path $script:projectDir '.git'
+            $gitDir = Join-Path -Path $script:projectDir -ChildPath '.git'
             New-Item -ItemType Directory -Path $gitDir -Force | Out-Null
-            'TODO: This should be ignored' | Set-Content -Path (Join-Path $gitDir 'config')
+            'TODO: This should be ignored' | Set-Content -Path (Join-Path -Path $gitDir -ChildPath 'config')
         }
 
         AfterAll {
@@ -139,7 +139,7 @@ Write-Host "Example usage"
 
     Context 'Complex Regex Patterns' {
         BeforeAll {
-            $script:codeDir = Join-Path $TestDrive 'CodeSamples'
+            $script:codeDir = Join-Path -Path $TestDrive -ChildPath 'CodeSamples'
             New-Item -ItemType Directory -Path $script:codeDir -Force | Out-Null
 
             # Create file with various patterns
@@ -155,7 +155,7 @@ function Get-Item { }
 $variable = "value"
 $another_var = 123
 camelCaseVariable = true
-'@ | Set-Content -Path (Join-Path $script:codeDir 'patterns.txt')
+'@ | Set-Content -Path (Join-Path -Path $script:codeDir -ChildPath 'patterns.txt')
         }
 
         AfterAll {
@@ -193,17 +193,17 @@ camelCaseVariable = true
 
     Context 'Pipeline Integration' {
         BeforeAll {
-            $script:pipelineDir = Join-Path $TestDrive 'PipelineTest'
+            $script:pipelineDir = Join-Path -Path $TestDrive -ChildPath 'PipelineTest'
             New-Item -ItemType Directory -Path $script:pipelineDir -Force | Out-Null
 
             # Create multiple files
             1..5 | ForEach-Object {
-                "This is file $_ with MATCH" | Set-Content -Path (Join-Path $script:pipelineDir "file$_.txt")
+                "This is file $_ with MATCH" | Set-Content -Path (Join-Path -Path $script:pipelineDir -ChildPath "file$_.txt")
             }
 
             # Create some files without matches
             1..3 | ForEach-Object {
-                'This is file without pattern' | Set-Content -Path (Join-Path $script:pipelineDir "other$_.txt")
+                'This is file without pattern' | Set-Content -Path (Join-Path -Path $script:pipelineDir -ChildPath "other$_.txt")
             }
         }
 
@@ -235,7 +235,7 @@ camelCaseVariable = true
 
     Context 'Performance with Multiple Files' {
         BeforeAll {
-            $script:perfDir = Join-Path $TestDrive 'PerformanceTest'
+            $script:perfDir = Join-Path -Path $TestDrive -ChildPath 'PerformanceTest'
             New-Item -ItemType Directory -Path $script:perfDir -Force | Out-Null
 
             # Create many files (50 files)
@@ -247,7 +247,7 @@ Line 3 of file $_
 Line 4 of file $_
 Line 5 with another MATCH
 "@
-                Set-Content -Path (Join-Path $script:perfDir "file$_.txt") -Value $content
+                Set-Content -Path (Join-Path -Path $script:perfDir -ChildPath "file$_.txt") -Value $content
             }
         }
 
@@ -276,23 +276,23 @@ Line 5 with another MATCH
 
     Context 'Mixed File Types' {
         BeforeAll {
-            $script:mixedDir = Join-Path $TestDrive 'MixedTypes'
+            $script:mixedDir = Join-Path -Path $TestDrive -ChildPath 'MixedTypes'
             New-Item -ItemType Directory -Path $script:mixedDir -Force | Out-Null
 
             # PowerShell script
-            'function Test-PATTERN { }' | Set-Content -Path (Join-Path $script:mixedDir 'script.ps1')
+            'function Test-PATTERN { }' | Set-Content -Path (Join-Path -Path $script:mixedDir -ChildPath 'script.ps1')
 
             # JSON file
-            '{"key": "PATTERN value"}' | Set-Content -Path (Join-Path $script:mixedDir 'config.json')
+            '{"key": "PATTERN value"}' | Set-Content -Path (Join-Path -Path $script:mixedDir -ChildPath 'config.json')
 
             # Markdown file
-            '# Title with PATTERN' | Set-Content -Path (Join-Path $script:mixedDir 'README.md')
+            '# Title with PATTERN' | Set-Content -Path (Join-Path -Path $script:mixedDir -ChildPath 'README.md')
 
             # Log file
-            '2024-01-01 12:00:00 ERROR PATTERN detected' | Set-Content -Path (Join-Path $script:mixedDir 'app.log')
+            '2024-01-01 12:00:00 ERROR PATTERN detected' | Set-Content -Path (Join-Path -Path $script:mixedDir -ChildPath 'app.log')
 
             # XML file
-            '<root><item>PATTERN</item></root>' | Set-Content -Path (Join-Path $script:mixedDir 'data.xml')
+            '<root><item>PATTERN</item></root>' | Set-Content -Path (Join-Path -Path $script:mixedDir -ChildPath 'data.xml')
         }
 
         AfterAll {
@@ -317,7 +317,7 @@ Line 5 with another MATCH
 
     Context 'Large File Handling' {
         BeforeAll {
-            $script:largeFileDir = Join-Path $TestDrive 'LargeFiles'
+            $script:largeFileDir = Join-Path -Path $TestDrive -ChildPath 'LargeFiles'
             New-Item -ItemType Directory -Path $script:largeFileDir -Force | Out-Null
 
             # Create a moderately large file (1000 lines)
@@ -331,7 +331,7 @@ Line 5 with another MATCH
                     "Line $_ without pattern"
                 }
             }
-            $largeContent -join "`n" | Set-Content -Path (Join-Path $script:largeFileDir 'large.txt')
+            $largeContent -join "`n" | Set-Content -Path (Join-Path -Path $script:largeFileDir -ChildPath 'large.txt')
         }
 
         AfterAll {
@@ -353,7 +353,7 @@ Line 5 with another MATCH
 
     Context 'Special Characters and Encodings' {
         BeforeAll {
-            $script:specialDir = Join-Path $TestDrive 'SpecialChars'
+            $script:specialDir = Join-Path -Path $TestDrive -ChildPath 'SpecialChars'
             New-Item -ItemType Directory -Path $script:specialDir -Force | Out-Null
 
             # File with special characters
@@ -364,7 +364,7 @@ Line with braces: {PATTERN}
 Line with parentheses: (PATTERN)
 Line with quotes: "PATTERN" and 'PATTERN'
 Line with backslash: \PATTERN\
-'@ | Set-Content -Path (Join-Path $script:specialDir 'special.txt')
+'@ | Set-Content -Path (Join-Path -Path $script:specialDir -ChildPath 'special.txt')
         }
 
         AfterAll {
@@ -390,15 +390,15 @@ Line with backslash: \PATTERN\
 
     Context 'Nested Directory Structures' {
         BeforeAll {
-            $script:nestedDir = Join-Path $TestDrive 'NestedStructure'
+            $script:nestedDir = Join-Path -Path $TestDrive -ChildPath 'NestedStructure'
             New-Item -ItemType Directory -Path $script:nestedDir -Force | Out-Null
 
             # Create deep nested structure
             $current = $script:nestedDir
             1..5 | ForEach-Object {
-                $current = Join-Path $current "level$_"
+                $current = Join-Path -Path $current -ChildPath "level$_"
                 New-Item -ItemType Directory -Path $current -Force | Out-Null
-                "MATCH at level $_" | Set-Content -Path (Join-Path $current "file$_.txt")
+                "MATCH at level $_" | Set-Content -Path (Join-Path -Path $current -ChildPath "file$_.txt")
             }
         }
 
@@ -426,7 +426,7 @@ Line with backslash: \PATTERN\
 
     Context 'Output Mode Comparisons' {
         BeforeAll {
-            $script:outputDir = Join-Path $TestDrive 'OutputModes'
+            $script:outputDir = Join-Path -Path $TestDrive -ChildPath 'OutputModes'
             New-Item -ItemType Directory -Path $script:outputDir -Force | Out-Null
 
             @'
@@ -435,7 +435,7 @@ Second line
 Third line with MATCH
 Fourth line
 Fifth line with MATCH
-'@ | Set-Content -Path (Join-Path $script:outputDir 'test.txt')
+'@ | Set-Content -Path (Join-Path -Path $script:outputDir -ChildPath 'test.txt')
         }
 
         AfterAll {
@@ -466,11 +466,11 @@ Fifth line with MATCH
     Context 'Case Variations in Real Codebase' {
         BeforeAll {
             # Create a realistic multi-language project structure
-            $script:codebaseDir = Join-Path $TestDrive 'Codebase'
+            $script:codebaseDir = Join-Path -Path $TestDrive -ChildPath 'Codebase'
             New-Item -ItemType Directory -Path $script:codebaseDir -Force | Out-Null
 
             # JavaScript/TypeScript files with various naming conventions
-            $jsDir = Join-Path $script:codebaseDir 'src'
+            $jsDir = Join-Path -Path $script:codebaseDir -ChildPath 'src'
             New-Item -ItemType Directory -Path $jsDir -Force | Out-Null
 
             @'
@@ -480,7 +480,7 @@ const ApiKey = parseConfig().ApiKey;
 const api_key = database.api_key;
 export const apiKey = config.apiKey;
 function getApiKey() { return apiKey; }
-'@ | Set-Content -Path (Join-Path $jsDir 'config.js')
+'@ | Set-Content -Path (Join-Path -Path $jsDir -ChildPath 'config.js')
 
             @'
 export class ApiKey {
@@ -492,10 +492,10 @@ export class ApiKey {
         this.API_KEY = '';
     }
 }
-'@ | Set-Content -Path (Join-Path $jsDir 'models.ts')
+'@ | Set-Content -Path (Join-Path -Path $jsDir -ChildPath 'models.ts')
 
             # Python files with snake_case convention
-            $pyDir = Join-Path $script:codebaseDir 'python'
+            $pyDir = Join-Path -Path $script:codebaseDir -ChildPath 'python'
             New-Item -ItemType Directory -Path $pyDir -Force | Out-Null
 
             @'
@@ -510,10 +510,10 @@ def get_api_key():
 class ApiKey:
     def __init__(self):
         self.api_key = None
-'@ | Set-Content -Path (Join-Path $pyDir 'config.py')
+'@ | Set-Content -Path (Join-Path -Path $pyDir -ChildPath 'config.py')
 
             # CSS files with kebab-case
-            $cssDir = Join-Path $script:codebaseDir 'styles'
+            $cssDir = Join-Path -Path $script:codebaseDir -ChildPath 'styles'
             New-Item -ItemType Directory -Path $cssDir -Force | Out-Null
 
             @'
@@ -529,7 +529,7 @@ class ApiKey:
 .API-KEY {
     font-weight: bold;
 }
-'@ | Set-Content -Path (Join-Path $cssDir 'styles.css')
+'@ | Set-Content -Path (Join-Path -Path $cssDir -ChildPath 'styles.css')
 
             # Configuration files
             @'
@@ -538,13 +538,13 @@ class ApiKey:
     "API_KEY": "PROD456",
     "api_key": "dev789"
 }
-'@ | Set-Content -Path (Join-Path $script:codebaseDir 'config.json')
+'@ | Set-Content -Path (Join-Path -Path $script:codebaseDir -ChildPath 'config.json')
 
             @'
 # Environment Variables
 API_KEY=production_key
 api_key=development_key
-'@ | Set-Content -Path (Join-Path $script:codebaseDir '.env')
+'@ | Set-Content -Path (Join-Path -Path $script:codebaseDir -ChildPath '.env')
         }
 
         AfterAll {
@@ -617,7 +617,7 @@ api_key=development_key
         }
 
         It 'Should handle multiple variations in same file' {
-            $results = Search-FileContent -Pattern 'apikey' -Path (Join-Path $script:codebaseDir 'src/config.js') -CaseInsensitive -IncludeCaseVariations -Simple
+            $results = Search-FileContent -Pattern 'apikey' -Path (Join-Path -Path $script:codebaseDir -ChildPath 'src/config.js') -CaseInsensitive -IncludeCaseVariations -Simple
             $results.Count | Should -BeGreaterThan 1
         }
 
@@ -638,8 +638,8 @@ api_key=development_key
             # Should not include config.json or .env files
             foreach ($result in $results)
             {
-                $result.Files | Should -Not -Contain (Join-Path $script:codebaseDir 'config.json')
-                $result.Files | Should -Not -Contain (Join-Path $script:codebaseDir '.env')
+                $result.Files | Should -Not -Contain (Join-Path -Path $script:codebaseDir -ChildPath 'config.json')
+                $result.Files | Should -Not -Contain (Join-Path -Path $script:codebaseDir -ChildPath '.env')
             }
         }
     }

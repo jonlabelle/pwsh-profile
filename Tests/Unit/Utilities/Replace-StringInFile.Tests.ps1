@@ -7,7 +7,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
     BeforeEach {
         # Create temporary test directory
-        $script:testDir = Join-Path ([System.IO.Path]::GetTempPath()) "replace-string-test-$(Get-Random)"
+        $script:testDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "replace-string-test-$(Get-Random)"
         New-Item -ItemType Directory -Path $script:testDir -Force | Out-Null
     }
 
@@ -33,13 +33,13 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
         }
 
         It 'Should accept valid encoding values' {
-            $testFile = Join-Path $script:testDir 'test.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'test.txt'
             'test content' | Set-Content -Path $testFile -NoNewline
             { Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'new' -Encoding UTF8 -ErrorAction Stop } | Should -Not -Throw
         }
 
         It 'Should accept pipeline input for Path' {
-            $testFile = Join-Path $script:testDir 'test.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'test.txt'
             'test content' | Set-Content -Path $testFile -NoNewline
             { $testFile | Replace-StringInFile -OldString 'test' -NewString 'new' -ErrorAction Stop } | Should -Not -Throw
         }
@@ -47,7 +47,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
     Context 'Basic String Replacement' {
         It 'Should replace a simple string' {
-            $testFile = Join-Path $script:testDir 'simple.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'simple.txt'
             'Hello World' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'World' -NewString 'PowerShell'
@@ -58,7 +58,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
         }
 
         It 'Should replace multiple occurrences' {
-            $testFile = Join-Path $script:testDir 'multiple.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'multiple.txt'
             'foo bar foo baz foo' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'foo' -NewString 'test'
@@ -69,7 +69,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
         }
 
         It 'Should handle empty replacement string' {
-            $testFile = Join-Path $script:testDir 'empty.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'empty.txt'
             'Hello World!' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'World' -NewString ''
@@ -79,7 +79,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
         }
 
         It 'Should return zero matches when string not found' {
-            $testFile = Join-Path $script:testDir 'notfound.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'notfound.txt'
             'Hello World' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'xyz' -NewString 'abc'
@@ -89,7 +89,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
         }
 
         It 'Should be case-sensitive by default' {
-            $testFile = Join-Path $script:testDir 'case.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'case.txt'
             'Hello hello HELLO' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'hi'
@@ -101,7 +101,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
     Context 'Case-Insensitive Replacement' {
         It 'Should replace case-insensitively with -CaseInsensitive switch' {
-            $testFile = Join-Path $script:testDir 'caseinsensitive.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'caseinsensitive.txt'
             'Hello hello HELLO' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'hi' -CaseInsensitive
@@ -113,7 +113,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
     Context 'Regex Replacement' {
         It 'Should replace using regex pattern' {
-            $testFile = Join-Path $script:testDir 'regex.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'regex.txt'
             'Phone: 123-456-7890' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString '\d{3}-\d{3}-\d{4}' -NewString 'XXX-XXX-XXXX' -Regex
@@ -123,7 +123,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
         }
 
         It 'Should support regex capture groups' {
-            $testFile = Join-Path $script:testDir 'capture.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'capture.txt'
             'Date: 2024-11-14' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString '(\d{4})-(\d{2})-(\d{2})' -NewString '$3/$2/$1' -Regex
@@ -133,7 +133,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
         }
 
         It 'Should handle complex regex patterns' {
-            $testFile = Join-Path $script:testDir 'email.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'email.txt'
             'Contact: user@example.com for help' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b' -NewString 'REDACTED' -Regex
@@ -145,7 +145,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
     Context 'Special Characters' {
         It 'Should handle literal special characters in non-regex mode' {
-            $testFile = Join-Path $script:testDir 'special.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'special.txt'
             'Price: $100.00' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString '$100.00' -NewString '$200.00'
@@ -155,7 +155,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
         }
 
         It 'Should handle parentheses and brackets literally' {
-            $testFile = Join-Path $script:testDir 'brackets.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'brackets.txt'
             'Array[0] = (value)' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString '[0]' -NewString '[1]'
@@ -167,7 +167,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
     Context 'Backup Functionality' {
         It 'Should create backup file when -Backup is specified' {
-            $testFile = Join-Path $script:testDir 'backup.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'backup.txt'
             'original content' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'original' -NewString 'modified' -Backup
@@ -179,7 +179,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
         }
 
         It 'Should not create backup by default' {
-            $testFile = Join-Path $script:testDir 'nobackup.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'nobackup.txt'
             'content' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'content' -NewString 'new'
@@ -191,8 +191,8 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
     Context 'Multiple Files' {
         It 'Should process multiple files' {
-            $file1 = Join-Path $script:testDir 'file1.txt'
-            $file2 = Join-Path $script:testDir 'file2.txt'
+            $file1 = Join-Path -Path $script:testDir -ChildPath 'file1.txt'
+            $file2 = Join-Path -Path $script:testDir -ChildPath 'file2.txt'
             'foo bar' | Set-Content -Path $file1 -NoNewline
             'bar baz' | Set-Content -Path $file2 -NoNewline
 
@@ -205,14 +205,14 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
         }
 
         It 'Should handle wildcards in path' {
-            $file1 = Join-Path $script:testDir 'test1.txt'
-            $file2 = Join-Path $script:testDir 'test2.txt'
-            $file3 = Join-Path $script:testDir 'other.log'
+            $file1 = Join-Path -Path $script:testDir -ChildPath 'test1.txt'
+            $file2 = Join-Path -Path $script:testDir -ChildPath 'test2.txt'
+            $file3 = Join-Path -Path $script:testDir -ChildPath 'other.log'
             'foo' | Set-Content -Path $file1 -NoNewline
             'foo' | Set-Content -Path $file2 -NoNewline
             'foo' | Set-Content -Path $file3 -NoNewline
 
-            $pattern = Join-Path $script:testDir '*.txt'
+            $pattern = Join-Path -Path $script:testDir -ChildPath '*.txt'
             $results = Replace-StringInFile -Path $pattern -OldString 'foo' -NewString 'bar'
 
             $results.Count | Should -Be 2
@@ -224,7 +224,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
     Context 'WhatIf and Confirm Support' {
         It 'Should support -WhatIf without making changes' {
-            $testFile = Join-Path $script:testDir 'whatif.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'whatif.txt'
             'original' | Set-Content -Path $testFile -NoNewline
 
             Replace-StringInFile -Path $testFile -OldString 'original' -NewString 'modified' -WhatIf
@@ -235,7 +235,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
     Context 'Encoding Support' {
         It 'Should respect specified encoding' {
-            $testFile = Join-Path $script:testDir 'encoding.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'encoding.txt'
             'test' | Set-Content -Path $testFile -Encoding UTF8 -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'new' -Encoding UTF8
@@ -247,7 +247,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
     Context 'Binary and Non-Text Files' {
         It 'Should skip binary files' {
-            $binaryFile = Join-Path $script:testDir 'binary.dat'
+            $binaryFile = Join-Path -Path $script:testDir -ChildPath 'binary.dat'
             $bytes = [byte[]](0, 1, 2, 3, 0, 0, 255, 254)
             [System.IO.File]::WriteAllBytes($binaryFile, $bytes)
 
@@ -259,7 +259,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
     Context 'Edge Cases' {
         It 'Should handle multiline content' {
-            $testFile = Join-Path $script:testDir 'multiline.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'multiline.txt'
             @'
 Line 1
 Line 2
@@ -273,7 +273,7 @@ Line 3
         }
 
         It 'Should handle empty files' {
-            $testFile = Join-Path $script:testDir 'empty.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'empty.txt'
             '' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'new'
@@ -283,7 +283,7 @@ Line 3
         }
 
         It 'Should handle very long lines' {
-            $testFile = Join-Path $script:testDir 'longline.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'longline.txt'
             $longString = 'a' * 10000 + 'REPLACE' + 'b' * 10000
             $longString | Set-Content -Path $testFile -NoNewline
 
@@ -296,13 +296,13 @@ Line 3
 
     Context 'Error Handling' {
         It 'Should handle non-existent files gracefully' {
-            $nonExistent = Join-Path $script:testDir 'doesnotexist.txt'
+            $nonExistent = Join-Path -Path $script:testDir -ChildPath 'doesnotexist.txt'
 
             { Replace-StringInFile -Path $nonExistent -OldString 'test' -NewString 'new' -ErrorAction Stop } | Should -Throw
         }
 
         It 'Should skip directories' {
-            $subDir = Join-Path $script:testDir 'subdir'
+            $subDir = Join-Path -Path $script:testDir -ChildPath 'subdir'
             New-Item -ItemType Directory -Path $subDir -Force | Out-Null
 
             $result = Replace-StringInFile -Path $subDir -OldString 'test' -NewString 'new' -WarningAction SilentlyContinue
@@ -311,7 +311,7 @@ Line 3
         }
 
         It 'Should handle invalid regex patterns' {
-            $testFile = Join-Path $script:testDir 'invalidregex.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'invalidregex.txt'
             'test' | Set-Content -Path $testFile -NoNewline
 
             { Replace-StringInFile -Path $testFile -OldString '(' -NewString 'new' -Regex -ErrorAction Stop } | Should -Throw
@@ -320,7 +320,7 @@ Line 3
 
     Context 'Output Object' {
         It 'Should return correct output object properties' {
-            $testFile = Join-Path $script:testDir 'output.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'output.txt'
             'test content' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'new'
@@ -335,7 +335,7 @@ Line 3
 
         # Skip on Linux when running as root because root can write to read-only files
         It 'Should set Error property when replacement fails' -Skip:($IsLinux -and (whoami) -eq 'root') {
-            $testFile = Join-Path $script:testDir 'readonly.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'readonly.txt'
             'test' | Set-Content -Path $testFile -NoNewline
 
             # Make file read-only using platform-appropriate method
@@ -370,7 +370,7 @@ Line 3
 
     Context 'Verbose Output' {
         It 'Should provide verbose messages' {
-            $testFile = Join-Path $script:testDir 'verbose.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'verbose.txt'
             'test' | Set-Content -Path $testFile -NoNewline
 
             $verboseOutput = $null
@@ -382,7 +382,7 @@ Line 3
 
     Context 'PreserveCase Parameter Validation' {
         It 'Should throw when PreserveCase is used with Regex' {
-            $testFile = Join-Path $script:testDir 'test.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'test.txt'
             'foo bar' | Set-Content -Path $testFile -NoNewline
 
             {
@@ -391,7 +391,7 @@ Line 3
         }
 
         It 'Should throw when PreserveCase is used without CaseInsensitive' {
-            $testFile = Join-Path $script:testDir 'test.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'test.txt'
             'foo bar' | Set-Content -Path $testFile -NoNewline
 
             {
@@ -400,7 +400,7 @@ Line 3
         }
 
         It 'Should accept valid parameter combinations' {
-            $testFile = Join-Path $script:testDir 'test.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'test.txt'
             'test content' | Set-Content -Path $testFile -NoNewline
 
             {
@@ -411,7 +411,7 @@ Line 3
 
     Context 'PreserveCase Functionality' {
         It 'Should preserve ALL CAPS case' {
-            $testFile = Join-Path $script:testDir 'caps.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'caps.txt'
             'HELLO world' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase
@@ -423,7 +423,7 @@ Line 3
         }
 
         It 'Should preserve all lowercase case' {
-            $testFile = Join-Path $script:testDir 'lower.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'lower.txt'
             'hello WORLD' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'GOODBYE' -CaseInsensitive -PreserveCase
@@ -434,7 +434,7 @@ Line 3
         }
 
         It 'Should preserve First Capital case' {
-            $testFile = Join-Path $script:testDir 'firstcap.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'firstcap.txt'
             'Hello world' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase
@@ -445,7 +445,7 @@ Line 3
         }
 
         It 'Should preserve Title Case for multi-word strings' {
-            $testFile = Join-Path $script:testDir 'title.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'title.txt'
             'Hello World from everyone' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'hello world' -NewString 'goodbye universe' -CaseInsensitive -PreserveCase
@@ -456,7 +456,7 @@ Line 3
         }
 
         It 'Should handle multiple matches with different cases' {
-            $testFile = Join-Path $script:testDir 'multi.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'multi.txt'
             @'
 foo is here
 FOO is there
@@ -474,7 +474,7 @@ Foo is everywhere
         }
 
         It 'Should handle mixed case by using replacement as-is' {
-            $testFile = Join-Path $script:testDir 'mixed.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'mixed.txt'
             'hElLo world' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase
@@ -486,7 +486,7 @@ Foo is everywhere
         }
 
         It 'Should work with single character replacements' {
-            $testFile = Join-Path $script:testDir 'single.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'single.txt'
             'A B C a b c' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'a' -NewString 'x' -CaseInsensitive -PreserveCase
@@ -497,7 +497,7 @@ Foo is everywhere
         }
 
         It 'Should preserve case with underscores and special characters' {
-            $testFile = Join-Path $script:testDir 'special.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'special.txt'
             'OLD_NAME new_name' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'old_name' -NewString 'better_name' -CaseInsensitive -PreserveCase
@@ -508,7 +508,7 @@ Foo is everywhere
         }
 
         It 'Should handle empty lines without errors' {
-            $testFile = Join-Path $script:testDir 'empty.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'empty.txt'
             @'
 HELLO
 
@@ -524,7 +524,7 @@ hello
         }
 
         It 'Should not modify content when no matches found' {
-            $testFile = Join-Path $script:testDir 'nomatch.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'nomatch.txt'
             $originalContent = 'No matches here'
             $originalContent | Set-Content -Path $testFile -NoNewline
 
@@ -537,7 +537,7 @@ hello
         }
 
         It 'Should preserve camelCase pattern' {
-            $testFile = Join-Path $script:testDir 'camel.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'camel.txt'
             'userName is required' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'username' -NewString 'account id' -CaseInsensitive -PreserveCase
@@ -548,7 +548,7 @@ hello
         }
 
         It 'Should preserve PascalCase pattern' {
-            $testFile = Join-Path $script:testDir 'pascal.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'pascal.txt'
             'UserName is required' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'username' -NewString 'account id' -CaseInsensitive -PreserveCase
@@ -559,7 +559,7 @@ hello
         }
 
         It 'Should preserve camelCase with multi-word replacement' {
-            $testFile = Join-Path $script:testDir 'camel-multi.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'camel-multi.txt'
             'oldUserName' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'oldusername' -NewString 'new account id' -CaseInsensitive -PreserveCase
@@ -570,7 +570,7 @@ hello
         }
 
         It 'Should preserve PascalCase with multi-word replacement' {
-            $testFile = Join-Path $script:testDir 'pascal-multi.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'pascal-multi.txt'
             'OldUserName' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'oldusername' -NewString 'new account id' -CaseInsensitive -PreserveCase
@@ -581,7 +581,7 @@ hello
         }
 
         It 'Should handle multiple camelCase/PascalCase variations' {
-            $testFile = Join-Path $script:testDir 'case-variations.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'case-variations.txt'
             @'
 userName
 UserName
@@ -598,7 +598,7 @@ USERNAME
         }
 
         It 'Should preserve snake_case pattern' {
-            $testFile = Join-Path $script:testDir 'snake.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'snake.txt'
             'user_name is required' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'user_name' -NewString 'account_id' -CaseInsensitive -PreserveCase
@@ -609,7 +609,7 @@ USERNAME
         }
 
         It 'Should preserve SCREAMING_SNAKE_CASE pattern' {
-            $testFile = Join-Path $script:testDir 'screaming-snake.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'screaming-snake.txt'
             'USER_NAME is required' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'user_name' -NewString 'account_id' -CaseInsensitive -PreserveCase
@@ -620,7 +620,7 @@ USERNAME
         }
 
         It 'Should preserve kebab-case pattern' {
-            $testFile = Join-Path $script:testDir 'kebab.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'kebab.txt'
             'user-name is required' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'user-name' -NewString 'account-id' -CaseInsensitive -PreserveCase
@@ -631,7 +631,7 @@ USERNAME
         }
 
         It 'Should preserve SCREAMING-KEBAB-CASE pattern' {
-            $testFile = Join-Path $script:testDir 'screaming-kebab.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'screaming-kebab.txt'
             'USER-NAME is required' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'user-name' -NewString 'account-id' -CaseInsensitive -PreserveCase
@@ -642,7 +642,7 @@ USERNAME
         }
 
         It 'Should replace cross-separator variations with PreserveCase (camelCase to snake_case)' {
-            $testFile = Join-Path $script:testDir 'cross-separator.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'cross-separator.txt'
             'userName is the user_name' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'userName' -NewString 'accountId' -CaseInsensitive -PreserveCase
@@ -653,7 +653,7 @@ USERNAME
         }
 
         It 'Should replace cross-separator variations with PreserveCase (PascalCase to SCREAMING_SNAKE_CASE)' {
-            $testFile = Join-Path $script:testDir 'cross-separator-2.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'cross-separator-2.txt'
             'UserName is the USER_NAME' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'userName' -NewString 'accountId' -CaseInsensitive -PreserveCase
@@ -664,7 +664,7 @@ USERNAME
         }
 
         It 'Should replace cross-separator variations with PreserveCase (kebab-case to snake_case)' {
-            $testFile = Join-Path $script:testDir 'cross-separator-3.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'cross-separator-3.txt'
             'user-name and user_name' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'userName' -NewString 'accountId' -CaseInsensitive -PreserveCase
@@ -675,7 +675,7 @@ USERNAME
         }
 
         It 'Should replace all separator variations when using separator-aware matching' {
-            $testFile = Join-Path $script:testDir 'all-separators.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'all-separators.txt'
             @'
 userName
 UserName
@@ -700,7 +700,7 @@ USER-NAME
         }
 
         It 'Should not perform cross-separator matching when pattern has no word boundaries' {
-            $testFile = Join-Path $script:testDir 'no-boundaries.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'no-boundaries.txt'
             'username and user_name' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'username' -NewString 'accountid' -CaseInsensitive -PreserveCase
@@ -712,7 +712,7 @@ USER-NAME
         }
 
         It 'Should handle mixed case patterns in same file' {
-            $testFile = Join-Path $script:testDir 'mixed-patterns.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'mixed-patterns.txt'
             @'
 userName
 UserName
@@ -729,7 +729,7 @@ USERNAME
         }
 
         It 'Should convert between different separator styles' {
-            $testFile = Join-Path $script:testDir 'separator-conversion.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'separator-conversion.txt'
             'user_name' | Set-Content -Path $testFile -NoNewline
 
             # Convert from snake_case replacement text  to kebab-case
@@ -743,7 +743,7 @@ USERNAME
 
     Context 'PreserveCase with File Operations' {
         It 'Should create backup when -Backup is specified with PreserveCase' {
-            $testFile = Join-Path $script:testDir 'backup.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'backup.txt'
             'HELLO world' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase -Backup
@@ -756,7 +756,7 @@ USERNAME
         }
 
         It 'Should support WhatIf with PreserveCase' {
-            $testFile = Join-Path $script:testDir 'whatif.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'whatif.txt'
             'HELLO world' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase -WhatIf
@@ -768,7 +768,7 @@ USERNAME
         }
 
         It 'Should work with pipeline input' {
-            $testFile = Join-Path $script:testDir 'pipeline.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'pipeline.txt'
             'HELLO world' | Set-Content -Path $testFile -NoNewline
 
             $result = Get-Item -Path $testFile | Replace-StringInFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase
@@ -781,7 +781,7 @@ USERNAME
 
     Context 'Encoding Auto-Detection and Preservation' {
         It 'Should auto-detect and preserve UTF-8 without BOM by default' {
-            $testFile = Join-Path $script:testDir 'utf8-no-bom.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'utf8-no-bom.txt'
             $content = 'This is a test file'
             $utf8NoBOM = New-Object System.Text.UTF8Encoding($false)
             [System.IO.File]::WriteAllText($testFile, $content, $utf8NoBOM)
@@ -796,7 +796,7 @@ USERNAME
         }
 
         It 'Should auto-detect and preserve UTF-8 with BOM' {
-            $testFile = Join-Path $script:testDir 'utf8-bom.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'utf8-bom.txt'
             $content = 'This is a test file'
             $utf8BOM = New-Object System.Text.UTF8Encoding($true)
             [System.IO.File]::WriteAllText($testFile, $content, $utf8BOM)
@@ -812,7 +812,7 @@ USERNAME
         }
 
         It 'Should auto-detect and preserve UTF-16 LE encoding' {
-            $testFile = Join-Path $script:testDir 'utf16le.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'utf16le.txt'
             $content = 'This is a test file'
             $utf16LE = [System.Text.Encoding]::Unicode
             [System.IO.File]::WriteAllText($testFile, $content, $utf16LE)
@@ -829,7 +829,7 @@ USERNAME
         }
 
         It 'Should auto-detect and preserve UTF-16 BE encoding' {
-            $testFile = Join-Path $script:testDir 'utf16be.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'utf16be.txt'
             $content = 'This is a test file'
             $utf16BE = [System.Text.Encoding]::BigEndianUnicode
             [System.IO.File]::WriteAllText($testFile, $content, $utf16BE)
@@ -844,7 +844,7 @@ USERNAME
         }
 
         It 'Should auto-detect and preserve UTF-32 LE encoding' {
-            $testFile = Join-Path $script:testDir 'utf32le.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'utf32le.txt'
             $content = 'This is a test file'
             $utf32LE = [System.Text.Encoding]::UTF32
             [System.IO.File]::WriteAllText($testFile, $content, $utf32LE)
@@ -861,7 +861,7 @@ USERNAME
         }
 
         It 'Should auto-detect and preserve UTF-32 BE encoding' {
-            $testFile = Join-Path $script:testDir 'utf32be.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'utf32be.txt'
             $content = 'This is a test file'
             $utf32BE = New-Object System.Text.UTF32Encoding($true, $true)
             [System.IO.File]::WriteAllText($testFile, $content, $utf32BE)
@@ -878,7 +878,7 @@ USERNAME
         }
 
         It 'Should auto-detect and preserve ASCII encoding' {
-            $testFile = Join-Path $script:testDir 'ascii.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'ascii.txt'
             $content = 'This is a test file'
             $ascii = [System.Text.Encoding]::ASCII
             [System.IO.File]::WriteAllText($testFile, $content, $ascii)
@@ -893,7 +893,7 @@ USERNAME
         }
 
         It 'Should convert to UTF-8 with BOM when explicitly specified' {
-            $testFile = Join-Path $script:testDir 'convert-to-utf8bom.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'convert-to-utf8bom.txt'
             $content = 'This is a test file'
             $utf8NoBOM = New-Object System.Text.UTF8Encoding($false)
             [System.IO.File]::WriteAllText($testFile, $content, $utf8NoBOM)
@@ -913,7 +913,7 @@ USERNAME
         }
 
         It 'Should convert to UTF-16 LE when explicitly specified' {
-            $testFile = Join-Path $script:testDir 'convert-to-utf16le.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'convert-to-utf16le.txt'
             $content = 'This is a test file'
             $utf8NoBOM = New-Object System.Text.UTF8Encoding($false)
             [System.IO.File]::WriteAllText($testFile, $content, $utf8NoBOM)
@@ -928,7 +928,7 @@ USERNAME
         }
 
         It 'Should handle empty files with Auto encoding' {
-            $testFile = Join-Path $script:testDir 'empty.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'empty.txt'
             '' | Set-Content -Path $testFile -NoNewline
 
             $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'sample'
@@ -939,7 +939,7 @@ USERNAME
 
         It 'Should not modify UTF-16 LE files binary detection' {
             # This test verifies that UTF-16 files with null bytes are NOT skipped as binary
-            $testFile = Join-Path $script:testDir 'utf16-with-nulls.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'utf16-with-nulls.txt'
             $content = 'Test with ASCII characters'  # ASCII chars in UTF-16 have null bytes
             $utf16LE = [System.Text.Encoding]::Unicode
             [System.IO.File]::WriteAllText($testFile, $content, $utf16LE)
@@ -953,7 +953,7 @@ USERNAME
 
         It 'Should not modify UTF-32 files binary detection' {
             # This test verifies that UTF-32 files with many null bytes are NOT skipped as binary
-            $testFile = Join-Path $script:testDir 'utf32-with-nulls.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'utf32-with-nulls.txt'
             $content = 'Test with ASCII characters'  # ASCII chars in UTF-32 have many null bytes
             $utf32LE = [System.Text.Encoding]::UTF32
             [System.IO.File]::WriteAllText($testFile, $content, $utf32LE)
@@ -966,7 +966,7 @@ USERNAME
         }
 
         It 'Should preserve encoding when no matches found' {
-            $testFile = Join-Path $script:testDir 'no-match-utf8bom.txt'
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'no-match-utf8bom.txt'
             $content = 'This is a file'
             $utf8BOM = New-Object System.Text.UTF8Encoding($true)
             [System.IO.File]::WriteAllText($testFile, $content, $utf8BOM)
@@ -983,8 +983,8 @@ USERNAME
 
         It 'Should work with multiple files having different encodings' {
             # Create files with different encodings
-            $file1 = Join-Path $script:testDir 'file1.txt'
-            $file2 = Join-Path $script:testDir 'file2.txt'
+            $file1 = Join-Path -Path $script:testDir -ChildPath 'file1.txt'
+            $file2 = Join-Path -Path $script:testDir -ChildPath 'file2.txt'
 
             $utf8NoBOM = New-Object System.Text.UTF8Encoding($false)
             $utf8BOM = New-Object System.Text.UTF8Encoding($true)

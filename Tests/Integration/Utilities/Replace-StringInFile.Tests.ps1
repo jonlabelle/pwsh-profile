@@ -26,12 +26,12 @@ Describe 'Replace-StringInFile Integration Tests' -Tag 'Integration' {
     Context 'Real-world Code Refactoring Scenarios' {
         It 'Should rename class names preserving case across multiple files' {
             # Create a mock C# project structure
-            $srcDir = Join-Path $script:testRoot 'src'
+            $srcDir = Join-Path -Path $script:testRoot -ChildPath 'src'
             New-Item -ItemType Directory -Path $srcDir -Force | Out-Null
 
-            $file1 = Join-Path $srcDir 'UserService.cs'
-            $file2 = Join-Path $srcDir 'UserController.cs'
-            $file3 = Join-Path $srcDir 'README.md'
+            $file1 = Join-Path -Path $srcDir -ChildPath 'UserService.cs'
+            $file2 = Join-Path -Path $srcDir -ChildPath 'UserController.cs'
+            $file3 = Join-Path -Path $srcDir -ChildPath 'README.md'
 
             @'
 public class UserService
@@ -89,7 +89,7 @@ The UserService class provides user management functionality.
         }
 
         It 'Should preserve camelCase and PascalCase in JavaScript code refactoring' {
-            $jsFile = Join-Path $script:testRoot 'app.js'
+            $jsFile = Join-Path -Path $script:testRoot -ChildPath 'app.js'
 
             @'
 const userName = getUserName();
@@ -110,7 +110,7 @@ function setUserName(newUserName) {
         }
 
         It 'Should update variable names in configuration files' {
-            $configFile = Join-Path $script:testRoot 'app.config'
+            $configFile = Join-Path -Path $script:testRoot -ChildPath 'app.config'
 
             @'
 database_host=localhost
@@ -130,28 +130,28 @@ database_user=admin
         }
 
         It 'Should handle multiple wildcard files with PreserveCase' {
-            $docsDir = Join-Path $script:testRoot 'docs'
+            $docsDir = Join-Path -Path $script:testRoot -ChildPath 'docs'
             New-Item -ItemType Directory -Path $docsDir -Force | Out-Null
 
             # Create multiple markdown files
-            'OldProduct features' | Set-Content -Path (Join-Path $docsDir 'features.md') -NoNewline
-            'OLDPRODUCT installation' | Set-Content -Path (Join-Path $docsDir 'install.md') -NoNewline
-            'oldproduct configuration' | Set-Content -Path (Join-Path $docsDir 'config.md') -NoNewline
+            'OldProduct features' | Set-Content -Path (Join-Path -Path $docsDir -ChildPath 'features.md') -NoNewline
+            'OLDPRODUCT installation' | Set-Content -Path (Join-Path -Path $docsDir -ChildPath 'install.md') -NoNewline
+            'oldproduct configuration' | Set-Content -Path (Join-Path -Path $docsDir -ChildPath 'config.md') -NoNewline
 
             # Replace across all files using wildcard
-            $pattern = Join-Path $docsDir '*.md'
+            $pattern = Join-Path -Path $docsDir -ChildPath '*.md'
             $results = Replace-StringInFile -Path $pattern -OldString 'oldproduct' -NewString 'newproduct' -CaseInsensitive -PreserveCase
 
             # Verify each file
-            Get-Content -Path (Join-Path $docsDir 'features.md') -Raw | Should -Be 'NewProduct features'
-            Get-Content -Path (Join-Path $docsDir 'install.md') -Raw | Should -Be 'NEWPRODUCT installation'
-            Get-Content -Path (Join-Path $docsDir 'config.md') -Raw | Should -Be 'newproduct configuration'
+            Get-Content -Path (Join-Path -Path $docsDir -ChildPath 'features.md') -Raw | Should -Be 'NewProduct features'
+            Get-Content -Path (Join-Path -Path $docsDir -ChildPath 'install.md') -Raw | Should -Be 'NEWPRODUCT installation'
+            Get-Content -Path (Join-Path -Path $docsDir -ChildPath 'config.md') -Raw | Should -Be 'newproduct configuration'
 
             $results.Count | Should -Be 3
         }
 
         It 'Should preserve snake_case in Python code' {
-            $pyFile = Join-Path $script:testRoot 'script.py'
+            $pyFile = Join-Path -Path $script:testRoot -ChildPath 'script.py'
 
             @'
 def get_user_name():
@@ -171,7 +171,7 @@ def get_user_name():
         }
 
         It 'Should preserve kebab-case in CSS' {
-            $cssFile = Join-Path $script:testRoot 'styles.css'
+            $cssFile = Join-Path -Path $script:testRoot -ChildPath 'styles.css'
 
             @'
 :root {
@@ -194,7 +194,7 @@ def get_user_name():
         }
 
         It 'Should preserve SCREAMING_SNAKE_CASE in environment files' {
-            $envFile = Join-Path $script:testRoot 'test.env'
+            $envFile = Join-Path -Path $script:testRoot -ChildPath 'test.env'
 
             @'
 DATABASE_URL=postgresql://localhost/db
@@ -215,7 +215,7 @@ DATABASE-URL=postgresql://localhost/db
 
     Context 'PreserveCase with Backup and Recovery' {
         It 'Should allow rollback using backup files' {
-            $testFile = Join-Path $script:testRoot 'rollback.txt'
+            $testFile = Join-Path -Path $script:testRoot -ChildPath 'rollback.txt'
             $originalContent = @'
 FooBar is here
 FOOBAR is there
@@ -243,7 +243,7 @@ foobar everywhere
 
     Context 'PreserveCase with Different Encodings' {
         It 'Should work with UTF8 encoding' {
-            $testFile = Join-Path $script:testRoot 'utf8.txt'
+            $testFile = Join-Path -Path $script:testRoot -ChildPath 'utf8.txt'
             'Hello café' | Set-Content -Path $testFile -Encoding UTF8 -NoNewline
 
             Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase -Encoding UTF8
@@ -253,7 +253,7 @@ foobar everywhere
         }
 
         It 'Should work with ASCII encoding' {
-            $testFile = Join-Path $script:testRoot 'ascii.txt'
+            $testFile = Join-Path -Path $script:testRoot -ChildPath 'ascii.txt'
             'HELLO world' | Set-Content -Path $testFile -Encoding ASCII -NoNewline
 
             Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase -Encoding ASCII
@@ -265,7 +265,7 @@ foobar everywhere
 
     Context 'PreserveCase with Large Files' {
         It 'Should handle files with many replacements efficiently' {
-            $testFile = Join-Path $script:testRoot 'large.txt'
+            $testFile = Join-Path -Path $script:testRoot -ChildPath 'large.txt'
 
             # Create content with 1000+ occurrences
             $lines = @()
@@ -295,7 +295,7 @@ foobar everywhere
     Context 'PreserveCase Error Handling' {
         It 'Should skip binary files when using PreserveCase' {
             # Create a mock binary file
-            $binaryFile = Join-Path $script:testRoot 'binary.dat'
+            $binaryFile = Join-Path -Path $script:testRoot -ChildPath 'binary.dat'
             $bytes = @(0x00, 0x01, 0x02, 0xFF, 0xFE, 0x48, 0x65, 0x6C, 0x6C, 0x6F)  # Contains nulls + "Hello"
             [System.IO.File]::WriteAllBytes($binaryFile, $bytes)
 
@@ -308,7 +308,7 @@ foobar everywhere
         }
 
         It 'Should handle non-existent files gracefully' {
-            $nonExistentFile = Join-Path $script:testRoot 'does-not-exist.txt'
+            $nonExistentFile = Join-Path -Path $script:testRoot -ChildPath 'does-not-exist.txt'
 
             # Should produce an error but not crash
             $result = Replace-StringInFile -Path $nonExistentFile -OldString 'foo' -NewString 'bar' -CaseInsensitive -PreserveCase -ErrorAction SilentlyContinue
@@ -319,8 +319,8 @@ foobar everywhere
 
     Context 'PreserveCase Comparison with Standard Replacement' {
         It 'Should differ from standard case-insensitive replacement' {
-            $file1 = Join-Path $script:testRoot 'standard.txt'
-            $file2 = Join-Path $script:testRoot 'preserve.txt'
+            $file1 = Join-Path -Path $script:testRoot -ChildPath 'standard.txt'
+            $file2 = Join-Path -Path $script:testRoot -ChildPath 'preserve.txt'
 
             $content = 'HELLO hello Hello'
             $content | Set-Content -Path $file1 -NoNewline

@@ -52,8 +52,8 @@ Describe 'Sync-Directory' -Tag 'Unit' {
 
     Context 'Input Validation' {
         It 'Should throw error if source does not exist' {
-            $NonExistentPath = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
-            $TempDest = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
+            $NonExistentPath = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ([System.Guid]::NewGuid().ToString())
+            $TempDest = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ([System.Guid]::NewGuid().ToString())
 
             { Sync-Directory -Source $NonExistentPath -Destination $TempDest -ErrorAction Stop } |
             Should -Throw '*does not exist*'
@@ -62,13 +62,13 @@ Describe 'Sync-Directory' -Tag 'Unit' {
         It 'Should accept tilde expansion in paths' {
             # This test just validates the function accepts the syntax
             # We can't test actual sync without creating directories
-            $TestSource = Join-Path ([System.IO.Path]::GetTempPath()) 'sync-test-tilde-source'
-            $TestDest = Join-Path ([System.IO.Path]::GetTempPath()) 'sync-test-tilde-dest'
+            $TestSource = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-tilde-source'
+            $TestDest = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-tilde-dest'
 
             try
             {
                 New-Item -ItemType Directory -Path $TestSource -Force | Out-Null
-                'test' | Out-File (Join-Path $TestSource 'test.txt')
+                'test' | Out-File (Join-Path -Path $TestSource -ChildPath 'test.txt')
 
                 # Test with DryRun to avoid actual sync
                 $Result = Sync-Directory -Source $TestSource -Destination $TestDest -DryRun
@@ -87,13 +87,13 @@ Describe 'Sync-Directory' -Tag 'Unit' {
 
     Context 'Platform Detection' {
         It 'Should detect platform correctly' {
-            $TestSource = Join-Path ([System.IO.Path]::GetTempPath()) 'sync-test-platform'
-            $TestDest = Join-Path ([System.IO.Path]::GetTempPath()) 'sync-test-platform-dest'
+            $TestSource = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-platform'
+            $TestDest = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-platform-dest'
 
             try
             {
                 New-Item -ItemType Directory -Path $TestSource -Force | Out-Null
-                'test' | Out-File (Join-Path $TestSource 'test.txt')
+                'test' | Out-File (Join-Path -Path $TestSource -ChildPath 'test.txt')
 
                 $Result = Sync-Directory -Source $TestSource -Destination $TestDest -DryRun
 
@@ -118,13 +118,13 @@ Describe 'Sync-Directory' -Tag 'Unit' {
 
     Context 'DryRun Mode' {
         It 'Should not create destination when using DryRun' {
-            $TestSource = Join-Path ([System.IO.Path]::GetTempPath()) 'sync-test-dryrun-source'
-            $TestDest = Join-Path ([System.IO.Path]::GetTempPath()) 'sync-test-dryrun-dest'
+            $TestSource = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-dryrun-source'
+            $TestDest = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-dryrun-dest'
 
             try
             {
                 New-Item -ItemType Directory -Path $TestSource -Force | Out-Null
-                'test content' | Out-File (Join-Path $TestSource 'file.txt')
+                'test content' | Out-File (Join-Path -Path $TestSource -ChildPath 'file.txt')
 
                 # Ensure destination doesn't exist
                 if (Test-Path $TestDest) { Remove-Item -Path $TestDest -Recurse -Force }
@@ -149,13 +149,13 @@ Describe 'Sync-Directory' -Tag 'Unit' {
         }
 
         It 'Should include dry-run flag in command' {
-            $TestSource = Join-Path ([System.IO.Path]::GetTempPath()) 'sync-test-dryrun-cmd'
-            $TestDest = Join-Path ([System.IO.Path]::GetTempPath()) 'sync-test-dryrun-cmd-dest'
+            $TestSource = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-dryrun-cmd'
+            $TestDest = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-dryrun-cmd-dest'
 
             try
             {
                 New-Item -ItemType Directory -Path $TestSource -Force | Out-Null
-                'test' | Out-File (Join-Path $TestSource 'test.txt')
+                'test' | Out-File (Join-Path -Path $TestSource -ChildPath 'test.txt')
 
                 $Result = Sync-Directory -Source $TestSource -Destination $TestDest -DryRun
 
@@ -178,13 +178,13 @@ Describe 'Sync-Directory' -Tag 'Unit' {
 
     Context 'Output Structure' {
         It 'Should return PSCustomObject with expected properties' {
-            $TestSource = Join-Path ([System.IO.Path]::GetTempPath()) 'sync-test-output'
-            $TestDest = Join-Path ([System.IO.Path]::GetTempPath()) 'sync-test-output-dest'
+            $TestSource = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-output'
+            $TestDest = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-output-dest'
 
             try
             {
                 New-Item -ItemType Directory -Path $TestSource -Force | Out-Null
-                'test' | Out-File (Join-Path $TestSource 'test.txt')
+                'test' | Out-File (Join-Path -Path $TestSource -ChildPath 'test.txt')
 
                 $Result = Sync-Directory -Source $TestSource -Destination $TestDest -DryRun
 
@@ -206,13 +206,13 @@ Describe 'Sync-Directory' -Tag 'Unit' {
         }
 
         It 'Should populate timing information' {
-            $TestSource = Join-Path ([System.IO.Path]::GetTempPath()) 'sync-test-timing'
-            $TestDest = Join-Path ([System.IO.Path]::GetTempPath()) 'sync-test-timing-dest'
+            $TestSource = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-timing'
+            $TestDest = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-timing-dest'
 
             try
             {
                 New-Item -ItemType Directory -Path $TestSource -Force | Out-Null
-                'test' | Out-File (Join-Path $TestSource 'test.txt')
+                'test' | Out-File (Join-Path -Path $TestSource -ChildPath 'test.txt')
 
                 $Result = Sync-Directory -Source $TestSource -Destination $TestDest -DryRun
 
@@ -231,14 +231,14 @@ Describe 'Sync-Directory' -Tag 'Unit' {
 
     Context 'Exclusion Patterns' {
         It 'Should include exclusion patterns in command' {
-            $TestSource = Join-Path ([System.IO.Path]::GetTempPath()) 'sync-test-exclude'
-            $TestDest = Join-Path ([System.IO.Path]::GetTempPath()) 'sync-test-exclude-dest'
+            $TestSource = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-exclude'
+            $TestDest = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-exclude-dest'
 
             try
             {
                 New-Item -ItemType Directory -Path $TestSource -Force | Out-Null
-                'test' | Out-File (Join-Path $TestSource 'test.txt')
-                'log' | Out-File (Join-Path $TestSource 'test.log')
+                'test' | Out-File (Join-Path -Path $TestSource -ChildPath 'test.txt')
+                'log' | Out-File (Join-Path -Path $TestSource -ChildPath 'test.log')
 
                 $Result = Sync-Directory -Source $TestSource -Destination $TestDest -Exclude '*.log', '.git' -DryRun
 
@@ -263,13 +263,13 @@ Describe 'Sync-Directory' -Tag 'Unit' {
 
     Context 'Delete/Mirror Mode' {
         It 'Should include delete flag when -Delete is specified' {
-            $TestSource = Join-Path ([System.IO.Path]::GetTempPath()) 'sync-test-delete'
-            $TestDest = Join-Path ([System.IO.Path]::GetTempPath()) 'sync-test-delete-dest'
+            $TestSource = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-delete'
+            $TestDest = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-delete-dest'
 
             try
             {
                 New-Item -ItemType Directory -Path $TestSource -Force | Out-Null
-                'test' | Out-File (Join-Path $TestSource 'test.txt')
+                'test' | Out-File (Join-Path -Path $TestSource -ChildPath 'test.txt')
 
                 $Result = Sync-Directory -Source $TestSource -Destination $TestDest -Delete -DryRun
 
@@ -292,13 +292,13 @@ Describe 'Sync-Directory' -Tag 'Unit' {
 
     Context 'Extra Options' {
         It 'Should include extra options in command' {
-            $TestSource = Join-Path ([System.IO.Path]::GetTempPath()) 'sync-test-extra'
-            $TestDest = Join-Path ([System.IO.Path]::GetTempPath()) 'sync-test-extra-dest'
+            $TestSource = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-extra'
+            $TestDest = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-extra-dest'
 
             try
             {
                 New-Item -ItemType Directory -Path $TestSource -Force | Out-Null
-                'test' | Out-File (Join-Path $TestSource 'test.txt')
+                'test' | Out-File (Join-Path -Path $TestSource -ChildPath 'test.txt')
 
                 if ($IsWindowsPlatform)
                 {
@@ -325,13 +325,13 @@ Describe 'Sync-Directory' -Tag 'Unit' {
 
     Context 'Verbose Output' {
         It 'Should write verbose messages when -Verbose is used' {
-            $TestSource = Join-Path ([System.IO.Path]::GetTempPath()) 'sync-test-verbose'
-            $TestDest = Join-Path ([System.IO.Path]::GetTempPath()) 'sync-test-verbose-dest'
+            $TestSource = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-verbose'
+            $TestDest = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-verbose-dest'
 
             try
             {
                 New-Item -ItemType Directory -Path $TestSource -Force | Out-Null
-                'test' | Out-File (Join-Path $TestSource 'test.txt')
+                'test' | Out-File (Join-Path -Path $TestSource -ChildPath 'test.txt')
 
                 $VerboseMessages = @()
                 Sync-Directory -Source $TestSource -Destination $TestDest -DryRun -Verbose 4>&1 |

@@ -85,7 +85,7 @@ Describe 'ConvertFrom-Base64' -Tag 'Unit' {
 
     Context 'File Output' {
         BeforeEach {
-            $script:outputFile = Join-Path $TestDrive 'decoded-output.txt'
+            $script:outputFile = Join-Path -Path $TestDrive -ChildPath 'decoded-output.txt'
         }
 
         It 'Should decode Base64 to file' {
@@ -107,7 +107,7 @@ Describe 'ConvertFrom-Base64' -Tag 'Unit' {
         }
 
         It 'Should create output directory if it does not exist' {
-            $nestedPath = Join-Path $TestDrive 'nested/folder/output.txt'
+            $nestedPath = Join-Path -Path $TestDrive -ChildPath 'nested/folder/output.txt'
             $encoded = 'VGVzdA=='
 
             ConvertFrom-Base64 -InputObject $encoded -OutputPath $nestedPath
@@ -116,7 +116,7 @@ Describe 'ConvertFrom-Base64' -Tag 'Unit' {
         }
 
         It 'Should handle output paths with spaces' {
-            $pathWithSpaces = Join-Path $TestDrive 'output file with spaces.txt'
+            $pathWithSpaces = Join-Path -Path $TestDrive -ChildPath 'output file with spaces.txt'
             $encoded = 'Q29udGVudA=='
 
             ConvertFrom-Base64 -InputObject $encoded -OutputPath $pathWithSpaces
@@ -205,8 +205,8 @@ Describe 'ConvertFrom-Base64' -Tag 'Unit' {
         }
 
         It 'Should round-trip file content' {
-            $testFile = Join-Path $TestDrive 'original.txt'
-            $outputFile = Join-Path $TestDrive 'decoded.txt'
+            $testFile = Join-Path -Path $TestDrive -ChildPath 'original.txt'
+            $outputFile = Join-Path -Path $TestDrive -ChildPath 'decoded.txt'
             $originalContent = 'Test file content with special chars: !@#$%'
 
             $originalContent | Set-Content -Path $testFile -NoNewline

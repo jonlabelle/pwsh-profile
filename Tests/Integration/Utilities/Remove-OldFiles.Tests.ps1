@@ -32,26 +32,26 @@ BeforeAll {
 Describe 'Remove-OldFiles Integration Tests' {
     Context 'Basic File Deletion by Age' {
         BeforeAll {
-            $script:testDir = Join-Path $TestDrive 'AgeTests'
+            $script:testDir = Join-Path -Path $TestDrive -ChildPath 'AgeTests'
             New-Item -ItemType Directory -Path $script:testDir -Force | Out-Null
 
             # Create old files (30 days old)
             1..3 | ForEach-Object {
-                $file = Join-Path $script:testDir "old_file_$_.txt"
+                $file = Join-Path -Path $script:testDir -ChildPath "old_file_$_.txt"
                 "Old content $_" | Set-Content -Path $file
                 (Get-Item $file).LastWriteTime = (Get-Date).AddDays(-30)
             }
 
             # Create recent files (3 days old)
             1..2 | ForEach-Object {
-                $file = Join-Path $script:testDir "recent_file_$_.txt"
+                $file = Join-Path -Path $script:testDir -ChildPath "recent_file_$_.txt"
                 "Recent content $_" | Set-Content -Path $file
                 (Get-Item $file).LastWriteTime = (Get-Date).AddDays(-3)
             }
 
             # Create current files
             'current.txt' | ForEach-Object {
-                $file = Join-Path $script:testDir $_
+                $file = Join-Path -Path $script:testDir -ChildPath $_
                 'Current content' | Set-Content -Path $file
             }
         }
@@ -66,22 +66,22 @@ Describe 'Remove-OldFiles Integration Tests' {
             $result.FilesRemoved | Should -Be 3
 
             # Verify old files are gone
-            Test-Path (Join-Path $script:testDir 'old_file_1.txt') | Should -Be $false
-            Test-Path (Join-Path $script:testDir 'old_file_2.txt') | Should -Be $false
-            Test-Path (Join-Path $script:testDir 'old_file_3.txt') | Should -Be $false
+            Test-Path (Join-Path -Path $script:testDir -ChildPath 'old_file_1.txt') | Should -Be $false
+            Test-Path (Join-Path -Path $script:testDir -ChildPath 'old_file_2.txt') | Should -Be $false
+            Test-Path (Join-Path -Path $script:testDir -ChildPath 'old_file_3.txt') | Should -Be $false
 
             # Verify recent and current files remain
-            Test-Path (Join-Path $script:testDir 'recent_file_1.txt') | Should -Be $true
-            Test-Path (Join-Path $script:testDir 'current.txt') | Should -Be $true
+            Test-Path (Join-Path -Path $script:testDir -ChildPath 'recent_file_1.txt') | Should -Be $true
+            Test-Path (Join-Path -Path $script:testDir -ChildPath 'current.txt') | Should -Be $true
         }
 
         It 'Should calculate space freed correctly' {
             # Create new test directory
-            $spaceTestDir = Join-Path $TestDrive 'SpaceTest'
+            $spaceTestDir = Join-Path -Path $TestDrive -ChildPath 'SpaceTest'
             New-Item -ItemType Directory -Path $spaceTestDir -Force | Out-Null
 
             # Create file with known size (1MB to ensure measurable space)
-            $file = Join-Path $spaceTestDir 'large_old_file.txt'
+            $file = Join-Path -Path $spaceTestDir -ChildPath 'large_old_file.txt'
             $content = 'x' * (1024 * 1024)  # 1MB
             $content | Set-Content -Path $file -NoNewline
             (Get-Item $file).LastWriteTime = (Get-Date).AddDays(-10)
@@ -97,7 +97,7 @@ Describe 'Remove-OldFiles Integration Tests' {
 
     Context 'Time Unit Variations' {
         BeforeAll {
-            $script:timeTestDir = Join-Path $TestDrive 'TimeUnitTests'
+            $script:timeTestDir = Join-Path -Path $TestDrive -ChildPath 'TimeUnitTests'
             New-Item -ItemType Directory -Path $script:timeTestDir -Force | Out-Null
         }
 
@@ -106,7 +106,7 @@ Describe 'Remove-OldFiles Integration Tests' {
         }
 
         It 'Should work with Hours unit' {
-            $file = Join-Path $script:timeTestDir 'old_hours.txt'
+            $file = Join-Path -Path $script:timeTestDir -ChildPath 'old_hours.txt'
             'test' | Set-Content -Path $file
             (Get-Item $file).LastWriteTime = (Get-Date).AddHours(-48)
 
@@ -117,7 +117,7 @@ Describe 'Remove-OldFiles Integration Tests' {
         }
 
         It 'Should work with Days unit' {
-            $file = Join-Path $script:timeTestDir 'old_days.txt'
+            $file = Join-Path -Path $script:timeTestDir -ChildPath 'old_days.txt'
             'test' | Set-Content -Path $file
             (Get-Item $file).LastWriteTime = (Get-Date).AddDays(-15)
 
@@ -128,7 +128,7 @@ Describe 'Remove-OldFiles Integration Tests' {
         }
 
         It 'Should work with Months unit' {
-            $file = Join-Path $script:timeTestDir 'old_months.txt'
+            $file = Join-Path -Path $script:timeTestDir -ChildPath 'old_months.txt'
             'test' | Set-Content -Path $file
             (Get-Item $file).LastWriteTime = (Get-Date).AddMonths(-6)
 
@@ -139,7 +139,7 @@ Describe 'Remove-OldFiles Integration Tests' {
         }
 
         It 'Should work with Years unit' {
-            $file = Join-Path $script:timeTestDir 'old_years.txt'
+            $file = Join-Path -Path $script:timeTestDir -ChildPath 'old_years.txt'
             'test' | Set-Content -Path $file
             (Get-Item $file).LastWriteTime = (Get-Date).AddYears(-2)
 
@@ -152,12 +152,12 @@ Describe 'Remove-OldFiles Integration Tests' {
 
     Context 'Include and Exclude Patterns' {
         BeforeAll {
-            $script:filterDir = Join-Path $TestDrive 'FilterTests'
+            $script:filterDir = Join-Path -Path $TestDrive -ChildPath 'FilterTests'
             New-Item -ItemType Directory -Path $script:filterDir -Force | Out-Null
 
             # Create various old file types
             @('file1.log', 'file2.txt', 'file3.log', 'file4.tmp', 'keep.log') | ForEach-Object {
-                $file = Join-Path $script:filterDir $_
+                $file = Join-Path -Path $script:filterDir -ChildPath $_
                 'content' | Set-Content -Path $file
                 (Get-Item $file).LastWriteTime = (Get-Date).AddDays(-30)
             }
@@ -173,21 +173,21 @@ Describe 'Remove-OldFiles Integration Tests' {
             $result.FilesRemoved | Should -Be 3
 
             # .log files should be removed
-            Test-Path (Join-Path $script:filterDir 'file1.log') | Should -Be $false
-            Test-Path (Join-Path $script:filterDir 'file3.log') | Should -Be $false
+            Test-Path (Join-Path -Path $script:filterDir -ChildPath 'file1.log') | Should -Be $false
+            Test-Path (Join-Path -Path $script:filterDir -ChildPath 'file3.log') | Should -Be $false
 
             # Other files should remain
-            Test-Path (Join-Path $script:filterDir 'file2.txt') | Should -Be $true
-            Test-Path (Join-Path $script:filterDir 'file4.tmp') | Should -Be $true
+            Test-Path (Join-Path -Path $script:filterDir -ChildPath 'file2.txt') | Should -Be $true
+            Test-Path (Join-Path -Path $script:filterDir -ChildPath 'file4.tmp') | Should -Be $true
         }
 
         It 'Should exclude files matching Exclude pattern' {
             # Recreate files for this test
-            $excludeTestDir = Join-Path $TestDrive 'ExcludeTest'
+            $excludeTestDir = Join-Path -Path $TestDrive -ChildPath 'ExcludeTest'
             New-Item -ItemType Directory -Path $excludeTestDir -Force | Out-Null
 
             @('old1.txt', 'old2.txt', 'keep1.txt') | ForEach-Object {
-                $file = Join-Path $excludeTestDir $_
+                $file = Join-Path -Path $excludeTestDir -ChildPath $_
                 'content' | Set-Content -Path $file
                 (Get-Item $file).LastWriteTime = (Get-Date).AddDays(-30)
             }
@@ -195,17 +195,17 @@ Describe 'Remove-OldFiles Integration Tests' {
             $result = Remove-OldFiles -Path $excludeTestDir -OlderThan 7 -Exclude 'keep*' -Confirm:$false
 
             $result.FilesRemoved | Should -Be 2
-            Test-Path (Join-Path $excludeTestDir 'keep1.txt') | Should -Be $true
+            Test-Path (Join-Path -Path $excludeTestDir -ChildPath 'keep1.txt') | Should -Be $true
 
             Remove-TestDirectory -Path $excludeTestDir
         }
 
         It 'Should support multiple Include patterns' {
-            $multiIncludeDir = Join-Path $TestDrive 'MultiInclude'
+            $multiIncludeDir = Join-Path -Path $TestDrive -ChildPath 'MultiInclude'
             New-Item -ItemType Directory -Path $multiIncludeDir -Force | Out-Null
 
             @('file1.log', 'file2.tmp', 'file3.txt', 'file4.log', 'file5.tmp') | ForEach-Object {
-                $file = Join-Path $multiIncludeDir $_
+                $file = Join-Path -Path $multiIncludeDir -ChildPath $_
                 'content' | Set-Content -Path $file
                 (Get-Item $file).LastWriteTime = (Get-Date).AddDays(-30)
             }
@@ -213,7 +213,7 @@ Describe 'Remove-OldFiles Integration Tests' {
             $result = Remove-OldFiles -Path $multiIncludeDir -OlderThan 7 -Include @('*.log', '*.tmp') -Confirm:$false
 
             $result.FilesRemoved | Should -Be 4
-            Test-Path (Join-Path $multiIncludeDir 'file3.txt') | Should -Be $true
+            Test-Path (Join-Path -Path $multiIncludeDir -ChildPath 'file3.txt') | Should -Be $true
 
             Remove-TestDirectory -Path $multiIncludeDir
         }
@@ -221,18 +221,18 @@ Describe 'Remove-OldFiles Integration Tests' {
 
     Context 'Directory Exclusion' {
         BeforeAll {
-            $script:dirExcludeTest = Join-Path $TestDrive 'DirExcludeTest'
+            $script:dirExcludeTest = Join-Path -Path $TestDrive -ChildPath 'DirExcludeTest'
             New-Item -ItemType Directory -Path $script:dirExcludeTest -Force | Out-Null
 
             # Create directory structure
-            $keepDir = Join-Path $script:dirExcludeTest 'KeepMe'
-            $processDir = Join-Path $script:dirExcludeTest 'ProcessMe'
+            $keepDir = Join-Path -Path $script:dirExcludeTest -ChildPath 'KeepMe'
+            $processDir = Join-Path -Path $script:dirExcludeTest -ChildPath 'ProcessMe'
             New-Item -ItemType Directory -Path $keepDir -Force | Out-Null
             New-Item -ItemType Directory -Path $processDir -Force | Out-Null
 
             # Create old files in both directories
-            $file1 = Join-Path $keepDir 'file_keep.txt'
-            $file2 = Join-Path $processDir 'file_process.txt'
+            $file1 = Join-Path -Path $keepDir -ChildPath 'file_keep.txt'
+            $file2 = Join-Path -Path $processDir -ChildPath 'file_process.txt'
             'keep' | Set-Content -Path $file1
             'process' | Set-Content -Path $file2
             (Get-Item $file1).LastWriteTime = (Get-Date).AddDays(-30)
@@ -249,35 +249,35 @@ Describe 'Remove-OldFiles Integration Tests' {
             $result.FilesRemoved | Should -Be 1
 
             # File in excluded directory should remain
-            Test-Path (Join-Path $script:dirExcludeTest 'KeepMe/file_keep.txt') | Should -Be $true
+            Test-Path (Join-Path -Path $script:dirExcludeTest -ChildPath 'KeepMe/file_keep.txt') | Should -Be $true
 
             # File in processed directory should be removed
-            Test-Path (Join-Path $script:dirExcludeTest 'ProcessMe/file_process.txt') | Should -Be $false
+            Test-Path (Join-Path -Path $script:dirExcludeTest -ChildPath 'ProcessMe/file_process.txt') | Should -Be $false
         }
     }
 
     Context 'Empty Directory Removal' {
         BeforeAll {
-            $script:emptyDirTest = Join-Path $TestDrive 'EmptyDirTest'
+            $script:emptyDirTest = Join-Path -Path $TestDrive -ChildPath 'EmptyDirTest'
             New-Item -ItemType Directory -Path $script:emptyDirTest -Force | Out-Null
 
             # Create nested directory structure with old files
-            $subDir1 = Join-Path $script:emptyDirTest 'SubDir1'
-            $subDir2 = Join-Path $subDir1 'SubDir2'
+            $subDir1 = Join-Path -Path $script:emptyDirTest -ChildPath 'SubDir1'
+            $subDir2 = Join-Path -Path $subDir1 -ChildPath 'SubDir2'
             New-Item -ItemType Directory -Path $subDir1 -Force | Out-Null
             New-Item -ItemType Directory -Path $subDir2 -Force | Out-Null
 
             # Add old file in deepest directory
-            $file = Join-Path $subDir2 'old_file.txt'
+            $file = Join-Path -Path $subDir2 -ChildPath 'old_file.txt'
             'content' | Set-Content -Path $file
             (Get-Item $file).LastWriteTime = (Get-Date).AddDays(-30)
 
             # Create another directory with both old and new files
-            $mixedDir = Join-Path $script:emptyDirTest 'MixedDir'
+            $mixedDir = Join-Path -Path $script:emptyDirTest -ChildPath 'MixedDir'
             New-Item -ItemType Directory -Path $mixedDir -Force | Out-Null
 
-            $oldFile = Join-Path $mixedDir 'old.txt'
-            $newFile = Join-Path $mixedDir 'new.txt'
+            $oldFile = Join-Path -Path $mixedDir -ChildPath 'old.txt'
+            $newFile = Join-Path -Path $mixedDir -ChildPath 'new.txt'
             'old' | Set-Content -Path $oldFile
             'new' | Set-Content -Path $newFile
             (Get-Item $oldFile).LastWriteTime = (Get-Date).AddDays(-30)
@@ -294,21 +294,21 @@ Describe 'Remove-OldFiles Integration Tests' {
             $result.DirectoriesRemoved | Should -BeGreaterOrEqual 2
 
             # Empty directories should be removed
-            Test-Path (Join-Path $script:emptyDirTest 'SubDir1/SubDir2') | Should -Be $false
-            Test-Path (Join-Path $script:emptyDirTest 'SubDir1') | Should -Be $false
+            Test-Path (Join-Path -Path $script:emptyDirTest -ChildPath 'SubDir1/SubDir2') | Should -Be $false
+            Test-Path (Join-Path -Path $script:emptyDirTest -ChildPath 'SubDir1') | Should -Be $false
 
             # Directory with remaining files should exist
-            Test-Path (Join-Path $script:emptyDirTest 'MixedDir') | Should -Be $true
-            Test-Path (Join-Path $script:emptyDirTest 'MixedDir/new.txt') | Should -Be $true
+            Test-Path (Join-Path -Path $script:emptyDirTest -ChildPath 'MixedDir') | Should -Be $true
+            Test-Path (Join-Path -Path $script:emptyDirTest -ChildPath 'MixedDir/new.txt') | Should -Be $true
         }
 
         It 'Should not remove directories when flag not set' {
             # Create new test structure
-            $noRemoveDir = Join-Path $TestDrive 'NoRemoveDir'
-            $subDir = Join-Path $noRemoveDir 'SubDir'
+            $noRemoveDir = Join-Path -Path $TestDrive -ChildPath 'NoRemoveDir'
+            $subDir = Join-Path -Path $noRemoveDir -ChildPath 'SubDir'
             New-Item -ItemType Directory -Path $subDir -Force | Out-Null
 
-            $file = Join-Path $subDir 'old.txt'
+            $file = Join-Path -Path $subDir -ChildPath 'old.txt'
             'content' | Set-Content -Path $file
             (Get-Item $file).LastWriteTime = (Get-Date).AddDays(-30)
 
@@ -326,17 +326,17 @@ Describe 'Remove-OldFiles Integration Tests' {
 
     Context 'Force Parameter with Read-Only Files' {
         BeforeAll {
-            $script:forceTestDir = Join-Path $TestDrive 'ForceTest'
+            $script:forceTestDir = Join-Path -Path $TestDrive -ChildPath 'ForceTest'
             New-Item -ItemType Directory -Path $script:forceTestDir -Force | Out-Null
 
             # Create read-only file
-            $readOnlyFile = Join-Path $script:forceTestDir 'readonly.txt'
+            $readOnlyFile = Join-Path -Path $script:forceTestDir -ChildPath 'readonly.txt'
             'readonly content' | Set-Content -Path $readOnlyFile
             (Get-Item $readOnlyFile).LastWriteTime = (Get-Date).AddDays(-30)
             Set-ItemProperty -Path $readOnlyFile -Name IsReadOnly -Value $true
 
             # Create normal file
-            $normalFile = Join-Path $script:forceTestDir 'normal.txt'
+            $normalFile = Join-Path -Path $script:forceTestDir -ChildPath 'normal.txt'
             'normal content' | Set-Content -Path $normalFile
             (Get-Item $normalFile).LastWriteTime = (Get-Date).AddDays(-30)
         }
@@ -357,13 +357,13 @@ Describe 'Remove-OldFiles Integration Tests' {
 
             # Only normal file should be removed
             $result.FilesRemoved | Should -Be 1
-            Test-Path (Join-Path $script:forceTestDir 'readonly.txt') | Should -Be $true
-            Test-Path (Join-Path $script:forceTestDir 'normal.txt') | Should -Be $false
+            Test-Path (Join-Path -Path $script:forceTestDir -ChildPath 'readonly.txt') | Should -Be $true
+            Test-Path (Join-Path -Path $script:forceTestDir -ChildPath 'normal.txt') | Should -Be $false
         }
 
         It 'Should remove read-only files with Force' {
             # Recreate the read-only file
-            $readOnlyFile = Join-Path $script:forceTestDir 'readonly.txt'
+            $readOnlyFile = Join-Path -Path $script:forceTestDir -ChildPath 'readonly.txt'
             if (Test-Path $readOnlyFile)
             {
                 (Get-Item $readOnlyFile).IsReadOnly = $false
@@ -382,16 +382,16 @@ Describe 'Remove-OldFiles Integration Tests' {
 
     Context 'Pipeline Input' {
         BeforeAll {
-            $script:pipelineDir1 = Join-Path $TestDrive 'Pipeline1'
-            $script:pipelineDir2 = Join-Path $TestDrive 'Pipeline2'
+            $script:pipelineDir1 = Join-Path -Path $TestDrive -ChildPath 'Pipeline1'
+            $script:pipelineDir2 = Join-Path -Path $TestDrive -ChildPath 'Pipeline2'
 
             New-Item -ItemType Directory -Path $script:pipelineDir1 -Force | Out-Null
             New-Item -ItemType Directory -Path $script:pipelineDir2 -Force | Out-Null
 
             # Create old files in both directories
             1..2 | ForEach-Object {
-                $file1 = Join-Path $script:pipelineDir1 "file$_.txt"
-                $file2 = Join-Path $script:pipelineDir2 "file$_.txt"
+                $file1 = Join-Path -Path $script:pipelineDir1 -ChildPath "file$_.txt"
+                $file2 = Join-Path -Path $script:pipelineDir2 -ChildPath "file$_.txt"
                 'content' | Set-Content -Path $file1
                 'content' | Set-Content -Path $file2
                 (Get-Item $file1).LastWriteTime = (Get-Date).AddDays(-30)
@@ -417,7 +417,7 @@ Describe 'Remove-OldFiles Integration Tests' {
 
     Context 'Error Handling' {
         It 'Should handle non-existent paths gracefully' {
-            $nonExistent = Join-Path $TestDrive 'DoesNotExist'
+            $nonExistent = Join-Path -Path $TestDrive -ChildPath 'DoesNotExist'
 
             $result = Remove-OldFiles -Path $nonExistent -OlderThan 1 -ErrorAction SilentlyContinue
 
@@ -425,12 +425,12 @@ Describe 'Remove-OldFiles Integration Tests' {
         }
 
         It 'Should continue processing after individual file errors' {
-            $errorTestDir = Join-Path $TestDrive 'ErrorTest'
+            $errorTestDir = Join-Path -Path $TestDrive -ChildPath 'ErrorTest'
             New-Item -ItemType Directory -Path $errorTestDir -Force | Out-Null
 
             # Create files
-            $file1 = Join-Path $errorTestDir 'file1.txt'
-            $file2 = Join-Path $errorTestDir 'file2.txt'
+            $file1 = Join-Path -Path $errorTestDir -ChildPath 'file1.txt'
+            $file2 = Join-Path -Path $errorTestDir -ChildPath 'file2.txt'
             'content1' | Set-Content -Path $file1
             'content2' | Set-Content -Path $file2
             (Get-Item $file1).LastWriteTime = (Get-Date).AddDays(-30)

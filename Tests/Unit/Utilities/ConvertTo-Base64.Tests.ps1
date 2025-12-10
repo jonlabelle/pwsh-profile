@@ -86,7 +86,7 @@ Describe 'ConvertTo-Base64' -Tag 'Unit' {
 
     Context 'File Input' {
         BeforeEach {
-            $script:testFile = Join-Path $TestDrive 'test-input.txt'
+            $script:testFile = Join-Path -Path $TestDrive -ChildPath 'test-input.txt'
         }
 
         It 'Should encode file content' {
@@ -110,7 +110,7 @@ Describe 'ConvertTo-Base64' -Tag 'Unit' {
         }
 
         It 'Should throw error for non-existent file' {
-            { ConvertTo-Base64 -Path (Join-Path $TestDrive 'nonexistent.txt') } |
+            { ConvertTo-Base64 -Path (Join-Path -Path $TestDrive -ChildPath 'nonexistent.txt') } |
             Should -Throw -ErrorId 'ParameterArgumentValidationError*'
         }
 
@@ -121,7 +121,7 @@ Describe 'ConvertTo-Base64' -Tag 'Unit' {
         }
 
         It 'Should handle file paths with spaces' {
-            $fileWithSpaces = Join-Path $TestDrive 'test file with spaces.txt'
+            $fileWithSpaces = Join-Path -Path $TestDrive -ChildPath 'test file with spaces.txt'
             'Content' | Set-Content -Path $fileWithSpaces -NoNewline
 
             $result = ConvertTo-Base64 -Path $fileWithSpaces
@@ -153,7 +153,7 @@ Describe 'ConvertTo-Base64' -Tag 'Unit' {
         It 'Should not allow both String and File parameter sets' {
             # Parameter sets are mutually exclusive - Path takes precedence
             # This just verifies the function works with File parameter set
-            $testFile = Join-Path $TestDrive 'test.txt'
+            $testFile = Join-Path -Path $TestDrive -ChildPath 'test.txt'
             'Test' | Set-Content -Path $testFile -NoNewline
 
             $result = ConvertTo-Base64 -Path $testFile
