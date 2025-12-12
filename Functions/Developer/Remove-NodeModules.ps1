@@ -85,6 +85,9 @@ function Remove-NodeModules
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-NodeModules.ps1
 
     .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-NodeModules.ps1
+
+    .LINK
         https://docs.npmjs.com/cli/v9/commands/npm-install
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]

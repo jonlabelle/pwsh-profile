@@ -228,6 +228,9 @@ function Import-DotEnv
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Import-DotEnv.ps1
+
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Import-DotEnv.ps1
     #>
     [CmdletBinding(DefaultParameterSetName = 'Load')]
     [OutputType([System.Management.Automation.PSCustomObject])]

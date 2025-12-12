@@ -90,6 +90,9 @@ function ConvertTo-Base64
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/ConvertTo-Base64.ps1
+
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/ConvertTo-Base64.ps1
     #>
     [CmdletBinding(DefaultParameterSetName = 'String')]
     [OutputType([String])]

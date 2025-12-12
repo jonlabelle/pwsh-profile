@@ -265,6 +265,9 @@ function Search-FileContent
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Search-FileContent.ps1
+
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Search-FileContent.ps1
     #>
     [CmdletBinding(DefaultParameterSetName = 'Default')]
     [OutputType([PSCustomObject])]

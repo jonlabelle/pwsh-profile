@@ -379,6 +379,9 @@
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Show-NetworkLatencyGraph.ps1
+
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Show-NetworkLatencyGraph.ps1
     #>
     [CmdletBinding()]
     [OutputType([String], ParameterSetName = 'Data')]

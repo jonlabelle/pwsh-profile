@@ -353,6 +353,9 @@ function Replace-StringInFile
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Replace-StringInFile.ps1
+
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Replace-StringInFile.ps1
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '')]
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]

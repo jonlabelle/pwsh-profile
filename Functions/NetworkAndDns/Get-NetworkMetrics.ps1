@@ -246,6 +246,9 @@
     .NOTES
         Author: Jon LaBelle
         License: MIT
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-NetworkMetrics.ps1
+
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-NetworkMetrics.ps1
     #>
     [CmdletBinding()]

@@ -202,6 +202,9 @@ function Get-SystemInfo
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Get-SystemInfo.ps1
+
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Get-SystemInfo.ps1
     #>
     [CmdletBinding(ConfirmImpact = 'Low')]
     [OutputType([System.Object[]])]

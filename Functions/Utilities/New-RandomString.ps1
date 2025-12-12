@@ -125,6 +125,9 @@ function New-RandomString
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/New-RandomString.ps1
 
     .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/New-RandomString.ps1
+
+    .LINK
         https://jonlabelle.com/snippets/view/powershell/generate-random-string-in-powershell
     #>
     [CmdletBinding()]

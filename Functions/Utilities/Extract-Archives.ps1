@@ -97,6 +97,9 @@ function Extract-Archives
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Extract-Archives.ps1
+
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Extract-Archives.ps1
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '')]
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]

@@ -172,6 +172,9 @@ function ConvertFrom-JwtToken
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Security/ConvertFrom-JwtToken.ps1
+
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Security/ConvertFrom-JwtToken.ps1
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]

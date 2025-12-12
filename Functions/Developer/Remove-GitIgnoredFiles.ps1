@@ -115,7 +115,9 @@ function Remove-GitIgnoredFiles
 
     .LINK
         https://git-scm.com/docs/git-clean
-    #>
+        .LINK
+            https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-GitIgnoredFiles.ps1
+        #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([PSCustomObject])]

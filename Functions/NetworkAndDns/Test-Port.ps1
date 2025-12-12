@@ -124,6 +124,9 @@ function Test-Port
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Test-Port.ps1
+
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Test-Port.ps1
     #>
     [CmdletBinding(ConfirmImpact = 'Low')]
     [OutputType([System.Object[]])]

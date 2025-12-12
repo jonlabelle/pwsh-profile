@@ -170,6 +170,9 @@ function Test-TlsProtocol
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Test-TlsProtocol.ps1
+
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Test-TlsProtocol.ps1
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]

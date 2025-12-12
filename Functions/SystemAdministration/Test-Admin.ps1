@@ -114,6 +114,9 @@ function Test-Admin
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Test-Admin.ps1
 
     .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Test-Admin.ps1
+
+    .LINK
         https://jonlabelle.com/snippets/view/powershell/check-if-the-current-user-is-an-administrator
 
     .LINK

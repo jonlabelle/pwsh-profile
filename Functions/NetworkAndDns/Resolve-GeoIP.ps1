@@ -112,6 +112,9 @@ function Resolve-GeoIP
 
         Author: Jon LaBelle
         License: MIT
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Resolve-GeoIP.ps1
+
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Resolve-GeoIP.ps1
     #>
     [CmdletBinding()]

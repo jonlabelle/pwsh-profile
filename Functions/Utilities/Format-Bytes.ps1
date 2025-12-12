@@ -213,7 +213,11 @@ function Format-Bytes
 
         Author: Jon LaBelle
         License: MIT
+
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Format-Bytes.ps1
+
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Format-Bytes.ps1
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]

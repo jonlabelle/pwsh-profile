@@ -63,8 +63,11 @@ function Test-DnsNameResolution
     .NOTES
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Test-DnsNameResolution.ps1
-  #>
+          Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Test-DnsNameResolution.ps1
+
+        .LINK
+          https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Test-DnsNameResolution.ps1
+      #>
 
     [CmdletBinding()]
     [OutputType([System.Boolean])]

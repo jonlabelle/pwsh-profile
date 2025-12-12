@@ -124,6 +124,9 @@ function Test-HttpResponse
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Test-HttpResponse.ps1
+
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Test-HttpResponse.ps1
     #>
     [CmdletBinding()]
     [OutputType([System.Management.Automation.PSCustomObject])]

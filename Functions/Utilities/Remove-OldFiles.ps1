@@ -110,6 +110,9 @@ function Remove-OldFiles
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Remove-OldFiles.ps1
 
     .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Remove-OldFiles.ps1
+
+    .LINK
         https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.management/remove-item
     #>
     [CmdletBinding(SupportsShouldProcess)]

@@ -62,6 +62,9 @@ function Test-ProfileUpdate
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ProfileManagement/Test-ProfileUpdate.ps1
 
     .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ProfileManagement/Test-ProfileUpdate.ps1
+
+    .LINK
         https://github.com/jonlabelle/pwsh-profile
     #>
 

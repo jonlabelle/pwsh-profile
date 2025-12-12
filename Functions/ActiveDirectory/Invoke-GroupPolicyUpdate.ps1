@@ -68,6 +68,9 @@ function Invoke-GroupPolicyUpdate
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ActiveDirectory/Invoke-GroupPolicyUpdate.ps1
 
     .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ActiveDirectory/Invoke-GroupPolicyUpdate.ps1
+
+    .LINK
         https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/gpupdate
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]

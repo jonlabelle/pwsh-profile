@@ -118,6 +118,9 @@ function Start-KeepAlive
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Start-KeepAlive.ps1
+
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Start-KeepAlive.ps1
     #>
     #
     [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingEmptyCatchBlock', '', Justification = '')]

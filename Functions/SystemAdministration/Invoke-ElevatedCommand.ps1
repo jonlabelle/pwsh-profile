@@ -94,6 +94,9 @@ function Invoke-ElevatedCommand
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Invoke-ElevatedCommand.ps1
 
     .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Invoke-ElevatedCommand.ps1
+
+    .LINK
         https://www.leeholmes.com/blog/
     #>
     param(

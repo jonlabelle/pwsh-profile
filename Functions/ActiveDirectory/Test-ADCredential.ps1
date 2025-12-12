@@ -74,7 +74,9 @@ function Test-ADCredential
         [ValidateNotNullOrEmpty()]
         [PSCredential]
         $Credential
-    )
+                Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ActiveDirectory/Test-ADCredential.ps1
+            .LINK
+                https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ActiveDirectory/Test-ADCredential.ps1
 
     begin
     {

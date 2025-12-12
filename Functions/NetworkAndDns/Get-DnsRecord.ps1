@@ -142,6 +142,9 @@ function Get-DnsRecord
 
         Author: Jon LaBelle
         License: MIT
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-DnsRecord.ps1
+
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-DnsRecord.ps1
     #>
     [CmdletBinding(DefaultParameterSetName = 'DoH')]

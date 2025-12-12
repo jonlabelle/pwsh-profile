@@ -154,6 +154,9 @@ function Get-IPAddress
 
         Author: Jon LaBelle
         License: MIT
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-IPAddress.ps1
+
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-IPAddress.ps1
     #>
     [CmdletBinding(DefaultParameterSetName = 'Local')]

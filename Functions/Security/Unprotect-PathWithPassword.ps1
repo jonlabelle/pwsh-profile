@@ -146,6 +146,9 @@ function Unprotect-PathWithPassword
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Security/Unprotect-PathWithPassword.ps1
+
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Security/Unprotect-PathWithPassword.ps1
     #>
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([PSCustomObject])]

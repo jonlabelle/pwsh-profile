@@ -152,6 +152,9 @@ function Update-AllModules
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Update-AllModules.ps1
 
     .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Update-AllModules.ps1
+
+    .LINK
         https://jonlabelle.com/snippets/view/markdown/powershellget-commands
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]

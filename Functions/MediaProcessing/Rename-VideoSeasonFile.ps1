@@ -93,6 +93,9 @@ function Rename-VideoSeasonFile
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/MediaProcessing/Rename-VideoSeasonFile.ps1
 
     .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/MediaProcessing/Rename-VideoSeasonFile.ps1
+
+    .LINK
         https://jonlabelle.com/snippets/view/powershell/rename-video-season-sequence-files-in-powershell
     #>
     [CmdletBinding(SupportsShouldProcess)]

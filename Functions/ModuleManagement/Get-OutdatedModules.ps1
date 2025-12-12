@@ -90,6 +90,8 @@ function Get-OutdatedModules
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Get-OutdatedModules.ps1
 
     .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Get-OutdatedModules.ps1
+    .LINK
         https://jonlabelle.com/snippets/view/markdown/powershellget-commands
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]

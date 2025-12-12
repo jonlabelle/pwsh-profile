@@ -218,6 +218,9 @@ function Send-TcpRequest
 
         Author: Jon LaBelle
         License: MIT
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Send-TcpRequest.ps1
+
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Send-TcpRequest.ps1
     #>
     [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingEmptyCatchBlock', '', Justification = 'Cleanup operations in finally block should not throw errors')]

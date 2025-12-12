@@ -86,6 +86,9 @@ function Get-CommandAlias
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Get-CommandAlias.ps1
 
     .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Get-CommandAlias.ps1
+
+    .LINK
         https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_profiles
 
     .LINK

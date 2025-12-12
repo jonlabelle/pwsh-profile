@@ -25,6 +25,9 @@ function Update-Profile
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ProfileManagement/Update-Profile.ps1
 
     .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ProfileManagement/Update-Profile.ps1
+
+    .LINK
         https://github.com/jonlabelle/pwsh-profile
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]

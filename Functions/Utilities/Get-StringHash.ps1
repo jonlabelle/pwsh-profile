@@ -124,6 +124,9 @@ function Get-StringHash
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Get-StringHash.ps1
 
     .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Get-StringHash.ps1
+
+    .LINK
         Get-FileHash
     #>
     [CmdletBinding()]

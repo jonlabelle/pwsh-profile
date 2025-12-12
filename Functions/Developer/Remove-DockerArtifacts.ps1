@@ -105,7 +105,10 @@ function Remove-DockerArtifacts
 
         $stats = @{
             ContainersPruned = $false
-            VolumesPruned = $false
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-DockerArtifacts.ps1
+
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-DockerArtifacts.ps1
             ImageMode = if ($DanglingImagesOnly) { 'DanglingOnly' } else { 'AllUnused' }
             SpaceFreedBytes = [int64]0
             EstimatedReclaimableBytes = [int64]0

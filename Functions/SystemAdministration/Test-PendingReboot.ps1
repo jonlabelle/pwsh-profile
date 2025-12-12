@@ -121,6 +121,9 @@ function Test-PendingReboot
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Test-PendingReboot.ps1
 
     .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Test-PendingReboot.ps1
+
+    .LINK
         https://github.com/adbertram/Random-PowerShell-Work/blob/master/Random%20Stuff/Test-PendingReboot.ps1
     #>
     [CmdletBinding()]

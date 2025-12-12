@@ -74,6 +74,9 @@ function Remove-OldModules
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Remove-OldModules.ps1
 
     .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Remove-OldModules.ps1
+
+    .LINK
         https://luke.geek.nz/powershell/remove-old-powershell-modules-versions-using-powershell/
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
