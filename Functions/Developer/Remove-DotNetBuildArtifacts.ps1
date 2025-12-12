@@ -232,35 +232,34 @@ function Remove-DotNetBuildArtifacts
                         {
                             # Calculate folder size before removal (unless disabled)
                             $folderSize = [int64]0
+                            if (-not $NoSizeCalculation)
+                            {
+                                try
+                                {
+                                    $getSizeParams = @{
+                                        Path = $folder.FullName
+                                        Recurse = $true
+                                        File = $true
+                                        ErrorAction = 'SilentlyContinue'
+                                    }
+                                    # Disable progress bar when calculating folder size
+                                    if ($PSVersionTable.PSVersion.Major -ge 7 -and $PSVersionTable.PSVersion.Minor -ge 4)
+                                    {
+                                        $getSizeParams['ProgressAction'] = 'SilentlyContinue'
+                                    }
+                                    $folderSize = (Get-ChildItem @getSizeParams |
+                                        Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
+                                    if ($null -eq $folderSize) { $folderSize = 0 }
+                                }
+                                catch
+                                {
+                                    Write-Verbose "Could not calculate size for: $($folder.FullName)"
+                                    $folderSize = 0
+                                }
+                            }
+
                             if ($PSCmdlet.ShouldProcess($folder.FullName, 'Remove build artifact folder'))
                             {
-                                # Calculate size for reporting (unless -NoSizeCalculation is specified)
-                                if (-not $NoSizeCalculation)
-                                {
-                                    try
-                                    {
-                                        $getSizeParams = @{
-                                            Path = $folder.FullName
-                                            Recurse = $true
-                                            File = $true
-                                            ErrorAction = 'SilentlyContinue'
-                                        }
-                                        # Disable progress bar when calculating folder size
-                                        if ($PSVersionTable.PSVersion.Major -ge 7 -and $PSVersionTable.PSVersion.Minor -ge 4)
-                                        {
-                                            $getSizeParams['ProgressAction'] = 'SilentlyContinue'
-                                        }
-                                        $folderSize = (Get-ChildItem @getSizeParams |
-                                            Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
-                                        if ($null -eq $folderSize) { $folderSize = 0 }
-                                    }
-                                    catch
-                                    {
-                                        Write-Verbose "Could not calculate size for: $($folder.FullName)"
-                                        $folderSize = 0
-                                    }
-                                }
-
                                 # Remove the folder
                                 $removeParams = @{
                                     Path = $folder.FullName
@@ -282,6 +281,7 @@ function Remove-DotNetBuildArtifacts
                             else
                             {
                                 Write-Host "WhatIf: Would remove $($folder.FullName)" -ForegroundColor Yellow
+                                $stats.TotalSpaceFreed += $folderSize
                             }
                         }
                         catch
