@@ -30,10 +30,8 @@ jobs:
         shell: pwsh
         run: |
           Invoke-ScriptAnalyzer -Settings PSScriptAnalyzerSettings.psd1 -Path . -Recurse -OutVariable issues
-
           $errors = $issues.Where({$_.Severity -eq 'Error'})
           $warnings = $issues.Where({$_.Severity -eq 'Warning'})
-
           if ($errors) {
               Write-Error "There were $($errors.Count) errors and $($warnings.Count) warnings total." -ErrorAction Stop
           }
@@ -43,14 +41,12 @@ jobs:
 
       - name: Install Pester module
         shell: pwsh
-        run: |
-          Install-Module Pester -Force -SkipPublisherCheck -ErrorAction Stop
+        run: Install-Module Pester -Force -SkipPublisherCheck -ErrorAction Stop
 
       - name: Run Pester tests
         shell: pwsh
         run: |
           ./Invoke-Tests.ps1 -TestType All -OutputFormat Normal
-
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Tests failed with exit code $LASTEXITCODE" -ErrorAction Stop
           }
@@ -80,10 +76,8 @@ jobs:
         shell: powershell
         run: |
           Invoke-ScriptAnalyzer -Settings PSScriptAnalyzerSettings.psd1 -Path . -Recurse -OutVariable issues
-
           $errors = $issues.Where({$_.Severity -eq 'Error'})
           $warnings = $issues.Where({$_.Severity -eq 'Warning'})
-
           if ($errors) {
               Write-Error "There were $($errors.Count) errors and $($warnings.Count) warnings total." -ErrorAction Stop
           }
@@ -93,8 +87,7 @@ jobs:
 
       - name: Install Pester module
         shell: powershell
-        run: |
-          Install-Module Pester -Force -SkipPublisherCheck -ErrorAction Stop
+        run: Install-Module Pester -Force -SkipPublisherCheck -ErrorAction Stop
 
       - name: Run Pester tests
         shell: powershell
