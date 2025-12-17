@@ -1,4 +1,4 @@
-function ConvertFrom-JwtToken
+﻿function ConvertFrom-JwtToken
 {
     <#
     .SYNOPSIS
