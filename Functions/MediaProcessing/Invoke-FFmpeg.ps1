@@ -57,6 +57,12 @@ function Invoke-FFmpeg
         If specified, passes through audio without re-encoding while still processing video according to other settings.
         This is faster but doesn't apply Samsung-friendly audio encoding settings.
 
+    .PARAMETER ClearMetadata
+        If specified, removes all metadata from the output file. This includes title, artist, album,
+        comment, creation time, and other metadata tags. Useful for creating clean output files
+        without any identifying information or unnecessary metadata that can increase file size.
+        Note: Essential stream metadata required for playback is preserved.
+
     .PARAMETER IncludeSubtitles
         Controls subtitle handling behavior. Valid values are:
         - 'Auto': Include text-based subtitles only (default for MP4 compatibility)
@@ -165,6 +171,16 @@ function Invoke-FFmpeg
         PS > Invoke-FFmpeg -Path "C:\Videos" -IncludeSubtitles "All" -PassthroughVideo -PassthroughAudio
 
         Processes videos with passthrough for video/audio and attempts to include all subtitle types (may fail with bitmap subtitles in MP4).
+
+    .EXAMPLE
+        PS > Invoke-FFmpeg -Path "movie.mkv" -ClearMetadata
+
+        Converts a movie file using default H.264 encoding and removes all metadata from the output file.
+
+    .EXAMPLE
+        PS > Invoke-FFmpeg -Path "C:\Videos" -Recurse -ClearMetadata -VideoEncoder "H.265"
+
+        Recursively processes all videos with H.265 encoding and strips all metadata tags for clean output files.
 
     .EXAMPLE
         PS > Invoke-FFmpeg -Path "C:\Movies" -VideoEncoder "H.264" -Verbose
@@ -280,6 +296,10 @@ function Invoke-FFmpeg
         [Parameter()]
         [switch]
         $PassthroughAudio,
+
+        [Parameter()]
+        [switch]
+        $ClearMetadata,
 
         [Parameter()]
         [ValidateSet('Auto', 'All', 'None')]
@@ -1129,6 +1149,12 @@ function Invoke-FFmpeg
                     $ffmpegArgs += $subtitleStrategy.SubtitleArgs
                 }
 
+                # Clear metadata if requested
+                if ($ClearMetadata)
+                {
+                    $ffmpegArgs += @('-map_metadata', '-1')      # Strip all metadata
+                }
+
                 $ffmpegArgs += @('-movflags', '+faststart')         # Web-optimized for progressive download
             }
             elseif ($PassthroughVideo)
@@ -1149,6 +1175,12 @@ function Invoke-FFmpeg
                 if ($subtitleStrategy.IncludeSubtitles)
                 {
                     $ffmpegArgs += $subtitleStrategy.SubtitleArgs
+                }
+
+                # Clear metadata if requested
+                if ($ClearMetadata)
+                {
+                    $ffmpegArgs += @('-map_metadata', '-1')      # Strip all metadata
                 }
 
                 $ffmpegArgs += @('-movflags', '+faststart')         # Web-optimized for progressive download
@@ -1196,6 +1228,12 @@ function Invoke-FFmpeg
                     $ffmpegArgs += $subtitleStrategy.SubtitleArgs
                 }
 
+                # Clear metadata if requested
+                if ($ClearMetadata)
+                {
+                    $ffmpegArgs += @('-map_metadata', '-1')      # Strip all metadata
+                }
+
                 $ffmpegArgs += @('-movflags', '+faststart')         # Web-optimized for progressive download
             }
             else # H.265
@@ -1235,6 +1273,12 @@ function Invoke-FFmpeg
                 if ($subtitleStrategy.IncludeSubtitles)
                 {
                     $ffmpegArgs += $subtitleStrategy.SubtitleArgs
+                }
+
+                # Clear metadata if requested
+                if ($ClearMetadata)
+                {
+                    $ffmpegArgs += @('-map_metadata', '-1')      # Strip all metadata
                 }
 
                 $ffmpegArgs += @('-movflags', '+faststart')         # Web-optimized for progressive download
