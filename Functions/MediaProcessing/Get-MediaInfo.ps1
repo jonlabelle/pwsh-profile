@@ -1,20 +1,20 @@
-function Get-VideoDetails
+function Get-MediaInfo
 {
     <#
     .SYNOPSIS
-        Retrieves detailed information about video files.
+        Retrieves detailed information about media files (video and audio).
 
     .DESCRIPTION
-        Retrieves comprehensive metadata and properties of video files using ffprobe.
+        Retrieves comprehensive metadata and properties of media files using ffprobe.
         Returns file information, video codec details, audio codec details, duration,
-        resolution, bitrate, frame rate, and more.
+        resolution, bitrate, frame rate, and more. Supports both video and audio formats.
 
         Requires ffprobe to be installed and available in PATH or specified via -FFprobePath.
 
     .PARAMETER Path
-        The path to the video file(s) to analyze. Accepts wildcards and pipeline input.
+        The path to the media file(s) to analyze. Accepts wildcards and pipeline input.
         Supports both absolute and relative paths. If not specified, searches recursively
-        in the current working directory for common video file extensions.
+        in the current working directory for common media file extensions (video and audio).
 
     .PARAMETER Extended
         If specified, includes additional metadata such as aspect ratio, color space,
@@ -23,10 +23,10 @@ function Get-VideoDetails
     .PARAMETER NoEmptyProps
         Excludes properties with null or empty values from the output. This provides cleaner results by only
         showing properties that have actual values, which is particularly useful when some metadata fields
-        are not populated in the video file.
+        are not populated in the media file.
 
     .PARAMETER Recurse
-        If specified, enables recursive searching when processing directories to analyze video files
+        If specified, enables recursive searching when processing directories to analyze media files
         in all subdirectories. By default, search is non-recursive (current directory only).
 
     .PARAMETER Exclude
@@ -39,13 +39,13 @@ function Get-VideoDetails
         then falls back to platform-specific default locations.
 
     .EXAMPLE
-        PS > Get-VideoDetails
+        PS > Get-MediaInfo
 
-        Searches the current working directory (non-recursive) for video files and retrieves
-        detailed information for all found video files (mp4, mkv, avi, mov, etc.).
+        Searches the current working directory (non-recursive) for media files and retrieves
+        detailed information for all found media files (video: mp4, mkv, avi, mov; audio: mp3, flac, etc.).
 
     .EXAMPLE
-        PS > Get-VideoDetails -Path "movie.mp4"
+        PS > Get-MediaInfo -Path "movie.mp4"
 
         Name            : movie.mp4
         FullPath        : /Users/jon/movies/movie.mp4
@@ -64,37 +64,37 @@ function Get-VideoDetails
         PixelFormat     : yuv420p
         VideoBitrate    : 6,503 kbps
 
-        Retrieves comprehensive video information for movie.mp4.
+        Retrieves comprehensive media information for movie.mp4.
 
     .EXAMPLE
-        PS > Get-VideoDetails -Path "C:\Videos" -Recurse
+        PS > Get-MediaInfo -Path "C:\Videos" -Recurse
 
-        Searches recursively through the C:\Videos directory for all video files and retrieves
-        detailed information for each found video file.
+        Searches recursively through the C:\Videos directory for all media files and retrieves
+        detailed information for each found media file.
 
     .EXAMPLE
-        PS > Get-VideoDetails -Path "C:\Videos\*.mkv"
+        PS > Get-MediaInfo -Path "C:\Videos\*.mkv"
 
         Retrieves detailed information for all .mkv files in the specified directory.
 
     .EXAMPLE
-        PS > Get-ChildItem -Path "C:\Videos" -Filter "*.mp4" | Get-VideoDetails
+        PS > Get-ChildItem -Path "C:\Videos" -Filter "*.mp4" | Get-MediaInfo
 
         Retrieves detailed information for all .mp4 files via pipeline input.
 
     .EXAMPLE
-        PS > Get-VideoDetails -Path "C:\Videos"
+        PS > Get-MediaInfo -Path "C:\Videos"
 
-        Searches only the C:\Videos directory (non-recursive) for video files and retrieves
-        detailed information for each found video file.
-
-    .EXAMPLE
-        PS > Get-VideoDetails -Path "movie.mp4" -FFprobePath "/opt/ffmpeg/bin/ffprobe"
-
-        Uses a custom ffprobe path to retrieve video information.
+        Searches only the C:\Videos directory (non-recursive) for media files and retrieves
+        detailed information for each found media file.
 
     .EXAMPLE
-        PS > Get-VideoDetails -Path "movie.mp4" -Extended
+        PS > Get-MediaInfo -Path "movie.mp4" -FFprobePath "/opt/ffmpeg/bin/ffprobe"
+
+        Uses a custom ffprobe path to retrieve media information.
+
+    .EXAMPLE
+        PS > Get-MediaInfo -Path "movie.mp4" -Extended
 
         Name                  : movie.mp4
         FullPath              : /Users/jon/movies/movie.mp4
@@ -145,12 +145,12 @@ function Get-VideoDetails
         Encoder               : Lavf59.16.100
         CreationTime          :
 
-        Retrieves comprehensive video information including extended metadata like aspect ratio,
+        Retrieves comprehensive media information including extended metadata like aspect ratio,
         color space, codec profile/level, and HDR information.
 
     .OUTPUTS
         PSCustomObject
-        Returns a custom object with comprehensive video properties.
+        Returns a custom object with comprehensive media properties.
 
         Standard properties:
         - Name, FullPath, SizeBytes, SizeFormatted, Extension, CreatedDate, ModifiedDate
@@ -176,17 +176,17 @@ function Get-VideoDetails
     .NOTES
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/MediaProcessing/Get-VideoDetails.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/MediaProcessing/Get-MediaInfo.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/MediaProcessing/Get-VideoDetails.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/MediaProcessing/Get-MediaInfo.ps1
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
     param(
         [Parameter(Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [Alias('FilePath', 'VideoFile', 'FullName')]
+        [Alias('FilePath', 'MediaFile', 'FullName')]
         [ValidateNotNullOrEmpty()]
         [string[]]
         $Path = (Get-Location),
@@ -215,7 +215,7 @@ function Get-VideoDetails
 
     begin
     {
-        Write-Verbose 'Starting Get-VideoDetails'
+        Write-Verbose 'Starting Get-MediaInfo'
 
         # Detect platform for cross-platform compatibility
         if ($PSVersionTable.PSVersion.Major -lt 6)
@@ -393,8 +393,8 @@ function Get-VideoDetails
             return $resolvedPath
         }
 
-        # Function to get video information using ffprobe
-        function Get-VideoInfo
+        # Function to get media information using ffprobe
+        function Get-MediaInfo
         {
             param(
                 [System.IO.FileInfo]$FileInfo,
@@ -405,7 +405,7 @@ function Get-VideoDetails
             try
             {
                 # Validate that the file exists and is readable
-                if (-not (Test-Path -Path $FileInfo.FullName -PathType Leaf))
+                if (-not (Test-Path -LiteralPath $FileInfo.FullName -PathType Leaf))
                 {
                     Write-Error "File not found: $($FileInfo.FullName)"
                     return
@@ -768,25 +768,25 @@ function Get-VideoDetails
 
     process
     {
-        foreach ($videoPath in $Path)
+        foreach ($mediaPath in $Path)
         {
             try
             {
                 # Resolve path (handles ~, relative paths)
-                $resolvedPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($videoPath)
+                $resolvedPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($mediaPath)
 
                 # Check if path exists
-                if (-not (Test-Path -Path $resolvedPath))
+                if (-not (Test-Path -LiteralPath $resolvedPath))
                 {
                     Write-Error "Path not found: '$resolvedPath'"
                     continue
                 }
 
-                $pathItem = Get-Item -Path $resolvedPath -ErrorAction Stop
+                $pathItem = Get-Item -LiteralPath $resolvedPath -ErrorAction Stop
 
                 if ($pathItem.PSIsContainer)
                 {
-                    # Handle directory - search for video files with optional recursion
+                    # Handle directory - search for media files with optional recursion
                     if ($Recurse)
                     {
                         Write-Verbose "Searching directory recursively: $resolvedPath"
@@ -796,11 +796,18 @@ function Get-VideoDetails
                         Write-Verbose "Searching directory (non-recursive): $resolvedPath"
                     }
 
-                    # Common video file extensions
-                    $videoExtensions = @('*.mp4', '*.mkv', '*.avi', '*.mov', '*.wmv', '*.webm', '*.m4v', '*.mpg', '*.mpeg', '*.3gp', '*.ts', '*.mts', '*.m2ts')
+                    # Common video and audio file extensions
+                    $mediaExtensions = @(
+                        # Video formats
+                        '*.mp4', '*.mkv', '*.avi', '*.mov', '*.wmv', '*.flv', '*.webm', '*.m4v',
+                        '*.mpg', '*.mpeg', '*.3gp', '*.ts', '*.mts', '*.m2ts', '*.vob', '*.ogv',
+                        # Audio formats
+                        '*.mp3', '*.m4a', '*.aac', '*.flac', '*.wav', '*.ogg', '*.opus',
+                        '*.wma', '*.alac', '*.ape', '*.ac3', '*.dts', '*.aiff', '*.oga'
+                    )
 
-                    $videoFiles = @()
-                    foreach ($ext in $videoExtensions)
+                    $mediaFiles = @()
+                    foreach ($ext in $mediaExtensions)
                     {
                         if ($Recurse)
                         {
@@ -810,34 +817,34 @@ function Get-VideoDetails
                                 $fullPath = $_.FullName
                                 -not ($Exclude | Where-Object { $fullPath -like "*$_*" })
                             }
-                            $videoFiles += $filteredFiles
+                            $mediaFiles += $filteredFiles
                         }
                         else
                         {
-                            $videoFiles += Get-ChildItem -Path $resolvedPath -Filter $ext -File -ErrorAction SilentlyContinue
+                            $mediaFiles += Get-ChildItem -Path $resolvedPath -Filter $ext -File -ErrorAction SilentlyContinue
                         }
                     }
 
-                    if ($videoFiles.Count -eq 0)
+                    if ($mediaFiles.Count -eq 0)
                     {
                         $searchType = if ($Recurse) { 'directory (recursively)' } else { 'directory' }
-                        Write-Warning "No video files found in $searchType`: '$resolvedPath'"
+                        Write-Warning "No media files found in $searchType`: '$resolvedPath'"
                         continue
                     }
 
                     $searchType = if ($Recurse) { 'directory tree' } else { 'directory' }
-                    Write-Verbose "Found $($videoFiles.Count) video file(s) in $searchType"
+                    Write-Verbose "Found $($mediaFiles.Count) media file(s) in $searchType"
 
-                    foreach ($file in $videoFiles)
+                    foreach ($file in $mediaFiles)
                     {
                         Write-Verbose "Processing: $($file.FullName)"
-                        Get-VideoInfo -FileInfo $file -FFprobeExecutable $resolvedFFprobePath -IncludeExtended $Extended
+                        Get-MediaInfo -FileInfo $file -FFprobeExecutable $resolvedFFprobePath -IncludeExtended $Extended
                     }
                 }
                 else
                 {
                     # Handle individual file or wildcard pattern
-                    $files = Get-Item -Path $resolvedPath -ErrorAction Stop
+                    $files = Get-Item -LiteralPath $resolvedPath -ErrorAction Stop
 
                     foreach ($file in $files)
                     {
@@ -848,19 +855,19 @@ function Get-VideoDetails
                         }
 
                         Write-Verbose "Processing: $($file.FullName)"
-                        Get-VideoInfo -FileInfo $file -FFprobeExecutable $resolvedFFprobePath -IncludeExtended $Extended
+                        Get-MediaInfo -FileInfo $file -FFprobeExecutable $resolvedFFprobePath -IncludeExtended $Extended
                     }
                 }
             }
             catch
             {
-                Write-Error "Error processing '$videoPath': $($_.Exception.Message)"
+                Write-Error "Error processing '$mediaPath': $($_.Exception.Message)"
             }
         }
     }
 
     end
     {
-        Write-Verbose 'Get-VideoDetails completed'
+        Write-Verbose 'Get-MediaInfo completed'
     }
 }

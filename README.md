@@ -481,7 +481,7 @@ The profile includes utility functions organized by category:
 
 ### Media Processing
 
-- **[`Get-VideoDetails`](Functions/MediaProcessing/Get-VideoDetails.ps1)** — Retrieves comprehensive video file metadata using ffprobe
+- **[`Get-MediaInfo`](Functions/MediaProcessing/Get-MediaInfo.ps1)** — Retrieves comprehensive media file metadata (video and audio) using ffprobe
 - **[`Invoke-FFmpeg`](Functions/MediaProcessing/Invoke-FFmpeg.ps1)** — Converts video files using Samsung TV-friendly H.264/H.265 encoding
 - **[`Rename-VideoSeasonFile`](Functions/MediaProcessing/Rename-VideoSeasonFile.ps1)** — Batch renames TV show episode files to a consistent format
 
