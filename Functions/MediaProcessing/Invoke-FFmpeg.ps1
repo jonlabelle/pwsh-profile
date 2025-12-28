@@ -71,7 +71,8 @@ function Invoke-FFmpeg
         Defaults to 'Auto'.
 
         The 'Auto' mode intelligently detects subtitle types and only includes text-based
-        subtitles (SRT, ASS, WebVTT) that are compatible with MP4, while skipping
+        subtitles (SRT, ASS, WebVTT) and closed captions (CEA-608/708) that are compatible
+        with MP4, while skipping
         bitmap subtitles (PGS, DVD) that can cause encoding errors. This resolves
         the common "Subtitle encoding currently only possible from text to text or
         bitmap to bitmap" error when processing files with PGS subtitles.
@@ -668,18 +669,28 @@ function Invoke-FFmpeg
 
                 # Categorize subtitle streams using the detailed subtitle information
                 $textBasedCodecs = @('subrip', 'ass', 'ssa', 'webvtt', 'mov_text', 'srt', 'text')
+                $closedCaptionCodecs = @('eia_608', 'eia_708', 'cea_608', 'cea_708', 'cc_dec', 'scc')
                 $bitmapCodecs = @('hdmv_pgs_subtitle', 'dvd_subtitle', 'pgssub', 'dvdsub', 'pgs')
 
                 $textSubtitles = @()
                 $bitmapSubtitles = @()
+                $closedCaptionSubtitles = @()
 
                 foreach ($subtitle in $mediaInfo.Subtitles)
                 {
-                    if ($subtitle.Codec -in $textBasedCodecs)
+                    $codecName = if ($subtitle.Codec) { $subtitle.Codec.ToLower() } else { '' }
+
+                    if ($codecName -in $closedCaptionCodecs)
+                    {
+                        # Treat closed captions as text-based so they are preserved in the output
+                        $textSubtitles += $subtitle
+                        $closedCaptionSubtitles += $subtitle
+                    }
+                    elseif ($codecName -in $textBasedCodecs)
                     {
                         $textSubtitles += $subtitle
                     }
-                    elseif ($subtitle.Codec -in $bitmapCodecs)
+                    elseif ($codecName -in $bitmapCodecs)
                     {
                         $bitmapSubtitles += $subtitle
                     }
@@ -693,6 +704,11 @@ function Invoke-FFmpeg
                 $warningMessage = $null
                 $subtitleArgs = @()
                 $includeSubtitles = $false
+
+                if ($closedCaptionSubtitles.Count -gt 0)
+                {
+                    Write-Verbose "Detected $($closedCaptionSubtitles.Count) closed caption stream(s); including for output"
+                }
 
                 if ($IncludeSubtitles -eq 'All')
                 {

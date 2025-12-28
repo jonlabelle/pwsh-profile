@@ -140,4 +140,72 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
             $pipelineSupport | Should -Not -BeNullOrEmpty
         }
     }
+
+    Context 'Closed Captions' {
+        BeforeAll {
+            $testRoot = Join-Path -Path $TestDrive -ChildPath 'FFmpegClosedCaptions'
+            New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
+
+            $script:ccVideoPath = Join-Path -Path $testRoot -ChildPath 'cc-source.mkv'
+            Set-Content -Path $script:ccVideoPath -Value 'fake video data'
+
+            $script:ffmpegLogPath = Join-Path -Path $testRoot -ChildPath 'ffmpeg-args.log'
+            $script:fakeFFmpegPath = Join-Path -Path $testRoot -ChildPath 'ffmpeg.ps1'
+            $ffprobeShimPath = Join-Path -Path $testRoot -ChildPath 'ffprobe.ps1'
+
+            # Fake ffmpeg shim writes received arguments to a log file for inspection
+            $ffmpegShimContent = @(
+                'param(',
+                '    [Parameter(ValueFromRemainingArguments = $true)]',
+                '    [string[]]$Args',
+                ')',
+                ("`$Args -join ' ' | Out-File -FilePath '{0}' -Append -Encoding utf8" -f $script:ffmpegLogPath),
+                'exit 0'
+            ) -join [Environment]::NewLine
+            Set-Content -Path $script:fakeFFmpegPath -Value $ffmpegShimContent -Encoding UTF8
+
+            # Provide a stub ffprobe path for dependency resolution
+            Set-Content -Path $ffprobeShimPath -Value '#!/usr/bin/env pwsh' -Encoding UTF8
+        }
+
+        BeforeEach {
+            if (Test-Path -Path $script:ffmpegLogPath)
+            {
+                Remove-Item -Path $script:ffmpegLogPath -Force
+            }
+        }
+
+        It 'Should map closed captions from input to output when subtitles are included' {
+            Mock -CommandName Get-MediaInfo -MockWith {
+                [pscustomobject]@{
+                    Audio = @(
+                        [pscustomobject]@{
+                            Channels = 2
+                            SampleRate = 48000
+                            Codec = 'aac'
+                        }
+                    )
+                    Subtitles = @(
+                        [pscustomobject]@{
+                            Index = 2
+                            Codec = 'eia_608'
+                            CodecLong = 'CEA-608 closed captions'
+                            Language = 'eng'
+                            Title = 'CC'
+                            Forced = $false
+                            Default = $true
+                            HearingImpaired = $false
+                        }
+                    )
+                }
+            }
+
+            Invoke-FFmpeg -Path $script:ccVideoPath -FFmpegPath $script:fakeFFmpegPath -Force | Out-Null
+
+            $loggedArgs = Get-Content -Path $script:ffmpegLogPath
+            $loggedArgs | Should -Not -BeNullOrEmpty
+            ($loggedArgs -join ' ') | Should -Match '-scodec mov_text'
+            ($loggedArgs -join ' ') | Should -Match '-map 0:2'
+        }
+    }
 }
