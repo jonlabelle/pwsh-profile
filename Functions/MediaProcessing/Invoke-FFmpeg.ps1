@@ -591,8 +591,8 @@ function Invoke-FFmpeg
                     param([string]$Reason)
                     return @{
                         IncludeSubtitles = $true
-                        SubtitleArgs = @('-c:s', 'copy', '-map', '0:s?')
-                        WarningMessage = "$Reason - falling back to copying all subtitle streams (may include bitmap subtitles)"
+                        SubtitleArgs = @('-c:s', 'mov_text', '-map', '0:s?')
+                        WarningMessage = "$Reason - falling back to re-encoding all subtitle streams to mov_text (bitmap subtitles may fail in MP4)"
                     }
                 }
 
@@ -656,7 +656,7 @@ function Invoke-FFmpeg
                     else
                     {
                         Write-Verbose 'FFprobe not found - subtitle analysis skipped'
-                        return & $fallbackSubtitleHandling.Invoke('Subtitle analysis unavailable (ffprobe not found)')
+                        return $fallbackSubtitleHandling.Invoke('Subtitle analysis unavailable (ffprobe not found)')
                     }
                 }
 
@@ -665,7 +665,7 @@ function Invoke-FFmpeg
 
                 if (-not $mediaInfo -or -not $mediaInfo.Subtitles -or $mediaInfo.Subtitles.Count -eq 0)
                 {
-                    return & $fallbackSubtitleHandling.Invoke('Subtitle analysis returned no subtitle streams')
+                    return $fallbackSubtitleHandling.Invoke('Subtitle analysis returned no subtitle streams')
                 }
 
                 # Categorize subtitle streams using the detailed subtitle information
@@ -1183,10 +1183,10 @@ function Invoke-FFmpeg
             # Fallback: if subtitle detection failed to produce mapping but subtitles are requested, copy all subtitles
             if ($IncludeSubtitles -ne 'None' -and (-not $subtitleStrategy.IncludeSubtitles -or -not $subtitleStrategy.SubtitleArgs -or $subtitleStrategy.SubtitleArgs.Count -eq 0))
             {
-                Write-Warning 'Subtitle mapping could not be determined from analysis; copying all subtitle streams (-map 0:s? -c:s copy).'
+                Write-Warning 'Subtitle mapping could not be determined from analysis; re-encoding all subtitle streams to mov_text (-map 0:s? -c:s mov_text). Bitmap subtitles may fail.'
                 $subtitleStrategy = @{
                     IncludeSubtitles = $true
-                    SubtitleArgs = @('-c:s', 'copy', '-map', '0:s?')
+                    SubtitleArgs = @('-c:s', 'mov_text', '-map', '0:s?')
                     WarningMessage = $subtitleStrategy.WarningMessage
                 }
             }
