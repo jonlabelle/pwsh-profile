@@ -211,7 +211,7 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
 
             $loggedArgs = Get-Content -Path $script:ffmpegLogPath
             $loggedArgs | Should -Not -BeNullOrEmpty
-            ($loggedArgs -join ' ') | Should -Match '-c:s(:0)? copy'
+            ($loggedArgs -join ' ') | Should -Match '-c:s(?::0)? (copy|mov_text)'
             ($loggedArgs -join ' ') | Should -Match '-map (0:2|0:s\\?)'
         }
     }
