@@ -477,10 +477,10 @@ function Invoke-FFmpeg
                     }
                 }
 
-                # Load Get-VideoDetails if needed
-                Import-DependencyIfNeeded -FunctionName 'Get-VideoDetails' -RelativePath 'Get-VideoDetails.ps1'
+                # Load Get-MediaInfo if needed
+                Import-DependencyIfNeeded -FunctionName 'Get-MediaInfo' -RelativePath 'Get-MediaInfo.ps1'
 
-                # Try to find ffprobe path for Get-VideoDetails
+                # Try to find ffprobe path for Get-MediaInfo
                 $ffprobeExecutable = $FFmpegPath -replace 'ffmpeg(\.exe)?$', 'ffprobe$1'
 
                 if (-not (Test-Path $ffprobeExecutable))
@@ -504,10 +504,10 @@ function Invoke-FFmpeg
                     }
                 }
 
-                # Use Get-VideoDetails to analyze the file
-                $videoDetails = Get-VideoDetails -Path $FilePath -FFprobePath $ffprobeExecutable -Extended -ErrorAction SilentlyContinue
+                # Use Get-MediaInfo to analyze the file
+                $mediaInfo = Get-MediaInfo -Path $FilePath -FFprobePath $ffprobeExecutable -Extended -ErrorAction SilentlyContinue
 
-                if (-not $videoDetails -or -not $videoDetails.Audio -or $videoDetails.Audio.Count -eq 0)
+                if (-not $mediaInfo -or -not $mediaInfo.Audio -or $mediaInfo.Audio.Count -eq 0)
                 {
                     Write-Verbose 'No audio stream detected - using default settings'
                     return @{
@@ -520,7 +520,7 @@ function Invoke-FFmpeg
                 }
 
                 # Analyze primary audio stream (first audio track)
-                $primaryAudio = $videoDetails.Audio[0]
+                $primaryAudio = $mediaInfo.Audio[0]
                 $channels = [int]$primaryAudio.Channels
                 $sampleRate = [int]$primaryAudio.SampleRate
                 $sourceCodec = $primaryAudio.Codec.ToLower()
@@ -586,8 +586,8 @@ function Invoke-FFmpeg
 
             try
             {
-                # Use the existing Get-VideoDetails function to get subtitle information
-                # Helper function to load Get-VideoDetails dependency if needed
+                # Use the existing Get-MediaInfo function to get subtitle information
+                # Helper function to load Get-MediaInfo dependency if needed
                 function Import-DependencyIfNeeded
                 {
                     param(
@@ -629,10 +629,10 @@ function Invoke-FFmpeg
                     }
                 }
 
-                # Load Get-VideoDetails if needed
-                Import-DependencyIfNeeded -FunctionName 'Get-VideoDetails' -RelativePath 'Get-VideoDetails.ps1'
+                # Load Get-MediaInfo if needed
+                Import-DependencyIfNeeded -FunctionName 'Get-MediaInfo' -RelativePath 'Get-MediaInfo.ps1'
 
-                # Try to find ffprobe path for Get-VideoDetails
+                # Try to find ffprobe path for Get-MediaInfo
                 $ffprobeExecutable = $FFmpegPath -replace 'ffmpeg(\.exe)?$', 'ffprobe$1'
 
                 if (-not (Test-Path $ffprobeExecutable))
@@ -654,10 +654,10 @@ function Invoke-FFmpeg
                     }
                 }
 
-                # Use Get-VideoDetails to analyze the file
-                $videoDetails = Get-VideoDetails -Path $FilePath -FFprobePath $ffprobeExecutable -Extended -ErrorAction SilentlyContinue
+                # Use Get-MediaInfo to analyze the file
+                $mediaInfo = Get-MediaInfo -Path $FilePath -FFprobePath $ffprobeExecutable -Extended -ErrorAction SilentlyContinue
 
-                if (-not $videoDetails -or -not $videoDetails.Subtitles -or $videoDetails.Subtitles.Count -eq 0)
+                if (-not $mediaInfo -or -not $mediaInfo.Subtitles -or $mediaInfo.Subtitles.Count -eq 0)
                 {
                     return @{
                         IncludeSubtitles = $false
@@ -673,7 +673,7 @@ function Invoke-FFmpeg
                 $textSubtitles = @()
                 $bitmapSubtitles = @()
 
-                foreach ($subtitle in $videoDetails.Subtitles)
+                foreach ($subtitle in $mediaInfo.Subtitles)
                 {
                     if ($subtitle.Codec -in $textBasedCodecs)
                     {
