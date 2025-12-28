@@ -1098,7 +1098,12 @@ function Invoke-FFmpeg
             }
 
             # Progress information to console with ETA
-            Write-Host "[$script:globalFileCounter/$script:totalFilesAcrossAllPaths] Processing: '$inputFile' ($fileSizeFormatted) | ETA: $estimatedTimeRemaining" -ForegroundColor Yellow
+            $progressMessage = "[$script:globalFileCounter/$script:totalFilesAcrossAllPaths] Processing: '$inputFile' ($fileSizeFormatted)"
+            if ($estimatedTimeRemaining -ne 'Calculating...')
+            {
+                $progressMessage += " | ETA: $estimatedTimeRemaining"
+            }
+            Write-Host $progressMessage -ForegroundColor Yellow
 
             # Check if output file already exists
             if ((Test-Path -Path $outputFilePath) -and (-not $Force))
