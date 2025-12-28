@@ -587,6 +587,15 @@ function Invoke-FFmpeg
 
             try
             {
+                $fallbackSubtitleHandling = {
+                    param([string]$Reason)
+                    return @{
+                        IncludeSubtitles = $true
+                        SubtitleArgs = @('-c:s', 'copy', '-map', '0:s?')
+                        WarningMessage = "$Reason - falling back to copying all subtitle streams (may include bitmap subtitles)"
+                    }
+                }
+
                 # Use the existing Get-MediaInfo function to get subtitle information
                 # Helper function to load Get-MediaInfo dependency if needed
                 function Import-DependencyIfNeeded
@@ -647,11 +656,7 @@ function Invoke-FFmpeg
                     else
                     {
                         Write-Verbose 'FFprobe not found - subtitle analysis skipped'
-                        return @{
-                            IncludeSubtitles = $false
-                            SubtitleArgs = @()
-                            WarningMessage = $null
-                        }
+                        return & $fallbackSubtitleHandling.Invoke('Subtitle analysis unavailable (ffprobe not found)')
                     }
                 }
 
@@ -660,11 +665,7 @@ function Invoke-FFmpeg
 
                 if (-not $mediaInfo -or -not $mediaInfo.Subtitles -or $mediaInfo.Subtitles.Count -eq 0)
                 {
-                    return @{
-                        IncludeSubtitles = $false
-                        SubtitleArgs = @()
-                        WarningMessage = $null
-                    }
+                    return & $fallbackSubtitleHandling.Invoke('Subtitle analysis returned no subtitle streams')
                 }
 
                 # Categorize subtitle streams using the detailed subtitle information
@@ -682,8 +683,6 @@ function Invoke-FFmpeg
 
                     if ($codecName -in $closedCaptionCodecs)
                     {
-                        # Treat closed captions as text-based so they are preserved in the output
-                        $textSubtitles += $subtitle
                         $closedCaptionSubtitles += $subtitle
                     }
                     elseif ($codecName -in $textBasedCodecs)
@@ -704,6 +703,9 @@ function Invoke-FFmpeg
                 $warningMessage = $null
                 $subtitleArgs = @()
                 $includeSubtitles = $false
+                $subtitleCodecArgs = @()
+                $subtitleMapArgs = @()
+                $subtitleOutputIndex = 0
 
                 if ($closedCaptionSubtitles.Count -gt 0)
                 {
@@ -717,19 +719,50 @@ function Invoke-FFmpeg
                         $warningMessage = "Warning: File contains $($bitmapSubtitles.Count) bitmap subtitle stream(s) (e.g., PGS/DVD subtitles) which may not be compatible with MP4. Consider using -IncludeSubtitles 'Auto' or 'None'."
                     }
 
-                    $subtitleArgs = @('-scodec', 'mov_text', '-map', '0:s?')
-                    $includeSubtitles = $true
+                    foreach ($subtitle in ($textSubtitles + $closedCaptionSubtitles + $bitmapSubtitles))
+                    {
+                        $subtitleMapArgs += @('-map', "0:$($subtitle.Index)")
+
+                        if ($subtitle -in $textSubtitles)
+                        {
+                            $subtitleCodecArgs += @("-c:s:$subtitleOutputIndex", 'mov_text')
+                        }
+                        else
+                        {
+                            # Preserve closed captions and bitmap subtitles without re-encoding
+                            $subtitleCodecArgs += @("-c:s:$subtitleOutputIndex", 'copy')
+                        }
+
+                        $subtitleOutputIndex++
+                    }
+
+                    if ($subtitleMapArgs.Count -gt 0)
+                    {
+                        $subtitleArgs = $subtitleCodecArgs + $subtitleMapArgs
+                        $includeSubtitles = $true
+                    }
                 }
                 elseif ($IncludeSubtitles -eq 'Auto')
                 {
-                    if ($textSubtitles.Count -gt 0)
+                    foreach ($subtitle in $textSubtitles)
                     {
-                        # Map only text-based subtitle streams
-                        $subtitleArgs = @('-scodec', 'mov_text')
-                        foreach ($subtitle in $textSubtitles)
-                        {
-                            $subtitleArgs += @('-map', "0:$($subtitle.Index)")
-                        }
+                        # Re-encode text subtitles to mov_text for MP4 compatibility
+                        $subtitleMapArgs += @('-map', "0:$($subtitle.Index)")
+                        $subtitleCodecArgs += @("-c:s:$subtitleOutputIndex", 'mov_text')
+                        $subtitleOutputIndex++
+                    }
+
+                    foreach ($subtitle in $closedCaptionSubtitles)
+                    {
+                        # Preserve closed captions without re-encoding
+                        $subtitleMapArgs += @('-map', "0:$($subtitle.Index)")
+                        $subtitleCodecArgs += @("-c:s:$subtitleOutputIndex", 'copy')
+                        $subtitleOutputIndex++
+                    }
+
+                    if ($subtitleMapArgs.Count -gt 0)
+                    {
+                        $subtitleArgs = $subtitleCodecArgs + $subtitleMapArgs
                         $includeSubtitles = $true
                     }
 
@@ -1145,6 +1178,17 @@ function Invoke-FFmpeg
             if ($subtitleStrategy.WarningMessage)
             {
                 Write-Warning $subtitleStrategy.WarningMessage
+            }
+
+            # Fallback: if subtitle detection failed to produce mapping but subtitles are requested, copy all subtitles
+            if ($IncludeSubtitles -ne 'None' -and (-not $subtitleStrategy.IncludeSubtitles -or -not $subtitleStrategy.SubtitleArgs -or $subtitleStrategy.SubtitleArgs.Count -eq 0))
+            {
+                Write-Warning 'Subtitle mapping could not be determined from analysis; copying all subtitle streams (-map 0:s? -c:s copy).'
+                $subtitleStrategy = @{
+                    IncludeSubtitles = $true
+                    SubtitleArgs = @('-c:s', 'copy', '-map', '0:s?')
+                    WarningMessage = $subtitleStrategy.WarningMessage
+                }
             }
 
             # Construct ffmpeg arguments using Samsung-friendly encoding settings

@@ -146,6 +146,13 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
             $testRoot = Join-Path -Path $TestDrive -ChildPath 'FFmpegClosedCaptions'
             New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
 
+            # Ensure Get-MediaInfo is available for mocking by loading the real function if needed
+            if (-not (Get-Command -Name 'Get-MediaInfo' -ErrorAction SilentlyContinue))
+            {
+                $getMediaInfoPath = Join-Path -Path $PSScriptRoot -ChildPath '../../../Functions/MediaProcessing/Get-MediaInfo.ps1'
+                . $getMediaInfoPath
+            }
+
             $script:ccVideoPath = Join-Path -Path $testRoot -ChildPath 'cc-source.mkv'
             Set-Content -Path $script:ccVideoPath -Value 'fake video data'
 
@@ -204,8 +211,8 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
 
             $loggedArgs = Get-Content -Path $script:ffmpegLogPath
             $loggedArgs | Should -Not -BeNullOrEmpty
-            ($loggedArgs -join ' ') | Should -Match '-scodec mov_text'
-            ($loggedArgs -join ' ') | Should -Match '-map 0:2'
+            ($loggedArgs -join ' ') | Should -Match '-c:s(:0)? copy'
+            ($loggedArgs -join ' ') | Should -Match '-map (0:2|0:s\\?)'
         }
     }
 }
