@@ -1,5 +1,5 @@
 BeforeAll {
-    . "$PSScriptRoot/../../../Functions/MediaProcessing/Get-VideoDetails.ps1"
+    . "$PSScriptRoot/../../../Functions/MediaProcessing/Get-MediaInfo.ps1"
     . "$PSScriptRoot/../../../Functions/MediaProcessing/Invoke-FFmpeg.ps1"
     . "$PSScriptRoot/../../../Functions/MediaProcessing/Rename-VideoSeasonFile.ps1"
 
@@ -11,7 +11,7 @@ BeforeAll {
 Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
     Context 'Recurse Parameter Consistency' {
         It 'All functions should have Recurse parameter' {
-            $functions = @('Get-VideoDetails', 'Invoke-FFmpeg', 'Rename-VideoSeasonFile')
+            $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Rename-VideoSeasonFile')
 
             foreach ($funcName in $functions)
             {
@@ -21,7 +21,7 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
         }
 
         It 'No functions should have NoRecursion parameter' {
-            $functions = @('Get-VideoDetails', 'Invoke-FFmpeg', 'Rename-VideoSeasonFile')
+            $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Rename-VideoSeasonFile')
 
             foreach ($funcName in $functions)
             {
@@ -31,7 +31,7 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
         }
 
         It 'All functions should have Exclude parameter' {
-            $functions = @('Get-VideoDetails', 'Invoke-FFmpeg', 'Rename-VideoSeasonFile')
+            $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Rename-VideoSeasonFile')
 
             foreach ($funcName in $functions)
             {
@@ -43,7 +43,7 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
 
     Context 'Parameter Types Consistency' {
         It 'All Recurse parameters should be Switch type' {
-            $functions = @('Get-VideoDetails', 'Invoke-FFmpeg', 'Rename-VideoSeasonFile')
+            $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Rename-VideoSeasonFile')
 
             foreach ($funcName in $functions)
             {
@@ -54,7 +54,7 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
         }
 
         It 'All Exclude parameters should be String array type' {
-            $functions = @('Get-VideoDetails', 'Invoke-FFmpeg', 'Rename-VideoSeasonFile')
+            $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Rename-VideoSeasonFile')
 
             foreach ($funcName in $functions)
             {
@@ -93,7 +93,7 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
             # Use -WhatIf where available to avoid actual processing
 
             # Test all functions with default (non-recursive) behavior
-            { Get-VideoDetails -Path $testRoot -Verbose } | Should -Not -Throw
+            { Get-MediaInfo -Path $testRoot -Verbose } | Should -Not -Throw
             { Invoke-FFmpeg -Path $testRoot -WhatIf } | Should -Not -Throw
             { Rename-VideoSeasonFile -Path $testRoot -WhatIf } | Should -Not -Throw
         }
