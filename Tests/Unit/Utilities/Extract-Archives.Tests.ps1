@@ -25,12 +25,13 @@ Describe 'Extract-Archives' {
             $pathParam.Attributes.ValueFromPipeline | Should -Contain $true
         }
 
-        It 'Should expose Include, Exclude, and DestinationRoot parameters' {
+        It 'Should expose Include, Exclude, DestinationRoot, and merging parameters' {
             $command = Get-Command Extract-Archives
             $command.Parameters.ContainsKey('Include') | Should -Be $true
             $command.Parameters.ContainsKey('Exclude') | Should -Be $true
             $command.Parameters.ContainsKey('DestinationRoot') | Should -Be $true
             $command.Parameters.ContainsKey('ExtractNested') | Should -Be $true
+            $command.Parameters.ContainsKey('MergeMultipartAcrossDirectories') | Should -Be $true
         }
 
         It 'Should support ShouldProcess (WhatIf/Confirm)' {
@@ -342,6 +343,56 @@ Describe 'Extract-Archives' {
             Test-Path $extractedFile | Should -Be $true
             (Get-Item -LiteralPath $extractedFile).Length | Should -Be (Get-Item -LiteralPath $payloadFile).Length
             ($result.Results | Where-Object { $_.Archive -like '*wrapper.zip*' }).Status | Should -Be 'Extracted'
+            ($result.Results | Where-Object { $_.Archive -like '*payload.rar.001' }).Status | Should -Be 'Extracted'
+        }
+
+        It 'Merges multipart parts across directories when requested' -Skip:($null -eq (Get-Command -Name '7z', '7za' -ErrorAction SilentlyContinue | Select-Object -First 1)) {
+            $sevenZip = Get-Command -Name '7z', '7za' -ErrorAction SilentlyContinue | Select-Object -First 1
+            $root = Join-Path -Path $TestDrive -ChildPath 'distributed-multipart'
+            New-Item -ItemType Directory -Path $root -Force | Out-Null
+
+            $payloadSource = Join-Path -Path $root -ChildPath 'payload-src'
+            New-Item -ItemType Directory -Path $payloadSource -Force | Out-Null
+            $payloadFile = Join-Path -Path $payloadSource -ChildPath 'data.bin'
+            $bytes = New-Object byte[] 500000
+            (New-Object System.Random).NextBytes($bytes)
+            [System.IO.File]::WriteAllBytes($payloadFile, $bytes)
+
+            $rarBase = Join-Path -Path $root -ChildPath 'payload.rar'
+            Push-Location $payloadSource
+            try
+            {
+                & $sevenZip.Name 'a' '-t7z' '-mx=0' '-v80k' $rarBase 'data.bin' | Out-Null
+            }
+            finally
+            {
+                Pop-Location
+            }
+
+            $partFiles = Get-ChildItem -Path $root -Filter 'payload.rar.*' -File | Sort-Object Name
+            $zipIndex = 1
+            foreach ($part in $partFiles)
+            {
+                $zipPath = Join-Path -Path $root -ChildPath ("wrapper{0}.zip" -f $zipIndex)
+                $tempDir = Join-Path -Path $root -ChildPath ("wrap-src-{0}" -f $zipIndex)
+                New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+                Copy-Item -LiteralPath $part.FullName -Destination $tempDir -Force
+                Compress-Archive -LiteralPath (Join-Path -Path $tempDir -ChildPath $part.Name) -DestinationPath $zipPath -Force
+                Remove-Item -LiteralPath $tempDir -Recurse -Force
+                $zipIndex++
+            }
+
+            Get-ChildItem -Path $root -Filter 'payload.rar.*' -File | Remove-Item -Force
+
+            $result = Extract-Archives -Path $root -ExtractNested -MergeMultipartAcrossDirectories
+
+            $payloadDestination = Join-Path -Path $root -ChildPath 'payload'
+            $extractedFile = Join-Path -Path $payloadDestination -ChildPath 'data.bin'
+
+            Test-Path $payloadDestination | Should -Be $true
+            Test-Path $extractedFile | Should -Be $true
+            (Get-Item -LiteralPath $extractedFile).Length | Should -Be (Get-Item -LiteralPath $payloadFile).Length
+            ($result.Results | Where-Object { $_.Archive -like '*wrapper1.zip' }).Status | Should -Be 'Extracted'
             ($result.Results | Where-Object { $_.Archive -like '*payload.rar.001' }).Status | Should -Be 'Extracted'
         }
     }
