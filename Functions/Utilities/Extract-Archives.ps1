@@ -2,18 +2,24 @@ function Extract-Archives
 {
     <#
     .SYNOPSIS
-        Extracts archive files in a directory to folders named after each archive.
+        Extracts archive files in a directory to folders named after each archive, with optional nested extraction.
 
     .DESCRIPTION
         Searches a target directory (current directory by default) for supported archive
         types and extracts each one into a folder that matches the archive name without
-        its extension. Supports optional recursive search. When -Force is specified,
-        existing destination folders are removed before extraction.
+        its extension. Supports optional recursive search and optional extraction of
+        newly discovered archives created by earlier extractions (use -ExtractNested
+        to enable). When -Force is specified, existing destination folders are removed
+        before extraction.
 
         Supported archive types:
         - .zip (uses Expand-Archive)
         - .tar, .tar.gz, .tgz, .tar.bz2, .tbz, .tbz2, .tar.xz, .txz (uses tar)
         - .7z and .rar (uses 7z/7za if available)
+
+        Multi-part archives are detected and only the primary part is processed. Common
+        patterns such as .part1.rar, .r00 sets, .z01 sets, and .zip/.rar.001 style
+        volumes are supported when 7z/7za is available.
 
     .PARAMETER Path
         The directory to search for archives. Defaults to the current directory.
@@ -32,6 +38,11 @@ function Extract-Archives
     .PARAMETER DestinationRoot
         Optional root directory to place extracted folders. Each archive is still
         extracted into its own subfolder (matching the archive name) beneath this root.
+
+    .PARAMETER ExtractNested
+        After extracting an archive, scan the newly created destination for additional
+        archives and extract them as well. This is useful for chained or multi-layer
+        archive sets (for example, zip parts that contain rar parts).
 
     .PARAMETER Force
         Overwrite existing destination folders by removing them before extraction.
@@ -79,6 +90,12 @@ function Extract-Archives
         changes.
 
     .EXAMPLE
+        PS > Extract-Archives -Path ./downloads -ExtractNested -Recurse
+
+        Extracts archives under ./downloads, then continues extracting archives that
+        appear inside newly created destinations (useful for zip-to-rar chains).
+
+    .EXAMPLE
         PS > Get-ChildItem ~/Downloads -Directory | Extract-Archives -DestinationRoot ~/Unpacked
 
         Sends directories from Get-ChildItem through the pipeline for processing and
@@ -123,6 +140,9 @@ function Extract-Archives
         [String]$DestinationRoot,
 
         [Parameter()]
+        [Switch]$ExtractNested,
+
+        [Parameter()]
         [Switch]$Force
     )
 
@@ -144,13 +164,17 @@ function Extract-Archives
             $lowerName = $FileName.ToLowerInvariant()
             switch ($lowerName)
             {
-                { $_ -like '*.zip' } { return 'Zip' }
+                { $_ -match '\.zip(\.\d{3,})?$' } { return 'Zip' }
+                { $_ -match '\.z\d{2,3}$' } { return 'Zip' }
+                { $_ -match '\.part\d+\.zip$' } { return 'Zip' }
                 { $_ -like '*.tar.gz' -or $_ -like '*.tgz' } { return 'Tar' }
                 { $_ -like '*.tar.bz2' -or $_ -like '*.tbz' -or $_ -like '*.tbz2' } { return 'Tar' }
                 { $_ -like '*.tar.xz' -or $_ -like '*.txz' } { return 'Tar' }
                 { $_ -like '*.tar' } { return 'Tar' }
-                { $_ -like '*.7z' } { return 'SevenZip' }
-                { $_ -like '*.rar' } { return 'SevenZip' }
+                { $_ -match '\.7z(\.\d{3,})?$' } { return 'SevenZip' }
+                { $_ -match '\.rar(\.\d{3,})?$' } { return 'SevenZip' }
+                { $_ -match '\.part\d+\.rar$' } { return 'SevenZip' }
+                { $_ -match '\.r\d{2,3}$' } { return 'SevenZip' }
                 default { return $null }
             }
         }
@@ -159,14 +183,24 @@ function Extract-Archives
         {
             param([String]$FileName)
 
+            $lowerName = $FileName.ToLowerInvariant()
             $baseName = [System.IO.Path]::GetFileNameWithoutExtension($FileName)
-            if ($FileName.ToLowerInvariant() -match '\.tar\.(gz|bz2|xz)$' -or
-                $FileName.ToLowerInvariant() -like '*.tgz' -or
-                $FileName.ToLowerInvariant() -like '*.tbz' -or
-                $FileName.ToLowerInvariant() -like '*.tbz2' -or
-                $FileName.ToLowerInvariant() -like '*.txz')
+            if ($lowerName -match '\.tar\.(gz|bz2|xz)$' -or
+                $lowerName -like '*.tgz' -or
+                $lowerName -like '*.tbz' -or
+                $lowerName -like '*.tbz2' -or
+                $lowerName -like '*.txz')
             {
                 $baseName = [System.IO.Path]::GetFileNameWithoutExtension($baseName)
+            }
+
+            if ($lowerName -match '\.part\d+\.(rar|7z|zip)$')
+            {
+                $baseName = $baseName -replace '\.part\d+$', ''
+            }
+            elseif ($lowerName -match '\.(rar|zip|7z)\.\d{3,}$')
+            {
+                $baseName = $baseName -replace '\.(rar|zip|7z)$', ''
             }
 
             return $baseName
@@ -194,6 +228,83 @@ function Extract-Archives
 
             return $false
         }
+
+        function Get-MultipartMetadata
+        {
+            param([System.IO.FileInfo]$Archive)
+
+            $name = $Archive.Name
+            $lowerName = $name.ToLowerInvariant()
+            $baseName = Get-ArchiveBaseName -FileName $name
+            $groupIdentifier = $null
+            $isMultipart = $false
+            $isPrimary = $true
+
+            if ($lowerName -match '^(?<root>.+)\.part(?<index>\d+)\.(?<ext>rar|7z|zip)$')
+            {
+                $isMultipart = $true
+                $baseName = $Matches['root']
+                $groupIdentifier = "$($Matches['root']).$($Matches['ext'])"
+                $isPrimary = ([int]$Matches['index'] -eq 1)
+            }
+            elseif ($lowerName -match '^(?<root>.+)\.(?<ext>rar|zip|7z)\.(?<index>\d{3,})$')
+            {
+                $isMultipart = $true
+                $baseName = $Matches['root']
+                $groupIdentifier = "$($Matches['root']).$($Matches['ext'])"
+                $isPrimary = ($Matches['index'] -eq '001')
+            }
+            elseif ($lowerName -match '^(?<root>.+)\.z(?<index>\d{2,3})$')
+            {
+                $isMultipart = $true
+                $groupIdentifier = "$($Matches['root']).zip"
+                $isPrimary = $false
+            }
+            elseif ($lowerName -match '^(?<root>.+)\.r(?<index>\d{2,3})$')
+            {
+                $isMultipart = $true
+                $groupIdentifier = "$($Matches['root']).rar"
+                $isPrimary = $false
+            }
+            elseif ($lowerName -match '\.zip$')
+            {
+                $groupIdentifier = "$($Archive.BaseName).zip"
+                $z01 = Join-Path -Path $Archive.Directory.FullName -ChildPath "$($Archive.BaseName).z01"
+                if (Test-Path -LiteralPath $z01)
+                {
+                    $isMultipart = $true
+                }
+            }
+            elseif ($lowerName -match '\.rar$')
+            {
+                $groupIdentifier = "$($Archive.BaseName).rar"
+                $r00 = Join-Path -Path $Archive.Directory.FullName -ChildPath "$($Archive.BaseName).r00"
+                if (Test-Path -LiteralPath $r00)
+                {
+                    $isMultipart = $true
+                }
+            }
+            elseif ($lowerName -match '\.7z$')
+            {
+                $groupIdentifier = "$($Archive.BaseName).7z"
+            }
+            else
+            {
+                $groupIdentifier = $Archive.FullName
+            }
+
+            $groupKey = if ($groupIdentifier) { '{0}|{1}' -f $Archive.Directory.FullName.ToLowerInvariant(), $groupIdentifier.ToLowerInvariant() } else { $Archive.FullName.ToLowerInvariant() }
+
+            return [PSCustomObject]@{
+                BaseName = $baseName
+                GroupKey = $groupKey
+                IsMultipart = $isMultipart
+                IsPrimary = $isPrimary
+            }
+        }
+
+        $processedArchives = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+        $processedGroups = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     }
 
     process
@@ -205,17 +316,6 @@ function Extract-Archives
             throw "Path not found or is not a directory: $Path"
         }
 
-        $getChildItemParams = @{
-            Path = $resolvedPath
-            File = $true
-            ErrorAction = 'Stop'
-            Force = $true
-        }
-        if ($Recurse)
-        {
-            $getChildItemParams['Recurse'] = $true
-        }
-
         if ($DestinationRoot -and -not (Test-Path -LiteralPath $DestinationRoot))
         {
             if ($PSCmdlet.ShouldProcess($DestinationRoot, 'Create destination root'))
@@ -224,29 +324,65 @@ function Extract-Archives
             }
         }
 
-        $archives = Get-ChildItem @getChildItemParams | Where-Object { Get-ArchiveType $_.Name }
-        $archives = $archives | Where-Object { MatchesPattern -Name $_.Name -Patterns $Include }
-        if ($Exclude)
-        {
-            $archives = $archives | Where-Object { -not (MatchesPattern -Name $_.Name -Patterns $Exclude) }
-        }
+        $directoriesToProcess = New-Object 'System.Collections.Generic.Queue[string]'
+        $directoriesToProcess.Enqueue($resolvedPath)
 
-        if (-not $archives)
+        while ($directoriesToProcess.Count -gt 0)
         {
-            Write-Verbose "No archives found under: $resolvedPath"
-        }
-        else
-        {
+            $currentPath = $directoriesToProcess.Dequeue()
+
+            $getChildItemParams = @{
+                Path = $currentPath
+                File = $true
+                ErrorAction = 'Stop'
+                Force = $true
+            }
+            if ($Recurse)
+            {
+                $getChildItemParams['Recurse'] = $true
+            }
+
+            $archives = Get-ChildItem @getChildItemParams | Where-Object { Get-ArchiveType $_.Name }
+            $archives = $archives | Where-Object { MatchesPattern -Name $_.Name -Patterns $Include }
+            if ($Exclude)
+            {
+                $archives = $archives | Where-Object { -not (MatchesPattern -Name $_.Name -Patterns $Exclude) }
+            }
+
+            if (-not $archives)
+            {
+                Write-Verbose "No archives found under: $currentPath"
+                continue
+            }
+
             foreach ($archive in $archives)
             {
+                if (-not $processedArchives.Add($archive.FullName))
+                {
+                    continue
+                }
+
                 $archiveType = Get-ArchiveType -FileName $archive.Name
                 if (-not $archiveType)
                 {
                     continue
                 }
 
-                $destinationRoot = if ($DestinationRoot) { $DestinationRoot } else { $archive.Directory.FullName }
-                $destination = Join-Path -Path $destinationRoot -ChildPath (Get-ArchiveBaseName -FileName $archive.Name)
+                $multipartInfo = Get-MultipartMetadata -Archive $archive
+                if (-not $multipartInfo.IsPrimary)
+                {
+                    Write-Verbose "Skipping secondary part of multipart archive: $($archive.FullName)"
+                    continue
+                }
+
+                if ($multipartInfo.GroupKey -and -not $processedGroups.Add($multipartInfo.GroupKey))
+                {
+                    Write-Verbose "Skipping already processed archive set: $($archive.FullName)"
+                    continue
+                }
+
+                $effectiveDestinationRoot = if ($DestinationRoot) { $DestinationRoot } else { $archive.Directory.FullName }
+                $destination = Join-Path -Path $effectiveDestinationRoot -ChildPath $multipartInfo.BaseName
                 $status = 'Pending'
                 $errorMessage = $null
 
@@ -270,6 +406,20 @@ function Extract-Archives
                     {
                         $status = 'SkippedMissingDependency'
                         $errorMessage = 'Missing required dependency: 7z/7za'
+                        $results.Add([PSCustomObject]@{
+                                Archive = $archive.FullName
+                                Destination = $destination
+                                Type = $archiveType
+                                Status = $status
+                                ErrorMessage = $errorMessage
+                            }) | Out-Null
+                        continue
+                    }
+
+                    if ($archiveType -eq 'Zip' -and $multipartInfo.IsMultipart -and -not $sevenZipCommand)
+                    {
+                        $status = 'SkippedMissingDependency'
+                        $errorMessage = 'Multi-part zip extraction requires 7z/7za'
                         $results.Add([PSCustomObject]@{
                                 Archive = $archive.FullName
                                 Destination = $destination
@@ -330,7 +480,18 @@ function Extract-Archives
                     {
                         'Zip'
                         {
-                            Expand-Archive -LiteralPath $archive.FullName -DestinationPath $destination -Force:$Force -ErrorAction Stop
+                            if ($multipartInfo.IsMultipart -and $sevenZipCommand)
+                            {
+                                & $sevenZipCommand.Path @('x', $archive.FullName, "-o$destination", '-y') 2>&1 | Out-Null
+                                if ($LASTEXITCODE -ne 0)
+                                {
+                                    throw "7zip exited with code $LASTEXITCODE while processing $($archive.FullName)"
+                                }
+                            }
+                            else
+                            {
+                                Expand-Archive -LiteralPath $archive.FullName -DestinationPath $destination -Force:$Force -ErrorAction Stop
+                            }
                         }
                         'Tar'
                         {
@@ -369,6 +530,11 @@ function Extract-Archives
                         Status = $status
                         ErrorMessage = $errorMessage
                     }) | Out-Null
+
+                if ($status -eq 'Extracted' -and $ExtractNested)
+                {
+                    $directoriesToProcess.Enqueue($destination)
+                }
             }
         }
     }

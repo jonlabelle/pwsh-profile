@@ -30,6 +30,7 @@ Describe 'Extract-Archives' {
             $command.Parameters.ContainsKey('Include') | Should -Be $true
             $command.Parameters.ContainsKey('Exclude') | Should -Be $true
             $command.Parameters.ContainsKey('DestinationRoot') | Should -Be $true
+            $command.Parameters.ContainsKey('ExtractNested') | Should -Be $true
         }
 
         It 'Should support ShouldProcess (WhatIf/Confirm)' {
@@ -286,6 +287,62 @@ Describe 'Extract-Archives' {
             Test-Path $destination | Should -Be $true
             (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'rar content'
             ($result.Results | Where-Object { $_.Archive -eq $rarPath }).Status | Should -Be 'Extracted'
+        }
+    }
+
+    Context 'Nested and multi-part extraction' {
+        It 'Extracts a multi-part zip that contains a multi-part rar set when ExtractNested is used' -Skip:($null -eq (Get-Command -Name '7z', '7za' -ErrorAction SilentlyContinue | Select-Object -First 1)) {
+            $sevenZip = Get-Command -Name '7z', '7za' -ErrorAction SilentlyContinue | Select-Object -First 1
+            $root = Join-Path -Path $TestDrive -ChildPath 'nested-multipart'
+            New-Item -ItemType Directory -Path $root -Force | Out-Null
+
+            $payloadSource = Join-Path -Path $root -ChildPath 'payload-src'
+            New-Item -ItemType Directory -Path $payloadSource -Force | Out-Null
+            $payloadFile = Join-Path -Path $payloadSource -ChildPath 'data.bin'
+            $bytes = New-Object byte[] 400000
+            (New-Object System.Random).NextBytes($bytes)
+            [System.IO.File]::WriteAllBytes($payloadFile, $bytes)
+
+            $rarBase = Join-Path -Path $root -ChildPath 'payload.rar'
+            Push-Location $payloadSource
+            try
+            {
+                & $sevenZip.Name 'a' '-t7z' '-mx=0' '-v100k' $rarBase 'data.bin' | Out-Null
+            }
+            finally
+            {
+                Pop-Location
+            }
+
+            $zipSource = Join-Path -Path $root -ChildPath 'zip-src'
+            New-Item -ItemType Directory -Path $zipSource -Force | Out-Null
+            Get-ChildItem -Path $root -Filter 'payload.rar.*' | Move-Item -Destination $zipSource
+
+            $zipBase = Join-Path -Path $root -ChildPath 'wrapper.zip'
+            Push-Location $zipSource
+            try
+            {
+                & $sevenZip.Name 'a' '-tzip' '-mx=0' '-v120k' $zipBase 'payload.rar.*' | Out-Null
+            }
+            finally
+            {
+                Pop-Location
+            }
+
+            Remove-Item -LiteralPath $zipSource -Recurse -Force
+
+            $result = Extract-Archives -Path $root -ExtractNested
+
+            $wrapperDestination = Join-Path -Path $root -ChildPath 'wrapper'
+            $payloadDestination = Join-Path -Path $wrapperDestination -ChildPath 'payload'
+            $extractedFile = Join-Path -Path $payloadDestination -ChildPath 'data.bin'
+
+            Test-Path $wrapperDestination | Should -Be $true
+            Test-Path $payloadDestination | Should -Be $true
+            Test-Path $extractedFile | Should -Be $true
+            (Get-Item -LiteralPath $extractedFile).Length | Should -Be (Get-Item -LiteralPath $payloadFile).Length
+            ($result.Results | Where-Object { $_.Archive -like '*wrapper.zip*' }).Status | Should -Be 'Extracted'
+            ($result.Results | Where-Object { $_.Archive -like '*payload.rar.001' }).Status | Should -Be 'Extracted'
         }
     }
 
