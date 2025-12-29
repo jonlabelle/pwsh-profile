@@ -373,6 +373,16 @@ function Extract-Archives
             return $found | Sort-Object -Property FullName -Unique
         }
 
+        function Write-MissingDependency
+        {
+            param(
+                [String]$ArchivePath,
+                [String]$Dependency
+            )
+
+            Write-Host "Skipping $ArchivePath (missing dependency: $Dependency)" -ForegroundColor Yellow
+        }
+
         $processedArchives = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
         $processedGroups = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     }
@@ -476,6 +486,7 @@ function Extract-Archives
                     {
                         $status = 'SkippedMissingDependency'
                         $errorMessage = 'Missing required dependency: tar'
+                        Write-MissingDependency -ArchivePath $archive.FullName -Dependency 'tar'
                         $results.Add([PSCustomObject]@{
                                 Archive = $archive.FullName
                                 Destination = $destination
@@ -490,6 +501,7 @@ function Extract-Archives
                     {
                         $status = 'SkippedMissingDependency'
                         $errorMessage = 'Missing required dependency: 7z/7za'
+                        Write-MissingDependency -ArchivePath $archive.FullName -Dependency '7z/7za'
                         $results.Add([PSCustomObject]@{
                                 Archive = $archive.FullName
                                 Destination = $destination
@@ -504,6 +516,7 @@ function Extract-Archives
                     {
                         $status = 'SkippedMissingDependency'
                         $errorMessage = 'Multi-part zip extraction requires 7z/7za'
+                        Write-MissingDependency -ArchivePath $archive.FullName -Dependency '7z/7za (required for multi-part zip)'
                         $results.Add([PSCustomObject]@{
                                 Archive = $archive.FullName
                                 Destination = $destination

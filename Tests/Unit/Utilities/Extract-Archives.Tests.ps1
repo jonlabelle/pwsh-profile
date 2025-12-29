@@ -373,8 +373,8 @@ Describe 'Extract-Archives' {
             $zipIndex = 1
             foreach ($part in $partFiles)
             {
-                $zipPath = Join-Path -Path $root -ChildPath ("wrapper{0}.zip" -f $zipIndex)
-                $tempDir = Join-Path -Path $root -ChildPath ("wrap-src-{0}" -f $zipIndex)
+                $zipPath = Join-Path -Path $root -ChildPath ('wrapper{0}.zip' -f $zipIndex)
+                $tempDir = Join-Path -Path $root -ChildPath ('wrap-src-{0}' -f $zipIndex)
                 New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
                 Copy-Item -LiteralPath $part.FullName -Destination $tempDir -Force
                 Compress-Archive -LiteralPath (Join-Path -Path $tempDir -ChildPath $part.Name) -DestinationPath $zipPath -Force
