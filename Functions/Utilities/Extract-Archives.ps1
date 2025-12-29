@@ -44,6 +44,10 @@ function Extract-Archives
         archives and extract them as well. This is useful for chained or multi-layer
         archive sets (for example, zip parts that contain rar parts).
 
+    .PARAMETER DeleteArchive
+        Remove the archive file (or multipart set) after a successful extraction. Files
+        are only removed when extraction completes without errors.
+
     .PARAMETER MergeMultipartAcrossDirectories
         When extracting multipart archives, treat parts with the same base name as a
         single set even if they reside in different directories, staging the parts
@@ -154,6 +158,9 @@ function Extract-Archives
 
         [Parameter()]
         [Switch]$ExtractNested,
+
+        [Parameter()]
+        [Switch]$DeleteArchive,
 
         [Parameter()]
         [Switch]$MergeMultipartAcrossDirectories,
@@ -478,7 +485,7 @@ function Extract-Archives
                 $errorMessage = $null
                 $stagingPath = $null
                 $workingArchivePath = $archive.FullName
-                $multipartParts = @()
+                $multipartParts = @($archive)
 
                 try
                 {
@@ -646,6 +653,22 @@ function Extract-Archives
                     }
 
                     $status = 'Extracted'
+
+                    if ($DeleteArchive)
+                    {
+                        foreach ($archivePart in ($multipartParts | Sort-Object -Property FullName -Unique))
+                        {
+                            if (-not (Test-Path -LiteralPath $archivePart.FullName))
+                            {
+                                continue
+                            }
+
+                            if ($PSCmdlet.ShouldProcess($archivePart.FullName, 'Delete archive after extraction'))
+                            {
+                                Remove-Item -LiteralPath $archivePart.FullName -Force -ErrorAction Stop
+                            }
+                        }
+                    }
                 }
                 catch
                 {

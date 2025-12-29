@@ -31,6 +31,7 @@ Describe 'Extract-Archives' {
             $command.Parameters.ContainsKey('Exclude') | Should -Be $true
             $command.Parameters.ContainsKey('DestinationRoot') | Should -Be $true
             $command.Parameters.ContainsKey('ExtractNested') | Should -Be $true
+            $command.Parameters.ContainsKey('DeleteArchive') | Should -Be $true
             $command.Parameters.ContainsKey('MergeMultipartAcrossDirectories') | Should -Be $true
         }
 
@@ -146,6 +147,126 @@ Describe 'Extract-Archives' {
 
             (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'stale'
             ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should -Be 'SkippedWhatIf'
+        }
+    }
+
+    Context 'DeleteArchive option' {
+        It 'Deletes archive after successful extraction when DeleteArchive is specified' {
+            $root = Join-Path -Path $TestDrive -ChildPath 'delete-basic'
+            $sourceDir = Join-Path -Path $root -ChildPath 'source'
+            New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
+            'content' | Set-Content -Path (Join-Path -Path $sourceDir -ChildPath 'file.txt')
+
+            $zipPath = Join-Path -Path $root -ChildPath 'archive.zip'
+            Compress-Archive -Path (Join-Path -Path $sourceDir -ChildPath '*') -DestinationPath $zipPath -Force
+
+            $result = Extract-Archives -Path $root -DeleteArchive
+
+            Test-Path -LiteralPath $zipPath | Should -Be $false
+            $destination = Join-Path -Path $root -ChildPath 'archive'
+            Test-Path -LiteralPath $destination | Should -Be $true
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'content'
+            ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should -Be 'Extracted'
+        }
+
+        It 'Keeps archive when extraction is skipped due to existing destination' {
+            $root = Join-Path -Path $TestDrive -ChildPath 'delete-skip'
+            $sourceDir = Join-Path -Path $root -ChildPath 'source'
+            New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
+            'original' | Set-Content -Path (Join-Path -Path $sourceDir -ChildPath 'file.txt')
+
+            $zipPath = Join-Path -Path $root -ChildPath 'archive.zip'
+            Compress-Archive -Path (Join-Path -Path $sourceDir -ChildPath '*') -DestinationPath $zipPath -Force
+
+            Extract-Archives -Path $root | Out-Null
+
+            $result = Extract-Archives -Path $root -DeleteArchive
+
+            Test-Path -LiteralPath $zipPath | Should -Be $true
+            ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should -Be 'SkippedExisting'
+        }
+
+        It 'Deletes archives discovered recursively' {
+            $root = Join-Path -Path $TestDrive -ChildPath 'delete-recursive'
+            $nested = Join-Path -Path $root -ChildPath 'nested'
+            $sourceDir = Join-Path -Path $nested -ChildPath 'payload'
+            New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
+            'recursive' | Set-Content -Path (Join-Path -Path $sourceDir -ChildPath 'file.txt')
+
+            $zipPath = Join-Path -Path $nested -ChildPath 'archive.zip'
+            Compress-Archive -Path (Join-Path -Path $sourceDir -ChildPath '*') -DestinationPath $zipPath -Force
+
+            $result = Extract-Archives -Path $root -Recurse -DeleteArchive
+
+            Test-Path -LiteralPath $zipPath | Should -Be $false
+            $destination = Join-Path -Path $nested -ChildPath 'archive'
+            Test-Path -LiteralPath $destination | Should -Be $true
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'recursive'
+            $result.Extracted | Should -BeGreaterThan 0
+        }
+
+        It 'Deletes nested archives when ExtractNested is specified' {
+            $root = Join-Path -Path $TestDrive -ChildPath 'delete-nested'
+            $innerSource = Join-Path -Path $root -ChildPath 'inner-src'
+            New-Item -ItemType Directory -Path $innerSource -Force | Out-Null
+            'nested payload' | Set-Content -Path (Join-Path -Path $innerSource -ChildPath 'payload.txt')
+
+            $innerZip = Join-Path -Path $root -ChildPath 'inner.zip'
+            Compress-Archive -Path (Join-Path -Path $innerSource -ChildPath '*') -DestinationPath $innerZip -Force
+
+            $outerSource = Join-Path -Path $root -ChildPath 'outer-src'
+            New-Item -ItemType Directory -Path $outerSource -Force | Out-Null
+            Copy-Item -LiteralPath $innerZip -Destination $outerSource -Force
+
+            $outerZip = Join-Path -Path $root -ChildPath 'outer.zip'
+            Compress-Archive -Path (Join-Path -Path $outerSource -ChildPath '*') -DestinationPath $outerZip -Force
+
+            Remove-Item -LiteralPath $outerSource -Recurse -Force
+            Remove-Item -LiteralPath $innerZip -Force
+
+            $result = Extract-Archives -Path $root -ExtractNested -DeleteArchive
+
+            $outerDestination = Join-Path -Path $root -ChildPath 'outer'
+            $innerDestination = Join-Path -Path $outerDestination -ChildPath 'inner'
+            $innerZipPath = Join-Path -Path $outerDestination -ChildPath 'inner.zip'
+
+            Test-Path -LiteralPath $outerZip | Should -Be $false
+            Test-Path -LiteralPath $innerZipPath | Should -Be $false
+            Test-Path -LiteralPath $innerDestination | Should -Be $true
+            (Get-Content -Path (Join-Path -Path $innerDestination -ChildPath 'payload.txt')) | Should -Be 'nested payload'
+            ($result.Results | Where-Object { $_.Archive -eq $outerZip }).Status | Should -Be 'Extracted'
+            ($result.Results | Where-Object { $_.Archive -eq $innerZipPath }).Status | Should -Be 'Extracted'
+        }
+
+        It 'Deletes multipart archives and all parts after extraction' -Skip:($null -eq (Get-Command -Name '7z', '7za' -ErrorAction SilentlyContinue | Select-Object -First 1)) {
+            $sevenZip = Get-Command -Name '7z', '7za' -ErrorAction SilentlyContinue | Select-Object -First 1
+            $root = Join-Path -Path $TestDrive -ChildPath 'delete-multipart'
+            New-Item -ItemType Directory -Path $root -Force | Out-Null
+
+            $payloadSource = Join-Path -Path $root -ChildPath 'payload-src'
+            New-Item -ItemType Directory -Path $payloadSource -Force | Out-Null
+            'multipart content' | Set-Content -Path (Join-Path -Path $payloadSource -ChildPath 'file.txt')
+
+            $archiveBase = Join-Path -Path $root -ChildPath 'multi.7z'
+            Push-Location $payloadSource
+            try
+            {
+                & $sevenZip.Name 'a' '-t7z' '-mx=0' '-v60k' $archiveBase 'file.txt' | Out-Null
+            }
+            finally
+            {
+                Pop-Location
+            }
+
+            $result = Extract-Archives -Path $root -DeleteArchive
+
+            $remainingParts = Get-ChildItem -Path $root -Filter 'multi.7z.*' -File -ErrorAction SilentlyContinue
+            $remainingParts | Should -BeNullOrEmpty
+
+            $destination = Join-Path -Path $root -ChildPath 'multi'
+            Test-Path -LiteralPath $destination | Should -Be $true
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'multipart content'
+            ($result.Results | Where-Object { $_.Archive -like '*multi.7z.001' }).Status | Should -Be 'Extracted'
         }
     }
 
