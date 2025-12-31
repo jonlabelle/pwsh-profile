@@ -15,9 +15,50 @@
         - Visual sparkline graphs of latency trends
         - Detailed time-series graphs (optional)
         - Comprehensive statistics table
+        - Health grade assessment (A/B/C/D/F)
+        - Color-coded status indicators
         - Cross-platform compatible (Windows, macOS, Linux)
 
         Uses TCP connectivity tests for reliability across all platforms.
+
+        OUTPUT FORMAT:
+
+        Each host result displays:
+        ┌─ ✓ hostname:port [A] (collect XXms)
+        │  Latency: ▂▃▄▂▁▂▃ (sparkline graph)
+        │  Stats  : min: Xms | max: Xms | avg: Xms | jitter: Xms
+        │  Quality: X/X successful (X%) | Packet Loss: X%
+        │  Findings: Healthy ✓ (or list of issues)
+        └───────────────────────────────────
+
+        HEALTH GRADE SYSTEM:
+
+        An overall letter grade (A-F) provides quick assessment of connection quality:
+        - A: Excellent (score ≥90) - Low latency, no packet loss, minimal jitter
+        - B: Good (score ≥75) - Acceptable for most applications
+        - C: Acceptable (score ≥60) - Some issues but usable
+        - D: Poor (score ≥40) - Significant problems affecting quality
+        - F: Critical (score <40) - Severe issues or unreachable
+
+        STATUS ICONS:
+
+        Visual indicators for quick scanning:
+        - ✓ (checkmark): Healthy connection (grade A or B)
+        - ⚠ (warning): Degraded connection (grade C or D)
+        - ✗ (cross): Critical issues or unreachable (grade F)
+
+        COLOR THRESHOLDS:
+
+        Metrics are color-coded based on industry standards:
+        - Latency: Green <50ms | Yellow 50-99ms | Red ≥100ms
+        - Jitter: Green <10ms | Yellow 10-29ms | Red ≥30ms
+        - Packet Loss: Green 0% | Yellow 1-9% | Red ≥10%
+        - DNS Resolution: Green <50ms | Yellow 50-149ms | Red ≥150ms
+
+        Note: The "Findings" line uses higher thresholds for flagging issues:
+        - Latency flagged at ≥100ms (yellow) or ≥200ms (red)
+        - Jitter flagged at ≥30ms (yellow) or ≥50ms (red)
+        - Packet Loss flagged at >2% (yellow) or ≥10% (red)
 
         TROUBLESHOOTING USE CASES:
 
@@ -372,6 +413,11 @@
         None. Writes formatted diagnostic output to the host.
 
     .NOTES
+        CONTINUOUS MODE:
+        - Timestamps are shown for each refresh cycle: [HH:mm:ss] Refresh #N
+        - Use '-Continuous' to monitor until Ctrl+C is pressed
+        - Set '-Interval' to control seconds between refreshes (default: 5)
+
         POWERSHELL 5.1 BEHAVIOR:
         - PowerShell Desktop 5.1 does not support ANSI cursor control for in-place updates
         - Console is cleared between iterations using Clear-Host in continuous mode
@@ -446,6 +492,86 @@
     begin
     {
         Write-Verbose 'Starting network diagnostics'
+
+        # Shared threshold constants for consistent color coding across all output
+        # These align with industry standards for network quality assessment
+        $script:Thresholds = @{
+            Latency = @{
+                Good = 50      # Green: < 50ms - suitable for real-time apps
+                Warning = 100  # Yellow: 50-100ms - noticeable for interactive apps
+                Critical = 200 # Red: > 200ms - degraded experience
+            }
+            Jitter = @{
+                Good = 10      # Green: < 10ms - excellent for VoIP/gaming
+                Warning = 30   # Yellow: 10-30ms - acceptable for most apps
+                Critical = 50  # Red: > 50ms - unsuitable for real-time
+            }
+            PacketLoss = @{
+                Good = 0       # Green: 0% - perfect connectivity
+                Warning = 2    # Yellow: 0-2% - minor issues
+                Critical = 10  # Red: > 10% - significant problems
+            }
+            Dns = @{
+                Good = 50      # Green: < 50ms - fast DNS
+                Warning = 100  # Yellow: 50-100ms - acceptable
+                Critical = 150 # Red: > 150ms - slow DNS
+            }
+        }
+
+        # Health grade calculation based on combined metrics
+        # Returns: A (excellent), B (good), C (acceptable), D (poor), F (critical)
+        function Get-NetworkHealthGrade
+        {
+            param(
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Metrics,
+
+                [Parameter()]
+                [hashtable]$Thresholds = $script:Thresholds
+            )
+
+            if ($Metrics.SamplesSuccess -eq 0) { return 'F' }
+
+            $score = 100
+
+            # Deduct points for latency issues
+            if ($null -ne $Metrics.LatencyAvg)
+            {
+                if ($Metrics.LatencyAvg -ge $Thresholds.Latency.Critical) { $score -= 40 }
+                elseif ($Metrics.LatencyAvg -ge $Thresholds.Latency.Warning) { $score -= 20 }
+                elseif ($Metrics.LatencyAvg -ge $Thresholds.Latency.Good) { $score -= 5 }
+            }
+
+            # Deduct points for jitter
+            if ($null -ne $Metrics.Jitter)
+            {
+                if ($Metrics.Jitter -ge $Thresholds.Jitter.Critical) { $score -= 30 }
+                elseif ($Metrics.Jitter -ge $Thresholds.Jitter.Warning) { $score -= 15 }
+                elseif ($Metrics.Jitter -ge $Thresholds.Jitter.Good) { $score -= 5 }
+            }
+
+            # Deduct points for packet loss (most impactful)
+            if ($Metrics.PacketLoss -ge $Thresholds.PacketLoss.Critical) { $score -= 50 }
+            elseif ($Metrics.PacketLoss -gt $Thresholds.PacketLoss.Warning) { $score -= 25 }
+            elseif ($Metrics.PacketLoss -gt $Thresholds.PacketLoss.Good) { $score -= 10 }
+
+            # Convert score to grade
+            switch ($score)
+            {
+                { $_ -ge 90 } { return 'A' }
+                { $_ -ge 75 } { return 'B' }
+                { $_ -ge 60 } { return 'C' }
+                { $_ -ge 40 } { return 'D' }
+                default { return 'F' }
+            }
+        }
+
+        # Unicode status icons for visual health indicators
+        $script:StatusIcons = @{
+            Healthy = [char]0x2713   # ✓ checkmark
+            Warning = [char]0x26A0  # ⚠ warning sign
+            Critical = [char]0x2717 # ✗ cross mark
+        }
 
         # Validate parameter combinations
         # -Interval, -MaxIterations, and non-Auto -RenderMode only apply when -Continuous is used
@@ -583,43 +709,53 @@
                 return $graph
             }
 
-            $buildIssueFlags = {
-                param($result)
+            # Nested function for building issue flags
+            # Takes thresholds as a parameter to avoid scope issues in continuous mode
+            function Build-IssueFlags
+            {
+                param(
+                    [PSCustomObject]$Result,
+                    [hashtable]$Thresholds
+                )
+
                 # Use a flexible list so we don't trip over strict Add overloads on different PS versions
                 $flags = [System.Collections.Generic.List[Object]]::new()
 
-                if ($result.SamplesSuccess -eq 0)
+                if ($Result.SamplesSuccess -eq 0)
                 {
                     $flags.Add([PSCustomObject]@{ Text = 'Unreachable'; Color = 'Red' })
                     return $flags
                 }
 
-                if ($result.PacketLoss -ge 10) { $flags.Add([PSCustomObject]@{ Text = "Loss $($result.PacketLoss)%"; Color = 'Red' }) }
-                elseif ($result.PacketLoss -gt 2) { $flags.Add([PSCustomObject]@{ Text = "Loss $($result.PacketLoss)%"; Color = 'Yellow' }) }
+                # Use passed thresholds for consistent evaluation
+                $t = $Thresholds
 
-                if ($null -ne $result.LatencyAvg)
+                if ($Result.PacketLoss -ge $t.PacketLoss.Critical) { $flags.Add([PSCustomObject]@{ Text = "Loss $($Result.PacketLoss)%"; Color = 'Red' }) }
+                elseif ($Result.PacketLoss -gt $t.PacketLoss.Warning) { $flags.Add([PSCustomObject]@{ Text = "Loss $($Result.PacketLoss)%"; Color = 'Yellow' }) }
+
+                if ($null -ne $Result.LatencyAvg)
                 {
-                    if ($result.LatencyAvg -ge 200) { $flags.Add([PSCustomObject]@{ Text = "Latency $($result.LatencyAvg)ms"; Color = 'Red' }) }
-                    elseif ($result.LatencyAvg -ge 100) { $flags.Add([PSCustomObject]@{ Text = "Latency $($result.LatencyAvg)ms"; Color = 'Yellow' }) }
+                    if ($Result.LatencyAvg -ge $t.Latency.Critical) { $flags.Add([PSCustomObject]@{ Text = "Latency $($Result.LatencyAvg)ms"; Color = 'Red' }) }
+                    elseif ($Result.LatencyAvg -ge $t.Latency.Warning) { $flags.Add([PSCustomObject]@{ Text = "Latency $($Result.LatencyAvg)ms"; Color = 'Yellow' }) }
                 }
 
-                if ($null -ne $result.Jitter)
+                if ($null -ne $Result.Jitter)
                 {
-                    if ($result.Jitter -ge 50) { $flags.Add([PSCustomObject]@{ Text = "Jitter $($result.Jitter)ms"; Color = 'Red' }) }
-                    elseif ($result.Jitter -ge 30) { $flags.Add([PSCustomObject]@{ Text = "Jitter $($result.Jitter)ms"; Color = 'Yellow' }) }
+                    if ($Result.Jitter -ge $t.Jitter.Critical) { $flags.Add([PSCustomObject]@{ Text = "Jitter $($Result.Jitter)ms"; Color = 'Red' }) }
+                    elseif ($Result.Jitter -ge $t.Jitter.Warning) { $flags.Add([PSCustomObject]@{ Text = "Jitter $($Result.Jitter)ms"; Color = 'Yellow' }) }
                 }
 
-                if ($null -ne $result.DnsResolution)
+                if ($null -ne $Result.DnsResolution)
                 {
-                    if ($result.DnsResolution -ge 150) { $flags.Add([PSCustomObject]@{ Text = "DNS $($result.DnsResolution)ms"; Color = 'Yellow' }) }
-                    elseif ($result.DnsResolution -ge 100) { $flags.Add([PSCustomObject]@{ Text = "DNS $($result.DnsResolution)ms"; Color = 'DarkYellow' }) }
+                    if ($Result.DnsResolution -ge $t.Dns.Critical) { $flags.Add([PSCustomObject]@{ Text = "DNS $($Result.DnsResolution)ms"; Color = 'Yellow' }) }
+                    elseif ($Result.DnsResolution -ge $t.Dns.Warning) { $flags.Add([PSCustomObject]@{ Text = "DNS $($Result.DnsResolution)ms"; Color = 'DarkYellow' }) }
                 }
 
-                if ($null -ne $result.LatencyMax -and $null -ne $result.LatencyAvg -and $result.LatencyAvg -gt 0)
+                if ($null -ne $Result.LatencyMax -and $null -ne $Result.LatencyAvg -and $Result.LatencyAvg -gt 0)
                 {
-                    $ratio = $result.LatencyMax / $result.LatencyAvg
-                    if ($ratio -ge 2.5) { $flags.Add([PSCustomObject]@{ Text = "Spikes to $($result.LatencyMax)ms"; Color = 'Red' }) }
-                    elseif ($ratio -ge 1.8) { $flags.Add([PSCustomObject]@{ Text = "Spikes to $($result.LatencyMax)ms"; Color = 'Yellow' }) }
+                    $ratio = $Result.LatencyMax / $Result.LatencyAvg
+                    if ($ratio -ge 2.5) { $flags.Add([PSCustomObject]@{ Text = "Spikes to $($Result.LatencyMax)ms"; Color = 'Red' }) }
+                    elseif ($ratio -ge 1.8) { $flags.Add([PSCustomObject]@{ Text = "Spikes to $($Result.LatencyMax)ms"; Color = 'Yellow' }) }
                 }
 
                 return $flags
@@ -645,17 +781,21 @@
                 return ''
             }
 
+            # Capture thresholds once at the start to avoid scope issues in nested functions
+            $thresholds = $script:Thresholds
+
             foreach ($result in $Results)
             {
-                $flags = & $buildIssueFlags $result
+                $flags = Build-IssueFlags -Result $result -Thresholds $thresholds
+                $t = $thresholds
 
-                # Determine overall status color based on packet loss and latency
+                # Determine overall status color based on packet loss and latency using threshold constants
                 $statusColor = 'Green'
-                if ($result.PacketLoss -gt 10 -or ($null -ne $result.LatencyAvg -and $result.LatencyAvg -gt 200) -or ($null -ne $result.Jitter -and $result.Jitter -ge 50))
+                if ($result.PacketLoss -gt $t.PacketLoss.Critical -or ($null -ne $result.LatencyAvg -and $result.LatencyAvg -gt $t.Latency.Critical) -or ($null -ne $result.Jitter -and $result.Jitter -ge $t.Jitter.Critical))
                 {
                     $statusColor = 'Red'
                 }
-                elseif ($result.PacketLoss -gt 2 -or ($null -ne $result.LatencyAvg -and $result.LatencyAvg -gt 100) -or ($null -ne $result.Jitter -and $result.Jitter -ge 30))
+                elseif ($result.PacketLoss -gt $t.PacketLoss.Warning -or ($null -ne $result.LatencyAvg -and $result.LatencyAvg -gt $t.Latency.Warning) -or ($null -ne $result.Jitter -and $result.Jitter -ge $t.Jitter.Warning))
                 {
                     $statusColor = 'Yellow'
                 }
@@ -668,15 +808,38 @@
                     $statusColor = 'Yellow'
                 }
 
+                # Calculate health grade for quick assessment
+                $healthGrade = Get-NetworkHealthGrade -Metrics $result -Thresholds $thresholds
+                $gradeColor = switch ($healthGrade)
+                {
+                    'A' { 'Green' }
+                    'B' { 'Cyan' }
+                    'C' { 'Yellow' }
+                    'D' { 'DarkYellow' }
+                    default { 'Red' }
+                }
+
+                # Select status icon based on health
+                $statusIcon = switch ($healthGrade)
+                {
+                    { $_ -in 'A', 'B' } { $script:StatusIcons.Healthy }
+                    { $_ -in 'C', 'D' } { $script:StatusIcons.Warning }
+                    default { $script:StatusIcons.Critical }
+                }
+
                 $successRate = [Math]::Round((($result.SamplesSuccess / $result.SamplesTotal) * 100), 1)
 
-                # Host header with color coding and elapsed time if available
+                # Host header with color coding, health grade, and elapsed time if available
                 $elapsedText = ''
                 if ($result.PSObject.Properties.Match('ElapsedMs'))
                 {
                     $elapsedText = " (collect $([Math]::Round($result.ElapsedMs, 1))ms)"
                 }
-                Write-Host ("┌─ $($result.HostName):$($result.Port)") -ForegroundColor $statusColor -NoNewline
+                Write-Host ("┌─ $statusIcon ") -ForegroundColor $statusColor -NoNewline
+                Write-Host "$($result.HostName):$($result.Port)" -ForegroundColor $statusColor -NoNewline
+                Write-Host " [" -ForegroundColor DarkGray -NoNewline
+                Write-Host $healthGrade -ForegroundColor $gradeColor -NoNewline
+                Write-Host "]" -ForegroundColor DarkGray -NoNewline
                 if ($elapsedText)
                 {
                     Write-Host "$elapsedText" -ForegroundColor DarkGray -NoNewline
@@ -690,13 +853,13 @@
                     {
                         Write-Host '│  Summary: ' -NoNewline
                         Write-Host 'avg ' -NoNewline -ForegroundColor Gray
-                        $avgColor = if ($result.LatencyAvg -lt 50) { 'Green' } elseif ($result.LatencyAvg -lt 100) { 'Yellow' } else { 'Red' }
+                        $avgColor = if ($result.LatencyAvg -lt $t.Latency.Good) { 'Green' } elseif ($result.LatencyAvg -lt $t.Latency.Warning) { 'Yellow' } else { 'Red' }
                         Write-Host "$($result.LatencyAvg)ms" -NoNewline -ForegroundColor $avgColor
                         Write-Host ' | jitter ' -NoNewline -ForegroundColor Gray
-                        $jitterColor = if ($result.Jitter -lt 10) { 'Green' } elseif ($result.Jitter -lt 30) { 'Yellow' } else { 'Red' }
+                        $jitterColor = if ($result.Jitter -lt $t.Jitter.Good) { 'Green' } elseif ($result.Jitter -lt $t.Jitter.Warning) { 'Yellow' } else { 'Red' }
                         Write-Host "$($result.Jitter)ms" -NoNewline -ForegroundColor $jitterColor
                         Write-Host ' | loss ' -NoNewline -ForegroundColor Gray
-                        $lossColor = if ($result.PacketLoss -eq 0) { 'Green' } elseif ($result.PacketLoss -lt 5) { 'Yellow' } else { 'Red' }
+                        $lossColor = if ($result.PacketLoss -eq $t.PacketLoss.Good) { 'Green' } elseif ($result.PacketLoss -lt $t.PacketLoss.Critical) { 'Yellow' } else { 'Red' }
                         Write-Host "$($result.PacketLoss)%" -NoNewline -ForegroundColor $lossColor
                         Write-Host ' | success ' -NoNewline -ForegroundColor Gray
                         $qualityColor = if ($successRate -ge 98) { 'Green' } elseif ($successRate -ge 90) { 'Yellow' } else { 'Red' }
@@ -704,7 +867,7 @@
                         if ($null -ne $result.DnsResolution)
                         {
                             Write-Host ' | dns ' -NoNewline -ForegroundColor Gray
-                            $dnsColor = if ($result.DnsResolution -lt 50) { 'Green' } elseif ($result.DnsResolution -lt 150) { 'Yellow' } else { 'Red' }
+                            $dnsColor = if ($result.DnsResolution -lt $t.Dns.Good) { 'Green' } elseif ($result.DnsResolution -lt $t.Dns.Critical) { 'Yellow' } else { 'Red' }
                             Write-Host "$($result.DnsResolution)ms" -NoNewline -ForegroundColor $dnsColor
                         }
                         if ($flags.Count -gt 0)
@@ -783,7 +946,7 @@
                         $linesPrintedLocal++
                     }
 
-                    # Statistics with color coding
+                    # Statistics with color coding using threshold constants
                     if ($null -ne $result.LatencyAvg)
                     {
                         Write-Host '│  Stats  : ' -NoNewline
@@ -792,10 +955,10 @@
                         Write-Host ' | max: ' -NoNewline -ForegroundColor Gray
                         Write-Host "$($result.LatencyMax)ms" -NoNewline -ForegroundColor Cyan
                         Write-Host ' | avg: ' -NoNewline -ForegroundColor Gray
-                        $avgColor = if ($result.LatencyAvg -lt 50) { 'Green' } elseif ($result.LatencyAvg -lt 100) { 'Yellow' } else { 'Red' }
+                        $avgColor = if ($result.LatencyAvg -lt $t.Latency.Good) { 'Green' } elseif ($result.LatencyAvg -lt $t.Latency.Warning) { 'Yellow' } else { 'Red' }
                         Write-Host "$($result.LatencyAvg)ms" -NoNewline -ForegroundColor $avgColor
                         Write-Host ' | jitter: ' -NoNewline -ForegroundColor Gray
-                        $jitterColor = if ($result.Jitter -lt 10) { 'Green' } elseif ($result.Jitter -lt 30) { 'Yellow' } else { 'Red' }
+                        $jitterColor = if ($result.Jitter -lt $t.Jitter.Good) { 'Green' } elseif ($result.Jitter -lt $t.Jitter.Warning) { 'Yellow' } else { 'Red' }
                         Write-Host "$($result.Jitter)ms" -NoNewline -ForegroundColor $jitterColor
                         Write-Host ' | samples: ' -NoNewline -ForegroundColor Gray
                         Write-Host ("$($result.SamplesTotal)$clearTail") -ForegroundColor Cyan
@@ -815,7 +978,7 @@
                 Write-Host ' successful (' -NoNewline
                 Write-Host "$successRate%" -NoNewline -ForegroundColor $qualityColor
                 Write-Host ') | Packet Loss: ' -NoNewline
-                $lossColor = if ($result.PacketLoss -eq 0) { 'Green' } elseif ($result.PacketLoss -lt 5) { 'Yellow' } else { 'Red' }
+                $lossColor = if ($result.PacketLoss -eq $t.PacketLoss.Good) { 'Green' } elseif ($result.PacketLoss -lt $t.PacketLoss.Critical) { 'Yellow' } else { 'Red' }
                 Write-Host ("$($result.PacketLoss)%$clearTail") -ForegroundColor $lossColor
                 $linesPrintedLocal++
 
@@ -823,7 +986,7 @@
                 Write-Host '│  Findings: ' -NoNewline
                 if ($flags.Count -eq 0)
                 {
-                    Write-Host ("Healthy$clearTail") -ForegroundColor Green
+                    Write-Host ("Healthy $($script:StatusIcons.Healthy)$clearTail") -ForegroundColor Green
                 }
                 else
                 {
@@ -845,7 +1008,7 @@
                 if ($null -ne $result.DnsResolution)
                 {
                     Write-Host '│  DNS    : ' -NoNewline
-                    $dnsColor = if ($result.DnsResolution -lt 50) { 'Green' } elseif ($result.DnsResolution -lt 150) { 'Yellow' } else { 'Red' }
+                    $dnsColor = if ($result.DnsResolution -lt $t.Dns.Good) { 'Green' } elseif ($result.DnsResolution -lt $t.Dns.Critical) { 'Yellow' } else { 'Red' }
                     Write-Host "$($result.DnsResolution)ms" -NoNewline -ForegroundColor $dnsColor
                     Write-Host (" resolution time$clearTail")
                     $linesPrintedLocal++
@@ -1075,6 +1238,12 @@
                     Write-Host ("Interval: ${Interval}s | Samples per host: $Count | Port: $Port") -ForegroundColor Gray
                     Write-Host
                 }
+
+                # Show timestamp for each refresh cycle
+                $timestamp = (Get-Date).ToString('HH:mm:ss')
+                Write-Host "[$timestamp] " -ForegroundColor DarkGray -NoNewline
+                Write-Host "Refresh #$iteration" -ForegroundColor Gray
+                Write-Host
             }
             $linesPrinted = if ($Continuous) { 3 } else { 0 }
 

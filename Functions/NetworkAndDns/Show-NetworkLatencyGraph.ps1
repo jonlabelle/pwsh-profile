@@ -67,6 +67,24 @@
 
         See EXAMPLES for practical pattern interpretation workflows and usage scenarios.
 
+        COLOR THRESHOLDS:
+
+        Latency values are color-coded based on performance thresholds:
+
+        Latency:                         Jitter:
+        ┌──────────────┬─────────┐       ┌──────────────┬─────────┐
+        │ Value        │ Color   │       │ Value        │ Color   │
+        ├──────────────┼─────────┤       ├──────────────┼─────────┤
+        │ <50ms        │ Green   │       │ <10ms        │ Green   │
+        │ 50-99ms      │ Yellow  │       │ 10-29ms      │ Yellow  │
+        │ ≥100ms       │ Red     │       │ ≥30ms        │ Red     │
+        └──────────────┴─────────┘       └──────────────┴─────────┘
+
+        These thresholds align with industry standards for real-time applications:
+        - Green: Excellent for VoIP, gaming, and video conferencing
+        - Yellow: Acceptable for most applications, may affect real-time quality
+        - Red: Poor performance, likely to cause noticeable issues
+
         RELATED FUNCTIONS:
         This function is designed to work with:
         - Get-NetworkMetrics: Auto-loaded in continuous mode to collect latency samples
@@ -370,6 +388,10 @@
         None (continuous mode; writes directly to host)
 
     .NOTES
+        CONTINUOUS MODE:
+        - Timestamps in [HH:mm:ss] format are displayed in the header to track when samples were collected
+        - Press Ctrl+C to stop continuous monitoring
+
         POWERSHELL 5.1 BEHAVIOR:
         - PowerShell Desktop 5.1 does not support ANSI cursor control for in-place updates
         - Console is cleared between iterations using Clear-Host in continuous mode
@@ -525,19 +547,32 @@
             Gray = if ($supportsColor) { "`e[90m" } else { '' }
         }
 
+        # Threshold constants for color coding in this function
+        # Uses unique name to avoid conflicts with caller's $script:Thresholds
+        $script:GraphThresholds = @{
+            Latency = @{
+                Good = 50      # Green: < 50ms - suitable for real-time apps
+                Warning = 100  # Yellow: 50-100ms - noticeable for interactive apps
+            }
+            Jitter = @{
+                Good = 10      # Green: < 10ms - excellent for VoIP/gaming
+                Warning = 30   # Yellow: 10-30ms - acceptable for most apps
+            }
+        }
+
         function script:Get-LatencyColor
         {
             param([double]$Value)
-            if ($Value -lt 50) { return $script:Palette.Green }
-            if ($Value -lt 100) { return $script:Palette.Yellow }
+            if ($Value -lt $script:GraphThresholds.Latency.Good) { return $script:Palette.Green }
+            if ($Value -lt $script:GraphThresholds.Latency.Warning) { return $script:Palette.Yellow }
             return $script:Palette.Red
         }
 
         function script:Get-JitterColor
         {
             param([double]$Value)
-            if ($Value -lt 10) { return $script:Palette.Green }
-            if ($Value -lt 30) { return $script:Palette.Yellow }
+            if ($Value -lt $script:GraphThresholds.Jitter.Good) { return $script:Palette.Green }
+            if ($Value -lt $script:GraphThresholds.Jitter.Warning) { return $script:Palette.Yellow }
             return $script:Palette.Red
         }
 
@@ -740,7 +775,7 @@
 
             if ($ShowStats)
             {
-                $avgColor = if ($Avg -lt 50) { $script:Palette.Green } elseif ($Avg -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
+                $avgColor = script:Get-LatencyColor -Value $Avg
                 # Count valid vs failed samples to avoid duplicate or confusing sample display
                 $validCount = @($Data | Where-Object { $null -ne $_ }).Count
                 $failedCount = @($Data | Where-Object { $null -eq $_ }).Count
@@ -846,7 +881,8 @@
                 }
 
                 $clearTail = if ($effectiveRender -eq 'InPlace') { "`e[K" } else { '' }
-                Write-Host "${script:Palette.Cyan}Network Latency Graph - Iteration $iteration (Press Ctrl+C to stop)${script:Palette.Reset}$clearTail"
+                $timestamp = (Get-Date).ToString('HH:mm:ss')
+                Write-Host "${script:Palette.Cyan}Network Latency Graph - Iteration $iteration ${script:Palette.Gray}[$timestamp]${script:Palette.Cyan} (Press Ctrl+C to stop)${script:Palette.Reset}$clearTail"
                 Write-Host "${script:Palette.Gray}Host: $HostName | Interval: ${Interval}s | Samples: $Count | Port: $Port${script:Palette.Reset}$clearTail"
                 Write-Host "$clearTail"
 
@@ -897,7 +933,7 @@
                             if ($ShowStats)
                             {
                                 $statsText = " ${script:Palette.Gray}(min: ${script:Palette.Cyan}$([Math]::Round($min, 1))ms${script:Palette.Reset}${script:Palette.Gray}, max: ${script:Palette.Cyan}$([Math]::Round($max, 1))ms${script:Palette.Reset}${script:Palette.Gray}, avg: "
-                                $avgColor = if ($avg -lt 50) { $script:Palette.Green } elseif ($avg -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
+                                $avgColor = script:Get-LatencyColor -Value $avg
                                 $statsText += "$avgColor$([Math]::Round($avg, 1))ms${script:Palette.Reset}${script:Palette.Gray}"
                                 if ($null -ne $jitter) { $statsText += ", jitter: $(script:Get-JitterColor -Value $jitter)$([Math]::Round($jitter, 1))ms${script:Palette.Reset}${script:Palette.Gray}" }
                                 if ($failedCount -gt 0) { $statsText += ", failed: ${script:Palette.Red}$failedCount${script:Palette.Reset}${script:Palette.Gray}" }
@@ -1033,8 +1069,8 @@
                 {
                     $statsText = " ${script:Palette.Reset}${script:Palette.Gray}(min: ${script:Palette.Cyan}$([Math]::Round($min, 1))ms${script:Palette.Reset}${script:Palette.Gray}, max: ${script:Palette.Cyan}$([Math]::Round($max, 1))ms${script:Palette.Reset}${script:Palette.Gray}, avg: "
 
-                    # Color avg based on value
-                    $avgColor = if ($avg -lt 50) { $script:Palette.Green } elseif ($avg -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
+                    # Color avg based on value using threshold helper
+                    $avgColor = script:Get-LatencyColor -Value $avg
                     $statsText += "$avgColor$([Math]::Round($avg, 1))ms${script:Palette.Reset}${script:Palette.Gray}"
                     if ($null -ne $jitter)
                     {
