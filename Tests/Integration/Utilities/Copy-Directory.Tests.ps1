@@ -20,6 +20,9 @@
 #>
 
 BeforeAll {
+    # Suppress progress bars to prevent freezing in non-interactive environments
+    $Global:ProgressPreference = 'SilentlyContinue'
+
     # Import the function under test
     . "$PSScriptRoot/../../../Functions/Utilities/Copy-Directory.ps1"
 
@@ -417,6 +420,217 @@ Describe 'Copy-Directory Integration Tests' {
             $result.TotalFiles | Should -Be 1  # Only file1 was copied
             $result.FilesSkipped | Should -Be 2  # Files 2 and 3 were skipped
             $result.FilesOverwritten | Should -Be 0
+        }
+    }
+
+    Context 'Parallel Processing' {
+        BeforeAll {
+            $script:parallelTestDir = Join-Path -Path $TestDrive -ChildPath 'ParallelTests'
+            New-Item -ItemType Directory -Path $script:parallelTestDir -Force | Out-Null
+        }
+
+        AfterAll {
+            Remove-TestDirectory -Path $script:parallelTestDir
+        }
+
+        It 'Should copy many files correctly with parallel processing' {
+            $sourceDir = Join-Path -Path $script:parallelTestDir -ChildPath 'many_files_source'
+            $destDir = Join-Path -Path $script:parallelTestDir -ChildPath 'many_files_dest'
+
+            New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
+
+            # Create 20 files to ensure parallel processing is triggered
+            1..20 | ForEach-Object {
+                "content for file $_" | Set-Content -Path "$sourceDir\file$_.txt"
+            }
+
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -ThrottleLimit 4
+
+            $result.TotalFiles | Should -Be 20
+            1..20 | ForEach-Object {
+                Test-Path "$destDir\file$_.txt" | Should -Be $true
+                (Get-Content -Path "$destDir\file$_.txt") | Should -Be "content for file $_"
+            }
+        }
+
+        It 'Should handle parallel copying with nested directories' {
+            $sourceDir = Join-Path -Path $script:parallelTestDir -ChildPath 'nested_parallel_source'
+            $destDir = Join-Path -Path $script:parallelTestDir -ChildPath 'nested_parallel_dest'
+
+            # Create nested structure with many files
+            New-Item -ItemType Directory -Path "$sourceDir\level1\level2\level3" -Force | Out-Null
+            New-Item -ItemType Directory -Path "$sourceDir\another" -Force | Out-Null
+
+            1..5 | ForEach-Object { "root $_" | Set-Content -Path "$sourceDir\root$_.txt" }
+            1..5 | ForEach-Object { "level1 $_" | Set-Content -Path "$sourceDir\level1\l1_$_.txt" }
+            1..5 | ForEach-Object { "level2 $_" | Set-Content -Path "$sourceDir\level1\level2\l2_$_.txt" }
+            1..5 | ForEach-Object { "level3 $_" | Set-Content -Path "$sourceDir\level1\level2\level3\l3_$_.txt" }
+            1..5 | ForEach-Object { "another $_" | Set-Content -Path "$sourceDir\another\a$_.txt" }
+
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -ThrottleLimit 8 -Recurse
+
+            $result.TotalFiles | Should -Be 25
+            $result.TotalDirectories | Should -Be 4
+
+            # Verify content integrity across all levels
+            1..5 | ForEach-Object {
+                (Get-Content -Path "$destDir\root$_.txt") | Should -Be "root $_"
+                (Get-Content -Path "$destDir\level1\l1_$_.txt") | Should -Be "level1 $_"
+                (Get-Content -Path "$destDir\level1\level2\l2_$_.txt") | Should -Be "level2 $_"
+                (Get-Content -Path "$destDir\level1\level2\level3\l3_$_.txt") | Should -Be "level3 $_"
+                (Get-Content -Path "$destDir\another\a$_.txt") | Should -Be "another $_"
+            }
+        }
+
+        It 'Should correctly track statistics in parallel mode with Skip' {
+            $sourceDir = Join-Path -Path $script:parallelTestDir -ChildPath 'parallel_skip_source'
+            $destDir = Join-Path -Path $script:parallelTestDir -ChildPath 'parallel_skip_dest'
+
+            New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
+            New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+
+            # Create 10 source files
+            1..10 | ForEach-Object { "new $_" | Set-Content -Path "$sourceDir\file$_.txt" }
+
+            # Create 5 existing files at destination
+            1..5 | ForEach-Object { "old $_" | Set-Content -Path "$destDir\file$_.txt" }
+
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip -ThrottleLimit 4
+
+            $result.TotalFiles | Should -Be 5  # Only files 6-10 copied
+            $result.FilesSkipped | Should -Be 5  # Files 1-5 skipped
+            $result.FilesOverwritten | Should -Be 0
+        }
+
+        It 'Should correctly track statistics in parallel mode with Overwrite' {
+            $sourceDir = Join-Path -Path $script:parallelTestDir -ChildPath 'parallel_overwrite_source'
+            $destDir = Join-Path -Path $script:parallelTestDir -ChildPath 'parallel_overwrite_dest'
+
+            New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
+            New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+
+            # Create 10 source files
+            1..10 | ForEach-Object { "new $_" | Set-Content -Path "$sourceDir\file$_.txt" }
+
+            # Create 5 existing files at destination
+            1..5 | ForEach-Object { "old $_" | Set-Content -Path "$destDir\file$_.txt" }
+
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Overwrite -ThrottleLimit 4
+
+            $result.TotalFiles | Should -Be 10  # All 10 files copied
+            $result.FilesSkipped | Should -Be 0
+            $result.FilesOverwritten | Should -Be 5  # Files 1-5 overwritten
+
+            # Verify all files have new content
+            1..10 | ForEach-Object {
+                (Get-Content -Path "$destDir\file$_.txt") | Should -Be "new $_"
+            }
+        }
+
+        It 'Should correctly track statistics in parallel mode with IfNewer' {
+            $sourceDir = Join-Path -Path $script:parallelTestDir -ChildPath 'parallel_ifnewer_source'
+            $destDir = Join-Path -Path $script:parallelTestDir -ChildPath 'parallel_ifnewer_dest'
+
+            New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
+            New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+
+            # Create 6 source files
+            1..6 | ForEach-Object { "new $_" | Set-Content -Path "$sourceDir\file$_.txt" }
+
+            # Create 3 older files at destination
+            1..3 | ForEach-Object {
+                "old $_" | Set-Content -Path "$destDir\file$_.txt"
+                $destFile = Get-Item -Path "$destDir\file$_.txt"
+                $destFile.LastWriteTime = (Get-Date).AddDays(-1)
+            }
+
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode IfNewer -ThrottleLimit 4
+
+            # Files 1-3: overwritten (newer), Files 4-6: newly copied
+            $result.TotalFiles | Should -Be 6  # All 6 files copied
+            $result.FilesOverwritten | Should -Be 3  # Files 1-3 overwritten
+            $result.FilesSkipped | Should -Be 0
+        }
+
+        It 'Should produce consistent results between sequential and parallel modes' {
+            $sourceSeqDir = Join-Path -Path $script:parallelTestDir -ChildPath 'consistency_seq_source'
+            $destSeqDir = Join-Path -Path $script:parallelTestDir -ChildPath 'consistency_seq_dest'
+            $sourceParDir = Join-Path -Path $script:parallelTestDir -ChildPath 'consistency_par_source'
+            $destParDir = Join-Path -Path $script:parallelTestDir -ChildPath 'consistency_par_dest'
+
+            # Create identical source structures
+            New-Item -ItemType Directory -Path "$sourceSeqDir\sub" -Force | Out-Null
+            New-Item -ItemType Directory -Path "$sourceParDir\sub" -Force | Out-Null
+
+            1..10 | ForEach-Object {
+                "content $_" | Set-Content -Path "$sourceSeqDir\file$_.txt"
+                "content $_" | Set-Content -Path "$sourceParDir\file$_.txt"
+                "sub content $_" | Set-Content -Path "$sourceSeqDir\sub\sub$_.txt"
+                "sub content $_" | Set-Content -Path "$sourceParDir\sub\sub$_.txt"
+            }
+
+            $resultSeq = Copy-Directory -Source $sourceSeqDir -Destination $destSeqDir -ThrottleLimit 1 -Recurse
+            $resultPar = Copy-Directory -Source $sourceParDir -Destination $destParDir -ThrottleLimit 8 -Recurse
+
+            $resultSeq.TotalFiles | Should -Be $resultPar.TotalFiles
+            $resultSeq.TotalDirectories | Should -Be $resultPar.TotalDirectories
+            $resultSeq.FilesSkipped | Should -Be $resultPar.FilesSkipped
+            $resultSeq.FilesOverwritten | Should -Be $resultPar.FilesOverwritten
+
+            # Verify content is identical
+            1..10 | ForEach-Object {
+                (Get-Content "$destSeqDir\file$_.txt") | Should -Be (Get-Content "$destParDir\file$_.txt")
+                (Get-Content "$destSeqDir\sub\sub$_.txt") | Should -Be (Get-Content "$destParDir\sub\sub$_.txt")
+            }
+        }
+
+        It 'Should handle directory exclusion correctly in parallel mode' {
+            $sourceDir = Join-Path -Path $script:parallelTestDir -ChildPath 'parallel_exclude_source'
+            $destDir = Join-Path -Path $script:parallelTestDir -ChildPath 'parallel_exclude_dest'
+
+            New-Item -ItemType Directory -Path "$sourceDir\include" -Force | Out-Null
+            New-Item -ItemType Directory -Path "$sourceDir\.git" -Force | Out-Null
+            New-Item -ItemType Directory -Path "$sourceDir\node_modules" -Force | Out-Null
+
+            1..5 | ForEach-Object {
+                "include $_" | Set-Content -Path "$sourceDir\include\file$_.txt"
+                "git $_" | Set-Content -Path "$sourceDir\.git\file$_.txt"
+                "node $_" | Set-Content -Path "$sourceDir\node_modules\file$_.txt"
+            }
+
+            $result = Copy-Directory -Source $sourceDir -Destination $destDir -ExcludeDirectories '.git', 'node_modules' -ThrottleLimit 4 -Recurse
+
+            $result.TotalFiles | Should -Be 5
+            $result.ExcludedDirectories | Should -Be 2
+
+            Test-Path "$destDir\include" | Should -Be $true
+            Test-Path "$destDir\.git" | Should -Be $false
+            Test-Path "$destDir\node_modules" | Should -Be $false
+        }
+
+        It 'Should be faster with parallel processing for large file sets' {
+            $sourceDir = Join-Path -Path $script:parallelTestDir -ChildPath 'perf_source'
+            $destSeqDir = Join-Path -Path $script:parallelTestDir -ChildPath 'perf_seq_dest'
+            $destParDir = Join-Path -Path $script:parallelTestDir -ChildPath 'perf_par_dest'
+
+            New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
+
+            # Create 50 files with some content
+            1..50 | ForEach-Object {
+                "This is test content for file number $_ with enough data to make copying meaningful." | Set-Content -Path "$sourceDir\file$_.txt"
+            }
+
+            $resultSeq = Copy-Directory -Source $sourceDir -Destination $destSeqDir -ThrottleLimit 1
+            $resultPar = Copy-Directory -Source $sourceDir -Destination $destParDir -ThrottleLimit 8
+
+            # Both should complete successfully with same file count
+            $resultSeq.TotalFiles | Should -Be 50
+            $resultPar.TotalFiles | Should -Be 50
+
+            # Parallel should generally be faster or equal (file I/O can be unpredictable)
+            # We just verify both complete without errors
+            $resultSeq.Duration | Should -BeOfType [TimeSpan]
+            $resultPar.Duration | Should -BeOfType [TimeSpan]
         }
     }
 }

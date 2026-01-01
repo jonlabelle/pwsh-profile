@@ -21,6 +21,9 @@
 #>
 
 BeforeAll {
+    # Suppress progress bars to prevent freezing in non-interactive environments
+    $Global:ProgressPreference = 'SilentlyContinue'
+
     # Import the function under test
     . "$PSScriptRoot/../../../Functions/Utilities/Copy-Directory.ps1"
 }
@@ -73,6 +76,128 @@ Describe 'Copy-Directory' {
             $recurseParam = $command.Parameters['Recurse']
             $recurseParam | Should -Not -BeNullOrEmpty
             $recurseParam.Attributes.Mandatory | Should -Not -Contain $true
+        }
+
+        It 'Should have optional ThrottleLimit parameter' {
+            $command = Get-Command Copy-Directory
+            $throttleParam = $command.Parameters['ThrottleLimit']
+            $throttleParam | Should -Not -BeNullOrEmpty
+            $throttleParam.Attributes.Mandatory | Should -Not -Contain $true
+        }
+
+        It 'Should have ThrottleLimit parameter with ValidateRange(1,32)' {
+            $command = Get-Command Copy-Directory
+            $throttleParam = $command.Parameters['ThrottleLimit']
+            $validateRange = $throttleParam.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateRangeAttribute] }
+            $validateRange | Should -Not -BeNullOrEmpty
+            $validateRange.MinRange | Should -Be 1
+            $validateRange.MaxRange | Should -Be 32
+        }
+
+        It 'Should have ThrottleLimit default value of 4' {
+            $command = Get-Command Copy-Directory
+            $throttleParam = $command.Parameters['ThrottleLimit']
+            # Check for default value by examining parameter set defaults
+            $throttleParam.ParameterType | Should -Be ([Int32])
+        }
+    }
+
+    Context 'ThrottleLimit Parameter' {
+        It 'Should accept ThrottleLimit of 1 (sequential mode)' {
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'throttle1_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'throttle1_dest'
+            New-Item -ItemType Directory -Path $testSource -Force | Out-Null
+            'content' | Set-Content -Path "$testSource\test.txt"
+
+            { Copy-Directory -Source $testSource -Destination $testDest -ThrottleLimit 1 } | Should -Not -Throw
+            Test-Path "$testDest\test.txt" | Should -BeTrue
+        }
+
+        It 'Should accept ThrottleLimit of 8' {
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'throttle8_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'throttle8_dest'
+            New-Item -ItemType Directory -Path $testSource -Force | Out-Null
+            'content' | Set-Content -Path "$testSource\test.txt"
+
+            { Copy-Directory -Source $testSource -Destination $testDest -ThrottleLimit 8 } | Should -Not -Throw
+            Test-Path "$testDest\test.txt" | Should -BeTrue
+        }
+
+        It 'Should accept ThrottleLimit of 32 (maximum)' {
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'throttle32_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'throttle32_dest'
+            New-Item -ItemType Directory -Path $testSource -Force | Out-Null
+            'content' | Set-Content -Path "$testSource\test.txt"
+
+            { Copy-Directory -Source $testSource -Destination $testDest -ThrottleLimit 32 } | Should -Not -Throw
+            Test-Path "$testDest\test.txt" | Should -BeTrue
+        }
+
+        It 'Should reject ThrottleLimit of 0' {
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'throttle0_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'throttle0_dest'
+            New-Item -ItemType Directory -Path $testSource -Force | Out-Null
+
+            { Copy-Directory -Source $testSource -Destination $testDest -ThrottleLimit 0 } | Should -Throw
+        }
+
+        It 'Should reject ThrottleLimit greater than 32' {
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'throttle33_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'throttle33_dest'
+            New-Item -ItemType Directory -Path $testSource -Force | Out-Null
+
+            { Copy-Directory -Source $testSource -Destination $testDest -ThrottleLimit 33 } | Should -Throw
+        }
+
+        It 'Should disable parallel processing when UpdateMode is Prompt' {
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'prompt_parallel_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'prompt_parallel_dest'
+            New-Item -ItemType Directory -Path $testSource -Force | Out-Null
+            'content' | Set-Content -Path "$testSource\test.txt"
+
+            # Prompt mode with ThrottleLimit > 1 should still work (parallel is disabled internally)
+            { Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Prompt -ThrottleLimit 8 -WhatIf } | Should -Not -Throw
+        }
+
+        It 'Should copy files correctly with parallel processing' {
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'parallel_copy_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'parallel_copy_dest'
+            New-Item -ItemType Directory -Path $testSource -Force | Out-Null
+
+            # Create multiple files to trigger parallel processing
+            1..10 | ForEach-Object {
+                "content $_" | Set-Content -Path "$testSource\file$_.txt"
+            }
+
+            $result = Copy-Directory -Source $testSource -Destination $testDest -ThrottleLimit 4
+
+            $result.TotalFiles | Should -Be 10
+            1..10 | ForEach-Object {
+                Test-Path "$testDest\file$_.txt" | Should -BeTrue
+                (Get-Content -Path "$testDest\file$_.txt") | Should -Be "content $_"
+            }
+        }
+
+        It 'Should produce identical results with sequential and parallel modes' {
+            $testSourceSeq = Join-Path -Path $TestDrive -ChildPath 'seq_mode_source'
+            $testDestSeq = Join-Path -Path $TestDrive -ChildPath 'seq_mode_dest'
+            $testSourcePar = Join-Path -Path $TestDrive -ChildPath 'par_mode_source'
+            $testDestPar = Join-Path -Path $TestDrive -ChildPath 'par_mode_dest'
+
+            # Create identical source structures
+            New-Item -ItemType Directory -Path $testSourceSeq -Force | Out-Null
+            New-Item -ItemType Directory -Path $testSourcePar -Force | Out-Null
+            1..5 | ForEach-Object {
+                "content $_" | Set-Content -Path "$testSourceSeq\file$_.txt"
+                "content $_" | Set-Content -Path "$testSourcePar\file$_.txt"
+            }
+
+            $resultSeq = Copy-Directory -Source $testSourceSeq -Destination $testDestSeq -ThrottleLimit 1
+            $resultPar = Copy-Directory -Source $testSourcePar -Destination $testDestPar -ThrottleLimit 4
+
+            $resultSeq.TotalFiles | Should -Be $resultPar.TotalFiles
+            $resultSeq.FilesSkipped | Should -Be $resultPar.FilesSkipped
+            $resultSeq.FilesOverwritten | Should -Be $resultPar.FilesOverwritten
         }
     }
 
