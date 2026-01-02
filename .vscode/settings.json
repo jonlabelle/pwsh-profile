@@ -67,6 +67,7 @@
     "geolocation",
     "gettimezone",
     "gpupdate",
+    "hashtables",
     "HELO",
     "hexpass",
     "hexsalt",
