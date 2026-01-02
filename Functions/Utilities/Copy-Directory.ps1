@@ -51,7 +51,8 @@ function Copy-Directory
     .PARAMETER UseNativeTools
         When specified, uses OS-native copy tools for large directory trees (robocopy on Windows,
         rsync on macOS/Linux). Requires -Recurse and does not support UpdateMode 'Prompt'.
-        Native-tool summaries are best-effort for some counters.
+        Output properties are limited to those supported by the native tool. Native-tool summaries
+        are best-effort for some counters.
 
     .PARAMETER WhatIf
         Shows what would happen if the cmdlet runs without actually performing the copy operation.
@@ -100,6 +101,9 @@ function Copy-Directory
         System.Management.Automation.PSCustomObject
         Returns an object with TotalFiles, TotalDirectories, ExcludedDirectories, FilesSkipped,
         FilesOverwritten, and Duration properties.
+        When -UseNativeTools is specified, the output only includes properties supported by
+        the native tool (robocopy: TotalFiles, TotalDirectories, FilesSkipped, Duration;
+        rsync: TotalFiles, Duration).
 
     .NOTES
         Cross-platform compatible with PowerShell 5.1+ and PowerShell Core 6.2+.
@@ -119,7 +123,7 @@ function Copy-Directory
         - UpdateMode mappings are best-effort and may not be exact
         - ThrottleLimit maps to robocopy /MT on Windows and is ignored by rsync
         - ExcludeDirectories matching follows native tool behavior (case sensitivity may differ)
-        - FilesOverwritten and ExcludedDirectories counts are not available from native tools
+        - FilesOverwritten counts are not available from native tools
 
         Author: Jon LaBelle
         License: MIT
@@ -190,12 +194,14 @@ function Copy-Directory
         # For PS7+ parallel mode, we use a synchronized hashtable that works across runspaces
         # For PS5.1/6.x runspace pools, we use [ref] types with Interlocked operations
         $script:Counters = [hashtable]::Synchronized(@{
-                FilesCopied = 0
-                DirectoriesCreated = 0
-                DirectoriesExcluded = 0
-                FilesSkipped = 0
-                FilesOverwritten = 0
-            })
+            FilesCopied = 0
+            DirectoriesCreated = 0
+            DirectoriesExcluded = 0
+            FilesSkipped = 0
+            FilesOverwritten = 0
+        })
+        $script:UsedNativeTools = $false
+        $script:NativeToolName = $null
 
         # Use a HashSet for fast, case-insensitive directory exclusion checks
         $ExcludeSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -369,6 +375,8 @@ function Copy-Directory
             }
 
             Write-Verbose "Using native tool: $nativeToolName"
+            $script:UsedNativeTools = $true
+            $script:NativeToolName = $nativeToolName
 
             if (-not $PSCmdlet.ShouldProcess($DestPath, "Copy directory from $SourcePath using $nativeToolName"))
             {
@@ -825,6 +833,31 @@ function Copy-Directory
         $Duration = $EndTime - $StartTime
 
         Write-Verbose 'Copy operation completed'
+
+        if ($script:UsedNativeTools)
+        {
+            Write-Verbose "Files copied: $($script:Counters.FilesCopied)"
+            if ($script:NativeToolName -eq 'robocopy')
+            {
+                Write-Verbose "Directories created: $($script:Counters.DirectoriesCreated)"
+                Write-Verbose "Files skipped: $($script:Counters.FilesSkipped)"
+            }
+            Write-Verbose "Duration: $($Duration.TotalSeconds) seconds"
+
+            $nativeOutput = [ordered]@{
+                TotalFiles = [Int32]$script:Counters.FilesCopied
+            }
+            if ($script:NativeToolName -eq 'robocopy')
+            {
+                $nativeOutput.TotalDirectories = [Int32]$script:Counters.DirectoriesCreated
+                $nativeOutput.FilesSkipped = [Int32]$script:Counters.FilesSkipped
+            }
+            $nativeOutput.Duration = $Duration
+
+            [PSCustomObject]$nativeOutput
+            return
+        }
+
         Write-Verbose "Files copied: $($script:Counters.FilesCopied)"
         Write-Verbose "Directories created: $($script:Counters.DirectoriesCreated)"
         Write-Verbose "Directories excluded: $($script:Counters.DirectoriesExcluded)"
