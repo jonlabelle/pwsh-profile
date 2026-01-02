@@ -40,7 +40,8 @@ function Copy-Directory
 
     .PARAMETER ThrottleLimit
         Specifies the maximum number of concurrent copy operations when using parallel processing.
-        Default is 4. Set to 1 to disable parallel processing. Valid range is 1-32.
+        Default is based on logical CPU count (min 2, max 32). Set to 1 to disable
+        parallel processing. Valid range is 1-32.
 
         Note: Parallel processing is automatically disabled when UpdateMode is 'Prompt' since
         user prompts cannot be handled across multiple threads.
@@ -157,7 +158,7 @@ function Copy-Directory
 
         [Parameter()]
         [ValidateRange(1, 32)]
-        [Int32]$ThrottleLimit = 4,
+        [Int32]$ThrottleLimit = ([Math]::Min(32, [Math]::Max(2, [Environment]::ProcessorCount))),
 
         [Parameter()]
         [Switch]$UseNativeTools

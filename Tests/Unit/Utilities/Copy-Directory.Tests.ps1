@@ -94,10 +94,9 @@ Describe 'Copy-Directory' {
             $validateRange.MaxRange | Should -Be 32
         }
 
-        It 'Should have ThrottleLimit default value of 4' {
+        It 'Should have ThrottleLimit parameter type Int32' {
             $command = Get-Command Copy-Directory
             $throttleParam = $command.Parameters['ThrottleLimit']
-            # Check for default value by examining parameter set defaults
             $throttleParam.ParameterType | Should -Be ([Int32])
         }
     }
