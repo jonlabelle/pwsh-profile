@@ -173,8 +173,12 @@ function Copy-Directory
             FilesOverwritten = 0
         })
 
-        # Convert exclude list to lowercase for case-insensitive comparison
-        $ExcludeLower = $ExcludeDirectories | ForEach-Object { $_.ToLowerInvariant() }
+        # Use a HashSet for fast, case-insensitive directory exclusion checks
+        $ExcludeSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+        foreach ($excludeDir in $ExcludeDirectories)
+        {
+            $null = $ExcludeSet.Add($excludeDir)
+        }
 
         Write-Verbose "Excluding directories: $($ExcludeDirectories -join ', ')"
         Write-Verbose "UpdateMode: $UpdateMode"
@@ -188,6 +192,8 @@ function Copy-Directory
             $UseParallel = $false
         }
 
+        $IncludeLastWriteTime = $UpdateMode -eq 'IfNewer'
+
         # Detect PowerShell version for parallel implementation choice
         $IsPowerShell7OrLater = $PSVersionTable.PSVersion.Major -ge 7
 
@@ -199,21 +205,18 @@ function Copy-Directory
 
     process
     {
-        # Function to collect all files and directories to process
-        function Get-CopyOperations
+        # Function to stream file operations while creating directories on the fly
+        function Get-CopyFileOperations
         {
             param(
                 [String]$SourcePath,
                 [String]$DestPath,
-                [String[]]$Exclude,
+                [System.Collections.Generic.HashSet[string]]$ExcludeSet,
                 [Bool]$EnableRecurse,
-                [hashtable]$CountersRef
+                [Bool]$IncludeLastWriteTime,
+                [hashtable]$CountersRef,
+                [ref]$FoundFiles
             )
-
-            $operations = @{
-                Files = [System.Collections.ArrayList]::new()
-                Directories = [System.Collections.ArrayList]::new()
-            }
 
             $directoriesToProcess = [System.Collections.Queue]::new()
             $directoriesToProcess.Enqueue(@{ Source = $SourcePath; Dest = $DestPath })
@@ -226,51 +229,48 @@ function Copy-Directory
 
                 try
                 {
-                    $allItems = Get-ChildItem -Path $currentSource -Force -ErrorAction Stop
+                    $directoryInfo = [System.IO.DirectoryInfo]::new($currentSource)
 
-                    # Separate files and directories
-                    $files = $allItems | Where-Object { -not $_.PSIsContainer }
-                    $directories = $allItems | Where-Object {
-                        $_.PSIsContainer -and ($Exclude -notcontains $_.Name.ToLowerInvariant())
-                    }
-
-                    # Count excluded directories
-                    $excludedCount = ($allItems | Where-Object {
-                            $_.PSIsContainer -and ($Exclude -contains $_.Name.ToLowerInvariant())
-                        }).Count
-
-                    if ($excludedCount -gt 0)
+                    foreach ($entry in $directoryInfo.EnumerateFileSystemInfos())
                     {
-                        $CountersRef.DirectoriesExcluded += $excludedCount
-                    }
-
-                    # Add files to operations list
-                    foreach ($file in $files)
-                    {
-                        $destFilePath = Join-Path -Path $currentDest -ChildPath $file.Name
-                        $null = $operations.Files.Add(@{
-                                SourcePath = $file.FullName
-                                DestPath = $destFilePath
-                                LastWriteTime = $file.LastWriteTime
-                            })
-                    }
-
-                    # Process directories
-                    foreach ($directory in $directories)
-                    {
-                        $destDirPath = Join-Path -Path $currentDest -ChildPath $directory.Name
-
-                        if (-not $EnableRecurse)
+                        if ($entry -is [System.IO.DirectoryInfo])
                         {
-                            $CountersRef.DirectoriesExcluded++
-                            continue
+                            if ($ExcludeSet.Contains($entry.Name))
+                            {
+                                $CountersRef.DirectoriesExcluded++
+                                continue
+                            }
+
+                            if (-not $EnableRecurse)
+                            {
+                                $CountersRef.DirectoriesExcluded++
+                                continue
+                            }
+
+                            $destDirPath = [System.IO.Path]::Combine($currentDest, $entry.Name)
+
+                            if (-not (Test-Path -Path $destDirPath))
+                            {
+                                if ($PSCmdlet.ShouldProcess($destDirPath, 'Create directory'))
+                                {
+                                    Write-Verbose "Creating directory: $destDirPath"
+                                    New-Item -Path $destDirPath -ItemType Directory -Force | Out-Null
+                                    $CountersRef.DirectoriesCreated++
+                                }
+                            }
+
+                            $directoriesToProcess.Enqueue(@{ Source = $entry.FullName; Dest = $destDirPath })
                         }
-
-                        # Add directory to create
-                        $null = $operations.Directories.Add($destDirPath)
-
-                        # Queue subdirectory for processing
-                        $directoriesToProcess.Enqueue(@{ Source = $directory.FullName; Dest = $destDirPath })
+                        else
+                        {
+                            $FoundFiles.Value = $true
+                            $destFilePath = [System.IO.Path]::Combine($currentDest, $entry.Name)
+                            @{
+                                SourcePath = $entry.FullName
+                                DestPath = $destFilePath
+                                LastWriteTime = if ($IncludeLastWriteTime) { $entry.LastWriteTime } else { $null }
+                            }
+                        }
                     }
                 }
                 catch
@@ -278,40 +278,22 @@ function Copy-Directory
                     Write-Warning "Failed to access directory: $currentSource - $($_.Exception.Message)"
                 }
             }
-
-            return $operations
         }
 
-        # Collect all operations first (sequential - needed for directory structure)
-        Write-Verbose 'Collecting file and directory information...'
-        $operations = Get-CopyOperations -SourcePath $Source -DestPath $Destination -Exclude $ExcludeLower -EnableRecurse $Recurse.IsPresent -CountersRef $script:Counters
+        $hasFiles = $false
 
-        # Create all directories first (must be sequential to maintain structure)
-        foreach ($dirPath in $operations.Directories)
+        if (-not $UseParallel)
         {
-            if (-not (Test-Path -Path $dirPath))
+            $copyHeaderWritten = $false
+
+            foreach ($fileOp in Get-CopyFileOperations -SourcePath $Source -DestPath $Destination -ExcludeSet $ExcludeSet -EnableRecurse $Recurse.IsPresent -IncludeLastWriteTime $IncludeLastWriteTime -CountersRef $script:Counters -FoundFiles ([ref]$hasFiles))
             {
-                if ($PSCmdlet.ShouldProcess($dirPath, 'Create directory'))
+                if (-not $copyHeaderWritten)
                 {
-                    Write-Verbose "Creating directory: $dirPath"
-                    New-Item -Path $dirPath -ItemType Directory -Force | Out-Null
-                    $script:Counters.DirectoriesCreated++
+                    Write-Verbose 'Copying files sequentially...'
+                    $copyHeaderWritten = $true
                 }
-            }
-        }
 
-        # Handle file copying based on mode
-        if ($operations.Files.Count -eq 0)
-        {
-            Write-Verbose 'No files to copy'
-        }
-        elseif (-not $UseParallel -or $operations.Files.Count -lt 4)
-        {
-            # Sequential mode (for single-threaded, Prompt mode, or small file counts)
-            Write-Verbose "Copying $($operations.Files.Count) file(s) sequentially..."
-
-            foreach ($fileOp in $operations.Files)
-            {
                 $shouldCopyFile = $true
 
                 if (Test-Path -Path $fileOp.DestPath -PathType Leaf)
@@ -379,16 +361,25 @@ function Copy-Directory
         elseif ($IsPowerShell7OrLater)
         {
             # PowerShell 7+ parallel mode using ForEach-Object -Parallel
-            Write-Verbose "Copying $($operations.Files.Count) file(s) in parallel (ThrottleLimit: $ThrottleLimit, PowerShell 7+ mode)..."
+            $copyHeaderWritten = $false
 
             # Use synchronized hashtable for thread-safe counter access across parallel runspaces
             $countersRef = $script:Counters
             $updateModeValue = $UpdateMode
+            $whatIfEnabled = $WhatIfPreference
 
-            $operations.Files | ForEach-Object -ThrottleLimit $ThrottleLimit -Parallel {
+            Get-CopyFileOperations -SourcePath $Source -DestPath $Destination -ExcludeSet $ExcludeSet -EnableRecurse $Recurse.IsPresent -IncludeLastWriteTime $IncludeLastWriteTime -CountersRef $script:Counters -FoundFiles ([ref]$hasFiles) | ForEach-Object {
+                if (-not $copyHeaderWritten)
+                {
+                    Write-Verbose "Copying files in parallel (ThrottleLimit: $ThrottleLimit, PowerShell 7+ mode)..."
+                    $copyHeaderWritten = $true
+                }
+                $_
+            } | ForEach-Object -ThrottleLimit $ThrottleLimit -Parallel {
                 $fileOp = $_
                 $localMode = $using:updateModeValue
                 $localCounters = $using:countersRef
+                $whatIfEnabled = $using:whatIfEnabled
 
                 $shouldCopyFile = $true
                 $destExists = Test-Path -Path $fileOp.DestPath -PathType Leaf
@@ -431,7 +422,7 @@ function Copy-Directory
                     }
                 }
 
-                if ($shouldCopyFile)
+                if ($shouldCopyFile -and -not $whatIfEnabled)
                 {
                     try
                     {
@@ -450,7 +441,7 @@ function Copy-Directory
         else
         {
             # PowerShell 5.1/6.x parallel mode using runspace pools
-            Write-Verbose "Copying $($operations.Files.Count) file(s) in parallel (ThrottleLimit: $ThrottleLimit, Runspace pool mode)..."
+            $copyHeaderWritten = $false
 
             # Create runspace pool
             $runspacePool = [System.Management.Automation.Runspaces.RunspaceFactory]::CreateRunspacePool(1, $ThrottleLimit)
@@ -460,88 +451,110 @@ function Copy-Directory
 
             # Use synchronized hashtable for thread-safe counter access
             $countersRef = $script:Counters
+            $updateModeValue = $UpdateMode
+            $whatIfEnabled = $WhatIfPreference
+            $queueCapacity = [Math]::Max(32, $ThrottleLimit * 8)
+            $workQueue = [System.Collections.Concurrent.BlockingCollection[hashtable]]::new($queueCapacity)
 
-            foreach ($fileOp in $operations.Files)
+            for ($workerIndex = 0; $workerIndex -lt $ThrottleLimit; $workerIndex++)
             {
                 $powershell = [System.Management.Automation.PowerShell]::Create()
                 $powershell.RunspacePool = $runspacePool
 
                 $null = $powershell.AddScript({
                         param(
-                            [String]$SourceFilePath,
-                            [String]$DestFilePath,
-                            [DateTime]$SourceLastWriteTime,
+                            [System.Collections.Concurrent.BlockingCollection[hashtable]]$WorkQueue,
                             [String]$Mode,
-                            [hashtable]$Counters
+                            [hashtable]$Counters,
+                            [Bool]$WhatIfEnabled
                         )
 
-                        $shouldCopyFile = $true
-                        $destExists = Test-Path -Path $DestFilePath -PathType Leaf
-
-                        if ($destExists)
+                        foreach ($fileOp in $WorkQueue.GetConsumingEnumerable())
                         {
-                            switch ($Mode)
+                            $shouldCopyFile = $true
+                            $destExists = Test-Path -Path $fileOp.DestPath -PathType Leaf
+
+                            if ($destExists)
                             {
-                                'Skip'
+                                switch ($Mode)
                                 {
-                                    [System.Threading.Monitor]::Enter($Counters.SyncRoot)
-                                    try { $Counters.FilesSkipped++ }
-                                    finally { [System.Threading.Monitor]::Exit($Counters.SyncRoot) }
-                                    $shouldCopyFile = $false
-                                }
-                                'Overwrite'
-                                {
-                                    [System.Threading.Monitor]::Enter($Counters.SyncRoot)
-                                    try { $Counters.FilesOverwritten++ }
-                                    finally { [System.Threading.Monitor]::Exit($Counters.SyncRoot) }
-                                }
-                                'IfNewer'
-                                {
-                                    $destFile = Get-Item -Path $DestFilePath
-                                    if ($SourceLastWriteTime -gt $destFile.LastWriteTime)
-                                    {
-                                        [System.Threading.Monitor]::Enter($Counters.SyncRoot)
-                                        try { $Counters.FilesOverwritten++ }
-                                        finally { [System.Threading.Monitor]::Exit($Counters.SyncRoot) }
-                                    }
-                                    else
+                                    'Skip'
                                     {
                                         [System.Threading.Monitor]::Enter($Counters.SyncRoot)
                                         try { $Counters.FilesSkipped++ }
                                         finally { [System.Threading.Monitor]::Exit($Counters.SyncRoot) }
                                         $shouldCopyFile = $false
                                     }
+                                    'Overwrite'
+                                    {
+                                        [System.Threading.Monitor]::Enter($Counters.SyncRoot)
+                                        try { $Counters.FilesOverwritten++ }
+                                        finally { [System.Threading.Monitor]::Exit($Counters.SyncRoot) }
+                                    }
+                                    'IfNewer'
+                                    {
+                                        $destFile = Get-Item -Path $fileOp.DestPath
+                                        if ($fileOp.LastWriteTime -gt $destFile.LastWriteTime)
+                                        {
+                                            [System.Threading.Monitor]::Enter($Counters.SyncRoot)
+                                            try { $Counters.FilesOverwritten++ }
+                                            finally { [System.Threading.Monitor]::Exit($Counters.SyncRoot) }
+                                        }
+                                        else
+                                        {
+                                            [System.Threading.Monitor]::Enter($Counters.SyncRoot)
+                                            try { $Counters.FilesSkipped++ }
+                                            finally { [System.Threading.Monitor]::Exit($Counters.SyncRoot) }
+                                            $shouldCopyFile = $false
+                                        }
+                                    }
                                 }
                             }
-                        }
 
-                        if ($shouldCopyFile)
-                        {
-                            try
+                            if ($shouldCopyFile -and -not $WhatIfEnabled)
                             {
-                                Copy-Item -Path $SourceFilePath -Destination $DestFilePath -Force -ErrorAction Stop
-                                [System.Threading.Monitor]::Enter($Counters.SyncRoot)
-                                try { $Counters.FilesCopied++ }
-                                finally { [System.Threading.Monitor]::Exit($Counters.SyncRoot) }
-                            }
-                            catch
-                            {
-                                Write-Warning "Failed to copy file: $SourceFilePath - $($_.Exception.Message)"
+                                try
+                                {
+                                    Copy-Item -Path $fileOp.SourcePath -Destination $fileOp.DestPath -Force -ErrorAction Stop
+                                    [System.Threading.Monitor]::Enter($Counters.SyncRoot)
+                                    try { $Counters.FilesCopied++ }
+                                    finally { [System.Threading.Monitor]::Exit($Counters.SyncRoot) }
+                                }
+                                catch
+                                {
+                                    Write-Warning "Failed to copy file: $($fileOp.SourcePath) - $($_.Exception.Message)"
+                                }
                             }
                         }
                     })
 
-                $null = $powershell.AddParameter('SourceFilePath', $fileOp.SourcePath)
-                $null = $powershell.AddParameter('DestFilePath', $fileOp.DestPath)
-                $null = $powershell.AddParameter('SourceLastWriteTime', $fileOp.LastWriteTime)
-                $null = $powershell.AddParameter('Mode', $UpdateMode)
+                $null = $powershell.AddParameter('WorkQueue', $workQueue)
+                $null = $powershell.AddParameter('Mode', $updateModeValue)
                 $null = $powershell.AddParameter('Counters', $countersRef)
+                $null = $powershell.AddParameter('WhatIfEnabled', $whatIfEnabled)
 
                 $handle = $powershell.BeginInvoke()
                 $null = $runspaces.Add(@{
                         PowerShell = $powershell
                         Handle = $handle
                     })
+            }
+
+            try
+            {
+                foreach ($fileOp in Get-CopyFileOperations -SourcePath $Source -DestPath $Destination -ExcludeSet $ExcludeSet -EnableRecurse $Recurse.IsPresent -IncludeLastWriteTime $IncludeLastWriteTime -CountersRef $script:Counters -FoundFiles ([ref]$hasFiles))
+                {
+                    if (-not $copyHeaderWritten)
+                    {
+                        Write-Verbose "Copying files in parallel (ThrottleLimit: $ThrottleLimit, Runspace pool mode)..."
+                        $copyHeaderWritten = $true
+                    }
+                    $workQueue.Add($fileOp)
+                }
+            }
+            finally
+            {
+                $workQueue.CompleteAdding()
             }
 
             # Wait for all runspaces to complete
@@ -564,6 +577,11 @@ function Copy-Directory
             # Clean up runspace pool
             $runspacePool.Close()
             $runspacePool.Dispose()
+        }
+
+        if (-not $hasFiles)
+        {
+            Write-Verbose 'No files to copy'
         }
     }
 
