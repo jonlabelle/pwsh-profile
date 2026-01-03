@@ -7,11 +7,13 @@ function Copy-Directory
     .DESCRIPTION
         Copies files from a source path to a destination path, optionally recursing into
         subdirectories. Provides the ability to exclude specific directories (e.g., .git,
-        node_modules, bin, obj) from the copy operation. Supports multi-threaded copying
-        for improved performance with large directory trees. For very large trees, you can
-        opt in to OS-native copy tools (robocopy on Windows, rsync on macOS/Linux) using
-        -UseNativeTools. This is cross-platform compatible with PowerShell 5.1+ and
-        PowerShell Core 6.2+.
+        node_modules, bin, obj) from the copy operation.
+
+        Supports multi-threaded copying for improved performance with large directory trees.
+
+        For very large trees, you can opt in to OS-native copy tools (robocopy on Windows,
+        rsync on macOS/Linux) using -UseNativeTools. This is cross-platform compatible
+        with PowerShell 5.1+ and PowerShell Core 6.2+.
 
     .PARAMETER Source
         The source directory path to copy from. Supports relative paths and tilde (~) expansion.
@@ -195,12 +197,12 @@ function Copy-Directory
         # For PS7+ parallel mode, we use a synchronized hashtable that works across runspaces
         # For PS5.1/6.x runspace pools, we use [ref] types with Interlocked operations
         $script:Counters = [hashtable]::Synchronized(@{
-            FilesCopied = 0
-            DirectoriesCreated = 0
-            DirectoriesExcluded = 0
-            FilesSkipped = 0
-            FilesOverwritten = 0
-        })
+                FilesCopied = 0
+                DirectoriesCreated = 0
+                DirectoriesExcluded = 0
+                FilesSkipped = 0
+                FilesOverwritten = 0
+            })
         $script:UsedNativeTools = $false
         $script:NativeToolName = $null
 
