@@ -177,6 +177,17 @@ function Copy-Directory
         Write-Verbose "Resolved source path: $Source"
         Write-Verbose "Resolved destination path: $Destination"
 
+        # Validate parameter combinations
+        if ($UseNativeTools -and -not $Recurse)
+        {
+            throw 'The -UseNativeTools parameter requires -Recurse to be specified. Native copy tools (robocopy/rsync) only support recursive directory operations.'
+        }
+
+        if ($UseNativeTools -and $UpdateMode -eq 'Prompt')
+        {
+            throw "The -UseNativeTools parameter cannot be used with -UpdateMode 'Prompt'. Native copy tools do not support interactive prompts for file overwrites."
+        }
+
         # Validate source exists
         if (-not (Test-Path -Path $Source -PathType Container))
         {
@@ -252,18 +263,6 @@ function Copy-Directory
                 [Bool]$IsWindowsPlatform,
                 [hashtable]$CountersRef
             )
-
-            if (-not $EnableRecurse)
-            {
-                Write-Warning 'Native tool copy requires -Recurse. Falling back to PowerShell copy.'
-                return $false
-            }
-
-            if ($Mode -eq 'Prompt')
-            {
-                Write-Warning "Native tool copy does not support UpdateMode 'Prompt'. Falling back to PowerShell copy."
-                return $false
-            }
 
             $nativeTool = $null
             $nativeToolName = $null
