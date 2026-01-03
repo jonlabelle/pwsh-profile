@@ -299,41 +299,41 @@ function Copy-Directory
                 $nativeToolName = 'robocopy'
                 $nativeArgs += $SourcePath
                 $nativeArgs += $DestPath
-                $nativeArgs += '/E'
-                $nativeArgs += '/NJH'
-                $nativeArgs += '/NP'
-                $nativeArgs += '/NDL'
-                $nativeArgs += '/NFL'
-                $nativeArgs += '/R:1'
-                $nativeArgs += '/W:1'
+                $nativeArgs += '/E'      # Copy subdirectories, including empty ones
+                $nativeArgs += '/NJH'    # No job header
+                $nativeArgs += '/NP'     # No progress - don't display percentage copied
+                $nativeArgs += '/NDL'    # No directory list - don't log directory names
+                $nativeArgs += '/NFL'    # No file list - don't log file names
+                $nativeArgs += '/R:1'    # Retry once on failed copies
+                $nativeArgs += '/W:1'    # Wait 1 second between retries
 
                 if ($Throttle -gt 1)
                 {
-                    $nativeArgs += "/MT:$Throttle"
+                    $nativeArgs += "/MT:$Throttle"  # Multi-threaded copying with specified number of threads
                 }
 
                 switch ($Mode)
                 {
                     'Skip'
                     {
-                        $nativeArgs += '/XC'
-                        $nativeArgs += '/XN'
-                        $nativeArgs += '/XO'
+                        $nativeArgs += '/XC'  # Exclude changed files
+                        $nativeArgs += '/XN'  # Exclude newer files
+                        $nativeArgs += '/XO'  # Exclude older files (effectively skip existing files)
                     }
                     'Overwrite'
                     {
-                        $nativeArgs += '/IS'
-                        $nativeArgs += '/IT'
+                        $nativeArgs += '/IS'  # Include same files (overwrite even if identical)
+                        $nativeArgs += '/IT'  # Include tweaked files (overwrite files with different attributes)
                     }
                     'IfNewer'
                     {
-                        $nativeArgs += '/XO'
+                        $nativeArgs += '/XO'  # Exclude older files (only copy if source is newer)
                     }
                 }
 
                 if ($ExcludeDirs -and $ExcludeDirs.Count -gt 0)
                 {
-                    $nativeArgs += '/XD'
+                    $nativeArgs += '/XD'  # Exclude directories
                     $nativeArgs += $ExcludeDirs
                 }
             }
@@ -352,22 +352,22 @@ function Copy-Directory
                 }
 
                 $nativeToolName = 'rsync'
-                $nativeArgs += '-a'
-                $nativeArgs += '--stats'
+                $nativeArgs += '-a'         # Archive mode: preserve permissions, timestamps, symbolic links, etc.
+                $nativeArgs += '--stats'    # Display file transfer statistics
 
                 switch ($Mode)
                 {
                     'Skip'
                     {
-                        $nativeArgs += '--ignore-existing'
+                        $nativeArgs += '--ignore-existing'  # Skip files that already exist at destination
                     }
                     'Overwrite'
                     {
-                        $nativeArgs += '--ignore-times'
+                        $nativeArgs += '--ignore-times'     # Don't skip files that match in size and modification time
                     }
                     'IfNewer'
                     {
-                        $nativeArgs += '-u'
+                        $nativeArgs += '-u'                 # Update: skip files that are newer on the receiver
                     }
                 }
 
@@ -377,11 +377,12 @@ function Copy-Directory
                     {
                         if (-not [String]::IsNullOrWhiteSpace($excludeDir))
                         {
-                            $nativeArgs += "--exclude=$excludeDir/"
+                            $nativeArgs += "--exclude=$excludeDir/"  # Exclude directory pattern from transfer
                         }
                     }
                 }
 
+                # Ensure paths end with trailing slash for rsync directory sync behavior
                 $separatorChars = @([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
                 $sourceNormalized = $SourcePath.TrimEnd($separatorChars) + [System.IO.Path]::DirectorySeparatorChar
                 $destNormalized = $DestPath.TrimEnd($separatorChars) + [System.IO.Path]::DirectorySeparatorChar
