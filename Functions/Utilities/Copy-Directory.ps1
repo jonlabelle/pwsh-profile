@@ -57,6 +57,8 @@ function Copy-Directory
         Output properties are limited to those supported by the native tool. Native-tool summaries
         are best-effort for some counters.
 
+        For best performance, and large-scale copies, this option is HIGHLY recommended.
+
     .PARAMETER WhatIf
         Shows what would happen if the cmdlet runs without actually performing the copy operation.
 
@@ -102,16 +104,28 @@ function Copy-Directory
 
     .OUTPUTS
         System.Management.Automation.PSCustomObject
-        Returns an object with TotalFiles, TotalDirectories, ExcludedDirectories, FilesSkipped,
-        FilesOverwritten, and Duration properties.
-        When -UseNativeTools is specified, the output only includes properties supported by
-        the native tool (robocopy: TotalFiles, TotalDirectories, FilesSkipped, Duration;
-        rsync: TotalFiles, Duration).
+
+        Returns an object with:
+        - TotalFiles
+        - TotalDirectories
+        - ExcludedDirectories
+        - FilesSkipped
+        - FilesOverwritten
+        - Duration
+
+        When -UseNativeTools is specified, the output only includes properties supported by the native tool...
+
+        robocopy:
+        - TotalFiles
+        - TotalDirectories
+        - FilesSkipped
+        - Duration
+
+        rsync:
+        - TotalFiles
+        - Duration
 
     .NOTES
-        Cross-platform compatible with PowerShell 5.1+ and PowerShell Core 6.2+.
-        Uses .NET methods for path resolution to ensure cross-platform compatibility.
-
         Parallel Processing:
         - PowerShell 7+: Uses ForEach-Object -Parallel for native parallel processing
         - PowerShell 5.1/6.x: Uses runspace pools for parallel execution
