@@ -18,11 +18,8 @@ node_modules
 tmp/
 
 # Local user functions (not committed to repository)
-# Ignore all PowerShell files in Functions/Local/ but keep README.md and .gitkeep
-/Functions/Local/**/*.ps1
-/Functions/Local/**/*.psm1
-/Functions/Local/**/*.psd1
-/Functions/Local/**/*.md
+# Ignore all files except README.md
+/Functions/Local/**/*
 !/Functions/Local/README.md
 
 # Build output directory
