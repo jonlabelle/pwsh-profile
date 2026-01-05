@@ -829,14 +829,20 @@
         function Get-TransformedFilename
         {
             param(
+                [Parameter(Mandatory)]
                 [String]$OriginalName,
-                [String]$Extension = '',
+
+                [Parameter(Mandatory)]
+                [AllowEmptyString()]
+                [String]$Extension,
+
+                [Parameter(Mandatory)]
                 [Int]$CounterValue
             )
 
-            # CRITICAL: Create local copies to prevent parameter contamination across calls
-            $localExtension = if ($PSBoundParameters.ContainsKey('Extension')) { $Extension } else { '' }
-            $result = $OriginalName
+            # Force local scope by explicitly creating new variables
+            $result = [String]$OriginalName
+            $localExtension = [String]$Extension
 
             # 1. URL decode (if specified)
             if ($UrlDecode)
