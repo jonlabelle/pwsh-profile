@@ -1134,12 +1134,14 @@
                     $fileBaseName = [System.IO.Path]::GetFileNameWithoutExtension($currentName)
                     $fileExtension = [System.IO.Path]::GetExtension($currentName)
 
-                    # DEFENSIVE: Verify the extension was set correctly
-                    # If GetExtension returns null or the file has no extension, ensure $fileExtension is empty
-                    if ($null -eq $fileExtension)
+                    # DEFENSIVE: Ensure $fileExtension is never null, always a string
+                    # Convert null/empty to truly empty string, not $null
+                    if ([string]::IsNullOrEmpty($fileExtension))
                     {
-                        $fileExtension = ''
+                        $fileExtension = [string]::Empty
                     }
+                    # Also ensure it's truly a string type, never an object
+                    $fileExtension = [string]$fileExtension
                 }
 
                 # Determine new filename
