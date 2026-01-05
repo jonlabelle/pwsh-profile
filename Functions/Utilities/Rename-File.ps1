@@ -828,21 +828,22 @@
 
         function Get-TransformedFilename
         {
+            [CmdletBinding()]
             param(
-                [Parameter(Mandatory)]
+                [Parameter(Mandatory, Position = 0)]
                 [String]$OriginalName,
 
-                [Parameter(Mandatory)]
+                [Parameter(Mandatory, Position = 1)]
                 [AllowEmptyString()]
                 [String]$Extension,
 
-                [Parameter(Mandatory)]
+                [Parameter(Mandatory, Position = 2)]
                 [Int]$CounterValue
             )
 
-            # Force local scope by explicitly creating new variables
-            $result = [String]$OriginalName
-            $localExtension = [String]$Extension
+            # CRITICAL: Use only the result variable - access extension via PSBoundParameters directly
+            # Do NOT create intermediate variables that can be contaminated
+            $result = [String]$PSBoundParameters['OriginalName']
 
             # 1. URL decode (if specified)
             if ($UrlDecode)
@@ -1022,18 +1023,17 @@
             # 11. Extension handling
             if ($RemoveExtension)
             {
-                $finalName = $result
+                return $result
             }
             elseif ($NewExtension)
             {
-                $finalName = $result + $NewExtension
+                return ($result + $NewExtension)
             }
             else
             {
-                $finalName = $result + $localExtension
+                # Use parameter directly without intermediate variable to prevent contamination
+                return ($result + $PSBoundParameters['Extension'])
             }
-
-            return $finalName
         }
     }
 
