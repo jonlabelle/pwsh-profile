@@ -20,7 +20,7 @@
         - Conflict resolution with automatic suffixing
 
         All transformations are applied in a specific order to ensure predictable results.
-        The function supports WhatIf and Confirm for safe testing before actual renaming.
+        Use -DryRun to safely preview what files will be renamed before executing actual changes.
 
     .PARAMETER Path
         The path to the file(s) to rename. Accepts wildcards and pipeline input.
@@ -138,6 +138,11 @@
     .PARAMETER Confirm
         Prompts for confirmation before renaming each file.
 
+    .PARAMETER DryRun
+        Shows what would be renamed without actually performing the rename operations.
+        Uses internal preview logic to display exact output, that otherwise couldn't be accomplished with built-in -WhatIf support.
+        Note that you -WhatIf is an alias for -DryRun in this function.
+
     .PARAMETER PassThru
         Returns FileInfo objects for the renamed files.
 
@@ -206,6 +211,12 @@
 
         Replaces date patterns (YYYY-MM-DD) with 'DATE' in all .tmp files.
 
+    .EXAMPLE
+        PS > Rename-File -Path 'C:\MyFiles' -Recurse -DryRun -RemoveShellMetaCharacters
+
+        Shows a preview of what would be renamed when removing shell meta-characters from all files
+        in C:\MyFiles and subdirectories, without actually performing any renames.
+
     .OUTPUTS
         None by default.
         [System.IO.FileInfo] when PassThru is specified.
@@ -242,7 +253,7 @@
     .LINK
         https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Rename-File.ps1
     #>
-    [CmdletBinding(SupportsShouldProcess, DefaultParameterSetName = 'Path')]
+    [CmdletBinding(DefaultParameterSetName = 'Path')]
     [OutputType([System.IO.FileInfo])]
     param(
         [Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName, ParameterSetName = 'Path', Position = 0)]
@@ -344,6 +355,10 @@
 
         [Parameter()]
         [Switch]$Force,
+
+        [Parameter()]
+        [Alias('WhatIf')]
+        [Switch]$DryRun,
 
         [Parameter()]
         [Switch]$PassThru
@@ -1199,8 +1214,21 @@
                 }
 
                 # Perform the rename
-                if ($PSCmdlet.ShouldProcess($file.FullName, "Rename to '$newFileName'"))
+                if ($DryRun)
                 {
+                    # DryRun mode: show what would be renamed without actually doing it
+                    Write-Host "Would rename: $($file.FullName)" -ForegroundColor Cyan
+                    Write-Host "          to: $(Join-Path -Path $directory -ChildPath $newFileName)" -ForegroundColor Green
+
+                    # Increment counter for next file (even in dry-run)
+                    if ($Counter)
+                    {
+                        $currentCounter++
+                    }
+                }
+                else
+                {
+                    # Normal mode: actually perform the rename
                     try
                     {
                         $renamedFile = Rename-Item -LiteralPath $file.FullName -NewName $newFileName -Force:$Force -PassThru -ErrorAction Stop
