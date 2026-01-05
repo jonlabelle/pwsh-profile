@@ -974,14 +974,14 @@ function Invoke-FFmpeg
             Write-Verbose "Scanning path: $normalizedPath"
 
             # Validate that the path exists
-            if (-not (Test-Path -Path $normalizedPath))
+            if (-not (Test-Path -LiteralPath $normalizedPath))
             {
                 Write-Error "Path not found: '$normalizedPath'"
                 $script:totalFailed++
                 continue
             }
 
-            $pathItem = Get-Item -Path $normalizedPath -ErrorAction Stop
+            $pathItem = Get-Item -LiteralPath $normalizedPath -ErrorAction Stop
 
             if ($pathItem.PSIsContainer)
             {
@@ -1081,7 +1081,7 @@ function Invoke-FFmpeg
             $outputFile = [System.IO.Path]::GetFileName($outputFilePath)
 
             # Get file size for progress display
-            $inputFileInfo = Get-Item -Path $inputFilePath -ErrorAction SilentlyContinue
+            $inputFileInfo = Get-Item -LiteralPath $inputFilePath -ErrorAction SilentlyContinue
             $fileSizeFormatted = if ($inputFileInfo) { Format-FileSize -SizeInBytes $inputFileInfo.Length } else { 'Unknown' }
 
             # Calculate progress percentage
@@ -1106,7 +1106,7 @@ function Invoke-FFmpeg
             Write-Host $progressMessage -ForegroundColor Yellow
 
             # Check if output file already exists
-            if ((Test-Path -Path $outputFilePath) -and (-not $Force))
+            if ((Test-Path -LiteralPath $outputFilePath) -and (-not $Force))
             {
                 Write-Warning "Output file '$outputFile' already exists. Use -Force to overwrite. Skipping..."
                 $script:totalSkipped++
@@ -1141,7 +1141,7 @@ function Invoke-FFmpeg
             Write-VerboseMessage "Output path: '$outputFilePath'"
 
             # Verify input file exists and has content
-            if (-not (Test-Path -Path $inputFilePath -PathType Leaf))
+            if (-not (Test-Path -LiteralPath $inputFilePath -PathType Leaf))
             {
                 Write-Error "Input file not found: '$inputFilePath'"
                 $script:totalFailed++
@@ -1158,7 +1158,7 @@ function Invoke-FFmpeg
 
             # Ensure output directory exists
             $outputDirectory = [System.IO.Path]::GetDirectoryName($outputFilePath)
-            if (-not (Test-Path -Path $outputDirectory -PathType Container))
+            if (-not (Test-Path -LiteralPath $outputDirectory -PathType Container))
             {
                 try
                 {
