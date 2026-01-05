@@ -830,10 +830,12 @@
         {
             param(
                 [String]$OriginalName,
-                [String]$Extension,
+                [String]$Extension = '',
                 [Int]$CounterValue
             )
 
+            # CRITICAL: Create local copies to prevent parameter contamination across calls
+            $localExtension = if ($PSBoundParameters.ContainsKey('Extension')) { $Extension } else { '' }
             $result = $OriginalName
 
             # 1. URL decode (if specified)
@@ -1022,7 +1024,7 @@
             }
             else
             {
-                $finalName = $result + $Extension
+                $finalName = $result + $localExtension
             }
 
             return $finalName
