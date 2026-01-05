@@ -364,16 +364,94 @@
                 return $Text
             }
 
+            # Fix common UTF-8 mojibake sequences FIRST before any other normalization
+            # When UTF-8 bytes are interpreted as ISO-8859-1, we get mojibake sequences
+            # We construct these strings from escape sequences for maximum compatibility
+            $normalized = $Text
+            $mojibakeReplacements = @{}
+
+            # Lowercase vowels with diacritics
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA1)] = 'a'  # á bytes C3 A1
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA0)] = 'a'  # à bytes C3 A0
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA4)] = 'a'  # ä bytes C3 A4
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA2)] = 'a'  # â bytes C3 A2
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA3)] = 'a'  # ã bytes C3 A3
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA5)] = 'a'  # å bytes C3 A5
+
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA9)] = 'e'  # é bytes C3 A9
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA8)] = 'e'  # è bytes C3 A8
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xAB)] = 'e'  # ë bytes C3 AB
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xAA)] = 'e'  # ê bytes C3 AA
+
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xAD)] = 'i'  # í bytes C3 AD
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xAC)] = 'i'  # ì bytes C3 AC
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xAF)] = 'i'  # ï bytes C3 AF
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xAE)] = 'i'  # î bytes C3 AE
+
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB3)] = 'o'  # ó bytes C3 B3
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB2)] = 'o'  # ò bytes C3 B2
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB6)] = 'o'  # ö bytes C3 B6
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB4)] = 'o'  # ô bytes C3 B4
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB5)] = 'o'  # õ bytes C3 B5
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB8)] = 'o'  # ø bytes C3 B8
+
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xBA)] = 'u'  # ú bytes C3 BA
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB9)] = 'u'  # ù bytes C3 B9
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xBC)] = 'u'  # ü bytes C3 BC
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xBB)] = 'u'  # û bytes C3 BB
+
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB1)] = 'n'  # ñ bytes C3 B1
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA7)] = 'c'  # ç bytes C3 A7
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xBD)] = 'y'  # ý bytes C3 BD
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xBF)] = 'y'  # ÿ bytes C3 BF
+
+            # Uppercase vowels with diacritics
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x80)] = 'A'  # À bytes C3 80
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x84)] = 'A'  # Ä bytes C3 84
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x82)] = 'A'  # Â bytes C3 82
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x83)] = 'A'  # Ã bytes C3 83
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x85)] = 'A'  # Å bytes C3 85
+
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x89)] = 'E'  # É bytes C3 89
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x88)] = 'E'  # È bytes C3 88
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x8B)] = 'E'  # Ë bytes C3 8B
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x8A)] = 'E'  # Ê bytes C3 8A
+
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x8D)] = 'I'  # Í bytes C3 8D
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x8C)] = 'I'  # Ì bytes C3 8C
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x8F)] = 'I'  # Ï bytes C3 8F
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x8E)] = 'I'  # Î bytes C3 8E
+
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x93)] = 'O'  # Ó bytes C3 93
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x92)] = 'O'  # Ò bytes C3 92
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x96)] = 'O'  # Ö bytes C3 96
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x94)] = 'O'  # Ô bytes C3 94
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x95)] = 'O'  # Õ bytes C3 95
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x98)] = 'O'  # Ø bytes C3 98
+
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x9A)] = 'U'  # Ú bytes C3 9A
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x99)] = 'U'  # Ù bytes C3 99
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x9C)] = 'U'  # Ü bytes C3 9C
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x9B)] = 'U'  # Û bytes C3 9B
+
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x91)] = 'N'  # Ñ bytes C3 91
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x87)] = 'C'  # Ç bytes C3 87
+            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x9D)] = 'Y'  # Ý bytes C3 9D
+
+            foreach ($key in $mojibakeReplacements.Keys)
+            {
+                $normalized = $normalized -replace [regex]::Escape($key), $mojibakeReplacements[$key]
+            }
+
             try
             {
                 # Try NFD normalization to decompose accents
-                $normalized = $Text.Normalize([System.Text.NormalizationForm]::FormD)
+                $normalized = $normalized.Normalize([System.Text.NormalizationForm]::FormD)
             }
             catch
             {
                 # Fallback for PowerShell 5.1 or if Normalize method fails
                 # Use a character-by-character replacement table for common accented characters
-                $normalized = $Text
                 $replacements = @{}
 
                 # Lowercase a variants
@@ -491,78 +569,6 @@
                 {
                     $normalized = $normalized -replace [regex]::Escape($key), $replacements[$key]
                 }
-                return $normalized
-            }
-
-            # Fix common UTF-8 mojibake sequences seen on Windows PowerShell 5.1 when scripts are read without BOM
-            $mojibakeReplacements = @{}
-            $mojibakePairs = @(
-                @{ Bytes = @(0xC3, 0xA1); Replacement = 'a' }, # á
-                @{ Bytes = @(0xC3, 0xA0); Replacement = 'a' }, # à
-                @{ Bytes = @(0xC3, 0xA4); Replacement = 'a' }, # ä
-                @{ Bytes = @(0xC3, 0xA2); Replacement = 'a' }, # â
-                @{ Bytes = @(0xC3, 0xA3); Replacement = 'a' }, # ã
-                @{ Bytes = @(0xC3, 0xA5); Replacement = 'a' }, # å
-                @{ Bytes = @(0xC3, 0xA9); Replacement = 'e' }, # é
-                @{ Bytes = @(0xC3, 0xA8); Replacement = 'e' }, # è
-                @{ Bytes = @(0xC3, 0xAB); Replacement = 'e' }, # ë
-                @{ Bytes = @(0xC3, 0xAA); Replacement = 'e' }, # ê
-                @{ Bytes = @(0xC3, 0xAD); Replacement = 'i' }, # í
-                @{ Bytes = @(0xC3, 0xAC); Replacement = 'i' }, # ì
-                @{ Bytes = @(0xC3, 0xAF); Replacement = 'i' }, # ï
-                @{ Bytes = @(0xC3, 0xAE); Replacement = 'i' }, # î
-                @{ Bytes = @(0xC3, 0xB3); Replacement = 'o' }, # ó
-                @{ Bytes = @(0xC3, 0xB2); Replacement = 'o' }, # ò
-                @{ Bytes = @(0xC3, 0xB6); Replacement = 'o' }, # ö
-                @{ Bytes = @(0xC3, 0xB4); Replacement = 'o' }, # ô
-                @{ Bytes = @(0xC3, 0xB5); Replacement = 'o' }, # õ
-                @{ Bytes = @(0xC3, 0xB8); Replacement = 'o' }, # ø
-                @{ Bytes = @(0xC3, 0xBA); Replacement = 'u' }, # ú
-                @{ Bytes = @(0xC3, 0xB9); Replacement = 'u' }, # ù
-                @{ Bytes = @(0xC3, 0xBC); Replacement = 'u' }, # ü
-                @{ Bytes = @(0xC3, 0xBB); Replacement = 'u' }, # û
-                @{ Bytes = @(0xC3, 0xB1); Replacement = 'n' }, # ñ
-                @{ Bytes = @(0xC3, 0xA7); Replacement = 'c' }, # ç
-                @{ Bytes = @(0xC3, 0xBD); Replacement = 'y' }, # ý
-                @{ Bytes = @(0xC3, 0xBF); Replacement = 'y' }, # ÿ
-                @{ Bytes = @(0xC3, 0x81); Replacement = 'A' }, # Á
-                @{ Bytes = @(0xC3, 0x80); Replacement = 'A' }, # À
-                @{ Bytes = @(0xC3, 0x84); Replacement = 'A' }, # Ä
-                @{ Bytes = @(0xC3, 0x82); Replacement = 'A' }, # Â
-                @{ Bytes = @(0xC3, 0x83); Replacement = 'A' }, # Ã
-                @{ Bytes = @(0xC3, 0x85); Replacement = 'A' }, # Å
-                @{ Bytes = @(0xC3, 0x89); Replacement = 'E' }, # É
-                @{ Bytes = @(0xC3, 0x88); Replacement = 'E' }, # È
-                @{ Bytes = @(0xC3, 0x8B); Replacement = 'E' }, # Ë
-                @{ Bytes = @(0xC3, 0x8A); Replacement = 'E' }, # Ê
-                @{ Bytes = @(0xC3, 0x8D); Replacement = 'I' }, # Í
-                @{ Bytes = @(0xC3, 0x8C); Replacement = 'I' }, # Ì
-                @{ Bytes = @(0xC3, 0x8F); Replacement = 'I' }, # Ï
-                @{ Bytes = @(0xC3, 0x8E); Replacement = 'I' }, # Î
-                @{ Bytes = @(0xC3, 0x93); Replacement = 'O' }, # Ó
-                @{ Bytes = @(0xC3, 0x92); Replacement = 'O' }, # Ò
-                @{ Bytes = @(0xC3, 0x96); Replacement = 'O' }, # Ö
-                @{ Bytes = @(0xC3, 0x94); Replacement = 'O' }, # Ô
-                @{ Bytes = @(0xC3, 0x95); Replacement = 'O' }, # Õ
-                @{ Bytes = @(0xC3, 0x98); Replacement = 'O' }, # Ø
-                @{ Bytes = @(0xC3, 0x9A); Replacement = 'U' }, # Ú
-                @{ Bytes = @(0xC3, 0x99); Replacement = 'U' }, # Ù
-                @{ Bytes = @(0xC3, 0x9C); Replacement = 'U' }, # Ü
-                @{ Bytes = @(0xC3, 0x9B); Replacement = 'U' }, # Û
-                @{ Bytes = @(0xC3, 0x91); Replacement = 'N' }, # Ñ
-                @{ Bytes = @(0xC3, 0x87); Replacement = 'C' }, # Ç
-                @{ Bytes = @(0xC3, 0x9D); Replacement = 'Y' }  # Ý
-            )
-
-            foreach ($pair in $mojibakePairs)
-            {
-                $key = [string]::Concat([char]$pair.Bytes[0], [char]$pair.Bytes[1])
-                $mojibakeReplacements[$key] = $pair.Replacement
-            }
-
-            foreach ($key in $mojibakeReplacements.Keys)
-            {
-                $normalized = $normalized -replace [regex]::Escape($key), $mojibakeReplacements[$key]
             }
 
             # Remove diacritical marks (combining characters)
