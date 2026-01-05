@@ -169,13 +169,13 @@ function Rename-VideoSeasonFile
             Write-Verbose "Scanning path: $normalizedPath"
 
             # Validate that the path exists
-            if (-not (Test-Path -Path $normalizedPath))
+            if (-not (Test-Path -LiteralPath $normalizedPath))
             {
                 Write-Error "Path not found: '$normalizedPath'"
                 continue
             }
 
-            $pathItem = Get-Item -Path $normalizedPath -ErrorAction Stop
+            $pathItem = Get-Item -LiteralPath $normalizedPath -ErrorAction Stop
 
             if ($pathItem.PSIsContainer)
             {
@@ -323,7 +323,7 @@ function Rename-VideoSeasonFile
             $newFullPath = [System.IO.Path]::Combine($file.DirectoryName, $newFileName)
 
             # Check if target file already exists
-            if (Test-Path -Path $newFullPath -PathType Leaf)
+            if (Test-Path -LiteralPath $newFullPath -PathType Leaf)
             {
                 Write-Warning "Target file already exists, skipping: '$newFileName'"
                 continue
