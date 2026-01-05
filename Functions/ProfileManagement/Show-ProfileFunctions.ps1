@@ -119,12 +119,12 @@ function Show-ProfileFunctions
                 # Display category header with blank line before (except first)
                 if ($firstCategory)
                 {
-                    Write-Host "`n$categoryDisplay Functions:" -ForegroundColor Cyan
+                    Write-Host "`n${categoryDisplay}:" -ForegroundColor Cyan
                     $firstCategory = $false
                 }
                 else
                 {
-                    Write-Host "`n$categoryDisplay Functions:" -ForegroundColor Cyan
+                    Write-Host "`n${categoryDisplay}:" -ForegroundColor Cyan
                 }
 
                 # Sort functions within category
