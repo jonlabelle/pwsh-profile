@@ -355,6 +355,9 @@
         $fileCount = 0
         $processedPaths = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
 
+        # Collect all files from pipeline before processing to prevent PassThru output from re-entering
+        $allFilesToProcess = [System.Collections.ArrayList]::new()
+
         function Get-NormalizedString
         {
             param([String]$Text)
@@ -1013,7 +1016,8 @@
 
     process
     {
-        # Resolve paths based on parameter set
+        # Collect all files from pipeline input before processing
+        # This prevents PassThru output from flowing back into the pipeline and being processed again
         $files = @()
 
         if ($PSCmdlet.ParameterSetName -eq 'Path')
@@ -1083,17 +1087,29 @@
             }
         }
 
-        # Process each file
+        # Add collected files to the processing list
         foreach ($file in $files)
+        {
+            $null = $allFilesToProcess.Add($file)
+        }
+    }
+
+    end
+    {
+        # Process all collected files AFTER all pipeline input has been received
+        # This prevents PassThru output from re-entering the pipeline
+        foreach ($file in $allFilesToProcess)
         {
             $fileCount++
 
             try
             {
-                # Prevent accidental double-processing of the same path within a single invocation
-                if (-not $processedPaths.Add($file.FullName))
+                # Prevent accidental double-processing by tracking the original file identity
+                # Use the file's directory + original name as the key, since FullName changes after rename
+                $originalIdentity = Join-Path -Path $file.DirectoryName -ChildPath $file.Name
+                if (-not $processedPaths.Add($originalIdentity))
                 {
-                    Write-Verbose "Skipping '$($file.FullName)': already processed"
+                    Write-Verbose "Skipping '$originalIdentity': already processed"
                     continue
                 }
 
@@ -1102,16 +1118,28 @@
 
                 # Handle dotfiles specially: .editorconfig, .gitignore, etc.
                 # These files start with a dot and have no real extension separator
+                # CRITICAL: Always reset these variables at the start of each loop iteration
+                # to prevent contamination from previous files
+                $fileBaseName = ''
+                $fileExtension = ''
+
                 if ($currentName -match '^\.[^.]*$')
                 {
                     # Dotfile with no extension - treat the entire name as the basename
-                    $baseName = $currentName
-                    $extension = ''
+                    $fileBaseName = $currentName
+                    $fileExtension = ''
                 }
                 else
                 {
-                    $baseName = [System.IO.Path]::GetFileNameWithoutExtension($currentName)
-                    $extension = [System.IO.Path]::GetExtension($currentName)
+                    $fileBaseName = [System.IO.Path]::GetFileNameWithoutExtension($currentName)
+                    $fileExtension = [System.IO.Path]::GetExtension($currentName)
+
+                    # DEFENSIVE: Verify the extension was set correctly
+                    # If GetExtension returns null or the file has no extension, ensure $fileExtension is empty
+                    if ($null -eq $fileExtension)
+                    {
+                        $fileExtension = ''
+                    }
                 }
 
                 # Determine new filename
@@ -1130,7 +1158,7 @@
                 else
                 {
                     # Apply transformations to existing name
-                    $newFileName = Get-TransformedFilename -OriginalName $baseName -Extension $extension -CounterValue $currentCounter
+                    $newFileName = Get-TransformedFilename -OriginalName $fileBaseName -Extension $fileExtension -CounterValue $currentCounter
                 }
 
                 # Ensure the new filename is not empty
@@ -1199,10 +1227,8 @@
                 continue
             }
         }
-    }
 
-    end
-    {
+        # Summary message
         if ($fileCount -eq 0)
         {
             Write-Warning 'No files were found to process'
