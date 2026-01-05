@@ -810,16 +810,18 @@
             param(
                 [String]$Directory,
                 [String]$BaseName,
-                [String]$Extension
+                [String]$FileExtension
             )
 
-            $targetPath = Join-Path -Path $Directory -ChildPath ($BaseName + $Extension)
+            # Use local variable with different name to avoid scope contamination
+            $ext = $FileExtension
+            $targetPath = Join-Path -Path $Directory -ChildPath ($BaseName + $ext)
             $suffix = 2
 
             while (Test-Path -LiteralPath $targetPath)
             {
                 $newBaseName = "${BaseName}_${suffix}"
-                $targetPath = Join-Path -Path $Directory -ChildPath ($newBaseName + $Extension)
+                $targetPath = Join-Path -Path $Directory -ChildPath ($newBaseName + $ext)
                 $suffix++
             }
 
@@ -828,22 +830,15 @@
 
         function Get-TransformedFilename
         {
-            [CmdletBinding()]
             param(
-                [Parameter(Mandatory, Position = 0)]
                 [String]$OriginalName,
-
-                [Parameter(Mandatory, Position = 1)]
-                [AllowEmptyString()]
-                [String]$Extension,
-
-                [Parameter(Mandatory, Position = 2)]
+                [String]$FileExt,
                 [Int]$CounterValue
             )
 
-            # CRITICAL: Use only the result variable - access extension via PSBoundParameters directly
-            # Do NOT create intermediate variables that can be contaminated
-            $result = [String]$PSBoundParameters['OriginalName']
+            # Use different parameter name (FileExt instead of Extension) to avoid any scope collision
+            $result = $OriginalName
+            $ext = $FileExt
 
             # 1. URL decode (if specified)
             if ($UrlDecode)
@@ -1031,8 +1026,7 @@
             }
             else
             {
-                # Use parameter directly without intermediate variable to prevent contamination
-                return ($result + $PSBoundParameters['Extension'])
+                return ($result + $ext)
             }
         }
     }
@@ -1183,7 +1177,8 @@
                 else
                 {
                     # Apply transformations to existing name
-                    $newFileName = Get-TransformedFilename -OriginalName $fileBaseName -Extension $fileExtension -CounterValue $currentCounter
+                    # Pass extension as FileExt to avoid parameter name collision
+                    $newFileName = Get-TransformedFilename -OriginalName $fileBaseName -FileExt $fileExtension -CounterValue $currentCounter
                 }
 
                 # Ensure the new filename is not empty
@@ -1213,9 +1208,10 @@
                     if (-not $isSameFile)
                     {
                         # File exists and is different, generate unique name
-                        $newBaseName = [System.IO.Path]::GetFileNameWithoutExtension($newFileName)
-                        $newExtension = [System.IO.Path]::GetExtension($newFileName)
-                        $newFileName = Get-UniqueFilename -Directory $directory -BaseName $newBaseName -Extension $newExtension
+                        # Use unique variable names to prevent contamination across iterations
+                        $uniqueBaseName = [System.IO.Path]::GetFileNameWithoutExtension($newFileName)
+                        $uniqueExtension = [System.IO.Path]::GetExtension($newFileName)
+                        $newFileName = Get-UniqueFilename -Directory $directory -BaseName $uniqueBaseName -FileExtension $uniqueExtension
                         $targetPath = Join-Path -Path $directory -ChildPath $newFileName
                         Write-Verbose "Conflict detected, using unique name: $newFileName"
                     }
