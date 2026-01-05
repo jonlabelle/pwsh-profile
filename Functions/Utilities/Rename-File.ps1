@@ -994,24 +994,19 @@
             }
 
             # 11. Extension handling
-            Write-Verbose "Extension handling: RemoveExtension=$RemoveExtension, NewExtension='$NewExtension', Extension='$Extension'"
             if ($RemoveExtension)
             {
                 $finalName = $result
-                Write-Verbose "Removed extension, final name: '$finalName'"
             }
             elseif ($NewExtension)
             {
                 $finalName = $result + $NewExtension
-                Write-Verbose "Applied new extension, final name: '$finalName'"
             }
             else
             {
                 $finalName = $result + $Extension
-                Write-Verbose "Applied original extension, final name: '$finalName'"
             }
 
-            Write-Verbose "=== Get-TransformedFilename complete: returning '$finalName' ==="
             return $finalName
         }
     }
@@ -1105,9 +1100,6 @@
                 $directory = $file.DirectoryName
                 $currentName = $file.Name
 
-                Write-Verbose "=== File Analysis Start: $currentName ==="
-                Write-Verbose "Full path: $($file.FullName)"
-
                 # Handle dotfiles specially: .editorconfig, .gitignore, etc.
                 # These files start with a dot and have no real extension separator
                 if ($currentName -match '^\.[^.]*$')
@@ -1115,15 +1107,12 @@
                     # Dotfile with no extension - treat the entire name as the basename
                     $baseName = $currentName
                     $extension = ''
-                    Write-Verbose "Detected dotfile - treating entire name as basename"
                 }
                 else
                 {
                     $baseName = [System.IO.Path]::GetFileNameWithoutExtension($currentName)
                     $extension = [System.IO.Path]::GetExtension($currentName)
                 }
-
-                Write-Verbose "Extracted: baseName='$baseName' extension='$extension'"
 
                 # Determine new filename
                 if ($NewName)
@@ -1141,9 +1130,7 @@
                 else
                 {
                     # Apply transformations to existing name
-                    Write-Verbose "Calling Get-TransformedFilename with baseName='$baseName' extension='$extension'"
                     $newFileName = Get-TransformedFilename -OriginalName $baseName -Extension $extension -CounterValue $currentCounter
-                    Write-Verbose "Get-TransformedFilename returned: '$newFileName'"
                 }
 
                 # Ensure the new filename is not empty
