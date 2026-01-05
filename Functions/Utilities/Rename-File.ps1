@@ -703,8 +703,28 @@
                 return $Text
             }
 
-            # Remove common shell meta-characters: & | ; < > ( ) $ ` \ " ' * ? [ ] # ~ = %
-            return $Text -replace '[&|;<>()`\\"\''*?\[\]#~=%]', ''
+            # Remove common shell meta-characters
+            # Characters: & | ; < > ( ) $ ` \ " ' * ? [ ] # ~ = %
+            $result = $Text
+            # Use individual replacements for maximum compatibility across PowerShell versions
+            $result = $result -replace '\&', ''
+            $result = $result -replace '\|', ''
+            $result = $result -replace '\;', ''
+            $result = $result -replace '[<>]', ''
+            $result = $result -replace '[\(\)]', ''
+            $result = $result -replace '\$', ''
+            $result = $result -replace '`', ''
+            $result = $result -replace '\\', ''
+            $result = $result -replace '"', ''
+            $result = $result -replace "'", ''
+            $result = $result -replace '\*', ''
+            $result = $result -replace '\?', ''
+            $result = $result -replace '[\[\]]', ''
+            $result = $result -replace '#', ''
+            $result = $result -replace '~', ''
+            $result = $result -replace '=', ''
+            $result = $result -replace '%', ''
+            return $result
         }
 
         function Get-SanitizedFilename
@@ -1079,10 +1099,23 @@
 
                 $directory = $file.DirectoryName
                 $currentName = $file.Name
-                $baseName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
-                $extension = $file.Extension
 
-                Write-Verbose "Processing file: $currentName"
+                # Handle dotfiles specially: .editorconfig, .gitignore, etc.
+                # These files start with a dot and have no real extension separator
+                if ($currentName -match '^\.[^.]*$')
+                {
+                    # Dotfile with no extension - treat the entire name as the basename
+                    $baseName = $currentName
+                    $extension = ''
+                    Write-Verbose "Detected dotfile: $currentName"
+                }
+                else
+                {
+                    $baseName = [System.IO.Path]::GetFileNameWithoutExtension($currentName)
+                    $extension = [System.IO.Path]::GetExtension($currentName)
+                }
+
+                Write-Verbose "Processing file: $currentName (baseName='$baseName', extension='$extension')"
 
                 # Determine new filename
                 if ($NewName)
