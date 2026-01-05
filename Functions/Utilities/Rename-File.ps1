@@ -1,4 +1,4 @@
-function Rename-File
+﻿function Rename-File
 {
     <#
     .SYNOPSIS
