@@ -497,6 +497,7 @@ The profile includes utility functions organized by category:
 - **[`Get-WhichCommand`](Functions/Utilities/Get-WhichCommand.ps1)** — Locates commands and displays their type or path (cross-platform which alternative)
 - **[`New-RandomString`](Functions/Utilities/New-RandomString.ps1)** — Generates random strings for passwords, tokens, and other uses
 - **[`Remove-OldFiles`](Functions/Utilities/Remove-OldFiles.ps1)** — Removes files older than a specified time period with optional empty directory cleanup
+- **[`Rename-File`](Functions/Utilities/Rename-File.ps1)** — Renames files with advanced transformations
 - **[`Replace-StringInFile`](Functions/Utilities/Replace-StringInFile.ps1)** — Finds and replaces text in files with support for regex and backups
 - **[`Search-FileContent`](Functions/Utilities/Search-FileContent.ps1)** — Search files with regex, context, filtering, and colorized output
 - **[`Sync-Directory`](Functions/Utilities/Sync-Directory.ps1)** — Synchronizes directories using native platform tools (rsync/robocopy)
