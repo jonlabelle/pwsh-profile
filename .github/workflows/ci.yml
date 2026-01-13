@@ -6,10 +6,22 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      powershell-core:
+        description: "PowerShell Core"
+        required: false
+        default: true
+        type: boolean
+      powershell-desktop:
+        description: "PowerShell Desktop"
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   powershell-core:
     name: Build on ${{ matrix.platform }} (pwsh)
+    if: github.event_name != 'workflow_dispatch' || inputs.powershell-core
     runs-on: ${{ matrix.platform }}
     strategy:
       fail-fast: false
@@ -60,6 +72,7 @@ jobs:
 
   powershell-desktop:
     name: Build on windows-latest (powershell)
+    if: github.event_name != 'workflow_dispatch' || inputs.powershell-desktop
     runs-on: windows-latest
 
     steps:
