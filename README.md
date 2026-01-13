@@ -495,6 +495,8 @@ The profile includes utility functions organized by category:
 - **[`Get-CommandAlias`](Functions/Utilities/Get-CommandAlias.ps1)** — Displays aliases for PowerShell cmdlets
 - **[`Get-StringHash`](Functions/Utilities/Get-StringHash.ps1)** — Computes hash values for strings (like `Get-FileHash` but for strings)
 - **[`Get-WhichCommand`](Functions/Utilities/Get-WhichCommand.ps1)** — Locates commands and displays their type or path (cross-platform which alternative)
+- **[`New-SymbolicLink`](Functions/Utilities/New-SymbolicLink.ps1)** — Creates symbolic links (symlinks) for files and directories
+- **[`Remove-SymbolicLink`](Functions/Utilities/Remove-SymbolicLink.ps1)** — Removes symbolic links (symlinks) for files and directories
 - **[`New-RandomString`](Functions/Utilities/New-RandomString.ps1)** — Generates random strings for passwords, tokens, and other uses
 - **[`Remove-OldFiles`](Functions/Utilities/Remove-OldFiles.ps1)** — Removes files older than a specified time period with optional empty directory cleanup
 - **[`Rename-File`](Functions/Utilities/Rename-File.ps1)** — Renames files with advanced transformations

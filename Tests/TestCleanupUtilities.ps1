@@ -128,6 +128,107 @@ function Stop-TestJob
     }
 }
 
+function Remove-TestSymbolicLink
+{
+    <#
+    .SYNOPSIS
+        Robustly removes a symbolic link with special handling for Windows PowerShell 5.1
+
+    .DESCRIPTION
+        On Windows PowerShell 5.1, directory symbolic links can be problematic to remove.
+        This function uses multiple strategies to ensure cleanup succeeds:
+        1. First tries standard Remove-Item
+        2. Falls back to [System.IO.Directory]::Delete for directory symlinks
+        3. Uses cmd.exe rmdir as a final fallback on Windows
+
+    .PARAMETER Path
+        The path to the symbolic link to remove
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    if (-not $Path -or -not (Test-Path -Path $Path -ErrorAction SilentlyContinue))
+    {
+        return
+    }
+
+    # Detect platform
+    $isWindowsPlatform = if ($PSVersionTable.PSVersion.Major -lt 6) { $true } else { $IsWindows }
+    $isPowerShell51 = $PSVersionTable.PSVersion.Major -lt 6
+
+    try
+    {
+        # Check if it's actually a symlink
+        $item = Get-Item -Path $Path -Force -ErrorAction SilentlyContinue
+        if (-not $item)
+        {
+            # Item might have been removed already or is inaccessible
+            return
+        }
+
+        $isSymlink = $item.Attributes -band [System.IO.FileAttributes]::ReparsePoint
+        $isDirectory = $item.PSIsContainer
+
+        if ($isSymlink -and $isDirectory -and $isWindowsPlatform -and $isPowerShell51)
+        {
+            # Special handling for directory symlinks on Windows PS 5.1
+            # Try multiple methods in order of preference
+
+            # Method 1: Try [System.IO.Directory]::Delete (does not follow symlinks)
+            try
+            {
+                [System.IO.Directory]::Delete($Path)
+                Write-Verbose "Removed directory symlink via .NET: $Path"
+                return
+            }
+            catch
+            {
+                Write-Verbose "Failed to remove directory symlink via .NET: $($_.Exception.Message)"
+            }
+
+            # Method 2: Try cmd.exe rmdir (specifically for directory junctions/symlinks)
+            try
+            {
+                $null = cmd.exe /c rmdir "$Path" 2>&1
+                if (-not (Test-Path -Path $Path -ErrorAction SilentlyContinue))
+                {
+                    Write-Verbose "Removed directory symlink via cmd.exe rmdir: $Path"
+                    return
+                }
+            }
+            catch
+            {
+                Write-Verbose "Failed to remove directory symlink via cmd.exe: $($_.Exception.Message)"
+            }
+
+            # Method 3: Standard Remove-Item as final fallback
+            Remove-Item -Path $Path -Force -ErrorAction SilentlyContinue
+        }
+        else
+        {
+            # Standard removal for file symlinks or non-Windows platforms
+            # Do NOT use -Recurse on symlinks
+            Remove-Item -Path $Path -Force -ErrorAction SilentlyContinue
+        }
+    }
+    catch
+    {
+        Write-Verbose "Error removing symbolic link '$Path': $($_.Exception.Message)"
+        # Final fallback - try simple removal
+        Remove-Item -Path $Path -Force -ErrorAction SilentlyContinue
+    }
+
+    # Wait a moment and verify removal
+    Start-Sleep -Milliseconds 50
+    if (Test-Path -Path $Path -ErrorAction SilentlyContinue)
+    {
+        Write-Warning "Failed to remove symbolic link: $Path"
+    }
+}
+
 function Invoke-RobustTestCleanup
 {
     <#
