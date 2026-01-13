@@ -306,6 +306,7 @@ function Copy-Directory
                 $nativeArgs += '/NFL'    # No file list - don't log file names
                 $nativeArgs += '/R:1'    # Retry once on failed copies
                 $nativeArgs += '/W:1'    # Wait 1 second between retries
+                $nativeArgs += '/FFT'    # Use FAT file times (2-second granularity) when comparing timestamps
 
                 if ($Throttle -gt 1)
                 {
