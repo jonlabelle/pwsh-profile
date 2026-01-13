@@ -1,9 +1,9 @@
 #
 # Dot source all functions
-$functions = @(Get-ChildItem -LiteralPath (Join-Path -Path $PSScriptRoot -ChildPath 'Functions') -Filter '*-*.ps1' -File -Recurse -ErrorAction 'SilentlyContinue')
+$functions = @(Get-ChildItem -LiteralPath (Join-Path -Path $PSScriptRoot -ChildPath 'Functions') -Filter '*-*.ps1' -File -Recurse)
 foreach ($function in $functions)
 {
-    Write-Verbose ('Loading function: {0}' -f $function.FullName)
+    Write-Verbose ('Loading profile function: {0}' -f $function.FullName)
     . $function.FullName
 }
 
