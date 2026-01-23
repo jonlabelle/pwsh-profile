@@ -1,4 +1,3 @@
-#
 # Dot source all functions
 $functions = @(Get-ChildItem -LiteralPath (Join-Path -Path $PSScriptRoot -ChildPath 'Functions') -Filter '*-*.ps1' -File -Recurse)
 foreach ($function in $functions)
@@ -7,17 +6,11 @@ foreach ($function in $functions)
     . $function.FullName
 }
 
-#
 # Custom prompt function
 function Prompt
 {
-    param()
-
-    # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_profiles?view=powershell-7.2#add-a-customized-powershell-prompt
-
     $psVersionTitle = "PowerShell $($PSEdition) $($PSVersionTable.PSVersion.Major).$($PSVersionTable.PSVersion.Minor)"
     $host.UI.RawUI.WindowTitle = "$psVersionTitle"
-
     Write-Host 'PS' -ForegroundColor 'Cyan' -NoNewline
     return ' > '
 }
