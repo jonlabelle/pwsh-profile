@@ -79,6 +79,7 @@ function Remove-NodeModules
         - Only removes node_modules folders when a package.json file exists in the parent directory
         - Respects -WhatIf and -Confirm parameters for safety
         - Can free up significant disk space, especially in workspaces with many projects
+        - Skips traversing node_modules directories during search to avoid unnecessary work
 
         Author: Jon LaBelle
         License: MIT
@@ -123,10 +124,104 @@ function Remove-NodeModules
         # Project file pattern
         $projectPattern = 'package.json'
 
-        # Log excluded directories
+        # Build exclusion lists for search (node_modules is always skipped)
+        $searchExcludedDirectories = @()
         if ($ExcludeDirectory -and $ExcludeDirectory.Count -gt 0)
         {
-            Write-Verbose "Excluding directories: $($ExcludeDirectory -join ', ')"
+            $searchExcludedDirectories += $ExcludeDirectory
+        }
+        $searchExcludedDirectories = @(
+            $searchExcludedDirectories |
+                Where-Object { $_ } |
+                Select-Object -Unique
+        )
+
+        $recursionExcludedDirectories = @(
+            ($searchExcludedDirectories + 'node_modules') |
+                Where-Object { $_ } |
+                Select-Object -Unique
+        )
+
+        if ($recursionExcludedDirectories -and $recursionExcludedDirectories.Count -gt 0)
+        {
+            Write-Verbose "Excluding directories from search: $($recursionExcludedDirectories -join ', ')"
+        }
+
+        function Test-IsExcludedPath
+        {
+            param(
+                [String]$FilePath,
+                [String[]]$ExcludedDirs
+            )
+
+            foreach ($excludeDir in $ExcludedDirs)
+            {
+                $escaped = [regex]::Escape([System.IO.Path]::DirectorySeparatorChar + $excludeDir + [System.IO.Path]::DirectorySeparatorChar)
+                $escapedEnd = [regex]::Escape([System.IO.Path]::DirectorySeparatorChar + $excludeDir + '$')
+                if ($FilePath -match $escaped -or $FilePath -match $escapedEnd)
+                {
+                    return $true
+                }
+            }
+            return $false
+        }
+
+        function Get-NodeProjectDirectories
+        {
+            param(
+                [String]$RootPath,
+                [String]$ProjectFileName,
+                [String[]]$ExcludedDirs,
+                [Switch]$Recurse
+            )
+
+            $projectDirectories = New-Object System.Collections.Generic.List[string]
+            $directoriesToScan = [System.Collections.Generic.Stack[string]]::new()
+
+            if ($ExcludedDirs -and (Test-IsExcludedPath -FilePath $RootPath -ExcludedDirs $ExcludedDirs))
+            {
+                Write-Verbose "Skipping excluded path: $RootPath"
+                return $projectDirectories
+            }
+
+            $directoriesToScan.Push($RootPath)
+
+            while ($directoriesToScan.Count -gt 0)
+            {
+                $currentDir = $directoriesToScan.Pop()
+
+                $projectFilePath = Join-Path -Path $currentDir -ChildPath $ProjectFileName
+                if (Test-Path -Path $projectFilePath -PathType Leaf -ErrorAction SilentlyContinue)
+                {
+                    $projectDirectories.Add($currentDir)
+                }
+
+                if ($Recurse)
+                {
+                    try
+                    {
+                        $childDirectories = Get-ChildItem -Path $currentDir -Directory -ErrorAction SilentlyContinue
+                    }
+                    catch
+                    {
+                        Write-Verbose "Could not enumerate directories in: $currentDir"
+                        Write-Verbose "Error details: $($_.Exception)"
+                        continue
+                    }
+
+                    foreach ($childDir in $childDirectories)
+                    {
+                        if ($ExcludedDirs -and (Test-IsExcludedPath -FilePath $childDir.FullName -ExcludedDirs $ExcludedDirs))
+                        {
+                            continue
+                        }
+
+                        $directoriesToScan.Push($childDir.FullName)
+                    }
+                }
+            }
+
+            return $projectDirectories
         }
     }
 
@@ -145,74 +240,21 @@ function Remove-NodeModules
 
             Write-Verbose "Searching for Node.js projects in: $resolvedPath"
 
-            # Build Get-ChildItem parameters and filter reliably across PS versions
-            $getChildItemParams = @{
-                Path = $resolvedPath
-                File = $true
-                ErrorAction = 'SilentlyContinue'
-            }
+            $projectDirectories = Get-NodeProjectDirectories -RootPath $resolvedPath -ProjectFileName $projectPattern -ExcludedDirs $recursionExcludedDirectories -Recurse:$Recurse.IsPresent
 
-            if ($Recurse.IsPresent)
-            {
-                $getChildItemParams.Recurse = $true
-            }
-
-            # Disable progress bar for recursive file search (PowerShell 7.4+)
-            if ($PSVersionTable.PSVersion.Major -ge 7 -and $PSVersionTable.PSVersion.Minor -ge 4)
-            {
-                $getChildItemParams['ProgressAction'] = 'SilentlyContinue'
-            }
-
-            function Test-IsExcludedPath
-            {
-                param(
-                    [String]$FilePath,
-                    [String[]]$ExcludedDirs
-                )
-
-                foreach ($excludeDir in $ExcludedDirs)
-                {
-                    $escaped = [regex]::Escape([System.IO.Path]::DirectorySeparatorChar + $excludeDir + [System.IO.Path]::DirectorySeparatorChar)
-                    $escapedEnd = [regex]::Escape([System.IO.Path]::DirectorySeparatorChar + $excludeDir + '$')
-                    if ($FilePath -match $escaped -or $FilePath -match $escapedEnd)
-                    {
-                        return $true
-                    }
-                }
-                return $false
-            }
-
-            $allProjectFiles = Get-ChildItem @getChildItemParams
-
-            # Filter to package.json and exclusions
-            $projectFiles = $allProjectFiles | Where-Object {
-                if ($_.Name -ne $projectPattern)
-                {
-                    return $false
-                }
-
-                if ($ExcludeDirectory -and $ExcludeDirectory.Count -gt 0)
-                {
-                    return -not (Test-IsExcludedPath -FilePath $_.FullName -ExcludedDirs $ExcludeDirectory)
-                }
-
-                return $true
-            }
-
-            if (-not $projectFiles -or $projectFiles.Count -eq 0)
+            if (-not $projectDirectories -or $projectDirectories.Count -eq 0)
             {
                 Write-Host 'No Node.js project files found in the specified path.' -ForegroundColor Yellow
                 return
             }
 
-            $stats.ProjectsFound = $projectFiles.Count
+            $stats.ProjectsFound = $projectDirectories.Count
             Write-Host "Found $($stats.ProjectsFound) Node.js project(s)" -ForegroundColor Cyan
 
             # Process each project
-            foreach ($projectFile in $projectFiles)
+            foreach ($projectDir in $projectDirectories)
             {
-                $projectDir = $projectFile.DirectoryName
-                Write-Verbose "Processing project: $($projectFile.Name) in $projectDir"
+                Write-Verbose "Processing project in $projectDir"
 
                 # Look for node_modules folder in the project directory
                 $nodeModulesPath = Join-Path -Path $projectDir -ChildPath 'node_modules'
