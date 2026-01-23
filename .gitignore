@@ -16,6 +16,7 @@ Icon             # macOS custom icons (ends with \r)
 
 node_modules
 tmp/
+_tmp/
 
 # Local user functions (not committed to repository)
 # Ignore all files except README.md
