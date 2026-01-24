@@ -35,7 +35,8 @@
 
     .PARAMETER Normalize
         Normalizes the filename by removing accents, converting to basic ASCII characters,
-        and removing common problematic characters. Useful for cross-platform compatibility.
+        and removing common problematic characters. Also trims leading and trailing whitespace.
+        Useful for cross-platform compatibility.
 
     .PARAMETER ToUpper
         Converts the filename to UPPERCASE.
@@ -230,7 +231,7 @@
         5. Remove control/shell characters
         6. Case conversion
         7. Whitespace replacements
-        8. Trim operations
+        8. Trim operations (explicit or implied by -Normalize)
         9. Prepend/Append
         10. Counter (if specified)
         11. Extension handling
@@ -962,7 +963,7 @@
             }
 
             # 8. Trim operations
-            if ($Trim)
+            if ($Trim -or $Normalize)
             {
                 $result = $result.Trim()
                 Write-Verbose "After trim: '$result'"

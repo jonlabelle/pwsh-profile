@@ -194,6 +194,14 @@ Describe 'Rename-File Unit Tests' -Tag 'Unit', 'Utilities' {
             $result = Get-ChildItem -Path $script:testRoot -File
             $result.Name | Should -Be 'cafe.txt'
         }
+
+        It 'Should normalize and trim leading/trailing whitespace' {
+            $testFile = Join-Path -Path $script:testRoot -ChildPath '  café  .txt'
+            'content' | Out-File -FilePath $testFile -Encoding UTF8
+            Rename-File -LiteralPath $testFile -Normalize
+            $result = Get-ChildItem -Path $script:testRoot -File
+            $result.Name | Should -Be 'cafe.txt'
+        }
     }
 
     Context 'Control and Shell Meta-Characters' {
