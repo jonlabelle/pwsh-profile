@@ -137,9 +137,6 @@
     .PARAMETER WhatIf
         Shows what would happen if the cmdlet runs without actually performing the rename.
 
-    .PARAMETER Confirm
-        Prompts for confirmation before renaming each file.
-
     .PARAMETER DryRun
         Shows what would be renamed without actually performing the rename operations.
         Uses internal preview logic to display exact output, that otherwise couldn't be accomplished with built-in -WhatIf support.
