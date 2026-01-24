@@ -441,6 +441,52 @@ Describe 'Rename-File Unit Tests' -Tag 'Unit', 'Utilities' {
         }
     }
 
+    Context 'Default Path Handling' {
+        BeforeEach {
+            Get-ChildItem -Path $script:testRoot -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        }
+
+        AfterEach {
+            Get-ChildItem -Path $script:testRoot -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        }
+
+        It 'Should use current directory when Path is not specified' {
+            $testFile = Join-Path -Path $script:testRoot -ChildPath 'test file.txt'
+            'content' | Out-File -FilePath $testFile -Encoding UTF8
+
+            Push-Location -Path $script:testRoot
+            try
+            {
+                Rename-File -ReplaceSpacesWith '_'
+            }
+            finally
+            {
+                Pop-Location
+            }
+
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'test_file.txt') | Should -Be $true
+        }
+
+        It 'Should honor Recurse when Path is not specified' {
+            $subDir = Join-Path -Path $script:testRoot -ChildPath 'SubDir'
+            New-Item -Path $subDir -ItemType Directory -Force | Out-Null
+            $testFile = Join-Path -Path $subDir -ChildPath 'test file.txt'
+            'content' | Out-File -FilePath $testFile -Encoding UTF8
+
+            Push-Location -Path $script:testRoot
+            try
+            {
+                Rename-File -ReplaceSpacesWith '_' -Recurse
+            }
+            finally
+            {
+                Pop-Location
+            }
+
+            Test-Path (Join-Path -Path $subDir -ChildPath 'test_file.txt') | Should -Be $true
+        }
+    }
+
     Context 'Error Handling' {
         It 'Should handle non-existent file gracefully' {
             { Rename-File -Path 'C:\NonExistent\File.txt' -ToUpper -ErrorAction Stop } | Should -Throw

@@ -24,7 +24,8 @@
 
     .PARAMETER Path
         The path to the file(s) to rename. Accepts wildcards and pipeline input.
-        Can be a single file path, multiple paths, or a directory with -Recurse.
+        Can be a single file path, multiple paths, or a directory. If omitted, the
+        current working directory is used. Use -Recurse to include subdirectories.
 
     .PARAMETER NewName
         The new name for the file. If not specified, transformations are applied to the current name.
@@ -257,7 +258,7 @@
     [CmdletBinding(DefaultParameterSetName = 'Path')]
     [OutputType([System.IO.FileInfo])]
     param(
-        [Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName, ParameterSetName = 'Path', Position = 0)]
+        [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName, ParameterSetName = 'Path', Position = 0)]
         [SupportsWildcards()]
         [String[]]$Path,
 
@@ -1040,6 +1041,11 @@
 
         if ($PSCmdlet.ParameterSetName -eq 'Path')
         {
+            if (-not $PSBoundParameters.ContainsKey('Path') -and -not $PSBoundParameters.ContainsKey('LiteralPath'))
+            {
+                $Path = @((Get-Location).Path)
+            }
+
             foreach ($p in $Path)
             {
                 try
@@ -1057,7 +1063,7 @@
                             }
                             else
                             {
-                                Write-Warning "Path '$p' is a directory. Use -Recurse to process files in directories."
+                                $files += Get-ChildItem -LiteralPath $item.FullName -File -ErrorAction Stop
                             }
                         }
                         else
@@ -1089,7 +1095,7 @@
                         }
                         else
                         {
-                            Write-Warning "Path '$lp' is a directory. Use -Recurse to process files in directories."
+                            $files += Get-ChildItem -LiteralPath $item.FullName -File -ErrorAction Stop
                         }
                     }
                     else
