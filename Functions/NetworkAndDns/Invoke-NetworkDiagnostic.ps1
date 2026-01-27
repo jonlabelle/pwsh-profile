@@ -67,7 +67,7 @@
 
         1. INTERMITTENT CONNECTIVITY ISSUES
            Problem: Users report occasional disconnections or slowness
-           What to look for: Sparkline graphs showing periodic spikes or gaps (✖ marks)
+           What to look for: Sparkline graphs showing periodic spikes or gray bars at baseline
            indicating packet loss patterns or connection timeouts
 
         2. NETWORK PATH DEGRADATION
@@ -294,7 +294,7 @@
         PS > Invoke-NetworkDiagnostic -HostName 'vpn.company.com' -Continuous -Interval 2
 
         Monitor continuously to catch sporadic failures. Look for sparkline graphs showing
-        periodic spikes or gaps (✖ marks) indicating packet loss.
+        periodic spikes or gray bars at baseline indicating packet loss.
 
     .EXAMPLE
         PS > # TROUBLESHOOTING: Network path degradation
@@ -837,9 +837,9 @@
                 }
                 Write-Host ("┌─ $statusIcon ") -ForegroundColor $statusColor -NoNewline
                 Write-Host "$($result.HostName):$($result.Port)" -ForegroundColor $statusColor -NoNewline
-                Write-Host " [" -ForegroundColor DarkGray -NoNewline
+                Write-Host ' [' -ForegroundColor DarkGray -NoNewline
                 Write-Host $healthGrade -ForegroundColor $gradeColor -NoNewline
-                Write-Host "]" -ForegroundColor DarkGray -NoNewline
+                Write-Host ']' -ForegroundColor DarkGray -NoNewline
                 if ($elapsedText)
                 {
                     Write-Host "$elapsedText" -ForegroundColor DarkGray -NoNewline

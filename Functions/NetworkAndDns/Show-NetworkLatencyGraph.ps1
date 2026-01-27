@@ -18,7 +18,7 @@
            - Flat line (▂▂▂▂▂): Stable, healthy connection suitable for all applications
            - Gradual climb (▁▂▃▅▆▇): Progressive degradation indicating congestion building
            - Sudden spikes (▂▂▇▂▂): Intermittent issues from routing flaps or packet bursts
-           - Gaps with ✖ marks: Packet loss or timeouts requiring investigation
+           - Gray lowest bars (▁): Failed samples shown at baseline in gray (see failed count)
            - Highly variable (▁▇▂▇▃): High jitter unsuitable for VoIP/gaming applications
 
         2. TIME SERIES GRAPHS - Trend Analysis
@@ -51,8 +51,8 @@
         - Action: Investigate QoS, bandwidth utilization
 
         Packet Loss:
-        ▂▂✖✖▂▂✖▂▂▂✖✖✖ (min: 12ms, max: 18ms, avg: 14ms, failed: 6)
-        - Multiple ✖ marks indicating failures
+        ▂▂▁▁▂▂▁▂▂▂▁▁▁ (min: 12ms, max: 18ms, avg: 14ms, failed: 6)
+        - Gray bars (▁) at baseline indicate timeouts - check failed count in stats
         - Action: Check physical layer, firewall rules, routing
 
         Route Flapping:
@@ -217,9 +217,9 @@
     .EXAMPLE
         PS > $latencies = @(20, 22, $null, 21, $null, 23, 20, 21)
         PS > Show-NetworkLatencyGraph -Data $latencies -GraphType Sparkline -ShowStats
-             ▁▅✖▂✖█▁▂ (min: 20ms, max: 23ms, avg: 21.2ms, failed: 2)
+             ▁▅▁▂▁█▁▂ (min: 20ms, max: 23ms, avg: 21.2ms, failed: 2)
 
-        Displays graph with failed requests marked as ✖
+        Displays graph with failed requests shown as gray bars at baseline
 
     .EXAMPLE
         PS > Get-NetworkMetrics -HostName 'github.com' -Count 25 |
@@ -278,7 +278,7 @@
         PS > $latencies = @(20, $null, 30, 28, $null, 35, 32)
         PS > Show-NetworkLatencyGraph -Data $latencies -GraphType TimeSeries -Width 30 -Height 8
 
-        Displays a time-series graph that preserves failed samples as ✖ gaps instead of collapsing the timeline
+        Displays a time-series graph with failed samples shown as gray dots/bars at baseline
 
     .EXAMPLE
         PS > # PATTERN: Healthy network
@@ -299,12 +299,12 @@
 
     .EXAMPLE
         PS > # PATTERN: Packet loss
-        PS > # ▂▂✖✖▂▂✖▂▂▂✖✖✖ (min: 12ms, max: 18ms, avg: 14ms, failed: 6)
-        PS > # Interpretation: Multiple ✖ marks indicating failures
+        PS > # ▂▂▁▁▂▂▁▂▂▂▁▁▁ (min: 12ms, max: 18ms, avg: 14ms, failed: 6)
+        PS > # Interpretation: Gray bars at baseline indicate failures - check "failed" count
         PS > # Action: Check physical layer, firewall rules, routing
 
-        Multiple ✖ marks indicate packet loss or timeouts. Check physical connections,
-        firewall rules, and routing configuration.
+        Gray bars at baseline indicate packet loss or timeouts. The "failed: N" in
+        statistics shows exact count. Check physical connections and firewall rules.
 
     .EXAMPLE
         PS > # PATTERN: Route flapping
@@ -606,11 +606,14 @@
             return [Math]::Sqrt([Math]::Max(0, $variance))
         }
 
-        # Cache sparkline characters and fail marks as constants to avoid per-call array creation
+        # Cache sparkline characters as constants to avoid per-call array creation
         $script:SparkChars = @([char]0x2581, [char]0x2582, [char]0x2583, [char]0x2584, [char]0x2585, [char]0x2586, [char]0x2587, [char]0x2588)
-        # Use multiplication sign (×) instead of heavy multiplication X (✖) - renders more reliably with ANSI colors
-        $script:FailCharUnicode = [char]0x00D7  # × (multiplication sign)
-        $script:FailCharAscii = 'X'
+
+        # For failures, we use the same visual elements but in gray color:
+        # - Sparklines: lowest bar (▁) in gray
+        # - TimeSeries Dots/Line: dot at bottom row in gray
+        # - TimeSeries Bars: thin bar at bottom in gray
+        # This keeps the graph visually consistent without mixed character widths
 
         function script:Build-TimeSeriesGraph
         {
@@ -643,7 +646,9 @@
             $range = if ($Max -eq $Min) { 1 } else { $Max - $Min }
             $scaleDenominator = [Math]::Max(1, $Height - 1)
             $pointsToPlot = [Math]::Min($Width, $Data.Count)
-            $failChar = if ($script:SupportsUnicode) { $script:FailCharUnicode } else { $script:FailCharAscii }
+
+            # Bottom row index (where failed samples will show a gray indicator)
+            $bottomRow = $Height - 1
 
             # Reuse a single StringBuilder and clear between uses
             $rowBuilder = New-Object System.Text.StringBuilder
@@ -695,9 +700,30 @@
 
                     if ($null -eq $scaledRow)
                     {
-                        # Failed connection - use cached fail character
-                        $failMark = "${script:Palette.Red}$failChar${script:Palette.Reset}"
-                        [void]$rowBuilder.Append($failMark)
+                        # Failed connection - show a gray indicator at bottom row only
+                        # Uses the same visual element as the style but in gray
+                        if ($row -eq $bottomRow)
+                        {
+                            switch ($Style)
+                            {
+                                'Dots' {
+                                    $dotChar = if ($script:SupportsUnicode) { '●' } else { '*' }
+                                    [void]$rowBuilder.Append("${script:Palette.Gray}$dotChar${script:Palette.Reset}")
+                                }
+                                'Bars' {
+                                    $barChar = if ($script:SupportsUnicode) { '▁' } else { '_' }
+                                    [void]$rowBuilder.Append("${script:Palette.Gray}$barChar${script:Palette.Reset}")
+                                }
+                                'Line' {
+                                    $dotChar = if ($script:SupportsUnicode) { '●' } else { '*' }
+                                    [void]$rowBuilder.Append("${script:Palette.Gray}$dotChar${script:Palette.Reset}")
+                                }
+                            }
+                        }
+                        else
+                        {
+                            [void]$rowBuilder.Append(' ')
+                        }
                         continue
                     }
 
@@ -908,14 +934,13 @@
                         'Sparkline'
                         {
                             $sparkline = New-Object System.Text.StringBuilder
-                            # Use cached fail character to avoid repeated conditionals
-                            $failChar = if ($script:SupportsUnicode) { $script:FailCharUnicode } else { $script:FailCharAscii }
 
                             foreach ($value in $Data)
                             {
                                 if ($null -eq $value)
                                 {
-                                    [void]$sparkline.Append("${script:Palette.Red}$failChar${script:Palette.Reset}")
+                                    # Use lowest bar in gray - same width as other bars, visually consistent
+                                    [void]$sparkline.Append("${script:Palette.Gray}$($script:SparkChars[0])${script:Palette.Reset}")
                                 }
                                 else
                                 {
