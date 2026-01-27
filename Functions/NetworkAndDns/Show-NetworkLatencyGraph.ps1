@@ -542,7 +542,7 @@
             Reset = if ($supportsColor) { "`e[0m" } else { '' }
             Green = if ($supportsColor) { "`e[32m" } else { '' }
             Yellow = if ($supportsColor) { "`e[33m" } else { '' }
-            Red = if ($supportsColor) { "`e[31m" } else { '' }
+            Red = if ($supportsColor) { "`e[91m" } else { '' }  # Bright red (91) for better visibility across terminal themes
             Cyan = if ($supportsColor) { "`e[36m" } else { '' }
             Gray = if ($supportsColor) { "`e[90m" } else { '' }
         }
@@ -608,7 +608,8 @@
 
         # Cache sparkline characters and fail marks as constants to avoid per-call array creation
         $script:SparkChars = @([char]0x2581, [char]0x2582, [char]0x2583, [char]0x2584, [char]0x2585, [char]0x2586, [char]0x2587, [char]0x2588)
-        $script:FailCharUnicode = '✖'
+        # Use multiplication sign (×) instead of heavy multiplication X (✖) - renders more reliably with ANSI colors
+        $script:FailCharUnicode = [char]0x00D7  # × (multiplication sign)
         $script:FailCharAscii = 'X'
 
         function script:Build-TimeSeriesGraph
