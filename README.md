@@ -4,17 +4,28 @@
 
 > A modern, cross-platform PowerShell profile with auto-loading utility functions for network testing, system administration, and developer workflows.
 
-## Screenshot
+## Screenshots
+
+### Show-ProfileFunctions
+
+[`Show-ProfileFunctions`](Functions/ProfileManagement/Show-ProfileFunctions.ps1) output in Windows Terminal with custom prompt and color scheme.
+
+```powershell
+Show-ProfileFunctions -IncludeAliases
+```
 
 ![PowerShell Profile in Windows Terminal](term-screen-shot.png "PowerShell Profile in Windows Terminal")
 
-> [`Show-ProfileFunctions`](Functions/ProfileManagement/Show-ProfileFunctions.ps1) output in Windows Terminal with custom prompt and color scheme.
-
----
-
-![Invoke-NetworkDiagnostic screenshot](netdiag.png "Invoke-NetworkDiagnostic in action")
+### Invoke-NetworkDiagnostic
 
 [`Invoke-NetworkDiagnostic`](Functions/NetworkAndDns/Invoke-NetworkDiagnostic.ps1) performing network diagnostics with visual graphs.
+
+```powershell
+@('www.google.com', 'www.cloudflare.com', 'jonlabelle.com', 'microsoft.com') |
+    Invoke-NetworkDiagnostic -Port 80 -Continuous -Interval 2 -SampleDelayMilliseconds 50 -IncludeDns
+```
+
+![Invoke-NetworkDiagnostic screenshot](netdiag.png "Invoke-NetworkDiagnostic in action")
 
 ## Features
 
