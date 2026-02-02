@@ -10,8 +10,6 @@
   # Exclude specific rules globally
   ExcludeRules = @(
     'PSAvoidUsingWriteHost', # Used intentionally in certain scenarios
-    'PSUseShouldProcessForStateChangingFunctions', # Can soon remove this
-    'PSAvoidGlobalVars', # Required for updating $Profile
     'PSReviewUnusedParameter', # This rule is broken and reports false positives
     'PSAvoidUsingComputerNameHardcoded' # Acceptable in test scripts
     'PSAvoidUsingConvertToSecureStringWithPlainText' # Acceptable in test scripts
