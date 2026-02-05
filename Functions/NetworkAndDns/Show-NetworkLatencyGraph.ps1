@@ -706,15 +706,18 @@
                         {
                             switch ($Style)
                             {
-                                'Dots' {
+                                'Dots'
+                                {
                                     $dotChar = if ($script:SupportsUnicode) { '●' } else { '*' }
                                     [void]$rowBuilder.Append("${script:Palette.Gray}$dotChar${script:Palette.Reset}")
                                 }
-                                'Bars' {
+                                'Bars'
+                                {
                                     $barChar = if ($script:SupportsUnicode) { '▁' } else { '_' }
                                     [void]$rowBuilder.Append("${script:Palette.Gray}$barChar${script:Palette.Reset}")
                                 }
-                                'Line' {
+                                'Line'
+                                {
                                     $dotChar = if ($script:SupportsUnicode) { '●' } else { '*' }
                                     [void]$rowBuilder.Append("${script:Palette.Gray}$dotChar${script:Palette.Reset}")
                                 }
@@ -820,6 +823,21 @@
             $finalOutput = $script:Palette.Reset + $output.ToString() + $script:Palette.Reset
             Write-Verbose "TimeSeries graph output length: $($finalOutput.Length) characters"
             return $finalOutput
+        }
+
+        # If HostName is provided without -Continuous, run a single collection iteration
+        if ($PSCmdlet.ParameterSetName -eq 'Continuous' -and -not $Continuous)
+        {
+            $Continuous = $true
+            if ($MaxIterations -eq 0)
+            {
+                $MaxIterations = 1
+            }
+            if (-not $PSBoundParameters.ContainsKey('RenderMode'))
+            {
+                $RenderMode = 'Stack'
+            }
+            Write-Verbose 'HostName provided without -Continuous; running a single collection iteration'
         }
 
         # Load Get-NetworkMetrics if in continuous mode
@@ -976,6 +994,10 @@
                         {
                             $output = New-Object System.Text.StringBuilder
                             $numBuckets = 10
+                            if ($validData.Count -eq 0)
+                            {
+                                return '     (no data)'
+                            }
                             # Precompute bucket scaling once
                             $bucketSize = if (($max - $min) -eq 0) { 1 } else { ($max - $min) / $numBuckets }
                             $buckets = @{}
@@ -1002,7 +1024,7 @@
                                 $barColor = if ($midpoint -lt 50) { $script:Palette.Green } elseif ($midpoint -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
                                 $label = "$rangeStart-$rangeEnd ms".PadRight(15)
                                 $bar = $barColor + ([char]0x2588).ToString() * $barWidth + $script:Palette.Reset
-                                $percentage = [Math]::Round(($itemCount / $validData.Count) * 100, 1)
+                                $percentage = if ($validData.Count -gt 0) { [Math]::Round(($itemCount / $validData.Count) * 100, 1) } else { 0 }
                                 [void]$output.AppendLine("${script:Palette.Gray}$label${script:Palette.Reset} $bar ${script:Palette.Cyan}$itemCount${script:Palette.Reset} ${script:Palette.Gray}($percentage%)${script:Palette.Reset}$clearTail")
                             }
                             $output.ToString()
@@ -1122,6 +1144,10 @@
             'Distribution'
             {
                 $output = New-Object System.Text.StringBuilder
+                if ($validData.Count -eq 0)
+                {
+                    return '     (no data)'
+                }
 
                 # Create buckets
                 $bucketCount = 10
@@ -1162,8 +1188,8 @@
                     $barColor = if ($midpoint -lt 50) { $script:Palette.Green } elseif ($midpoint -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
 
                     $label = "$rangeStart-$rangeEnd ms".PadRight(15)
-                    $bar = "$barColor" + ([char]0x2588 * $barWidth) + "$script:Palette.Reset"
-                    $percentage = [Math]::Round(($bucketItemCount / $validData.Count) * 100, 1)
+                    $bar = "$barColor" + ([char]0x2588 * $barWidth) + "$($script:Palette.Reset)"
+                    $percentage = if ($validData.Count -gt 0) { [Math]::Round(($bucketItemCount / $validData.Count) * 100, 1) } else { 0 }
 
                     [void]$output.AppendLine("${script:Palette.Gray}$label${script:Palette.Reset} $bar ${script:Palette.Cyan}$bucketItemCount${script:Palette.Reset} ${script:Palette.Gray}($percentage`%)${script:Palette.Reset}")
                 }
