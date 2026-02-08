@@ -627,7 +627,7 @@ function Extract-Archives
                             }
                             else
                             {
-                                Expand-Archive -LiteralPath $workingArchivePath -DestinationPath $destination -Force:$Force -ErrorAction Stop
+                                Expand-Archive -LiteralPath $workingArchivePath -DestinationPath $destination -Force:$Force -ErrorAction Stop | Out-Null
                             }
                         }
                         'Tar'
