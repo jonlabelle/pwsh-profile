@@ -12,9 +12,9 @@ function Prompt
     # Set window title if RawUI is available (ConsoleHost and similar hosts)
     if ($Host.UI -and $Host.UI.RawUI)
     {
-        $psVersionTitle = "PowerShell $($PSEdition) $($PSVersionTable.PSVersion.Major).$($PSVersionTable.PSVersion.Minor)"
         try
         {
+            $psVersionTitle = "PowerShell $($PSEdition) $($PSVersionTable.PSVersion.Major).$($PSVersionTable.PSVersion.Minor)"
             $Host.UI.RawUI.WindowTitle = "$psVersionTitle"
         }
         catch
