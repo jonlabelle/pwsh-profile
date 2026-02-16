@@ -8,38 +8,38 @@
 
 ### Invoke-NetworkDiagnostic
 
-[`Invoke-NetworkDiagnostic`](Functions/NetworkAndDns/Invoke-NetworkDiagnostic.ps1) performing network diagnostics with visual graphs.
-
 ```powershell
-@('www.google.com', 'www.cloudflare.com', 'jonlabelle.com', 'microsoft.com') |
+'www.google.com', 'www.cloudflare.com', 'jonlabelle.com', 'microsoft.com' |
     Invoke-NetworkDiagnostic -Port 80 -Continuous -Interval 2 -SampleDelayMilliseconds 50 -IncludeDns
 ```
 
-![Invoke-NetworkDiagnostic screenshot](resources/screenshots/Invoke-NetworkDiagnostic.png "Invoke-NetworkDiagnostic in action")
+![Invoke-NetworkDiagnostic screenshot](resources/screenshots/Invoke-NetworkDiagnostic.png 'Invoke-NetworkDiagnostic in action')
+
+Runs network and DNS checks for multiple hosts, then renders live latency graphs.
 
 ---
 
 ### Show-SystemResourceMonitor
 
-[`Show-SystemResourceMonitor`](Functions/SystemAdministration/Show-SystemResourceMonitor.ps1) displaying a visual monitor for CPU, memory, and disk usage.
-
 ```powershell
 Show-SystemResourceMonitor -Continuous
 ```
 
-![Show-SystemResourceMonitor screenshot](resources/screenshots/Show-SystemResourceMonitor.png "Show-SystemResourceMonitor in action")
+![Show-SystemResourceMonitor screenshot](resources/screenshots/Show-SystemResourceMonitor.png 'Show-SystemResourceMonitor in action')
+
+Displays a live system monitor for CPU, memory, and disk usage.
 
 ---
 
 ### Show-ProfileFunctions
 
-[`Show-ProfileFunctions`](Functions/ProfileManagement/Show-ProfileFunctions.ps1) output in Windows Terminal with custom prompt and color scheme.
-
 ```powershell
 Show-ProfileFunctions -IncludeAliases
 ```
 
-![Shows available profile functions](resources/screenshots/Show-ProfileFunctions.png "Shows available profile functions")
+![Show-ProfileFunctions screenshot](resources/screenshots/Show-ProfileFunctions.png 'Show-ProfileFunctions in action')
+
+Lists available profile functions with their aliases.
 
 ---
 
@@ -52,6 +52,9 @@ Show-ProfileFunctions -IncludeAliases
 
 ## Table of Contents
 
+- [Screenshots](#screenshots)
+- [Features](#features)
+- [Prerequisites](#prerequisites)
 - [Install](#install)
 - [Troubleshooting](#troubleshooting)
 - [Update](#update)
@@ -59,19 +62,25 @@ Show-ProfileFunctions -IncludeAliases
 - [Local Functions](#local-functions)
 - [Remote Sessions](#remote-sessions)
 - [Functions](#functions)
-  - [Network and DNS](#network-and-dns)
-  - [System Administration](#system-administration)
-  - [Developer](#developer)
-  - [Security](#security)
-  - [Active Directory](#active-directory)
-  - [PowerShell Module Management](#powershell-module-management)
-  - [Profile Management](#profile-management)
-  - [Media Processing](#media-processing)
-  - [Utilities](#utilities)
+    - [Network and DNS](#network-and-dns)
+    - [System Administration](#system-administration)
+    - [Developer](#developer)
+    - [Security](#security)
+    - [Active Directory](#active-directory)
+    - [PowerShell Module Management](#powershell-module-management)
+    - [Profile Management](#profile-management)
+    - [Media Processing](#media-processing)
+    - [Utilities](#utilities)
 - [Using Functions Standalone](#using-functions-standalone)
 - [Contributing](#contributing)
 - [Author](#author)
 - [License](#license)
+
+## Prerequisites
+
+- PowerShell Desktop 5.1+ or PowerShell 6+ (`pwsh`)
+- Internet access for install/update checks and remote documentation links
+- `git` (optional, but recommended for `Update-Profile` and `Test-ProfileUpdate`)
 
 ## Install
 
@@ -316,17 +325,21 @@ Test-Port localhost -Port 80 -Verbose
 
 ## Update
 
-To pull in the latest updates from the repository:
+To pull in the latest updates from the repository (`git` required):
 
 ```powershell
 Update-Profile
 ```
 
-You can check for available updates without applying them:
+After updating, restart PowerShell to reload your profile.
+
+You can check for available updates without applying them (`git` required):
 
 ```powershell
 Test-ProfileUpdate
 ```
+
+If `git` is unavailable, rerun the install command from the [Install](#install) section to fetch the latest files.
 
 ## Quick Start
 
@@ -458,7 +471,7 @@ The profile includes utility functions organized by category:
 - **[`Invoke-Ping`](Functions/NetworkAndDns/Invoke-Ping.ps1)** — Sends ICMP echo requests with detailed statistics (cross-platform ping alternative)
 - **[`Resolve-GeoIP`](Functions/NetworkAndDns/Resolve-GeoIP.ps1)** — Resolves IP addresses to geographic locations
 - **[`Send-TcpRequest`](Functions/NetworkAndDns/Send-TcpRequest.ps1)** — Sends TCP requests and retrieves responses for network testing
-- **[`Show-NetworkLatencyGraph`](Functions/NetworkAndDns/Show-NetworkLatencyGraph.ps1)** — Displays visualization graphs of network latency
+- **[`Show-NetworkLatencyGraph`](Functions/NetworkAndDns/Show-NetworkLatencyGraph.ps1)** — Displays network latency visualization graphs
 - **[`Test-Bandwidth`](Functions/NetworkAndDns/Test-Bandwidth.ps1)** — Tests network bandwidth with download speed and latency measurements
 - **[`Test-DnsNameResolution`](Functions/NetworkAndDns/Test-DnsNameResolution.ps1)** — Tests DNS name resolution using cross-platform .NET methods
 - **[`Test-HttpResponse`](Functions/NetworkAndDns/Test-HttpResponse.ps1)** — Tests HTTP/HTTPS endpoints and returns response details
@@ -479,7 +492,7 @@ The profile includes utility functions organized by category:
 
 - **[`Get-DotNetVersion`](Functions/Developer/Get-DotNetVersion.ps1)** — Retrieves installed .NET Framework and .NET Core versions
 - **[`Import-DotEnv`](Functions/Developer/Import-DotEnv.ps1)** — Loads environment variables from dotenv (.env) files
-- **[`Invoke-GitPull`](Functions/Developer/Invoke-GitPull.ps1)** — Performs bulk git pull operations across multiple repositories with ease
+- **[`Invoke-GitPull`](Functions/Developer/Invoke-GitPull.ps1)** — Performs bulk `git pull` operations across multiple repositories
 - **[`Remove-DotNetBuildArtifacts`](Functions/Developer/Remove-DotNetBuildArtifacts.ps1)** — Cleans up .NET build artifacts from a project directory
 - **[`Remove-GitIgnoredFiles`](Functions/Developer/Remove-GitIgnoredFiles.ps1)** — Removes ignored and optionally untracked files from Git repositories
 - **[`Remove-NodeModules`](Functions/Developer/Remove-NodeModules.ps1)** — Removes node_modules folders from Node.js project directories
@@ -507,6 +520,7 @@ The profile includes utility functions organized by category:
 
 - **[`Show-ProfileFunctions`](Functions/ProfileManagement/Show-ProfileFunctions.ps1)** — Shows all functions available in this PowerShell profile
 - **[`Test-ProfileUpdate`](Functions/ProfileManagement/Test-ProfileUpdate.ps1)** — Checks for available profile updates from the GitHub repository
+- **[`Update-Profile`](Functions/ProfileManagement/Update-Profile.ps1)** — Updates the profile to the latest version from the configured Git repository
 
 ### Media Processing
 
@@ -530,7 +544,7 @@ The profile includes utility functions organized by category:
 - **[`Remove-OldFiles`](Functions/Utilities/Remove-OldFiles.ps1)** — Removes files older than a specified time period with optional empty directory cleanup
 - **[`Rename-File`](Functions/Utilities/Rename-File.ps1)** — Renames files with advanced transformations
 - **[`Replace-StringInFile`](Functions/Utilities/Replace-StringInFile.ps1)** — Finds and replaces text in files with support for regex and backups
-- **[`Search-FileContent`](Functions/Utilities/Search-FileContent.ps1)** — Search files with regex, context, filtering, and colorized output
+- **[`Search-FileContent`](Functions/Utilities/Search-FileContent.ps1)** — Searches files with regex, context, filtering, and colorized output
 - **[`Sync-Directory`](Functions/Utilities/Sync-Directory.ps1)** — Synchronizes directories using native platform tools (rsync/robocopy)
 - **[`Format-Bytes`](Functions/Utilities/Format-Bytes.ps1)** — Formats bytes/bits into human-friendly conversions
 
@@ -545,6 +559,8 @@ Functions can be used without loading the profile by dot-sourcing them directly:
 # Use it
 Test-Port bing.com -Port 443
 ```
+
+> **Path note:** On Windows PowerShell Desktop 5.1, use `~/Documents/WindowsPowerShell/Functions/...` instead of `~/.config/powershell/Functions/...`.
 
 > Functions with dependencies automatically load what they need, so you only need to dot-source the function you want to use.
 
