@@ -2,15 +2,6 @@ BeforeAll {
     $functionPath = Join-Path -Path $PSScriptRoot -ChildPath '..\..\..\Functions\SystemAdministration\Show-SystemResourceMonitor.ps1'
     $functionPath = [System.IO.Path]::GetFullPath($functionPath)
     . $functionPath
-
-    $script:IsWindowsTest = if ($PSVersionTable.PSVersion.Major -lt 6)
-    {
-        $true
-    }
-    else
-    {
-        $IsWindows
-    }
 }
 
 Describe 'Show-SystemResourceMonitor' {
@@ -50,10 +41,26 @@ Describe 'Show-SystemResourceMonitor' {
         $result | Should -Match '(?m)^\\* \\| Platform:'
     }
 
-    It 'labels Unix root disk as root fs in dashboard details' -Skip:$script:IsWindowsTest {
+    It 'formats disk label details for the current platform' {
         $result = Show-SystemResourceMonitor -NoColor -BarWidth 12 -HistoryLength 8
 
-        $result | Should -Match '(?m)^Disk.+on / \(root fs\)$'
+        $isWindowsPlatform = if ($PSVersionTable.PSVersion.Major -lt 6)
+        {
+            $true
+        }
+        else
+        {
+            $IsWindows
+        }
+
+        if ($isWindowsPlatform)
+        {
+            $result | Should -Match '(?m)^Disk.+on [A-Za-z]:\\$'
+        }
+        else
+        {
+            $result | Should -Match '(?m)^Disk.+on / \(root fs\)$'
+        }
     }
 
     It 'supports bounded continuous mode for automation and tests' {
