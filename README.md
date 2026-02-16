@@ -17,6 +17,8 @@
 
 ![Invoke-NetworkDiagnostic screenshot](resources/screenshots/Invoke-NetworkDiagnostic.png "Invoke-NetworkDiagnostic in action")
 
+---
+
 ### Show-SystemResourceMonitor
 
 [`Show-SystemResourceMonitor`](Functions/SystemAdministration/Show-SystemResourceMonitor.ps1) displaying a visual monitor for CPU, memory, and disk usage.
@@ -27,6 +29,8 @@ Show-SystemResourceMonitor -Continuous
 
 ![Show-SystemResourceMonitor screenshot](resources/screenshots/Show-SystemResourceMonitor.png "Show-SystemResourceMonitor in action")
 
+---
+
 ### Show-ProfileFunctions
 
 [`Show-ProfileFunctions`](Functions/ProfileManagement/Show-ProfileFunctions.ps1) output in Windows Terminal with custom prompt and color scheme.
@@ -36,6 +40,8 @@ Show-ProfileFunctions -IncludeAliases
 ```
 
 ![Shows available profile functions](resources/screenshots/Show-ProfileFunctions.png "Shows available profile functions")
+
+---
 
 ## Features
 
