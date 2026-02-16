@@ -6,16 +6,6 @@
 
 ## Screenshots
 
-### Show-ProfileFunctions
-
-[`Show-ProfileFunctions`](Functions/ProfileManagement/Show-ProfileFunctions.ps1) output in Windows Terminal with custom prompt and color scheme.
-
-```powershell
-Show-ProfileFunctions -IncludeAliases
-```
-
-![PowerShell Profile in Windows Terminal](term-screen-shot.png "PowerShell Profile in Windows Terminal")
-
 ### Invoke-NetworkDiagnostic
 
 [`Invoke-NetworkDiagnostic`](Functions/NetworkAndDns/Invoke-NetworkDiagnostic.ps1) performing network diagnostics with visual graphs.
@@ -25,7 +15,27 @@ Show-ProfileFunctions -IncludeAliases
     Invoke-NetworkDiagnostic -Port 80 -Continuous -Interval 2 -SampleDelayMilliseconds 50 -IncludeDns
 ```
 
-![Invoke-NetworkDiagnostic screenshot](netdiag.png "Invoke-NetworkDiagnostic in action")
+![Invoke-NetworkDiagnostic screenshot](resources/screenshots/Invoke-NetworkDiagnostic.png "Invoke-NetworkDiagnostic in action")
+
+### Show-SystemResourceMonitor
+
+[`Show-SystemResourceMonitor`](Functions/SystemAdministration/Show-SystemResourceMonitor.ps1) displaying a visual monitor for CPU, memory, and disk usage.
+
+```powershell
+Show-SystemResourceMonitor -Continuous
+```
+
+![Show-SystemResourceMonitor screenshot](resources/screenshots/Show-SystemResourceMonitor.png "Show-SystemResourceMonitor in action")
+
+### Show-ProfileFunctions
+
+[`Show-ProfileFunctions`](Functions/ProfileManagement/Show-ProfileFunctions.ps1) output in Windows Terminal with custom prompt and color scheme.
+
+```powershell
+Show-ProfileFunctions -IncludeAliases
+```
+
+![Shows available profile functions](resources/screenshots/Show-ProfileFunctions.png "Shows available profile functions")
 
 ## Features
 
