@@ -1,10 +1,40 @@
 # Dot source all functions
-$functions = @(Get-ChildItem -LiteralPath (Join-Path -Path $PSScriptRoot -ChildPath 'Functions') -Filter '*-*.ps1' -File -Recurse)
-foreach ($function in $functions)
+$profileStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+$functionsPath = Join-Path -Path $PSScriptRoot -ChildPath 'Functions'
+
+if (Test-Path -LiteralPath $functionsPath -PathType Container)
 {
-    Write-Verbose ('Loading profile function: {0}' -f $function.FullName)
-    . $function.FullName
+    $functions = @(Get-ChildItem -LiteralPath $functionsPath -Filter '*-*.ps1' -File -Recurse)
+    $failedCount = 0
+
+    foreach ($function in $functions)
+    {
+        try
+        {
+            Write-Verbose ('Loading profile function: {0}' -f $function.FullName)
+            . $function.FullName
+        }
+        catch
+        {
+            $failedCount++
+            Write-Warning ("Failed to load profile function '{0}': {1}" -f $function.Name, $_.Exception.Message)
+        }
+    }
+
+    Write-Verbose ('Loaded {0} profile function(s) in {1:N0} ms' -f ($functions.Count - $failedCount), $profileStopwatch.Elapsed.TotalMilliseconds)
+
+    if ($failedCount -gt 0)
+    {
+        Write-Warning ('{0} profile function(s) failed to load. Run with -Verbose for details.' -f $failedCount)
+    }
 }
+else
+{
+    Write-Verbose ('Functions directory not found: {0}' -f $functionsPath)
+}
+
+# Prevent ths script's vars from leaking into the global scope
+Remove-Variable -Name functionsPath, functions, function, failedCount -ErrorAction SilentlyContinue
 
 # Custom prompt function
 function Prompt
@@ -14,8 +44,7 @@ function Prompt
     {
         try
         {
-            $psVersionTitle = "PowerShell $($PSEdition) $($PSVersionTable.PSVersion.Major).$($PSVersionTable.PSVersion.Minor)"
-            $Host.UI.RawUI.WindowTitle = "$psVersionTitle"
+            $Host.UI.RawUI.WindowTitle = "PowerShell $($PSEdition) $($PSVersionTable.PSVersion.Major).$($PSVersionTable.PSVersion.Minor)"
         }
         catch
         {
@@ -34,8 +63,7 @@ if ([Environment]::UserInteractive)
     # Ensure PSReadLine is imported if it is installed so key handlers can be configured.
     if (-not (Get-Module -Name PSReadLine -ErrorAction SilentlyContinue))
     {
-        $psReadLineModule = Get-Module -Name PSReadLine -ListAvailable -ErrorAction SilentlyContinue
-        if ($psReadLineModule)
+        if (Get-Module -Name PSReadLine -ListAvailable -ErrorAction SilentlyContinue)
         {
             try
             {
@@ -78,3 +106,7 @@ if ([Environment]::UserInteractive)
         }
     }
 }
+
+$profileStopwatch.Stop()
+Write-Verbose ('Profile loaded in {0:N0} ms' -f $profileStopwatch.Elapsed.TotalMilliseconds)
+Remove-Variable -Name profileStopwatch -ErrorAction SilentlyContinue
