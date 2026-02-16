@@ -1,65 +1,82 @@
+# ================================
+# macOS System Files
+# ================================
+._*
+.AppleDouble
 .DS_Store
-desktop.ini
-Thumbs.db        # Windows thumbnail cache files
-ehthumbs.db      # Windows thumbnail cache files
-ehthumbs_vista.db # Windows thumbnail cache files
-*.stackdump      # Windows error dump files
-[Dd]esktop.ini   # Already have desktop.ini but this catches Desktop.ini too
-$RECYCLE.BIN/    # Windows Recycle Bin used on file shares
-.Spotlight-V100/ # macOS Spotlight index files
-.Trashes         # macOS Trash files
-.fseventsd/      # macOS File System Events
-.AppleDouble     # macOS resource forks
-.LSOverride      # macOS folder attributes
-Icon             # macOS custom icons (ends with \r)
-._*              # macOS extended attributes
+.fseventsd/
+.LSOverride
+.Spotlight-V100/
+.Trashes
+Icon
 
-node_modules
-tmp/
-_tmp/
+# ================================
+# Windows System Files
+# ================================
+$RECYCLE.BIN/
+*.stackdump
+desktop.ini
+ehthumbs.db
+ehthumbs_vista.db
+Thumbs.db
+
+# ================================
+# Dependencies
+# ================================
+node_modules/
+
+# ================================
+# Temporary and Build Files
+# ================================
+/dist/
+/tmp/
+/_tmp*/
+
+# ================================
+# Environment Files
+# ================================
+.env*
+
+# ================================
+# PowerShell-Specific Directories
+# ================================
+/[Hh]elp/
+/[Mm]odules/
+/[Pp][Ss][Rr]ead[Ll]ine/
+/[Ss]cripts/
 
 # Local user functions (not committed to repository)
-# Ignore all files except README.md
 /Functions/Local/**/*
 !/Functions/Local/README.md
 
-# Build output directory
-/dist
-
-# Build output directory
-/dist
-
-# All .env files
-.env*
-
-# PowerShell profile parts
-/Help/
-/Modules/
-/Scripts/
-/PSReadLine/
-
-# Log files
+# ================================
+# Log Files
+# ================================
+*.log
 npm-debug.log*
+pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
 
-# Editor directories and files
-.idea
-*.suo
-*.ntvs*
+# ================================
+# Editor and IDE Files
+# ================================
+*.code-workspace
 *.njsproj
+*.ntvs*
 *.sln
+*.suo
 *.sw?
+.idea/
+.vs/
 
-# All .vscode files accept launch and settings config
+# VS Code (except configuration files)
 .vscode/*
 !.vscode/launch.json
 !.vscode/settings.json
 !.vscode/tasks.json
 
-*.code-workspace
-dist/
-
-# Pester's NUnit test results
+# ================================
+# Test Results
+# ================================
 testresults.xml
