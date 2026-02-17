@@ -22,6 +22,14 @@ Describe 'Show-SystemResourceMonitor' {
         $result | Should -Match '(?m)^Disk'
     }
 
+    It 'includes overall summary in title and status metadata in one-shot output' {
+        $result = Show-SystemResourceMonitor -NoColor -BarWidth 16 -HistoryLength 8
+
+        $result | Should -Match '(?m)^System Resource Monitor.+\[[ABCDF]\]'
+        $result | Should -Match '(?m)^Status +Platform:.+Updated:.+Collect:'
+        $result | Should -Not -Match '(?m)^Health +Overall:'
+    }
+
     It 'returns structured output with -AsObject' {
         $result = Show-SystemResourceMonitor -AsObject
 
@@ -31,6 +39,10 @@ Describe 'Show-SystemResourceMonitor' {
         $result.PSObject.Properties.Name | Should -Contain 'MemoryUsagePercent'
         $result.PSObject.Properties.Name | Should -Contain 'DiskUsagePercent'
         $result.PSObject.Properties.Name | Should -Contain 'Platform'
+        $result.PSObject.Properties.Name | Should -Contain 'OverallLoadPercent'
+        $result.PSObject.Properties.Name | Should -Contain 'HealthGrade'
+        $result.PSObject.Properties.Name | Should -Contain 'Findings'
+        $result.PSObject.Properties.Name | Should -Contain 'CollectMs'
     }
 
     It 'returns top processes in structured output when requested' {
@@ -80,7 +92,7 @@ Describe 'Show-SystemResourceMonitor' {
 
         $result | Should -BeOfType 'System.String'
         $result | Should -Match '(?m)^CPU'
-        $result | Should -Match '(?m)^\\* \\| Platform:'
+        $result | Should -Match '(?m)^Status +Platform:'
     }
 
     It 'includes top process visualization when requested' {
@@ -126,5 +138,14 @@ Describe 'Show-SystemResourceMonitor' {
         $results.Count | Should -Be 2
         $results[0].Timestamp | Should -BeOfType 'DateTime'
         $results[1].Timestamp | Should -BeOfType 'DateTime'
+    }
+
+    It 'renders continuous output without timestamp refresh noise' {
+        $output = Show-SystemResourceMonitor -Continuous -NoColor -IntervalSeconds 1 -MaxIterations 1 *>&1 | Out-String
+
+        $output | Should -Match '(?m)^System Resource Monitor.+\[[ABCDF]\]'
+        $output | Should -Not -Match 'Refresh #'
+        $output | Should -Not -Match '(?m)^Health +Overall:'
+        $output | Should -Match 'Press Ctrl\+C to stop monitor\.'
     }
 }

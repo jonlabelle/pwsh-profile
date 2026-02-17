@@ -11,7 +11,10 @@
 
         By default, the function returns a single dashboard snapshot as a string.
         Use -Continuous to keep refreshing the view until interrupted with Ctrl+C.
+        Continuous mode includes refresh timestamps for better visibility.
         Use -AsObject for structured output suitable for scripts and automation.
+        Dashboard status includes an overall health grade (A-F), status icon, findings
+        summary, and collection elapsed time.
         Enable -IncludeTopProcesses to append the busiest running processes.
         Use -TopProcessName to filter process rows by wildcard name patterns.
 
@@ -209,6 +212,12 @@
 
         $ansiReset = if ($supportsAnsi) { "$([char]27)[0m" } else { '' }
 
+        $statusIcons = @{
+            Healthy = if ($supportsUnicode) { [String][char]0x2713 } else { '+' }
+            Warning = if ($supportsUnicode) { [String][char]0x26A0 } else { '!' }
+            Critical = if ($supportsUnicode) { [String][char]0x2717 } else { 'x' }
+        }
+
         function Add-HistoryValue
         {
             param(
@@ -370,6 +379,194 @@
             if ($value -lt 60) { return 'OK' }
             if ($value -lt 85) { return 'WARN' }
             return 'CRIT'
+        }
+
+        function Get-OverallLoadPercent
+        {
+            param(
+                [Parameter()]
+                [Nullable[Double]]$CpuPercent,
+
+                [Parameter()]
+                [Nullable[Double]]$MemoryPercent,
+
+                [Parameter()]
+                [Nullable[Double]]$DiskPercent
+            )
+
+            $percentValues = @(
+                $CpuPercent,
+                $MemoryPercent,
+                $DiskPercent
+            ) | Where-Object { $null -ne $_ }
+
+            if ($percentValues.Count -eq 0)
+            {
+                return $null
+            }
+
+            return [Math]::Round(($percentValues | Measure-Object -Average).Average, 1)
+        }
+
+        function Get-ResourceHealthGrade
+        {
+            param(
+                [Parameter()]
+                [Nullable[Double]]$CpuPercent,
+
+                [Parameter()]
+                [Nullable[Double]]$MemoryPercent,
+
+                [Parameter()]
+                [Nullable[Double]]$DiskPercent,
+
+                [Parameter()]
+                [Nullable[Double]]$OverallLoadPercent
+            )
+
+            $knownValues = @(
+                $CpuPercent,
+                $MemoryPercent,
+                $DiskPercent
+            ) | Where-Object { $null -ne $_ }
+
+            if ($knownValues.Count -eq 0)
+            {
+                return 'F'
+            }
+
+            $score = 100
+            foreach ($metric in @($CpuPercent, $MemoryPercent, $DiskPercent))
+            {
+                if ($null -eq $metric)
+                {
+                    $score -= 8
+                    continue
+                }
+
+                $value = [Double]$metric
+                if ($value -ge 95) { $score -= 35; continue }
+                if ($value -ge 85) { $score -= 20; continue }
+                if ($value -ge 70) { $score -= 8; continue }
+                if ($value -ge 60) { $score -= 3 }
+            }
+
+            $overall = if ($null -eq $OverallLoadPercent)
+            {
+                Get-OverallLoadPercent -CpuPercent $CpuPercent -MemoryPercent $MemoryPercent -DiskPercent $DiskPercent
+            }
+            else
+            {
+                [Double]$OverallLoadPercent
+            }
+
+            if ($null -ne $overall)
+            {
+                if ($overall -ge 95) { $score -= 20 }
+                elseif ($overall -ge 85) { $score -= 10 }
+                elseif ($overall -ge 70) { $score -= 4 }
+            }
+
+            switch ($score)
+            {
+                { $_ -ge 90 } { return 'A' }
+                { $_ -ge 75 } { return 'B' }
+                { $_ -ge 60 } { return 'C' }
+                { $_ -ge 40 } { return 'D' }
+                default { return 'F' }
+            }
+        }
+
+        function Get-HealthStatusIcon
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$Grade
+            )
+
+            switch ($Grade)
+            {
+                { $_ -in 'A', 'B' } { return $statusIcons.Healthy }
+                { $_ -in 'C', 'D' } { return $statusIcons.Warning }
+                default { return $statusIcons.Critical }
+            }
+        }
+
+        function Format-HealthGrade
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$Grade
+            )
+
+            if (-not $supportsAnsi)
+            {
+                return $Grade
+            }
+
+            $esc = [char]27
+            $gradeColor = switch ($Grade)
+            {
+                'A' { "$esc[32m" }
+                'B' { "$esc[36m" }
+                'C' { "$esc[33m" }
+                'D' { "$esc[33m" }
+                default { "$esc[31m" }
+            }
+
+            return $gradeColor + $Grade + $ansiReset
+        }
+
+        function Get-ResourceFindings
+        {
+            param(
+                [Parameter()]
+                [Nullable[Double]]$CpuPercent,
+
+                [Parameter()]
+                [Nullable[Double]]$MemoryPercent,
+
+                [Parameter()]
+                [Nullable[Double]]$DiskPercent
+            )
+
+            $findings = New-Object 'System.Collections.Generic.List[string]'
+
+            $addFinding = {
+                param(
+                    [Parameter(Mandatory)]
+                    [String]$Name,
+
+                    [Parameter()]
+                    [Nullable[Double]]$Percent
+                )
+
+                if ($null -eq $Percent)
+                {
+                    [void]$findings.Add("$Name unavailable")
+                    return
+                }
+
+                $value = [Double]$Percent
+                if ($value -ge 95)
+                {
+                    [void]$findings.Add(('{0} critical ({1:N1}%)' -f $Name, $value))
+                }
+                elseif ($value -ge 85)
+                {
+                    [void]$findings.Add(('{0} high ({1:N1}%)' -f $Name, $value))
+                }
+                elseif ($value -ge 70)
+                {
+                    [void]$findings.Add(('{0} elevated ({1:N1}%)' -f $Name, $value))
+                }
+            }
+
+            & $addFinding -Name 'CPU' -Percent $CpuPercent
+            & $addFinding -Name 'Memory' -Percent $MemoryPercent
+            & $addFinding -Name 'Disk' -Percent $DiskPercent
+
+            return @($findings.ToArray())
         }
 
         function Get-TrendIndicator
@@ -580,6 +777,22 @@
             }
 
             return $color + $Text + $ansiReset
+        }
+
+        function Add-SubtleText
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$Text
+            )
+
+            if (-not $supportsAnsi)
+            {
+                return $Text
+            }
+
+            $darkGray = "$([char]27)[90m"
+            return $darkGray + $Text + $ansiReset
         }
 
         function Get-CpuUsagePercentFallback
@@ -1048,6 +1261,8 @@
 
         function Get-SystemResourceSample
         {
+            $collectStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+
             $cpuPercent = Get-CpuUsagePercent -FallbackState $cpuFallbackState
             if ($null -eq $cpuPercent)
             {
@@ -1064,6 +1279,12 @@
                 $topProcesses = @(Get-TopProcessInfo -Count $TopProcessCount -NameFilters $topProcessNameFilters)
             }
 
+            $overallLoad = Get-OverallLoadPercent -CpuPercent $cpuPercent -MemoryPercent $memory.Percent -DiskPercent $disk.Percent
+            $healthGrade = Get-ResourceHealthGrade -CpuPercent $cpuPercent -MemoryPercent $memory.Percent -DiskPercent $disk.Percent -OverallLoadPercent $overallLoad
+            $findings = @(Get-ResourceFindings -CpuPercent $cpuPercent -MemoryPercent $memory.Percent -DiskPercent $disk.Percent)
+
+            $collectStopwatch.Stop()
+
             $sample = [PSCustomObject]@{
                 Timestamp = Get-Date
                 Platform = $platformName
@@ -1075,6 +1296,12 @@
                 DiskUsedGiB = $disk.UsedGiB
                 DiskTotalGiB = $disk.TotalGiB
                 DiskRoot = $disk.Root
+                OverallLoadPercent = $overallLoad
+                OverallStatus = Get-UsageStatus -Percent $overallLoad
+                HealthGrade = $healthGrade
+                HealthIcon = Get-HealthStatusIcon -Grade $healthGrade
+                Findings = $findings
+                CollectMs = [Math]::Round($collectStopwatch.Elapsed.TotalMilliseconds, 1)
             }
 
             if ($IncludeTopProcesses)
@@ -1089,7 +1316,10 @@
         {
             param(
                 [Parameter(Mandatory)]
-                [PSCustomObject]$Sample
+                [PSCustomObject]$Sample,
+
+                [Parameter()]
+                [Switch]$IncludeContinuousHint
             )
 
             $maxHistoryPoints = [Math]::Min(40, [Math]::Max(8, $HistoryLength))
@@ -1152,43 +1382,90 @@
             $memoryLine = & $formatMetricLine -Name 'Memory' -Percent $Sample.MemoryUsagePercent -History $memoryHistoryValues -Details $memoryDetails
             $diskLine = & $formatMetricLine -Name 'Disk' -Percent $Sample.DiskUsagePercent -History $diskHistoryValues -Details $diskDetails
 
-            $percentValues = @(
-                $Sample.CpuUsagePercent,
-                $Sample.MemoryUsagePercent,
-                $Sample.DiskUsagePercent
-            ) | Where-Object { $null -ne $_ }
-
             $overallLoad = $null
-            if ($percentValues.Count -gt 0)
+            if ($Sample.PSObject.Properties.Name -contains 'OverallLoadPercent' -and $null -ne $Sample.OverallLoadPercent)
             {
-                $overallLoad = [Math]::Round(($percentValues | Measure-Object -Average).Average, 1)
+                $overallLoad = [Math]::Round([Double]$Sample.OverallLoadPercent, 1)
+            }
+            else
+            {
+                $overallLoad = Get-OverallLoadPercent -CpuPercent $Sample.CpuUsagePercent -MemoryPercent $Sample.MemoryUsagePercent -DiskPercent $Sample.DiskUsagePercent
+            }
+
+            $overallStatus = if ($Sample.PSObject.Properties.Name -contains 'OverallStatus' -and -not [String]::IsNullOrWhiteSpace([String]$Sample.OverallStatus))
+            {
+                [String]$Sample.OverallStatus
+            }
+            else
+            {
+                Get-UsageStatus -Percent $overallLoad
+            }
+
+            $healthGrade = if ($Sample.PSObject.Properties.Name -contains 'HealthGrade' -and -not [String]::IsNullOrWhiteSpace([String]$Sample.HealthGrade))
+            {
+                [String]$Sample.HealthGrade
+            }
+            else
+            {
+                Get-ResourceHealthGrade -CpuPercent $Sample.CpuUsagePercent -MemoryPercent $Sample.MemoryUsagePercent -DiskPercent $Sample.DiskUsagePercent -OverallLoadPercent $overallLoad
+            }
+
+            $statusIcon = if ($Sample.PSObject.Properties.Name -contains 'HealthIcon' -and -not [String]::IsNullOrWhiteSpace([String]$Sample.HealthIcon))
+            {
+                [String]$Sample.HealthIcon
+            }
+            else
+            {
+                Get-HealthStatusIcon -Grade $healthGrade
+            }
+
+            $collectText = 'n/a'
+            if ($Sample.PSObject.Properties.Name -contains 'CollectMs' -and $null -ne $Sample.CollectMs)
+            {
+                $collectText = ('{0:N1}ms' -f [Double]$Sample.CollectMs)
             }
 
             if ($supportsUnicode)
             {
                 $dividerChar = [String][char]0x2500
-                $bullet = [String][char]0x2022
                 $statusSeparator = [String][char]0x2502
             }
             else
             {
                 $dividerChar = '-'
-                $bullet = '*'
                 $statusSeparator = '|'
             }
 
             $divider = $dividerChar * [Math]::Max(70, $renderedBarWidth + $maxHistoryPoints + 35)
+            $gradeText = Format-HealthGrade -Grade $healthGrade
+            $overallSummaryPlain = ('{0} {1} [{2}] {3}' -f (Format-Percent -Percent $overallLoad).Trim(), $overallStatus, $healthGrade, $statusIcon)
+            $overallSummaryDisplay = ('{0} {1} [{2}] {3}' -f (Format-Percent -Percent $overallLoad).Trim(), $overallStatus, $gradeText, $statusIcon)
+            $titleText = 'System Resource Monitor'
+
+            $titleLine = $titleText
+            $titlePadding = $divider.Length - $titleText.Length - $overallSummaryPlain.Length
+            if ($titlePadding -ge 2)
+            {
+                $titleLine = $titleText + (' ' * $titlePadding) + $overallSummaryDisplay
+            }
+            else
+            {
+                $titleLine = $titleText + '  ' + $overallSummaryDisplay
+            }
+
+            $statusLine = ('Status   Platform: {0} {1} Updated: {2} {1} Collect: {3}' -f $Sample.Platform, $statusSeparator, $Sample.Timestamp.ToString('yyyy-MM-dd HH:mm:ss'), $collectText)
+            $historyLine = Add-SubtleText -Text ("History  Last $maxHistoryPoints samples (oldest -> newest)")
+            $subtleDivider = Add-SubtleText -Text $divider
 
             $lines = @(
-                'System Resource Monitor',
-                '',
-                "History window: last $maxHistoryPoints samples (oldest -> newest)",
+                $titleLine,
+                $historyLine,
                 $divider,
                 $cpuLine,
                 $memoryLine,
                 $diskLine,
-                '',
-                ('{0} {1} Platform: {2} {1} Updated: {3} {1} Overall: {4} {5}' -f $bullet, $statusSeparator, $Sample.Platform, $Sample.Timestamp.ToString('yyyy-MM-dd HH:mm:ss'), (Format-Percent -Percent $overallLoad).Trim(), (Get-UsageStatus -Percent $overallLoad))
+                $subtleDivider,
+                (Add-SubtleText -Text $statusLine)
             )
 
             if ($IncludeTopProcesses)
@@ -1201,7 +1478,8 @@
 
                 $lines += @(
                     '',
-                    $topProcessHeader
+                    $subtleDivider,
+                    (Add-SubtleText -Text $topProcessHeader)
                 )
 
                 $topProcesses = @()
@@ -1212,7 +1490,7 @@
 
                 if ($topProcesses.Count -eq 0)
                 {
-                    $lines += '  n/a'
+                    $lines += (Add-SubtleText -Text '  n/a')
                 }
                 else
                 {
@@ -1238,11 +1516,12 @@
                 }
             }
 
-            if ($Continuous)
+            if ($IncludeContinuousHint)
             {
                 $lines += @(
                     '',
-                    'Press Ctrl+C to stop monitoring.'
+                    $subtleDivider,
+                    (Add-SubtleText -Text 'Press Ctrl+C to stop monitor.')
                 )
             }
 
@@ -1256,6 +1535,7 @@
 
         while ($true)
         {
+            $iterations++
             $sample = Get-SystemResourceSample
 
             Add-HistoryValue -History $cpuHistory -Value $sample.CpuUsagePercent -MaxLength $HistoryLength
@@ -1268,7 +1548,7 @@
             }
             else
             {
-                $dashboard = Format-DashboardText -Sample $sample
+                $dashboard = Format-DashboardText -Sample $sample -IncludeContinuousHint:$Continuous
 
                 if ($Continuous)
                 {
@@ -1289,7 +1569,6 @@
                 }
             }
 
-            $iterations++
             $isMaxed = ($MaxIterations -gt 0 -and $iterations -ge $MaxIterations)
 
             if (-not $Continuous -or $isMaxed)
