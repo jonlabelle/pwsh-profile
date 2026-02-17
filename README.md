@@ -13,7 +13,7 @@
     Invoke-NetworkDiagnostic -Port 80 -Continuous -Interval 2 -SampleDelayMilliseconds 50 -IncludeDns
 ```
 
-![Invoke-NetworkDiagnostic screenshot](resources/screenshots/Invoke-NetworkDiagnostic.png 'Invoke-NetworkDiagnostic in action')
+![Invoke-NetworkDiagnostic screenshot](resources/screenshots/Invoke-NetworkDiagnostic.png "Invoke-NetworkDiagnostic in action")
 
 Runs network and DNS checks for multiple hosts, then renders live latency graphs.
 
@@ -22,12 +22,12 @@ Runs network and DNS checks for multiple hosts, then renders live latency graphs
 ### Show-SystemResourceMonitor
 
 ```powershell
-Show-SystemResourceMonitor -Continuous
+Show-SystemResourceMonitor -Continuous -IncludeTopProcesses
 ```
 
-![Show-SystemResourceMonitor screenshot](resources/screenshots/Show-SystemResourceMonitor.png 'Show-SystemResourceMonitor in action')
+![Show-SystemResourceMonitor screenshot](resources/screenshots/Show-SystemResourceMonitor.png "Show-SystemResourceMonitor in action")
 
-Displays a live system monitor for CPU, memory, and disk usage.
+Displays a live system monitor for CPU, memory, and disk usage and the top processes by resource consumption.
 
 ---
 
@@ -37,7 +37,7 @@ Displays a live system monitor for CPU, memory, and disk usage.
 Show-ProfileFunctions -IncludeAliases
 ```
 
-![Show-ProfileFunctions screenshot](resources/screenshots/Show-ProfileFunctions.png 'Show-ProfileFunctions in action')
+![Show-ProfileFunctions screenshot](resources/screenshots/Show-ProfileFunctions.png "Show-ProfileFunctions in action")
 
 Lists available profile functions with their aliases.
 
@@ -62,15 +62,15 @@ Lists available profile functions with their aliases.
 - [Local Functions](#local-functions)
 - [Remote Sessions](#remote-sessions)
 - [Functions](#functions)
-    - [Network and DNS](#network-and-dns)
-    - [System Administration](#system-administration)
-    - [Developer](#developer)
-    - [Security](#security)
-    - [Active Directory](#active-directory)
-    - [PowerShell Module Management](#powershell-module-management)
-    - [Profile Management](#profile-management)
-    - [Media Processing](#media-processing)
-    - [Utilities](#utilities)
+  - [Network and DNS](#network-and-dns)
+  - [System Administration](#system-administration)
+  - [Developer](#developer)
+  - [Security](#security)
+  - [Active Directory](#active-directory)
+  - [PowerShell Module Management](#powershell-module-management)
+  - [Profile Management](#profile-management)
+  - [Media Processing](#media-processing)
+  - [Utilities](#utilities)
 - [Using Functions Standalone](#using-functions-standalone)
 - [Contributing](#contributing)
 - [Author](#author)

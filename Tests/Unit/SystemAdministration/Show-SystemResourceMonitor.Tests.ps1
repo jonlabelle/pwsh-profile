@@ -33,12 +33,69 @@ Describe 'Show-SystemResourceMonitor' {
         $result.PSObject.Properties.Name | Should -Contain 'Platform'
     }
 
+    It 'returns top processes in structured output when requested' {
+        $result = Show-SystemResourceMonitor -AsObject -IncludeTopProcesses -TopProcessCount 3
+        $topProcesses = @($result.TopProcesses)
+
+        $result | Should -Not -BeNullOrEmpty
+        $result.PSObject.Properties.Name | Should -Contain 'TopProcesses'
+        $topProcesses.Count | Should -BeLessOrEqual 3
+
+        if ($topProcesses.Count -gt 0)
+        {
+            $topProcesses[0].PSObject.Properties.Name | Should -Contain 'Name'
+            $topProcesses[0].PSObject.Properties.Name | Should -Contain 'Id'
+            $topProcesses[0].PSObject.Properties.Name | Should -Contain 'CpuSeconds'
+            $topProcesses[0].PSObject.Properties.Name | Should -Contain 'WorkingSetMiB'
+        }
+    }
+
+    It 'filters top processes by wildcard process name' {
+        $currentProcess = Get-Process -Id $PID -ErrorAction SilentlyContinue
+        $currentProcess | Should -Not -BeNullOrEmpty
+        $currentProcess.ProcessName | Should -Not -BeNullOrEmpty
+
+        $namePattern = $currentProcess.ProcessName + '*'
+
+        $result = Show-SystemResourceMonitor -AsObject -IncludeTopProcesses -TopProcessCount 10 -TopProcessName $namePattern
+        $topProcesses = @($result.TopProcesses)
+
+        $topProcesses.Count | Should -BeGreaterThan 0
+        foreach ($processInfo in $topProcesses)
+        {
+            $processInfo.Name | Should -BeLike $namePattern
+        }
+    }
+
+    It 'returns no process rows when wildcard filter has no matches' {
+        $result = Show-SystemResourceMonitor -AsObject -IncludeTopProcesses -TopProcessCount 5 -TopProcessName '__definitely_not_a_real_process_name_*'
+        $topProcesses = @($result.TopProcesses)
+
+        $result | Should -Not -BeNullOrEmpty
+        $topProcesses.Count | Should -Be 0
+    }
+
     It 'supports ASCII-only rendering mode' {
         $result = Show-SystemResourceMonitor -NoColor -Ascii -BarWidth 12 -HistoryLength 8
 
         $result | Should -BeOfType 'System.String'
         $result | Should -Match '(?m)^CPU'
         $result | Should -Match '(?m)^\\* \\| Platform:'
+    }
+
+    It 'includes top process visualization when requested' {
+        $result = Show-SystemResourceMonitor -NoColor -BarWidth 12 -HistoryLength 8 -IncludeTopProcesses -TopProcessCount 3
+
+        $result | Should -BeOfType 'System.String'
+        $result | Should -Match '(?m)^Top Processes \(limit: 3\)\r?$'
+        $result | Should -Match '(?m)^  .+ PID +[0-9]+'
+    }
+
+    It 'shows top process wildcard filter in visualization heading' {
+        $result = Show-SystemResourceMonitor -NoColor -BarWidth 12 -HistoryLength 8 -IncludeTopProcesses -TopProcessCount 3 -TopProcessName 'pwsh*'
+
+        $result | Should -BeOfType 'System.String'
+        $result | Should -Match '(?m)^Top Processes \(limit: 3\) \| filter: pwsh\*\r?$'
     }
 
     It 'formats disk label details for the current platform' {
@@ -55,11 +112,11 @@ Describe 'Show-SystemResourceMonitor' {
 
         if ($isWindowsPlatform)
         {
-            $result | Should -Match '(?m)^Disk.+on [A-Za-z]:\\\s*$'
+            $result | Should -Match '(?m)^Disk.+on [A-Za-z]:\\\r?$'
         }
         else
         {
-            $result | Should -Match '(?m)^Disk.+on / \(root fs\)\s*$'
+            $result | Should -Match '(?m)^Disk.+on / \(root fs\)\r?$'
         }
     }
 

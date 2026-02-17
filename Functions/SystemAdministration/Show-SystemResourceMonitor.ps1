@@ -12,6 +12,8 @@
         By default, the function returns a single dashboard snapshot as a string.
         Use -Continuous to keep refreshing the view until interrupted with Ctrl+C.
         Use -AsObject for structured output suitable for scripts and automation.
+        Enable -IncludeTopProcesses to append the busiest running processes.
+        Use -TopProcessName to filter process rows by wildcard name patterns.
 
     .PARAMETER Continuous
         Continuously refreshes the monitor output.
@@ -33,6 +35,16 @@
 
     .PARAMETER AsObject
         Returns structured metric objects instead of rendered dashboard text.
+
+    .PARAMETER IncludeTopProcesses
+        Includes top running process details in the dashboard and object output.
+
+    .PARAMETER TopProcessCount
+        Number of top processes to include when -IncludeTopProcesses is used.
+
+    .PARAMETER TopProcessName
+        One or more wildcard patterns used to filter top process names.
+        Example: 'pwsh*' or @('chrome*', 'Code*').
 
     .PARAMETER MaxIterations
         Maximum number of iterations for continuous mode. 0 means unlimited.
@@ -67,6 +79,16 @@
         PS > Show-SystemResourceMonitor -Continuous -Ascii
 
         Runs the monitor continuously using ASCII-safe visualization glyphs.
+
+    .EXAMPLE
+        PS > Show-SystemResourceMonitor -IncludeTopProcesses -TopProcessCount 5
+
+        Displays the dashboard with a top processes section.
+
+    .EXAMPLE
+        PS > Show-SystemResourceMonitor -IncludeTopProcesses -TopProcessName 'pwsh*'
+
+        Displays only top processes whose names match the wildcard filter.
 
     .OUTPUTS
         System.String
@@ -107,6 +129,16 @@
         [Parameter()]
         [Switch]$AsObject,
 
+        [Parameter()]
+        [Switch]$IncludeTopProcesses,
+
+        [Parameter()]
+        [ValidateRange(1, 20)]
+        [Int32]$TopProcessCount = 5,
+
+        [Parameter()]
+        [String[]]$TopProcessName,
+
         [Parameter(DontShow = $true)]
         [ValidateRange(0, [Int32]::MaxValue)]
         [Int32]$MaxIterations = 0
@@ -132,6 +164,11 @@
         $cpuHistory = New-Object 'System.Collections.Generic.List[double]'
         $memoryHistory = New-Object 'System.Collections.Generic.List[double]'
         $diskHistory = New-Object 'System.Collections.Generic.List[double]'
+        $topProcessNameFilters = @(
+            @($TopProcessName) |
+            Where-Object { -not [String]::IsNullOrWhiteSpace($_) } |
+            ForEach-Object { $_.Trim() }
+        )
 
         $supportsAnsi = $false
         if (-not $NoColor)
@@ -450,6 +487,36 @@
             }
 
             return ('{0:N1}' -f [Double]$Value)
+        }
+
+        function Format-MiB
+        {
+            param(
+                [Parameter()]
+                [Nullable[Double]]$Value
+            )
+
+            if ($null -eq $Value)
+            {
+                return 'n/a'
+            }
+
+            return ('{0:N1}' -f [Double]$Value)
+        }
+
+        function Format-CpuSeconds
+        {
+            param(
+                [Parameter()]
+                [Nullable[Double]]$Value
+            )
+
+            if ($null -eq $Value)
+            {
+                return 'n/a'
+            }
+
+            return ('{0:N1}s' -f [Double]$Value)
         }
 
         function Format-DiskRootLabel
@@ -873,6 +940,112 @@
             }
         }
 
+        function Get-TopProcessInfo
+        {
+            param(
+                [Parameter(Mandatory)]
+                [Int32]$Count,
+
+                [Parameter()]
+                [String[]]$NameFilters
+            )
+
+            try
+            {
+                $effectiveNameFilters = @(
+                    @($NameFilters) |
+                    Where-Object { -not [String]::IsNullOrWhiteSpace($_) } |
+                    ForEach-Object { $_.Trim() }
+                )
+
+                $processes = @(
+                    Get-Process -ErrorAction SilentlyContinue |
+                    Where-Object {
+                        if ($effectiveNameFilters.Count -eq 0)
+                        {
+                            $true
+                        }
+                        else
+                        {
+                            $candidateName = if ([String]::IsNullOrWhiteSpace($_.ProcessName)) { '' } else { [String]$_.ProcessName }
+                            $matchesFilter = $false
+
+                            foreach ($filterPattern in $effectiveNameFilters)
+                            {
+                                if ($candidateName -like $filterPattern)
+                                {
+                                    $matchesFilter = $true
+                                    break
+                                }
+                            }
+
+                            $matchesFilter
+                        }
+                    } |
+                    ForEach-Object {
+                        $cpuSeconds = $null
+                        $workingSetBytes = $null
+
+                        try
+                        {
+                            if ($null -ne $_.CPU)
+                            {
+                                $cpuSeconds = [Double]$_.CPU
+                            }
+                        }
+                        catch
+                        {
+                            Write-Verbose "Unable to read CPU time for process $($_.Id): $($_.Exception.Message)"
+                        }
+
+                        try
+                        {
+                            if ($null -ne $_.WorkingSet64)
+                            {
+                                $workingSetBytes = [Double]$_.WorkingSet64
+                            }
+                        }
+                        catch
+                        {
+                            Write-Verbose "Unable to read memory usage for process $($_.Id): $($_.Exception.Message)"
+                        }
+
+                        [PSCustomObject]@{
+                            Name = if ([String]::IsNullOrWhiteSpace($_.ProcessName)) { '<unknown>' } else { $_.ProcessName }
+                            Id = [Int32]$_.Id
+                            CpuSeconds = if ($null -eq $cpuSeconds) { $null } else { [Math]::Round([Math]::Max(0, $cpuSeconds), 1) }
+                            WorkingSetMiB = if ($null -eq $workingSetBytes) { $null } else { [Math]::Round([Math]::Max(0, $workingSetBytes) / 1MB, 1) }
+                            _SortCpu = if ($null -eq $cpuSeconds) { -1.0 } else { $cpuSeconds }
+                            _SortMemory = if ($null -eq $workingSetBytes) { -1.0 } else { $workingSetBytes }
+                        }
+                    } |
+                    Sort-Object -Property @{ Expression = '_SortCpu'; Descending = $true }, @{ Expression = '_SortMemory'; Descending = $true }, @{ Expression = 'Name'; Descending = $false } |
+                    Select-Object -First $Count
+                )
+
+                if ($processes.Count -eq 0)
+                {
+                    return @()
+                }
+
+                return @(
+                    $processes | ForEach-Object {
+                        [PSCustomObject]@{
+                            Name = $_.Name
+                            Id = $_.Id
+                            CpuSeconds = $_.CpuSeconds
+                            WorkingSetMiB = $_.WorkingSetMiB
+                        }
+                    }
+                )
+            }
+            catch
+            {
+                Write-Verbose "Top process sample failed: $($_.Exception.Message)"
+                return @()
+            }
+        }
+
         function Get-SystemResourceSample
         {
             $cpuPercent = Get-CpuUsagePercent -FallbackState $cpuFallbackState
@@ -885,7 +1058,13 @@
             $memory = Get-MemoryUsageInfo
             $disk = Get-SystemDriveUsageInfo
 
-            [PSCustomObject]@{
+            $topProcesses = @()
+            if ($IncludeTopProcesses)
+            {
+                $topProcesses = @(Get-TopProcessInfo -Count $TopProcessCount -NameFilters $topProcessNameFilters)
+            }
+
+            $sample = [PSCustomObject]@{
                 Timestamp = Get-Date
                 Platform = $platformName
                 CpuUsagePercent = $cpuPercent
@@ -897,6 +1076,13 @@
                 DiskTotalGiB = $disk.TotalGiB
                 DiskRoot = $disk.Root
             }
+
+            if ($IncludeTopProcesses)
+            {
+                $sample | Add-Member -NotePropertyName 'TopProcesses' -NotePropertyValue $topProcesses
+            }
+
+            return $sample
         }
 
         function Format-DashboardText
@@ -1004,6 +1190,53 @@
                 '',
                 ('{0} {1} Platform: {2} {1} Updated: {3} {1} Overall: {4} {5}' -f $bullet, $statusSeparator, $Sample.Platform, $Sample.Timestamp.ToString('yyyy-MM-dd HH:mm:ss'), (Format-Percent -Percent $overallLoad).Trim(), (Get-UsageStatus -Percent $overallLoad))
             )
+
+            if ($IncludeTopProcesses)
+            {
+                $topProcessHeader = "Top Processes (limit: $TopProcessCount)"
+                if ($topProcessNameFilters.Count -gt 0)
+                {
+                    $topProcessHeader += ' | filter: ' + ($topProcessNameFilters -join ', ')
+                }
+
+                $lines += @(
+                    '',
+                    $topProcessHeader
+                )
+
+                $topProcesses = @()
+                if ($Sample.PSObject.Properties.Name -contains 'TopProcesses')
+                {
+                    $topProcesses = @($Sample.TopProcesses | Where-Object { $null -ne $_ })
+                }
+
+                if ($topProcesses.Count -eq 0)
+                {
+                    $lines += '  n/a'
+                }
+                else
+                {
+                    foreach ($processInfo in $topProcesses)
+                    {
+                        $processName = [String]$processInfo.Name
+                        if ([String]::IsNullOrWhiteSpace($processName))
+                        {
+                            $processName = '<unknown>'
+                        }
+
+                        if ($processName.Length -gt 18)
+                        {
+                            $processName = $processName.Substring(0, 15) + '...'
+                        }
+
+                        $processId = if ($null -eq $processInfo.Id) { 'n/a' } else { [String]$processInfo.Id }
+                        $processCpu = Format-CpuSeconds -Value $processInfo.CpuSeconds
+                        $processMemory = '{0} MiB' -f (Format-MiB -Value $processInfo.WorkingSetMiB)
+
+                        $lines += ('  {0,-18} PID {1,6}  CPU {2,9}  MEM {3,12}' -f $processName, $processId, $processCpu, $processMemory)
+                    }
+                }
+            }
 
             if ($Continuous)
             {
