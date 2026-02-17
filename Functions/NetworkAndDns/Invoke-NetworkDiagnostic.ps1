@@ -766,6 +766,20 @@
             # Only use ANSI reset codes on PowerShell Core
             $resetEsc = if ($PSVersionTable.PSVersion.Major -ge 6) { "`e[0m" } else { '' }
 
+            function Write-FramePrefix
+            {
+                param(
+                    [string]$FrameColor,
+                    [string]$Text = ''
+                )
+
+                Write-Host '│' -NoNewline -ForegroundColor $FrameColor
+                if (-not [string]::IsNullOrEmpty($Text))
+                {
+                    Write-Host $Text -NoNewline
+                }
+            }
+
             if ($Results.Count -eq 0)
             {
                 Write-Host $clearTail
@@ -851,7 +865,7 @@
                 {
                     if ($null -ne $result.LatencyAvg)
                     {
-                        Write-Host '│  Summary: ' -NoNewline
+                        Write-FramePrefix -FrameColor $statusColor -Text '  Summary: '
                         Write-Host 'avg ' -NoNewline -ForegroundColor Gray
                         $avgColor = if ($result.LatencyAvg -lt $t.Latency.Good) { 'Green' } elseif ($result.LatencyAvg -lt $t.Latency.Warning) { 'Yellow' } else { 'Red' }
                         Write-Host "$($result.LatencyAvg)ms" -NoNewline -ForegroundColor $avgColor
@@ -885,7 +899,8 @@
                     }
                     else
                     {
-                        Write-Host ("│  Summary: No successful connections$clearTail") -ForegroundColor Red
+                        Write-FramePrefix -FrameColor $statusColor -Text '  '
+                        Write-Host ("Summary: No successful connections$clearTail") -ForegroundColor Red
                     }
                     $linesPrintedLocal++
                     Write-Host (('└' + ('─' * 79) + $clearTail)) -ForegroundColor $statusColor
@@ -900,7 +915,8 @@
                     # Show detailed TimeSeries graph only
                     if ($result.LatencyData.Count -gt 0)
                     {
-                        Write-Host ("│$resetEsc$clearTail")
+                        Write-FramePrefix -FrameColor $statusColor
+                        Write-Host ("$resetEsc$clearTail")
                         $graph = & $getCachedGraph $result.LatencyData 'TimeSeries' 70 8 $true $Style
                         $graphLineCount = 0
 
@@ -915,14 +931,16 @@
                                 if ($line.Trim() -or $graphLineCount -eq 0)
                                 {
                                     # Use Write-Host for better Unicode handling in modern terminals
-                                    Write-Host ("│  $line$clearTail")
+                                    Write-FramePrefix -FrameColor $statusColor -Text '  '
+                                    Write-Host ("$line$clearTail")
                                     $graphLineCount++
                                 }
                             }
                         }
                         else
                         {
-                            Write-Host ("│  Graph data unavailable$clearTail") -ForegroundColor DarkGray
+                            Write-FramePrefix -FrameColor $statusColor -Text '  '
+                            Write-Host ("Graph data unavailable$clearTail") -ForegroundColor DarkGray
                             $graphLineCount = 1
                         }
                         $linesPrintedLocal += ($graphLineCount + 1)
@@ -934,14 +952,14 @@
                     $sparkline = & $getCachedGraph $result.LatencyData 'Sparkline' 0 0 $false
                     if ($null -ne $result.LatencyAvg)
                     {
-                        Write-Host '│  Latency: ' -NoNewline
+                        Write-FramePrefix -FrameColor $statusColor -Text '  Latency: '
                         # Use default color to preserve ANSI codes in sparkline
                         Write-Host ("$resetEsc$sparkline$resetEsc$clearTail")
                         $linesPrintedLocal++
                     }
                     else
                     {
-                        Write-Host '│  Latency: ' -NoNewline
+                        Write-FramePrefix -FrameColor $statusColor -Text '  Latency: '
                         Write-Host ("$resetEsc$sparkline$resetEsc$clearTail") -ForegroundColor Red
                         $linesPrintedLocal++
                     }
@@ -949,7 +967,7 @@
                     # Statistics with color coding using threshold constants
                     if ($null -ne $result.LatencyAvg)
                     {
-                        Write-Host '│  Stats  : ' -NoNewline
+                        Write-FramePrefix -FrameColor $statusColor -Text '  Stats  : '
                         Write-Host 'min: ' -NoNewline -ForegroundColor Gray
                         Write-Host "$($result.LatencyMin)ms" -NoNewline -ForegroundColor Cyan
                         Write-Host ' | max: ' -NoNewline -ForegroundColor Gray
@@ -966,13 +984,14 @@
                     }
                     else
                     {
-                        Write-Host ("│  Stats  : No successful connections$clearTail") -ForegroundColor Red
+                        Write-FramePrefix -FrameColor $statusColor -Text '  '
+                        Write-Host ("Stats  : No successful connections$clearTail") -ForegroundColor Red
                         $linesPrintedLocal++
                     }
                 }
 
                 # Packet loss and success rate with color coding
-                Write-Host '│  Quality: ' -NoNewline
+                Write-FramePrefix -FrameColor $statusColor -Text '  Quality: '
                 Write-Host "$($result.SamplesSuccess)/$($result.SamplesTotal)" -NoNewline -ForegroundColor Cyan
                 $qualityColor = if ($successRate -ge 98) { 'Green' } elseif ($successRate -ge 90) { 'Yellow' } else { 'Red' }
                 Write-Host ' successful (' -NoNewline
@@ -983,7 +1002,7 @@
                 $linesPrintedLocal++
 
                 # Call out issues inline with quick flags
-                Write-Host '│  Findings: ' -NoNewline
+                Write-FramePrefix -FrameColor $statusColor -Text '  Findings: '
                 if ($flags.Count -eq 0)
                 {
                     Write-Host ("Healthy $($script:StatusIcons.Healthy)$clearTail") -ForegroundColor Green
@@ -1007,7 +1026,7 @@
                 # DNS resolution time with color coding
                 if ($null -ne $result.DnsResolution)
                 {
-                    Write-Host '│  DNS    : ' -NoNewline
+                    Write-FramePrefix -FrameColor $statusColor -Text '  DNS    : '
                     $dnsColor = if ($result.DnsResolution -lt $t.Dns.Good) { 'Green' } elseif ($result.DnsResolution -lt $t.Dns.Critical) { 'Yellow' } else { 'Red' }
                     Write-Host "$($result.DnsResolution)ms" -NoNewline -ForegroundColor $dnsColor
                     Write-Host (" resolution time$clearTail")
