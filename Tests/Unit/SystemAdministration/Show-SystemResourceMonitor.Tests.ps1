@@ -55,11 +55,11 @@ Describe 'Show-SystemResourceMonitor' {
 
         if ($isWindowsPlatform)
         {
-            $result | Should -Match '(?m)^Disk.+on [A-Za-z]:\\$'
+            $result | Should -Match '(?m)^Disk.+on [A-Za-z]:\\\s*$'
         }
         else
         {
-            $result | Should -Match '(?m)^Disk.+on / \(root fs\)$'
+            $result | Should -Match '(?m)^Disk.+on / \(root fs\)\s*$'
         }
     }
 
