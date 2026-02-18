@@ -2,12 +2,13 @@
 {
     <#
     .SYNOPSIS
-        Displays a visual monitor for CPU, memory, and disk usage.
+        Displays a visual monitor for CPU, memory, disk, and network activity.
 
     .DESCRIPTION
         Collects core system resource metrics and renders them in a compact, visual
-        dashboard using text bars and history sparklines. Works on Windows, macOS,
-        and Linux with platform-specific collection logic and safe fallbacks.
+        dashboard using text bars and history sparklines. Includes network activity
+        throughput using cross-platform .NET interface counters. Works on Windows,
+        macOS, and Linux with platform-specific collection logic and safe fallbacks.
 
         By default, the function returns a single dashboard snapshot as a string.
         Use -Continuous to keep refreshing the view until interrupted with Ctrl+C.
@@ -56,15 +57,15 @@
     .EXAMPLE
         PS > Show-SystemResourceMonitor
 
-        System Resource Monitor
-
-        History window: last 24 samples (oldest -> newest)
+        System Resource Monitor                                                      31.0% OK [A] ✓
+        History  Last 24 samples (oldest -> newest)
         ───────────────────────────────────────────────────────────────────────────────────────────
-        CPU    [███▏░░░░░░░░░░░░░░░░░░░░░░░░░░░░]   10.0% OK   • ▂
-        Memory [█████████▊░░░░░░░░░░░░░░░░░░░░░░]   31.0% OK   • ▃  7.3/24.0 GiB
-        Disk   [██████████▌░░░░░░░░░░░░░░░░░░░░░]   33.0% OK   • ▃  152.4/460.4 GiB on / (root fs)
-
-        • │ Platform: macOS │ Updated: 2026-02-16 18:19:51 │ Overall: 25.0% OK
+        CPU     [███▌░░░░░░░░░░░░░░░░░░░░░░░░░░░░]   11.0% OK
+        Memory  [████████████████░░░░░░░░░░░░░░░░]   50.0% OK      12.1/24.0 GiB
+        Disk    [██████████▌░░░░░░░░░░░░░░░░░░░░░]   33.0% OK      151.4/460.4 GiB on / (root fs)
+        Network [░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░]    0.0% IDLE    In 0 B/s | Out 0 B/s | Total 0 B/s
+        ───────────────────────────────────────────────────────────────────────────────────────────
+        Status   Platform: macOS │ Updated: 2026-02-17 19:16:30 │ Collect: 519.4ms
 
         Displays a single visual snapshot of system resource usage.
 
@@ -164,9 +165,16 @@
             TotalCpuSeconds = $null
         }
 
+        $networkActivityState = @{
+            Timestamp = $null
+            TotalBytesReceived = $null
+            TotalBytesSent = $null
+        }
+
         $cpuHistory = New-Object 'System.Collections.Generic.List[double]'
         $memoryHistory = New-Object 'System.Collections.Generic.List[double]'
         $diskHistory = New-Object 'System.Collections.Generic.List[double]'
+        $networkThroughputHistory = New-Object 'System.Collections.Generic.List[double]'
         $topProcessNameFilters = @(
             @($TopProcessName) |
             Where-Object { -not [String]::IsNullOrWhiteSpace($_) } |
@@ -701,6 +709,105 @@
             return ('{0:N1}' -f [Double]$Value)
         }
 
+        function Format-BytesPerSecond
+        {
+            param(
+                [Parameter()]
+                [Nullable[Double]]$Value
+            )
+
+            if ($null -eq $Value)
+            {
+                return 'n/a'
+            }
+
+            $bytesPerSecond = [Math]::Max(0.0, [Double]$Value)
+
+            if ($bytesPerSecond -ge 1GB)
+            {
+                return ('{0:N2} GiB/s' -f ($bytesPerSecond / 1GB))
+            }
+
+            if ($bytesPerSecond -ge 1MB)
+            {
+                return ('{0:N2} MiB/s' -f ($bytesPerSecond / 1MB))
+            }
+
+            if ($bytesPerSecond -ge 1KB)
+            {
+                return ('{0:N1} KiB/s' -f ($bytesPerSecond / 1KB))
+            }
+
+            return ('{0:N0} B/s' -f $bytesPerSecond)
+        }
+
+        function ConvertTo-RelativePercentHistory
+        {
+            param(
+                [Parameter(Mandatory)]
+                [Double[]]$Values
+            )
+
+            if ($Values.Count -eq 0)
+            {
+                return @()
+            }
+
+            $validValues = @($Values | Where-Object { -not [Double]::IsNaN($_) -and $_ -ge 0 })
+            if ($validValues.Count -eq 0)
+            {
+                return @($Values | ForEach-Object { [Double]::NaN })
+            }
+
+            $peakValue = [Double](($validValues | Measure-Object -Maximum).Maximum)
+            if ($peakValue -le 0)
+            {
+                return @(
+                    $Values | ForEach-Object {
+                        if ([Double]::IsNaN($_))
+                        {
+                            [Double]::NaN
+                        }
+                        else
+                        {
+                            0.0
+                        }
+                    }
+                )
+            }
+
+            return @(
+                $Values | ForEach-Object {
+                    if ([Double]::IsNaN($_))
+                    {
+                        [Double]::NaN
+                    }
+                    else
+                    {
+                        [Math]::Round(([Double]$_ / $peakValue) * 100, 1)
+                    }
+                }
+            )
+        }
+
+        function Get-NetworkActivityStatus
+        {
+            param(
+                [Parameter()]
+                [Nullable[Double]]$RelativePercent
+            )
+
+            if ($null -eq $RelativePercent)
+            {
+                return 'N/A'
+            }
+
+            $value = [Double]$RelativePercent
+            if ($value -lt 10) { return 'IDLE' }
+            if ($value -lt 60) { return 'LIVE' }
+            return 'PEAK'
+        }
+
         function Format-CpuSeconds
         {
             param(
@@ -1153,6 +1260,135 @@
             }
         }
 
+        function Get-NetworkActivityInfo
+        {
+            param(
+                [Parameter(Mandatory)]
+                [hashtable]$State
+            )
+
+            try
+            {
+                $activeInterfaces = @(
+                    [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() |
+                    Where-Object {
+                        $_.OperationalStatus -eq [System.Net.NetworkInformation.OperationalStatus]::Up -and
+                        $_.NetworkInterfaceType -ne [System.Net.NetworkInformation.NetworkInterfaceType]::Loopback -and
+                        $_.NetworkInterfaceType -ne [System.Net.NetworkInformation.NetworkInterfaceType]::Tunnel
+                    }
+                )
+
+                if ($activeInterfaces.Count -eq 0)
+                {
+                    $State.Timestamp = $null
+                    $State.TotalBytesReceived = $null
+                    $State.TotalBytesSent = $null
+
+                    return @{
+                        ReceiveBytesPerSecond = $null
+                        SendBytesPerSecond = $null
+                        TotalBytesPerSecond = $null
+                        ActiveInterfaces = 0
+                    }
+                }
+
+                $totalBytesReceived = 0.0
+                $totalBytesSent = 0.0
+                $sampledInterfaceCount = 0
+
+                foreach ($networkInterface in $activeInterfaces)
+                {
+                    try
+                    {
+                        $interfaceStats = $null
+                        try
+                        {
+                            $interfaceStats = $networkInterface.GetIPStatistics()
+                        }
+                        catch
+                        {
+                            $interfaceStats = $null
+                        }
+
+                        if ($null -eq $interfaceStats)
+                        {
+                            $interfaceStats = $networkInterface.GetIPv4Statistics()
+                        }
+
+                        if ($null -ne $interfaceStats)
+                        {
+                            $totalBytesReceived += [Double]$interfaceStats.BytesReceived
+                            $totalBytesSent += [Double]$interfaceStats.BytesSent
+                            $sampledInterfaceCount++
+                        }
+                    }
+                    catch
+                    {
+                        Write-Verbose "Skipping network interface sample for $($networkInterface.Name): $($_.Exception.Message)"
+                    }
+                }
+
+                if ($sampledInterfaceCount -eq 0)
+                {
+                    $State.Timestamp = $null
+                    $State.TotalBytesReceived = $null
+                    $State.TotalBytesSent = $null
+
+                    return @{
+                        ReceiveBytesPerSecond = $null
+                        SendBytesPerSecond = $null
+                        TotalBytesPerSecond = $null
+                        ActiveInterfaces = 0
+                    }
+                }
+
+                $now = Get-Date
+                $receiveBytesPerSecond = $null
+                $sendBytesPerSecond = $null
+                $totalBytesPerSecond = $null
+
+                if ($null -ne $State.Timestamp -and $null -ne $State.TotalBytesReceived -and $null -ne $State.TotalBytesSent)
+                {
+                    $elapsedSeconds = ($now - [DateTime]$State.Timestamp).TotalSeconds
+                    if ($elapsedSeconds -gt 0)
+                    {
+                        $receivedDelta = [Math]::Max(0.0, $totalBytesReceived - [Double]$State.TotalBytesReceived)
+                        $sentDelta = [Math]::Max(0.0, $totalBytesSent - [Double]$State.TotalBytesSent)
+
+                        $receiveBytesPerSecond = [Math]::Round($receivedDelta / $elapsedSeconds, 1)
+                        $sendBytesPerSecond = [Math]::Round($sentDelta / $elapsedSeconds, 1)
+                        $totalBytesPerSecond = [Math]::Round($receiveBytesPerSecond + $sendBytesPerSecond, 1)
+                    }
+                }
+
+                $State.Timestamp = $now
+                $State.TotalBytesReceived = $totalBytesReceived
+                $State.TotalBytesSent = $totalBytesSent
+
+                return @{
+                    ReceiveBytesPerSecond = if ($null -eq $receiveBytesPerSecond) { $null } else { [Math]::Max(0.0, [Double]$receiveBytesPerSecond) }
+                    SendBytesPerSecond = if ($null -eq $sendBytesPerSecond) { $null } else { [Math]::Max(0.0, [Double]$sendBytesPerSecond) }
+                    TotalBytesPerSecond = if ($null -eq $totalBytesPerSecond) { $null } else { [Math]::Max(0.0, [Double]$totalBytesPerSecond) }
+                    ActiveInterfaces = $sampledInterfaceCount
+                }
+            }
+            catch
+            {
+                Write-Verbose "Network activity read failed: $($_.Exception.Message)"
+
+                $State.Timestamp = $null
+                $State.TotalBytesReceived = $null
+                $State.TotalBytesSent = $null
+
+                return @{
+                    ReceiveBytesPerSecond = $null
+                    SendBytesPerSecond = $null
+                    TotalBytesPerSecond = $null
+                    ActiveInterfaces = 0
+                }
+            }
+        }
+
         function Get-TopProcessInfo
         {
             param(
@@ -1272,6 +1508,12 @@
 
             $memory = Get-MemoryUsageInfo
             $disk = Get-SystemDriveUsageInfo
+            $network = Get-NetworkActivityInfo -State $networkActivityState
+            if ($null -eq $network.TotalBytesPerSecond)
+            {
+                Start-Sleep -Milliseconds 200
+                $network = Get-NetworkActivityInfo -State $networkActivityState
+            }
 
             $topProcesses = @()
             if ($IncludeTopProcesses)
@@ -1296,6 +1538,10 @@
                 DiskUsedGiB = $disk.UsedGiB
                 DiskTotalGiB = $disk.TotalGiB
                 DiskRoot = $disk.Root
+                NetworkReceiveBytesPerSecond = $network.ReceiveBytesPerSecond
+                NetworkSendBytesPerSecond = $network.SendBytesPerSecond
+                NetworkTotalBytesPerSecond = $network.TotalBytesPerSecond
+                NetworkActiveInterfaces = $network.ActiveInterfaces
                 OverallLoadPercent = $overallLoad
                 OverallStatus = Get-UsageStatus -Percent $overallLoad
                 HealthGrade = $healthGrade
@@ -1342,6 +1588,13 @@
                 $diskHistoryValues = $diskHistoryValues[($diskHistoryValues.Count - $maxHistoryPoints)..($diskHistoryValues.Count - 1)]
             }
 
+            $networkThroughputHistoryValues = @($networkThroughputHistory.ToArray())
+            if ($networkThroughputHistoryValues.Count -gt $maxHistoryPoints)
+            {
+                $networkThroughputHistoryValues = $networkThroughputHistoryValues[($networkThroughputHistoryValues.Count - $maxHistoryPoints)..($networkThroughputHistoryValues.Count - 1)]
+            }
+            $networkRelativeHistoryValues = @(ConvertTo-RelativePercentHistory -Values $networkThroughputHistoryValues)
+
             $renderedBarWidth = Get-ResolvedBarWidth -RequestedWidth $BarWidth -RenderedHistoryLength $maxHistoryPoints
 
             $formatMetricLine = {
@@ -1356,16 +1609,25 @@
                     [Double[]]$History,
 
                     [Parameter()]
-                    [String]$Details
+                    [String]$Details,
+
+                    [Parameter()]
+                    [ScriptBlock]$StatusResolver = { param([Nullable[Double]]$StatusPercent) Get-UsageStatus -Percent $StatusPercent }
                 )
 
                 $barText = ConvertTo-UsageBar -Percent $Percent -Width $renderedBarWidth
                 $percentText = Format-Percent -Percent $Percent
-                $statusText = ('{0,-4}' -f (Get-UsageStatus -Percent $Percent))
+                $resolvedStatus = & $StatusResolver $Percent
+                if ([String]::IsNullOrWhiteSpace([String]$resolvedStatus))
+                {
+                    $resolvedStatus = 'N/A'
+                }
+
+                $statusText = ('{0,-5}' -f [String]$resolvedStatus)
                 $trendText = Get-TrendIndicator -Values $History
                 $sparkText = ConvertTo-Sparkline -Values $History
 
-                $line = '{0,-6} {1} {2} {3} {4} {5}' -f $Name, $barText, $percentText, $statusText, $trendText, $sparkText
+                $line = '{0,-7} {1} {2} {3} {4} {5}' -f $Name, $barText, $percentText, $statusText, $trendText, $sparkText
                 if (-not [String]::IsNullOrWhiteSpace($Details))
                 {
                     $line = $line + '  ' + $Details
@@ -1377,10 +1639,43 @@
             $memoryDetails = '{0}/{1} GiB' -f (Format-GiB -Value $Sample.MemoryUsedGiB), (Format-GiB -Value $Sample.MemoryTotalGiB)
             $diskRoot = Format-DiskRootLabel -Root $Sample.DiskRoot
             $diskDetails = '{0}/{1} GiB on {2}' -f (Format-GiB -Value $Sample.DiskUsedGiB), (Format-GiB -Value $Sample.DiskTotalGiB), $diskRoot
+            $networkReceiveText = Format-BytesPerSecond -Value $Sample.NetworkReceiveBytesPerSecond
+            $networkSendText = Format-BytesPerSecond -Value $Sample.NetworkSendBytesPerSecond
+            $networkTotalText = Format-BytesPerSecond -Value $Sample.NetworkTotalBytesPerSecond
+            $networkDetails = "In $networkReceiveText | Out $networkSendText | Total $networkTotalText"
+
+            $networkActivityPercent = $null
+            $networkValidHistory = @($networkRelativeHistoryValues | Where-Object { -not [Double]::IsNaN($_) })
+            if ($networkValidHistory.Count -eq 0)
+            {
+                $networkRelativeHistoryValues = @($networkThroughputHistoryValues | ForEach-Object { [Double]::NaN })
+            }
+            elseif ($networkValidHistory.Count -lt 2)
+            {
+                # For single-snapshot views, render network as idle instead of unknown.
+                $networkActivityPercent = 0.0
+                $networkRelativeHistoryValues = @(
+                    $networkThroughputHistoryValues | ForEach-Object {
+                        if ([Double]::IsNaN($_))
+                        {
+                            [Double]::NaN
+                        }
+                        else
+                        {
+                            0.0
+                        }
+                    }
+                )
+            }
+            else
+            {
+                $networkActivityPercent = [Double]$networkValidHistory[-1]
+            }
 
             $cpuLine = & $formatMetricLine -Name 'CPU' -Percent $Sample.CpuUsagePercent -History $cpuHistoryValues
             $memoryLine = & $formatMetricLine -Name 'Memory' -Percent $Sample.MemoryUsagePercent -History $memoryHistoryValues -Details $memoryDetails
             $diskLine = & $formatMetricLine -Name 'Disk' -Percent $Sample.DiskUsagePercent -History $diskHistoryValues -Details $diskDetails
+            $networkLine = & $formatMetricLine -Name 'Network' -Percent $networkActivityPercent -History $networkRelativeHistoryValues -Details $networkDetails -StatusResolver { param([Nullable[Double]]$Percent) Get-NetworkActivityStatus -RelativePercent $Percent }
 
             $overallLoad = $null
             if ($Sample.PSObject.Properties.Name -contains 'OverallLoadPercent' -and $null -ne $Sample.OverallLoadPercent)
@@ -1464,6 +1759,7 @@
                 $cpuLine,
                 $memoryLine,
                 $diskLine,
+                $networkLine,
                 $subtleDivider,
                 (Add-SubtleText -Text $statusLine)
             )
@@ -1541,6 +1837,7 @@
             Add-HistoryValue -History $cpuHistory -Value $sample.CpuUsagePercent -MaxLength $HistoryLength
             Add-HistoryValue -History $memoryHistory -Value $sample.MemoryUsagePercent -MaxLength $HistoryLength
             Add-HistoryValue -History $diskHistory -Value $sample.DiskUsagePercent -MaxLength $HistoryLength
+            Add-HistoryValue -History $networkThroughputHistory -Value $sample.NetworkTotalBytesPerSecond -MaxLength $HistoryLength
 
             if ($AsObject)
             {

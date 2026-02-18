@@ -27,7 +27,7 @@ Show-SystemResourceMonitor -Continuous -IncludeTopProcesses
 
 ![Show-SystemResourceMonitor screenshot](resources/screenshots/Show-SystemResourceMonitor.png "Show-SystemResourceMonitor in action")
 
-Displays a live system monitor for CPU, memory, and disk usage and the top processes by resource consumption.
+Displays a live system monitor for CPU, memory, disk, and network activity plus top processes by resource consumption.
 
 ---
 
@@ -482,7 +482,7 @@ The profile includes utility functions organized by category:
 
 - **[`Invoke-ElevatedCommand`](Functions/SystemAdministration/Invoke-ElevatedCommand.ps1)** — Executes commands with elevated privileges (Run as Administrator)
 - **[`Set-TlsSecurityProtocol`](Functions/SystemAdministration/Set-TlsSecurityProtocol.ps1)** — Configures TLS security protocol settings for secure network connections
-- **[`Show-SystemResourceMonitor`](Functions/SystemAdministration/Show-SystemResourceMonitor.ps1)** — Displays a visual monitor for CPU, memory, and disk usage
+- **[`Show-SystemResourceMonitor`](Functions/SystemAdministration/Show-SystemResourceMonitor.ps1)** — Displays a visual monitor for CPU, memory, disk, and network activity
 - **[`Start-KeepAlive`](Functions/SystemAdministration/Start-KeepAlive.ps1)** — Prevents the system and display from sleeping
 - **[`Test-Admin`](Functions/SystemAdministration/Test-Admin.ps1)** — Checks if the current PowerShell session is running as administrator/root/sudo
 - **[`Test-PendingReboot`](Functions/SystemAdministration/Test-PendingReboot.ps1)** — Checks if the system has pending reboot requirements

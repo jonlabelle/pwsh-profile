@@ -20,6 +20,7 @@ Describe 'Show-SystemResourceMonitor' {
         $result | Should -Match '(?m)^CPU'
         $result | Should -Match '(?m)^Memory'
         $result | Should -Match '(?m)^Disk'
+        $result | Should -Match '(?m)^Network'
     }
 
     It 'includes overall summary in title and status metadata in one-shot output' {
@@ -38,6 +39,10 @@ Describe 'Show-SystemResourceMonitor' {
         $result.PSObject.Properties.Name | Should -Contain 'CpuUsagePercent'
         $result.PSObject.Properties.Name | Should -Contain 'MemoryUsagePercent'
         $result.PSObject.Properties.Name | Should -Contain 'DiskUsagePercent'
+        $result.PSObject.Properties.Name | Should -Contain 'NetworkReceiveBytesPerSecond'
+        $result.PSObject.Properties.Name | Should -Contain 'NetworkSendBytesPerSecond'
+        $result.PSObject.Properties.Name | Should -Contain 'NetworkTotalBytesPerSecond'
+        $result.PSObject.Properties.Name | Should -Contain 'NetworkActiveInterfaces'
         $result.PSObject.Properties.Name | Should -Contain 'Platform'
         $result.PSObject.Properties.Name | Should -Contain 'OverallLoadPercent'
         $result.PSObject.Properties.Name | Should -Contain 'HealthGrade'
