@@ -123,6 +123,69 @@ Describe 'Show-SystemResourceMonitor' {
         $topProcesses.Count | Should -Be 0
     }
 
+    It 'supports process-scoped monitor metrics when process filters are specified' {
+        $currentProcess = Get-Process -Id $PID -ErrorAction SilentlyContinue
+        $currentProcess | Should -Not -BeNullOrEmpty
+        $currentProcess.ProcessName | Should -Not -BeNullOrEmpty
+
+        $namePattern = $currentProcess.ProcessName + '*'
+        $result = Show-SystemResourceMonitor -AsObject -MonitorProcessName $namePattern
+
+        $result | Should -Not -BeNullOrEmpty
+        $result.PSObject.Properties.Name | Should -Contain 'MonitorProcessName'
+        $result.PSObject.Properties.Name | Should -Contain 'MonitorProcessMatchCount'
+        @($result.MonitorProcessName) | Should -Contain $namePattern
+        [Int32]$result.MonitorProcessMatchCount | Should -BeGreaterOrEqual 1
+        $result.DiskUsagePercent | Should -BeNullOrEmpty
+        $result.NetworkTotalBytesPerSecond | Should -BeNullOrEmpty
+    }
+
+    It 'treats plain monitor process names as contains matches' {
+        $currentProcess = Get-Process -Id $PID -ErrorAction SilentlyContinue
+        $currentProcess | Should -Not -BeNullOrEmpty
+        $currentName = [String]$currentProcess.ProcessName
+        $currentName | Should -Not -BeNullOrEmpty
+
+        $plainFilter = if ($currentName.Length -gt 2)
+        {
+            $currentName.Substring(1)
+        }
+        else
+        {
+            $currentName
+        }
+
+        $result = Show-SystemResourceMonitor -AsObject -MonitorProcessName $plainFilter
+
+        $result | Should -Not -BeNullOrEmpty
+        @($result.MonitorProcessName) | Should -Contain $plainFilter
+        [Int32]$result.MonitorProcessMatchCount | Should -BeGreaterOrEqual 1
+    }
+
+    It 'reports zero scoped CPU and memory when process filter has no matches' {
+        $result = Show-SystemResourceMonitor -AsObject -MonitorProcessName '__definitely_not_a_real_process_name_*'
+
+        $result | Should -Not -BeNullOrEmpty
+        [Int32]$result.MonitorProcessMatchCount | Should -Be 0
+        $result.CpuUsagePercent | Should -Be 0
+        $result.MemoryUsedGiB | Should -Be 0
+    }
+
+    It 'shows process scope metadata in dashboard output' {
+        $result = Show-SystemResourceMonitor -NoColor -BarWidth 12 -HistoryLength 8 -MonitorProcessName '__definitely_not_a_real_process_name_*'
+        $lines = @($result -split '\r?\n')
+        $diskLine = @($lines | Where-Object { $_ -match '^Disk' }) | Select-Object -First 1
+        $networkLine = @($lines | Where-Object { $_ -match '^Network' }) | Select-Object -First 1
+
+        $result | Should -BeOfType 'System.String'
+        $result | Should -Match '(?m)^Scope +Process filter: __definitely_not_a_real_process_name_\* \| matches: 0\r?$'
+        $result | Should -Match '(?m)^CPU.+0\.0%'
+        $result | Should -Match '(?m)^Disk.+n/a.+on n/a\r?$'
+        $result | Should -Match '(?m)^Network.+n/a'
+        $diskLine | Should -Not -Match '\?'
+        $networkLine | Should -Not -Match '\?'
+    }
+
     It 'supports ASCII-only rendering mode' {
         $result = Show-SystemResourceMonitor -NoColor -Ascii -BarWidth 12 -HistoryLength 8
 
@@ -144,6 +207,17 @@ Describe 'Show-SystemResourceMonitor' {
 
         $result | Should -BeOfType 'System.String'
         $result | Should -Match '(?m)^Top Processes \(limit: 3\) \| filter: pwsh\*\r?$'
+    }
+
+    It 'uses process scope filter for top process heading when no top process filter is provided' {
+        $currentProcess = Get-Process -Id $PID -ErrorAction SilentlyContinue
+        $currentProcess | Should -Not -BeNullOrEmpty
+        $namePattern = $currentProcess.ProcessName + '*'
+
+        $result = Show-SystemResourceMonitor -NoColor -BarWidth 12 -HistoryLength 8 -IncludeTopProcesses -TopProcessCount 3 -MonitorProcessName $namePattern
+
+        $result | Should -BeOfType 'System.String'
+        $result | Should -Match (('(?m)^Top Processes \(limit: 3\) \| filter: {0}\r?$' -f [Regex]::Escape($namePattern)))
     }
 
     It 'formats disk label details for the current platform' {

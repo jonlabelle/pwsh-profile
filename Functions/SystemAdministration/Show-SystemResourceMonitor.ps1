@@ -18,6 +18,7 @@
         summary, and collection elapsed time.
         Enable -IncludeTopProcesses to append the busiest running processes.
         Use -TopProcessName to filter process rows by wildcard name patterns.
+        Use -MonitorProcessName to scope resource charts to matching processes.
 
     .PARAMETER Continuous
         Continuously refreshes the monitor output.
@@ -49,6 +50,12 @@
     .PARAMETER TopProcessName
         One or more wildcard patterns used to filter top process names.
         Example: 'pwsh*' or @('chrome*', 'Code*').
+
+    .PARAMETER MonitorProcessName
+        One or more wildcard patterns used to scope monitor visualizations.
+        When specified, CPU and memory metrics are calculated from matching
+        processes only. Disk and network are shown as n/a in this scoped mode.
+        Plain names without wildcard characters are treated as contains matches.
 
     .PARAMETER MaxIterations
         Maximum number of iterations for continuous mode. 0 means unlimited.
@@ -94,6 +101,11 @@
         PS > Show-SystemResourceMonitor -IncludeTopProcesses -TopProcessName 'pwsh*'
 
         Displays only top processes whose names match the wildcard filter.
+
+    .EXAMPLE
+        PS > Show-SystemResourceMonitor -MonitorProcessName 'pwsh*'
+
+        Displays a scoped view where matching processes drive resource charts.
 
     .OUTPUTS
         System.String
@@ -144,6 +156,9 @@
         [Parameter()]
         [String[]]$TopProcessName,
 
+        [Parameter()]
+        [String[]]$MonitorProcessName,
+
         [Parameter(DontShow = $true)]
         [ValidateRange(0, [Int32]::MaxValue)]
         [Int32]$MaxIterations = 0
@@ -172,6 +187,11 @@
             TotalBytesSent = $null
         }
 
+        $processScopeCpuState = @{
+            Timestamp = $null
+            TotalCpuSeconds = $null
+        }
+
         $cpuHistory = New-Object 'System.Collections.Generic.List[double]'
         $memoryHistory = New-Object 'System.Collections.Generic.List[double]'
         $diskHistory = New-Object 'System.Collections.Generic.List[double]'
@@ -181,6 +201,31 @@
             Where-Object { -not [String]::IsNullOrWhiteSpace($_) } |
             ForEach-Object { $_.Trim() }
         )
+        $monitorProcessNameFilters = @(
+            @($MonitorProcessName) |
+            Where-Object { -not [String]::IsNullOrWhiteSpace($_) } |
+            ForEach-Object { $_.Trim() }
+        )
+        $monitorProcessNameMatchFilters = @(
+            $monitorProcessNameFilters |
+            ForEach-Object {
+                if ($_ -match '[\*\?\[]')
+                {
+                    $_
+                }
+                else
+                {
+                    '*' + $_ + '*'
+                }
+            }
+        )
+        $effectiveTopProcessNameFilters = @($topProcessNameFilters)
+        $effectiveTopProcessNameMatchFilters = @($topProcessNameFilters)
+        if ($effectiveTopProcessNameFilters.Count -eq 0 -and $monitorProcessNameFilters.Count -gt 0)
+        {
+            $effectiveTopProcessNameFilters = @($monitorProcessNameFilters)
+            $effectiveTopProcessNameMatchFilters = @($monitorProcessNameMatchFilters)
+        }
 
         $supportsAnsi = $false
         if (-not $NoColor)
@@ -305,15 +350,22 @@
                 [Nullable[Double]]$Percent,
 
                 [Parameter(Mandatory)]
-                [Int32]$Width
+                [Int32]$Width,
+
+                [Parameter()]
+                [Switch]$UseZeroFillWhenUnknown
             )
 
             if ($null -eq $Percent)
             {
-                return '[' + ('?' * $Width) + ']'
+                if (-not $UseZeroFillWhenUnknown)
+                {
+                    return '[' + ('?' * $Width) + ']'
+                }
             }
 
-            $clamped = [Math]::Max(0, [Math]::Min(100, [Double]$Percent))
+            $percentForBar = if ($null -eq $Percent) { 0.0 } else { [Double]$Percent }
+            $clamped = [Math]::Max(0, [Math]::Min(100, $percentForBar))
             if (-not $supportsUnicode)
             {
                 $filled = [Math]::Round(($clamped / 100) * $Width)
@@ -925,6 +977,186 @@
             return $darkGray + $Text + $ansiReset
         }
 
+        function Test-ProcessNameFilterMatch
+        {
+            param(
+                [Parameter()]
+                [String]$ProcessName,
+
+                [Parameter()]
+                [String[]]$NameFilters
+            )
+
+            $candidateName = if ([String]::IsNullOrWhiteSpace($ProcessName)) { '' } else { [String]$ProcessName }
+
+            $effectiveNameFilters = @(
+                @($NameFilters) |
+                Where-Object { -not [String]::IsNullOrWhiteSpace($_) } |
+                ForEach-Object { $_.Trim() }
+            )
+
+            if ($effectiveNameFilters.Count -eq 0)
+            {
+                return $true
+            }
+
+            foreach ($filterPattern in $effectiveNameFilters)
+            {
+                if ($candidateName -like $filterPattern)
+                {
+                    return $true
+                }
+            }
+
+            return $false
+        }
+
+        function Get-ProcessScopeUsageInfo
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String[]]$NameFilters,
+
+                [Parameter(Mandatory)]
+                [hashtable]$CpuState
+            )
+
+            $matchedProcesses = New-Object 'System.Collections.Generic.List[PSCustomObject]'
+
+            foreach ($process in (Get-Process -ErrorAction SilentlyContinue))
+            {
+                $processName = if ([String]::IsNullOrWhiteSpace($process.ProcessName)) { '' } else { [String]$process.ProcessName }
+                if (-not (Test-ProcessNameFilterMatch -ProcessName $processName -NameFilters $NameFilters))
+                {
+                    continue
+                }
+
+                $cpuSeconds = $null
+                $workingSetBytes = $null
+
+                try
+                {
+                    if ($null -ne $process.CPU)
+                    {
+                        $cpuSeconds = [Double]$process.CPU
+                    }
+                }
+                catch
+                {
+                    Write-Verbose "Unable to read CPU time for process $($process.Id): $($_.Exception.Message)"
+                }
+
+                try
+                {
+                    if ($null -ne $process.WorkingSet64)
+                    {
+                        $workingSetBytes = [Double]$process.WorkingSet64
+                    }
+                }
+                catch
+                {
+                    Write-Verbose "Unable to read memory usage for process $($process.Id): $($_.Exception.Message)"
+                }
+
+                [void]$matchedProcesses.Add([PSCustomObject]@{
+                    Name = if ([String]::IsNullOrWhiteSpace($processName)) { '<unknown>' } else { $processName }
+                    CpuSeconds = $cpuSeconds
+                    WorkingSetBytes = $workingSetBytes
+                })
+            }
+
+            $totalCpuSeconds = 0.0
+            $hasCpuSample = $false
+            $totalWorkingSetBytes = 0.0
+            $hasWorkingSetSample = $false
+
+            foreach ($processInfo in $matchedProcesses)
+            {
+                if ($null -ne $processInfo.CpuSeconds)
+                {
+                    $totalCpuSeconds += [Double]$processInfo.CpuSeconds
+                    $hasCpuSample = $true
+                }
+
+                if ($null -ne $processInfo.WorkingSetBytes)
+                {
+                    $totalWorkingSetBytes += [Double]$processInfo.WorkingSetBytes
+                    $hasWorkingSetSample = $true
+                }
+            }
+
+            $systemMemoryInfo = Get-MemoryUsageInfo
+            $memoryTotalGiB = $null
+            $memoryTotalBytes = $null
+            if ($null -ne $systemMemoryInfo.TotalBytes -and [Double]$systemMemoryInfo.TotalBytes -gt 0)
+            {
+                $memoryTotalBytes = [Double]$systemMemoryInfo.TotalBytes
+                $memoryTotalGiB = [Math]::Round($memoryTotalBytes / 1GB, 2)
+            }
+
+            if ($matchedProcesses.Count -eq 0)
+            {
+                $CpuState.Timestamp = $null
+                $CpuState.TotalCpuSeconds = $null
+
+                return @{
+                    CpuPercent = 0.0
+                    MemoryPercent = if ($null -eq $memoryTotalBytes) { $null } else { 0.0 }
+                    MemoryUsedGiB = 0.0
+                    MemoryTotalGiB = $memoryTotalGiB
+                    MatchedProcessCount = 0
+                }
+            }
+
+            $now = Get-Date
+            $cpuPercent = $null
+
+            if ($hasCpuSample -and $null -ne $CpuState.Timestamp -and $null -ne $CpuState.TotalCpuSeconds)
+            {
+                $elapsedSeconds = ($now - [DateTime]$CpuState.Timestamp).TotalSeconds
+                if ($elapsedSeconds -gt 0)
+                {
+                    $cpuDelta = $totalCpuSeconds - [Double]$CpuState.TotalCpuSeconds
+                    if ($cpuDelta -lt 0)
+                    {
+                        $cpuDelta = 0
+                    }
+
+                    $processorCount = [Math]::Max(1, [Environment]::ProcessorCount)
+                    $cpuPercent = (($cpuDelta / ($elapsedSeconds * $processorCount)) * 100)
+                    $cpuPercent = [Math]::Round([Math]::Max(0, [Math]::Min(100, $cpuPercent)), 1)
+                }
+            }
+
+            $CpuState.Timestamp = $now
+            $CpuState.TotalCpuSeconds = if ($hasCpuSample) { $totalCpuSeconds } else { $null }
+
+            $memoryPercent = $null
+            $memoryUsedGiB = $null
+
+            if ($hasWorkingSetSample)
+            {
+                $memoryUsedGiB = [Math]::Round([Math]::Max(0.0, $totalWorkingSetBytes) / 1GB, 2)
+            }
+
+            if ($null -ne $memoryTotalBytes)
+            {
+                if ($hasWorkingSetSample)
+                {
+                    $memoryPercentRaw = ($totalWorkingSetBytes / $memoryTotalBytes) * 100
+                    $memoryPercent = [Math]::Round([Math]::Max(0, [Math]::Min(100, $memoryPercentRaw)), 1)
+                }
+            }
+
+            return @{
+                CpuPercent = $cpuPercent
+                MemoryPercent = $memoryPercent
+                MemoryUsedGiB = $memoryUsedGiB
+                MemoryTotalGiB = $memoryTotalGiB
+                MatchedProcessCount = $matchedProcesses.Count
+            }
+        }
+
         function Get-CpuUsagePercentFallback
         {
             param(
@@ -1215,6 +1447,8 @@
                     Percent = $null
                     UsedGiB = $null
                     TotalGiB = $null
+                    UsedBytes = $null
+                    TotalBytes = $null
                 }
             }
 
@@ -1225,6 +1459,8 @@
                 Percent = [Math]::Round([Math]::Max(0, [Math]::Min(100, $percent)), 1)
                 UsedGiB = [Math]::Round($usedBytes / 1GB, 2)
                 TotalGiB = [Math]::Round($totalBytes / 1GB, 2)
+                UsedBytes = [Math]::Round($usedBytes, 0)
+                TotalBytes = [Math]::Round($totalBytes, 0)
             }
         }
 
@@ -1433,26 +1669,7 @@
                 $processes = @(
                     Get-Process -ErrorAction SilentlyContinue |
                     Where-Object {
-                        if ($effectiveNameFilters.Count -eq 0)
-                        {
-                            $true
-                        }
-                        else
-                        {
-                            $candidateName = if ([String]::IsNullOrWhiteSpace($_.ProcessName)) { '' } else { [String]$_.ProcessName }
-                            $matchesFilter = $false
-
-                            foreach ($filterPattern in $effectiveNameFilters)
-                            {
-                                if ($candidateName -like $filterPattern)
-                                {
-                                    $matchesFilter = $true
-                                    break
-                                }
-                            }
-
-                            $matchesFilter
-                        }
+                        Test-ProcessNameFilterMatch -ProcessName $_.ProcessName -NameFilters $effectiveNameFilters
                     } |
                     ForEach-Object {
                         $cpuSeconds = $null
@@ -1521,27 +1738,69 @@
         function Get-SystemResourceSample
         {
             $collectStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+            $isProcessScoped = ($monitorProcessNameFilters.Count -gt 0)
+            $matchedProcessCount = $null
 
-            $cpuPercent = Get-CpuUsagePercent -FallbackState $cpuFallbackState
-            if ($null -eq $cpuPercent)
+            if ($isProcessScoped)
             {
-                Start-Sleep -Milliseconds 200
-                $cpuPercent = Get-CpuUsagePercent -FallbackState $cpuFallbackState
+                $scopedUsage = Get-ProcessScopeUsageInfo -NameFilters $monitorProcessNameMatchFilters -CpuState $processScopeCpuState
+                $cpuPercent = $scopedUsage.CpuPercent
+                if ($null -eq $cpuPercent)
+                {
+                    Start-Sleep -Milliseconds 200
+                    $scopedUsage = Get-ProcessScopeUsageInfo -NameFilters $monitorProcessNameMatchFilters -CpuState $processScopeCpuState
+                    $cpuPercent = $scopedUsage.CpuPercent
+                }
+
+                $memory = @{
+                    Percent = $scopedUsage.MemoryPercent
+                    UsedGiB = $scopedUsage.MemoryUsedGiB
+                    TotalGiB = $scopedUsage.MemoryTotalGiB
+                }
+
+                # Per-process disk/network attribution is not available consistently across platforms.
+                # In process-scoped mode these charts are intentionally reported as n/a.
+                $disk = @{
+                    Percent = $null
+                    UsedGiB = $null
+                    TotalGiB = $null
+                    Root = $null
+                }
+                $network = @{
+                    ReceiveBytesPerSecond = $null
+                    SendBytesPerSecond = $null
+                    TotalBytesPerSecond = $null
+                    ActiveInterfaces = 0
+                }
+
+                $networkActivityState.Timestamp = $null
+                $networkActivityState.TotalBytesReceived = $null
+                $networkActivityState.TotalBytesSent = $null
+                $matchedProcessCount = [Int32]$scopedUsage.MatchedProcessCount
             }
-
-            $memory = Get-MemoryUsageInfo
-            $disk = Get-SystemDriveUsageInfo
-            $network = Get-NetworkActivityInfo -State $networkActivityState
-            if ($null -eq $network.TotalBytesPerSecond)
+            else
             {
-                Start-Sleep -Milliseconds 200
+                $cpuPercent = Get-CpuUsagePercent -FallbackState $cpuFallbackState
+                if ($null -eq $cpuPercent)
+                {
+                    Start-Sleep -Milliseconds 200
+                    $cpuPercent = Get-CpuUsagePercent -FallbackState $cpuFallbackState
+                }
+
+                $memory = Get-MemoryUsageInfo
+                $disk = Get-SystemDriveUsageInfo
                 $network = Get-NetworkActivityInfo -State $networkActivityState
+                if ($null -eq $network.TotalBytesPerSecond)
+                {
+                    Start-Sleep -Milliseconds 200
+                    $network = Get-NetworkActivityInfo -State $networkActivityState
+                }
             }
 
             $topProcesses = @()
             if ($IncludeTopProcesses)
             {
-                $topProcesses = @(Get-TopProcessInfo -Count $TopProcessCount -NameFilters $topProcessNameFilters)
+                $topProcesses = @(Get-TopProcessInfo -Count $TopProcessCount -NameFilters $effectiveTopProcessNameMatchFilters)
             }
 
             $overallLoad = Get-OverallLoadPercent -CpuPercent $cpuPercent -MemoryPercent $memory.Percent -DiskPercent $disk.Percent
@@ -1576,6 +1835,12 @@
             if ($IncludeTopProcesses)
             {
                 $sample | Add-Member -NotePropertyName 'TopProcesses' -NotePropertyValue $topProcesses
+            }
+
+            if ($isProcessScoped)
+            {
+                $sample | Add-Member -NotePropertyName 'MonitorProcessName' -NotePropertyValue @($monitorProcessNameFilters)
+                $sample | Add-Member -NotePropertyName 'MonitorProcessMatchCount' -NotePropertyValue $matchedProcessCount
             }
 
             return $sample
@@ -1635,10 +1900,16 @@
                     [String]$Details,
 
                     [Parameter()]
-                    [ScriptBlock]$StatusResolver = { param([Nullable[Double]]$StatusPercent) Get-UsageStatus -Percent $StatusPercent }
+                    [ScriptBlock]$StatusResolver = { param([Nullable[Double]]$StatusPercent) Get-UsageStatus -Percent $StatusPercent },
+
+                    [Parameter()]
+                    [Switch]$UseZeroFillWhenUnavailable,
+
+                    [Parameter()]
+                    [Switch]$RenderUnavailableAsSubtle
                 )
 
-                $barText = ConvertTo-UsageBar -Percent $Percent -Width $renderedBarWidth
+                $barText = ConvertTo-UsageBar -Percent $Percent -Width $renderedBarWidth -UseZeroFillWhenUnknown:$UseZeroFillWhenUnavailable
                 $percentText = Format-Percent -Percent $Percent
                 $resolvedStatus = & $StatusResolver $Percent
                 if ([String]::IsNullOrWhiteSpace([String]$resolvedStatus))
@@ -1656,7 +1927,13 @@
                     $line = $line + '  ' + $Details
                 }
 
-                return Add-Color -Text $line -Percent $Percent
+                $coloredLine = Add-Color -Text $line -Percent $Percent
+                if ($RenderUnavailableAsSubtle -and $null -eq $Percent)
+                {
+                    return Add-SubtleText -Text $coloredLine
+                }
+
+                return $coloredLine
             }
 
             $cpuDetails = Format-CpuCoreReadout -Percent $Sample.CpuUsagePercent
@@ -1698,8 +1975,8 @@
 
             $cpuLine = & $formatMetricLine -Name 'CPU' -Percent $Sample.CpuUsagePercent -History $cpuHistoryValues -Details $cpuDetails
             $memoryLine = & $formatMetricLine -Name 'Memory' -Percent $Sample.MemoryUsagePercent -History $memoryHistoryValues -Details $memoryDetails
-            $diskLine = & $formatMetricLine -Name 'Disk' -Percent $Sample.DiskUsagePercent -History $diskHistoryValues -Details $diskDetails
-            $networkLine = & $formatMetricLine -Name 'Network' -Percent $networkActivityPercent -History $networkRelativeHistoryValues -Details $networkDetails -StatusResolver { param([Nullable[Double]]$Percent) Get-NetworkActivityStatus -RelativePercent $Percent }
+            $diskLine = & $formatMetricLine -Name 'Disk' -Percent $Sample.DiskUsagePercent -History $diskHistoryValues -Details $diskDetails -UseZeroFillWhenUnavailable -RenderUnavailableAsSubtle
+            $networkLine = & $formatMetricLine -Name 'Network' -Percent $networkActivityPercent -History $networkRelativeHistoryValues -Details $networkDetails -StatusResolver { param([Nullable[Double]]$Percent) Get-NetworkActivityStatus -RelativePercent $Percent } -UseZeroFillWhenUnavailable -RenderUnavailableAsSubtle
 
             $overallLoad = $null
             if ($Sample.PSObject.Properties.Name -contains 'OverallLoadPercent' -and $null -ne $Sample.OverallLoadPercent)
@@ -1775,6 +2052,28 @@
             $statusLine = ('Status   Platform: {0} {1} Updated: {2} {1} Collect: {3}' -f $Sample.Platform, $statusSeparator, $Sample.Timestamp.ToString('yyyy-MM-dd HH:mm:ss'), $collectText)
             $historyLine = Add-SubtleText -Text ("History  Last $maxHistoryPoints samples (oldest -> newest)")
             $subtleDivider = Add-SubtleText -Text $divider
+            $scopeLine = $null
+
+            $scopedFilters = @()
+            if ($Sample.PSObject.Properties.Name -contains 'MonitorProcessName')
+            {
+                $scopedFilters = @(
+                    @($Sample.MonitorProcessName) |
+                    Where-Object { -not [String]::IsNullOrWhiteSpace($_) } |
+                    ForEach-Object { $_.Trim() }
+                )
+            }
+
+            if ($scopedFilters.Count -gt 0)
+            {
+                $scopeText = 'Scope    Process filter: ' + ($scopedFilters -join ', ')
+                if ($Sample.PSObject.Properties.Name -contains 'MonitorProcessMatchCount' -and $null -ne $Sample.MonitorProcessMatchCount)
+                {
+                    $scopeText += (' | matches: {0}' -f [Int32]$Sample.MonitorProcessMatchCount)
+                }
+
+                $scopeLine = Add-SubtleText -Text $scopeText
+            }
 
             $lines = @(
                 $titleLine,
@@ -1789,12 +2088,17 @@
                 $historyLine
             )
 
+            if (-not [String]::IsNullOrWhiteSpace($scopeLine))
+            {
+                $lines += $scopeLine
+            }
+
             if ($IncludeTopProcesses)
             {
                 $topProcessHeader = "Top Processes (limit: $TopProcessCount)"
-                if ($topProcessNameFilters.Count -gt 0)
+                if ($effectiveTopProcessNameFilters.Count -gt 0)
                 {
-                    $topProcessHeader += ' | filter: ' + ($topProcessNameFilters -join ', ')
+                    $topProcessHeader += ' | filter: ' + ($effectiveTopProcessNameFilters -join ', ')
                 }
 
                 $lines += @(
