@@ -43,7 +43,7 @@ Describe 'Show-SystemResourceMonitor' {
         $dividerIndices = @(
             for ($index = 0; $index -lt $lines.Count; $index++)
             {
-                if ($lines[$index] -match '^[─-]{10,}$')
+                if ($lines[$index] -match '^(?:\u2500|-){10,}$')
                 {
                     $index
                 }
