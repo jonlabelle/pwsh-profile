@@ -8,11 +8,14 @@ function Get-CertificateDetails
         This function retrieves comprehensive certificate details including subject, issuer, expiration dates,
         thumbprint, serial number, signature algorithm, and more. It supports checking remote hosts over SSL/TLS
         (with configurable timeout and port settings) and local certificate files (.cer/.crt/.der/.pem).
+        Values passed through ComputerName (or positional input) are automatically interpreted as host/URL targets
+        or local certificate paths.
         The function is cross-platform compatible and works with PowerShell 5.1+ on Windows, macOS, and Linux.
 
     .PARAMETER ComputerName
-        The hostname or IP address to retrieve SSL certificate details from.
-        Accepts an array of computer names. Defaults to 'localhost' if not specified.
+        The hostname, IP address, URL, or certificate path to retrieve SSL certificate details from.
+        Accepts an array of values and auto-detects whether each one is a remote endpoint or local cert file.
+        Defaults to 'localhost' if not specified.
 
     .PARAMETER Path
         Path to one or more certificate files to inspect.
@@ -119,7 +122,7 @@ function Get-CertificateDetails
         https://docs.microsoft.com/en-us/dotnet/api/system.net.security.sslstream
 
     .NOTES
-        Network connectivity is required only when using the ComputerName parameter set.
+        Network connectivity is required only for host/URL targets.
         The certificate validation callback is set to always return true to retrieve certificates
         even if they have validation issues (expired, self-signed, etc.).
 
@@ -135,13 +138,13 @@ function Get-CertificateDetails
     [OutputType([System.Management.Automation.PSCustomObject])]
     param
     (
-        [Parameter(ParameterSetName = 'ComputerName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Parameter(ParameterSetName = 'ComputerName', Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [Alias('HostName', 'Server', 'Name')]
         [ValidateNotNullOrEmpty()]
         [String[]]
         $ComputerName = 'localhost',
 
-        [Parameter(Mandatory, ParameterSetName = 'Path')]
+        [Parameter(Mandatory, ParameterSetName = 'Path', Position = 0)]
         [Alias('FilePath', 'LiteralPath')]
         [ValidateNotNullOrEmpty()]
         [String[]]
@@ -169,6 +172,140 @@ function Get-CertificateDetails
     begin
     {
         Write-Verbose 'Starting SSL certificate details retrieval'
+
+        function Resolve-CertificateTarget
+        {
+            param
+            (
+                [String]$InputValue,
+                [Int32]$DefaultPort,
+                [Switch]$ForcePath
+            )
+
+            if ([string]::IsNullOrWhiteSpace($InputValue))
+            {
+                return $null
+            }
+
+            $trimmedValue = $InputValue.Trim()
+
+            if ($ForcePath)
+            {
+                return [PSCustomObject]@{
+                    Type = 'Path'
+                    Path = $trimmedValue
+                    HostName = $null
+                    Port = $null
+                }
+            }
+
+            # Existing files/wildcards should always be treated as local certificate paths.
+            try
+            {
+                if (Resolve-Path -Path $trimmedValue -ErrorAction Stop)
+                {
+                    return [PSCustomObject]@{
+                        Type = 'Path'
+                        Path = $trimmedValue
+                        HostName = $null
+                        Port = $null
+                    }
+                }
+            }
+            catch
+            {
+                Write-Verbose "Input '$trimmedValue' did not resolve as an existing path. Continuing with host/URL detection."
+            }
+
+            $absoluteUri = $null
+            if ([Uri]::TryCreate($trimmedValue, [UriKind]::Absolute, [ref]$absoluteUri))
+            {
+                if ($absoluteUri.IsFile)
+                {
+                    return [PSCustomObject]@{
+                        Type = 'Path'
+                        Path = $absoluteUri.LocalPath
+                        HostName = $null
+                        Port = $null
+                    }
+                }
+
+                if ($absoluteUri.Host)
+                {
+                    $resolvedPort = if (($absoluteUri.Port -ge 1) -and ($absoluteUri.Port -le 65535))
+                    {
+                        if ($absoluteUri.IsDefaultPort -or ($absoluteUri.Scheme -eq 'http' -and $absoluteUri.Port -eq 80))
+                        {
+                            $DefaultPort
+                        }
+                        else
+                        {
+                            $absoluteUri.Port
+                        }
+                    }
+                    else
+                    {
+                        $DefaultPort
+                    }
+
+                    return [PSCustomObject]@{
+                        Type = 'Host'
+                        Path = $null
+                        HostName = $absoluteUri.DnsSafeHost
+                        Port = $resolvedPort
+                    }
+                }
+            }
+
+            $looksLikePath = $trimmedValue -match '^[a-zA-Z]:[\\/]' -or
+                $trimmedValue -match '^[\\/]{2}' -or
+                $trimmedValue.StartsWith('./') -or
+                $trimmedValue.StartsWith('.\\') -or
+                $trimmedValue.StartsWith('../') -or
+                $trimmedValue.StartsWith('..\\') -or
+                $trimmedValue.StartsWith('~/') -or
+                $trimmedValue.StartsWith('~\\') -or
+                $trimmedValue -match '[\\/]' -or
+                $trimmedValue -like '*`**' -or
+                $trimmedValue -match '\.(cer|crt|der|pem|p7b|pfx|p12)$'
+
+            if ($looksLikePath)
+            {
+                return [PSCustomObject]@{
+                    Type = 'Path'
+                    Path = $trimmedValue
+                    HostName = $null
+                    Port = $null
+                }
+            }
+
+            $tcpUri = $null
+            if ([Uri]::TryCreate("tcp://$trimmedValue", [UriKind]::Absolute, [ref]$tcpUri) -and $tcpUri.Host)
+            {
+                $resolvedPort = if (($tcpUri.Port -ge 1) -and ($tcpUri.Port -le 65535) -and -not $tcpUri.IsDefaultPort)
+                {
+                    $tcpUri.Port
+                }
+                else
+                {
+                    $DefaultPort
+                }
+
+                return [PSCustomObject]@{
+                    Type = 'Host'
+                    Path = $null
+                    HostName = $tcpUri.DnsSafeHost
+                    Port = $resolvedPort
+                }
+            }
+
+            return [PSCustomObject]@{
+                Type = 'Host'
+                Path = $null
+                HostName = $trimmedValue
+                Port = $DefaultPort
+            }
+        }
 
         function Get-CertificateFromHost
         {
@@ -501,13 +638,22 @@ function Get-CertificateDetails
 
     process
     {
-        if ($PSCmdlet.ParameterSetName -eq 'Path')
-        {
-            foreach ($certificatePath in $Path)
-            {
-                Write-Verbose "Processing certificate file path: $certificatePath"
+        $isPathParameterSet = $PSCmdlet.ParameterSetName -eq 'Path'
+        $inputValues = if ($isPathParameterSet) { $Path } else { $ComputerName }
 
-                $certResults = Get-CertificateFromFile -CertificatePath $certificatePath
+        foreach ($inputValue in $inputValues)
+        {
+            $target = Resolve-CertificateTarget -InputValue $inputValue -DefaultPort $Port -ForcePath:$isPathParameterSet
+            if (-not $target)
+            {
+                continue
+            }
+
+            if ($target.Type -eq 'Path')
+            {
+                Write-Verbose "Processing certificate file path: $($target.Path)"
+
+                $certResults = Get-CertificateFromFile -CertificatePath $target.Path
 
                 foreach ($certResult in $certResults)
                 {
@@ -521,25 +667,21 @@ function Get-CertificateDetails
                             -Chain $certResult.Chain
                     }
                 }
+                continue
             }
-        }
-        else
-        {
-            foreach ($computer in $ComputerName)
+
+            Write-Verbose "Processing host: $($target.HostName)"
+
+            $certResult = Get-CertificateFromHost -HostName $target.HostName -PortNumber $target.Port -TimeoutMs $Timeout
+
+            if ($certResult -and $certResult.Certificate)
             {
-                Write-Verbose "Processing host: $computer"
-
-                $certResult = Get-CertificateFromHost -HostName $computer -PortNumber $Port -TimeoutMs $Timeout
-
-                if ($certResult -and $certResult.Certificate)
-                {
-                    Get-CertificateDetailsObject `
-                        -Certificate $certResult.Certificate `
-                        -Computer $computer `
-                        -PortNumber $Port `
-                        -CertificatePath $null `
-                        -Chain $certResult.Chain
-                }
+                Get-CertificateDetailsObject `
+                    -Certificate $certResult.Certificate `
+                    -Computer $target.HostName `
+                    -PortNumber $target.Port `
+                    -CertificatePath $null `
+                    -Chain $certResult.Chain
             }
         }
     }

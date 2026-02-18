@@ -8,10 +8,13 @@ function Get-CertificateExpiration
         This function retrieves the certificate's expiration date (NotAfter) from either a remote host
         via SSL/TLS or from local certificate files (.cer/.crt/.der/.pem). It can check multiple hosts
         or files, provides options for timeout configuration, and can return detailed certificate information.
+        Values passed through ComputerName (or positional input) are automatically interpreted as host/URL targets
+        or local certificate paths.
 
     .PARAMETER ComputerName
-        The hostname or IP address to check for SSL certificate expiration.
-        Accepts an array of computer names. Defaults to 'localhost' if not specified.
+        The hostname, IP address, URL, or certificate path to check for SSL certificate expiration.
+        Accepts an array of values and auto-detects whether each one is a remote endpoint or local cert file.
+        Defaults to 'localhost' if not specified.
 
     .PARAMETER Path
         Path to one or more certificate files to inspect.
@@ -112,7 +115,7 @@ function Get-CertificateExpiration
         https://docs.microsoft.com/en-us/dotnet/api/system.net.security.sslstream
 
     .NOTES
-        Network connectivity is required only when using the ComputerName parameter set.
+        Network connectivity is required only for host/URL targets.
 
         Author: Jon LaBelle
         License: MIT
@@ -126,13 +129,13 @@ function Get-CertificateExpiration
     [OutputType([System.DateTime], [System.Management.Automation.PSCustomObject])]
     param
     (
-        [Parameter(ParameterSetName = 'ComputerName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Parameter(ParameterSetName = 'ComputerName', Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [Alias('HostName', 'Server', 'Name')]
         [ValidateNotNullOrEmpty()]
         [String[]]
         $ComputerName = 'localhost',
 
-        [Parameter(Mandatory, ParameterSetName = 'Path')]
+        [Parameter(Mandatory, ParameterSetName = 'Path', Position = 0)]
         [Alias('FilePath', 'LiteralPath')]
         [ValidateNotNullOrEmpty()]
         [String[]]
@@ -165,6 +168,140 @@ function Get-CertificateExpiration
     begin
     {
         Write-Verbose 'Starting SSL certificate expiration check'
+
+        function Resolve-CertificateTarget
+        {
+            param
+            (
+                [String]$InputValue,
+                [Int32]$DefaultPort,
+                [Switch]$ForcePath
+            )
+
+            if ([string]::IsNullOrWhiteSpace($InputValue))
+            {
+                return $null
+            }
+
+            $trimmedValue = $InputValue.Trim()
+
+            if ($ForcePath)
+            {
+                return [PSCustomObject]@{
+                    Type = 'Path'
+                    Path = $trimmedValue
+                    HostName = $null
+                    Port = $null
+                }
+            }
+
+            # Existing files/wildcards should always be treated as local certificate paths.
+            try
+            {
+                if (Resolve-Path -Path $trimmedValue -ErrorAction Stop)
+                {
+                    return [PSCustomObject]@{
+                        Type = 'Path'
+                        Path = $trimmedValue
+                        HostName = $null
+                        Port = $null
+                    }
+                }
+            }
+            catch
+            {
+                Write-Verbose "Input '$trimmedValue' did not resolve as an existing path. Continuing with host/URL detection."
+            }
+
+            $absoluteUri = $null
+            if ([Uri]::TryCreate($trimmedValue, [UriKind]::Absolute, [ref]$absoluteUri))
+            {
+                if ($absoluteUri.IsFile)
+                {
+                    return [PSCustomObject]@{
+                        Type = 'Path'
+                        Path = $absoluteUri.LocalPath
+                        HostName = $null
+                        Port = $null
+                    }
+                }
+
+                if ($absoluteUri.Host)
+                {
+                    $resolvedPort = if (($absoluteUri.Port -ge 1) -and ($absoluteUri.Port -le 65535))
+                    {
+                        if ($absoluteUri.IsDefaultPort -or ($absoluteUri.Scheme -eq 'http' -and $absoluteUri.Port -eq 80))
+                        {
+                            $DefaultPort
+                        }
+                        else
+                        {
+                            $absoluteUri.Port
+                        }
+                    }
+                    else
+                    {
+                        $DefaultPort
+                    }
+
+                    return [PSCustomObject]@{
+                        Type = 'Host'
+                        Path = $null
+                        HostName = $absoluteUri.DnsSafeHost
+                        Port = $resolvedPort
+                    }
+                }
+            }
+
+            $looksLikePath = $trimmedValue -match '^[a-zA-Z]:[\\/]' -or
+                $trimmedValue -match '^[\\/]{2}' -or
+                $trimmedValue.StartsWith('./') -or
+                $trimmedValue.StartsWith('.\\') -or
+                $trimmedValue.StartsWith('../') -or
+                $trimmedValue.StartsWith('..\\') -or
+                $trimmedValue.StartsWith('~/') -or
+                $trimmedValue.StartsWith('~\\') -or
+                $trimmedValue -match '[\\/]' -or
+                $trimmedValue -like '*`**' -or
+                $trimmedValue -match '\.(cer|crt|der|pem|p7b|pfx|p12)$'
+
+            if ($looksLikePath)
+            {
+                return [PSCustomObject]@{
+                    Type = 'Path'
+                    Path = $trimmedValue
+                    HostName = $null
+                    Port = $null
+                }
+            }
+
+            $tcpUri = $null
+            if ([Uri]::TryCreate("tcp://$trimmedValue", [UriKind]::Absolute, [ref]$tcpUri) -and $tcpUri.Host)
+            {
+                $resolvedPort = if (($tcpUri.Port -ge 1) -and ($tcpUri.Port -le 65535) -and -not $tcpUri.IsDefaultPort)
+                {
+                    $tcpUri.Port
+                }
+                else
+                {
+                    $DefaultPort
+                }
+
+                return [PSCustomObject]@{
+                    Type = 'Host'
+                    Path = $null
+                    HostName = $tcpUri.DnsSafeHost
+                    Port = $resolvedPort
+                }
+            }
+
+            return [PSCustomObject]@{
+                Type = 'Host'
+                Path = $null
+                HostName = $trimmedValue
+                Port = $DefaultPort
+            }
+        }
 
         function Get-CertificateFromHost
         {
@@ -333,13 +470,22 @@ function Get-CertificateExpiration
 
     process
     {
-        if ($PSCmdlet.ParameterSetName -eq 'Path')
-        {
-            foreach ($certificatePath in $Path)
-            {
-                Write-Verbose "Processing certificate file path: $certificatePath"
+        $isPathParameterSet = $PSCmdlet.ParameterSetName -eq 'Path'
+        $inputValues = if ($isPathParameterSet) { $Path } else { $ComputerName }
 
-                $certificateEntries = Get-CertificateFromFile -CertificatePath $certificatePath
+        foreach ($inputValue in $inputValues)
+        {
+            $target = Resolve-CertificateTarget -InputValue $inputValue -DefaultPort $Port -ForcePath:$isPathParameterSet
+            if (-not $target)
+            {
+                continue
+            }
+
+            if ($target.Type -eq 'Path')
+            {
+                Write-Verbose "Processing certificate file path: $($target.Path)"
+
+                $certificateEntries = Get-CertificateFromFile -CertificatePath $target.Path
 
                 foreach ($certificateEntry in $certificateEntries)
                 {
@@ -392,58 +538,54 @@ function Get-CertificateExpiration
                         $expirationDate
                     }
                 }
+                continue
             }
-        }
-        else
-        {
-            foreach ($computer in $ComputerName)
+
+            Write-Verbose "Processing host: $($target.HostName)"
+
+            $certificate = Get-CertificateFromHost -HostName $target.HostName -PortNumber $target.Port -TimeoutMs $Timeout
+
+            if ($certificate)
             {
-                Write-Verbose "Processing host: $computer"
+                $expirationDate = $certificate.NotAfter
+                $daysUntilExpiration = ($expirationDate - (Get-Date)).Days
 
-                $certificate = Get-CertificateFromHost -HostName $computer -PortNumber $Port -TimeoutMs $Timeout
-
-                if ($certificate)
+                # Check if warning should be displayed
+                if ($WarnIfExpiresSoon -and $daysUntilExpiration -le $DaysToWarn)
                 {
-                    $expirationDate = $certificate.NotAfter
-                    $daysUntilExpiration = ($expirationDate - (Get-Date)).Days
-
-                    # Check if warning should be displayed
-                    if ($WarnIfExpiresSoon -and $daysUntilExpiration -le $DaysToWarn)
+                    if ($daysUntilExpiration -lt 0)
                     {
-                        if ($daysUntilExpiration -lt 0)
-                        {
-                            Write-Warning "Certificate for $computer`:$Port EXPIRED $([Math]::Abs($daysUntilExpiration)) days ago on $($expirationDate.ToString('yyyy-MM-dd HH:mm:ss'))"
-                        }
-                        else
-                        {
-                            Write-Warning "Certificate for $computer`:$Port expires in $daysUntilExpiration days on $($expirationDate.ToString('yyyy-MM-dd HH:mm:ss'))"
-                        }
-                    }
-
-                    if ($IncludeCertificateDetails)
-                    {
-                        # Return detailed certificate information
-                        [PSCustomObject]@{
-                            ComputerName = $computer
-                            Port = $Port
-                            Subject = $certificate.Subject
-                            Issuer = $certificate.Issuer
-                            NotBefore = $certificate.NotBefore
-                            NotAfter = $certificate.NotAfter
-                            Thumbprint = $certificate.Thumbprint
-                            SerialNumber = $certificate.SerialNumber
-                            DaysUntilExpiration = $daysUntilExpiration
-                            IsExpired = $daysUntilExpiration -lt 0
-                            SignatureAlgorithm = $certificate.SignatureAlgorithm.FriendlyName
-                            Version = $certificate.Version
-                            HasPrivateKey = $certificate.HasPrivateKey
-                        }
+                        Write-Warning "Certificate for $($target.HostName):$($target.Port) EXPIRED $([Math]::Abs($daysUntilExpiration)) days ago on $($expirationDate.ToString('yyyy-MM-dd HH:mm:ss'))"
                     }
                     else
                     {
-                        # Return just the expiration date
-                        $expirationDate
+                        Write-Warning "Certificate for $($target.HostName):$($target.Port) expires in $daysUntilExpiration days on $($expirationDate.ToString('yyyy-MM-dd HH:mm:ss'))"
                     }
+                }
+
+                if ($IncludeCertificateDetails)
+                {
+                    # Return detailed certificate information
+                    [PSCustomObject]@{
+                        ComputerName = $target.HostName
+                        Port = $target.Port
+                        Subject = $certificate.Subject
+                        Issuer = $certificate.Issuer
+                        NotBefore = $certificate.NotBefore
+                        NotAfter = $certificate.NotAfter
+                        Thumbprint = $certificate.Thumbprint
+                        SerialNumber = $certificate.SerialNumber
+                        DaysUntilExpiration = $daysUntilExpiration
+                        IsExpired = $daysUntilExpiration -lt 0
+                        SignatureAlgorithm = $certificate.SignatureAlgorithm.FriendlyName
+                        Version = $certificate.Version
+                        HasPrivateKey = $certificate.HasPrivateKey
+                    }
+                }
+                else
+                {
+                    # Return just the expiration date
+                    $expirationDate
                 }
             }
         }
