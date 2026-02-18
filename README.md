@@ -460,8 +460,6 @@ The profile includes utility functions organized by category:
 
 ### Network and DNS
 
-- **[`Get-CertificateExpiration`](Functions/NetworkAndDns/Get-CertificateExpiration.ps1)** — Gets SSL/TLS certificate expiration dates from remote hosts or cert files
-- **[`Get-CertificateDetails`](Functions/NetworkAndDns/Get-CertificateDetails.ps1)** — Retrieves detailed SSL/TLS certificate information from remote hosts or cert files
 - **[`Get-DnsRecord`](Functions/NetworkAndDns/Get-DnsRecord.ps1)** — Retrieves DNS records for any record type using DNS-over-HTTPS
 - **[`Get-IPAddress`](Functions/NetworkAndDns/Get-IPAddress.ps1)** — Gets local network interface IPs or public IP address with geolocation data
 - **[`Get-IPSubnet`](Functions/NetworkAndDns/Get-IPSubnet.ps1)** — Calculates IP subnet information including network/broadcast addresses
@@ -501,6 +499,8 @@ The profile includes utility functions organized by category:
 ### Security
 
 - **[`ConvertFrom-JwtToken`](Functions/Security/ConvertFrom-JwtToken.ps1)** — Decodes a JWT (JSON Web Token) and returns its header and payload
+- **[`Get-CertificateDetails`](Functions/Security/Get-CertificateDetails.ps1)** — Retrieves detailed SSL/TLS certificate information from remote hosts or cert files
+- **[`Get-CertificateExpiration`](Functions/Security/Get-CertificateExpiration.ps1)** — Gets SSL/TLS certificate expiration dates from remote hosts or cert files
 - **[`Protect-PathWithPassword`](Functions/Security/Protect-PathWithPassword.ps1)** — Encrypts files or folders with AES-256 encryption using a password
 - **[`Unprotect-PathWithPassword`](Functions/Security/Unprotect-PathWithPassword.ps1)** — Decrypts files that were encrypted with Protect-PathWithPassword
 

@@ -116,10 +116,10 @@ function Get-CertificateExpiration
 
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-CertificateExpiration.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Security/Get-CertificateExpiration.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-CertificateExpiration.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Security/Get-CertificateExpiration.ps1
     #>
 
     [CmdletBinding(DefaultParameterSetName = 'ComputerName')]

@@ -126,9 +126,9 @@ function Get-CertificateDetails
         Author: Jon LaBelle
         License: MIT
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-CertificateDetails.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Security/Get-CertificateDetails.ps1
 
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-CertificateDetails.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Security/Get-CertificateDetails.ps1
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding(DefaultParameterSetName = 'ComputerName')]
