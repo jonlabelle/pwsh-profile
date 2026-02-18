@@ -1,4 +1,4 @@
-function Get-CertificateDetails
+function Get-CertificateInfo
 {
     <#
     .SYNOPSIS
@@ -38,7 +38,7 @@ function Get-CertificateDetails
         Key Usage, Extended Key Usage, and other X.509 extensions.
 
     .EXAMPLE
-        PS > Get-CertificateDetails -ComputerName 'jonlabelle.com'
+        PS > Get-CertificateInfo -ComputerName 'jonlabelle.com'
 
         ComputerName        : jonlabelle.com
         Port                : 443
@@ -61,22 +61,22 @@ function Get-CertificateDetails
         Gets detailed SSL certificate information for bing.com on port 443.
 
     .EXAMPLE
-        PS > Get-CertificateDetails -ComputerName 'example.com' -Port 8443
+        PS > Get-CertificateInfo -ComputerName 'example.com' -Port 8443
 
         Gets detailed SSL certificate information for example.com on port 8443.
 
     .EXAMPLE
-        PS > @('bing.com', 'github.com', 'stackoverflow.com') | Get-CertificateDetails
+        PS > @('bing.com', 'github.com', 'stackoverflow.com') | Get-CertificateInfo
 
         Gets detailed SSL certificate information for multiple hosts using pipeline input.
 
     .EXAMPLE
-        PS > Get-CertificateDetails -ComputerName 'secure.company.com' -Timeout 5000 -IncludeChain
+        PS > Get-CertificateInfo -ComputerName 'secure.company.com' -Timeout 5000 -IncludeChain
 
         Gets certificate details with a 5-second timeout and includes certificate chain information.
 
     .EXAMPLE
-        PS > Get-CertificateDetails -ComputerName 'bing.com' -IncludeExtensions
+        PS > Get-CertificateInfo -ComputerName 'bing.com' -IncludeExtensions
 
         ComputerName        : jonlabelle.com
         Port                : 443
@@ -102,12 +102,12 @@ function Get-CertificateDetails
         Gets certificate details including X.509 extensions like Subject Alternative Names.
 
     .EXAMPLE
-        PS > Get-Content ./hosts.txt | Get-CertificateDetails | Where-Object { $_.DaysUntilExpiration -lt 14 }
+        PS > Get-Content ./hosts.txt | Get-CertificateInfo | Where-Object { $_.DaysUntilExpiration -lt 14 }
 
         Reads a list of customer domains from a file and surfaces any certificates expiring within two weeks for proactive renewals.
 
     .EXAMPLE
-        PS > Get-CertificateDetails -Path './certs/api-gateway.pem', './certs/internal.cer'
+        PS > Get-CertificateInfo -Path './certs/api-gateway.pem', './certs/internal.cer'
 
         Reads certificate details from local certificate files.
 
@@ -129,9 +129,9 @@ function Get-CertificateDetails
         Author: Jon LaBelle
         License: MIT
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Security/Get-CertificateDetails.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Security/Get-CertificateInfo.ps1
 
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Security/Get-CertificateDetails.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Security/Get-CertificateInfo.ps1
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding(DefaultParameterSetName = 'ComputerName')]
@@ -517,7 +517,7 @@ function Get-CertificateDetails
             return $results
         }
 
-        function Get-CertificateDetailsObject
+        function Get-CertificateInfoObject
         {
             param
             (
@@ -659,7 +659,7 @@ function Get-CertificateDetails
                 {
                     if ($certResult -and $certResult.Certificate)
                     {
-                        Get-CertificateDetailsObject `
+                        Get-CertificateInfoObject `
                             -Certificate $certResult.Certificate `
                             -Computer $null `
                             -PortNumber $null `
@@ -676,7 +676,7 @@ function Get-CertificateDetails
 
             if ($certResult -and $certResult.Certificate)
             {
-                Get-CertificateDetailsObject `
+                Get-CertificateInfoObject `
                     -Certificate $certResult.Certificate `
                     -Computer $target.HostName `
                     -PortNumber $target.Port `
