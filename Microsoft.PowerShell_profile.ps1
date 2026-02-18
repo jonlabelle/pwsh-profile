@@ -36,6 +36,26 @@ else
 # Prevent ths script's vars from leaking into the global scope
 Remove-Variable -Name functionsPath, functions, function, failedCount -ErrorAction SilentlyContinue
 
+# Use UTF-8 output encoding (no bom) when supported by the host.
+try
+{
+    $utf8OutputEncoding = New-Object -TypeName System.Text.UTF8Encoding -ArgumentList $false
+    $OutputEncoding = $utf8OutputEncoding
+
+    if ($Host.UI -and $Host.UI.RawUI)
+    {
+        [Console]::OutputEncoding = $utf8OutputEncoding
+    }
+}
+catch
+{
+    Write-Warning "Unable to set UTF-8 output encoding: $($_.Exception.Message)"
+}
+finally
+{
+    Remove-Variable -Name utf8OutputEncoding -ErrorAction SilentlyContinue
+}
+
 # Custom prompt function
 function Prompt
 {
