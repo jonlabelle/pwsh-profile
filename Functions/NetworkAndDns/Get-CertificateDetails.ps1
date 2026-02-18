@@ -2,17 +2,21 @@ function Get-CertificateDetails
 {
     <#
     .SYNOPSIS
-        Gets detailed SSL/TLS certificate information from remote hosts.
+        Gets detailed SSL/TLS certificate information from remote hosts or certificate files.
 
     .DESCRIPTION
-        This function connects to remote hosts via SSL/TLS and retrieves comprehensive certificate details
-        including subject, issuer, expiration dates, thumbprint, serial number, signature algorithm, and more.
-        It supports checking multiple hosts and ports with configurable timeout settings. The function is
-        cross-platform compatible and works with PowerShell 5.1+ on Windows, macOS, and Linux.
+        This function retrieves comprehensive certificate details including subject, issuer, expiration dates,
+        thumbprint, serial number, signature algorithm, and more. It supports checking remote hosts over SSL/TLS
+        (with configurable timeout and port settings) and local certificate files (.cer/.crt/.der/.pem).
+        The function is cross-platform compatible and works with PowerShell 5.1+ on Windows, macOS, and Linux.
 
     .PARAMETER ComputerName
         The hostname or IP address to retrieve SSL certificate details from.
         Accepts an array of computer names. Defaults to 'localhost' if not specified.
+
+    .PARAMETER Path
+        Path to one or more certificate files to inspect.
+        Supports wildcard paths and PEM files with one or more certificate blocks.
 
     .PARAMETER Port
         The port number to connect to for SSL certificate retrieval.
@@ -99,6 +103,11 @@ function Get-CertificateDetails
 
         Reads a list of customer domains from a file and surfaces any certificates expiring within two weeks for proactive renewals.
 
+    .EXAMPLE
+        PS > Get-CertificateDetails -Path './certs/api-gateway.pem', './certs/internal.cer'
+
+        Reads certificate details from local certificate files.
+
     .OUTPUTS
         System.Management.Automation.PSCustomObject
         Returns detailed certificate information including subject, issuer, dates, thumbprint, and other properties.
@@ -110,7 +119,7 @@ function Get-CertificateDetails
         https://docs.microsoft.com/en-us/dotnet/api/system.net.security.sslstream
 
     .NOTES
-        This function requires network connectivity to the target host and port.
+        Network connectivity is required only when using the ComputerName parameter set.
         The certificate validation callback is set to always return true to retrieve certificates
         even if they have validation issues (expired, self-signed, etc.).
 
@@ -122,22 +131,28 @@ function Get-CertificateDetails
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-CertificateDetails.ps1
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'ComputerName')]
     [OutputType([System.Management.Automation.PSCustomObject])]
     param
     (
-        [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Parameter(ParameterSetName = 'ComputerName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [Alias('HostName', 'Server', 'Name')]
         [ValidateNotNullOrEmpty()]
         [String[]]
         $ComputerName = 'localhost',
 
-        [Parameter()]
+        [Parameter(Mandatory, ParameterSetName = 'Path')]
+        [Alias('FilePath', 'LiteralPath')]
+        [ValidateNotNullOrEmpty()]
+        [String[]]
+        $Path,
+
+        [Parameter(ParameterSetName = 'ComputerName')]
         [ValidateRange(1, 65535)]
         [Int32]
         $Port = 443,
 
-        [Parameter()]
+        [Parameter(ParameterSetName = 'ComputerName')]
         [ValidateRange(1000, 300000)]
         [Int32]
         $Timeout = 10000,
@@ -239,6 +254,202 @@ function Get-CertificateDetails
             }
         }
 
+        function Get-CertificatesFromPemText
+        {
+            param
+            (
+                [String]$PemText
+            )
+
+            $certificates = @()
+            $pemPattern = '-----BEGIN CERTIFICATE-----\s*(?<Body>.*?)\s*-----END CERTIFICATE-----'
+            $pemMatches = [System.Text.RegularExpressions.Regex]::Matches(
+                $PemText,
+                $pemPattern,
+                [System.Text.RegularExpressions.RegexOptions]::Singleline
+            )
+
+            foreach ($pemMatch in $pemMatches)
+            {
+                $base64Body = ($pemMatch.Groups['Body'].Value -replace '\s', '')
+                if ([string]::IsNullOrWhiteSpace($base64Body))
+                {
+                    continue
+                }
+
+                $certificateBytes = [Convert]::FromBase64String($base64Body)
+                $certificates += [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($certificateBytes)
+            }
+
+            return $certificates
+        }
+
+        function Get-CertificateFromFile
+        {
+            param
+            (
+                [String]$CertificatePath
+            )
+
+            $resolvedPaths = @()
+
+            try
+            {
+                $resolvedPaths = Resolve-Path -Path $CertificatePath -ErrorAction Stop
+            }
+            catch
+            {
+                Write-Error "Failed to resolve certificate path '$CertificatePath' - $($_.Exception.Message)"
+                return @()
+            }
+
+            $results = @()
+
+            foreach ($resolvedPath in $resolvedPaths)
+            {
+                $fullPath = $resolvedPath.ProviderPath
+
+                if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf))
+                {
+                    Write-Error "Certificate path '$fullPath' is not a file."
+                    continue
+                }
+
+                try
+                {
+                    Write-Verbose "Loading certificate file: $fullPath"
+
+                    $certificates = @()
+                    $fileText = Get-Content -LiteralPath $fullPath -Raw -ErrorAction Stop
+
+                    if ($fileText -match '-----BEGIN CERTIFICATE-----')
+                    {
+                        $certificates = Get-CertificatesFromPemText -PemText $fileText
+                    }
+
+                    if ($certificates.Count -eq 0)
+                    {
+                        $certificates = @([System.Security.Cryptography.X509Certificates.X509Certificate2]::new($fullPath))
+                    }
+
+                    if ($certificates.Count -eq 0)
+                    {
+                        throw "No certificates were found in '$fullPath'."
+                    }
+
+                    $result = @{
+                        Certificate = $certificates[0]
+                        Chain = $null
+                        CertificatePath = $fullPath
+                        AdditionalCertificates = @()
+                    }
+
+                    if ($certificates.Count -gt 1)
+                    {
+                        $result.AdditionalCertificates = $certificates[1..($certificates.Count - 1)]
+                    }
+
+                    if ($IncludeChain)
+                    {
+                        try
+                        {
+                            $chain = New-Object System.Security.Cryptography.X509Certificates.X509Chain
+
+                            foreach ($extraCertificate in $result.AdditionalCertificates)
+                            {
+                                [void]$chain.ChainPolicy.ExtraStore.Add($extraCertificate)
+                            }
+
+                            $chain.Build($result.Certificate) | Out-Null
+                            $result.Chain = $chain
+                        }
+                        catch
+                        {
+                            Write-Verbose "Could not build certificate chain for '$fullPath': $($_.Exception.Message)"
+                        }
+                    }
+
+                    $results += $result
+                }
+                catch
+                {
+                    Write-Error "Failed to load certificate file '$fullPath' - $($_.Exception.Message)"
+                }
+            }
+
+            return $results
+        }
+
+        function Get-CertificateDetailsObject
+        {
+            param
+            (
+                [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+                [String]$Computer,
+                [Nullable[Int32]]$PortNumber,
+                [String]$CertificatePath,
+                [System.Security.Cryptography.X509Certificates.X509Chain]$Chain
+            )
+
+            $expirationDate = $Certificate.NotAfter
+            $daysUntilExpiration = ($expirationDate - (Get-Date)).Days
+
+            # Build the main certificate details object
+            $details = [PSCustomObject]@{
+                ComputerName = $Computer
+                Port = $PortNumber
+                Subject = $Certificate.Subject
+                Issuer = $Certificate.Issuer
+                NotBefore = $Certificate.NotBefore
+                NotAfter = $Certificate.NotAfter
+                Thumbprint = $Certificate.Thumbprint
+                SerialNumber = $Certificate.SerialNumber
+                DaysUntilExpiration = $daysUntilExpiration
+                IsExpired = $daysUntilExpiration -lt 0
+                SignatureAlgorithm = $Certificate.SignatureAlgorithm.FriendlyName
+                PublicKeyAlgorithm = $Certificate.PublicKey.Oid.FriendlyName
+                KeySize = $Certificate.PublicKey.Key.KeySize
+                Version = $Certificate.Version
+                HasPrivateKey = $Certificate.HasPrivateKey
+                FriendlyName = $Certificate.FriendlyName
+                Archived = $Certificate.Archived
+            }
+
+            if ($CertificatePath)
+            {
+                $details | Add-Member -MemberType NoteProperty -Name 'CertificatePath' -Value $CertificatePath
+            }
+
+            # Add certificate extensions if requested
+            if ($IncludeExtensions)
+            {
+                $extensions = Get-CertificateExtensions -Certificate $Certificate
+                $details | Add-Member -MemberType NoteProperty -Name 'Extensions' -Value $extensions
+            }
+
+            # Add certificate chain if requested and available
+            if ($IncludeChain -and $Chain)
+            {
+                $chainInfo = @()
+                foreach ($chainElement in $Chain.ChainElements)
+                {
+                    $chainInfo += [PSCustomObject]@{
+                        Subject = $chainElement.Certificate.Subject
+                        Issuer = $chainElement.Certificate.Issuer
+                        Thumbprint = $chainElement.Certificate.Thumbprint
+                        NotBefore = $chainElement.Certificate.NotBefore
+                        NotAfter = $chainElement.Certificate.NotAfter
+                        ChainElementStatus = $chainElement.ChainElementStatus
+                    }
+                }
+
+                $details | Add-Member -MemberType NoteProperty -Name 'CertificateChain' -Value $chainInfo
+                $details | Add-Member -MemberType NoteProperty -Name 'ChainStatus' -Value $Chain.ChainStatus
+            }
+
+            return $details
+        }
+
         function Get-CertificateExtensions
         {
             param
@@ -290,67 +501,45 @@ function Get-CertificateDetails
 
     process
     {
-        foreach ($computer in $ComputerName)
+        if ($PSCmdlet.ParameterSetName -eq 'Path')
         {
-            Write-Verbose "Processing host: $computer"
-
-            $certResult = Get-CertificateFromHost -HostName $computer -PortNumber $Port -TimeoutMs $Timeout
-
-            if ($certResult -and $certResult.Certificate)
+            foreach ($certificatePath in $Path)
             {
-                $certificate = $certResult.Certificate
-                $expirationDate = $certificate.NotAfter
-                $daysUntilExpiration = ($expirationDate - (Get-Date)).Days
+                Write-Verbose "Processing certificate file path: $certificatePath"
 
-                # Build the main certificate details object
-                $details = [PSCustomObject]@{
-                    ComputerName = $computer
-                    Port = $Port
-                    Subject = $certificate.Subject
-                    Issuer = $certificate.Issuer
-                    NotBefore = $certificate.NotBefore
-                    NotAfter = $certificate.NotAfter
-                    Thumbprint = $certificate.Thumbprint
-                    SerialNumber = $certificate.SerialNumber
-                    DaysUntilExpiration = $daysUntilExpiration
-                    IsExpired = $daysUntilExpiration -lt 0
-                    SignatureAlgorithm = $certificate.SignatureAlgorithm.FriendlyName
-                    PublicKeyAlgorithm = $certificate.PublicKey.Oid.FriendlyName
-                    KeySize = $certificate.PublicKey.Key.KeySize
-                    Version = $certificate.Version
-                    HasPrivateKey = $certificate.HasPrivateKey
-                    FriendlyName = $certificate.FriendlyName
-                    Archived = $certificate.Archived
-                }
+                $certResults = Get-CertificateFromFile -CertificatePath $certificatePath
 
-                # Add certificate extensions if requested
-                if ($IncludeExtensions)
+                foreach ($certResult in $certResults)
                 {
-                    $extensions = Get-CertificateExtensions -Certificate $certificate
-                    $details | Add-Member -MemberType NoteProperty -Name 'Extensions' -Value $extensions
-                }
-
-                # Add certificate chain if requested and available
-                if ($IncludeChain -and $certResult.Chain)
-                {
-                    $chainInfo = @()
-                    foreach ($chainElement in $certResult.Chain.ChainElements)
+                    if ($certResult -and $certResult.Certificate)
                     {
-                        $chainInfo += [PSCustomObject]@{
-                            Subject = $chainElement.Certificate.Subject
-                            Issuer = $chainElement.Certificate.Issuer
-                            Thumbprint = $chainElement.Certificate.Thumbprint
-                            NotBefore = $chainElement.Certificate.NotBefore
-                            NotAfter = $chainElement.Certificate.NotAfter
-                            ChainElementStatus = $chainElement.ChainElementStatus
-                        }
+                        Get-CertificateDetailsObject `
+                            -Certificate $certResult.Certificate `
+                            -Computer $null `
+                            -PortNumber $null `
+                            -CertificatePath $certResult.CertificatePath `
+                            -Chain $certResult.Chain
                     }
-                    $details | Add-Member -MemberType NoteProperty -Name 'CertificateChain' -Value $chainInfo
-                    $details | Add-Member -MemberType NoteProperty -Name 'ChainStatus' -Value $certResult.Chain.ChainStatus
                 }
+            }
+        }
+        else
+        {
+            foreach ($computer in $ComputerName)
+            {
+                Write-Verbose "Processing host: $computer"
 
-                # Output the details
-                $details
+                $certResult = Get-CertificateFromHost -HostName $computer -PortNumber $Port -TimeoutMs $Timeout
+
+                if ($certResult -and $certResult.Certificate)
+                {
+                    Get-CertificateDetailsObject `
+                        -Certificate $certResult.Certificate `
+                        -Computer $computer `
+                        -PortNumber $Port `
+                        -CertificatePath $null `
+                        -Chain $certResult.Chain
+                }
             }
         }
     }

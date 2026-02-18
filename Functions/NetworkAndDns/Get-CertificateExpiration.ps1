@@ -2,17 +2,20 @@ function Get-CertificateExpiration
 {
     <#
     .SYNOPSIS
-        Gets the expiration date of an SSL/TLS certificate from a remote host.
+        Gets the expiration date of an SSL/TLS certificate from a remote host or certificate file.
 
     .DESCRIPTION
-        This function connects to a remote host via SSL/TLS and retrieves the certificate's expiration date.
-        It can check multiple hosts and ports, and provides options for timeout configuration and
-        detailed certificate information. The function returns the certificate's NotAfter date which
-        indicates when the certificate expires.
+        This function retrieves the certificate's expiration date (NotAfter) from either a remote host
+        via SSL/TLS or from local certificate files (.cer/.crt/.der/.pem). It can check multiple hosts
+        or files, provides options for timeout configuration, and can return detailed certificate information.
 
     .PARAMETER ComputerName
         The hostname or IP address to check for SSL certificate expiration.
         Accepts an array of computer names. Defaults to 'localhost' if not specified.
+
+    .PARAMETER Path
+        Path to one or more certificate files to inspect.
+        Supports wildcard paths and PEM files with one or more certificate blocks.
 
     .PARAMETER Port
         The port number to connect to for SSL certificate retrieval.
@@ -89,6 +92,11 @@ function Get-CertificateExpiration
 
         Pulls hostnames from Kubernetes ingress objects, checks for certificates expiring within 21 days, and posts the results to a team chat.
 
+    .EXAMPLE
+        PS > Get-CertificateExpiration -Path './certs/public.pem', './certs/internal.cer' -IncludeCertificateDetails
+
+        Reads local certificate files and returns expiration details for each certificate.
+
     .OUTPUTS
         System.DateTime
         Returns the certificate expiration date when IncludeCertificateDetails is not specified.
@@ -104,6 +112,8 @@ function Get-CertificateExpiration
         https://docs.microsoft.com/en-us/dotnet/api/system.net.security.sslstream
 
     .NOTES
+        Network connectivity is required only when using the ComputerName parameter set.
+
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-CertificateExpiration.ps1
@@ -112,22 +122,28 @@ function Get-CertificateExpiration
         https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-CertificateExpiration.ps1
     #>
 
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'ComputerName')]
     [OutputType([System.DateTime], [System.Management.Automation.PSCustomObject])]
     param
     (
-        [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Parameter(ParameterSetName = 'ComputerName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [Alias('HostName', 'Server', 'Name')]
         [ValidateNotNullOrEmpty()]
         [String[]]
         $ComputerName = 'localhost',
 
-        [Parameter()]
+        [Parameter(Mandatory, ParameterSetName = 'Path')]
+        [Alias('FilePath', 'LiteralPath')]
+        [ValidateNotNullOrEmpty()]
+        [String[]]
+        $Path,
+
+        [Parameter(ParameterSetName = 'ComputerName')]
         [ValidateRange(1, 65535)]
         [Int32]
         $Port = 443,
 
-        [Parameter()]
+        [Parameter(ParameterSetName = 'ComputerName')]
         [ValidateRange(1000, 300000)]
         [Int32]
         $Timeout = 10000,
@@ -213,57 +229,221 @@ function Get-CertificateExpiration
                 }
             }
         }
+
+        function Get-CertificatesFromPemText
+        {
+            param
+            (
+                [String]$PemText
+            )
+
+            $certificates = @()
+            $pemPattern = '-----BEGIN CERTIFICATE-----\s*(?<Body>.*?)\s*-----END CERTIFICATE-----'
+            $pemMatches = [System.Text.RegularExpressions.Regex]::Matches(
+                $PemText,
+                $pemPattern,
+                [System.Text.RegularExpressions.RegexOptions]::Singleline
+            )
+
+            foreach ($pemMatch in $pemMatches)
+            {
+                $base64Body = ($pemMatch.Groups['Body'].Value -replace '\s', '')
+                if ([string]::IsNullOrWhiteSpace($base64Body))
+                {
+                    continue
+                }
+
+                $certificateBytes = [Convert]::FromBase64String($base64Body)
+                $certificates += [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($certificateBytes)
+            }
+
+            return $certificates
+        }
+
+        function Get-CertificateFromFile
+        {
+            param
+            (
+                [String]$CertificatePath
+            )
+
+            $resolvedPaths = @()
+
+            try
+            {
+                $resolvedPaths = Resolve-Path -Path $CertificatePath -ErrorAction Stop
+            }
+            catch
+            {
+                Write-Error "Failed to resolve certificate path '$CertificatePath' - $($_.Exception.Message)"
+                return @()
+            }
+
+            $results = @()
+
+            foreach ($resolvedPath in $resolvedPaths)
+            {
+                $fullPath = $resolvedPath.ProviderPath
+
+                if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf))
+                {
+                    Write-Error "Certificate path '$fullPath' is not a file."
+                    continue
+                }
+
+                try
+                {
+                    Write-Verbose "Loading certificate file: $fullPath"
+
+                    $certificates = @()
+                    $fileText = Get-Content -LiteralPath $fullPath -Raw -ErrorAction Stop
+
+                    if ($fileText -match '-----BEGIN CERTIFICATE-----')
+                    {
+                        $certificates = Get-CertificatesFromPemText -PemText $fileText
+                    }
+
+                    if ($certificates.Count -eq 0)
+                    {
+                        $certificates = @([System.Security.Cryptography.X509Certificates.X509Certificate2]::new($fullPath))
+                    }
+
+                    if ($certificates.Count -eq 0)
+                    {
+                        throw "No certificates were found in '$fullPath'."
+                    }
+
+                    foreach ($certificate in $certificates)
+                    {
+                        $results += [PSCustomObject]@{
+                            Certificate = $certificate
+                            CertificatePath = $fullPath
+                        }
+                    }
+                }
+                catch
+                {
+                    Write-Error "Failed to load certificate file '$fullPath' - $($_.Exception.Message)"
+                }
+            }
+
+            return $results
+        }
     }
 
     process
     {
-        foreach ($computer in $ComputerName)
+        if ($PSCmdlet.ParameterSetName -eq 'Path')
         {
-            Write-Verbose "Processing host: $computer"
-
-            $certificate = Get-CertificateFromHost -HostName $computer -PortNumber $Port -TimeoutMs $Timeout
-
-            if ($certificate)
+            foreach ($certificatePath in $Path)
             {
-                $expirationDate = $certificate.NotAfter
-                $daysUntilExpiration = ($expirationDate - (Get-Date)).Days
+                Write-Verbose "Processing certificate file path: $certificatePath"
 
-                # Check if warning should be displayed
-                if ($WarnIfExpiresSoon -and $daysUntilExpiration -le $DaysToWarn)
+                $certificateEntries = Get-CertificateFromFile -CertificatePath $certificatePath
+
+                foreach ($certificateEntry in $certificateEntries)
                 {
-                    if ($daysUntilExpiration -lt 0)
+                    $certificate = $certificateEntry.Certificate
+
+                    if (-not $certificate)
                     {
-                        Write-Warning "Certificate for $computer`:$Port EXPIRED $([Math]::Abs($daysUntilExpiration)) days ago on $($expirationDate.ToString('yyyy-MM-dd HH:mm:ss'))"
+                        continue
+                    }
+
+                    $expirationDate = $certificate.NotAfter
+                    $daysUntilExpiration = ($expirationDate - (Get-Date)).Days
+
+                    # Check if warning should be displayed
+                    if ($WarnIfExpiresSoon -and $daysUntilExpiration -le $DaysToWarn)
+                    {
+                        if ($daysUntilExpiration -lt 0)
+                        {
+                            Write-Warning "Certificate in file $($certificateEntry.CertificatePath) EXPIRED $([Math]::Abs($daysUntilExpiration)) days ago on $($expirationDate.ToString('yyyy-MM-dd HH:mm:ss'))"
+                        }
+                        else
+                        {
+                            Write-Warning "Certificate in file $($certificateEntry.CertificatePath) expires in $daysUntilExpiration days on $($expirationDate.ToString('yyyy-MM-dd HH:mm:ss'))"
+                        }
+                    }
+
+                    if ($IncludeCertificateDetails)
+                    {
+                        # Return detailed certificate information
+                        [PSCustomObject]@{
+                            ComputerName = $null
+                            Port = $null
+                            CertificatePath = $certificateEntry.CertificatePath
+                            Subject = $certificate.Subject
+                            Issuer = $certificate.Issuer
+                            NotBefore = $certificate.NotBefore
+                            NotAfter = $certificate.NotAfter
+                            Thumbprint = $certificate.Thumbprint
+                            SerialNumber = $certificate.SerialNumber
+                            DaysUntilExpiration = $daysUntilExpiration
+                            IsExpired = $daysUntilExpiration -lt 0
+                            SignatureAlgorithm = $certificate.SignatureAlgorithm.FriendlyName
+                            Version = $certificate.Version
+                            HasPrivateKey = $certificate.HasPrivateKey
+                        }
                     }
                     else
                     {
-                        Write-Warning "Certificate for $computer`:$Port expires in $daysUntilExpiration days on $($expirationDate.ToString('yyyy-MM-dd HH:mm:ss'))"
+                        # Return just the expiration date
+                        $expirationDate
                     }
                 }
+            }
+        }
+        else
+        {
+            foreach ($computer in $ComputerName)
+            {
+                Write-Verbose "Processing host: $computer"
 
-                if ($IncludeCertificateDetails)
+                $certificate = Get-CertificateFromHost -HostName $computer -PortNumber $Port -TimeoutMs $Timeout
+
+                if ($certificate)
                 {
-                    # Return detailed certificate information
-                    [PSCustomObject]@{
-                        ComputerName = $computer
-                        Port = $Port
-                        Subject = $certificate.Subject
-                        Issuer = $certificate.Issuer
-                        NotBefore = $certificate.NotBefore
-                        NotAfter = $certificate.NotAfter
-                        Thumbprint = $certificate.Thumbprint
-                        SerialNumber = $certificate.SerialNumber
-                        DaysUntilExpiration = $daysUntilExpiration
-                        IsExpired = $daysUntilExpiration -lt 0
-                        SignatureAlgorithm = $certificate.SignatureAlgorithm.FriendlyName
-                        Version = $certificate.Version
-                        HasPrivateKey = $certificate.HasPrivateKey
+                    $expirationDate = $certificate.NotAfter
+                    $daysUntilExpiration = ($expirationDate - (Get-Date)).Days
+
+                    # Check if warning should be displayed
+                    if ($WarnIfExpiresSoon -and $daysUntilExpiration -le $DaysToWarn)
+                    {
+                        if ($daysUntilExpiration -lt 0)
+                        {
+                            Write-Warning "Certificate for $computer`:$Port EXPIRED $([Math]::Abs($daysUntilExpiration)) days ago on $($expirationDate.ToString('yyyy-MM-dd HH:mm:ss'))"
+                        }
+                        else
+                        {
+                            Write-Warning "Certificate for $computer`:$Port expires in $daysUntilExpiration days on $($expirationDate.ToString('yyyy-MM-dd HH:mm:ss'))"
+                        }
                     }
-                }
-                else
-                {
-                    # Return just the expiration date
-                    $expirationDate
+
+                    if ($IncludeCertificateDetails)
+                    {
+                        # Return detailed certificate information
+                        [PSCustomObject]@{
+                            ComputerName = $computer
+                            Port = $Port
+                            Subject = $certificate.Subject
+                            Issuer = $certificate.Issuer
+                            NotBefore = $certificate.NotBefore
+                            NotAfter = $certificate.NotAfter
+                            Thumbprint = $certificate.Thumbprint
+                            SerialNumber = $certificate.SerialNumber
+                            DaysUntilExpiration = $daysUntilExpiration
+                            IsExpired = $daysUntilExpiration -lt 0
+                            SignatureAlgorithm = $certificate.SignatureAlgorithm.FriendlyName
+                            Version = $certificate.Version
+                            HasPrivateKey = $certificate.HasPrivateKey
+                        }
+                    }
+                    else
+                    {
+                        # Return just the expiration date
+                        $expirationDate
+                    }
                 }
             }
         }
