@@ -58,14 +58,15 @@
         PS > Show-SystemResourceMonitor
 
         System Resource Monitor                                                      31.0% OK [A] ✓
-        History  Last 24 samples (oldest -> newest)
         ───────────────────────────────────────────────────────────────────────────────────────────
-        CPU     [███▌░░░░░░░░░░░░░░░░░░░░░░░░░░░░]   11.0% OK
+        CPU     [███▌░░░░░░░░░░░░░░░░░░░░░░░░░░░░]   11.0% OK      0.9/8.0 logical cores busy
         Memory  [████████████████░░░░░░░░░░░░░░░░]   50.0% OK      12.1/24.0 GiB
         Disk    [██████████▌░░░░░░░░░░░░░░░░░░░░░]   33.0% OK      151.4/460.4 GiB on / (root fs)
         Network [░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░]    0.0% IDLE    In 0 B/s | Out 0 B/s | Total 0 B/s
         ───────────────────────────────────────────────────────────────────────────────────────────
+
         Status   Platform: macOS │ Updated: 2026-02-17 19:16:30 │ Collect: 519.4ms
+        History  Last 24 samples (oldest -> newest)
 
         Displays a single visual snapshot of system resource usage.
 
@@ -739,6 +740,28 @@
             }
 
             return ('{0:N0} B/s' -f $bytesPerSecond)
+        }
+
+        function Format-CpuCoreReadout
+        {
+            param(
+                [Parameter()]
+                [Nullable[Double]]$Percent
+            )
+
+            $logicalCoreCount = [Math]::Max(1, [Environment]::ProcessorCount)
+            $totalCoreText = ('{0:N1}' -f [Double]$logicalCoreCount)
+
+            if ($null -eq $Percent)
+            {
+                return ('n/a/{0} logical cores busy' -f $totalCoreText)
+            }
+
+            $clampedPercent = [Math]::Max(0, [Math]::Min(100, [Double]$Percent))
+            $busyCoreCount = [Math]::Round(($clampedPercent / 100) * $logicalCoreCount, 1)
+            $busyCoreText = ('{0:N1}' -f $busyCoreCount)
+
+            return ('{0}/{1} logical cores busy' -f $busyCoreText, $totalCoreText)
         }
 
         function ConvertTo-RelativePercentHistory
@@ -1636,6 +1659,7 @@
                 return Add-Color -Text $line -Percent $Percent
             }
 
+            $cpuDetails = Format-CpuCoreReadout -Percent $Sample.CpuUsagePercent
             $memoryDetails = '{0}/{1} GiB' -f (Format-GiB -Value $Sample.MemoryUsedGiB), (Format-GiB -Value $Sample.MemoryTotalGiB)
             $diskRoot = Format-DiskRootLabel -Root $Sample.DiskRoot
             $diskDetails = '{0}/{1} GiB on {2}' -f (Format-GiB -Value $Sample.DiskUsedGiB), (Format-GiB -Value $Sample.DiskTotalGiB), $diskRoot
@@ -1672,7 +1696,7 @@
                 $networkActivityPercent = [Double]$networkValidHistory[-1]
             }
 
-            $cpuLine = & $formatMetricLine -Name 'CPU' -Percent $Sample.CpuUsagePercent -History $cpuHistoryValues
+            $cpuLine = & $formatMetricLine -Name 'CPU' -Percent $Sample.CpuUsagePercent -History $cpuHistoryValues -Details $cpuDetails
             $memoryLine = & $formatMetricLine -Name 'Memory' -Percent $Sample.MemoryUsagePercent -History $memoryHistoryValues -Details $memoryDetails
             $diskLine = & $formatMetricLine -Name 'Disk' -Percent $Sample.DiskUsagePercent -History $diskHistoryValues -Details $diskDetails
             $networkLine = & $formatMetricLine -Name 'Network' -Percent $networkActivityPercent -History $networkRelativeHistoryValues -Details $networkDetails -StatusResolver { param([Nullable[Double]]$Percent) Get-NetworkActivityStatus -RelativePercent $Percent }
@@ -1754,14 +1778,15 @@
 
             $lines = @(
                 $titleLine,
-                $historyLine,
                 $divider,
                 $cpuLine,
                 $memoryLine,
                 $diskLine,
                 $networkLine,
                 $subtleDivider,
-                (Add-SubtleText -Text $statusLine)
+                '',
+                (Add-SubtleText -Text $statusLine),
+                $historyLine
             )
 
             if ($IncludeTopProcesses)

@@ -23,12 +23,43 @@ Describe 'Show-SystemResourceMonitor' {
         $result | Should -Match '(?m)^Network'
     }
 
+    It 'includes CPU core busy readout in one-shot output' {
+        $result = Show-SystemResourceMonitor -NoColor -BarWidth 16 -HistoryLength 8
+
+        $result | Should -Match '(?m)^CPU.+\S+/\S+ logical cores busy\r?$'
+    }
+
     It 'includes overall summary in title and status metadata in one-shot output' {
         $result = Show-SystemResourceMonitor -NoColor -BarWidth 16 -HistoryLength 8
 
         $result | Should -Match '(?m)^System Resource Monitor.+\[[ABCDF]\]'
         $result | Should -Match '(?m)^Status +Platform:.+Updated:.+Collect:'
+        $result | Should -Match '(?m)^History +Last \d+ samples \(oldest -> newest\)'
         $result | Should -Not -Match '(?m)^Health +Overall:'
+
+        $lines = @($result -split '\r?\n')
+        $statusLine = @($lines | Where-Object { $_ -match '^Status +Platform:.+Updated:.+Collect:' }) | Select-Object -First 1
+        $historyLine = @($lines | Where-Object { $_ -match '^History +Last \d+ samples \(oldest -> newest\)' }) | Select-Object -First 1
+        $dividerIndices = @(
+            for ($index = 0; $index -lt $lines.Count; $index++)
+            {
+                if ($lines[$index] -match '^[─-]{10,}$')
+                {
+                    $index
+                }
+            }
+        )
+
+        $statusLine | Should -Not -BeNullOrEmpty
+        $historyLine | Should -Not -BeNullOrEmpty
+        $dividerIndices.Count | Should -BeGreaterOrEqual 2
+
+        $statusIndex = [Array]::IndexOf($lines, $statusLine)
+        $historyIndex = [Array]::IndexOf($lines, $historyLine)
+
+        $statusIndex | Should -Be ($dividerIndices[1] + 2)
+        $lines[$dividerIndices[1] + 1] | Should -Be ''
+        $historyIndex | Should -Be ($statusIndex + 1)
     }
 
     It 'returns structured output with -AsObject' {
