@@ -55,33 +55,39 @@ function Get-SystemInfo
         where certain properties may not be available on all operating systems.
 
     .EXAMPLE
-        PS > Get-SystemInfo
+        PS > Get-SystemInfo -NoEmptyProps -NoPII
 
-        ComputerName         : localhost
-        HostName             : something.local
-        Domain               :
-        IPAddresses          : {127.0.0.1, ::1, 172.0.10.39}
-        OperatingSystem      : macOS Sequoia 15.6.1
-        OSArchitecture       : arm64
-        CPUArchitecture      : arm64
-        CPUName              : Apple M4 Pro
-        CPUCores             : 12
-        CPULogicalProcessors : 12
-        CPUSpeedMHz          :
-        TotalMemoryGB        : 24
-        FreeMemoryGB         : 10.33
-        SystemDriveTotalGB   : 460.43
-        SystemDriveUsedGB    : 11.21
-        SystemDriveFreeGB    : 324.07
-        Manufacturer         : Apple Inc.
-        Model                : Mac16,8
-        SerialNumber         : XXXXXXXXXXX
-        BIOSVersion          : 13822.1.2
-        TimeZone             : (UTC-05:00) Eastern Time (New York)
-        LastBootTime         : 1/1/2025 5:42:29 PM
-        Uptime               : 17:39:59.8442180
+        OperatingSystem       : macOS Tahoe 26.3
+        OSArchitecture        : arm64
+        CPUArchitecture       : arm64
+        CPUName               : Apple M4 Pro
+        CPUCores              : 12
+        CPULogicalProcessors  : 12
+        HyperthreadingEnabled : False
+        GPUName               : Apple M4 Pro
+        Monitors              : Displays (3024 x 1964 Retina)
+        NetworkAdapters       : Ethernet Adapter (en4) (Ethernet), Ethernet Adapter (en5) (Ethernet), Ethernet Adapter (en6) (Ethernet),
+                                Thunderbolt Bridge (Ethernet), Wi-Fi (AirPort)
+        TotalMemoryGB         : 24
+        FreeMemoryGB          : 12.39
+        PageFileTotalGB       : 0.94
+        PageFileUsedGB        : 0.94
+        SystemDriveTotalGB    : 460.43
+        SystemDriveUsedGB     : 11.45
+        SystemDriveFreeGB     : 292.16
+        PhysicalDisks         : APPLE SSD AP0512Z (500.3 GB, Apple Fabric), APPLE SSD AP0512Z (494.4 GB, Apple Fabric)
+        Manufacturer          : Apple Inc.
+        Model                 : Mac16,8
+        ModelFriendlyName     : MacBook Pro (14-inch, 2024)
+        IsVirtualMachine      : False
+        SystemLoadAverage     : 1.25 (1m), 1.78 (5m), 1.82 (15m)
+        ProcessCount          : 709
+        ThreadCount           : 2603
+        BatteryStatus         : Fully Charged
+        BatteryChargePercent  : 100
 
-        Gets system information from the local computer.
+        Gets system information from the local computer while excluding personally identifiable information
+        and any properties that have null or empty values, resulting in a concise output of only populated properties.
 
     .EXAMPLE
         PS > Get-SystemInfo -ComputerName 'server01'
@@ -105,29 +111,6 @@ function Get-SystemInfo
 
     .EXAMPLE
         PS > Get-SystemInfo -NoPII
-
-        OperatingSystem      : Microsoft Windows 11 Pro
-        OSArchitecture       : 64-bit
-        CPUArchitecture      : x64
-        CPUName              : Intel(R) Core(TM) i7-8665U CPU @ 1.90GHz
-        CPUCores             : 4
-        CPULogicalProcessors : 8
-        CPUSpeedMHz          : 2112
-        GPUName              : Intel(R) UHD Graphics 620 (1 GB)
-        GPUMemoryGB          : 1
-        Monitors             : IVO Unknown Monitor (1536x864)
-        Keyboard             : USB Input Device, Standard 101/102-Key or Microsoft Natural PS/2 Keyboard for HP Hotkey Support
-        Mouse                : HID-compliant mouse, Synaptics Pointing Device, USB Input Device, Synaptics HID ClickPad
-        NetworkAdapters      : Intel(R) Wi-Fi 6 AX200 160MHz (827 Mbps), Intel(R) Ethernet Connection (6) I219-LM (8796093022208 Mbps)
-        TotalMemoryGB        : 15.81
-        FreeMemoryGB         : 7.72
-        SystemDriveTotalGB   : 930.27
-        SystemDriveUsedGB    : 204.2
-        SystemDriveFreeGB    : 726.07
-        PhysicalDisks        : CT1000MX500SSD4 (931.51 GB, IDE)
-        AudioDevices         : Intel(R) Display Audio
-        Manufacturer         : HP
-        Model                : HP ZBook 15u G6
 
         Gets system information while excluding private and personally identifiable information
         such as computer name, hostname, IP addresses, serial number, and BIOS version.
@@ -175,6 +158,7 @@ function Get-SystemInfo
         - AudioDevices: Audio device names
         - Manufacturer: Computer manufacturer
         - Model: Computer model
+        - ModelFriendlyName: Human-friendly model name (marketing model on macOS when available)
         - SerialNumber: Computer serial number (when available)
         - BIOSVersion: BIOS version
         - IsVirtualMachine: Boolean indicating if running in a virtual machine
@@ -274,6 +258,64 @@ function Get-SystemInfo
             }
         }
 
+        # Helper function to convert Apple CoreTypes model identifiers to readable model names
+        function ConvertFrom-AppleModelTypeIdentifier
+        {
+            param([string]$TypeIdentifier)
+
+            if ([string]::IsNullOrWhiteSpace($TypeIdentifier))
+            {
+                return $null
+            }
+
+            $normalizedType = $TypeIdentifier.Trim().ToLowerInvariant()
+            if ($normalizedType -notlike 'com.apple.*')
+            {
+                return $null
+            }
+
+            $slug = $normalizedType -replace '^com\.apple\.', ''
+            $slugParts = $slug -split '-', 2
+            $baseToken = $slugParts[0]
+
+            $baseModelNames = @{
+                'imac' = 'iMac'
+                'imacpro' = 'iMac Pro'
+                'macbook' = 'MacBook'
+                'macbookair' = 'MacBook Air'
+                'macbookpro' = 'MacBook Pro'
+                'macmini' = 'Mac mini'
+                'macpro' = 'Mac Pro'
+                'macstudio' = 'Mac Studio'
+                'xserve' = 'Xserve'
+            }
+
+            if (-not $baseModelNames.ContainsKey($baseToken))
+            {
+                return $null
+            }
+
+            $baseName = $baseModelNames[$baseToken]
+
+            if ($slug -match '^[a-z0-9]+-(\d+)-(early|mid|late)-((?:19|20)\d{2})(?:-\d+)?$')
+            {
+                $releasePeriod = [System.Globalization.CultureInfo]::InvariantCulture.TextInfo.ToTitleCase($matches[2])
+                return "$baseName ($($matches[1])-inch, $releasePeriod $($matches[3]))"
+            }
+
+            if ($slug -match '^[a-z0-9]+-(\d+)-((?:19|20)\d{2})(?:-\d+)?$')
+            {
+                return "$baseName ($($matches[1])-inch, $($matches[2]))"
+            }
+
+            if ($slug -match '^[a-z0-9]+-((?:19|20)\d{2})(?:-\d+)?$')
+            {
+                return "$baseName ($($matches[1]))"
+            }
+
+            return $baseName
+        }
+
         foreach ($computer in $ComputerName)
         {
             Write-Verbose "Processing computer: $computer"
@@ -322,6 +364,7 @@ function Get-SystemInfo
                         AudioDevices = $null
                         Manufacturer = $null
                         Model = $null
+                        ModelFriendlyName = $null
                         SerialNumber = $null
                         BIOSVersion = $null
                         IsVirtualMachine = $null
@@ -482,6 +525,7 @@ function Get-SystemInfo
                             $cs = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction Stop
                             $systemInfo.Manufacturer = $cs.Manufacturer
                             $systemInfo.Model = $cs.Model
+                            $systemInfo.ModelFriendlyName = $cs.Model
 
                             # Detect virtualization
                             try
@@ -1081,15 +1125,136 @@ function Get-SystemInfo
                                 Write-Verbose "Could not retrieve swap space information: $($_.Exception.Message)"
                             }
 
-                            # Get hardware model
+                            # Get serial number and firmware version from system_profiler
+                            $hardwareProfile = system_profiler SPHardwareDataType 2>$null
+
+                            # Get hardware model identifier (e.g., Mac16,8)
                             $model = sysctl -n hw.model 2>$null
-                            $systemInfo.Model = $model
+                            if ([string]::IsNullOrWhiteSpace($model))
+                            {
+                                $modelIdentifier = $hardwareProfile | Select-String 'Model Identifier:' | Select-Object -First 1
+                                if ($modelIdentifier)
+                                {
+                                    $model = ($modelIdentifier -replace '.*:\s*', '').Trim()
+                                }
+                            }
+
+                            if ($model)
+                            {
+                                $model = $model.Trim()
+                                $systemInfo.Model = $model
+                            }
+
+                            # Get human-friendly model name (generic model name or marketing model, when available)
+                            $modelFriendlyName = $null
+                            $modelName = $hardwareProfile | Select-String 'Model Name:' | Select-Object -First 1
+                            if ($modelName)
+                            {
+                                $modelFriendlyName = ($modelName -replace '.*:\s*', '').Trim()
+                            }
+
+                            $resolvedByMachineAttributes = $false
+                            if ($systemInfo.Model)
+                            {
+                                try
+                                {
+                                    $machineAttributesPath = '/System/Library/PrivateFrameworks/ServerInformation.framework/Versions/A/Resources/en.lproj/SIMachineAttributes.plist'
+                                    if (Test-Path -Path $machineAttributesPath)
+                                    {
+                                        $marketingModel = & /usr/libexec/PlistBuddy -c "Print :$($systemInfo.Model):_LOCALIZABLE_:marketingModel" $machineAttributesPath 2>$null
+                                        if (-not [string]::IsNullOrWhiteSpace($marketingModel))
+                                        {
+                                            $modelFriendlyName = $marketingModel.Trim()
+                                            $resolvedByMachineAttributes = $true
+                                        }
+                                    }
+                                }
+                                catch
+                                {
+                                    Write-Verbose "Could not resolve marketing model name for '$($systemInfo.Model)': $($_.Exception.Message)"
+                                }
+                            }
+
+                            # Fallback for newer Macs where SIMachineAttributes.plist does not include the model identifier
+                            if (-not $resolvedByMachineAttributes -and $systemInfo.Model)
+                            {
+                                try
+                                {
+                                    $coreTypesPath = '/System/Library/CoreServices/CoreTypes.bundle/Contents/Library/CoreTypes-0022.bundle/Contents/Info.plist'
+                                    if (Test-Path -Path $coreTypesPath)
+                                    {
+                                        $coreTypesJson = plutil -convert json -o - $coreTypesPath 2>$null
+                                        if ($coreTypesJson)
+                                        {
+                                            $coreTypesInfo = $coreTypesJson | ConvertFrom-Json -ErrorAction Stop
+                                            $declarations = @($coreTypesInfo.UTExportedTypeDeclarations)
+
+                                            foreach ($declaration in $declarations)
+                                            {
+                                                $tagSpecification = $declaration.UTTypeTagSpecification
+                                                if (-not $tagSpecification)
+                                                {
+                                                    continue
+                                                }
+
+                                                $deviceModelCodes = @($tagSpecification.'com.apple.device-model-code')
+                                                if (-not $deviceModelCodes -or $deviceModelCodes.Count -eq 0)
+                                                {
+                                                    continue
+                                                }
+
+                                                $matchingCode = $deviceModelCodes | Where-Object {
+                                                    $_ -eq $systemInfo.Model -or $_ -like "$($systemInfo.Model)@*"
+                                                } | Select-Object -First 1
+
+                                                if (-not $matchingCode)
+                                                {
+                                                    continue
+                                                }
+
+                                                $typeCandidates = @()
+                                                if ($declaration.UTTypeIdentifier)
+                                                {
+                                                    $typeCandidates += [string]$declaration.UTTypeIdentifier
+                                                }
+
+                                                if ($declaration.UTTypeConformsTo)
+                                                {
+                                                    $typeCandidates += @($declaration.UTTypeConformsTo | ForEach-Object { [string]$_ })
+                                                }
+
+                                                $canonicalType = $typeCandidates | Where-Object {
+                                                    $_ -like 'com.apple.mac*' -and
+                                                    $_ -notlike '*-silver' -and
+                                                    $_ -notlike '*-space-black' -and
+                                                    $_ -notlike '*-midnight' -and
+                                                    $_ -notlike '*-starlight'
+                                                } | Select-Object -First 1
+
+                                                $derivedFriendlyName = ConvertFrom-AppleModelTypeIdentifier -TypeIdentifier $canonicalType
+                                                if ($derivedFriendlyName)
+                                                {
+                                                    $modelFriendlyName = $derivedFriendlyName
+                                                }
+
+                                                break
+                                            }
+                                        }
+                                    }
+                                }
+                                catch
+                                {
+                                    Write-Verbose "Could not derive model marketing name from CoreTypes: $($_.Exception.Message)"
+                                }
+                            }
+
+                            if ($modelFriendlyName)
+                            {
+                                $systemInfo.ModelFriendlyName = $modelFriendlyName
+                            }
 
                             # Get system manufacturer (Apple)
                             $systemInfo.Manufacturer = 'Apple Inc.'
-
-                            # Get serial number and firmware version from system_profiler
-                            $hardwareProfile = system_profiler SPHardwareDataType 2>$null
 
                             $serial = $hardwareProfile | Select-String 'Serial Number'
                             if ($serial)
@@ -1753,7 +1918,11 @@ function Get-SystemInfo
                                     if ($systemManufacturer) { $systemInfo.Manufacturer = $systemManufacturer.Trim() }
 
                                     $systemProduct = dmidecode -s system-product-name 2>$null
-                                    if ($systemProduct) { $systemInfo.Model = $systemProduct.Trim() }
+                                    if ($systemProduct)
+                                    {
+                                        $systemInfo.Model = $systemProduct.Trim()
+                                        $systemInfo.ModelFriendlyName = $systemInfo.Model
+                                    }
 
                                     $systemSerial = dmidecode -s system-serial-number 2>$null
                                     if ($systemSerial) { $systemInfo.SerialNumber = $systemSerial.Trim() }
@@ -2421,6 +2590,7 @@ function Get-SystemInfo
                             AudioDevices = $null
                             Manufacturer = $null
                             Model = $null
+                            ModelFriendlyName = $null
                             SerialNumber = $null
                             BIOSVersion = $null
                             IsVirtualMachine = $null
@@ -2579,6 +2749,7 @@ function Get-SystemInfo
                             $cs = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction Stop
                             $systemInfo.Manufacturer = $cs.Manufacturer
                             $systemInfo.Model = $cs.Model
+                            $systemInfo.ModelFriendlyName = $cs.Model
 
                             # Detect virtualization
                             try
