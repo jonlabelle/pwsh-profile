@@ -77,8 +77,7 @@ function Get-SystemInfo
         SystemDriveFreeGB     : 292.16
         PhysicalDisks         : APPLE SSD AP0512Z (500.3 GB, Apple Fabric), APPLE SSD AP0512Z (494.4 GB, Apple Fabric)
         Manufacturer          : Apple Inc.
-        Model                 : Mac16,8
-        ModelFriendlyName     : MacBook Pro (14-inch, 2024)
+        Model                 : MacBook Pro (14-inch, 2024) - Mac16,8
         IsVirtualMachine      : False
         SystemLoadAverage     : 1.25 (1m), 1.78 (5m), 1.82 (15m)
         ProcessCount          : 709
@@ -157,8 +156,7 @@ function Get-SystemInfo
         - PhysicalDisks: Physical disk information (embedded drives only, excludes USB/removable)
         - AudioDevices: Audio device names
         - Manufacturer: Computer manufacturer
-        - Model: Computer model
-        - ModelFriendlyName: Human-friendly model name (marketing model on macOS when available)
+        - Model: Computer model (includes human-friendly model name on macOS when available, formatted as "<friendly> - <identifier>")
         - SerialNumber: Computer serial number (when available)
         - BIOSVersion: BIOS version
         - IsVirtualMachine: Boolean indicating if running in a virtual machine
@@ -314,6 +312,90 @@ function Get-SystemInfo
             }
 
             return $baseName
+        }
+
+        # Helper function to merge friendly model name into Model and remove ModelFriendlyName from output
+        function Merge-ModelName
+        {
+            param(
+                [Parameter(Mandatory = $true)]
+                [Object]$SystemInfo
+            )
+
+            foreach ($item in @($SystemInfo))
+            {
+                if (-not $item)
+                {
+                    continue
+                }
+
+                $modelProp = $item.PSObject.Properties['Model']
+                $modelFriendlyProp = $item.PSObject.Properties['ModelFriendlyName']
+
+                if (-not $modelFriendlyProp)
+                {
+                    continue
+                }
+
+                $modelValue = $null
+                if ($modelProp -and $modelProp.Value -is [string])
+                {
+                    $modelValue = $modelProp.Value.Trim()
+                    if ([string]::IsNullOrWhiteSpace($modelValue))
+                    {
+                        $modelValue = $null
+                    }
+                }
+                elseif ($modelProp -and $null -ne $modelProp.Value)
+                {
+                    $modelValue = [string]$modelProp.Value
+                }
+
+                $modelFriendlyValue = $null
+                if ($modelFriendlyProp.Value -is [string])
+                {
+                    $modelFriendlyValue = $modelFriendlyProp.Value.Trim()
+                    if ([string]::IsNullOrWhiteSpace($modelFriendlyValue))
+                    {
+                        $modelFriendlyValue = $null
+                    }
+                }
+                elseif ($null -ne $modelFriendlyProp.Value)
+                {
+                    $modelFriendlyValue = [string]$modelFriendlyProp.Value
+                }
+
+                if ($modelFriendlyValue)
+                {
+                    $combinedModel = $modelFriendlyValue
+                    if ($modelValue)
+                    {
+                        if ($modelFriendlyValue -ne $modelValue)
+                        {
+                            $combinedModel = "$modelFriendlyValue - $modelValue"
+                        }
+                        else
+                        {
+                            $combinedModel = $modelValue
+                        }
+                    }
+
+                    if ($modelProp)
+                    {
+                        $modelProp.Value = $combinedModel
+                    }
+                    else
+                    {
+                        $item | Add-Member -MemberType NoteProperty -Name 'Model' -Value $combinedModel -Force
+                    }
+                }
+                elseif ($modelProp -and $modelProp.Value -is [string])
+                {
+                    $modelProp.Value = $modelValue
+                }
+
+                $item.PSObject.Properties.Remove('ModelFriendlyName')
+            }
         }
 
         foreach ($computer in $ComputerName)
@@ -2487,6 +2569,9 @@ function Get-SystemInfo
                         }
                     }
 
+                    # Merge friendly model names into Model and remove ModelFriendlyName from output
+                    Merge-ModelName -SystemInfo $systemInfo
+
                     # Apply privacy filter if requested
                     if ($NoPII)
                     {
@@ -3147,6 +3232,9 @@ function Get-SystemInfo
 
                     if ($remoteResults)
                     {
+                        # Merge friendly model names into Model and remove ModelFriendlyName from output
+                        Merge-ModelName -SystemInfo $remoteResults
+
                         # Apply privacy filter if requested
                         if ($NoPII)
                         {
