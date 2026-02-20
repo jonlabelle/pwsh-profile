@@ -138,6 +138,7 @@ Describe 'Update-DockerImages' {
         }
 
         It 'Reports success for a successful pull' -Skip:(-not $script:dockerAvailable) {
+            Mock -CommandName Write-Host -MockWith {}
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'ls' } -MockWith {
                 @('{"Repository":"nginx","Tag":"latest","ID":"sha256:abc123","Size":"200MB"}')
             }
@@ -153,6 +154,7 @@ Describe 'Update-DockerImages' {
             $result.Failed | Should -Be 0
             $result.Results[0].Status | Should -Be 'Success'
             $result.Results[0].Message | Should -Be 'Updated'
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*nginx:latest*' } -Times 1
         }
 
         It 'Detects already up-to-date images' -Skip:(-not $script:dockerAvailable) {

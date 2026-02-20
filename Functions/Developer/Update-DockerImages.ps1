@@ -200,9 +200,13 @@ function Update-DockerImages
             Write-Verbose 'No eligible images to update'
         }
 
+        $processedImages = 0
         foreach ($img in $eligibleImages)
         {
             $imageRef = $img.ImageRef
+            $processedImages++
+
+            Write-Host "Pulling image [$processedImages/$($eligibleImages.Count)]: $imageRef"
 
             if (-not $PSCmdlet.ShouldProcess($imageRef, 'Pull latest image'))
             {
@@ -270,6 +274,8 @@ function Update-DockerImages
         {
             if ($PSCmdlet.ShouldProcess('Dangling Docker images', 'Prune'))
             {
+                Write-Host 'Pruning dangling Docker images...'
+
                 Write-Verbose 'Pruning dangling Docker images...'
 
                 try
