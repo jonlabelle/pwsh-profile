@@ -25,6 +25,10 @@ function Update-DockerImages
         An optional wildcard pattern to exclude images from updating. Images whose
         Repository:Tag matches this pattern will be skipped.
 
+    .PARAMETER PruneDanglingImages
+        When specified, runs 'docker image prune --force' after pulls complete to remove
+        dangling images.
+
     .EXAMPLE
         PS > Update-DockerImages
 
@@ -45,6 +49,11 @@ function Update-DockerImages
 
         Updates all images except those with 'dev' in their name.
 
+    .EXAMPLE
+        PS > Update-DockerImages -PruneDanglingImages
+
+        Updates eligible images, then prunes dangling Docker images.
+
     .OUTPUTS
         [PSCustomObject]
         Returns an object with summary information:
@@ -54,12 +63,15 @@ function Update-DockerImages
         - Skipped        : Number of images skipped (no repository or filtered out)
         - Failed         : Number of images that failed to pull
         - Results        : Array of per-image result objects with Image, Status, and Message
+        - DanglingPruneRequested : $true when -PruneDanglingImages is specified
+        - DanglingPruneSucceeded : $true when dangling image prune completed successfully
+        - DanglingPruneError     : Error text when dangling image prune fails, otherwise $null
 
     .NOTES
         - Requires Docker CLI in PATH
         - Images tagged as '<none>' are automatically skipped
         - Locally-built images without a registry push will attempt a pull and may fail gracefully
-        - The function does not remove old image layers; run Remove-DockerArtifacts to reclaim space
+        - Use -PruneDanglingImages to remove dangling images after updating
 
         Author: Jon LaBelle
         License: MIT
@@ -70,6 +82,9 @@ function Update-DockerImages
 
     .LINK
         https://docs.docker.com/reference/cli/docker/image/ls/
+
+    .LINK
+        https://docs.docker.com/reference/cli/docker/image/prune/
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding(SupportsShouldProcess)]
@@ -79,7 +94,10 @@ function Update-DockerImages
         [String]$Filter,
 
         [Parameter()]
-        [String]$ExcludeFilter
+        [String]$ExcludeFilter,
+
+        [Parameter()]
+        [Switch]$PruneDanglingImages
     )
 
     begin
@@ -174,6 +192,8 @@ function Update-DockerImages
         $updatedCount = 0
         $failedCount = 0
         $results = @()
+        $danglingPruneSucceeded = $false
+        $danglingPruneError = $null
 
         if ($eligibleImages.Count -eq 0)
         {
@@ -245,6 +265,42 @@ function Update-DockerImages
                 Write-Warning "Error pulling ${imageRef}: $($_.Exception.Message)"
             }
         }
+
+        if ($PruneDanglingImages)
+        {
+            if ($PSCmdlet.ShouldProcess('Dangling Docker images', 'Prune'))
+            {
+                Write-Verbose 'Pruning dangling Docker images...'
+
+                try
+                {
+                    $pruneOutput = & docker image prune --force 2>&1
+                    if ($LASTEXITCODE -eq 0)
+                    {
+                        $danglingPruneSucceeded = $true
+                        Write-Verbose 'Dangling Docker image prune completed'
+                    }
+                    else
+                    {
+                        $danglingPruneError = ($pruneOutput | Where-Object { $_ }) -join ' '
+                        if (-not $danglingPruneError)
+                        {
+                            $danglingPruneError = 'docker image prune failed with an unknown error.'
+                        }
+                        Write-Warning "Failed to prune dangling images: $danglingPruneError"
+                    }
+                }
+                catch
+                {
+                    $danglingPruneError = $_.Exception.Message
+                    Write-Warning "Error pruning dangling images: $danglingPruneError"
+                }
+            }
+            else
+            {
+                Write-Verbose 'Skipping dangling Docker image prune due to -WhatIf'
+            }
+        }
     }
 
     end
@@ -256,6 +312,9 @@ function Update-DockerImages
             Skipped = $skippedCount
             Failed = $failedCount
             Results = $results
+            DanglingPruneRequested = $PruneDanglingImages.IsPresent
+            DanglingPruneSucceeded = $danglingPruneSucceeded
+            DanglingPruneError = $danglingPruneError
         }
 
         Write-Verbose "Update complete: $updatedCount updated, $failedCount failed, $skippedCount skipped"

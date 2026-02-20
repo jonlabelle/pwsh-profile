@@ -218,4 +218,90 @@ Describe 'Update-DockerImages' {
             $result.Results.Count | Should -Be 0
         }
     }
+
+    Context 'Dangling prune behavior' {
+        BeforeEach {
+            if (-not $script:dockerAvailable)
+            {
+                Set-ItResult -Skipped -Because 'Docker is not installed'
+                return
+            }
+
+            $global:LASTEXITCODE = 0
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith {
+                [PSCustomObject]@{
+                    Name = 'docker'
+                    Source = '/usr/local/bin/docker'
+                }
+            }
+        }
+
+        It 'Prunes dangling images when -PruneDanglingImages is specified' -Skip:(-not $script:dockerAvailable) {
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'ls' } -MockWith {
+                $global:LASTEXITCODE = 0
+                @('{"Repository":"nginx","Tag":"latest","ID":"sha256:abc123","Size":"200MB"}')
+            }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'pull' } -MockWith {
+                $global:LASTEXITCODE = 0
+                'Status: Image is up to date for nginx:latest'
+            }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' -and $args -contains '--force' } -MockWith {
+                $global:LASTEXITCODE = 0
+                'Total reclaimed space: 150MB'
+            }
+
+            $result = Update-DockerImages -PruneDanglingImages
+
+            $result.DanglingPruneRequested | Should -BeTrue
+            $result.DanglingPruneSucceeded | Should -BeTrue
+            $result.DanglingPruneError | Should -BeNullOrEmpty
+
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' -and $args -contains '--force' } -Times 1
+        }
+
+        It 'Does not prune dangling images by default' -Skip:(-not $script:dockerAvailable) {
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'ls' } -MockWith {
+                $global:LASTEXITCODE = 0
+                @('{"Repository":"nginx","Tag":"latest","ID":"sha256:abc123","Size":"200MB"}')
+            }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'pull' } -MockWith {
+                $global:LASTEXITCODE = 0
+                'Status: Image is up to date for nginx:latest'
+            }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' } -MockWith {
+                throw 'Dangling prune should not run unless -PruneDanglingImages is specified'
+            }
+
+            $result = Update-DockerImages
+
+            $result.DanglingPruneRequested | Should -BeFalse
+            $result.DanglingPruneSucceeded | Should -BeFalse
+            $result.DanglingPruneError | Should -Be $null
+
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' } -Times 0
+        }
+
+        It 'Honors -WhatIf and skips dangling prune' -Skip:(-not $script:dockerAvailable) {
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'ls' } -MockWith {
+                $global:LASTEXITCODE = 0
+                @('{"Repository":"nginx","Tag":"latest","ID":"sha256:abc123","Size":"200MB"}')
+            }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'pull' } -MockWith {
+                throw 'Pull should not run under -WhatIf'
+            }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' } -MockWith {
+                throw 'Dangling prune should not run under -WhatIf'
+            }
+
+            $result = Update-DockerImages -PruneDanglingImages -WhatIf
+
+            $result.DanglingPruneRequested | Should -BeTrue
+            $result.DanglingPruneSucceeded | Should -BeFalse
+            $result.DanglingPruneError | Should -Be $null
+
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'pull' } -Times 0
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' } -Times 0
+        }
+    }
 }
