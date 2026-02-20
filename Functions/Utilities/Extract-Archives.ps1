@@ -712,3 +712,17 @@ function Extract-Archives
         return $summary
     }
 }
+
+# Create alias 'extract' if it doesn't conflict
+if (-not (Get-Command -Name 'extract' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Write-Verbose "Creating 'extract' alias for Extract-Archives"
+        Set-Alias -Name 'extract' -Value 'Extract-Archives' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Extract-Archives: Could not create 'extract' alias: $($_.Exception.Message)"
+    }
+}

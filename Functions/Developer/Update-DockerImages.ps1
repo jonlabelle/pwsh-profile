@@ -94,9 +94,11 @@ function Update-DockerImages
         [String]$Filter,
 
         [Parameter()]
+        [Alias('Exclude')]
         [String]$ExcludeFilter,
 
         [Parameter()]
+        [Alias('Prune')]
         [Switch]$PruneDanglingImages
     )
 
