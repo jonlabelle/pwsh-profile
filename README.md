@@ -495,6 +495,7 @@ The profile includes utility functions organized by category:
 - **[`Remove-GitIgnoredFiles`](Functions/Developer/Remove-GitIgnoredFiles.ps1)** — Removes ignored and optionally untracked files from Git repositories
 - **[`Remove-NodeModules`](Functions/Developer/Remove-NodeModules.ps1)** — Removes node_modules folders from Node.js project directories
 - **[`Remove-DockerArtifacts`](Functions/Developer/Remove-DockerArtifacts.ps1)** — Prunes unused Docker images/networks/cache/containers/volumes
+- **[`Update-DockerImages`](Functions/Developer/Update-DockerImages.ps1)** — Updates all Docker images by pulling the latest versions from their registries
 
 ### Security
 
