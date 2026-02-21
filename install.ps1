@@ -263,6 +263,7 @@ function Get-DefaultProfileRoot
 
 function New-ProfileBackup
 {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param(
         [Parameter(Mandatory)]
         [string]$SourcePath,
@@ -284,7 +285,10 @@ function New-ProfileBackup
 
     $resolvedDestination = Resolve-ProviderPath -PathToResolve $DestinationPath
     Write-Verbose "Creating backup at $resolvedDestination"
-    Copy-Item -Path $SourcePath -Destination $resolvedDestination -Recurse -Force
+    if ($PSCmdlet.ShouldProcess($resolvedDestination, "Backup profile from '$SourcePath'"))
+    {
+        Copy-Item -Path $SourcePath -Destination $resolvedDestination -Recurse -Force
+    }
     return $resolvedDestination
 }
 
