@@ -55,6 +55,11 @@
         Downloads and runs the installer for PowerShell Desktop.
 
     .EXAMPLE
+        PS > irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' | pwsh -NoProfile -ExecutionPolicy Bypass - -FullCloneHistory -Verbose
+
+        Downloads and runs the installer with PowerShell Core using full clone history (all commits) instead of a shallow clone.
+
+    .EXAMPLE
         PS > pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -Verbose
 
         Installs from the GitHub repository. Uses git clone if Git is available, otherwise downloads and extracts as a zip file.
