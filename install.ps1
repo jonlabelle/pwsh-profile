@@ -41,8 +41,8 @@
     .PARAMETER RestorePath
         When supplied, skips installation and restores the profile from the provided backup directory.
 
-    .PARAMETER Force
-        Reserved for future use. Currently behaves like the default run.
+    .PARAMETER FullCloneHistory
+        Clones the full Git history when installing from a repository. By default, the script performs a shallow clone (`--depth 1`).
 
     .EXAMPLE
         PS > irm https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1 | pwsh -NoProfile -ExecutionPolicy Bypass - -Verbose
@@ -93,6 +93,11 @@
         PS > pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -LocalSourcePath (Get-Location) -WhatIf -Verbose
 
         Performs a dry run that shows which directories would be removed, backed up, preserved, or copied without actually changing anything.
+
+    .EXAMPLE
+        PS > pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -FullCloneHistory -Verbose
+
+        Installs from the Git repository using a full clone history (all commits) instead of a shallow clone.
 
     .NOTES
         The script will use `git` when available for cloning, otherwise it downloads the repository as a zip file.
@@ -157,7 +162,7 @@ param(
     [string]$RestorePath,
 
     [Parameter()]
-    [switch]$Force
+    [switch]$FullCloneHistory
 )
 
 Set-StrictMode -Version Latest
@@ -427,7 +432,10 @@ function Invoke-RepositoryDownload
         [string]$Repository,
 
         [Parameter(Mandatory)]
-        [string]$Destination
+        [string]$Destination,
+
+        [Parameter()]
+        [switch]$FullHistory
     )
 
     $parentDirectory = Split-Path -Parent $Destination
@@ -439,12 +447,21 @@ function Invoke-RepositoryDownload
     $gitCommand = Get-Command -Name git -ErrorAction SilentlyContinue
     if ($gitCommand)
     {
-        Write-Verbose "Git found, cloning $Repository into $Destination"
+        $cloneMode = if ($FullHistory) { 'full history' } else { 'shallow (--depth 1)' }
+        Write-Verbose "Git found, cloning $Repository into $Destination using $cloneMode"
         $gitExecutable = $gitCommand.Definition
         # Temporarily suppress error action to prevent Git's stderr from terminating in PS Desktop 5.1
         $previousErrorAction = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
-        $gitOutput = & $gitExecutable clone --depth 1 $Repository $Destination 2>&1
+        $cloneArgs = if ($FullHistory)
+        {
+            @('clone', $Repository, $Destination)
+        }
+        else
+        {
+            @('clone', '--depth', '1', $Repository, $Destination)
+        }
+        $gitOutput = & $gitExecutable @cloneArgs 2>&1
         $ErrorActionPreference = $previousErrorAction
 
         if ($LASTEXITCODE -ne 0)
@@ -852,7 +869,7 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
         }
         else
         {
-            Invoke-RepositoryDownload -Repository $RepositoryUrl -Destination $resolvedProfileRoot
+            Invoke-RepositoryDownload -Repository $RepositoryUrl -Destination $resolvedProfileRoot -FullHistory:$FullCloneHistory
         }
 
         if ($preservationData)
