@@ -33,13 +33,15 @@ Describe 'Show-SystemResourceMonitor' {
         $result = Show-SystemResourceMonitor -NoContinuous -NoColor -BarWidth 16 -HistoryLength 8
 
         $result | Should -Match '(?m)^System Resource Monitor.+\[[ABCDF]\]'
-        $result | Should -Match '(?m)^Status +Platform:.+Updated:.+Collect:'
-        $result | Should -Match '(?m)^History +Last \d+ samples \(oldest -> newest\)'
+        $result | Should -Match '(?m)^Status +\[Platform\].+\[Updated\].+\[Collect\]'
+        $result | Should -Match '(?m)^History +\[Window\] +\d+ samples .+ \[Order\] +oldest (?:→|->) newest\r?$'
+        $result | Should -Match '(?m)^ +\[Trend\] +(?:↗ up \| → steady \| ↘ down|\^ up \| = steady \| v down)\r?$'
         $result | Should -Not -Match '(?m)^Health +Overall:'
 
         $lines = @($result -split '\r?\n')
-        $statusLine = @($lines | Where-Object { $_ -match '^Status +Platform:.+Updated:.+Collect:' }) | Select-Object -First 1
-        $historyLine = @($lines | Where-Object { $_ -match '^History +Last \d+ samples \(oldest -> newest\)' }) | Select-Object -First 1
+        $statusLine = @($lines | Where-Object { $_ -match '^Status +\[Platform\].+\[Updated\].+\[Collect\]' }) | Select-Object -First 1
+        $historyLine = @($lines | Where-Object { $_ -match '^History +\[Window\] +\d+ samples .+ \[Order\] +oldest (?:→|->) newest$' }) | Select-Object -First 1
+        $historyTrendLine = @($lines | Where-Object { $_ -match '^ +\[Trend\] +(?:↗ up \| → steady \| ↘ down|\^ up \| = steady \| v down)$' }) | Select-Object -First 1
         $dividerIndices = @(
             for ($index = 0; $index -lt $lines.Count; $index++)
             {
@@ -52,14 +54,17 @@ Describe 'Show-SystemResourceMonitor' {
 
         $statusLine | Should -Not -BeNullOrEmpty
         $historyLine | Should -Not -BeNullOrEmpty
+        $historyTrendLine | Should -Not -BeNullOrEmpty
         $dividerIndices.Count | Should -BeGreaterOrEqual 2
 
         $statusIndex = [Array]::IndexOf($lines, $statusLine)
         $historyIndex = [Array]::IndexOf($lines, $historyLine)
+        $historyTrendIndex = [Array]::IndexOf($lines, $historyTrendLine)
 
         $statusIndex | Should -Be ($dividerIndices[1] + 2)
         $lines[$dividerIndices[1] + 1] | Should -Be ''
         $historyIndex | Should -Be ($statusIndex + 1)
+        $historyTrendIndex | Should -Be ($historyIndex + 1)
     }
 
     It 'returns structured output with -AsObject' {
@@ -191,7 +196,7 @@ Describe 'Show-SystemResourceMonitor' {
 
         $result | Should -BeOfType 'System.String'
         $result | Should -Match '(?m)^CPU'
-        $result | Should -Match '(?m)^Status +Platform:'
+        $result | Should -Match '(?m)^Status +\[Platform\]'
     }
 
     It 'includes top process visualization by default' {

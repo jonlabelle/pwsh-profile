@@ -65,18 +65,28 @@
     .EXAMPLE
         PS > Show-SystemResourceMonitor
 
-        System Resource Monitor                                                      31.0% OK [A] ✓
+        System Resource Monitor                                                      27.0% OK [A] ✓
         ───────────────────────────────────────────────────────────────────────────────────────────
-        CPU     [███▌░░░░░░░░░░░░░░░░░░░░░░░░░░░░]   11.0% OK      0.9/8.0 logical cores busy
-        Memory  [████████████████░░░░░░░░░░░░░░░░]   50.0% OK      12.1/24.0 GiB
-        Disk    [██████████▌░░░░░░░░░░░░░░░░░░░░░]   33.0% OK      151.4/460.4 GiB on / (root fs)
-        Network [░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░]    0.0% IDLE    In 0 B/s | Out 0 B/s | Total 0 B/s
+        CPU     [███▊░░░░░░░░░░░░░░░░░░░░░░░░░░░░]   12.0% OK    ↗ ▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂  1.4/12.0 logical cores busy
+        Memory  [█████████▌░░░░░░░░░░░░░░░░░░░░░░]   30.0% OK    → ▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃  7.1/24.0 GiB
+        Disk    [████████████▏░░░░░░░░░░░░░░░░░░░]   38.0% OK    → ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄  173.7/460.4 GiB on / (root fs)
+        Network [█░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░]    3.0% IDLE  ↘ ▂▂▄▁▁▁▁▁▁▁▁▁▁▂▃▁▂▁▁▂▁█▁▁  In 886 B/s | Out 0 B/s | Total 886 B/s
         ───────────────────────────────────────────────────────────────────────────────────────────
 
-        Status   Platform: macOS │ Updated: 2026-02-17 19:16:30 │ Collect: 519.4ms
-        History  Last 24 samples (oldest -> newest)
+        Status   [Platform] macOS │ [Updated] 2026-02-23 09:38:41 │ [Collect] 294.1ms
+        History  [Window] 24 samples │ [Order] oldest → newest
+                 [Trend] ↗ up | → steady | ↘ down
 
-        Starts a continuously refreshing monitor view.
+        ───────────────────────────────────────────────────────────────────────────────────────────
+        Top Processes (limit: 5)
+        mediaanalysisd     PID    874  CPU  2,139.0s  MEM     65.5 MiB
+        duetexpertd        PID    657  CPU  1,008.0s  MEM     62.2 MiB
+        Little Snitch A... PID    844  CPU    752.0s  MEM     54.0 MiB
+        loginwindow        PID    401  CPU    713.0s  MEM     41.5 MiB
+        fileproviderd      PID    635  CPU    679.0s  MEM     18.8 MiB
+
+        ───────────────────────────────────────────────────────────────────────────────────────────
+        Press Ctrl+C to stop monitor.
 
     .EXAMPLE
         PS > Show-SystemResourceMonitor -NoContinuous
@@ -1073,10 +1083,10 @@
                 }
 
                 [void]$matchedProcesses.Add([PSCustomObject]@{
-                    Name = if ([String]::IsNullOrWhiteSpace($processName)) { '<unknown>' } else { $processName }
-                    CpuSeconds = $cpuSeconds
-                    WorkingSetBytes = $workingSetBytes
-                })
+                        Name = if ([String]::IsNullOrWhiteSpace($processName)) { '<unknown>' } else { $processName }
+                        CpuSeconds = $cpuSeconds
+                        WorkingSetBytes = $workingSetBytes
+                    })
             }
 
             $totalCpuSeconds = 0.0
@@ -2063,8 +2073,11 @@
                 $titleLine = $titleText + '  ' + $overallSummaryDisplay
             }
 
-            $statusLine = ('Status   Platform: {0} {1} Updated: {2} {1} Collect: {3}' -f $Sample.Platform, $statusSeparator, $Sample.Timestamp.ToString('yyyy-MM-dd HH:mm:ss'), $collectText)
-            $historyLine = Add-SubtleText -Text ("History  Last $maxHistoryPoints samples (oldest -> newest)")
+            $historyOrderText = if ($supportsUnicode) { 'oldest → newest' } else { 'oldest -> newest' }
+            $trendLegendText = if ($supportsUnicode) { '↗ up | → steady | ↘ down' } else { '^ up | = steady | v down' }
+            $statusLine = ('Status   [Platform] {0} {1} [Updated] {2} {1} [Collect] {3}' -f $Sample.Platform, $statusSeparator, $Sample.Timestamp.ToString('yyyy-MM-dd HH:mm:ss'), $collectText)
+            $historyLine = Add-SubtleText -Text ("History  [Window] $maxHistoryPoints samples $statusSeparator [Order] $historyOrderText")
+            $historyLegendLine = Add-SubtleText -Text ("         [Trend] $trendLegendText")
             $subtleDivider = Add-SubtleText -Text $divider
             $scopeLine = $null
 
@@ -2099,7 +2112,8 @@
                 $subtleDivider,
                 '',
                 (Add-SubtleText -Text $statusLine),
-                $historyLine
+                $historyLine,
+                $historyLegendLine
             )
 
             if (-not [String]::IsNullOrWhiteSpace($scopeLine))
