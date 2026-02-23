@@ -556,15 +556,13 @@ Functions can be used without loading the profile by dot-sourcing them directly:
 
 ```powershell
 # Load a specific function (any dependencies are auto-loaded)
-. '~/.config/powershell/Functions/NetworkAndDns/Test-Port.ps1'
+PS > . 'Functions/NetworkAndDns/Test-Port.ps1'
 
 # Use it
-Test-Port bing.com -Port 443
+PS > Test-Port bing.com -Port 443
 ```
 
-> **Path note:** On Windows PowerShell Desktop 5.1, use `~/Documents/WindowsPowerShell/Functions/...` instead of `~/.config/powershell/Functions/...`.
-
-> Functions with dependencies automatically load what they need, so you only need to dot-source the function you want to use.
+Functions with dependencies automatically load what they need, so you only need to dot-source the function you want to use.
 
 ## Contributing
 
