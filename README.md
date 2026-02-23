@@ -8,38 +8,38 @@
 
 ### Invoke-NetworkDiagnostic
 
+Runs network and DNS checks for multiple hosts, then renders live latency graphs.
+
 ```powershell
-'www.google.com', 'www.cloudflare.com', 'jonlabelle.com', 'microsoft.com' |
+PS > 'www.google.com', 'www.cloudflare.com', 'jonlabelle.com', 'microsoft.com' |
     Invoke-NetworkDiagnostic -Port 80 -Continuous -Interval 2 -SampleDelayMilliseconds 50 -IncludeDns
 ```
 
 ![Invoke-NetworkDiagnostic screenshot](resources/screenshots/Invoke-NetworkDiagnostic.png "Invoke-NetworkDiagnostic in action")
 
-Runs network and DNS checks for multiple hosts, then renders live latency graphs.
-
 ---
 
 ### Show-SystemResourceMonitor
 
+Displays a live system monitor for CPU, memory, disk, and network activity plus top processes by resource consumption.
+
 ```powershell
-Show-SystemResourceMonitor
+PS > Show-SystemResourceMonitor
 ```
 
 ![Show-SystemResourceMonitor screenshot](resources/screenshots/Show-SystemResourceMonitor.png "Show-SystemResourceMonitor in action")
-
-Displays a live system monitor for CPU, memory, disk, and network activity plus top processes by resource consumption.
 
 ---
 
 ### Show-ProfileFunctions
 
+Lists all functions available in this profile, organized by category, with optional alias display.
+
 ```powershell
-Show-ProfileFunctions -IncludeAliases
+PS > Show-ProfileFunctions -IncludeAliases
 ```
 
 ![Show-ProfileFunctions screenshot](resources/screenshots/Show-ProfileFunctions.png "Show-ProfileFunctions in action")
-
-Lists available profile functions with their aliases.
 
 ---
 
