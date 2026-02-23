@@ -10,18 +10,19 @@
         throughput using cross-platform .NET interface counters. Works on Windows,
         macOS, and Linux with platform-specific collection logic and safe fallbacks.
 
-        By default, the function returns a single dashboard snapshot as a string.
-        Use -Continuous to keep refreshing the view until interrupted with Ctrl+C.
+        By default, the function refreshes continuously until interrupted with
+        Ctrl+C. Use -NoContinuous to render a single dashboard snapshot.
         Continuous mode includes refresh timestamps for better visibility.
         Use -AsObject for structured output suitable for scripts and automation.
         Dashboard status includes an overall health grade (A-F), status icon, findings
         summary, and collection elapsed time.
-        Enable -IncludeTopProcesses to append the busiest running processes.
+        Top process details are included by default. Use -NoTopProcesses to
+        hide the busiest running processes section.
         Use -TopProcessName to filter process rows by wildcard name patterns.
         Use -MonitorProcessName to scope resource charts to matching processes.
 
-    .PARAMETER Continuous
-        Continuously refreshes the monitor output.
+    .PARAMETER NoContinuous
+        Disables continuous refresh and renders a single snapshot.
 
     .PARAMETER IntervalSeconds
         Number of seconds to wait between updates in continuous mode.
@@ -41,11 +42,11 @@
     .PARAMETER AsObject
         Returns structured metric objects instead of rendered dashboard text.
 
-    .PARAMETER IncludeTopProcesses
-        Includes top running process details in the dashboard and object output.
+    .PARAMETER NoTopProcesses
+        Hides top running process details from dashboard and object output.
 
     .PARAMETER TopProcessCount
-        Number of top processes to include when -IncludeTopProcesses is used.
+        Number of top processes to include when top processes are enabled.
 
     .PARAMETER TopProcessName
         One or more wildcard patterns used to filter top process names.
@@ -75,32 +76,42 @@
         Status   Platform: macOS │ Updated: 2026-02-17 19:16:30 │ Collect: 519.4ms
         History  Last 24 samples (oldest -> newest)
 
+        Starts a continuously refreshing monitor view.
+
+    .EXAMPLE
+        PS > Show-SystemResourceMonitor -NoContinuous
+
         Displays a single visual snapshot of system resource usage.
 
     .EXAMPLE
-        PS > Show-SystemResourceMonitor -Continuous -IntervalSeconds 2
+        PS > Show-SystemResourceMonitor -IntervalSeconds 2
 
         Continuously monitors system resources, refreshing every 2 seconds.
 
     .EXAMPLE
-        PS > Show-SystemResourceMonitor -AsObject | Format-List
+        PS > Show-SystemResourceMonitor -AsObject -NoContinuous | Format-List
 
         Returns structured metric data for scripting.
 
     .EXAMPLE
-        PS > Show-SystemResourceMonitor -Continuous -Ascii
+        PS > Show-SystemResourceMonitor -Ascii
 
         Runs the monitor continuously using ASCII-safe visualization glyphs.
 
     .EXAMPLE
-        PS > Show-SystemResourceMonitor -IncludeTopProcesses -TopProcessCount 5
+        PS > Show-SystemResourceMonitor -TopProcessCount 5
 
         Displays the dashboard with a top processes section.
 
     .EXAMPLE
-        PS > Show-SystemResourceMonitor -IncludeTopProcesses -TopProcessName 'pwsh*'
+        PS > Show-SystemResourceMonitor -TopProcessName 'pwsh*'
 
         Displays only top processes whose names match the wildcard filter.
+
+    .EXAMPLE
+        PS > Show-SystemResourceMonitor -NoTopProcesses
+
+        Runs the monitor without rendering top process details.
 
     .EXAMPLE
         PS > Show-SystemResourceMonitor -MonitorProcessName 'pwsh*'
@@ -123,7 +134,7 @@
     [OutputType([System.String], [PSCustomObject])]
     param(
         [Parameter()]
-        [Switch]$Continuous,
+        [Switch]$NoContinuous,
 
         [Parameter()]
         [ValidateRange(1, 3600)]
@@ -147,7 +158,7 @@
         [Switch]$AsObject,
 
         [Parameter()]
-        [Switch]$IncludeTopProcesses,
+        [Switch]$NoTopProcesses,
 
         [Parameter()]
         [ValidateRange(1, 20)]
@@ -226,6 +237,9 @@
             $effectiveTopProcessNameFilters = @($monitorProcessNameFilters)
             $effectiveTopProcessNameMatchFilters = @($monitorProcessNameMatchFilters)
         }
+
+        $isContinuousMode = -not $NoContinuous
+        $includeTopProcesses = -not $NoTopProcesses
 
         $supportsAnsi = $false
         if (-not $NoColor)
@@ -1798,7 +1812,7 @@
             }
 
             $topProcesses = @()
-            if ($IncludeTopProcesses)
+            if ($includeTopProcesses)
             {
                 $topProcesses = @(Get-TopProcessInfo -Count $TopProcessCount -NameFilters $effectiveTopProcessNameMatchFilters)
             }
@@ -1832,7 +1846,7 @@
                 CollectMs = [Math]::Round($collectStopwatch.Elapsed.TotalMilliseconds, 1)
             }
 
-            if ($IncludeTopProcesses)
+            if ($includeTopProcesses)
             {
                 $sample | Add-Member -NotePropertyName 'TopProcesses' -NotePropertyValue $topProcesses
             }
@@ -2093,7 +2107,7 @@
                 $lines += $scopeLine
             }
 
-            if ($IncludeTopProcesses)
+            if ($includeTopProcesses)
             {
                 $topProcessHeader = "Top Processes (limit: $TopProcessCount)"
                 if ($effectiveTopProcessNameFilters.Count -gt 0)
@@ -2174,9 +2188,9 @@
             }
             else
             {
-                $dashboard = Format-DashboardText -Sample $sample -IncludeContinuousHint:$Continuous
+                $dashboard = Format-DashboardText -Sample $sample -IncludeContinuousHint:$isContinuousMode
 
-                if ($Continuous)
+                if ($isContinuousMode)
                 {
                     try
                     {
@@ -2197,7 +2211,7 @@
 
             $isMaxed = ($MaxIterations -gt 0 -and $iterations -ge $MaxIterations)
 
-            if (-not $Continuous -or $isMaxed)
+            if (-not $isContinuousMode -or $isMaxed)
             {
                 break
             }

@@ -22,7 +22,7 @@ Runs network and DNS checks for multiple hosts, then renders live latency graphs
 ### Show-SystemResourceMonitor
 
 ```powershell
-Show-SystemResourceMonitor -Continuous -IncludeTopProcesses
+Show-SystemResourceMonitor
 ```
 
 ![Show-SystemResourceMonitor screenshot](resources/screenshots/Show-SystemResourceMonitor.png "Show-SystemResourceMonitor in action")

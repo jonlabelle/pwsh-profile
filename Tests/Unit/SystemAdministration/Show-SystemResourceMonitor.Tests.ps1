@@ -12,7 +12,7 @@ Describe 'Show-SystemResourceMonitor' {
     }
 
     It 'returns a non-empty dashboard string in one-shot mode' {
-        $result = Show-SystemResourceMonitor -NoColor -BarWidth 16 -HistoryLength 8
+        $result = Show-SystemResourceMonitor -NoContinuous -NoColor -BarWidth 16 -HistoryLength 8
 
         $result | Should -BeOfType 'System.String'
         $result.Length | Should -BeGreaterThan 0
@@ -24,13 +24,13 @@ Describe 'Show-SystemResourceMonitor' {
     }
 
     It 'includes CPU core busy readout in one-shot output' {
-        $result = Show-SystemResourceMonitor -NoColor -BarWidth 16 -HistoryLength 8
+        $result = Show-SystemResourceMonitor -NoContinuous -NoColor -BarWidth 16 -HistoryLength 8
 
         $result | Should -Match '(?m)^CPU.+\S+/\S+ logical cores busy\r?$'
     }
 
     It 'includes overall summary in title and status metadata in one-shot output' {
-        $result = Show-SystemResourceMonitor -NoColor -BarWidth 16 -HistoryLength 8
+        $result = Show-SystemResourceMonitor -NoContinuous -NoColor -BarWidth 16 -HistoryLength 8
 
         $result | Should -Match '(?m)^System Resource Monitor.+\[[ABCDF]\]'
         $result | Should -Match '(?m)^Status +Platform:.+Updated:.+Collect:'
@@ -63,7 +63,7 @@ Describe 'Show-SystemResourceMonitor' {
     }
 
     It 'returns structured output with -AsObject' {
-        $result = Show-SystemResourceMonitor -AsObject
+        $result = Show-SystemResourceMonitor -AsObject -NoContinuous
 
         $result | Should -Not -BeNullOrEmpty
         $result.Timestamp | Should -BeOfType 'DateTime'
@@ -81,8 +81,8 @@ Describe 'Show-SystemResourceMonitor' {
         $result.PSObject.Properties.Name | Should -Contain 'CollectMs'
     }
 
-    It 'returns top processes in structured output when requested' {
-        $result = Show-SystemResourceMonitor -AsObject -IncludeTopProcesses -TopProcessCount 3
+    It 'returns top processes in structured output by default' {
+        $result = Show-SystemResourceMonitor -AsObject -NoContinuous -TopProcessCount 3
         $topProcesses = @($result.TopProcesses)
 
         $result | Should -Not -BeNullOrEmpty
@@ -105,7 +105,7 @@ Describe 'Show-SystemResourceMonitor' {
 
         $namePattern = $currentProcess.ProcessName + '*'
 
-        $result = Show-SystemResourceMonitor -AsObject -IncludeTopProcesses -TopProcessCount 10 -TopProcessName $namePattern
+        $result = Show-SystemResourceMonitor -AsObject -NoContinuous -TopProcessCount 10 -TopProcessName $namePattern
         $topProcesses = @($result.TopProcesses)
 
         $topProcesses.Count | Should -BeGreaterThan 0
@@ -116,7 +116,7 @@ Describe 'Show-SystemResourceMonitor' {
     }
 
     It 'returns no process rows when wildcard filter has no matches' {
-        $result = Show-SystemResourceMonitor -AsObject -IncludeTopProcesses -TopProcessCount 5 -TopProcessName '__definitely_not_a_real_process_name_*'
+        $result = Show-SystemResourceMonitor -AsObject -NoContinuous -TopProcessCount 5 -TopProcessName '__definitely_not_a_real_process_name_*'
         $topProcesses = @($result.TopProcesses)
 
         $result | Should -Not -BeNullOrEmpty
@@ -129,7 +129,7 @@ Describe 'Show-SystemResourceMonitor' {
         $currentProcess.ProcessName | Should -Not -BeNullOrEmpty
 
         $namePattern = $currentProcess.ProcessName + '*'
-        $result = Show-SystemResourceMonitor -AsObject -MonitorProcessName $namePattern
+        $result = Show-SystemResourceMonitor -AsObject -NoContinuous -MonitorProcessName $namePattern
 
         $result | Should -Not -BeNullOrEmpty
         $result.PSObject.Properties.Name | Should -Contain 'MonitorProcessName'
@@ -155,7 +155,7 @@ Describe 'Show-SystemResourceMonitor' {
             $currentName
         }
 
-        $result = Show-SystemResourceMonitor -AsObject -MonitorProcessName $plainFilter
+        $result = Show-SystemResourceMonitor -AsObject -NoContinuous -MonitorProcessName $plainFilter
 
         $result | Should -Not -BeNullOrEmpty
         @($result.MonitorProcessName) | Should -Contain $plainFilter
@@ -163,7 +163,7 @@ Describe 'Show-SystemResourceMonitor' {
     }
 
     It 'reports zero scoped CPU and memory when process filter has no matches' {
-        $result = Show-SystemResourceMonitor -AsObject -MonitorProcessName '__definitely_not_a_real_process_name_*'
+        $result = Show-SystemResourceMonitor -AsObject -NoContinuous -MonitorProcessName '__definitely_not_a_real_process_name_*'
 
         $result | Should -Not -BeNullOrEmpty
         [Int32]$result.MonitorProcessMatchCount | Should -Be 0
@@ -172,7 +172,7 @@ Describe 'Show-SystemResourceMonitor' {
     }
 
     It 'shows process scope metadata in dashboard output' {
-        $result = Show-SystemResourceMonitor -NoColor -BarWidth 12 -HistoryLength 8 -MonitorProcessName '__definitely_not_a_real_process_name_*'
+        $result = Show-SystemResourceMonitor -NoContinuous -NoColor -BarWidth 12 -HistoryLength 8 -MonitorProcessName '__definitely_not_a_real_process_name_*'
         $lines = @($result -split '\r?\n')
         $diskLine = @($lines | Where-Object { $_ -match '^Disk' }) | Select-Object -First 1
         $networkLine = @($lines | Where-Object { $_ -match '^Network' }) | Select-Object -First 1
@@ -187,15 +187,15 @@ Describe 'Show-SystemResourceMonitor' {
     }
 
     It 'supports ASCII-only rendering mode' {
-        $result = Show-SystemResourceMonitor -NoColor -Ascii -BarWidth 12 -HistoryLength 8
+        $result = Show-SystemResourceMonitor -NoContinuous -NoColor -Ascii -BarWidth 12 -HistoryLength 8
 
         $result | Should -BeOfType 'System.String'
         $result | Should -Match '(?m)^CPU'
         $result | Should -Match '(?m)^Status +Platform:'
     }
 
-    It 'includes top process visualization when requested' {
-        $result = Show-SystemResourceMonitor -NoColor -BarWidth 12 -HistoryLength 8 -IncludeTopProcesses -TopProcessCount 3
+    It 'includes top process visualization by default' {
+        $result = Show-SystemResourceMonitor -NoContinuous -NoColor -BarWidth 12 -HistoryLength 8 -TopProcessCount 3
 
         $result | Should -BeOfType 'System.String'
         $result | Should -Match '(?m)^Top Processes \(limit: 3\)\r?$'
@@ -203,7 +203,7 @@ Describe 'Show-SystemResourceMonitor' {
     }
 
     It 'shows top process wildcard filter in visualization heading' {
-        $result = Show-SystemResourceMonitor -NoColor -BarWidth 12 -HistoryLength 8 -IncludeTopProcesses -TopProcessCount 3 -TopProcessName 'pwsh*'
+        $result = Show-SystemResourceMonitor -NoContinuous -NoColor -BarWidth 12 -HistoryLength 8 -TopProcessCount 3 -TopProcessName 'pwsh*'
 
         $result | Should -BeOfType 'System.String'
         $result | Should -Match '(?m)^Top Processes \(limit: 3\) \| filter: pwsh\*\r?$'
@@ -214,14 +214,14 @@ Describe 'Show-SystemResourceMonitor' {
         $currentProcess | Should -Not -BeNullOrEmpty
         $namePattern = $currentProcess.ProcessName + '*'
 
-        $result = Show-SystemResourceMonitor -NoColor -BarWidth 12 -HistoryLength 8 -IncludeTopProcesses -TopProcessCount 3 -MonitorProcessName $namePattern
+        $result = Show-SystemResourceMonitor -NoContinuous -NoColor -BarWidth 12 -HistoryLength 8 -TopProcessCount 3 -MonitorProcessName $namePattern
 
         $result | Should -BeOfType 'System.String'
         $result | Should -Match (('(?m)^Top Processes \(limit: 3\) \| filter: {0}\r?$' -f [Regex]::Escape($namePattern)))
     }
 
     It 'formats disk label details for the current platform' {
-        $result = Show-SystemResourceMonitor -NoColor -BarWidth 12 -HistoryLength 8
+        $result = Show-SystemResourceMonitor -NoContinuous -NoColor -BarWidth 12 -HistoryLength 8
 
         $isWindowsPlatform = if ($PSVersionTable.PSVersion.Major -lt 6)
         {
@@ -243,7 +243,7 @@ Describe 'Show-SystemResourceMonitor' {
     }
 
     It 'supports bounded continuous mode for automation and tests' {
-        $results = @(Show-SystemResourceMonitor -AsObject -Continuous -IntervalSeconds 1 -MaxIterations 2)
+        $results = @(Show-SystemResourceMonitor -AsObject -IntervalSeconds 1 -MaxIterations 2)
 
         $results.Count | Should -Be 2
         $results[0].Timestamp | Should -BeOfType 'DateTime'
@@ -251,11 +251,19 @@ Describe 'Show-SystemResourceMonitor' {
     }
 
     It 'renders continuous output without timestamp refresh noise' {
-        $output = Show-SystemResourceMonitor -Continuous -NoColor -IntervalSeconds 1 -MaxIterations 1 *>&1 | Out-String
+        $output = Show-SystemResourceMonitor -NoColor -IntervalSeconds 1 -MaxIterations 1 *>&1 | Out-String
 
         $output | Should -Match '(?m)^System Resource Monitor.+\[[ABCDF]\]'
         $output | Should -Not -Match 'Refresh #'
         $output | Should -Not -Match '(?m)^Health +Overall:'
         $output | Should -Match 'Press Ctrl\+C to stop monitor\.'
+    }
+
+    It 'omits top process sections when -NoTopProcesses is used' {
+        $dashboard = Show-SystemResourceMonitor -NoContinuous -NoColor -NoTopProcesses -BarWidth 12 -HistoryLength 8
+        $sample = Show-SystemResourceMonitor -AsObject -NoContinuous -NoTopProcesses
+
+        $dashboard | Should -Not -Match '(?m)^Top Processes'
+        $sample.PSObject.Properties.Name | Should -Not -Contain 'TopProcesses'
     }
 }
