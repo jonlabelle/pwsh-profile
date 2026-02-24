@@ -1,5 +1,8 @@
 * text=auto eol=lf
 
+# Treat as binary
+*.png   binary
+
 # Exclude these directories from being exported:
 .github/   export-ignore
 .vscode/   export-ignore
