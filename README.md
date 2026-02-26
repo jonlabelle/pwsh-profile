@@ -12,7 +12,7 @@ Runs network and DNS checks for multiple hosts, then renders live latency graphs
 
 ```powershell
 PS > 'www.google.com', 'www.cloudflare.com', 'jonlabelle.com', 'microsoft.com' |
-    Invoke-NetworkDiagnostic -Port 80 -Continuous -Interval 2 -SampleDelayMilliseconds 50 -IncludeDns
+    Invoke-NetworkDiagnostic -Port 80 -Interval 2 -SampleDelayMilliseconds 50 -IncludeDns
 ```
 
 ![Invoke-NetworkDiagnostic screenshot](resources/screenshots/Invoke-NetworkDiagnostic.png "Invoke-NetworkDiagnostic in action")
@@ -365,8 +365,8 @@ Get-CertificateExpiration github.com
 Or dig deeper with a more complex example:
 
 ```console
-# Perform comprehensive network diagnostics on multiple hosts
-PS > Invoke-NetworkDiagnostic 'bing.com', 'microsoft.com'
+# Perform comprehensive network diagnostics on multiple hosts (single refresh)
+PS > Invoke-NetworkDiagnostic 'bing.com', 'microsoft.com' -MaxIterations 1
 
 ┌─ bing.com:443 (collect 2584.9ms)
 │  Latency: ▂▂▃▄▄▅▆▅▆▅▄▄▇▅▇▇█▅▅▁

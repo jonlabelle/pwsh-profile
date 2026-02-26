@@ -161,11 +161,14 @@
     .PARAMETER Continuous
         Run continuously until stopped with Ctrl+C
 
+        Continuous mode is enabled by default. Use '-Continuous:$false' to run
+        a single diagnostic cycle and exit.
+
         Continuous mode notes:
-        - Use '-Continuous' to refresh output periodically until Ctrl+C is pressed
+        - By default, output refreshes periodically until Ctrl+C is pressed
         - Set '-Interval' to control seconds between refreshes (default: 5)
         - For testing/CI: use '-MaxIterations' to limit iterations (0 = infinite)
-          Example: -Continuous -MaxIterations 1 runs one iteration and exits
+          Example: -MaxIterations 1 runs one iteration and exits
 
     .PARAMETER Interval
         Interval in seconds between continuous test cycles (default: 5)
@@ -180,7 +183,13 @@
     .EXAMPLE
         PS > Invoke-NetworkDiagnostic -HostName 'bing.com'
 
-        Tests bing.com with default settings (20 samples, port 443)
+        Starts continuous monitoring of bing.com with default settings (20 samples,
+        port 443). Press Ctrl+C to stop.
+
+    .EXAMPLE
+        PS > Invoke-NetworkDiagnostic -HostName 'bing.com' -Continuous:$false
+
+        Runs a single diagnostic cycle and exits.
 
     .EXAMPLE
         PS > Invoke-NetworkDiagnostic -HostName 'bing.com', '1.1.1.1', 'github.com' -Count 30
@@ -415,7 +424,8 @@
     .NOTES
         CONTINUOUS MODE:
         - Timestamps are shown for each refresh cycle: [HH:mm:ss] Refresh #N
-        - Use '-Continuous' to monitor until Ctrl+C is pressed
+        - Continuous mode is the default behavior
+        - Use '-Continuous:$false' for a single-run diagnostic
         - Set '-Interval' to control seconds between refreshes (default: 5)
 
         POWERSHELL 5.1 BEHAVIOR:
@@ -470,7 +480,7 @@
         [Switch]$SummaryOnly,
 
         [Parameter()]
-        [Switch]$Continuous,
+        [Switch]$Continuous = $true,
 
         [Parameter()]
         [ValidateRange(1, 3600)]
@@ -1270,7 +1280,7 @@
             $results = @($results | Where-Object { $null -ne $_ })
 
             # Display formatted output and get accurate line count if needed
-            $countOut = Format-DiagnosticOutput -Results $results -ReturnLineCount:$Continuous.IsPresent -InPlace:($Continuous.IsPresent -and $effectiveRender -eq 'InPlace') -SummaryOnly:$SummaryOnly.IsPresent
+            $countOut = Format-DiagnosticOutput -Results $results -ReturnLineCount:([bool]$Continuous) -InPlace:([bool]$Continuous -and $effectiveRender -eq 'InPlace') -SummaryOnly:$SummaryOnly.IsPresent
 
             # Ensure all output is flushed before proceeding to timing calculations
             if ($Continuous)
@@ -1289,6 +1299,9 @@
             if ($Continuous)
             {
                 if ($null -ne $countOut) { $linesPrinted += [int]$countOut }
+
+                Write-Host 'Press Ctrl+C to stop monitoring.' -ForegroundColor DarkGray
+                $linesPrinted++
 
                 # Set lastRenderLines BEFORE sleep so it's available for next iteration
                 if ($effectiveRender -eq 'InPlace')

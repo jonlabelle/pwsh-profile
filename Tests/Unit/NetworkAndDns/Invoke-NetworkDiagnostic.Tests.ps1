@@ -31,8 +31,8 @@ BeforeAll {
     . $invokePath
 }
 
-Describe 'Invoke-NetworkDiagnostic (Continuous single iteration via -MaxIterations)' {
-    It 'prints expected output without timestamp or wait messages' {
+Describe 'Invoke-NetworkDiagnostic (Default continuous mode single iteration via -MaxIterations)' {
+    It 'prints expected output and shows stop hint' {
         # Prepare canned metrics
         $script:MockLatencies = @(61, 62, 63, 64, 65)
         $script:MockMetrics = [PSCustomObject]@{
@@ -50,13 +50,14 @@ Describe 'Invoke-NetworkDiagnostic (Continuous single iteration via -MaxIteratio
         }
 
         # Capture output
-        $output = Invoke-NetworkDiagnostic -HostName 'example.com' -Continuous -Count 5 -MaxIterations 1 *>&1 | Out-String
+        $output = Invoke-NetworkDiagnostic -HostName 'example.com' -Count 5 -MaxIterations 1 *>&1 | Out-String
 
         # Verify expected content
         $output | Should -Match 'Network Diagnostic'
         $output | Should -Match 'example\.com:443'
         $output | Should -Match 'Stats'
         $output | Should -Match 'Quality:'
+        $output | Should -Match 'Press Ctrl\+C to stop monitoring\.'
 
         # Ensure NO timestamp or wait messages
         $output | Should -Not -Match 'Test completed at:'
