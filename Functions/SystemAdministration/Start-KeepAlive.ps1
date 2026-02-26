@@ -612,3 +612,17 @@ function Start-KeepAlive
         Write-Verbose 'Start-KeepAlive function completed'
     }
 }
+
+# Create alias 'keepalive' if it doesn't conflict
+if (-not (Get-Command -Name 'keepalive' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Write-Verbose "Creating 'keepalive' alias for Start-KeepAlive"
+        Set-Alias -Name 'keepalive' -Value 'Start-KeepAlive' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Start-KeepAlive: Could not create 'keepalive' alias: $($_.Exception.Message)"
+    }
+}
