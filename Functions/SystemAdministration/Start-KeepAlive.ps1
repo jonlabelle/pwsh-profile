@@ -123,6 +123,7 @@ function Start-KeepAlive
         https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Start-KeepAlive.ps1
     #>
     #
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingEmptyCatchBlock', '', Justification = '')]
     [CmdletBinding(DefaultParameterSetName = 'Start')]
     [OutputType([System.Management.Automation.Job], ParameterSetName = 'Start')]

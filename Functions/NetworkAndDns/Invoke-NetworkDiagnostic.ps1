@@ -442,6 +442,7 @@
 
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Invoke-NetworkDiagnostic.ps1
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidDefaultValueSwitchParameter', '')]
     [CmdletBinding()]
     [OutputType([void])]
     param(
