@@ -83,7 +83,7 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
         }
 
         # Helper function to create a test Git repository with a remote
-        function New-TestGitRepository
+        function NewTestGitRepository
         {
             param(
                 [String]$Path,
@@ -156,7 +156,7 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should successfully pull from a repository with remote' {
-            $repos = New-TestGitRepository -Path $script:TestWorkspace -Name 'test-repo' -WithRemote
+            $repos = NewTestGitRepository -Path $script:TestWorkspace -Name 'test-repo' -WithRemote
 
             $result = Invoke-GitPull -Path $repos.RepoPath
 
@@ -166,7 +166,7 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should report already up to date' {
-            $repos = New-TestGitRepository -Path $script:TestWorkspace -Name 'uptodate-repo' -WithRemote
+            $repos = NewTestGitRepository -Path $script:TestWorkspace -Name 'uptodate-repo' -WithRemote
 
             $result = Invoke-GitPull -Path $repos.RepoPath
 
@@ -185,7 +185,7 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should handle repository without remote gracefully' {
-            $repos = New-TestGitRepository -Path $script:TestWorkspace -Name 'no-remote-repo'
+            $repos = NewTestGitRepository -Path $script:TestWorkspace -Name 'no-remote-repo'
 
             # This should fail but not throw (no remote configured)
             $result = Invoke-GitPull -Path $repos.RepoPath -Force -ErrorAction SilentlyContinue
@@ -195,12 +195,12 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should respect -WhatIf and not make changes' {
-            $repos = New-TestGitRepository -Path $script:TestWorkspace -Name 'whatif-repo' -WithRemote
+            $repos = NewTestGitRepository -Path $script:TestWorkspace -Name 'whatif-repo' -WithRemote
 
             # Get the current HEAD before WhatIf (use 2>$null for PS 5.1 compatibility)
             $headBefore = & git -C $repos.RepoPath rev-parse HEAD 2>$null
 
-            $result = Invoke-GitPull -Path $repos.RepoPath -WhatIf
+            Invoke-GitPull -Path $repos.RepoPath -WhatIf
 
             # HEAD should be unchanged (use 2>$null for PS 5.1 compatibility)
             $headAfter = & git -C $repos.RepoPath rev-parse HEAD 2>$null
@@ -208,7 +208,7 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should use rebase by default' {
-            $repos = New-TestGitRepository -Path $script:TestWorkspace -Name 'rebase-repo' -WithRemote
+            $repos = NewTestGitRepository -Path $script:TestWorkspace -Name 'rebase-repo' -WithRemote
 
             # The command should succeed (rebase is default)
             $result = Invoke-GitPull -Path $repos.RepoPath
@@ -217,7 +217,7 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should support -NoRebase option' {
-            $repos = New-TestGitRepository -Path $script:TestWorkspace -Name 'norebase-repo' -WithRemote
+            $repos = NewTestGitRepository -Path $script:TestWorkspace -Name 'norebase-repo' -WithRemote
 
             $result = Invoke-GitPull -Path $repos.RepoPath -NoRebase
 
@@ -225,7 +225,7 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should support -Prune option' {
-            $repos = New-TestGitRepository -Path $script:TestWorkspace -Name 'prune-repo' -WithRemote
+            $repos = NewTestGitRepository -Path $script:TestWorkspace -Name 'prune-repo' -WithRemote
 
             $result = Invoke-GitPull -Path $repos.RepoPath -Prune
 
@@ -247,8 +247,8 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should process multiple paths' {
-            $repos1 = New-TestGitRepository -Path $script:TestWorkspace -Name 'repo1' -WithRemote
-            $repos2 = New-TestGitRepository -Path $script:TestWorkspace -Name 'repo2' -WithRemote
+            $repos1 = NewTestGitRepository -Path $script:TestWorkspace -Name 'repo1' -WithRemote
+            $repos2 = NewTestGitRepository -Path $script:TestWorkspace -Name 'repo2' -WithRemote
 
             $result = Invoke-GitPull -Path @($repos1.RepoPath, $repos2.RepoPath)
 
@@ -257,8 +257,8 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should accept paths from pipeline' {
-            $repos1 = New-TestGitRepository -Path $script:TestWorkspace -Name 'pipe-repo1' -WithRemote
-            $repos2 = New-TestGitRepository -Path $script:TestWorkspace -Name 'pipe-repo2' -WithRemote
+            $repos1 = NewTestGitRepository -Path $script:TestWorkspace -Name 'pipe-repo1' -WithRemote
+            $repos2 = NewTestGitRepository -Path $script:TestWorkspace -Name 'pipe-repo2' -WithRemote
 
             $result = @($repos1.RepoPath, $repos2.RepoPath) | Invoke-GitPull
 
@@ -267,8 +267,8 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should continue with -Force when one repository fails' {
-            $repos1 = New-TestGitRepository -Path $script:TestWorkspace -Name 'force-repo1' -WithRemote
-            $repos2 = New-TestGitRepository -Path $script:TestWorkspace -Name 'force-repo2'  # No remote - will fail
+            $repos1 = NewTestGitRepository -Path $script:TestWorkspace -Name 'force-repo1' -WithRemote
+            $repos2 = NewTestGitRepository -Path $script:TestWorkspace -Name 'force-repo2'  # No remote - will fail
 
             $result = Invoke-GitPull -Path @($repos1.RepoPath, $repos2.RepoPath) -Force -ErrorAction SilentlyContinue
 
@@ -293,11 +293,11 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
         It 'Should find and pull all repositories recursively' {
             # Create repositories at different levels
-            $repos1 = New-TestGitRepository -Path $script:TestWorkspace -Name 'level1-repo' -WithRemote
+            NewTestGitRepository -Path $script:TestWorkspace -Name 'level1-repo' -WithRemote
 
             $level2Dir = Join-Path -Path $script:TestWorkspace -ChildPath 'nested'
             New-Item -Path $level2Dir -ItemType Directory -Force | Out-Null
-            $repos2 = New-TestGitRepository -Path $level2Dir -Name 'level2-repo' -WithRemote
+            NewTestGitRepository -Path $level2Dir -Name 'level2-repo' -WithRemote
 
             $result = Invoke-GitPull -Path $script:TestWorkspace -Recurse
 
@@ -307,13 +307,13 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
         It 'Should respect -Depth parameter' {
             # Create repository at level 1
-            $repos1 = New-TestGitRepository -Path $script:TestWorkspace -Name 'depth-repo1' -WithRemote
+            NewTestGitRepository -Path $script:TestWorkspace -Name 'depth-repo1' -WithRemote
 
             # Create repository at level 3 (deep nested)
             $deepDir = Join-Path -Path $script:TestWorkspace -ChildPath 'level1'
             $deepDir = Join-Path -Path $deepDir -ChildPath 'level2'
             New-Item -Path $deepDir -ItemType Directory -Force | Out-Null
-            $repos2 = New-TestGitRepository -Path $deepDir -Name 'depth-repo2' -WithRemote
+            NewTestGitRepository -Path $deepDir -Name 'depth-repo2' -WithRemote
 
             # With depth 1, should only find level 1 repo
             $result = Invoke-GitPull -Path $script:TestWorkspace -Recurse -Depth 1
@@ -331,7 +331,7 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should find repository when path is the repository itself with -Recurse' {
-            $repos = New-TestGitRepository -Path $script:TestWorkspace -Name 'self-repo' -WithRemote
+            $repos = NewTestGitRepository -Path $script:TestWorkspace -Name 'self-repo' -WithRemote
 
             $result = Invoke-GitPull -Path $repos.RepoPath -Recurse
 
@@ -354,7 +354,7 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should return detailed results for each repository' {
-            $repos = New-TestGitRepository -Path $script:TestWorkspace -Name 'detail-repo' -WithRemote
+            $repos = NewTestGitRepository -Path $script:TestWorkspace -Name 'detail-repo' -WithRemote
 
             $result = Invoke-GitPull -Path $repos.RepoPath
 
@@ -366,7 +366,7 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should include error message in results when pull fails' {
-            $repos = New-TestGitRepository -Path $script:TestWorkspace -Name 'error-repo'  # No remote
+            $repos = NewTestGitRepository -Path $script:TestWorkspace -Name 'error-repo'  # No remote
 
             $result = Invoke-GitPull -Path $repos.RepoPath -Force -ErrorAction SilentlyContinue
 
@@ -391,7 +391,7 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
         It 'Should handle paths with spaces' {
             $spacePath = Join-Path -Path $script:TestWorkspace -ChildPath 'path with spaces'
             New-Item -Path $spacePath -ItemType Directory -Force | Out-Null
-            $repos = New-TestGitRepository -Path $spacePath -Name 'space repo' -WithRemote
+            $repos = NewTestGitRepository -Path $spacePath -Name 'space repo' -WithRemote
 
             $result = Invoke-GitPull -Path $repos.RepoPath
 
@@ -399,7 +399,7 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
         }
 
         It 'Should handle mixed valid and invalid paths' {
-            $repos = New-TestGitRepository -Path $script:TestWorkspace -Name 'valid-repo' -WithRemote
+            $repos = NewTestGitRepository -Path $script:TestWorkspace -Name 'valid-repo' -WithRemote
             $invalidPath = Join-Path -Path $script:TestWorkspace -ChildPath 'does-not-exist'
 
             $result = Invoke-GitPull -Path @($repos.RepoPath, $invalidPath) -WarningAction SilentlyContinue

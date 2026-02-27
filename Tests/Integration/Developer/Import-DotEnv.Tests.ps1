@@ -25,7 +25,7 @@ BeforeAll {
     . "$PSScriptRoot/../../../Functions/Developer/Import-DotEnv.ps1"
 
     # Helper to create realistic .env content
-    function New-RealisticEnvFile
+    function NewRealisticEnvFile
     {
         param(
             [String]$Path,
@@ -186,7 +186,7 @@ Describe 'Import-DotEnv Integration Tests' {
     Context 'Real-World Application Scenarios' {
         It 'Should load standard application configuration' {
             $envFile = Join-Path -Path $script:TestDir -ChildPath 'app.env'
-            New-RealisticEnvFile -Path $envFile -Type 'Standard'
+            NewRealisticEnvFile -Path $envFile -Type 'Standard'
 
             $result = Import-DotEnv -Path $envFile -PassThru
 
@@ -223,7 +223,7 @@ Describe 'Import-DotEnv Integration Tests' {
 
         It 'Should load Docker configuration' {
             $envFile = Join-Path -Path $script:TestDir -ChildPath 'docker.env'
-            New-RealisticEnvFile -Path $envFile -Type 'Docker'
+            NewRealisticEnvFile -Path $envFile -Type 'Docker'
 
             Import-DotEnv -Path $envFile
 
@@ -238,7 +238,7 @@ Describe 'Import-DotEnv Integration Tests' {
 
         It 'Should load AWS configuration with secrets' {
             $envFile = Join-Path -Path $script:TestDir -ChildPath 'aws.env'
-            New-RealisticEnvFile -Path $envFile -Type 'AWS'
+            NewRealisticEnvFile -Path $envFile -Type 'AWS'
 
             Import-DotEnv -Path $envFile
 
@@ -383,7 +383,7 @@ DB_PORT=5432'
     Context 'Variable Expansion in Real Scenarios' {
         It 'Should expand path variables correctly' {
             $envFile = Join-Path -Path $script:TestDir -ChildPath 'paths.env'
-            New-RealisticEnvFile -Path $envFile -Type 'WithExpansion'
+            NewRealisticEnvFile -Path $envFile -Type 'WithExpansion'
 
             Import-DotEnv -Path $envFile
 
@@ -417,7 +417,7 @@ API_ENDPOINT="${API_BASE}/${API_VERSION}"
     Context 'Complex Format Handling' {
         It 'Should handle all complex formats in one file' {
             $envFile = Join-Path -Path $script:TestDir -ChildPath 'complex.env'
-            New-RealisticEnvFile -Path $envFile -Type 'Complex'
+            NewRealisticEnvFile -Path $envFile -Type 'Complex'
 
             Import-DotEnv -Path $envFile
 
@@ -593,7 +593,7 @@ NETWORK_PATH="\\\\server\\share"
     Context 'ShowLoadedWithValues Integration' {
         It 'Should display values from realistic application configuration' {
             $envFile = Join-Path -Path $script:TestDir -ChildPath 'app-showvalues.env'
-            New-RealisticEnvFile -Path $envFile -Type 'Standard'
+            NewRealisticEnvFile -Path $envFile -Type 'Standard'
 
             Import-DotEnv -Path $envFile
 
