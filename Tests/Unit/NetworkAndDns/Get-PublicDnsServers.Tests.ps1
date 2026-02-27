@@ -29,6 +29,7 @@ Describe 'Get-PublicDnsServers' {
             $first.PSObject.Properties.Name | Should -Contain 'IPv6Primary'
             $first.PSObject.Properties.Name | Should -Contain 'IPv6Secondary'
             $first.PSObject.Properties.Name | Should -Contain 'DoHUrl'
+            $first.PSObject.Properties.Name | Should -Contain 'DoHJsonUrl'
             $first.PSObject.Properties.Name | Should -Contain 'PrivacyPolicyUrl'
         }
 
@@ -101,6 +102,7 @@ Describe 'Get-PublicDnsServers' {
             $cf.IPv4Primary | Should -Be '1.1.1.1'
             $cf.IPv4Secondary | Should -Be '1.0.0.1'
             $cf.DoHUrl | Should -Be 'https://cloudflare-dns.com/dns-query'
+            $cf.DoHJsonUrl | Should -Be 'https://cloudflare-dns.com/dns-query'
         }
 
         It 'Should have correct Google data' {
@@ -108,6 +110,7 @@ Describe 'Get-PublicDnsServers' {
             $g.IPv4Primary | Should -Be '8.8.8.8'
             $g.IPv4Secondary | Should -Be '8.8.4.4'
             $g.DoHUrl | Should -Be 'https://dns.google/dns-query'
+            $g.DoHJsonUrl | Should -Be 'https://dns.google/resolve'
         }
     }
 }
