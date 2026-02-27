@@ -33,10 +33,10 @@ PS > Show-SystemResourceMonitor
 
 ### Show-ProfileFunctions
 
-Lists all functions available in this profile, organized by category, with optional alias display.
+Lists all functions available in this profile, organized by category.
 
 ```powershell
-PS > Show-ProfileFunctions -IncludeAliases
+PS > Show-ProfileFunctions
 ```
 
 ![Show-ProfileFunctions screenshot](resources/screenshots/Show-ProfileFunctions.png "Show-ProfileFunctions in action")
@@ -466,7 +466,7 @@ The profile includes utility functions organized by category:
 - **[`Get-IPSubnet`](Functions/NetworkAndDns/Get-IPSubnet.ps1)** — Calculates IP subnet information including network/broadcast addresses
 - **[`Get-NetworkMetrics`](Functions/NetworkAndDns/Get-NetworkMetrics.ps1)** — Collects comprehensive network performance metrics
 - **[`Get-NetworkRoute`](Functions/NetworkAndDns/Get-NetworkRoute.ps1)** — Displays the local routing table as structured PowerShell objects
-- **[`Get-PublicDnsServers`](Functions/NetworkAndDns/Get-PublicDnsServers.ps1)** — Returns a curated list of well-known public DNS servers with addresses and DoH URLs
+- **[`Get-PublicDnsServers`](Functions/NetworkAndDns/Get-PublicDnsServers.ps1)** — Returns well-known public DNS servers with addresses and DoH URLs
 - **[`Get-ReverseDns`](Functions/NetworkAndDns/Get-ReverseDns.ps1)** — Performs reverse DNS (PTR) lookups for IP addresses
 - **[`Get-Whois`](Functions/NetworkAndDns/Get-Whois.ps1)** — Performs WHOIS lookups for domain names with registration details and nameservers
 - **[`Invoke-NetworkDiagnostic`](Functions/NetworkAndDns/Invoke-NetworkDiagnostic.ps1)** — Performs network diagnostics with visual graphs
@@ -475,7 +475,7 @@ The profile includes utility functions organized by category:
 - **[`Send-TcpRequest`](Functions/NetworkAndDns/Send-TcpRequest.ps1)** — Sends TCP requests and retrieves responses for network testing
 - **[`Show-NetworkLatencyGraph`](Functions/NetworkAndDns/Show-NetworkLatencyGraph.ps1)** — Displays network latency visualization graphs
 - **[`Test-Bandwidth`](Functions/NetworkAndDns/Test-Bandwidth.ps1)** — Tests network bandwidth with download speed and latency measurements
-- **[`Test-DnsPropagation`](Functions/NetworkAndDns/Test-DnsPropagation.ps1)** — Checks DNS propagation across multiple public DNS servers using DNS-over-HTTPS
+- **[`Test-DnsPropagation`](Functions/NetworkAndDns/Test-DnsPropagation.ps1)** — Checks DNS propagation across multiple public DNS servers
 - **[`Test-DnsNameResolution`](Functions/NetworkAndDns/Test-DnsNameResolution.ps1)** — Tests DNS name resolution using cross-platform .NET methods
 - **[`Test-HttpResponse`](Functions/NetworkAndDns/Test-HttpResponse.ps1)** — Tests HTTP/HTTPS endpoints and returns response details
 - **[`Test-Port`](Functions/NetworkAndDns/Test-Port.ps1)** — Tests TCP/UDP port connectivity with detailed connection information
