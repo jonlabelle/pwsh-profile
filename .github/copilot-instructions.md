@@ -281,6 +281,20 @@ if ($Scope -eq 'Machine' -and $script:IsWindowsPlatform)
 
 ## Testing and Quality
 
+### Suppressing Progress Bars in Tests
+
+All Pester test files must suppress progress indicators in the top-level `BeforeAll` block to prevent freezing in non-interactive environments (CI, background terminals):
+
+```powershell
+BeforeAll {
+    # Suppress progress bars to prevent freezing in non-interactive environments
+    $Global:ProgressPreference = 'SilentlyContinue'
+
+    # Load the function under test
+    . "$PSScriptRoot/../../../Functions/Category/Verb-Noun.ps1"
+}
+```
+
 ### Development Workflow
 
 ```bash

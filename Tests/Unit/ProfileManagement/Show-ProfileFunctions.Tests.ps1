@@ -32,21 +32,21 @@ BeforeAll {
 
     # Create category directories and mock function files
     $categories = @{
-        'ActiveDirectory'      = @(
+        'ActiveDirectory' = @(
             @{ Name = 'Test-ADCredential'; Synopsis = 'Test Active Directory credentials.' }
         )
-        'Developer'            = @(
+        'Developer' = @(
             @{ Name = 'Import-DotEnv'; Synopsis = 'Loads environment variables from dotenv files.' }
             @{ Name = 'Get-DotNetVersion'; Synopsis = 'Gets installed .NET Framework versions.' }
         )
-        'NetworkAndDns'        = @(
+        'NetworkAndDns' = @(
             @{ Name = 'Test-Port'; Synopsis = 'Tests TCP or UDP port connectivity.' }
             @{ Name = 'Get-DnsRecord'; Synopsis = 'Retrieves DNS records for a domain.' }
         )
         'SystemAdministration' = @(
             @{ Name = 'Test-Admin'; Synopsis = 'Determines if session has elevated privileges.' }
         )
-        'Utilities'            = @(
+        'Utilities' = @(
             @{ Name = 'Format-Bytes'; Synopsis = 'Formats byte quantities into human-friendly units.' }
         )
     }
@@ -92,11 +92,11 @@ Describe 'Show-ProfileFunctions' {
     BeforeAll {
         # Override $PROFILE so the function finds our test Functions directory
         $script:OriginalProfile = $PROFILE
-        $global:PROFILE = Join-Path -Path $script:TestRoot -ChildPath 'Microsoft.PowerShell_profile.ps1'
+        Set-Variable -Name 'PROFILE' -Value (Join-Path -Path $script:TestRoot -ChildPath 'Microsoft.PowerShell_profile.ps1') -Scope Global
     }
 
     AfterAll {
-        $global:PROFILE = $script:OriginalProfile
+        Set-Variable -Name 'PROFILE' -Value $script:OriginalProfile -Scope Global
     }
 
     Context 'No category filter (show all)' {
