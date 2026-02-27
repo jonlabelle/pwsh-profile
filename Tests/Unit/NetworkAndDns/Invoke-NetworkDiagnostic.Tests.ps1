@@ -1,4 +1,7 @@
 BeforeAll {
+    # Suppress progress bars to prevent freezing in non-interactive environments
+    $Global:ProgressPreference = 'SilentlyContinue'
+
     $invokePath = Join-Path -Path $PSScriptRoot -ChildPath '..\..\..\Functions\NetworkAndDns\Invoke-NetworkDiagnostic.ps1'
     $invokePath = [System.IO.Path]::GetFullPath($invokePath)
 

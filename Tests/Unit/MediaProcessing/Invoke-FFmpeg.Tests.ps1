@@ -1,4 +1,7 @@
 BeforeAll {
+    # Suppress progress bars to prevent freezing in non-interactive environments
+    $Global:ProgressPreference = 'SilentlyContinue'
+
     . "$PSScriptRoot/../../../Functions/MediaProcessing/Invoke-FFmpeg.ps1"
 
     # Check if ffmpeg is available for integration testing

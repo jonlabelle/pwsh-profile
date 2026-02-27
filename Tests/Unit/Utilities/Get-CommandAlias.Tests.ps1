@@ -14,6 +14,9 @@
 #>
 
 BeforeAll {
+    # Suppress progress bars to prevent freezing in non-interactive environments
+    $Global:ProgressPreference = 'SilentlyContinue'
+
     # Load the function under test
     . "$PSScriptRoot/../../../Functions/Utilities/Get-CommandAlias.ps1"
 }

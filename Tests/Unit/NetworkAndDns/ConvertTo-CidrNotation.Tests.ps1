@@ -10,6 +10,9 @@
 #>
 
 BeforeAll {
+    # Suppress progress bars to prevent freezing in non-interactive environments
+    $Global:ProgressPreference = 'SilentlyContinue'
+
     . "$PSScriptRoot/../../../Functions/NetworkAndDns/ConvertTo-CidrNotation.ps1"
 }
 

@@ -14,6 +14,9 @@
 #>
 
 BeforeAll {
+    # Suppress progress bars to prevent freezing in non-interactive environments
+    $Global:ProgressPreference = 'SilentlyContinue'
+
     # Load the function
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Start-KeepAlive.ps1"
 

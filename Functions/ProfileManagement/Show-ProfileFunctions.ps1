@@ -17,7 +17,7 @@ function Show-ProfileFunctions
         Accepts folder names (e.g., 'NetworkAndDns'), display names (e.g., 'Network And Dns'),
         or short aliases (e.g., 'dns', 'network'). Case-insensitive. Supports tab completion.
 
-        Short aliases include: ad, dev, media, module, modules, network, dns, profile,
+        Short aliases include: ad, dev, media, module, modules, network, net, dns, profile,
         sysadmin, sys, admin, utils, util.
 
     .EXAMPLE
@@ -94,7 +94,7 @@ function Show-ProfileFunctions
                     'Developer' = @('dev')
                     'MediaProcessing' = @('media')
                     'ModuleManagement' = @('module', 'modules')
-                    'NetworkAndDns' = @('network', 'dns')
+                    'NetworkAndDns' = @('network', 'dns', 'net')
                     'ProfileManagement' = @('profile')
                     'SystemAdministration' = @('sysadmin', 'sys', 'admin')
                     'Utilities' = @('utils', 'util')
@@ -155,7 +155,7 @@ function Show-ProfileFunctions
             'Developer' = @('dev')
             'MediaProcessing' = @('media')
             'ModuleManagement' = @('module', 'modules')
-            'NetworkAndDns' = @('network', 'dns')
+            'NetworkAndDns' = @('network', 'dns', 'net')
             'ProfileManagement' = @('profile')
             'SystemAdministration' = @('sysadmin', 'sys', 'admin')
             'Utilities' = @('utils', 'util')

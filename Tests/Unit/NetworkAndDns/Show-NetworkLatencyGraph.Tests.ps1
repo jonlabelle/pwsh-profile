@@ -1,4 +1,7 @@
 BeforeAll {
+    # Suppress progress bars to prevent freezing in non-interactive environments
+    $Global:ProgressPreference = 'SilentlyContinue'
+
     $functionPath = Join-Path -Path $PSScriptRoot -ChildPath '..\..\..\Functions\NetworkAndDns\Show-NetworkLatencyGraph.ps1'
     $functionPath = [System.IO.Path]::GetFullPath($functionPath)
     . $functionPath

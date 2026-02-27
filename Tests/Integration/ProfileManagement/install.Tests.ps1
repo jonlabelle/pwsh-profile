@@ -1,6 +1,9 @@
 ﻿#Requires -Modules Pester
 
 BeforeAll {
+    # Suppress progress bars to prevent freezing in non-interactive environments
+    $Global:ProgressPreference = 'SilentlyContinue'
+
     $script:repoRoot = (Resolve-Path "$PSScriptRoot/../../..").Path
     $script:installScript = Join-Path -Path $script:repoRoot -ChildPath 'install.ps1'
     $script:gitCommand = Get-Command git -ErrorAction SilentlyContinue | Select-Object -First 1

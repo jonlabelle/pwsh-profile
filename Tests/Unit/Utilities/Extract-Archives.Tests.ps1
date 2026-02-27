@@ -12,6 +12,9 @@
 #>
 
 BeforeAll {
+    # Suppress progress bars to prevent freezing in non-interactive environments
+    $Global:ProgressPreference = 'SilentlyContinue'
+
     # Import the function under test
     . "$PSScriptRoot/../../../Functions/Utilities/Extract-Archives.ps1"
 }

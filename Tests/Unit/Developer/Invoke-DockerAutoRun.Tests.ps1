@@ -10,6 +10,9 @@
 #>
 
 BeforeAll {
+    # Suppress progress bars to prevent freezing in non-interactive environments
+    $Global:ProgressPreference = 'SilentlyContinue'
+
     . "$PSScriptRoot/../../../Functions/Developer/Invoke-DockerAutoRun.ps1"
 
     # Deterministic shim used by Get-Command mocks so tests do not depend on Docker being installed.

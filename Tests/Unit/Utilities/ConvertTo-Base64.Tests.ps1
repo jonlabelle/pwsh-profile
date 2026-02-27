@@ -1,4 +1,7 @@
 BeforeAll {
+    # Suppress progress bars to prevent freezing in non-interactive environments
+    $Global:ProgressPreference = 'SilentlyContinue'
+
     . $PSScriptRoot/../../../Functions/Utilities/ConvertTo-Base64.ps1
 }
 

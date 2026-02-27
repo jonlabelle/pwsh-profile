@@ -14,6 +14,9 @@
 #>
 
 BeforeAll {
+    # Suppress progress bars to prevent freezing in non-interactive environments
+    $Global:ProgressPreference = 'SilentlyContinue'
+
     . "$PSScriptRoot/../../../Functions/NetworkAndDns/Get-PublicDnsServers.ps1"
     . "$PSScriptRoot/../../../Functions/NetworkAndDns/Test-DnsPropagation.ps1"
 }

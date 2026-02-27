@@ -1,4 +1,7 @@
 BeforeAll {
+    # Suppress progress bars to prevent freezing in non-interactive environments
+    $Global:ProgressPreference = 'SilentlyContinue'
+
     . "$PSScriptRoot/../../../Functions/MediaProcessing/Get-MediaInfo.ps1"
 
     # Check if ffprobe is available for integration testing

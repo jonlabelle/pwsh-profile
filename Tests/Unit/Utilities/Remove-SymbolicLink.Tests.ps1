@@ -1,4 +1,7 @@
 BeforeAll {
+    # Suppress progress bars to prevent freezing in non-interactive environments
+    $Global:ProgressPreference = 'SilentlyContinue'
+
     # Import the functions
     . "$PSScriptRoot/../../../Functions/Utilities/New-SymbolicLink.ps1"
     . "$PSScriptRoot/../../../Functions/Utilities/Remove-SymbolicLink.ps1"

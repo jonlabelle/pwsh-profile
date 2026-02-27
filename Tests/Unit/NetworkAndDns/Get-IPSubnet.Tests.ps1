@@ -12,7 +12,11 @@
 .NOTES
     These tests verify core subnet calculation functionality following project conventions
     with comprehensive examples covering common networking scenarios.
-#>BeforeAll {
+#>
+BeforeAll {
+    # Suppress progress bars to prevent freezing in non-interactive environments
+    $Global:ProgressPreference = 'SilentlyContinue'
+
     # Load the function
     . "$PSScriptRoot/../../../Functions/NetworkAndDns/Get-IPSubnet.ps1"
 }

@@ -2,6 +2,9 @@
 $script:GitAvailable = $null -ne (Get-Command 'git' -ErrorAction SilentlyContinue)
 
 BeforeAll {
+    # Suppress progress bars to prevent freezing in non-interactive environments
+    $Global:ProgressPreference = 'SilentlyContinue'
+
     # Load the function
     . "$PSScriptRoot/../../../Functions/Developer/Invoke-GitPull.ps1"
 

@@ -15,6 +15,9 @@
 #>
 
 BeforeAll {
+    # Suppress progress bars to prevent freezing in non-interactive environments
+    $Global:ProgressPreference = 'SilentlyContinue'
+
     # Load the function
     . "$PSScriptRoot/../../../Functions/Security/Unprotect-PathWithPassword.ps1"
     . "$PSScriptRoot/../../../Functions/Security/Protect-PathWithPassword.ps1"

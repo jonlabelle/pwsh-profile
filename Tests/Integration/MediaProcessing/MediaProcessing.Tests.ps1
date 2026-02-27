@@ -1,4 +1,7 @@
 BeforeAll {
+    # Suppress progress bars to prevent freezing in non-interactive environments
+    $Global:ProgressPreference = 'SilentlyContinue'
+
     . "$PSScriptRoot/../../../Functions/MediaProcessing/Get-MediaInfo.ps1"
     . "$PSScriptRoot/../../../Functions/MediaProcessing/Invoke-FFmpeg.ps1"
     . "$PSScriptRoot/../../../Functions/MediaProcessing/Rename-VideoSeasonFile.ps1"

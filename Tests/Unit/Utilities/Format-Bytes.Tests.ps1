@@ -1,7 +1,11 @@
+BeforeAll {
+    # Suppress progress bars to prevent freezing in non-interactive environments
+    $Global:ProgressPreference = 'SilentlyContinue'
+
+    . $PSScriptRoot/../../../Functions/Utilities/Format-Bytes.ps1
+}
+
 Describe 'Format-Bytes' {
-    BeforeAll {
-        . $PSScriptRoot/../../../Functions/Utilities/Format-Bytes.ps1
-    }
 
     Context 'Storage conversions (IEC 1024)' {
         It 'Converts 1048576 bytes to 1 MB (IEC)' {
