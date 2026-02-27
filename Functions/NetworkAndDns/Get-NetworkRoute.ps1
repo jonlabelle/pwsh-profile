@@ -193,15 +193,9 @@ function Get-NetworkRoute
                 Write-Verbose 'Parsing ip route output'
                 try
                 {
-                    $ipCommand = if ($AddressFamily -eq 'IPv6') { 'ip -6 route show' } else { 'ip -4 route show' }
-                    $routeOutput = if ($AddressFamily -eq 'IPv6')
-                    {
-                        & ip -6 route show 2>&1
-                    }
-                    else
-                    {
-                        & ip -4 route show 2>&1
-                    }
+                    $ipArgs = if ($AddressFamily -eq 'IPv6') { @('-6', 'route', 'show') } else { @('-4', 'route', 'show') }
+                    Write-Verbose "Executing: ip $($ipArgs -join ' ')"
+                    $routeOutput = & ip @ipArgs 2>&1
 
                     foreach ($line in $routeOutput)
                     {
