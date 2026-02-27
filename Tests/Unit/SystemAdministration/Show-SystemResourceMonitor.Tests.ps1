@@ -1,4 +1,4 @@
-BeforeAll {
+﻿BeforeAll {
     # Suppress progress bars to prevent freezing in non-interactive environments
     $Global:ProgressPreference = 'SilentlyContinue'
 
