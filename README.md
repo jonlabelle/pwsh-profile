@@ -498,6 +498,7 @@ The profile includes utility functions organized by category:
 - **[`Remove-DotNetBuildArtifacts`](Functions/Developer/Remove-DotNetBuildArtifacts.ps1)** — Cleans up .NET build artifacts from a project directory
 - **[`Import-DotEnv`](Functions/Developer/Import-DotEnv.ps1)** — Loads environment variables from dotenv (.env) files
 - **[`Invoke-GitPull`](Functions/Developer/Invoke-GitPull.ps1)** — Performs bulk `git pull` operations across multiple repositories
+- **[`Invoke-SqlFluff`](Functions/Developer/Invoke-SqlFluff.ps1)** — Runs SQLFluff linting and auto-fixing via Docker on SQL files
 - **[`Remove-GitIgnoredFiles`](Functions/Developer/Remove-GitIgnoredFiles.ps1)** — Removes ignored and optionally untracked files from Git repositories
 - **[`Remove-NodeModules`](Functions/Developer/Remove-NodeModules.ps1)** — Removes node_modules folders from Node.js project directories
 - **[`Invoke-DockerAutoRun`](Functions/Developer/Invoke-DockerAutoRun.ps1)** — Auto-detects project type and builds/runs a Docker container
