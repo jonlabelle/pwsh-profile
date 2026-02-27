@@ -13,6 +13,7 @@ function Remove-TestDirectory
     .PARAMETER MaxAttempts
         Maximum number of cleanup attempts (default: 3)
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -83,6 +84,7 @@ function Stop-TestJob
     .PARAMETER TimeoutSeconds
         How long to wait for jobs to stop (default: 10)
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -144,6 +146,7 @@ function Remove-TestSymbolicLink
     .PARAMETER Path
         The path to the symbolic link to remove
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]

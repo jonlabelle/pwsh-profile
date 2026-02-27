@@ -26,15 +26,8 @@ BeforeAll {
 
 Describe 'Invoke-GitPull' {
     BeforeAll {
-        # Use repository _tmp_ directory as per project instructions
-        $repoRoot = Split-Path -Path $PSScriptRoot -Parent | Split-Path -Parent | Split-Path -Parent
-        $script:TestRoot = Join-Path -Path $repoRoot -ChildPath '_tmp_'
-        $script:TestDir = Join-Path -Path $script:TestRoot -ChildPath "gitpull-unit-$(Get-Random)"
-
-        if (-not (Test-Path $script:TestRoot))
-        {
-            New-Item -Path $script:TestRoot -ItemType Directory -Force | Out-Null
-        }
+        # Use system temp directory for test isolation
+        $script:TestDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "gitpull-unit-$(Get-Random)"
         New-Item -Path $script:TestDir -ItemType Directory -Force | Out-Null
     }
 

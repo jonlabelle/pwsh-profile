@@ -21,7 +21,7 @@ BeforeAll {
     . "$PSScriptRoot/../../../Functions/ProfileManagement/Show-ProfileFunctions.ps1"
 
     # Create a temporary Functions directory structure for testing
-    $script:TestRoot = Join-Path -Path $PSScriptRoot -ChildPath '../../../_tmp_/ShowProfileFunctionsTests'
+    $script:TestRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "ShowProfileFunctionsTests-$(Get-Random)"
     $script:TestFunctionsDir = Join-Path -Path $script:TestRoot -ChildPath 'Functions'
 
     # Clean up from any prior run

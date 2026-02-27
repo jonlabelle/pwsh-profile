@@ -12,9 +12,8 @@ BeforeAll {
 Describe 'Replace-StringInFile Integration Tests' -Tag 'Integration' {
 
     BeforeAll {
-        # Create a test directory in the repository's tmp folder
-        $tmpPath = Join-Path -Path $PSScriptRoot -ChildPath '../../../tmp'
-        $script:testRoot = Join-Path -Path $tmpPath -ChildPath "replace-string-integration-$(Get-Random)"
+        # Create a test directory in the system temp folder
+        $script:testRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "replace-string-integration-$(Get-Random)"
         New-Item -ItemType Directory -Path $script:testRoot -Force | Out-Null
     }
 

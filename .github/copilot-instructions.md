@@ -2,7 +2,7 @@
 
 - Do NOT create summaries of work performed in Markdown files.
 - Be sure to cleanup any temporary files created during tasks.
-- Use the _tmp_ directory of the repository for temporary files during tests, not system-level temp directories (e.g. e.g the `/tmp` directory).
+- Use system-level temp directories (e.g. `[System.IO.Path]::GetTempPath()`) for temporary files during tests, not directories inside the repository.
 - Under no circumstances should you ever commit changes directly to the repository. Ever!
 
 ## Architecture Overview
