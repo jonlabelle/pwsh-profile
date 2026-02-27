@@ -147,7 +147,7 @@ function Get-PublicDnsServers
                 IPv6Secondary = $null
                 DoHUrl = $null
                 DoHJsonUrl = $null
-                PrivacyPolicyUrl = $null
+                PrivacyPolicyUrl = 'https://www.comodo.com/repository/privacy.pdf'
             }
             [PSCustomObject]@{
                 Name = 'CleanBrowsing'
