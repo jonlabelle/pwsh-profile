@@ -62,17 +62,30 @@ Describe 'Invoke-BfgRepoCleaner' {
         }
 
         It 'Throws when Docker daemon is not running' {
+            function script:pwshDockerTestShimDaemonDown
+            {
+                param(
+                    [Parameter(ValueFromRemainingArguments = $true)]
+                    [Object[]]$RemainingArgs
+                )
+
+                $argsArray = @($RemainingArgs)
+                $script:DockerShimInvocations += , $argsArray
+
+                $global:LASTEXITCODE = 1
+                return @('daemon down')
+            }
+
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith {
                 [PSCustomObject]@{
-                    Name = 'docker'
+                    Name = 'pwshDockerTestShimDaemonDown'
                     Source = '/usr/local/bin/docker'
                 }
             }
 
-            # Mock the docker info call to simulate daemon not running
-            Mock -CommandName docker -MockWith { $global:LASTEXITCODE = 1 }
-
             { Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' } | Should -Throw '*daemon is not running*'
+
+            Remove-Item -Path Function:\pwshDockerTestShimDaemonDown -ErrorAction SilentlyContinue
         }
     }
 

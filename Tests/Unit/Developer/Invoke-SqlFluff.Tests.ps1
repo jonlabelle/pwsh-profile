@@ -63,16 +63,30 @@ Describe 'Invoke-SqlFluff' {
         }
 
         It 'Throws when Docker daemon is not running' {
+            function script:pwshDockerTestShimDaemonDown
+            {
+                param(
+                    [Parameter(ValueFromRemainingArguments = $true)]
+                    [Object[]]$RemainingArgs
+                )
+
+                $argsArray = @($RemainingArgs)
+                $script:DockerShimInvocations += , $argsArray
+
+                $global:LASTEXITCODE = 1
+                return @('daemon down')
+            }
+
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith {
                 [PSCustomObject]@{
-                    Name = 'docker'
+                    Name = 'pwshDockerTestShimDaemonDown'
                     Source = '/usr/local/bin/docker'
                 }
             }
 
-            Mock -CommandName docker -MockWith { $global:LASTEXITCODE = 1 }
-
             { Invoke-SqlFluff -Mode lint -Path 'test.sql' } | Should -Throw '*daemon is not running*'
+
+            Remove-Item -Path Function:\pwshDockerTestShimDaemonDown -ErrorAction SilentlyContinue
         }
     }
 
