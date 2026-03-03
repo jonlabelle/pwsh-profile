@@ -33,7 +33,7 @@
         Do not use decoded tokens for authentication without proper signature verification.
 
         Aliases:
-        The alias 'jwt-decode' is created for this function if it does not already exist.
+        The alias 'decode-jwt' is created for this function if it does not already exist.
 
     .PARAMETER Token
         The JWT token string to decode. Can be provided as a string or via pipeline.
@@ -446,16 +446,16 @@
     }
 }
 
-# Create 'jwt-decode' alias only if it doesn't already exist
-if (-not (Get-Command -Name 'jwt-decode' -ErrorAction SilentlyContinue))
+# Create 'decode-jwt' alias only if it doesn't already exist
+if (-not (Get-Command -Name 'decode-jwt' -ErrorAction SilentlyContinue))
 {
     try
     {
-        Write-Verbose "Creating 'jwt-decode' alias for ConvertFrom-JwtToken"
-        Set-Alias -Name 'jwt-decode' -Value 'ConvertFrom-JwtToken' -Force -ErrorAction Stop
+        Write-Verbose "Creating 'decode-jwt' alias for ConvertFrom-JwtToken"
+        Set-Alias -Name 'decode-jwt' -Value 'ConvertFrom-JwtToken' -Force -ErrorAction Stop
     }
     catch
     {
-        Write-Warning "ConvertFrom-JwtToken: Could not create 'jwt-decode' alias: $($_.Exception.Message)"
+        Write-Warning "ConvertFrom-JwtToken: Could not create 'decode-jwt' alias: $($_.Exception.Message)"
     }
 }
