@@ -326,9 +326,9 @@ function Remove-DockerArtifacts
                         if ($output)
                         {
                             $errorSummary = $output |
-                                ForEach-Object { $_.ToString().Trim() } |
-                                Where-Object { $_ -ne '' } |
-                                Select-Object -First 1
+                            ForEach-Object { $_.ToString().Trim() } |
+                            Where-Object { $_ -ne '' } |
+                            Select-Object -First 1
                         }
 
                         if ($errorSummary)
@@ -504,5 +504,19 @@ function Remove-DockerArtifacts
 
         Write-Verbose 'Docker cleanup completed'
         return $result
+    }
+}
+
+# Create 'docker-prune' alias only if it doesn't already exist
+if (-not (Get-Command -Name 'docker-prune' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Write-Verbose "Creating 'docker-prune' alias for Remove-DockerArtifacts"
+        Set-Alias -Name 'docker-prune' -Value 'Remove-DockerArtifacts' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Remove-DockerArtifacts: Could not create 'docker-prune' alias: $($_.Exception.Message)"
     }
 }

@@ -925,3 +925,17 @@ Unable to auto-detect project type. Add a Dockerfile or include one of these mar
         }
     }
 }
+
+# Create 'docker-auto' alias only if it doesn't already exist
+if (-not (Get-Command -Name 'docker-auto' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Write-Verbose "Creating 'docker-auto' alias for Invoke-DockerAutoRun"
+        Set-Alias -Name 'docker-auto' -Value 'Invoke-DockerAutoRun' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Invoke-DockerAutoRun: Could not create 'docker-auto' alias: $($_.Exception.Message)"
+    }
+}
