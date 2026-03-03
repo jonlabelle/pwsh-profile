@@ -35,9 +35,9 @@ function Invoke-SqlFluff
 
     .PARAMETER Path
         One or more paths to SQL files or directories to process. Accepts pipeline
-        input (including FileInfo objects from Get-ChildItem). Paths are resolved
-        relative to the current working directory, which is mounted into the container
-        at /sql.
+        input (including FileInfo objects from Get-ChildItem). Supports wildcard
+        patterns (for example, *.sql). Paths are resolved relative to the current
+        working directory, which is mounted into the container at /sql.
 
         When a directory is provided, all *.sql files in that directory are processed.
         Use -Recurse to include subdirectories.
@@ -45,9 +45,15 @@ function Invoke-SqlFluff
         When omitted entirely, the function discovers all *.sql files in the current
         working directory. Use -Recurse to include subdirectories.
 
+    .PARAMETER LiteralPath
+        One or more literal paths to SQL files or directories to process. Unlike -Path,
+        wildcard characters are treated literally. Use this when file or directory names
+        contain wildcard characters such as [] or *.
+
     .PARAMETER Recurse
-        When -Path is omitted or points to a directory, searches for *.sql files
-        recursively in subdirectories. Has no effect when -Path points to file(s).
+        When -Path/-LiteralPath is omitted or points to a directory, searches for
+        *.sql files recursively in subdirectories. Has no effect when the input
+        points to file(s).
 
     .PARAMETER ConfigPath
         The local file system path to the .sqlfluff configuration file. This file is
@@ -113,6 +119,16 @@ function Invoke-SqlFluff
         Lints multiple SQL files in a single call.
 
     .EXAMPLE
+        Invoke-SqlFluff -Mode format -Path *.sql
+
+        Formats all SQL files in the current working directory via wildcard expansion.
+
+    .EXAMPLE
+        Invoke-SqlFluff -Mode lint -LiteralPath 'report[1].sql'
+
+        Lints a file whose name contains wildcard characters.
+
+    .EXAMPLE
         Get-ChildItem -Filter *.sql | Invoke-SqlFluff -Mode lint
 
         Lints all SQL files in the current directory via pipeline input.
@@ -160,16 +176,20 @@ function Invoke-SqlFluff
     .LINK
         https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Invoke-SqlFluff.ps1
     #>
-    [CmdletBinding(SupportsShouldProcess)]
+    [CmdletBinding(SupportsShouldProcess, DefaultParameterSetName = 'Path')]
     [OutputType([System.Int32])]
     param(
         [Parameter(Mandatory)]
         [ValidateSet('lint', 'fix', 'format')]
         [String]$Mode,
 
-        [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Parameter(ParameterSetName = 'Path', ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [ValidateNotNullOrEmpty()]
         [String[]]$Path,
+
+        [Parameter(ParameterSetName = 'LiteralPath')]
+        [ValidateNotNullOrEmpty()]
+        [String[]]$LiteralPath,
 
         [Parameter()]
         [Switch]$Recurse,
@@ -241,8 +261,20 @@ function Invoke-SqlFluff
 
     process
     {
-        # When no Path is provided, discover *.sql files in the working directory
-        if (-not $PSBoundParameters.ContainsKey('Path') -and -not $Path)
+        # Determine which path input to use (wildcard-aware -Path or literal -LiteralPath)
+        $inputPaths = @()
+        $useLiteralPath = $PSBoundParameters.ContainsKey('LiteralPath')
+        if ($useLiteralPath)
+        {
+            $inputPaths = @($LiteralPath)
+        }
+        elseif ($PSBoundParameters.ContainsKey('Path') -and $Path)
+        {
+            $inputPaths = @($Path)
+        }
+
+        # When no input path is provided, discover *.sql files in the working directory
+        if ($inputPaths.Count -eq 0)
         {
             $gciParams = @{
                 Path = $resolvedPwd
@@ -261,40 +293,62 @@ function Invoke-SqlFluff
                 return
             }
 
-            $Path = $discovered.FullName
-            Write-Verbose "Discovered $($Path.Count) SQL file(s) in '$resolvedPwd'"
+            $inputPaths = $discovered.FullName
+            Write-Verbose "Discovered $($inputPaths.Count) SQL file(s) in '$resolvedPwd'"
         }
 
-        # Expand any directories in Path to their contained *.sql files
+        # Expand any directories in the input paths to their contained *.sql files
         $expandedPaths = @()
-        foreach ($item in $Path)
+        foreach ($item in $inputPaths)
         {
-            if (Test-Path -LiteralPath $item -PathType Container)
+            $resolvedItems = @()
+            if ($useLiteralPath)
             {
-                $gciParams = @{
-                    Path = $item
-                    Filter = '*.sql'
-                    File = $true
-                }
-                if ($Recurse)
+                if (Test-Path -LiteralPath $item)
                 {
-                    $gciParams['Recurse'] = $true
-                }
-
-                $dirFiles = @(Get-ChildItem @gciParams)
-                if ($dirFiles.Count -eq 0)
-                {
-                    Write-Warning "No *.sql files found in directory '$item'$(if ($Recurse) { ' (recursive)' })."
+                    $resolvedItems += (Resolve-Path -LiteralPath $item -ErrorAction Stop)
                 }
                 else
                 {
-                    Write-Verbose "Discovered $($dirFiles.Count) SQL file(s) in '$item'"
-                    $expandedPaths += $dirFiles.FullName
+                    throw "Cannot find path '$item' because it does not exist."
                 }
             }
             else
             {
-                $expandedPaths += $item
+                # -Path supports wildcard expansion; Resolve-Path may return multiple matches
+                $resolvedItems = @(Resolve-Path -Path $item -ErrorAction Stop)
+            }
+
+            foreach ($resolvedItem in $resolvedItems)
+            {
+                $resolvedInputPath = $resolvedItem.Path
+                if (Test-Path -LiteralPath $resolvedInputPath -PathType Container)
+                {
+                    $gciParams = @{
+                        Path = $resolvedInputPath
+                        Filter = '*.sql'
+                        File = $true
+                    }
+                    if ($Recurse)
+                    {
+                        $gciParams['Recurse'] = $true
+                    }
+
+                    $dirFiles = @(Get-ChildItem @gciParams)
+                    if ($dirFiles.Count -eq 0)
+                    {
+                        Write-Warning "No *.sql files found in directory '$resolvedInputPath'$(if ($Recurse) { ' (recursive)' })."
+                    }
+                    else
+                    {
+                        Write-Verbose "Discovered $($dirFiles.Count) SQL file(s) in '$resolvedInputPath'"
+                        $expandedPaths += $dirFiles.FullName
+                    }
+                }
+                else
+                {
+                    $expandedPaths += $resolvedInputPath
+                }
             }
         }
 

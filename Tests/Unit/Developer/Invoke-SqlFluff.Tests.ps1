@@ -129,6 +129,10 @@ Describe 'Invoke-SqlFluff' {
             { Invoke-SqlFluff -Mode lint -Path '' } | Should -Throw
         }
 
+        It 'Rejects using Path and LiteralPath together' {
+            { Invoke-SqlFluff -Mode lint -Path 'test.sql' -LiteralPath 'test.sql' } | Should -Throw
+        }
+
         It 'Rejects empty ImageTag' {
             { Invoke-SqlFluff -Mode lint -Path 'test.sql' -ImageTag '' } | Should -Throw
         }
@@ -357,6 +361,28 @@ Describe 'Invoke-SqlFluff' {
 
             $runCalls = @($script:DockerShimInvocations | Where-Object { $_ -contains 'run' })
             $runCalls.Count | Should -Be 2
+        }
+
+        It 'Expands wildcard Path patterns to matching SQL files' {
+            'SELECT 1' | Set-Content -LiteralPath (Join-Path -Path $script:TestDir -ChildPath 'a.sql')
+            'SELECT 2' | Set-Content -LiteralPath (Join-Path -Path $script:TestDir -ChildPath 'b.sql')
+            'SELECT 3' | Set-Content -LiteralPath (Join-Path -Path $script:TestDir -ChildPath 'c.txt')
+
+            Invoke-SqlFluff -Mode lint -Path '*.sql' | Out-Null
+
+            $runCalls = @($script:DockerShimInvocations | Where-Object { $_ -contains 'run' })
+            $runCalls.Count | Should -Be 2
+        }
+
+        It 'Treats wildcard characters literally with LiteralPath' {
+            $specialName = 'report[1].sql'
+            'SELECT 1' | Set-Content -LiteralPath (Join-Path -Path $script:TestDir -ChildPath $specialName)
+
+            Invoke-SqlFluff -Mode lint -LiteralPath $specialName | Out-Null
+
+            $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
+            $runCall | Should -Not -BeNullOrEmpty
+            $runCall | Should -Contain $specialName
         }
     }
 
