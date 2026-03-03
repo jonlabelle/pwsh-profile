@@ -503,7 +503,7 @@ The profile includes utility functions organized by category:
 - **[`Remove-GitIgnoredFiles`](Functions/Developer/Remove-GitIgnoredFiles.ps1)** — Removes ignored and optionally untracked files from Git repositories
 - **[`Remove-NodeModules`](Functions/Developer/Remove-NodeModules.ps1)** — Removes node_modules folders from Node.js project directories
 - **[`Invoke-DockerAutoRun`](Functions/Developer/Invoke-DockerAutoRun.ps1)** — Auto-detects project type and builds/runs a Docker container
-- **[`Remove-DockerArtifacts`](Functions/Developer/Remove-DockerArtifacts.ps1)** — Prunes unused Docker images/networks/cache/containers/volumes
+- **[`Remove-DockerArtifacts`](Functions/Developer/Remove-DockerArtifacts.ps1)** — Prunes unused Docker images, networks, cache, containers, and build-history
 - **[`Update-DockerImages`](Functions/Developer/Update-DockerImages.ps1)** — Updates all Docker images by pulling the latest versions from their registries
 
 ### Security

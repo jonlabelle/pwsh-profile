@@ -56,11 +56,14 @@ Describe 'Remove-DockerArtifacts' {
 
             $result.ContainersPruned | Should -BeFalse
             $result.VolumesPruned | Should -BeFalse
+            $result.BuildHistoryPruned | Should -BeFalse
             $result.ImageMode | Should -Be 'AllUnused'
             $result.TotalSpaceFreed | Should -Be '650.00 MB'
 
             Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'system' -and $args[1] -eq 'prune' } -Times 0
             Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'volume' -and $args[1] -eq 'prune' } -Times 0
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'buildx' -and $args[1] -eq 'prune' } -Times 0
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'buildx' -and $args[1] -eq 'history' -and $args[2] -eq 'rm' } -Times 0
         }
 
         It 'Uses docker system prune when stopped containers are included' -Skip:(-not $script:dockerAvailable) {
@@ -70,12 +73,55 @@ Describe 'Remove-DockerArtifacts' {
 
             $result.ContainersPruned | Should -BeTrue
             $result.VolumesPruned | Should -BeTrue
+            $result.BuildHistoryPruned | Should -BeFalse
             $result.TotalSpaceFreed | Should -Be '2.00 GB'
 
             Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'system' -and $args[1] -eq 'prune' } -Times 1
             Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' } -Times 0
             Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'builder' -and $args[1] -eq 'prune' } -Times 0
             Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'network' -and $args[1] -eq 'prune' } -Times 0
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'buildx' -and $args[1] -eq 'prune' } -Times 0
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'buildx' -and $args[1] -eq 'history' -and $args[2] -eq 'rm' } -Times 0
+        }
+
+        It 'Uses all cleanup categories when -All is specified' -Skip:(-not $script:dockerAvailable) {
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'system' -and $args[1] -eq 'prune' -and $args -contains '--all' -and $args -contains '--volumes' } -MockWith { 'Total reclaimed space: 2GB' }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'buildx' -and $args[1] -eq 'history' -and $args[2] -eq 'rm' -and $args -contains '--all' } -MockWith { @() }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'buildx' -and $args[1] -eq 'prune' -and $args -contains '--all' } -MockWith { 'Total: 0B' }
+
+            $result = Remove-DockerArtifacts -All
+
+            $result.ContainersPruned | Should -BeTrue
+            $result.VolumesPruned | Should -BeTrue
+            $result.BuildHistoryPruned | Should -BeTrue
+            $result.TotalSpaceFreed | Should -Be '2.00 GB'
+
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'system' -and $args[1] -eq 'prune' } -Times 1
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'buildx' -and $args[1] -eq 'history' -and $args[2] -eq 'rm' } -Times 1
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'buildx' -and $args[1] -eq 'prune' } -Times 1
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' } -Times 0
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'builder' -and $args[1] -eq 'prune' } -Times 0
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'network' -and $args[1] -eq 'prune' } -Times 0
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'volume' -and $args[1] -eq 'prune' } -Times 0
+        }
+
+        It 'Throws when -All and -DanglingImagesOnly are used together' -Skip:(-not $script:dockerAvailable) {
+            { Remove-DockerArtifacts -All -DanglingImagesOnly } | Should -Throw 'The -All and -DanglingImagesOnly parameters cannot be used together.'
+        }
+
+        It 'Prunes Docker Desktop build history when requested' -Skip:(-not $script:dockerAvailable) {
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' } -MockWith { 'Total reclaimed space: 0B' }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'network' -and $args[1] -eq 'prune' } -MockWith { 'Total reclaimed space: 0B' }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'builder' -and $args[1] -eq 'prune' } -MockWith { 'Total reclaimed space: 0B' }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'buildx' -and $args[1] -eq 'history' -and $args[2] -eq 'rm' -and $args -contains '--all' } -MockWith { @() }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'buildx' -and $args[1] -eq 'prune' -and $args -contains '--all' } -MockWith { 'Total: 200MB' }
+
+            $result = Remove-DockerArtifacts -IncludeBuildHistory
+
+            $result.BuildHistoryPruned | Should -BeTrue
+            $result.TotalSpaceFreed | Should -Be '200.00 MB'
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'buildx' -and $args[1] -eq 'history' -and $args[2] -eq 'rm' -and $args -contains '--all' } -Times 1
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'buildx' -and $args[1] -eq 'prune' -and $args -contains '--all' } -Times 1
         }
 
         It 'Respects -DanglingImagesOnly for targeted prunes' -Skip:(-not $script:dockerAvailable) {
@@ -95,14 +141,18 @@ Describe 'Remove-DockerArtifacts' {
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' } -MockWith { throw 'Should not prune images under -WhatIf' }
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'network' -and $args[1] -eq 'prune' } -MockWith { throw 'Should not prune networks under -WhatIf' }
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'builder' -and $args[1] -eq 'prune' } -MockWith { throw 'Should not prune builder cache under -WhatIf' }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'buildx' -and $args[1] -eq 'history' -and $args[2] -eq 'rm' } -MockWith { throw 'Should not remove build history under -WhatIf' }
+            Mock -CommandName docker -ParameterFilter { $args[0] -eq 'buildx' -and $args[1] -eq 'prune' } -MockWith { throw 'Should not prune build history under -WhatIf' }
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'system' -and $args[1] -eq 'prune' } -MockWith { throw 'Should not system prune under -WhatIf' }
 
-            $result = Remove-DockerArtifacts -IncludeStoppedContainers -WhatIf
+            $result = Remove-DockerArtifacts -IncludeStoppedContainers -IncludeBuildHistory -WhatIf
 
             $result.TotalSpaceFreed | Should -Be '0 bytes'
             Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' } -Times 0
             Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'network' -and $args[1] -eq 'prune' } -Times 0
             Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'builder' -and $args[1] -eq 'prune' } -Times 0
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'buildx' -and $args[1] -eq 'history' -and $args[2] -eq 'rm' } -Times 0
+            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'buildx' -and $args[1] -eq 'prune' } -Times 0
             Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'system' -and $args[1] -eq 'prune' } -Times 0
         }
     }

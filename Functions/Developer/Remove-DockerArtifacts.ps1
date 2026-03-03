@@ -5,7 +5,8 @@ function Remove-DockerArtifacts
         Cleans up unused Docker artifacts with safety controls.
 
     .DESCRIPTION
-        Removes unused Docker images, networks, build cache, and (optionally) stopped containers and volumes.
+        Removes unused Docker images, networks, build cache, and (optionally) stopped containers, volumes,
+        and Docker Desktop build history.
         Supports -WhatIf/-Confirm and lets you choose between pruning all unused images or only dangling ones.
         For -WhatIf, EstimatedReclaimable is calculated by scanning unused images so you know what would be freed.
 
@@ -14,9 +15,14 @@ function Remove-DockerArtifacts
         - Unused networks and build cache are pruned
         - Stopped containers are NOT removed unless -IncludeStoppedContainers is specified
         - Volumes are NOT removed unless -IncludeVolumes is specified
+        - Docker Desktop build history is NOT removed unless -IncludeBuildHistory is specified
 
         Cross-platform compatible with PowerShell 5.1+ on Windows, macOS, and Linux. Requires Docker CLI
         to be installed and available in PATH.
+
+    .PARAMETER All
+        Convenience switch that includes all cleanup categories: stopped containers, unused volumes,
+        and Docker Desktop build history.
 
     .PARAMETER IncludeStoppedContainers
         Also remove stopped containers. When specified, cleanup uses 'docker system prune' to mirror Docker's
@@ -28,6 +34,12 @@ function Remove-DockerArtifacts
 
     .PARAMETER IncludeVolumes
         Also prune unused volumes. Volumes can hold data you care about; use -WhatIf or -Confirm first if unsure.
+
+    .PARAMETER IncludeBuildHistory
+        Also remove Docker Desktop build records from the current buildx builder and prune BuildKit cache.
+        This runs:
+        - 'docker buildx history rm --all' (removes records shown in Docker Desktop Build History)
+        - 'docker buildx prune --all --force' (removes reusable build cache entries)
 
     .EXAMPLE
         PS > Remove-DockerArtifacts
@@ -59,11 +71,22 @@ function Remove-DockerArtifacts
 
         Prompts for confirmation before removing unused volumes along with images, networks, and build cache.
 
+    .EXAMPLE
+        PS > Remove-DockerArtifacts -IncludeBuildHistory
+
+        Includes Docker Desktop build history cleanup by removing build records and pruning build cache.
+
+    .EXAMPLE
+        PS > Remove-DockerArtifacts -All
+
+        Includes stopped containers, unused volumes, and Docker Desktop build history in a single cleanup run.
+
     .OUTPUTS
         [PSCustomObject]
         Returns an object with summary information:
         - ContainersPruned      : $true if stopped containers were included
         - VolumesPruned         : $true if volumes were included
+        - BuildHistoryPruned    : $true if Docker Desktop build history cleanup was included
         - ImageMode             : 'AllUnused' or 'DanglingOnly'
         - EstimatedReclaimable  : Estimated unused image size in -WhatIf runs; otherwise reports not calculated
         - TotalSpaceFreed       : Total space freed based on prune output (formatted string)
@@ -84,11 +107,17 @@ function Remove-DockerArtifacts
 
     .LINK
         https://docs.docker.com/reference/cli/docker/volume/prune/
+
+    .LINK
+        https://docs.docker.com/reference/cli/docker/buildx/prune/
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([PSCustomObject])]
     param(
+        [Parameter()]
+        [Switch]$All,
+
         [Parameter()]
         [Switch]$IncludeStoppedContainers,
 
@@ -96,7 +125,10 @@ function Remove-DockerArtifacts
         [Switch]$DanglingImagesOnly,
 
         [Parameter()]
-        [Switch]$IncludeVolumes
+        [Switch]$IncludeVolumes,
+
+        [Parameter()]
+        [Switch]$IncludeBuildHistory
     )
 
     begin
@@ -105,6 +137,8 @@ function Remove-DockerArtifacts
 
         $stats = @{
             ContainersPruned = $false
+            VolumesPruned = $false
+            BuildHistoryPruned = $false
             ImageMode = if ($DanglingImagesOnly) { 'DanglingOnly' } else { 'AllUnused' }
             SpaceFreedBytes = [int64]0
             EstimatedReclaimableBytes = [int64]0
@@ -119,6 +153,11 @@ function Remove-DockerArtifacts
         }
 
         Write-Verbose "Docker found at: $($dockerCommand.Source)"
+
+        if ($All -and $DanglingImagesOnly)
+        {
+            throw 'The -All and -DanglingImagesOnly parameters cannot be used together.'
+        }
 
         function Convert-SizeStringToBytes
         {
@@ -279,10 +318,41 @@ function Remove-DockerArtifacts
                 try
                 {
                     $output = & $dockerCommand.Name @Arguments 2>&1
+                    $exitCode = $LASTEXITCODE
+                    if ($exitCode -ne 0)
+                    {
+                        $stats.Errors++
+                        $errorSummary = $null
+                        if ($output)
+                        {
+                            $errorSummary = $output |
+                                ForEach-Object { $_.ToString().Trim() } |
+                                Where-Object { $_ -ne '' } |
+                                Select-Object -First 1
+                        }
+
+                        if ($errorSummary)
+                        {
+                            Write-Warning "Failed to run 'docker $($Arguments -join ' ')' (exit code $exitCode): $errorSummary"
+                        }
+                        else
+                        {
+                            Write-Warning "Failed to run 'docker $($Arguments -join ' ')' (exit code $exitCode)."
+                        }
+
+                        return [int64]0
+                    }
+
                     foreach ($line in $output)
                     {
                         if ($line -match 'Total reclaimed space:\s*(.+)$')
                         {
+                            $reclaimedBytes = Convert-SizeStringToBytes $matches[1]
+                            break
+                        }
+                        elseif ($line -match '^Total:\s*(.+)$')
+                        {
+                            # buildx prune reports reclaimed size as "Total: <size>"
                             $reclaimedBytes = Convert-SizeStringToBytes $matches[1]
                             break
                         }
@@ -305,6 +375,10 @@ function Remove-DockerArtifacts
 
     process
     {
+        $includeStoppedContainersEffective = $IncludeStoppedContainers -or $All
+        $includeVolumesEffective = $IncludeVolumes -or $All
+        $includeBuildHistoryEffective = $IncludeBuildHistory -or $All
+
         # Estimate unused image space only for WhatIf previews
         $shouldEstimate = $WhatIfPreference -eq $true
         if ($shouldEstimate)
@@ -319,7 +393,7 @@ function Remove-DockerArtifacts
 
         $reclaimedTotal = [int64]0
 
-        if ($IncludeStoppedContainers)
+        if ($includeStoppedContainersEffective)
         {
             $stats.ContainersPruned = $true
             $systemPruneArgs = @('system', 'prune', '--force')
@@ -327,7 +401,7 @@ function Remove-DockerArtifacts
             {
                 $systemPruneArgs += '--all'
             }
-            if ($IncludeVolumes)
+            if ($includeVolumesEffective)
             {
                 $stats.VolumesPruned = $true
                 $systemPruneArgs += '--volumes'
@@ -354,12 +428,22 @@ function Remove-DockerArtifacts
             }
             $reclaimedTotal += Invoke-DockerPrune -Arguments $builderArgs -Description "docker $($builderArgs -join ' ')"
 
-            if ($IncludeVolumes)
+            if ($includeVolumesEffective)
             {
                 $stats.VolumesPruned = $true
                 $volumeArgs = @('volume', 'prune', '--force')
                 $reclaimedTotal += Invoke-DockerPrune -Arguments $volumeArgs -Description "docker $($volumeArgs -join ' ')"
             }
+        }
+
+        if ($includeBuildHistoryEffective)
+        {
+            $stats.BuildHistoryPruned = $true
+            $buildHistoryRecordsArgs = @('buildx', 'history', 'rm', '--all')
+            $reclaimedTotal += Invoke-DockerPrune -Arguments $buildHistoryRecordsArgs -Description "docker $($buildHistoryRecordsArgs -join ' ')"
+
+            $buildHistoryArgs = @('buildx', 'prune', '--all', '--force')
+            $reclaimedTotal += Invoke-DockerPrune -Arguments $buildHistoryArgs -Description "docker $($buildHistoryArgs -join ' ')"
         }
     }
 
@@ -392,6 +476,7 @@ function Remove-DockerArtifacts
         $result = [PSCustomObject]@{
             ContainersPruned = $stats.ContainersPruned
             VolumesPruned = $stats.VolumesPruned
+            BuildHistoryPruned = $stats.BuildHistoryPruned
             ImageMode = $stats.ImageMode
             EstimatedReclaimable = $estimatedDisplay
             TotalSpaceFreed = Format-ByteSize $stats.SpaceFreedBytes
@@ -401,6 +486,7 @@ function Remove-DockerArtifacts
         Write-Host "`nDocker Cleanup Summary:" -ForegroundColor Cyan
         Write-Host "  Containers pruned : $($result.ContainersPruned)" -ForegroundColor White
         Write-Host "  Volumes pruned    : $($result.VolumesPruned)" -ForegroundColor White
+        Write-Host "  Build history     : $($result.BuildHistoryPruned)" -ForegroundColor White
         Write-Host "  Image mode        : $($result.ImageMode)" -ForegroundColor White
 
         if ($isWhatIf)
