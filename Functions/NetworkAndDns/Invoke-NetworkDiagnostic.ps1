@@ -25,10 +25,11 @@
 
         Each host result displays:
         ┌─ ✓ hostname:port [A] (collect XXms)
-        │  Latency: ▂▃▄▂▁▂▃ (sparkline graph)
-        │  Stats  : min: Xms | max: Xms | avg: Xms | jitter: Xms
-        │  Quality: X/X successful (X%) | Packet Loss: X%
-        │  Findings: Healthy ✓ (or list of issues)
+        │  Latency   ▂▃▄▂▁▂▃ (sparkline graph)
+        │  Stats     min: Xms | max: Xms | avg: Xms | jitter: Xms
+        │  Quality   X/X successful (X%) | Packet Loss: X%
+        │  Trend     avg ↑+Xms | jitter ↓-Xms | loss → 0%  (continuous mode)
+        │  Findings  Healthy ✓ (or list of issues)
         └───────────────────────────────────
 
         HEALTH GRADE SYSTEM:
@@ -683,7 +684,13 @@
                 [Switch]$InPlace,
 
                 [Parameter()]
-                [Switch]$SummaryOnly
+                [Switch]$SummaryOnly,
+
+                [Parameter()]
+                [hashtable]$PreviousMetrics = @{},
+
+                [Parameter()]
+                [Switch]$ShowTrend
             )
 
             $linesPrintedLocal = 0
@@ -758,8 +765,8 @@
 
                 if ($null -ne $Result.DnsResolution)
                 {
-                    if ($Result.DnsResolution -ge $t.Dns.Critical) { $flags.Add([PSCustomObject]@{ Text = "DNS $($Result.DnsResolution)ms"; Color = 'Yellow' }) }
-                    elseif ($Result.DnsResolution -ge $t.Dns.Warning) { $flags.Add([PSCustomObject]@{ Text = "DNS $($Result.DnsResolution)ms"; Color = 'DarkYellow' }) }
+                    if ($Result.DnsResolution -ge $t.Dns.Critical) { $flags.Add([PSCustomObject]@{ Text = "DNS $($Result.DnsResolution)ms"; Color = 'Red' }) }
+                    elseif ($Result.DnsResolution -ge $t.Dns.Warning) { $flags.Add([PSCustomObject]@{ Text = "DNS $($Result.DnsResolution)ms"; Color = 'Yellow' }) }
                 }
 
                 if ($null -ne $Result.LatencyMax -and $null -ne $Result.LatencyAvg -and $Result.LatencyAvg -gt 0)
@@ -770,6 +777,70 @@
                 }
 
                 return $flags
+            }
+
+            function Get-TrendSegments
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [PSCustomObject]$Result,
+
+                    [Parameter()]
+                    [AllowNull()]
+                    [PSCustomObject]$PreviousResult
+                )
+
+                $segments = [System.Collections.Generic.List[Object]]::new()
+                if ($null -eq $PreviousResult)
+                {
+                    return $segments
+                }
+
+                $metricMap = @(
+                    [PSCustomObject]@{ Label = 'avg'; Current = $Result.LatencyAvg; Previous = $PreviousResult.LatencyAvg; Unit = 'ms' },
+                    [PSCustomObject]@{ Label = 'jitter'; Current = $Result.Jitter; Previous = $PreviousResult.Jitter; Unit = 'ms' },
+                    [PSCustomObject]@{ Label = 'loss'; Current = $Result.PacketLoss; Previous = $PreviousResult.PacketLoss; Unit = '%' }
+                )
+
+                foreach ($metric in $metricMap)
+                {
+                    if ($null -eq $metric.Current -or $null -eq $metric.Previous)
+                    {
+                        continue
+                    }
+
+                    $delta = [Math]::Round(([double]$metric.Current - [double]$metric.Previous), 2)
+                    $deltaAbs = [Math]::Abs($delta)
+
+                    if ($deltaAbs -lt 0.05)
+                    {
+                        $segments.Add([PSCustomObject]@{
+                                Text = "$($metric.Label) $([char]0x2192) 0$($metric.Unit)"
+                                Color = 'DarkGray'
+                            })
+                        continue
+                    }
+
+                    if ($delta -lt 0)
+                    {
+                        $arrow = [char]0x2193
+                        $color = 'Green'
+                        $valueText = "$delta$($metric.Unit)"
+                    }
+                    else
+                    {
+                        $arrow = [char]0x2191
+                        $color = 'Red'
+                        $valueText = "+$delta$($metric.Unit)"
+                    }
+
+                    $segments.Add([PSCustomObject]@{
+                            Text = "$($metric.Label) $arrow $valueText"
+                            Color = $color
+                        })
+                }
+
+                return $segments
             }
 
             # Only use ANSI clear tail on PowerShell Core
@@ -789,6 +860,17 @@
                 {
                     Write-Host $Text -NoNewline
                 }
+            }
+
+            function Get-LabelPrefixText
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [string]$Label
+                )
+
+                # Left-pad labels to a fixed width so metric values align vertically.
+                return ('  {0,-10}' -f $Label)
             }
 
             if ($Results.Count -eq 0)
@@ -853,6 +935,13 @@
                 }
 
                 $successRate = [Math]::Round((($result.SamplesSuccess / $result.SamplesTotal) * 100), 1)
+                $resultKey = '{0}:{1}' -f $result.HostName, $result.Port
+                $previousResult = $null
+                if ($ShowTrend -and $null -ne $PreviousMetrics -and $PreviousMetrics.ContainsKey($resultKey))
+                {
+                    $previousResult = $PreviousMetrics[$resultKey]
+                }
+                $trendSegments = if ($ShowTrend) { Get-TrendSegments -Result $result -PreviousResult $previousResult } else { [System.Collections.Generic.List[Object]]::new() }
 
                 # Host header with color coding, health grade, and elapsed time if available
                 $elapsedText = ''
@@ -876,7 +965,7 @@
                 {
                     if ($null -ne $result.LatencyAvg)
                     {
-                        Write-FramePrefix -FrameColor $statusColor -Text '  Summary: '
+                        Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Summary')
                         Write-Host 'avg ' -NoNewline -ForegroundColor Gray
                         $avgColor = if ($result.LatencyAvg -lt $t.Latency.Good) { 'Green' } elseif ($result.LatencyAvg -lt $t.Latency.Warning) { 'Yellow' } else { 'Red' }
                         Write-Host "$($result.LatencyAvg)ms" -NoNewline -ForegroundColor $avgColor
@@ -910,10 +999,39 @@
                     }
                     else
                     {
-                        Write-FramePrefix -FrameColor $statusColor -Text '  '
-                        Write-Host ("Summary: No successful connections$clearTail") -ForegroundColor Red
+                        Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Summary')
+                        Write-Host ("No successful connections$clearTail") -ForegroundColor Red
                     }
                     $linesPrintedLocal++
+
+                    if ($ShowTrend)
+                    {
+                        Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Trend')
+                        if ($trendSegments.Count -gt 0)
+                        {
+                            $trendIndex = 0
+                            foreach ($segment in $trendSegments)
+                            {
+                                if ($trendIndex -gt 0)
+                                {
+                                    Write-Host ' | ' -NoNewline -ForegroundColor DarkGray
+                                }
+                                Write-Host $segment.Text -NoNewline -ForegroundColor $segment.Color
+                                $trendIndex++
+                            }
+                            Write-Host $clearTail
+                        }
+                        elseif ($null -eq $previousResult)
+                        {
+                            Write-Host ("baseline (next refresh shows deltas)$clearTail") -ForegroundColor DarkGray
+                        }
+                        else
+                        {
+                            Write-Host ("insufficient data for trend$clearTail") -ForegroundColor DarkGray
+                        }
+                        $linesPrintedLocal++
+                    }
+
                     Write-Host (('└' + ('─' * 79) + $clearTail)) -ForegroundColor $statusColor
                     Write-Host
                     $linesPrintedLocal += 2
@@ -963,14 +1081,14 @@
                     $sparkline = & $getCachedGraph $result.LatencyData 'Sparkline' 0 0 $false
                     if ($null -ne $result.LatencyAvg)
                     {
-                        Write-FramePrefix -FrameColor $statusColor -Text '  Latency: '
+                        Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Latency')
                         # Use default color to preserve ANSI codes in sparkline
                         Write-Host ("$resetEsc$sparkline$resetEsc$clearTail")
                         $linesPrintedLocal++
                     }
                     else
                     {
-                        Write-FramePrefix -FrameColor $statusColor -Text '  Latency: '
+                        Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Latency')
                         Write-Host ("$resetEsc$sparkline$resetEsc$clearTail") -ForegroundColor Red
                         $linesPrintedLocal++
                     }
@@ -978,7 +1096,7 @@
                     # Statistics with color coding using threshold constants
                     if ($null -ne $result.LatencyAvg)
                     {
-                        Write-FramePrefix -FrameColor $statusColor -Text '  Stats  : '
+                        Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Stats')
                         Write-Host 'min: ' -NoNewline -ForegroundColor Gray
                         Write-Host "$($result.LatencyMin)ms" -NoNewline -ForegroundColor Cyan
                         Write-Host ' | max: ' -NoNewline -ForegroundColor Gray
@@ -995,14 +1113,14 @@
                     }
                     else
                     {
-                        Write-FramePrefix -FrameColor $statusColor -Text '  '
-                        Write-Host ("Stats  : No successful connections$clearTail") -ForegroundColor Red
+                        Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Stats')
+                        Write-Host ("No successful connections$clearTail") -ForegroundColor Red
                         $linesPrintedLocal++
                     }
                 }
 
                 # Packet loss and success rate with color coding
-                Write-FramePrefix -FrameColor $statusColor -Text '  Quality: '
+                Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Quality')
                 Write-Host "$($result.SamplesSuccess)/$($result.SamplesTotal)" -NoNewline -ForegroundColor Cyan
                 $qualityColor = if ($successRate -ge 98) { 'Green' } elseif ($successRate -ge 90) { 'Yellow' } else { 'Red' }
                 Write-Host ' successful (' -NoNewline
@@ -1012,8 +1130,36 @@
                 Write-Host ("$($result.PacketLoss)%$clearTail") -ForegroundColor $lossColor
                 $linesPrintedLocal++
 
+                if ($ShowTrend)
+                {
+                    Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Trend')
+                    if ($trendSegments.Count -gt 0)
+                    {
+                        $trendIndex = 0
+                        foreach ($segment in $trendSegments)
+                        {
+                            if ($trendIndex -gt 0)
+                            {
+                                Write-Host ' | ' -NoNewline -ForegroundColor DarkGray
+                            }
+                            Write-Host $segment.Text -NoNewline -ForegroundColor $segment.Color
+                            $trendIndex++
+                        }
+                        Write-Host $clearTail
+                    }
+                    elseif ($null -eq $previousResult)
+                    {
+                        Write-Host ("baseline (next refresh shows deltas)$clearTail") -ForegroundColor DarkGray
+                    }
+                    else
+                    {
+                        Write-Host ("insufficient data for trend$clearTail") -ForegroundColor DarkGray
+                    }
+                    $linesPrintedLocal++
+                }
+
                 # Call out issues inline with quick flags
-                Write-FramePrefix -FrameColor $statusColor -Text '  Findings: '
+                Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Findings')
                 if ($flags.Count -eq 0)
                 {
                     Write-Host ("Healthy $($script:StatusIcons.Healthy)$clearTail") -ForegroundColor Green
@@ -1037,7 +1183,7 @@
                 # DNS resolution time with color coding
                 if ($null -ne $result.DnsResolution)
                 {
-                    Write-FramePrefix -FrameColor $statusColor -Text '  DNS    : '
+                    Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'DNS')
                     $dnsColor = if ($result.DnsResolution -lt $t.Dns.Good) { 'Green' } elseif ($result.DnsResolution -lt $t.Dns.Critical) { 'Yellow' } else { 'Red' }
                     Write-Host "$($result.DnsResolution)ms" -NoNewline -ForegroundColor $dnsColor
                     Write-Host (" resolution time$clearTail")
@@ -1085,33 +1231,32 @@
 
         Write-Verbose "Testing $($allHosts.Count) host(s)"
 
+        # Determine ANSI support once; capabilities are stable for this session.
+        $ansiSupported = $false
+        if ($PSVersionTable.PSVersion.Major -ge 6)
+        {
+            try
+            {
+                $hasTermVar = -not [String]::IsNullOrEmpty([Environment]::GetEnvironmentVariable('TERM'))
+                $hasValidBufferSize = $Host.UI.RawUI.BufferSize.Width -gt 0
+                $isNotRedirected = [Console]::IsOutputRedirected -eq $false
+                $isInteractiveHost = $Host.Name -ne 'Default Host' -and $Host.UI.SupportsVirtualTerminal
+
+                $ansiSupported = $isNotRedirected -and ($hasTermVar -or $hasValidBufferSize -or $isInteractiveHost)
+            }
+            catch
+            {
+                $ansiSupported = $false
+            }
+        }
+
         # Main test loop
         $iteration = 0
+        $previousMetricsByKey = @{}
         $lastRenderLines = 0
         do
         {
             $iteration++
-            # Determine effective render mode
-            # Test if ANSI escape sequences are actually supported
-            $ansiSupported = $false
-            if ($PSVersionTable.PSVersion.Major -ge 6)
-            {
-                try
-                {
-                    # Test if we can actually use ANSI by checking console capabilities
-                    # More robust ANSI detection - check multiple indicators
-                    $hasTermVar = -not [String]::IsNullOrEmpty([Environment]::GetEnvironmentVariable('TERM'))
-                    $hasValidBufferSize = $Host.UI.RawUI.BufferSize.Width -gt 0
-                    $isNotRedirected = [Console]::IsOutputRedirected -eq $false
-                    $isInteractiveHost = $Host.Name -ne 'Default Host' -and $Host.UI.SupportsVirtualTerminal
-
-                    $ansiSupported = $isNotRedirected -and ($hasTermVar -or $hasValidBufferSize -or $isInteractiveHost)
-                }
-                catch
-                {
-                    $ansiSupported = $false
-                }
-            }
 
             $effectiveRender = switch ($RenderMode)
             {
@@ -1131,7 +1276,7 @@
             Write-Verbose "Render mode: $RenderMode -> $effectiveRender (ANSI: $ansiSupported)"
 
             # Collect metrics for all hosts FIRST, before any display changes
-            $results = @()
+            $results = [System.Collections.Generic.List[Object]]::new()
             $useParallel = ($PSVersionTable.PSVersion.Major -ge 7 -and $allHosts.Count -gt 1)
             if ($useParallel)
             {
@@ -1140,6 +1285,8 @@
 
                 # Use pipeline with proper completion waiting
                 $parallelResults = @($indexedHosts | ForEach-Object -Parallel {
+                        $hostEntry = $_
+
                         # Each parallel runspace starts clean; ensure the dependency is loaded locally using the captured path
                         if (-not (Get-Command -Name 'Get-NetworkMetrics' -ErrorAction SilentlyContinue) -and $using:MetricsPath)
                         {
@@ -1172,15 +1319,15 @@
                         $metrics = $null
                         try
                         {
-                            $metrics = Get-NetworkMetrics -HostName $_.HostName -Count $using:Count -Timeout $using:Timeout -Port $using:Port -IncludeDns:$using:IncludeDns -SampleDelayMilliseconds $using:SampleDelayMilliseconds
+                            $metrics = Get-NetworkMetrics -HostName $hostEntry.HostName -Count $using:Count -Timeout $using:Timeout -Port $using:Port -IncludeDns:$using:IncludeDns -SampleDelayMilliseconds $using:SampleDelayMilliseconds
                         }
                         catch
                         {
-                            $metrics = & $buildFailure $_.HostName $using:Port $using:Count
+                            $metrics = & $buildFailure $hostEntry.HostName $using:Port $using:Count
                         }
                         $sw.Stop()
                         Add-Member -InputObject $metrics -NotePropertyName 'ElapsedMs' -NotePropertyValue ([Math]::Round($sw.Elapsed.TotalMilliseconds, 2)) -Force
-                        [PSCustomObject]@{ Index = $_.Index; Metrics = $metrics }
+                        [PSCustomObject]@{ Index = $hostEntry.Index; Metrics = $metrics }
                     } -ThrottleLimit $ThrottleLimit)
 
                 # Wait for all parallel jobs to complete and sort results by index to maintain host order
@@ -1223,7 +1370,7 @@
                     $sw.Stop()
                     Add-Member -InputObject $metrics -NotePropertyName 'ElapsedMs' -NotePropertyValue ([Math]::Round($sw.Elapsed.TotalMilliseconds, 2)) -Force
 
-                    $results += $metrics
+                    $results.Add($metrics)
                 }
             }
 
@@ -1245,43 +1392,40 @@
                 }
                 elseif ($effectiveRender -eq 'InPlace' -and $iteration -gt 1 -and $lastRenderLines -gt 0)
                 {
-                    # CRITICAL: Ensure all previous output is completely finished before cursor movement
+                    # Move up exactly the previously-rendered block and clear down.
                     [Console]::Out.Flush()
                     [Console]::Error.Flush()
-                    Start-Sleep -Milliseconds 150  # Longer pause for parallel execution
+                    Start-Sleep -Milliseconds 150
 
-                    # For in-place rendering, move cursor up and clear remainder of screen
-                    # Use proper PowerShell escape character - no fallback to Clear-Host
                     $esc = [char]27
-                    # Move up more lines than calculated to ensure we clear everything
-                    $moveUpLines = [Math]::Max(20, $lastRenderLines + 5)  # More conservative for parallel
-                    $upSequence = "$esc[{0}A" -f $moveUpLines  # Move cursor up
-                    $clearSequence = "$esc[0J"                # Clear from cursor to end of screen
+                    $moveUpLines = [Math]::Max(1, $lastRenderLines)
+                    $upSequence = "$esc[{0}A" -f $moveUpLines
+                    $clearSequence = "$esc[0J"
                     [Console]::Write($upSequence + $clearSequence)
-                    [Console]::Out.Flush()  # Ensure cursor movement is applied immediately
+                    [Console]::Out.Flush()
                 }
 
-                # Print the header only on the first iteration to avoid repetitive noise
-                if ($iteration -eq 1)
-                {
-                    Write-Host ('Network Diagnostic - Continuous Mode (Press Ctrl+C to stop)') -ForegroundColor DarkGray
-                    Write-Host ("Interval: ${Interval}s | Samples per host: $Count | Port: $Port") -ForegroundColor Gray
-                    Write-Host
-                }
-
-                # Show timestamp for each refresh cycle
+                # Print a single header line each refresh with timestamp and iteration.
                 $timestamp = (Get-Date).ToString('HH:mm:ss')
-                Write-Host "[$timestamp] " -ForegroundColor DarkGray -NoNewline
-                Write-Host "Refresh #$iteration" -ForegroundColor Gray
+                Write-Host 'Network Diagnostic - Continuous Mode' -ForegroundColor DarkGray -NoNewline
+                Write-Host ' | ' -ForegroundColor DarkGray -NoNewline
+                Write-Host "[$timestamp]" -ForegroundColor DarkGray -NoNewline
+                Write-Host ' ' -NoNewline
+                Write-Host "Refresh #$iteration" -ForegroundColor White
                 Write-Host
             }
-            $linesPrinted = if ($Continuous) { 3 } else { 0 }
+            $linesPrinted = if ($Continuous) { 2 } else { 0 }
 
             # Ensure we have a non-null collection for formatting
             $results = @($results | Where-Object { $null -ne $_ })
 
-            # Display formatted output and get accurate line count if needed
-            $countOut = Format-DiagnosticOutput -Results $results -ReturnLineCount:([bool]$Continuous) -InPlace:([bool]$Continuous -and $effectiveRender -eq 'InPlace') -SummaryOnly:$SummaryOnly.IsPresent
+            # Display formatted output
+            $countOut = Format-DiagnosticOutput -Results $results `
+                -ReturnLineCount:([bool]$Continuous) `
+                -InPlace:([bool]$Continuous -and $effectiveRender -eq 'InPlace') `
+                -SummaryOnly:$SummaryOnly.IsPresent `
+                -PreviousMetrics $previousMetricsByKey `
+                -ShowTrend:([bool]$Continuous)
 
             # Ensure all output is flushed before proceeding to timing calculations
             if ($Continuous)
@@ -1296,15 +1440,27 @@
                 }
             }
 
-            # Approximate lines printed per iteration for in-place refresh on Core and handle pacing
             if ($Continuous)
             {
-                if ($null -ne $countOut) { $linesPrinted += [int]$countOut }
-
+                if ($null -ne $countOut)
+                {
+                    $linesPrinted += [int]$countOut
+                }
                 Write-Host 'Press Ctrl+C to stop monitoring.' -ForegroundColor DarkGray
                 $linesPrinted++
 
-                # Set lastRenderLines BEFORE sleep so it's available for next iteration
+                $nextSnapshot = @{}
+                foreach ($metric in $results)
+                {
+                    $metricKey = '{0}:{1}' -f $metric.HostName, $metric.Port
+                    $nextSnapshot[$metricKey] = [PSCustomObject]@{
+                        LatencyAvg = $metric.LatencyAvg
+                        Jitter = $metric.Jitter
+                        PacketLoss = $metric.PacketLoss
+                    }
+                }
+                $previousMetricsByKey = $nextSnapshot
+
                 if ($effectiveRender -eq 'InPlace')
                 {
                     $lastRenderLines = $linesPrinted
@@ -1317,7 +1473,10 @@
                 # Final flush before sleep to ensure all output is complete
                 [Console]::Out.Flush()
                 [Console]::Error.Flush()
-                Start-Sleep -Seconds $Interval
+                if ($MaxIterations -eq 0 -or $iteration -lt $MaxIterations)
+                {
+                    Start-Sleep -Seconds $Interval
+                }
             }
 
         } while ($Continuous -and ($MaxIterations -eq 0 -or $iteration -lt $MaxIterations))

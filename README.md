@@ -11,8 +11,8 @@
 Runs network and DNS checks for multiple hosts, then renders live latency graphs.
 
 ```powershell
-PS > 'www.google.com', 'www.cloudflare.com', 'jonlabelle.com', 'microsoft.com' |
-    Invoke-NetworkDiagnostic -Port 80 -Interval 2 -SampleDelayMilliseconds 50 -IncludeDns
+PS > 'www.google.com', 'www.cloudflare.com' |
+    Invoke-NetworkDiagnostic -Port 80 -Interval 2 -IncludeDns
 ```
 
 ![Invoke-NetworkDiagnostic screenshot](resources/screenshots/Invoke-NetworkDiagnostic.png "Invoke-NetworkDiagnostic in action")
