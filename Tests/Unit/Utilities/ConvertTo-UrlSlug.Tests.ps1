@@ -23,7 +23,8 @@ Describe 'ConvertTo-UrlSlug' -Tag 'Unit', 'Utilities' {
         }
 
         It 'Should strip diacritics by default' {
-            $result = ConvertTo-UrlSlug -InputObject 'Crème brûlée & café'
+            $slugInput = ('Cr{0}me br{1}l{2}e & caf{2}' -f [char]0x00E8, [char]0x00FB, [char]0x00E9)
+            $result = ConvertTo-UrlSlug -InputObject $slugInput
             $result | Should -Be 'creme-brulee-cafe'
         }
 
@@ -38,8 +39,10 @@ Describe 'ConvertTo-UrlSlug' -Tag 'Unit', 'Utilities' {
         }
 
         It 'Should preserve unicode characters when KeepUnicode is specified' {
-            $result = ConvertTo-UrlSlug -InputObject '東京 2026' -KeepUnicode
-            $result | Should -Be '東京-2026'
+            $slugInput = ('{0}{1} 2026' -f [char]0x6771, [char]0x4EAC)
+            $expected = ('{0}{1}-2026' -f [char]0x6771, [char]0x4EAC)
+            $result = ConvertTo-UrlSlug -InputObject $slugInput -KeepUnicode
+            $result | Should -Be $expected
         }
 
         It 'Should accept multiple pipeline values' {
