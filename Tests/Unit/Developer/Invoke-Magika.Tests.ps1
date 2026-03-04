@@ -5,8 +5,9 @@
     Unit tests for Invoke-Magika.
 
 .DESCRIPTION
-    Validates Docker prerequisite checks, argument construction, path handling,
-    pipeline behavior, and exit code behavior for Magika Docker wrapper operations.
+    Validates command selection (local Magika vs Docker fallback), Docker
+    prerequisite checks, argument construction, path handling, pipeline behavior,
+    and exit code behavior.
 #>
 
 BeforeAll {
@@ -18,6 +19,8 @@ BeforeAll {
     # Deterministic shim used by Get-Command mocks so tests do not depend on Docker being installed.
     $script:DockerCommandName = 'pwshDockerTestShim'
     $script:DockerShimInvocations = @()
+    $script:MagikaCommandName = 'pwshMagikaTestShim'
+    $script:MagikaShimInvocations = @()
 
     function pwshDockerTestShim
     {
@@ -32,10 +35,25 @@ BeforeAll {
         $global:LASTEXITCODE = 0
         return @('shim output')
     }
+
+    function pwshMagikaTestShim
+    {
+        param(
+            [Parameter(ValueFromRemainingArguments = $true)]
+            [Object[]]$RemainingArgs
+        )
+
+        $argsArray = @($RemainingArgs)
+        $script:MagikaShimInvocations += , $argsArray
+
+        $global:LASTEXITCODE = 0
+        return @('shim output')
+    }
 }
 
 AfterAll {
     Remove-Item -Path Function:\pwshDockerTestShim -ErrorAction SilentlyContinue
+    Remove-Item -Path Function:\pwshMagikaTestShim -ErrorAction SilentlyContinue
 }
 
 Describe 'Invoke-Magika' {
@@ -45,6 +63,11 @@ Describe 'Invoke-Magika' {
 
         # Reset shim state for each test
         $script:DockerShimInvocations = @()
+        $script:MagikaShimInvocations = @()
+
+        # Default to Docker fallback mode for deterministic tests unless a test
+        # explicitly mocks a local Magika command.
+        Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'magika' } -MockWith { $null }
     }
 
     AfterEach {
@@ -89,6 +112,121 @@ Describe 'Invoke-Magika' {
         }
     }
 
+    Context 'Command selection' {
+        BeforeEach {
+            $script:SampleFile = Join-Path -Path $script:TestDir -ChildPath 'sample.txt'
+            'sample' | Set-Content -LiteralPath $script:SampleFile
+            Push-Location $script:TestDir
+        }
+
+        AfterEach {
+            Pop-Location
+        }
+
+        It 'Prefers local Magika when available' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'magika' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:MagikaCommandName
+                    Source = '/usr/local/bin/magika'
+                }
+            }
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:DockerCommandName
+                    Source = '/usr/local/bin/docker'
+                }
+            }
+
+            Invoke-Magika -Path $script:SampleFile | Out-Null
+
+            $script:MagikaShimInvocations.Count | Should -Be 1
+            $script:DockerShimInvocations.Count | Should -Be 0
+        }
+
+        It 'Skips Docker prerequisite checks when local Magika is available' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'magika' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:MagikaCommandName
+                    Source = '/usr/local/bin/magika'
+                }
+            }
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
+
+            { Invoke-Magika -Path $script:SampleFile } | Should -Not -Throw
+            Assert-MockCalled -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -Times 0 -Exactly
+        }
+
+        It 'Falls back to Docker when local Magika is not available' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:DockerCommandName
+                    Source = '/usr/local/bin/docker'
+                }
+            }
+
+            Invoke-Magika -Path $script:SampleFile | Out-Null
+
+            $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
+            $runCall | Should -Not -BeNullOrEmpty
+            $script:MagikaShimInvocations.Count | Should -Be 0
+        }
+
+        It 'Binds positional argument to Path' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:DockerCommandName
+                    Source = '/usr/local/bin/docker'
+                }
+            }
+
+            Invoke-Magika 'sample.txt' | Out-Null
+
+            $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
+            $runCall | Should -Not -BeNullOrEmpty
+            $runCall | Should -Contain 'sample.txt'
+        }
+
+        It 'Uses Docker when Runtime is explicitly set to Docker' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'magika' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:MagikaCommandName
+                    Source = '/usr/local/bin/magika'
+                }
+            }
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:DockerCommandName
+                    Source = '/usr/local/bin/docker'
+                }
+            }
+
+            Invoke-Magika -Path $script:SampleFile -Runtime Docker | Out-Null
+
+            $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
+            $runCall | Should -Not -BeNullOrEmpty
+            $script:MagikaShimInvocations.Count | Should -Be 0
+        }
+
+        It 'Uses local Magika when Runtime is explicitly set to Local' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'magika' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:MagikaCommandName
+                    Source = '/usr/local/bin/magika'
+                }
+            }
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
+
+            Invoke-Magika -Path $script:SampleFile -Runtime Local | Out-Null
+
+            $script:MagikaShimInvocations.Count | Should -Be 1
+            $script:DockerShimInvocations.Count | Should -Be 0
+        }
+    }
+
     Context 'Parameter validation' {
         It 'Rejects empty Path' {
             { Invoke-Magika -Path '' } | Should -Throw
@@ -100,6 +238,29 @@ Describe 'Invoke-Magika' {
 
         It 'Rejects empty ImageTag' {
             { Invoke-Magika -Path 'README.md' -ImageTag '' } | Should -Throw
+        }
+
+        It 'Rejects invalid Runtime' {
+            { Invoke-Magika -Path 'README.md' -Runtime 'Container' } | Should -Throw
+        }
+    }
+
+    Context 'Explicit runtime prerequisites' {
+        It 'Throws when Runtime is Local and local Magika is not installed' {
+            { Invoke-Magika -Path 'README.md' -Runtime Local } | Should -Throw 'Magika is not installed or not available in PATH. Install Magika or use -Runtime Docker.'
+        }
+
+        It 'Throws when Runtime is Docker and Docker is not installed even if local Magika is available' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'magika' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:MagikaCommandName
+                    Source = '/usr/local/bin/magika'
+                }
+            }
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
+
+            { Invoke-Magika -Path 'README.md' -Runtime Docker } | Should -Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
         }
     }
 
@@ -215,7 +376,7 @@ Describe 'Invoke-Magika' {
         }
     }
 
-    Context 'Path scope validation' {
+    Context 'Path scope validation (Docker fallback)' {
         BeforeEach {
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith {
                 [PSCustomObject]@{
@@ -241,6 +402,40 @@ Describe 'Invoke-Magika' {
             try
             {
                 { Invoke-Magika -Path $outsideFile } | Should -Throw '*outside the current working directory*'
+            }
+            finally
+            {
+                if (Test-Path -LiteralPath $outsideDir)
+                {
+                    Remove-Item -LiteralPath $outsideDir -Recurse -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+    }
+
+    Context 'Path scope validation (local Magika)' {
+        BeforeEach {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'magika' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:MagikaCommandName
+                    Source = '/usr/local/bin/magika'
+                }
+            }
+        }
+
+        It 'Allows paths outside the current working directory' {
+            $outsideDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "magika-outside-local-$(Get-Random)"
+            $outsideFile = Join-Path -Path $outsideDir -ChildPath 'outside.txt'
+
+            New-Item -Path $outsideDir -ItemType Directory -Force | Out-Null
+            'outside' | Set-Content -LiteralPath $outsideFile
+
+            try
+            {
+                { Invoke-Magika -Path $outsideFile } | Should -Not -Throw
+
+                $script:MagikaShimInvocations.Count | Should -Be 1
+                $script:MagikaShimInvocations[0] | Should -Contain $outsideFile
             }
             finally
             {

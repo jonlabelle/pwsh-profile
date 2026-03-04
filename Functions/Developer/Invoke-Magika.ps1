@@ -2,24 +2,25 @@ function Invoke-Magika
 {
     <#
     .SYNOPSIS
-        Runs Magika file-type detection against files and folders using Docker.
+        Runs Magika file-type detection against files and folders.
 
     .DESCRIPTION
-        Invoke-Magika is a wrapper around the jonlabelle/magika Docker container
-        that simplifies running Magika from PowerShell without requiring a local
-        Python installation. It mounts the current working directory into the
-        container (read-only) and passes the specified paths and arguments.
+        Invoke-Magika supports three runtime modes:
+        - Auto   : Prefer local Magika from PATH, then fall back to Docker.
+        - Local  : Require and use local Magika only.
+        - Docker : Require and use Docker only.
 
-        The function requires Docker to be installed and running. The
-        jonlabelle/magika image will be pulled automatically if it is not already
-        available locally.
+        By default, Auto mode is used.
+
+        In Docker fallback mode, it mounts the current working directory into the
+        container (read-only) and passes the specified paths and arguments.
 
         Path behavior:
         - By default (no path provided), the current working directory is scanned.
         - -Path supports wildcard expansion.
         - -LiteralPath treats wildcard characters literally.
-        - Paths must resolve inside the current working directory so they can be
-          accessed via the container mount at /workspace.
+        - In Docker fallback mode, paths must resolve inside the current working
+          directory so they can be accessed via the container mount at /workspace.
 
     .PARAMETER Path
         One or more file or directory paths to analyze. Supports wildcard patterns
@@ -31,16 +32,28 @@ function Invoke-Magika
 
     .PARAMETER ImageTag
         The Docker image tag to use for the jonlabelle/magika image. Defaults to
-        'latest'. Use a specific version tag for reproducible results.
+        'latest'. Use a specific version tag for reproducible results when running
+        in Docker mode.
+
+    .PARAMETER Runtime
+        Controls how Magika is executed:
+        - Auto   : Prefer local Magika from PATH, then fall back to Docker.
+        - Local  : Use local Magika only and throw if not available.
+        - Docker : Use Docker only and throw if Docker is not available.
 
     .PARAMETER AdditionalArgs
-        Additional arguments to pass directly to the Magika command in the
-        container (for example, --json, --help, --verbose).
+        Additional arguments to pass directly to the Magika command
+        (for example, --json, --help, --verbose).
 
     .EXAMPLE
         Invoke-Magika -Path README.md
 
         Analyzes README.md and outputs Magika detection results.
+
+    .EXAMPLE
+        Invoke-Magika README.md
+
+        Analyzes README.md using positional binding to -Path.
 
     .EXAMPLE
         Invoke-Magika -Path '*.ps1' -AdditionalArgs '--json'
@@ -61,21 +74,33 @@ function Invoke-Magika
     .EXAMPLE
         Invoke-Magika -AdditionalArgs '--help'
 
-        Displays Magika help output from the Docker container.
+        Displays Magika help output.
 
     .EXAMPLE
         Invoke-Magika -Path . -ImageTag 'latest'
 
-        Analyzes the current directory explicitly using the latest image tag.
+        Analyzes the current directory explicitly using the latest Docker image
+        tag when Docker mode is used.
+
+    .EXAMPLE
+        Invoke-Magika -Path README.md -Runtime Local
+
+        Forces local Magika execution and throws if local Magika is unavailable.
+
+    .EXAMPLE
+        Invoke-Magika -Path README.md -Runtime Docker
+
+        Forces Docker execution even if local Magika is installed.
 
     .OUTPUTS
         System.Int32
-            Returns the Docker process exit code. 0 indicates success.
+            Returns the Magika process exit code. 0 indicates success.
             Non-zero indicates an error occurred.
 
     .NOTES
-        Requires Docker Desktop (or Docker Engine) to be installed and running.
-        The jonlabelle/magika image is pulled from Docker Hub on first use.
+        In Auto mode, if local Magika is not found in PATH, Docker Desktop (or
+        Docker Engine) must be installed and running. The jonlabelle/magika image
+        is pulled from Docker Hub on first Docker use.
 
         Author: Jon LaBelle
         License: MIT
@@ -96,7 +121,7 @@ function Invoke-Magika
     [CmdletBinding(DefaultParameterSetName = 'Path')]
     [OutputType([System.Int32])]
     param(
-        [Parameter(ParameterSetName = 'Path', ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Parameter(ParameterSetName = 'Path', Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [ValidateNotNullOrEmpty()]
         [String[]]$Path,
 
@@ -109,36 +134,84 @@ function Invoke-Magika
         [String]$ImageTag = 'latest',
 
         [Parameter()]
+        [ValidateSet('Auto', 'Local', 'Docker')]
+        [String]$Runtime = 'Auto',
+
+        [Parameter()]
         [String[]]$AdditionalArgs
     )
 
     begin
     {
-        # Verify Docker is installed and available in PATH
-        $dockerCommand = Get-Command -Name 'docker' -ErrorAction SilentlyContinue
-        if (-not $dockerCommand)
-        {
-            throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
-        }
-        Write-Verbose "Docker found at: $($dockerCommand.Source)"
+        $magikaCommand = $null
+        $dockerCommand = $null
+        $useDockerFallback = $false
 
-        # Verify the Docker daemon is running
-        $global:LASTEXITCODE = 0
-        & $dockerCommand.Name info *> $null
-        if ($LASTEXITCODE -ne 0)
+        switch ($Runtime)
         {
-            throw 'Docker is installed but the daemon is not running. Please start Docker Desktop (or the Docker service) and try again.'
+            'Local'
+            {
+                $magikaCommand = Get-Command -Name 'magika' -CommandType Application, ExternalScript -ErrorAction SilentlyContinue |
+                Select-Object -First 1
+                if (-not $magikaCommand)
+                {
+                    throw 'Magika is not installed or not available in PATH. Install Magika or use -Runtime Docker.'
+                }
+                Write-Verbose "Runtime mode: Local (found at: $($magikaCommand.Source))"
+            }
+
+            'Docker'
+            {
+                Write-Verbose 'Runtime mode: Docker (forced by -Runtime Docker)'
+                $useDockerFallback = $true
+            }
+
+            default
+            {
+                # Auto mode: prefer local Magika, otherwise fall back to Docker.
+                $magikaCommand = Get-Command -Name 'magika' -CommandType Application, ExternalScript -ErrorAction SilentlyContinue |
+                Select-Object -First 1
+
+                if ($magikaCommand)
+                {
+                    Write-Verbose "Runtime mode: Auto (using local Magika at: $($magikaCommand.Source))"
+                }
+                else
+                {
+                    Write-Verbose 'Runtime mode: Auto (local Magika not found; falling back to Docker)'
+                    $useDockerFallback = $true
+                }
+            }
         }
-        Write-Verbose 'Docker daemon is running'
+
+        if ($useDockerFallback)
+        {
+            # Verify Docker is installed and available in PATH
+            $dockerCommand = Get-Command -Name 'docker' -ErrorAction SilentlyContinue
+            if (-not $dockerCommand)
+            {
+                throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
+            }
+            Write-Verbose "Docker found at: $($dockerCommand.Source)"
+
+            # Verify the Docker daemon is running
+            $global:LASTEXITCODE = 0
+            & $dockerCommand.Name info *> $null
+            if ($LASTEXITCODE -ne 0)
+            {
+                throw 'Docker is installed but the daemon is not running. Please start Docker Desktop (or the Docker service) and try again.'
+            }
+            Write-Verbose 'Docker daemon is running'
+
+            # Build the Docker image reference with tag
+            $imageRef = "jonlabelle/magika:${ImageTag}"
+            Write-Verbose "Using image: $imageRef"
+        }
 
         # Resolve PWD to an absolute path for Docker mounts and path normalization
         $resolvedPwd = (Resolve-Path -LiteralPath $PWD.Path -ErrorAction Stop).Path
         $cwdPrefix = $resolvedPwd.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) +
         [System.IO.Path]::DirectorySeparatorChar
-
-        # Build the Docker image reference with tag
-        $imageRef = "jonlabelle/magika:${ImageTag}"
-        Write-Verbose "Using image: $imageRef"
 
         # Windows paths are case-insensitive; Unix-like paths are case-sensitive.
         $pathComparison = if ([System.IO.Path]::DirectorySeparatorChar -eq '\')
@@ -171,8 +244,8 @@ function Invoke-Magika
             $inputPaths = @('.')
         }
 
-        # Resolve and normalize all input paths for the Linux container
-        $containerPaths = @()
+        # Resolve and normalize all input paths
+        $targetPaths = @()
         foreach ($item in $inputPaths)
         {
             $resolvedItems = @()
@@ -197,53 +270,94 @@ function Invoke-Magika
             {
                 $resolvedInputPath = [System.IO.Path]::GetFullPath($resolvedItem.Path)
 
-                # Ensure resolved paths are inside the mounted working directory
-                if ($resolvedInputPath.Equals($resolvedPwd, $pathComparison))
+                if ($useDockerFallback)
                 {
-                    $normalizedPath = '.'
-                }
-                elseif ($resolvedInputPath.StartsWith($cwdPrefix, $pathComparison))
-                {
-                    $normalizedPath = $resolvedInputPath.Substring($cwdPrefix.Length)
+                    # Ensure resolved paths are inside the mounted working directory
+                    if ($resolvedInputPath.Equals($resolvedPwd, $pathComparison))
+                    {
+                        $normalizedPath = '.'
+                    }
+                    elseif ($resolvedInputPath.StartsWith($cwdPrefix, $pathComparison))
+                    {
+                        $normalizedPath = $resolvedInputPath.Substring($cwdPrefix.Length)
+                    }
+                    else
+                    {
+                        throw "Path '$item' resolves to '$resolvedInputPath', which is outside the current working directory '$resolvedPwd'. Change to the appropriate directory and try again."
+                    }
+
+                    # Convert Windows separators for the Linux container path
+                    $targetPaths += $normalizedPath.Replace('\', '/')
                 }
                 else
                 {
-                    throw "Path '$item' resolves to '$resolvedInputPath', which is outside the current working directory '$resolvedPwd'. Change to the appropriate directory and try again."
-                }
+                    # For local Magika execution, keep relative paths for files under
+                    # the current directory and absolute paths otherwise.
+                    if ($resolvedInputPath.Equals($resolvedPwd, $pathComparison))
+                    {
+                        $targetPaths += '.'
+                    }
+                    elseif ($resolvedInputPath.StartsWith($cwdPrefix, $pathComparison))
+                    {
+                        $targetPaths += $resolvedInputPath.Substring($cwdPrefix.Length)
+                    }
+                    else
+                    {
+                        $targetPaths += $resolvedInputPath
+                    }
 
-                # Convert Windows separators for the Linux container path
-                $normalizedPath = $normalizedPath.Replace('\', '/')
-                $containerPaths += $normalizedPath
+                    continue
+                }
             }
         }
 
-        $containerPaths = @($containerPaths | Select-Object -Unique)
-        if ($containerPaths.Count -eq 0)
+        $targetPaths = @($targetPaths | Select-Object -Unique)
+        if ($targetPaths.Count -eq 0)
         {
             return
         }
 
-        # Build volume mount and docker arguments
-        $volWork = "${resolvedPwd}:/workspace:ro"
-        $dockerArgs = @('run', '-i', '--rm')
-        $dockerArgs += @('-v', $volWork)
-        $dockerArgs += @('-w', '/workspace')
-        $dockerArgs += $imageRef
-
-        # Append any additional user-supplied arguments
-        if ($AdditionalArgs)
+        if ($useDockerFallback)
         {
-            $dockerArgs += $AdditionalArgs
-            Write-Verbose "Additional args: $($AdditionalArgs -join ' ')"
+            # Build volume mount and docker arguments
+            $volWork = "${resolvedPwd}:/workspace:ro"
+            $dockerArgs = @('run', '-i', '--rm')
+            $dockerArgs += @('-v', $volWork)
+            $dockerArgs += @('-w', '/workspace')
+            $dockerArgs += $imageRef
+
+            # Append any additional user-supplied arguments
+            if ($AdditionalArgs)
+            {
+                $dockerArgs += $AdditionalArgs
+                Write-Verbose "Additional args: $($AdditionalArgs -join ' ')"
+            }
+
+            # Append normalized path arguments
+            $dockerArgs += $targetPaths
+
+            Write-Verbose "Docker command: docker $($dockerArgs -join ' ')"
+
+            $global:LASTEXITCODE = 0
+            & $dockerCommand.Name @dockerArgs
         }
+        else
+        {
+            $magikaArgs = @()
 
-        # Append normalized path arguments
-        $dockerArgs += $containerPaths
+            if ($AdditionalArgs)
+            {
+                $magikaArgs += $AdditionalArgs
+                Write-Verbose "Additional args: $($AdditionalArgs -join ' ')"
+            }
 
-        Write-Verbose "Docker command: docker $($dockerArgs -join ' ')"
+            $magikaArgs += $targetPaths
 
-        $global:LASTEXITCODE = 0
-        & $dockerCommand.Name @dockerArgs
+            Write-Verbose "Magika command: $($magikaCommand.Name) $($magikaArgs -join ' ')"
+
+            $global:LASTEXITCODE = 0
+            & $magikaCommand.Name @magikaArgs
+        }
 
         $exitCode = $LASTEXITCODE
         Write-Verbose "Magika exited with code: $exitCode"
@@ -254,19 +368,5 @@ function Invoke-Magika
         }
 
         $exitCode
-    }
-}
-
-# Create 'magika' alias only if it doesn't already exist
-if (-not (Get-Command -Name 'magika' -ErrorAction SilentlyContinue))
-{
-    try
-    {
-        Write-Verbose "Creating 'magika' alias for Invoke-Magika"
-        Set-Alias -Name 'magika' -Value 'Invoke-Magika' -Force -ErrorAction Stop
-    }
-    catch
-    {
-        Write-Warning "Invoke-Magika: Could not create 'magika' alias: $($_.Exception.Message)"
     }
 }
