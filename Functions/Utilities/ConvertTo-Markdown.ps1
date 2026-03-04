@@ -6,8 +6,10 @@ function ConvertTo-Markdown
 
     .DESCRIPTION
         Wraps the pandoc CLI to convert an HTTP(S) URL or local file path to Markdown.
-        By default, Markdown content is written to stdout and returned as a string.
-        Use -OutputPath to write the conversion result to a file.
+        Conversion output is always written to a Markdown file.
+        When -OutputPath is omitted, a file path is auto-generated from the URL
+        or local input filename (for example, https://example.com => example-com.md).
+        Use -OutputPath to write the conversion result to a specific file path.
 
     .PARAMETER InputObject
         The source to convert. Accepts:
@@ -25,20 +27,22 @@ function ConvertTo-Markdown
         If omitted, Pandoc auto-detects the input format when possible.
 
     .PARAMETER OutputPath
-        Optional destination file path for Markdown output.
+        Optional explicit destination file path for Markdown output.
         When specified, only a single InputObject value is supported.
+        When omitted, an output path is auto-generated per input item.
 
     .PARAMETER PandocArgs
         Additional arguments to append to the Pandoc command.
 
     .PARAMETER PassThru
-        When -OutputPath is specified, returns the resolved output path after
-        successful conversion.
+        Returns the resolved output path after successful conversion:
+        - Explicit -OutputPath path
+        - Auto-generated path when -OutputPath is omitted
 
     .EXAMPLE
         PS > ConvertTo-Markdown -InputObject 'https://example.com'
 
-        Converts a web page to GitHub-flavored Markdown and returns the result.
+        Converts a web page to GitHub-flavored Markdown and writes it to ./example-com.md.
 
     .EXAMPLE
         PS > ConvertTo-Markdown -InputObject './report.html' -OutputPath './report.md'
@@ -53,11 +57,12 @@ function ConvertTo-Markdown
     .EXAMPLE
         PS > 'https://example.com', './notes.html' | ConvertTo-Markdown
 
-        Converts multiple inputs from the pipeline and returns Markdown text for each input.
+        Converts multiple inputs from the pipeline and writes one auto-named
+        markdown file per input.
 
     .OUTPUTS
         System.String
-            Markdown text (default) or output file path when using -OutputPath -PassThru.
+            Output file path when using -PassThru.
 
     .NOTES
         Requires Pandoc to be installed and available in PATH.
@@ -112,6 +117,96 @@ function ConvertTo-Markdown
 
     begin
     {
+        function ConvertTo-FileSlug
+        {
+            param(
+                [Parameter()]
+                [AllowNull()]
+                [String]$Value
+            )
+
+            if ([String]::IsNullOrWhiteSpace($Value))
+            {
+                return $null
+            }
+
+            $decoded = [Uri]::UnescapeDataString($Value)
+            $slug = $decoded.ToLowerInvariant() -replace '[^a-z0-9]+', '-'
+            $slug = $slug.Trim('-')
+
+            if ([String]::IsNullOrWhiteSpace($slug))
+            {
+                return $null
+            }
+
+            return $slug
+        }
+
+        function Get-MarkdownOutputPathFromUri
+        {
+            param(
+                [Parameter(Mandatory)]
+                [Uri]$Uri
+            )
+
+            $hostSlug = ConvertTo-FileSlug -Value $Uri.DnsSafeHost
+            if (-not $hostSlug)
+            {
+                $hostSlug = 'web-page'
+            }
+
+            $pathSegmentSlugs = @()
+            $pathSegments = $Uri.AbsolutePath.Split('/', [System.StringSplitOptions]::RemoveEmptyEntries)
+            foreach ($segment in $pathSegments)
+            {
+                $segmentWithoutExtension = [System.IO.Path]::GetFileNameWithoutExtension($segment)
+                $segmentSlug = ConvertTo-FileSlug -Value $segmentWithoutExtension
+                if ($segmentSlug)
+                {
+                    $pathSegmentSlugs += $segmentSlug
+                }
+            }
+
+            $baseName = if ($pathSegmentSlugs.Count -gt 0)
+            {
+                @($hostSlug) + $pathSegmentSlugs -join '-'
+            }
+            else
+            {
+                $hostSlug
+            }
+
+            if ($Uri.Query)
+            {
+                $querySlug = ConvertTo-FileSlug -Value $Uri.Query.TrimStart('?')
+                if ($querySlug)
+                {
+                    $baseName = "$baseName-$querySlug"
+                }
+            }
+
+            $fileName = "$baseName.md"
+            return Join-Path -Path (Get-Location).Path -ChildPath $fileName
+        }
+
+        function Get-MarkdownOutputPathFromLocalSource
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$Path
+            )
+
+            $baseName = [System.IO.Path]::GetFileNameWithoutExtension($Path)
+            $baseSlug = ConvertTo-FileSlug -Value $baseName
+            if (-not $baseSlug)
+            {
+                $baseSlug = 'document'
+            }
+
+            $fileName = "$baseSlug.md"
+            return Join-Path -Path (Get-Location).Path -ChildPath $fileName
+        }
+
         $pandocCommand = Get-Command -Name 'pandoc' -ErrorAction SilentlyContinue
         if (-not $pandocCommand)
         {
@@ -120,8 +215,9 @@ function ConvertTo-Markdown
         Write-Verbose "Pandoc found at: $($pandocCommand.Source)"
 
         $processedCount = 0
+        $hasExplicitOutputPath = $PSBoundParameters.ContainsKey('OutputPath')
         $resolvedOutputPath = $null
-        if ($PSBoundParameters.ContainsKey('OutputPath'))
+        if ($hasExplicitOutputPath)
         {
             $resolvedOutputPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
             $outputDirectory = Split-Path -Path $resolvedOutputPath -Parent
@@ -139,7 +235,7 @@ function ConvertTo-Markdown
         {
             $processedCount++
 
-            if ($resolvedOutputPath -and $processedCount -gt 1)
+            if ($hasExplicitOutputPath -and $processedCount -gt 1)
             {
                 throw 'When -OutputPath is specified, only one InputObject value is supported.'
             }
@@ -162,6 +258,23 @@ function ConvertTo-Markdown
                 $pandocInput = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($item)
             }
 
+            $autoOutputPath = $null
+            if (-not $hasExplicitOutputPath)
+            {
+                if ($isWebUri)
+                {
+                    $autoOutputPath = Get-MarkdownOutputPathFromUri -Uri $parsedUri
+                }
+                else
+                {
+                    $autoOutputPath = Get-MarkdownOutputPathFromLocalSource -Path $pandocInput
+                }
+
+                Write-Verbose "Auto-generated markdown output path: $autoOutputPath"
+            }
+
+            $effectiveOutputPath = if ($hasExplicitOutputPath) { $resolvedOutputPath } else { $autoOutputPath }
+
             $pandocCallArgs = @()
             if ($From)
             {
@@ -174,14 +287,15 @@ function ConvertTo-Markdown
                 $pandocCallArgs += $PandocArgs
             }
 
-            if ($resolvedOutputPath)
+            if ($effectiveOutputPath)
             {
-                $pandocCallArgs += @('-o', $resolvedOutputPath)
+                $pandocCallArgs += @('-o', $effectiveOutputPath)
             }
 
             $pandocCallArgs += $pandocInput
 
-            $target = if ($resolvedOutputPath) { $resolvedOutputPath } else { 'stdout' }
+            $target = $effectiveOutputPath
+
             if (-not $PSCmdlet.ShouldProcess($item, "Convert to Markdown ($target)"))
             {
                 continue
@@ -189,7 +303,7 @@ function ConvertTo-Markdown
 
             Write-Verbose "Executing: $($pandocCommand.Name) $($pandocCallArgs -join ' ')"
             $global:LASTEXITCODE = 0
-            $pandocOutput = & $pandocCommand.Name @pandocCallArgs
+            $null = & $pandocCommand.Name @pandocCallArgs
             $exitCode = $LASTEXITCODE
 
             if ($exitCode -ne 0)
@@ -197,25 +311,10 @@ function ConvertTo-Markdown
                 throw "Pandoc failed for '$item' with exit code $exitCode."
             }
 
-            if ($resolvedOutputPath)
+            if ($PassThru)
             {
-                if ($PassThru)
-                {
-                    Write-Output $resolvedOutputPath
-                }
-                continue
+                Write-Output $effectiveOutputPath
             }
-
-            $markdownText = if ($null -eq $pandocOutput)
-            {
-                ''
-            }
-            else
-            {
-                @($pandocOutput) -join [Environment]::NewLine
-            }
-
-            Write-Output $markdownText
         }
     }
 }
