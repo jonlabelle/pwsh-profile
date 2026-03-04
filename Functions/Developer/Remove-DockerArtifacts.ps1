@@ -395,6 +395,9 @@ function Remove-DockerArtifacts
 
         function Remove-BuildxContainerBuilders
         {
+            [CmdletBinding(SupportsShouldProcess)]
+            param()
+
             $builderNames = @()
             $listArgs = @('buildx', 'ls', '--format', '{{json .}}')
 
