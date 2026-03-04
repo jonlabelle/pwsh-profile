@@ -2,16 +2,18 @@ function Invoke-BfgRepoCleaner
 {
     <#
     .SYNOPSIS
-        Runs BFG Repo-Cleaner against a Git repository using the official Docker image.
+        Runs BFG Repo-Cleaner against a Git repository.
 
     .DESCRIPTION
-        Invoke-BfgRepoCleaner is a wrapper around the jonlabelle/bfg Docker container
-        that simplifies removing large files, passwords, credentials, and other unwanted
-        data from Git repository history. It mounts the current working directory into
-        the container and passes the specified BFG options.
+        Invoke-BfgRepoCleaner supports three runtime modes:
+        - Auto   : Prefer local BFG from PATH, then fall back to Docker.
+        - Local  : Require and use local BFG only.
+        - Docker : Require and use Docker only.
 
-        The function requires Docker to be installed and running. The jonlabelle/bfg
-        Docker image will be pulled automatically if not already present.
+        By default, Auto mode is used.
+
+        In Docker mode, it mounts the current working directory into the container
+        and passes the specified BFG options.
 
         BFG Repo-Cleaner is a simpler, faster alternative to git filter-branch for
         cleansing bad data out of your Git repository history. It protects your current
@@ -44,7 +46,8 @@ function Invoke-BfgRepoCleaner
         Path to a text file containing replacement expressions. Each line should
         contain a pattern to match, optionally followed by '==>' and the replacement
         text. Lines can be prefixed with 'regex:' or 'glob:' for pattern matching.
-        The file is mounted into the container and passed to BFG.
+        The file is passed directly to BFG in local mode or mounted into the
+        container in Docker mode.
 
     .PARAMETER Repository
         The path to the Git repository (typically a bare mirror clone with .git suffix)
@@ -57,7 +60,13 @@ function Invoke-BfgRepoCleaner
 
     .PARAMETER ImageTag
         The Docker image tag to use for the jonlabelle/bfg image. Defaults to 'latest'.
-        Use a specific version tag for reproducible results.
+        Use a specific version tag for reproducible results in Docker mode.
+
+    .PARAMETER Runtime
+        Controls how BFG is executed:
+        - Auto   : Prefer local BFG from PATH, then fall back to Docker.
+        - Local  : Use local BFG only and throw if not available.
+        - Docker : Use Docker only and throw if Docker is not available.
 
     .PARAMETER AdditionalArgs
         Additional arguments to pass directly to the BFG command. Useful for advanced
@@ -112,18 +121,29 @@ function Invoke-BfgRepoCleaner
         Displays the BFG Repo-Cleaner help text.
 
     .EXAMPLE
+        Invoke-BfgRepoCleaner -StripBlobsBiggerThan 100M -Repository my-repo.git -Runtime Local
+
+        Forces local BFG execution and throws if local BFG is unavailable.
+
+    .EXAMPLE
+        Invoke-BfgRepoCleaner -DeleteFiles '*.zip' -Repository my-repo.git -Runtime Docker
+
+        Forces Docker execution even if local BFG is installed.
+
+    .EXAMPLE
         Invoke-BfgRepoCleaner -DeleteFiles '*.env' -DeleteFolders 'node_modules' -Repository my-repo.git
 
         Combines multiple operations to delete .env files and node_modules folders.
 
     .OUTPUTS
         System.Int32
-            Returns the Docker process exit code. 0 indicates success.
+            Returns the BFG process exit code. 0 indicates success.
             Non-zero indicates an error occurred.
 
     .NOTES
-        Requires Docker Desktop (or Docker Engine) to be installed and running.
-        The jonlabelle/bfg image is pulled from Docker Hub on first use.
+        In Auto mode, if local BFG is not found in PATH, Docker Desktop (or
+        Docker Engine) must be installed and running. The jonlabelle/bfg image
+        is pulled from Docker Hub on first Docker use.
 
         BFG protects your current commit by default. Files in your HEAD commit are
         never modified - only their history is cleaned. Use -NoBlobProtection to
@@ -188,34 +208,81 @@ function Invoke-BfgRepoCleaner
         [String]$ImageTag = 'latest',
 
         [Parameter()]
+        [ValidateSet('Auto', 'Local', 'Docker')]
+        [String]$Runtime = 'Auto',
+
+        [Parameter()]
         [String[]]$AdditionalArgs
     )
 
     begin
     {
-        # Verify Docker is installed and available in PATH
-        $dockerCommand = Get-Command -Name 'docker' -ErrorAction SilentlyContinue
-        if (-not $dockerCommand)
-        {
-            throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
-        }
-        Write-Verbose "Docker found at: $($dockerCommand.Source)"
+        $bfgCommand = $null
+        $dockerCommand = $null
+        $useDockerRuntime = $false
 
-        # Verify the Docker daemon is running
-        $global:LASTEXITCODE = 0
-        & $dockerCommand.Name info *> $null
-        if ($LASTEXITCODE -ne 0)
+        switch ($Runtime)
         {
-            throw 'Docker is installed but the daemon is not running. Please start Docker Desktop (or the Docker service) and try again.'
-        }
-        Write-Verbose 'Docker daemon is running'
+            'Local'
+            {
+                $bfgCommand = Get-Command -Name 'bfg' -CommandType Application, ExternalScript -ErrorAction SilentlyContinue |
+                Select-Object -First 1
+                if (-not $bfgCommand)
+                {
+                    throw 'BFG Repo-Cleaner is not installed or not available in PATH. Install BFG or use -Runtime Docker.'
+                }
+                Write-Verbose "Runtime mode: Local (found at: $($bfgCommand.Source))"
+            }
 
-        # Resolve PWD to an absolute path for the Docker mount
+            'Docker'
+            {
+                Write-Verbose 'Runtime mode: Docker (forced by -Runtime Docker)'
+                $useDockerRuntime = $true
+            }
+
+            default
+            {
+                # Auto mode: prefer local BFG, otherwise fall back to Docker.
+                $bfgCommand = Get-Command -Name 'bfg' -CommandType Application, ExternalScript -ErrorAction SilentlyContinue |
+                Select-Object -First 1
+                if ($bfgCommand)
+                {
+                    Write-Verbose "Runtime mode: Auto (using local BFG at: $($bfgCommand.Source))"
+                }
+                else
+                {
+                    Write-Verbose 'Runtime mode: Auto (local BFG not found; falling back to Docker)'
+                    $useDockerRuntime = $true
+                }
+            }
+        }
+
+        if ($useDockerRuntime)
+        {
+            # Verify Docker is installed and available in PATH
+            $dockerCommand = Get-Command -Name 'docker' -ErrorAction SilentlyContinue
+            if (-not $dockerCommand)
+            {
+                throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
+            }
+            Write-Verbose "Docker found at: $($dockerCommand.Source)"
+
+            # Verify the Docker daemon is running
+            $global:LASTEXITCODE = 0
+            & $dockerCommand.Name info *> $null
+            if ($LASTEXITCODE -ne 0)
+            {
+                throw 'Docker is installed but the daemon is not running. Please start Docker Desktop (or the Docker service) and try again.'
+            }
+            Write-Verbose 'Docker daemon is running'
+
+            # Build the Docker image reference with tag
+            $imageRef = "jonlabelle/bfg:${ImageTag}"
+            Write-Verbose "Using image: $imageRef"
+        }
+
+        # Resolve PWD to an absolute path for path normalization and Docker mounts
         $resolvedPwd = $PWD.Path
-
-        # Build the Docker image reference with tag
-        $imageRef = "jonlabelle/bfg:${ImageTag}"
-        Write-Verbose "Using image: $imageRef"
     }
 
     process
@@ -232,75 +299,103 @@ function Invoke-BfgRepoCleaner
             Write-Verbose "Replace-text file resolved to: $resolvedReplaceText"
         }
 
-        # Build volume mount for the working directory
-        $volWork = "${resolvedPwd}:/work"
-
-        # Build the argument list for docker run
-        $dockerArgs = @('run', '-i', '--rm')
-        $dockerArgs += @('-v', $volWork)
-
-        # Mount the replace-text file if specified
+        $replaceFileName = $null
         if ($resolvedReplaceText)
         {
             $replaceFileName = [System.IO.Path]::GetFileName($resolvedReplaceText)
-            $volReplace = "${resolvedReplaceText}:/config/${replaceFileName}"
-            $dockerArgs += @('-v', $volReplace)
         }
 
-        $dockerArgs += $imageRef
-
         # Build the BFG arguments
+        $bfgArgs = @()
         if ($PSBoundParameters.ContainsKey('StripBlobsBiggerThan'))
         {
-            $dockerArgs += @('--strip-blobs-bigger-than', $StripBlobsBiggerThan)
+            $bfgArgs += @('--strip-blobs-bigger-than', $StripBlobsBiggerThan)
             Write-Verbose "Strip blobs bigger than: $StripBlobsBiggerThan"
         }
 
         if ($PSBoundParameters.ContainsKey('StripBiggestBlobs'))
         {
-            $dockerArgs += @('--strip-biggest-blobs', $StripBiggestBlobs.ToString())
+            $bfgArgs += @('--strip-biggest-blobs', $StripBiggestBlobs.ToString())
             Write-Verbose "Strip biggest blobs: $StripBiggestBlobs"
         }
 
         if ($PSBoundParameters.ContainsKey('DeleteFiles'))
         {
-            $dockerArgs += @('--delete-files', $DeleteFiles)
+            $bfgArgs += @('--delete-files', $DeleteFiles)
             Write-Verbose "Delete files: $DeleteFiles"
         }
 
         if ($PSBoundParameters.ContainsKey('DeleteFolders'))
         {
-            $dockerArgs += @('--delete-folders', $DeleteFolders)
+            $bfgArgs += @('--delete-folders', $DeleteFolders)
             Write-Verbose "Delete folders: $DeleteFolders"
         }
 
         if ($resolvedReplaceText)
         {
-            $dockerArgs += @('--replace-text', "/config/${replaceFileName}")
-            Write-Verbose "Replace text file: /config/${replaceFileName}"
+            if ($useDockerRuntime)
+            {
+                $bfgArgs += @('--replace-text', "/config/${replaceFileName}")
+                Write-Verbose "Replace text file: /config/${replaceFileName}"
+            }
+            else
+            {
+                $bfgArgs += @('--replace-text', $resolvedReplaceText)
+                Write-Verbose "Replace text file: $resolvedReplaceText"
+            }
         }
 
         if ($NoBlobProtection)
         {
-            $dockerArgs += '--no-blob-protection'
+            $bfgArgs += '--no-blob-protection'
             Write-Verbose 'Blob protection disabled'
         }
 
         # Append any additional user-supplied arguments
         if ($AdditionalArgs)
         {
-            $dockerArgs += $AdditionalArgs
+            $bfgArgs += $AdditionalArgs
             Write-Verbose "Additional args: $($AdditionalArgs -join ' ')"
         }
 
         # Append the repository path if specified
         if ($PSBoundParameters.ContainsKey('Repository'))
         {
-            $dockerArgs += $Repository
+            $bfgArgs += $Repository
             Write-Verbose "Repository: $Repository"
         }
 
-        Write-Verbose "Docker command: docker $($dockerArgs -join ' ')"
+        $invokeCommandName = $null
+        $invokeArgs = @()
+        if ($useDockerRuntime)
+        {
+            # Build volume mount for the working directory
+            $volWork = "${resolvedPwd}:/work"
+
+            # Build the argument list for docker run
+            $dockerArgs = @('run', '-i', '--rm')
+            $dockerArgs += @('-v', $volWork)
+
+            # Mount the replace-text file if specified
+            if ($resolvedReplaceText)
+            {
+                $volReplace = "${resolvedReplaceText}:/config/${replaceFileName}"
+                $dockerArgs += @('-v', $volReplace)
+            }
+
+            $dockerArgs += $imageRef
+            $dockerArgs += $bfgArgs
+
+            $invokeCommandName = $dockerCommand.Name
+            $invokeArgs = $dockerArgs
+            Write-Verbose "Docker command: docker $($invokeArgs -join ' ')"
+        }
+        else
+        {
+            $invokeCommandName = $bfgCommand.Name
+            $invokeArgs = $bfgArgs
+            Write-Verbose "BFG command: $($invokeCommandName) $($invokeArgs -join ' ')"
+        }
 
         # Gate the operation behind ShouldProcess since BFG rewrites Git history
         $targetDescription = if ($PSBoundParameters.ContainsKey('Repository'))
@@ -315,7 +410,7 @@ function Invoke-BfgRepoCleaner
         if ($PSCmdlet.ShouldProcess($targetDescription, 'BFG Repo-Cleaner'))
         {
             $global:LASTEXITCODE = 0
-            & $dockerCommand.Name @dockerArgs
+            & $invokeCommandName @invokeArgs
 
             $exitCode = $LASTEXITCODE
             Write-Verbose "BFG exited with code: $exitCode"

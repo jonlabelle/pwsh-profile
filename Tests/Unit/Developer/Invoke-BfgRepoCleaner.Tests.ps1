@@ -5,8 +5,9 @@
     Unit tests for Invoke-BfgRepoCleaner.
 
 .DESCRIPTION
-    Validates Docker prerequisite checks, argument construction, volume mounting,
-    and ShouldProcess gating for BFG Repo-Cleaner operations.
+    Validates command selection (local BFG vs Docker fallback), Docker prerequisite
+    checks, argument construction, volume mounting, and ShouldProcess gating for
+    BFG Repo-Cleaner operations.
 #>
 
 BeforeAll {
@@ -18,6 +19,8 @@ BeforeAll {
     # Deterministic shim used by Get-Command mocks so tests do not depend on Docker being installed.
     $script:DockerCommandName = 'pwshDockerTestShim'
     $script:DockerShimInvocations = @()
+    $script:BfgCommandName = 'pwshBfgTestShim'
+    $script:BfgShimInvocations = @()
 
     function pwshDockerTestShim
     {
@@ -32,10 +35,25 @@ BeforeAll {
         $global:LASTEXITCODE = 0
         return @('shim output')
     }
+
+    function pwshBfgTestShim
+    {
+        param(
+            [Parameter(ValueFromRemainingArguments = $true)]
+            [Object[]]$RemainingArgs
+        )
+
+        $argsArray = @($RemainingArgs)
+        $script:BfgShimInvocations += , $argsArray
+
+        $global:LASTEXITCODE = 0
+        return @('shim output')
+    }
 }
 
 AfterAll {
     Remove-Item -Path Function:\pwshDockerTestShim -ErrorAction SilentlyContinue
+    Remove-Item -Path Function:\pwshBfgTestShim -ErrorAction SilentlyContinue
 }
 
 Describe 'Invoke-BfgRepoCleaner' {
@@ -45,6 +63,11 @@ Describe 'Invoke-BfgRepoCleaner' {
 
         # Reset shim state for each test
         $script:DockerShimInvocations = @()
+        $script:BfgShimInvocations = @()
+
+        # Default to Docker fallback mode for deterministic tests unless a test
+        # explicitly mocks a local BFG command.
+        Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'bfg' } -MockWith { $null }
     }
 
     AfterEach {
@@ -89,6 +112,96 @@ Describe 'Invoke-BfgRepoCleaner' {
         }
     }
 
+    Context 'Command selection' {
+        It 'Prefers local BFG when available' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'bfg' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:BfgCommandName
+                    Source = '/usr/local/bin/bfg'
+                }
+            }
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:DockerCommandName
+                    Source = '/usr/local/bin/docker'
+                }
+            }
+
+            Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' -Confirm:$false | Out-Null
+
+            $script:BfgShimInvocations.Count | Should -Be 1
+            $script:DockerShimInvocations.Count | Should -Be 0
+        }
+
+        It 'Skips Docker prerequisite checks when local BFG is available' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'bfg' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:BfgCommandName
+                    Source = '/usr/local/bin/bfg'
+                }
+            }
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
+
+            { Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' -Confirm:$false } | Should -Not -Throw
+            Assert-MockCalled -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -Times 0 -Exactly
+        }
+
+        It 'Falls back to Docker when local BFG is not available' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:DockerCommandName
+                    Source = '/usr/local/bin/docker'
+                }
+            }
+
+            Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' -Confirm:$false | Out-Null
+
+            $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
+            $runCall | Should -Not -BeNullOrEmpty
+            $script:BfgShimInvocations.Count | Should -Be 0
+        }
+
+        It 'Uses Docker when Runtime is explicitly set to Docker' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'bfg' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:BfgCommandName
+                    Source = '/usr/local/bin/bfg'
+                }
+            }
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:DockerCommandName
+                    Source = '/usr/local/bin/docker'
+                }
+            }
+
+            Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' -Runtime Docker -Confirm:$false | Out-Null
+
+            $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
+            $runCall | Should -Not -BeNullOrEmpty
+            $script:BfgShimInvocations.Count | Should -Be 0
+        }
+
+        It 'Uses local BFG when Runtime is explicitly set to Local' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'bfg' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:BfgCommandName
+                    Source = '/usr/local/bin/bfg'
+                }
+            }
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
+
+            Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' -Runtime Local -Confirm:$false | Out-Null
+
+            $script:BfgShimInvocations.Count | Should -Be 1
+            $script:DockerShimInvocations.Count | Should -Be 0
+        }
+    }
+
     Context 'Parameter validation' {
         It 'Rejects invalid StripBlobsBiggerThan format "<Value>"' -ForEach @(
             @{ Value = '100' }
@@ -126,6 +239,29 @@ Describe 'Invoke-BfgRepoCleaner' {
 
         It 'Rejects empty DeleteFolders' {
             { Invoke-BfgRepoCleaner -DeleteFolders '' } | Should -Throw
+        }
+
+        It 'Rejects invalid Runtime' {
+            { Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' -Runtime 'Container' } | Should -Throw
+        }
+    }
+
+    Context 'Explicit runtime prerequisites' {
+        It 'Throws when Runtime is Local and local BFG is not installed' {
+            { Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' -Runtime Local -Confirm:$false } | Should -Throw 'BFG Repo-Cleaner is not installed or not available in PATH. Install BFG or use -Runtime Docker.'
+        }
+
+        It 'Throws when Runtime is Docker and Docker is not installed even if local BFG is available' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'bfg' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:BfgCommandName
+                    Source = '/usr/local/bin/bfg'
+                }
+            }
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
+
+            { Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' -Runtime Docker -Confirm:$false } | Should -Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
         }
     }
 
