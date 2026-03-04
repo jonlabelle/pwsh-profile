@@ -133,21 +133,26 @@ Describe 'Get-DotNetVersion' {
         It 'Falls back to runtime directory scanning when dotnet command is unavailable' {
             $originalDotnetRoot = $env:DOTNET_ROOT
             $env:DOTNET_ROOT = '/fake/dotnet'
+            $script:RuntimeFallbackPath = Join-Path -Path (Join-Path -Path $env:DOTNET_ROOT -ChildPath 'shared') -ChildPath 'Microsoft.NETCore.App'
+            $script:RuntimeFallbackVersionPath = Join-Path -Path $script:RuntimeFallbackPath -ChildPath '8.0.14'
 
             try
             {
                 Mock Get-Command { $null } -ParameterFilter { $Name -eq 'dotnet' }
 
                 Mock Test-Path {
-                    if ($Path -eq '/fake/dotnet/shared/Microsoft.NETCore.App') { return $true }
+                    if ($Path -eq $script:RuntimeFallbackPath) { return $true }
                     return $false
                 }
 
                 Mock Get-ChildItem {
                     @(
-                        [PSCustomObject]@{ Name = '8.0.14'; FullName = '/fake/dotnet/shared/Microsoft.NETCore.App/8.0.14' }
+                        [PSCustomObject]@{
+                            Name = '8.0.14'
+                            FullName = $script:RuntimeFallbackVersionPath
+                        }
                     )
-                } -ParameterFilter { $Path -eq '/fake/dotnet/shared/Microsoft.NETCore.App' -and $Directory }
+                } -ParameterFilter { $Path -eq $script:RuntimeFallbackPath -and $Directory }
 
                 $result = Get-DotNetVersion -ComputerName 'localhost' -DotNetOnly
                 $netRow = $result | Where-Object { $_.RuntimeType -eq '.NET' } | Select-Object -First 1
@@ -159,12 +164,15 @@ Describe 'Get-DotNetVersion' {
             finally
             {
                 $env:DOTNET_ROOT = $originalDotnetRoot
+                Remove-Variable -Name RuntimeFallbackPath, RuntimeFallbackVersionPath -Scope Script -ErrorAction SilentlyContinue
             }
         }
 
         It 'Falls back to SDK directory scanning when runtime CLI output exists but SDK CLI output is missing' {
             $originalDotnetRoot = $env:DOTNET_ROOT
             $env:DOTNET_ROOT = '/fake/dotnet'
+            $script:SdkFallbackPath = Join-Path -Path $env:DOTNET_ROOT -ChildPath 'sdk'
+            $script:SdkFallbackVersionPath = Join-Path -Path $script:SdkFallbackPath -ChildPath '10.0.200'
 
             try
             {
@@ -198,15 +206,18 @@ Describe 'Get-DotNetVersion' {
                 } -ParameterFilter { $Name -eq 'dotnet' }
 
                 Mock Test-Path {
-                    if ($Path -eq '/fake/dotnet/sdk') { return $true }
+                    if ($Path -eq $script:SdkFallbackPath) { return $true }
                     return $false
-                } -ParameterFilter { $Path -like '/fake/*' }
+                }
 
                 Mock Get-ChildItem {
                     @(
-                        [PSCustomObject]@{ Name = '10.0.200'; FullName = '/fake/dotnet/sdk/10.0.200' }
+                        [PSCustomObject]@{
+                            Name = '10.0.200'
+                            FullName = $script:SdkFallbackVersionPath
+                        }
                     )
-                } -ParameterFilter { $Path -eq '/fake/dotnet/sdk' -and $Directory }
+                } -ParameterFilter { $Path -eq $script:SdkFallbackPath -and $Directory }
 
                 $result = Get-DotNetVersion -ComputerName 'localhost' -DotNetOnly -IncludeSDKs
                 $sdkRow = $result | Where-Object { $_.RuntimeType -eq '.NET SDK' } | Select-Object -First 1
@@ -219,6 +230,7 @@ Describe 'Get-DotNetVersion' {
             {
                 Remove-Item -Path Function:\Invoke-MockDotNet -ErrorAction SilentlyContinue
                 $env:DOTNET_ROOT = $originalDotnetRoot
+                Remove-Variable -Name SdkFallbackPath, SdkFallbackVersionPath -Scope Script -ErrorAction SilentlyContinue
             }
         }
     }
