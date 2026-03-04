@@ -23,8 +23,8 @@ function ConvertTo-Markdown
         Accepted values: commonmark, commonmark_x, gfm, markdown, markdown_github, markdown_mmd, markdown_phpextra, markdown_strict, markua
 
     .PARAMETER From
-        Optional explicit Pandoc input format (for example: html, docx, rst).
-        If omitted, Pandoc auto-detects the input format when possible.
+        Pandoc input format (for example: html, docx, rst).
+        Defaults to html.
 
     .PARAMETER OutputPath
         Optional explicit destination file path for Markdown output.
@@ -102,7 +102,7 @@ function ConvertTo-Markdown
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
-        [String]$From,
+        [String]$From = 'html',
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
