@@ -349,6 +349,9 @@ After installation, try these commands to explore what the profile offers:
 # View all available functions
 Show-ProfileFunctions
 
+# Search for the right function by keyword
+Find-ProfileFunction dns
+
 # Test network connectivity to a host and port
 Test-Port bing.com -Port 443
 
@@ -530,6 +533,7 @@ The profile includes utility functions organized by category:
 
 ### Profile Management
 
+- **[`Find-ProfileFunction`](Functions/ProfileManagement/Find-ProfileFunction.ps1)** — Searches profile functions by keyword and returns ranked matches
 - **[`Show-ProfileFunctions`](Functions/ProfileManagement/Show-ProfileFunctions.ps1)** — Shows all functions available in this PowerShell profile
 - **[`Test-ProfileUpdate`](Functions/ProfileManagement/Test-ProfileUpdate.ps1)** — Checks for available profile updates from the GitHub repository
 - **[`Update-Profile`](Functions/ProfileManagement/Update-Profile.ps1)** — Updates the profile to the latest version from the configured Git repository
