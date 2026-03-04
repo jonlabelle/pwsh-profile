@@ -363,7 +363,7 @@ function ConvertTo-MarkdownObject
             return $entries
         }
 
-        function Try-GetScalarMap
+        function Get-ScalarMap
         {
             param(
                 [AllowNull()]
@@ -426,7 +426,7 @@ function ConvertTo-MarkdownObject
             return $true
         }
 
-        function Try-WriteTableForScalarMap
+        function Write-TableForScalarMap
         {
             param(
                 [AllowNull()]
@@ -451,7 +451,7 @@ function ConvertTo-MarkdownObject
             }
 
             $rowMap = $null
-            if (-not (Try-GetScalarMap -Value $Value -Map ([Ref]$rowMap)))
+            if (-not (Get-ScalarMap -Value $Value -Map ([Ref]$rowMap)))
             {
                 return $false
             }
@@ -475,7 +475,7 @@ function ConvertTo-MarkdownObject
             return $true
         }
 
-        function Try-WriteTableForEnumerable
+        function Write-TableForEnumerable
         {
             param(
                 [AllowNull()]
@@ -545,7 +545,7 @@ function ConvertTo-MarkdownObject
             foreach ($item in $items)
             {
                 $rowMap = $null
-                if (-not (Try-GetScalarMap -Value $item -Map ([Ref]$rowMap)))
+                if (-not (Get-ScalarMap -Value $item -Map ([Ref]$rowMap)))
                 {
                     return $false
                 }
@@ -677,12 +677,12 @@ function ConvertTo-MarkdownObject
                 return
             }
 
-            if (Try-WriteTableForEnumerable -Value $resolvedValue -HasLabel $hasLabel -Label $Label -Lines $Lines -Level $Level)
+            if (Write-TableForEnumerable -Value $resolvedValue -HasLabel $hasLabel -Label $Label -Lines $Lines -Level $Level)
             {
                 return
             }
 
-            if (Try-WriteTableForScalarMap -Value $resolvedValue -HasLabel $hasLabel -Label $Label -Lines $Lines -Level $Level)
+            if (Write-TableForScalarMap -Value $resolvedValue -HasLabel $hasLabel -Label $Label -Lines $Lines -Level $Level)
             {
                 return
             }
