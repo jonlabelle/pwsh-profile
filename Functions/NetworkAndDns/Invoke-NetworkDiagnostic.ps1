@@ -1254,6 +1254,15 @@
         $iteration = 0
         $previousMetricsByKey = @{}
         $lastRenderLines = 0
+        $canClearHost = $true
+        try
+        {
+            $canClearHost = [Environment]::UserInteractive -and ([Console]::IsOutputRedirected -eq $false)
+        }
+        catch
+        {
+            $canClearHost = $false
+        }
         do
         {
             $iteration++
@@ -1388,7 +1397,18 @@
 
                 if ($effectiveRender -eq 'Clear' -and $iteration -gt 1)
                 {
-                    Clear-Host
+                    if ($canClearHost)
+                    {
+                        try
+                        {
+                            Clear-Host
+                        }
+                        catch
+                        {
+                            $canClearHost = $false
+                            Write-Verbose "Clear-Host is not available in this session; continuing without clearing: $($_.Exception.Message)"
+                        }
+                    }
                 }
                 elseif ($effectiveRender -eq 'InPlace' -and $iteration -gt 1 -and $lastRenderLines -gt 0)
                 {

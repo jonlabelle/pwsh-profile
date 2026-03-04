@@ -145,4 +145,43 @@ Describe 'Invoke-NetworkDiagnostic (Default continuous mode single iteration via
         $output | Should -Match 'loss'
         $output | Should -Match '↑'
     }
+
+    It 'continues when Clear-Host fails in continuous clear render mode' {
+        $script:MockMetricsQueue = @(
+            [PSCustomObject]@{
+                HostName = 'example.com'
+                Port = 443
+                SamplesTotal = 5
+                SamplesSuccess = 5
+                PacketLoss = 0
+                LatencyMin = 35.0
+                LatencyMax = 45.0
+                LatencyAvg = 40.0
+                Jitter = 2.0
+                DnsResolution = $null
+                LatencyData = @(39, 40, 41, 40, 40)
+            },
+            [PSCustomObject]@{
+                HostName = 'example.com'
+                Port = 443
+                SamplesTotal = 5
+                SamplesSuccess = 4
+                PacketLoss = 20
+                LatencyMin = 70.0
+                LatencyMax = 90.0
+                LatencyAvg = 80.0
+                Jitter = 8.0
+                DnsResolution = $null
+                LatencyData = @(70, 75, 80, 85, $null)
+            }
+        )
+
+        Mock -CommandName Start-Sleep {}
+        Mock -CommandName Clear-Host { throw [System.IO.IOException]::new('The handle is invalid.') }
+
+        $output = Invoke-NetworkDiagnostic -HostName 'example.com' -Count 5 -MaxIterations 2 -Interval 1 -RenderMode Clear *>&1 | Out-String
+
+        $output | Should -Match 'Trend'
+        $output | Should -Match '↑'
+    }
 }
