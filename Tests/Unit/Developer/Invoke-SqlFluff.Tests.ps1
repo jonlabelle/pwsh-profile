@@ -5,9 +5,9 @@
     Unit tests for Invoke-SqlFluff.
 
 .DESCRIPTION
-    Validates Docker prerequisite checks, argument construction, volume mounting,
-    SQL file discovery, config file handling, ShouldProcess gating, and exit code
-    behavior for SQLFluff Docker wrapper operations.
+    Validates command selection (local SQLFluff vs Docker fallback), Docker
+    prerequisite checks, argument construction, volume mounting, SQL file
+    discovery, config file handling, ShouldProcess gating, and exit code behavior.
 #>
 
 BeforeAll {
@@ -19,6 +19,8 @@ BeforeAll {
     # Deterministic shim used by Get-Command mocks so tests do not depend on Docker being installed.
     $script:DockerCommandName = 'pwshDockerTestShim'
     $script:DockerShimInvocations = @()
+    $script:SqlFluffCommandName = 'pwshSqlFluffTestShim'
+    $script:SqlFluffShimInvocations = @()
 
     function pwshDockerTestShim
     {
@@ -33,10 +35,25 @@ BeforeAll {
         $global:LASTEXITCODE = 0
         return @('shim output')
     }
+
+    function pwshSqlFluffTestShim
+    {
+        param(
+            [Parameter(ValueFromRemainingArguments = $true)]
+            [Object[]]$RemainingArgs
+        )
+
+        $argsArray = @($RemainingArgs)
+        $script:SqlFluffShimInvocations += , $argsArray
+
+        $global:LASTEXITCODE = 0
+        return @('shim output')
+    }
 }
 
 AfterAll {
     Remove-Item -Path Function:\pwshDockerTestShim -ErrorAction SilentlyContinue
+    Remove-Item -Path Function:\pwshSqlFluffTestShim -ErrorAction SilentlyContinue
 }
 
 Describe 'Invoke-SqlFluff' {
@@ -46,6 +63,11 @@ Describe 'Invoke-SqlFluff' {
 
         # Reset shim state for each test
         $script:DockerShimInvocations = @()
+        $script:SqlFluffShimInvocations = @()
+
+        # Default to Docker fallback mode for deterministic tests unless a test
+        # explicitly mocks a local SQLFluff command.
+        Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'sqlfluff' } -MockWith { $null }
     }
 
     AfterEach {
@@ -87,6 +109,106 @@ Describe 'Invoke-SqlFluff' {
             { Invoke-SqlFluff -Mode lint -Path 'test.sql' } | Should -Throw '*daemon is not running*'
 
             Remove-Item -Path Function:\pwshDockerTestShimDaemonDown -ErrorAction SilentlyContinue
+        }
+    }
+
+    Context 'Command selection' {
+        BeforeEach {
+            $script:SqlFile = Join-Path -Path $script:TestDir -ChildPath 'query.sql'
+            'SELECT 1' | Set-Content -LiteralPath $script:SqlFile
+            Push-Location $script:TestDir
+        }
+
+        AfterEach {
+            Pop-Location
+        }
+
+        It 'Prefers local SQLFluff when available' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'sqlfluff' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:SqlFluffCommandName
+                    Source = '/usr/local/bin/sqlfluff'
+                }
+            }
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:DockerCommandName
+                    Source = '/usr/local/bin/docker'
+                }
+            }
+
+            Invoke-SqlFluff -Mode lint -Path $script:SqlFile | Out-Null
+
+            $script:SqlFluffShimInvocations.Count | Should -Be 1
+            $script:DockerShimInvocations.Count | Should -Be 0
+        }
+
+        It 'Skips Docker prerequisite checks when local SQLFluff is available' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'sqlfluff' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:SqlFluffCommandName
+                    Source = '/usr/local/bin/sqlfluff'
+                }
+            }
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
+
+            { Invoke-SqlFluff -Mode lint -Path $script:SqlFile } | Should -Not -Throw
+            Assert-MockCalled -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -Times 0 -Exactly
+        }
+
+        It 'Falls back to Docker when local SQLFluff is not available' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:DockerCommandName
+                    Source = '/usr/local/bin/docker'
+                }
+            }
+
+            Invoke-SqlFluff -Mode lint -Path $script:SqlFile | Out-Null
+
+            $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
+            $runCall | Should -Not -BeNullOrEmpty
+            $script:SqlFluffShimInvocations.Count | Should -Be 0
+        }
+
+        It 'Uses Docker when Runtime is explicitly set to Docker' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'sqlfluff' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:SqlFluffCommandName
+                    Source = '/usr/local/bin/sqlfluff'
+                }
+            }
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:DockerCommandName
+                    Source = '/usr/local/bin/docker'
+                }
+            }
+
+            Invoke-SqlFluff -Mode lint -Path $script:SqlFile -Runtime Docker | Out-Null
+
+            $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
+            $runCall | Should -Not -BeNullOrEmpty
+            $script:SqlFluffShimInvocations.Count | Should -Be 0
+        }
+
+        It 'Uses local SQLFluff when Runtime is explicitly set to Local' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'sqlfluff' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:SqlFluffCommandName
+                    Source = '/usr/local/bin/sqlfluff'
+                }
+            }
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
+
+            Invoke-SqlFluff -Mode lint -Path $script:SqlFile -Runtime Local | Out-Null
+
+            $script:SqlFluffShimInvocations.Count | Should -Be 1
+            $script:DockerShimInvocations.Count | Should -Be 0
         }
     }
 
@@ -135,6 +257,29 @@ Describe 'Invoke-SqlFluff' {
 
         It 'Rejects empty ImageTag' {
             { Invoke-SqlFluff -Mode lint -Path 'test.sql' -ImageTag '' } | Should -Throw
+        }
+
+        It 'Rejects invalid Runtime' {
+            { Invoke-SqlFluff -Mode lint -Path 'test.sql' -Runtime 'Container' } | Should -Throw
+        }
+    }
+
+    Context 'Explicit runtime prerequisites' {
+        It 'Throws when Runtime is Local and local SQLFluff is not installed' {
+            { Invoke-SqlFluff -Mode lint -Path 'test.sql' -Runtime Local } | Should -Throw 'SQLFluff is not installed or not available in PATH. Install SQLFluff or use -Runtime Docker.'
+        }
+
+        It 'Throws when Runtime is Docker and Docker is not installed even if local SQLFluff is available' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'sqlfluff' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:SqlFluffCommandName
+                    Source = '/usr/local/bin/sqlfluff'
+                }
+            }
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
+
+            { Invoke-SqlFluff -Mode lint -Path 'test.sql' -Runtime Docker } | Should -Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
         }
     }
 

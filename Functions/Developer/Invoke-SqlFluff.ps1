@@ -2,16 +2,19 @@ function Invoke-SqlFluff
 {
     <#
     .SYNOPSIS
-        Runs SQLFluff lint, fix, or format against SQL files using the official Docker image.
+        Runs SQLFluff lint, fix, or format against SQL files.
 
     .DESCRIPTION
-        Invoke-SqlFluff is a wrapper around the SQLFluff Docker container that simplifies
-        linting, fixing, and formatting SQL files from PowerShell. It mounts the current
-        working directory and a configurable .sqlfluff configuration file into the container,
-        then executes the specified SQLFluff mode against the target file.
+        Invoke-SqlFluff supports three runtime modes:
+        - Auto   : Prefer local SQLFluff from PATH, then fall back to Docker.
+        - Local  : Require and use local SQLFluff only.
+        - Docker : Require and use Docker only.
 
-        The function requires Docker to be installed and running. The sqlfluff/sqlfluff
-        Docker image will be pulled automatically if not already present.
+        By default, Auto mode is used.
+
+        In Docker mode, it mounts the current working directory and a configurable
+        .sqlfluff configuration file into the container, then executes the specified
+        SQLFluff mode against the target file.
 
         Modes:
         - lint   : Check for SQL violations without modifying files.
@@ -36,8 +39,10 @@ function Invoke-SqlFluff
     .PARAMETER Path
         One or more paths to SQL files or directories to process. Accepts pipeline
         input (including FileInfo objects from Get-ChildItem). Supports wildcard
-        patterns (for example, *.sql). Paths are resolved relative to the current
-        working directory, which is mounted into the container at /sql.
+        patterns (for example, *.sql).
+
+        In Docker mode, paths must resolve inside the current working directory so
+        they can be accessed via the container mount at /sql.
 
         When a directory is provided, all *.sql files in that directory are processed.
         Use -Recurse to include subdirectories.
@@ -57,7 +62,8 @@ function Invoke-SqlFluff
 
     .PARAMETER ConfigPath
         The local file system path to the .sqlfluff configuration file. This file is
-        mounted into the container and passed via --config. Defaults to $HOME/.sqlfluff.
+        passed via --config. In Docker mode, it is mounted into the container.
+        Defaults to $HOME/.sqlfluff.
 
         When the config file is not found (and -ConfigPath was not explicitly specified),
         SQLFluff runs with its built-in defaults. You can still control behavior via
@@ -72,7 +78,13 @@ function Invoke-SqlFluff
 
     .PARAMETER ImageTag
         The Docker image tag to use for the sqlfluff/sqlfluff image. Defaults to 'latest'.
-        Use a specific version tag (e.g. '3.0.0') for reproducible results in CI pipelines.
+        Use a specific version tag (e.g. '3.0.0') for reproducible results in Docker mode.
+
+    .PARAMETER Runtime
+        Controls how SQLFluff is executed:
+        - Auto   : Prefer local SQLFluff from PATH, then fall back to Docker.
+        - Local  : Use local SQLFluff only and throw if not available.
+        - Docker : Use Docker only and throw if Docker is not available.
 
     .PARAMETER AdditionalArgs
         Additional arguments to pass directly to the SQLFluff command. Useful for options
@@ -149,15 +161,26 @@ function Invoke-SqlFluff
 
         Lints all *.sql files in the stored_procedures directory and its subdirectories.
 
+    .EXAMPLE
+        Invoke-SqlFluff -Mode lint -Path query.sql -Runtime Local
+
+        Forces local SQLFluff execution and throws if local SQLFluff is unavailable.
+
+    .EXAMPLE
+        Invoke-SqlFluff -Mode lint -Path query.sql -Runtime Docker
+
+        Forces Docker execution even if local SQLFluff is installed.
+
     .OUTPUTS
         System.Int32
-            Returns the Docker process exit code. 0 indicates success (no violations for
+            Returns the SQLFluff process exit code. 0 indicates success (no violations for
             lint, or successful fix/format). Non-zero indicates violations were found or
             an error occurred.
 
     .NOTES
-        Requires Docker Desktop (or Docker Engine) to be installed and running.
-        The sqlfluff/sqlfluff image is pulled from Docker Hub on first use.
+        In Auto mode, if local SQLFluff is not found in PATH, Docker Desktop (or
+        Docker Engine) must be installed and running. The sqlfluff/sqlfluff image
+        is pulled from Docker Hub on first Docker use.
         See https://docs.sqlfluff.com/en/stable/configuration.html for config options.
 
         Author: Jon LaBelle
@@ -211,27 +234,78 @@ function Invoke-SqlFluff
         [String]$ImageTag = 'latest',
 
         [Parameter()]
+        [ValidateSet('Auto', 'Local', 'Docker')]
+        [String]$Runtime = 'Auto',
+
+        [Parameter()]
         [String[]]$AdditionalArgs
     )
 
     begin
     {
-        # Verify Docker is installed and available in PATH
-        $dockerCommand = Get-Command -Name 'docker' -ErrorAction SilentlyContinue
-        if (-not $dockerCommand)
-        {
-            throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
-        }
-        Write-Verbose "Docker found at: $($dockerCommand.Source)"
+        $sqlFluffCommand = $null
+        $dockerCommand = $null
+        $useDockerRuntime = $false
 
-        # Verify the Docker daemon is running
-        $global:LASTEXITCODE = 0
-        & $dockerCommand.Name info *> $null
-        if ($LASTEXITCODE -ne 0)
+        switch ($Runtime)
         {
-            throw 'Docker is installed but the daemon is not running. Please start Docker Desktop (or the Docker service) and try again.'
+            'Local'
+            {
+                $sqlFluffCommand = Get-Command -Name 'sqlfluff' -CommandType Application, ExternalScript -ErrorAction SilentlyContinue |
+                Select-Object -First 1
+                if (-not $sqlFluffCommand)
+                {
+                    throw 'SQLFluff is not installed or not available in PATH. Install SQLFluff or use -Runtime Docker.'
+                }
+                Write-Verbose "Runtime mode: Local (found at: $($sqlFluffCommand.Source))"
+            }
+
+            'Docker'
+            {
+                Write-Verbose 'Runtime mode: Docker (forced by -Runtime Docker)'
+                $useDockerRuntime = $true
+            }
+
+            default
+            {
+                # Auto mode: prefer local SQLFluff, otherwise fall back to Docker.
+                $sqlFluffCommand = Get-Command -Name 'sqlfluff' -CommandType Application, ExternalScript -ErrorAction SilentlyContinue |
+                Select-Object -First 1
+                if ($sqlFluffCommand)
+                {
+                    Write-Verbose "Runtime mode: Auto (using local SQLFluff at: $($sqlFluffCommand.Source))"
+                }
+                else
+                {
+                    Write-Verbose 'Runtime mode: Auto (local SQLFluff not found; falling back to Docker)'
+                    $useDockerRuntime = $true
+                }
+            }
         }
-        Write-Verbose 'Docker daemon is running'
+
+        if ($useDockerRuntime)
+        {
+            # Verify Docker is installed and available in PATH
+            $dockerCommand = Get-Command -Name 'docker' -ErrorAction SilentlyContinue
+            if (-not $dockerCommand)
+            {
+                throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
+            }
+            Write-Verbose "Docker found at: $($dockerCommand.Source)"
+
+            # Verify the Docker daemon is running
+            $global:LASTEXITCODE = 0
+            & $dockerCommand.Name info *> $null
+            if ($LASTEXITCODE -ne 0)
+            {
+                throw 'Docker is installed but the daemon is not running. Please start Docker Desktop (or the Docker service) and try again.'
+            }
+            Write-Verbose 'Docker daemon is running'
+
+            # Build the Docker image reference with tag
+            $imageRef = "sqlfluff/sqlfluff:${ImageTag}"
+            Write-Verbose "Using image: $imageRef"
+        }
 
         # Check if the config file exists. When explicitly provided via -ConfigPath,
         # throw on missing file. Otherwise, run without config using SQLFluff defaults.
@@ -251,12 +325,20 @@ function Invoke-SqlFluff
             Write-Verbose "No config file found at default path '$ConfigPath'. Running with SQLFluff defaults."
         }
 
-        # Resolve PWD to an absolute path for the Docker mount
-        $resolvedPwd = $PWD.Path
+        # Resolve PWD to an absolute path for path normalization and Docker mounts
+        $resolvedPwd = (Resolve-Path -LiteralPath $PWD.Path -ErrorAction Stop).Path
+        $cwdPrefix = $resolvedPwd.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) +
+        [System.IO.Path]::DirectorySeparatorChar
 
-        # Build the Docker image reference with tag
-        $imageRef = "sqlfluff/sqlfluff:${ImageTag}"
-        Write-Verbose "Using image: $imageRef"
+        # Windows paths are case-insensitive; Unix-like paths are case-sensitive.
+        $pathComparison = if ([System.IO.Path]::DirectorySeparatorChar -eq '\')
+        {
+            [System.StringComparison]::OrdinalIgnoreCase
+        }
+        else
+        {
+            [System.StringComparison]::Ordinal
+        }
     }
 
     process
@@ -362,57 +444,123 @@ function Invoke-SqlFluff
             # Resolve the SQL file path using -LiteralPath to handle special characters
             # (e.g., brackets in filenames like report[1].sql)
             $resolvedPath = Resolve-Path -LiteralPath $sqlFile -ErrorAction Stop
+            $resolvedSqlPath = [System.IO.Path]::GetFullPath($resolvedPath.Path)
+            $invokeCommandName = $null
+            $invokeArgs = @()
 
-            # Build a clean relative path for the Linux container
-            $normalizedPath = $resolvedPath.Path.Replace($resolvedPwd + [IO.Path]::DirectorySeparatorChar, '')
-            # Convert any remaining backslashes to forward slashes for the Linux container
-            $normalizedPath = $normalizedPath.Replace('\', '/')
-
-            Write-Verbose "SQL file resolved to: $normalizedPath"
-
-            # Build volume mount strings as variables. PowerShell automatically wraps
-            # arguments containing spaces in quotes when passing to native commands,
-            # so paths like "OneDrive - Company Name" are handled correctly.
-            $volSql = "${resolvedPwd}:/sql"
-
-            # Build the argument list for docker run.
-            # Use -i (interactive) without -t (TTY) to avoid TTY errors in
-            # non-interactive environments such as CI pipelines and scheduled tasks.
-            $dockerArgs = @('run', '-i', '--rm')
-            $dockerArgs += @('-v', $volSql)
-
-            # Mount the config file only when one was found
-            if ($resolvedConfig)
+            if ($useDockerRuntime)
             {
-                $volConfig = "${resolvedConfig}:/config/.sqlfluff"
-                $dockerArgs += @('-v', $volConfig)
+                # Ensure SQL file is inside the mounted working directory.
+                $dockerSqlPath = $null
+                if ($resolvedSqlPath.Equals($resolvedPwd, $pathComparison))
+                {
+                    $dockerSqlPath = '.'
+                }
+                elseif ($resolvedSqlPath.StartsWith($cwdPrefix, $pathComparison))
+                {
+                    $dockerSqlPath = $resolvedSqlPath.Substring($cwdPrefix.Length)
+                }
+                else
+                {
+                    throw "Path '$sqlFile' resolves to '$resolvedSqlPath', which is outside the current working directory '$resolvedPwd'. Change to the appropriate directory and try again."
+                }
+
+                # Convert backslashes to forward slashes for the Linux container.
+                $dockerSqlPath = $dockerSqlPath.Replace('\', '/')
+                Write-Verbose "SQL file resolved to: $dockerSqlPath"
+
+                # Build volume mount strings as variables. PowerShell automatically wraps
+                # arguments containing spaces in quotes when passing to native commands,
+                # so paths like "OneDrive - Company Name" are handled correctly.
+                $volSql = "${resolvedPwd}:/sql"
+
+                # Build the argument list for docker run.
+                # Use -i (interactive) without -t (TTY) to avoid TTY errors in
+                # non-interactive environments such as CI pipelines and scheduled tasks.
+                $dockerArgs = @('run', '-i', '--rm')
+                $dockerArgs += @('-v', $volSql)
+
+                # Mount the config file only when one was found
+                if ($resolvedConfig)
+                {
+                    $volConfig = "${resolvedConfig}:/config/.sqlfluff"
+                    $dockerArgs += @('-v', $volConfig)
+                }
+
+                $dockerArgs += $imageRef
+                $dockerArgs += $Mode
+                $dockerArgs += $dockerSqlPath
+
+                # Pass --config only when a config file is mounted
+                if ($resolvedConfig)
+                {
+                    $dockerArgs += @('--config', '/config/.sqlfluff')
+                }
+
+                # Append --dialect if specified
+                if ($PSBoundParameters.ContainsKey('Dialect'))
+                {
+                    $dockerArgs += @('--dialect', $Dialect)
+                    Write-Verbose "Using dialect: $Dialect"
+                }
+
+                # Append any additional user-supplied arguments
+                if ($AdditionalArgs)
+                {
+                    $dockerArgs += $AdditionalArgs
+                    Write-Verbose "Additional args: $($AdditionalArgs -join ' ')"
+                }
+
+                $invokeCommandName = $dockerCommand.Name
+                $invokeArgs = $dockerArgs
+                Write-Verbose "Docker command: docker $($invokeArgs -join ' ')"
             }
-
-            $dockerArgs += $imageRef
-            $dockerArgs += $Mode
-            $dockerArgs += $normalizedPath
-
-            # Pass --config only when a config file is mounted
-            if ($resolvedConfig)
+            else
             {
-                $dockerArgs += @('--config', '/config/.sqlfluff')
-            }
+                # Keep relative paths for files under the current directory and
+                # absolute paths otherwise.
+                $localSqlPath = $null
+                if ($resolvedSqlPath.Equals($resolvedPwd, $pathComparison))
+                {
+                    $localSqlPath = '.'
+                }
+                elseif ($resolvedSqlPath.StartsWith($cwdPrefix, $pathComparison))
+                {
+                    $localSqlPath = $resolvedSqlPath.Substring($cwdPrefix.Length)
+                }
+                else
+                {
+                    $localSqlPath = $resolvedSqlPath
+                }
 
-            # Append --dialect if specified
-            if ($PSBoundParameters.ContainsKey('Dialect'))
-            {
-                $dockerArgs += @('--dialect', $Dialect)
-                Write-Verbose "Using dialect: $Dialect"
-            }
+                Write-Verbose "SQL file resolved to: $localSqlPath"
 
-            # Append any additional user-supplied arguments
-            if ($AdditionalArgs)
-            {
-                $dockerArgs += $AdditionalArgs
-                Write-Verbose "Additional args: $($AdditionalArgs -join ' ')"
-            }
+                $localArgs = @($Mode, $localSqlPath)
 
-            Write-Verbose "Docker command: docker $($dockerArgs -join ' ')"
+                # Pass --config when a config file is available.
+                if ($resolvedConfig)
+                {
+                    $localArgs += @('--config', $resolvedConfig)
+                }
+
+                # Append --dialect if specified
+                if ($PSBoundParameters.ContainsKey('Dialect'))
+                {
+                    $localArgs += @('--dialect', $Dialect)
+                    Write-Verbose "Using dialect: $Dialect"
+                }
+
+                # Append any additional user-supplied arguments
+                if ($AdditionalArgs)
+                {
+                    $localArgs += $AdditionalArgs
+                    Write-Verbose "Additional args: $($AdditionalArgs -join ' ')"
+                }
+
+                $invokeCommandName = $sqlFluffCommand.Name
+                $invokeArgs = $localArgs
+                Write-Verbose "SQLFluff command: $($invokeCommandName) $($invokeArgs -join ' ')"
+            }
 
             # Gate state-changing operations (fix/format) behind ShouldProcess
             $shouldRun = $true
@@ -424,7 +572,7 @@ function Invoke-SqlFluff
             if ($shouldRun)
             {
                 $global:LASTEXITCODE = 0
-                & $dockerCommand.Name @dockerArgs
+                & $invokeCommandName @invokeArgs
 
                 $exitCode = $LASTEXITCODE
                 Write-Verbose "SQLFluff exited with code: $exitCode"

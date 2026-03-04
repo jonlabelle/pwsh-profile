@@ -504,7 +504,7 @@ The profile includes utility functions organized by category:
 - **[`Invoke-GitPull`](Functions/Developer/Invoke-GitPull.ps1)** — Performs bulk `git pull` operations across multiple repositories
 - **[`Invoke-BfgRepoCleaner`](Functions/Developer/Invoke-BfgRepoCleaner.ps1)** — Cleans Git history with `-Runtime Auto|Local|Docker` (local-first by default, Docker fallback)
 - **[`Invoke-Magika`](Functions/Developer/Invoke-Magika.ps1)** — Runs Magika file-type detection with `-Runtime Auto|Local|Docker` (local-first by default, Docker fallback)
-- **[`Invoke-SqlFluff`](Functions/Developer/Invoke-SqlFluff.ps1)** — Runs SQLFluff linting and auto-fixing via Docker on SQL files
+- **[`Invoke-SqlFluff`](Functions/Developer/Invoke-SqlFluff.ps1)** — Runs SQLFluff with `-Runtime Auto|Local|Docker` (local-first by default, Docker fallback)
 - **[`Remove-GitIgnoredFiles`](Functions/Developer/Remove-GitIgnoredFiles.ps1)** — Removes ignored and optionally untracked files from Git repositories
 - **[`Remove-NodeModules`](Functions/Developer/Remove-NodeModules.ps1)** — Removes node_modules folders from Node.js project directories
 - **[`Invoke-DockerAutoRun`](Functions/Developer/Invoke-DockerAutoRun.ps1)** — Auto-detects project type and builds/runs a Docker container
