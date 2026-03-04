@@ -2,7 +2,7 @@ function Get-DotNetVersion
 {
     <#
     .SYNOPSIS
-        Gets installed .NET Framework and .NET (formally .NET Core) versions from local or remote computers.
+        Gets installed .NET Framework and .NET (formerly .NET Core) versions from local or remote computers.
 
     .DESCRIPTION
         Retrieves comprehensive information about installed .NET versions including both .NET Framework
@@ -20,7 +20,7 @@ function Get-DotNetVersion
         Supports pipeline input by property name for object-based input.
 
     .PARAMETER All
-        Show all installed versions of .NET Framework and .NET.
+        Show all installed versions of .NET Framework and .NET, including SDK versions.
         If not specified, only the latest version of each type is returned.
 
     .PARAMETER Credential
@@ -68,7 +68,7 @@ function Get-DotNetVersion
     .EXAMPLE
         PS > Get-DotNetVersion -All
 
-        Gets all installed .NET Framework and .NET versions from the local computer.
+        Gets all installed .NET Framework and .NET versions (including SDKs) from the local computer.
 
     .EXAMPLE
         PS > Get-DotNetVersion -ComputerName 'server01' -Credential (Get-Credential)
@@ -81,9 +81,10 @@ function Get-DotNetVersion
         Gets all .NET versions from multiple computers using pipeline input.
 
     .EXAMPLE
-        PS > Get-DotNetVersion -ComputerName 'devmachine' -IncludeSDKs -All
+        PS > Get-DotNetVersion -ComputerName 'devmachine' -All
 
         Gets all .NET versions including SDK versions from a remote development machine.
+        (Note: -IncludeSDKs is implied by -All and can be omitted.)
 
     .EXAMPLE
         PS > Get-DotNetVersion -FrameworkOnly
@@ -160,8 +161,7 @@ function Get-DotNetVersion
 
     begin
     {
-        # Initialize results collection
-        $results = New-Object System.Collections.ArrayList
+        $results = [System.Collections.Generic.List[object]]::new()
 
         # Although parameter sets should prevent this, add an extra validation check
         if ($FrameworkOnly -and $IncludeSDKs)
@@ -194,774 +194,598 @@ function Get-DotNetVersion
             533320 = '4.8.1'
             533325 = '4.8.1'
         }
+
+        $localComputerNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+        foreach ($localName in @('localhost', '.', '127.0.0.1', '::1', $env:COMPUTERNAME, $env:HOSTNAME))
+        {
+            if (-not [string]::IsNullOrWhiteSpace($localName))
+            {
+                [void]$localComputerNames.Add($localName.Trim())
+            }
+        }
+
+        try
+        {
+            $dnsHostName = [System.Net.Dns]::GetHostName()
+            if (-not [string]::IsNullOrWhiteSpace($dnsHostName))
+            {
+                [void]$localComputerNames.Add($dnsHostName.Trim())
+            }
+        }
+        catch
+        {
+            Write-Verbose "Unable to resolve local DNS hostname: $($_.Exception.Message)"
+        }
+
+        function Test-IsLocalTarget
+        {
+            param(
+                [string]$Computer,
+                [System.Collections.Generic.HashSet[string]]$KnownLocalNames
+            )
+
+            if ([string]::IsNullOrWhiteSpace($Computer))
+            {
+                return $false
+            }
+
+            $trimmedComputer = $Computer.Trim()
+            if ($KnownLocalNames.Contains($trimmedComputer))
+            {
+                return $true
+            }
+
+            if ($trimmedComputer -match '^127(\.\d{1,3}){3}$')
+            {
+                return $true
+            }
+
+            try
+            {
+                $address = [System.Net.IPAddress]::Parse($trimmedComputer)
+                return $address.Equals([System.Net.IPAddress]::Loopback) -or $address.Equals([System.Net.IPAddress]::IPv6Loopback)
+            }
+            catch
+            {
+                return $false
+            }
+        }
+
+        if (-not (Get-Command -Name 'Get-DotNetVersionCollectorScriptBlock' -ErrorAction SilentlyContinue))
+        {
+            Write-Verbose 'Get-DotNetVersionCollectorScriptBlock is required - attempting to load it'
+
+            $dependencyPath = Join-Path -Path $PSScriptRoot -ChildPath 'Private/GetDotNetVersion.Private.ps1'
+            $dependencyPath = [System.IO.Path]::GetFullPath($dependencyPath)
+
+            if (Test-Path -Path $dependencyPath -PathType Leaf)
+            {
+                try
+                {
+                    . $dependencyPath
+                    Write-Verbose "Loaded Get-DotNetVersionCollectorScriptBlock from: $dependencyPath"
+                }
+                catch
+                {
+                    throw "Failed to load required dependency 'Get-DotNetVersionCollectorScriptBlock' from '$dependencyPath': $($_.Exception.Message)"
+                }
+            }
+            else
+            {
+                throw "Required dependency script for Get-DotNetVersionCollectorScriptBlock could not be found. Expected location: $dependencyPath"
+            }
+        }
+        else
+        {
+            Write-Verbose 'Get-DotNetVersionCollectorScriptBlock is already loaded'
+        }
+
+        $collectDotNetVersions = Get-DotNetVersionCollectorScriptBlock
     }
 
     process
     {
         # Handle pipeline input and set default if empty
-        if (-not $ComputerName -or $ComputerName.Count -eq 0)
-        {
-            $ComputerName = @('localhost')
-        }
+        $targetComputers = if (-not $ComputerName -or $ComputerName.Count -eq 0) { @('localhost') } else { $ComputerName }
 
-        foreach ($computer in $ComputerName)
+        foreach ($computer in $targetComputers)
         {
-            # Skip empty/null computer names
             if ([string]::IsNullOrWhiteSpace($computer))
             {
                 continue
             }
 
+            $targetComputer = $computer.Trim()
             try
             {
-                if ($computer -eq 'localhost' -or $computer -eq $env:COMPUTERNAME -or $computer -eq '.')
+                if (Test-IsLocalTarget -Computer $targetComputer -KnownLocalNames $localComputerNames)
                 {
-                    # Local computer processing
                     Write-Verbose 'Querying local computer for .NET versions'
-
-                    $computerResults = @()
-
-                    Write-Verbose "Processing .NET versions for $computer"
-
-                    # Get .NET Framework versions (Windows only) - Skip if DotNetOnly
-                    if (-not $DotNetOnly)
+                    $localResults = & $collectDotNetVersions $targetComputer $All.IsPresent $IncludeSDKs.IsPresent $FrameworkVersionTable $FrameworkOnly.IsPresent $DotNetOnly.IsPresent
+                    foreach ($result in $localResults)
                     {
-                        $frameworkVersions = @()
-
-                        if ($IsWindows -or $PSVersionTable.PSEdition -eq 'Desktop')
-                        {
-                            try
-                            {
-                                $ndpKey = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey('SOFTWARE\Microsoft\NET Framework Setup\NDP')
-
-                                if ($ndpKey)
-                                {
-                                    # Get legacy versions (1.x - 3.x)
-                                    foreach ($versionKeyName in $ndpKey.GetSubKeyNames())
-                                    {
-                                        if ($versionKeyName -match '^v[1-3]\.')
-                                        {
-                                            $versionKey = $ndpKey.OpenSubKey($versionKeyName)
-                                            if ($versionKey -and $versionKey.GetValue('Install') -eq 1)
-                                            {
-                                                $version = $versionKey.GetValue('Version', $versionKeyName -replace '^v')
-                                                $frameworkVersions += [PSCustomObject]@{
-                                                    Version = $version
-                                                    Release = $null
-                                                    InstallPath = $versionKey.GetValue('InstallPath', '')
-                                                }
-                                            }
-                                            if ($versionKey) { $versionKey.Close() }
-                                        }
-                                    }
-
-                                    # Check for .NET Framework 4.0 (Client and Full profiles)
-                                    $v4ClientKey = $ndpKey.OpenSubKey('v4\Client')
-                                    $v4FullKey = $ndpKey.OpenSubKey('v4\Full')
-
-                                    # .NET Framework 4.0 detection
-                                    if ($v4ClientKey -and $v4ClientKey.GetValue('Install') -eq 1)
-                                    {
-                                        $version = $v4ClientKey.GetValue('Version', '4.0')
-                                        $installPath = $v4ClientKey.GetValue('InstallPath', '')
-
-                                        $frameworkVersions += [PSCustomObject]@{
-                                            Version = "$version (Client Profile)"
-                                            Release = $null
-                                            InstallPath = $installPath
-                                        }
-                                        $v4ClientKey.Close()
-                                    }
-
-                                    if ($v4FullKey)
-                                    {
-                                        $release = [int]$v4FullKey.GetValue('Release', 0)
-                                        $version = $v4FullKey.GetValue('Version', '4.0')
-                                        $installPath = $v4FullKey.GetValue('InstallPath', '')
-                                        $install = $v4FullKey.GetValue('Install')
-
-                                        # Handle .NET Framework 4.0 (no release number)
-                                        if ($release -eq 0 -and $install -eq 1)
-                                        {
-                                            $frameworkVersions += [PSCustomObject]@{
-                                                Version = $version
-                                                Release = $null
-                                                InstallPath = $installPath
-                                            }
-                                        }
-                                        # Handle .NET Framework 4.5+ (with release number)
-                                        elseif ($release -gt 0)
-                                        {
-                                            # Map release number to version
-                                            $mappedVersion = $FrameworkVersionTable[$release]
-                                            if (-not $mappedVersion)
-                                            {
-                                                # Find the highest known version that's less than or equal to this release
-                                                $knownReleases = $FrameworkVersionTable.Keys | Sort-Object -Descending
-                                                $matchedRelease = $knownReleases | Where-Object { $_ -le $release } | Select-Object -First 1
-                                                if ($matchedRelease)
-                                                {
-                                                    $mappedVersion = "$($FrameworkVersionTable[$matchedRelease])+"
-                                                }
-                                                else
-                                                {
-                                                    $mappedVersion = '4.5+'
-                                                }
-                                            }
-
-                                            $frameworkVersions += [PSCustomObject]@{
-                                                Version = $mappedVersion
-                                                Release = $release
-                                                InstallPath = $installPath
-                                            }
-                                        }
-                                        $v4FullKey.Close()
-                                    }
-                                    $ndpKey.Close()
-                                }
-                            }
-                            catch
-                            {
-                                Write-Verbose "Error accessing .NET Framework registry: $($_.Exception.Message)"
-                            }
-                        }
-
-                        # Process Framework results
-                        if ($frameworkVersions -and $frameworkVersions.Count -gt 0)
-                        {
-                            $latestFramework = $frameworkVersions | Sort-Object { [version]($_.Version -replace '[^\d\.]', '') } -Descending | Select-Object -First 1
-
-                            if ($All)
-                            {
-                                foreach ($frameworkVersion in $frameworkVersions)
-                                {
-                                    $computerResults += [PSCustomObject]@{
-                                        PSTypeName = 'DotNetVersion.Result'
-                                        ComputerName = $computer
-                                        RuntimeType = '.NET Framework'
-                                        Version = $frameworkVersion.Version
-                                        Release = $frameworkVersion.Release
-                                        InstallPath = $frameworkVersion.InstallPath
-                                        IsLatest = ($frameworkVersion.Version -eq $latestFramework.Version)
-                                        Type = 'Runtime'
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                $computerResults += [PSCustomObject]@{
-                                    PSTypeName = 'DotNetVersion.Result'
-                                    ComputerName = $computer
-                                    RuntimeType = '.NET Framework'
-                                    Version = $latestFramework.Version
-                                    Release = $latestFramework.Release
-                                    InstallPath = $latestFramework.InstallPath
-                                    IsLatest = $true
-                                    Type = 'Runtime'
-                                }
-                            }
-                        }
-                        else
-                        {
-                            # No .NET Framework detected
-                            $computerResults += [PSCustomObject]@{
-                                PSTypeName = 'DotNetVersion.Result'
-                                ComputerName = $computer
-                                RuntimeType = '.NET Framework'
-                                Version = 'Not installed'
-                                Release = $null
-                                InstallPath = $null
-                                IsLatest = $null
-                                Type = 'Runtime'
-                            }
-                        }
+                        [void]$results.Add($result)
                     }
+                    continue
+                }
 
-                    # Get .NET versions - Skip if FrameworkOnly
-                    if (-not $FrameworkOnly)
-                    {
-                        $coreVersions = @()
+                Write-Verbose "Querying remote computer '$targetComputer' for .NET versions"
+                $sessionParams = @{
+                    ComputerName = $targetComputer
+                    ErrorAction = 'Stop'
+                }
+                if ($Credential)
+                {
+                    $sessionParams.Credential = $Credential
+                }
 
-                        # Try using dotnet CLI first
-                        try
-                        {
-                            $dotnetAvailable = $false
-                            $null = Get-Command dotnet -ErrorAction SilentlyContinue
-                            if ($?)
-                            {
-                                $dotnetAvailable = $true
-
-                                # Get runtimes
-                                $runtimeOutput = & dotnet --list-runtimes 2>$null
-                                if ($LASTEXITCODE -eq 0 -and $runtimeOutput)
-                                {
-                                    foreach ($line in $runtimeOutput)
-                                    {
-                                        if ($line -match '^(Microsoft\.NETCore\.App|Microsoft\.AspNetCore\.App|Microsoft\.WindowsDesktop\.App)\s+(\d+\.\d+\.\d+(?:-\w+\.\d+\.\d+)?)\s+\[(.+)\]')
-                                        {
-                                            $runtime = $matches[1]
-                                            $version = $matches[2]
-                                            $path = $matches[3]
-
-                                            $coreVersions += [PSCustomObject]@{
-                                                Type = 'Runtime'
-                                                Runtime = $runtime
-                                                Version = $version
-                                                InstallPath = $path
-                                            }
-                                        }
-                                    }
-                                }
-
-                                # Get SDKs if requested
-                                if ($IncludeSDKs)
-                                {
-                                    $sdkOutput = & dotnet --list-sdks 2>$null
-                                    if ($LASTEXITCODE -eq 0 -and $sdkOutput)
-                                    {
-                                        foreach ($line in $sdkOutput)
-                                        {
-                                            if ($line -match '^(\d+\.\d+\.\d+(?:-\w+\.\d+\.\d+)?)\s+\[(.+)\]')
-                                            {
-                                                $version = $matches[1]
-                                                $path = $matches[2]
-
-                                                $coreVersions += [PSCustomObject]@{
-                                                    Type = 'SDK'
-                                                    Runtime = 'Microsoft.NETCore.SDK'
-                                                    Version = $version
-                                                    InstallPath = $path
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            # If dotnet CLI is not available, try directory scanning as fallback
-                            if (-not $dotnetAvailable)
-                            {
-                                $commonPaths = @()
-
-                                if ($IsWindows -or $PSVersionTable.PSEdition -eq 'Desktop')
-                                {
-                                    $commonPaths += @(
-                                        "${env:ProgramFiles}\dotnet\shared\Microsoft.NETCore.App",
-                                        "${env:ProgramFiles}\dotnet\shared\Microsoft.AspNetCore.App",
-                                        "${env:ProgramFiles}\dotnet\shared\Microsoft.WindowsDesktop.App"
-                                    )
-                                }
-                                elseif ($IsLinux)
-                                {
-                                    $commonPaths += @(
-                                        '/usr/share/dotnet/shared/Microsoft.NETCore.App',
-                                        '/usr/share/dotnet/shared/Microsoft.AspNetCore.App'
-                                    )
-                                }
-                                elseif ($IsMacOS)
-                                {
-                                    $commonPaths += @(
-                                        '/usr/local/share/dotnet/shared/Microsoft.NETCore.App',
-                                        '/usr/local/share/dotnet/shared/Microsoft.AspNetCore.App'
-                                    )
-                                }
-
-                                foreach ($path in $commonPaths)
-                                {
-                                    if (Test-Path $path)
-                                    {
-                                        $runtime = Split-Path $path -Leaf
-                                        $versions = Get-ChildItem $path -Directory | Where-Object { $_.Name -match '^\d+\.\d+\.\d+' }
-
-                                        foreach ($versionDir in $versions)
-                                        {
-                                            $coreVersions += [PSCustomObject]@{
-                                                Type = 'Runtime'
-                                                Runtime = $runtime
-                                                Version = $versionDir.Name
-                                                InstallPath = $versionDir.FullName
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        catch
-                        {
-                            Write-Verbose "Error detecting .NET versions: $($_.Exception.Message)"
-                        }
-
-                        # Process Core results
-                        if ($coreVersions -and $coreVersions.Count -gt 0)
-                        {
-                            # Group by runtime type
-                            $runtimeGroups = $coreVersions | Group-Object Runtime
-
-                            foreach ($group in $runtimeGroups)
-                            {
-                                $runtimeName = switch ($group.Name)
-                                {
-                                    'Microsoft.NETCore.App' { '.NET' }
-                                    'Microsoft.AspNetCore.App' { 'ASP.NET Core' }
-                                    'Microsoft.WindowsDesktop.App' { '.NET Desktop' }
-                                    'Microsoft.NETCore.SDK' { '.NET SDK' }
-                                    default { $group.Name }
-                                }
-
-                                $sortedVersions = $group.Group | Sort-Object { [version]($_.Version -replace '-.*$', '') } -Descending
-                                $latestVersion = $sortedVersions | Select-Object -First 1
-
-                                if ($All)
-                                {
-                                    foreach ($version in $sortedVersions)
-                                    {
-                                        $computerResults += [PSCustomObject]@{
-                                            PSTypeName = 'DotNetVersion.Result'
-                                            ComputerName = $computer
-                                            RuntimeType = $runtimeName
-                                            Version = $version.Version
-                                            Release = $null
-                                            InstallPath = $version.InstallPath
-                                            IsLatest = ($version.Version -eq $latestVersion.Version)
-                                            Type = $version.Type
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    $computerResults += [PSCustomObject]@{
-                                        PSTypeName = 'DotNetVersion.Result'
-                                        ComputerName = $computer
-                                        RuntimeType = $runtimeName
-                                        Version = $latestVersion.Version
-                                        Release = $null
-                                        InstallPath = $latestVersion.InstallPath
-                                        IsLatest = $true
-                                        Type = $latestVersion.Type
-                                    }
-                                }
-                            }
-                        }
-                        else
-                        {
-                            # No .NET detected
-                            $computerResults += [PSCustomObject]@{
-                                PSTypeName = 'DotNetVersion.Result'
-                                ComputerName = $computer
-                                RuntimeType = '.NET'
-                                Version = 'Not installed'
-                                Release = $null
-                                InstallPath = $null
-                                IsLatest = $null
-                                Type = 'Runtime'
-                            }
-                        }
-                    }
-
-                    foreach ($result in $computerResults)
+                $session = $null
+                try
+                {
+                    $session = New-PSSession @sessionParams
+                    $remoteResults = Invoke-Command -Session $session -ScriptBlock $collectDotNetVersions -ArgumentList $targetComputer, $All.IsPresent, $IncludeSDKs.IsPresent, $FrameworkVersionTable, $FrameworkOnly.IsPresent, $DotNetOnly.IsPresent
+                    foreach ($result in $remoteResults)
                     {
                         [void]$results.Add($result)
                     }
                 }
-                else
+                finally
                 {
-                    # Remote computer processing
-                    Write-Verbose "Querying remote computer '$computer' for .NET versions"
-
-                    $sessionParams = @{
-                        ComputerName = $computer
-                        ErrorAction = 'Stop'
-                    }
-
-                    if ($Credential)
+                    if ($session)
                     {
-                        $sessionParams.Credential = $Credential
-                    }
-
-                    $session = $null
-                    try
-                    {
-                        $session = New-PSSession @sessionParams
-
-                        $remoteResults = Invoke-Command -Session $session -ScriptBlock {
-                            param($Computer, $All, $IncludeSDKs, $FrameworkVersionTable, $FrameworkOnly, $DotNetOnly)
-
-                            $computerResults = @()
-
-                            Write-Verbose "Processing .NET versions for $Computer"
-
-                            # Get .NET Framework versions (Windows only) - Skip if DotNetOnly
-                            if (-not $DotNetOnly)
-                            {
-                                $frameworkVersions = @()
-
-                                if ($IsWindows -or $PSVersionTable.PSEdition -eq 'Desktop')
-                                {
-                                    try
-                                    {
-                                        $ndpKey = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey('SOFTWARE\Microsoft\NET Framework Setup\NDP')
-
-                                        if ($ndpKey)
-                                        {
-                                            # Get legacy versions (1.x - 3.x)
-                                            foreach ($versionKeyName in $ndpKey.GetSubKeyNames())
-                                            {
-                                                if ($versionKeyName -match '^v[1-3]\.')
-                                                {
-                                                    $versionKey = $ndpKey.OpenSubKey($versionKeyName)
-                                                    if ($versionKey -and $versionKey.GetValue('Install') -eq 1)
-                                                    {
-                                                        $version = $versionKey.GetValue('Version', $versionKeyName -replace '^v')
-                                                        $frameworkVersions += [PSCustomObject]@{
-                                                            Version = $version
-                                                            Release = $null
-                                                            InstallPath = $versionKey.GetValue('InstallPath', '')
-                                                        }
-                                                    }
-                                                    if ($versionKey) { $versionKey.Close() }
-                                                }
-                                            }
-
-                                            # Check for .NET Framework 4.0 (Client and Full profiles)
-                                            $v4ClientKey = $ndpKey.OpenSubKey('v4\Client')
-                                            $v4FullKey = $ndpKey.OpenSubKey('v4\Full')
-
-                                            # .NET Framework 4.0 detection
-                                            if ($v4ClientKey -and $v4ClientKey.GetValue('Install') -eq 1)
-                                            {
-                                                $version = $v4ClientKey.GetValue('Version', '4.0')
-                                                $installPath = $v4ClientKey.GetValue('InstallPath', '')
-
-                                                $frameworkVersions += [PSCustomObject]@{
-                                                    Version = "$version (Client Profile)"
-                                                    Release = $null
-                                                    InstallPath = $installPath
-                                                }
-                                                $v4ClientKey.Close()
-                                            }
-
-                                            if ($v4FullKey)
-                                            {
-                                                $release = [int]$v4FullKey.GetValue('Release', 0)
-                                                $version = $v4FullKey.GetValue('Version', '4.0')
-                                                $installPath = $v4FullKey.GetValue('InstallPath', '')
-                                                $install = $v4FullKey.GetValue('Install')
-
-                                                # Handle .NET Framework 4.0 (no release number)
-                                                if ($release -eq 0 -and $install -eq 1)
-                                                {
-                                                    $frameworkVersions += [PSCustomObject]@{
-                                                        Version = $version
-                                                        Release = $null
-                                                        InstallPath = $installPath
-                                                    }
-                                                }
-                                                # Handle .NET Framework 4.5+ (with release number)
-                                                elseif ($release -gt 0)
-                                                {
-                                                    # Map release number to version
-                                                    $mappedVersion = $FrameworkVersionTable[$release]
-                                                    if (-not $mappedVersion)
-                                                    {
-                                                        # Find the highest known version that's less than or equal to this release
-                                                        $knownReleases = $FrameworkVersionTable.Keys | Sort-Object -Descending
-                                                        $matchedRelease = $knownReleases | Where-Object { $_ -le $release } | Select-Object -First 1
-                                                        if ($matchedRelease)
-                                                        {
-                                                            $mappedVersion = "$($FrameworkVersionTable[$matchedRelease])+"
-                                                        }
-                                                        else
-                                                        {
-                                                            $mappedVersion = '4.5+'
-                                                        }
-                                                    }
-
-                                                    $frameworkVersions += [PSCustomObject]@{
-                                                        Version = $mappedVersion
-                                                        Release = $release
-                                                        InstallPath = $installPath
-                                                    }
-                                                }
-                                                $v4FullKey.Close()
-                                            }
-                                            $ndpKey.Close()
-                                        }
-                                    }
-                                    catch
-                                    {
-                                        Write-Verbose "Error accessing .NET Framework registry: $($_.Exception.Message)"
-                                    }
-                                }
-
-                                # Process Framework results
-                                if ($frameworkVersions -and $frameworkVersions.Count -gt 0)
-                                {
-                                    $latestFramework = $frameworkVersions | Sort-Object { [version]($_.Version -replace '[^\d\.]', '') } -Descending | Select-Object -First 1
-
-                                    if ($All)
-                                    {
-                                        foreach ($frameworkVersion in $frameworkVersions)
-                                        {
-                                            $computerResults += [PSCustomObject]@{
-                                                PSTypeName = 'DotNetVersion.Result'
-                                                ComputerName = $Computer
-                                                RuntimeType = '.NET Framework'
-                                                Version = $frameworkVersion.Version
-                                                Release = $frameworkVersion.Release
-                                                InstallPath = $frameworkVersion.InstallPath
-                                                IsLatest = ($frameworkVersion.Version -eq $latestFramework.Version)
-                                                Type = 'Runtime'
-                                            }
-                                        }
-                                    }
-                                    else
-                                    {
-                                        $computerResults += [PSCustomObject]@{
-                                            PSTypeName = 'DotNetVersion.Result'
-                                            ComputerName = $Computer
-                                            RuntimeType = '.NET Framework'
-                                            Version = $latestFramework.Version
-                                            Release = $latestFramework.Release
-                                            InstallPath = $latestFramework.InstallPath
-                                            IsLatest = $true
-                                            Type = 'Runtime'
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    # No .NET Framework detected
-                                    $computerResults += [PSCustomObject]@{
-                                        PSTypeName = 'DotNetVersion.Result'
-                                        ComputerName = $Computer
-                                        RuntimeType = '.NET Framework'
-                                        Version = 'Not installed'
-                                        Release = $null
-                                        InstallPath = $null
-                                        IsLatest = $null
-                                        Type = 'Runtime'
-                                    }
-                                }
-                            }
-
-                            # Get .NET versions - Skip if FrameworkOnly
-                            if (-not $FrameworkOnly)
-                            {
-                                $coreVersions = @()
-
-                                # Try using dotnet CLI first
-                                try
-                                {
-                                    $dotnetAvailable = $false
-                                    $null = Get-Command dotnet -ErrorAction SilentlyContinue
-                                    if ($?)
-                                    {
-                                        $dotnetAvailable = $true
-
-                                        # Get runtimes
-                                        $runtimeOutput = & dotnet --list-runtimes 2>$null
-                                        if ($LASTEXITCODE -eq 0 -and $runtimeOutput)
-                                        {
-                                            foreach ($line in $runtimeOutput)
-                                            {
-                                                if ($line -match '^(Microsoft\.NETCore\.App|Microsoft\.AspNetCore\.App|Microsoft\.WindowsDesktop\.App)\s+(\d+\.\d+\.\d+(?:-\w+\.\d+\.\d+)?)\s+\[(.+)\]')
-                                                {
-                                                    $runtime = $matches[1]
-                                                    $version = $matches[2]
-                                                    $path = $matches[3]
-
-                                                    $coreVersions += [PSCustomObject]@{
-                                                        Type = 'Runtime'
-                                                        Runtime = $runtime
-                                                        Version = $version
-                                                        InstallPath = $path
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        # Get SDKs if requested
-                                        if ($IncludeSDKs)
-                                        {
-                                            $sdkOutput = & dotnet --list-sdks 2>$null
-                                            if ($LASTEXITCODE -eq 0 -and $sdkOutput)
-                                            {
-                                                foreach ($line in $sdkOutput)
-                                                {
-                                                    if ($line -match '^(\d+\.\d+\.\d+(?:-\w+\.\d+\.\d+)?)\s+\[(.+)\]')
-                                                    {
-                                                        $version = $matches[1]
-                                                        $path = $matches[2]
-
-                                                        $coreVersions += [PSCustomObject]@{
-                                                            Type = 'SDK'
-                                                            Runtime = 'Microsoft.NETCore.SDK'
-                                                            Version = $version
-                                                            InstallPath = $path
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    # If dotnet CLI is not available, try directory scanning as fallback
-                                    if (-not $dotnetAvailable)
-                                    {
-                                        $commonPaths = @()
-
-                                        if ($IsWindows -or $PSVersionTable.PSEdition -eq 'Desktop')
-                                        {
-                                            $commonPaths += @(
-                                                "${env:ProgramFiles}\dotnet\shared\Microsoft.NETCore.App",
-                                                "${env:ProgramFiles}\dotnet\shared\Microsoft.AspNetCore.App",
-                                                "${env:ProgramFiles}\dotnet\shared\Microsoft.WindowsDesktop.App"
-                                            )
-                                        }
-                                        elseif ($IsLinux)
-                                        {
-                                            $commonPaths += @(
-                                                '/usr/share/dotnet/shared/Microsoft.NETCore.App',
-                                                '/usr/share/dotnet/shared/Microsoft.AspNetCore.App'
-                                            )
-                                        }
-                                        elseif ($IsMacOS)
-                                        {
-                                            $commonPaths += @(
-                                                '/usr/local/share/dotnet/shared/Microsoft.NETCore.App',
-                                                '/usr/local/share/dotnet/shared/Microsoft.AspNetCore.App'
-                                            )
-                                        }
-
-                                        foreach ($path in $commonPaths)
-                                        {
-                                            if (Test-Path $path)
-                                            {
-                                                $runtime = Split-Path $path -Leaf
-                                                $versions = Get-ChildItem $path -Directory | Where-Object { $_.Name -match '^\d+\.\d+\.\d+' }
-
-                                                foreach ($versionDir in $versions)
-                                                {
-                                                    $coreVersions += [PSCustomObject]@{
-                                                        Type = 'Runtime'
-                                                        Runtime = $runtime
-                                                        Version = $versionDir.Name
-                                                        InstallPath = $versionDir.FullName
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                catch
-                                {
-                                    Write-Verbose "Error detecting .NET versions: $($_.Exception.Message)"
-                                }
-
-                                # Process Core results
-                                if ($coreVersions -and $coreVersions.Count -gt 0)
-                                {
-                                    # Group by runtime type
-                                    $runtimeGroups = $coreVersions | Group-Object Runtime
-
-                                    foreach ($group in $runtimeGroups)
-                                    {
-                                        $runtimeName = switch ($group.Name)
-                                        {
-                                            'Microsoft.NETCore.App' { '.NET' }
-                                            'Microsoft.AspNetCore.App' { 'ASP.NET Core' }
-                                            'Microsoft.WindowsDesktop.App' { '.NET Desktop' }
-                                            'Microsoft.NETCore.SDK' { '.NET SDK' }
-                                            default { $group.Name }
-                                        }
-
-                                        $sortedVersions = $group.Group | Sort-Object { [version]($_.Version -replace '-.*$', '') } -Descending
-                                        $latestVersion = $sortedVersions | Select-Object -First 1
-
-                                        if ($All)
-                                        {
-                                            foreach ($version in $sortedVersions)
-                                            {
-                                                $computerResults += [PSCustomObject]@{
-                                                    PSTypeName = 'DotNetVersion.Result'
-                                                    ComputerName = $Computer
-                                                    RuntimeType = $runtimeName
-                                                    Version = $version.Version
-                                                    Release = $null
-                                                    InstallPath = $version.InstallPath
-                                                    IsLatest = ($version.Version -eq $latestVersion.Version)
-                                                    Type = $version.Type
-                                                }
-                                            }
-                                        }
-                                        else
-                                        {
-                                            $computerResults += [PSCustomObject]@{
-                                                PSTypeName = 'DotNetVersion.Result'
-                                                ComputerName = $Computer
-                                                RuntimeType = $runtimeName
-                                                Version = $latestVersion.Version
-                                                Release = $null
-                                                InstallPath = $latestVersion.InstallPath
-                                                IsLatest = $true
-                                                Type = $latestVersion.Type
-                                            }
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    # No .NET detected
-                                    $computerResults += [PSCustomObject]@{
-                                        PSTypeName = 'DotNetVersion.Result'
-                                        ComputerName = $Computer
-                                        RuntimeType = '.NET'
-                                        Version = 'Not installed'
-                                        Release = $null
-                                        InstallPath = $null
-                                        IsLatest = $null
-                                        Type = 'Runtime'
-                                    }
-                                }
-                            }
-
-                            return $computerResults
-
-                        } -ArgumentList $computer, $All.IsPresent, $IncludeSDKs.IsPresent, $FrameworkVersionTable, $FrameworkOnly.IsPresent, $DotNetOnly.IsPresent
-
-                        foreach ($result in $remoteResults)
-                        {
-                            [void]$results.Add($result)
-                        }
-                    }
-                    finally
-                    {
-                        if ($session)
-                        {
-                            Remove-PSSession $session -ErrorAction SilentlyContinue
-                        }
+                        Remove-PSSession $session -ErrorAction SilentlyContinue
                     }
                 }
             }
             catch
             {
-                Write-Warning "Failed to query computer '$computer': $($_.Exception.Message)"
+                Write-Warning "Failed to query computer '$targetComputer': $($_.Exception.Message)"
 
-                # Add error entries for both runtime types
-                foreach ($runtimeType in @('.NET Framework', '.NET'))
+                $runtimeTypes = [System.Collections.Generic.List[string]]::new()
+                if (-not $DotNetOnly)
                 {
-                    $errorResult = [PSCustomObject]@{
-                        PSTypeName = 'DotNetVersion.Result'
-                        ComputerName = $computer
-                        RuntimeType = $runtimeType
-                        Version = 'Error'
-                        Release = $null
-                        InstallPath = $null
-                        IsLatest = $null
-                        Type = 'Runtime'
-                        Error = $_.Exception.Message
+                    [void]$runtimeTypes.Add('.NET Framework')
+                }
+                if (-not $FrameworkOnly)
+                {
+                    [void]$runtimeTypes.Add('.NET')
+                }
+
+                foreach ($runtimeType in $runtimeTypes)
+                {
+                    [void]$results.Add([PSCustomObject]@{
+                            PSTypeName = 'DotNetVersion.Result'
+                            ComputerName = $targetComputer
+                            RuntimeType = $runtimeType
+                            Version = 'Error'
+                            Release = $null
+                            InstallPath = $null
+                            IsLatest = $null
+                            Type = 'Runtime'
+                            Error = $_.Exception.Message
+                        })
+                }
+            }
+        }
+    }
+
+    end
+    {
+        return $results.ToArray()
+    }
+}
+                                {
+                                    $versionKey.Close()
+                                }
+                            }
+
+                            # Check for .NET Framework 4.0 (Client and Full profiles)
+                            $v4ClientKey = $ndpKey.OpenSubKey('v4\Client')
+                            if ($v4ClientKey)
+                            {
+                                try
+                                {
+                                    if ($v4ClientKey.GetValue('Install') -eq 1)
+                                    {
+                                        [void]$frameworkVersions.Add([PSCustomObject]@{
+                                                Version = "$($v4ClientKey.GetValue('Version', '4.0')) (Client Profile)"
+                                                Release = $null
+                                                InstallPath = $v4ClientKey.GetValue('InstallPath', '')
+                                            })
+                                    }
+                                }
+                                finally
+                                {
+                                    $v4ClientKey.Close()
+                                }
+                            }
+
+                            $v4FullKey = $ndpKey.OpenSubKey('v4\Full')
+                            if ($v4FullKey)
+                            {
+                                try
+                                {
+                                    $release = [int]$v4FullKey.GetValue('Release', 0)
+                                    $install = $v4FullKey.GetValue('Install')
+                                    $version = $v4FullKey.GetValue('Version', '4.0')
+                                    $installPath = $v4FullKey.GetValue('InstallPath', '')
+
+                                    if ($release -eq 0 -and $install -eq 1)
+                                    {
+                                        [void]$frameworkVersions.Add([PSCustomObject]@{
+                                                Version = $version
+                                                Release = $null
+                                                InstallPath = $installPath
+                                            })
+                                    }
+                                    elseif ($release -gt 0)
+                                    {
+                                        $mappedVersion = $ReleaseTable[$release]
+                                        if (-not $mappedVersion)
+                                        {
+                                            $knownReleases = $ReleaseTable.Keys | Sort-Object -Descending
+                                            $matchedRelease = $knownReleases | Where-Object { $_ -le $release } | Select-Object -First 1
+                                            if ($matchedRelease)
+                                            {
+                                                $mappedVersion = "$($ReleaseTable[$matchedRelease])+"
+                                            }
+                                            else
+                                            {
+                                                $mappedVersion = '4.5+'
+                                            }
+                                        }
+
+                                        [void]$frameworkVersions.Add([PSCustomObject]@{
+                                                Version = $mappedVersion
+                                                Release = $release
+                                                InstallPath = $installPath
+                                            })
+                                    }
+                                }
+                                finally
+                                {
+                                    $v4FullKey.Close()
+                                }
+                            }
+                        }
                     }
-                    [void]$results.Add($errorResult)
+                    catch
+                    {
+                        Write-Verbose "Error accessing .NET Framework registry: $($_.Exception.Message)"
+                    }
+                    finally
+                    {
+                        if ($ndpKey)
+                        {
+                            $ndpKey.Close()
+                        }
+                    }
+                }
+
+                # Process Framework results
+                if ($frameworkVersions.Count -gt 0)
+                {
+                    $latestFramework = $frameworkVersions | Sort-Object `
+                    @{ Expression = {
+                            $normalizedVersion = $_.Version -replace '[^\d\.]', ''
+                            try { [version]$normalizedVersion } catch { [version]'0.0.0.0' }
+                        }; Descending = $true
+                    }, `
+                    @{ Expression = { if ($null -eq $_.Release) { -1 } else { [int]$_.Release } }; Descending = $true } |
+                    Select-Object -First 1
+
+                    if ($ReturnAll)
+                    {
+                        foreach ($frameworkVersion in $frameworkVersions)
+                        {
+                            Write-DotNetVersionResultEntry -Collection $computerResults `
+                                -ComputerName $TargetComputer `
+                                -RuntimeType '.NET Framework' `
+                                -Version $frameworkVersion.Version `
+                                -Release $frameworkVersion.Release `
+                                -InstallPath $frameworkVersion.InstallPath `
+                                -IsLatest ($frameworkVersion.Version -eq $latestFramework.Version -and $frameworkVersion.Release -eq $latestFramework.Release) `
+                                -Type 'Runtime'
+                        }
+                    }
+                    else
+                    {
+                        Write-DotNetVersionResultEntry -Collection $computerResults `
+                            -ComputerName $TargetComputer `
+                            -RuntimeType '.NET Framework' `
+                            -Version $latestFramework.Version `
+                            -Release $latestFramework.Release `
+                            -InstallPath $latestFramework.InstallPath `
+                            -IsLatest $true `
+                            -Type 'Runtime'
+                    }
+                }
+                else
+                {
+                    Write-DotNetVersionResultEntry -Collection $computerResults `
+                        -ComputerName $TargetComputer `
+                        -RuntimeType '.NET Framework' `
+                        -Version 'Not installed' `
+                        -Release $null `
+                        -InstallPath $null `
+                        -IsLatest $null `
+                        -Type 'Runtime'
+                }
+            }
+
+            # Get .NET versions - Skip if FrameworkOnly
+            if (-not $OnlyFramework)
+            {
+                $coreVersions = [System.Collections.Generic.List[object]]::new()
+                $coreVersionIndex = @{}
+
+                # Try using dotnet CLI first
+                try
+                {
+                    $dotnetCommand = Get-Command dotnet -ErrorAction SilentlyContinue
+                    if ($dotnetCommand)
+                    {
+                        $runtimeOutput = & $dotnetCommand.Source --list-runtimes 2>$null
+                        if ($LASTEXITCODE -eq 0 -and $runtimeOutput)
+                        {
+                            foreach ($line in $runtimeOutput)
+                            {
+                                if ($line -match '^(Microsoft\.NETCore\.App|Microsoft\.AspNetCore\.App|Microsoft\.WindowsDesktop\.App)\s+(\d+\.\d+\.\d+(?:-[0-9A-Za-z][0-9A-Za-z\.-]*)?)\s+\[(.+)\]')
+                                {
+                                    Add-CoreVersionEntry -Collection $coreVersions -SeenEntries $coreVersionIndex -EntryType 'Runtime' -Runtime $matches[1] -Version $matches[2] -InstallPath $matches[3]
+                                }
+                            }
+                        }
+
+                        if ($DetectSDKs)
+                        {
+                            $sdkOutput = & $dotnetCommand.Source --list-sdks 2>$null
+                            if ($LASTEXITCODE -eq 0 -and $sdkOutput)
+                            {
+                                foreach ($line in $sdkOutput)
+                                {
+                                    if ($line -match '^(\d+\.\d+\.\d+(?:-[0-9A-Za-z][0-9A-Za-z\.-]*)?)\s+\[(.+)\]')
+                                    {
+                                        Add-CoreVersionEntry -Collection $coreVersions -SeenEntries $coreVersionIndex -EntryType 'SDK' -Runtime 'Microsoft.NETCore.SDK' -Version $matches[1] -InstallPath $matches[2]
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    $runtimeEntryCount = ($coreVersions | Where-Object { $_.Type -eq 'Runtime' } | Measure-Object).Count
+                    $sdkEntryCount = ($coreVersions | Where-Object { $_.Type -eq 'SDK' } | Measure-Object).Count
+                    $needRuntimeFallback = (-not $dotnetCommand -or $runtimeEntryCount -eq 0)
+                    $needSdkFallback = ($DetectSDKs -and (-not $dotnetCommand -or $sdkEntryCount -eq 0))
+
+                    # If CLI data is incomplete, use directory scanning to fill gaps.
+                    if ($needRuntimeFallback -or $needSdkFallback)
+                    {
+                        $dotnetRoots = [System.Collections.Generic.List[string]]::new()
+
+                        if ($IsWindows -or $PSVersionTable.PSEdition -eq 'Desktop')
+                        {
+                            if ($env:ProgramFiles)
+                            {
+                                [void]$dotnetRoots.Add((Join-Path -Path $env:ProgramFiles -ChildPath 'dotnet'))
+                            }
+                            if (${env:ProgramFiles(x86)})
+                            {
+                                [void]$dotnetRoots.Add((Join-Path -Path ${env:ProgramFiles(x86)} -ChildPath 'dotnet'))
+                            }
+                        }
+                        else
+                        {
+                            [void]$dotnetRoots.Add('/usr/share/dotnet')
+                            [void]$dotnetRoots.Add('/usr/local/share/dotnet')
+                        }
+
+                        if ($env:DOTNET_ROOT)
+                        {
+                            [void]$dotnetRoots.Add($env:DOTNET_ROOT)
+                        }
+                        if (${env:DOTNET_ROOT(x86)})
+                        {
+                            [void]$dotnetRoots.Add(${env:DOTNET_ROOT(x86)})
+                        }
+
+                        $versionPattern = '^\d+\.\d+\.\d+(?:-[0-9A-Za-z][0-9A-Za-z\.-]*)?$'
+                        foreach ($dotnetRoot in ($dotnetRoots | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique))
+                        {
+                            if ($needRuntimeFallback)
+                            {
+                                $sharedPath = Join-Path -Path $dotnetRoot -ChildPath 'shared'
+                                foreach ($runtime in @('Microsoft.NETCore.App', 'Microsoft.AspNetCore.App', 'Microsoft.WindowsDesktop.App'))
+                                {
+                                    $runtimePath = Join-Path -Path $sharedPath -ChildPath $runtime
+                                    if (-not (Test-Path -Path $runtimePath))
+                                    {
+                                        continue
+                                    }
+
+                                    $versionDirectories = Get-ChildItem -Path $runtimePath -Directory -ErrorAction SilentlyContinue
+                                    foreach ($versionDirectory in $versionDirectories)
+                                    {
+                                        if ($versionDirectory.Name -match $versionPattern)
+                                        {
+                                            Add-CoreVersionEntry -Collection $coreVersions -SeenEntries $coreVersionIndex -EntryType 'Runtime' -Runtime $runtime -Version $versionDirectory.Name -InstallPath $versionDirectory.FullName
+                                        }
+                                    }
+                                }
+                            }
+
+                            if ($needSdkFallback)
+                            {
+                                $sdkPath = Join-Path -Path $dotnetRoot -ChildPath 'sdk'
+                                if (Test-Path -Path $sdkPath)
+                                {
+                                    $sdkDirectories = Get-ChildItem -Path $sdkPath -Directory -ErrorAction SilentlyContinue
+                                    foreach ($sdkDirectory in $sdkDirectories)
+                                    {
+                                        if ($sdkDirectory.Name -match $versionPattern)
+                                        {
+                                            Add-CoreVersionEntry -Collection $coreVersions -SeenEntries $coreVersionIndex -EntryType 'SDK' -Runtime 'Microsoft.NETCore.SDK' -Version $sdkDirectory.Name -InstallPath $sdkDirectory.FullName
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                catch
+                {
+                    Write-Verbose "Error detecting .NET versions: $($_.Exception.Message)"
+                }
+
+                # Process Core results
+                if ($coreVersions.Count -gt 0)
+                {
+                    $runtimeGroups = $coreVersions | Group-Object Runtime
+                    foreach ($group in $runtimeGroups)
+                    {
+                        $runtimeName = switch ($group.Name)
+                        {
+                            'Microsoft.NETCore.App' { '.NET' }
+                            'Microsoft.AspNetCore.App' { 'ASP.NET Core' }
+                            'Microsoft.WindowsDesktop.App' { '.NET Desktop' }
+                            'Microsoft.NETCore.SDK' { '.NET SDK' }
+                            default { $group.Name }
+                        }
+
+                        $sortedVersions = $group.Group | Sort-Object `
+                        @{ Expression = {
+                                try { [version]($_.Version -replace '-.*$', '') } catch { [version]'0.0.0.0' }
+                            }; Descending = $true
+                        }, `
+                        @{ Expression = { -not ($_.Version -match '-') }; Descending = $true }, `
+                        @{ Expression = { $_.Version }; Descending = $true }
+                        $latestVersion = $sortedVersions | Select-Object -First 1
+
+                        if ($ReturnAll)
+                        {
+                            foreach ($versionEntry in $sortedVersions)
+                            {
+                                Write-DotNetVersionResultEntry -Collection $computerResults `
+                                    -ComputerName $TargetComputer `
+                                    -RuntimeType $runtimeName `
+                                    -Version $versionEntry.Version `
+                                    -Release $null `
+                                    -InstallPath $versionEntry.InstallPath `
+                                    -IsLatest ($versionEntry.Version -eq $latestVersion.Version) `
+                                    -Type $versionEntry.Type
+                            }
+                        }
+                        else
+                        {
+                            Write-DotNetVersionResultEntry -Collection $computerResults `
+                                -ComputerName $TargetComputer `
+                                -RuntimeType $runtimeName `
+                                -Version $latestVersion.Version `
+                                -Release $null `
+                                -InstallPath $latestVersion.InstallPath `
+                                -IsLatest $true `
+                                -Type $latestVersion.Type
+                        }
+                    }
+                }
+                else
+                {
+                    Write-DotNetVersionResultEntry -Collection $computerResults `
+                        -ComputerName $TargetComputer `
+                        -RuntimeType '.NET' `
+                        -Version 'Not installed' `
+                        -Release $null `
+                        -InstallPath $null `
+                        -IsLatest $null `
+                        -Type 'Runtime'
+                }
+            }
+
+            return $computerResults
+        }
+    }
+
+    process
+    {
+        # Handle pipeline input and set default if empty
+        $targetComputers = if (-not $ComputerName -or $ComputerName.Count -eq 0) { @('localhost') } else { $ComputerName }
+
+        foreach ($computer in $targetComputers)
+        {
+            if ([string]::IsNullOrWhiteSpace($computer))
+            {
+                continue
+            }
+
+            $targetComputer = $computer.Trim()
+            try
+            {
+                if (Test-IsLocalTarget -Computer $targetComputer -KnownLocalNames $localComputerNames)
+                {
+                    Write-Verbose 'Querying local computer for .NET versions'
+                    $localResults = & $collectDotNetVersions $targetComputer $All.IsPresent ($All.IsPresent -or $IncludeSDKs.IsPresent) $FrameworkVersionTable $FrameworkOnly.IsPresent $DotNetOnly.IsPresent
+                    foreach ($result in $localResults)
+                    {
+                        [void]$results.Add($result)
+                    }
+                    continue
+                }
+
+                Write-Verbose "Querying remote computer '$targetComputer' for .NET versions"
+                $sessionParams = @{
+                    ComputerName = $targetComputer
+                    ErrorAction = 'Stop'
+                }
+                if ($Credential)
+                {
+                    $sessionParams.Credential = $Credential
+                }
+
+                $session = $null
+                try
+                {
+                    $session = New-PSSession @sessionParams
+                    $remoteResults = Invoke-Command -Session $session -ScriptBlock $collectDotNetVersions -ArgumentList $targetComputer, $All.IsPresent, ($All.IsPresent -or $IncludeSDKs.IsPresent), $FrameworkVersionTable, $FrameworkOnly.IsPresent, $DotNetOnly.IsPresent
+                    foreach ($result in $remoteResults)
+                    {
+                        [void]$results.Add($result)
+                    }
+                }
+                finally
+                {
+                    if ($session)
+                    {
+                        Remove-PSSession $session -ErrorAction SilentlyContinue
+                    }
+                }
+            }
+            catch
+            {
+                Write-Warning "Failed to query computer '$targetComputer': $($_.Exception.Message)"
+
+                $runtimeTypes = [System.Collections.Generic.List[string]]::new()
+                if (-not $DotNetOnly)
+                {
+                    [void]$runtimeTypes.Add('.NET Framework')
+                }
+                if (-not $FrameworkOnly)
+                {
+                    [void]$runtimeTypes.Add('.NET')
+                }
+
+                foreach ($runtimeType in $runtimeTypes)
+                {
+                    [void]$results.Add([PSCustomObject]@{
+                            PSTypeName = 'DotNetVersion.Result'
+                            ComputerName = $targetComputer
+                            RuntimeType = $runtimeType
+                            Version = 'Error'
+                            Release = $null
+                            InstallPath = $null
+                            IsLatest = $null
+                            Type = 'Runtime'
+                            Error = $_.Exception.Message
+                        })
                 }
             }
         }

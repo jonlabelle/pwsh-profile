@@ -1,200 +1,216 @@
 #Requires -Modules Pester
 
-<#
-.SYNOPSIS
-    Unit tests for Get-DotNetVersion function.
-
-.DESCRIPTION
-    Tests the Get-DotNetVersion function which detects installed .NET Framework and .NET Core/5+ versions.
-    Validates cross-platform compatibility, parameter validation, and version detection accuracy.
-
-.NOTES
-    These tests are based on the examples in the Get-DotNetVersion function documentation.
-    Tests verify detection of both .NET Framework (Windows) and .NET Core/.NET 5+ (cross-platform).
-#>
-
 BeforeAll {
     # Suppress progress bars to prevent freezing in non-interactive environments
     $Global:ProgressPreference = 'SilentlyContinue'
 
-    # Load the function
-    . "$PSScriptRoot/../../../Functions/Developer/Get-DotNetVersion.ps1"
+    $script:FunctionPath = Join-Path -Path $PSScriptRoot -ChildPath '../../../Functions/Developer/Get-DotNetVersion.ps1'
+
+    . $script:FunctionPath
 }
 
 Describe 'Get-DotNetVersion' {
-    Context 'Basic functionality examples from documentation' {
-        It 'Gets only .NET Framework versions from the local computer (Example: Get-DotNetVersion -ComputerName "localhost" -FrameworkOnly)' {
-            # Test filtering to show only .NET Framework versions (Windows-specific)
-            $result = Get-DotNetVersion -ComputerName 'localhost' -FrameworkOnly
-
-            # Should only return .NET Framework versions
-            if ($result)
-            {
-                $result | ForEach-Object {
-                    $_.RuntimeType | Should -Match 'Framework'
-                }
-            }
-        }
-
-        It 'Gets all .NET versions from the local computer (Example: Get-DotNetVersion -ComputerName "localhost" -DotNetOnly -All)' {
-            # Test filtering to show only .NET (Core) versions across all platforms
-            $result = Get-DotNetVersion -ComputerName 'localhost' -DotNetOnly -All
-
-            # Should only return .NET (Core) versions
-            if ($result)
-            {
-                $result | ForEach-Object {
-                    $_.RuntimeType | Should -Not -Match 'Framework'
-                }
-            }
-        }
-
-        It 'Gets the latest .NET version and all SDK versions from the local computer (Example: Get-DotNetVersion -ComputerName "localhost" -DotNetOnly -IncludeSDKs)' {
-            # Test SDK detection along with runtime versions
-            $result = Get-DotNetVersion -ComputerName 'localhost' -DotNetOnly -IncludeSDKs
-
-            # Should include SDK information for .NET only
-            if ($result)
-            {
-                $result | ForEach-Object {
-                    $_.RuntimeType | Should -Not -Match 'Framework'
-                }
-            }
-        }
-    }
-
-    Context 'Parameter validation' {
-        It 'Should accept valid ComputerName parameters' {
-            { Get-DotNetVersion -ComputerName 'localhost' } | Should -Not -Throw
-            { Get-DotNetVersion -ComputerName @('localhost', 'localhost') } | Should -Not -Throw
-        }
-
-        It 'Should not allow both FrameworkOnly and DotNetOnly' {
-            { Get-DotNetVersion -ComputerName 'localhost' -FrameworkOnly -DotNetOnly } | Should -Throw
-        }
-
-        It 'Should allow IncludeSDKs with DotNetOnly' {
-            { Get-DotNetVersion -ComputerName 'localhost' -DotNetOnly -IncludeSDKs } | Should -Not -Throw
-        }
-
-        It 'Should allow All parameter with other combinations' {
-            { Get-DotNetVersion -ComputerName 'localhost' -All } | Should -Not -Throw
-            { Get-DotNetVersion -ComputerName 'localhost' -All -FrameworkOnly } | Should -Not -Throw
-            { Get-DotNetVersion -ComputerName 'localhost' -All -DotNetOnly } | Should -Not -Throw
-        }
-    }
-
-    Context 'Output structure validation' {
-        It 'Should indicate when runtimes are not installed' {
-            $result = Get-DotNetVersion -ComputerName 'localhost'
-
-            # On some systems, certain runtime types might not be installed
-            # The function should indicate this appropriately
+    Context 'Parameter and output basics' {
+        It 'Supports local invocation with default parameters' {
+            $result = Get-DotNetVersion
+            $result | Should -Not -BeNullOrEmpty
             $result | ForEach-Object {
-                if ($_.Version -eq 'Not installed')
+                $_.PSObject.Properties.Name | Should -Contain 'ComputerName'
+                $_.PSObject.Properties.Name | Should -Contain 'RuntimeType'
+                $_.PSObject.Properties.Name | Should -Contain 'Version'
+                $_.PSObject.Properties.Name | Should -Contain 'Type'
+            }
+        }
+
+        It 'Rejects mutually exclusive -FrameworkOnly and -DotNetOnly' {
+            { Get-DotNetVersion -FrameworkOnly -DotNetOnly } | Should -Throw
+        }
+
+    }
+
+    Context 'Local target detection' {
+        It 'Treats loopback addresses as local and does not create a PSSession' {
+            Mock New-PSSession {
+                throw 'New-PSSession should not be called for local loopback addresses'
+            }
+
+            { Get-DotNetVersion -ComputerName '127.0.0.1' -DotNetOnly | Out-Null } | Should -Not -Throw
+            { Get-DotNetVersion -ComputerName '::1' -DotNetOnly | Out-Null } | Should -Not -Throw
+        }
+    }
+
+    Context 'Remote error output filtering' {
+        BeforeAll {
+            $script:RemoteTestComputerName = "host-$(Get-Random)"
+        }
+
+        It 'Returns only .NET error rows with -DotNetOnly' {
+            Mock New-PSSession {
+                throw 'session failure'
+            }
+
+            $result = Get-DotNetVersion -ComputerName $script:RemoteTestComputerName -DotNetOnly -WarningAction SilentlyContinue
+
+            $result | Should -HaveCount 1
+            $result[0].RuntimeType | Should -Be '.NET'
+            $result[0].Version | Should -Be 'Error'
+            $result[0].Error | Should -Match 'session failure'
+        }
+
+        It 'Returns only .NET Framework error rows with -FrameworkOnly' {
+            Mock New-PSSession {
+                throw 'session failure'
+            }
+
+            $result = Get-DotNetVersion -ComputerName $script:RemoteTestComputerName -FrameworkOnly -WarningAction SilentlyContinue
+
+            $result | Should -HaveCount 1
+            $result[0].RuntimeType | Should -Be '.NET Framework'
+            $result[0].Version | Should -Be 'Error'
+            $result[0].Error | Should -Match 'session failure'
+        }
+    }
+
+    Context 'dotnet CLI parsing and version precedence' {
+        BeforeEach {
+            function Invoke-MockDotNet
+            {
+                param(
+                    [Parameter(ValueFromRemainingArguments = $true)]
+                    [string[]]$RemainingArgs
+                )
+
+                if ($RemainingArgs[0] -eq '--list-runtimes')
                 {
-                    $_.RuntimeType | Should -Not -BeNullOrEmpty
+                    $global:LASTEXITCODE = 0
+                    return @(
+                        'Microsoft.NETCore.App 10.0.0-preview.7.25380.108 [/mock/shared/Microsoft.NETCore.App]',
+                        'Microsoft.NETCore.App 10.0.0 [/mock/shared/Microsoft.NETCore.App]',
+                        'Microsoft.AspNetCore.App 10.0.0 [/mock/shared/Microsoft.AspNetCore.App]'
+                    )
                 }
-            }
-        }
-    }
 
-    Context 'Cross-platform compatibility' {
-        It 'Should work on current platform' {
-            $result = Get-DotNetVersion -ComputerName 'localhost'
-            $result | Should -Not -BeNullOrEmpty
-
-            # Should return information about the current system
-            $result | ForEach-Object {
-                $_.ComputerName | Should -Not -BeNullOrEmpty
-                $_.RuntimeType | Should -Not -BeNullOrEmpty
-            }
-        }
-
-        It 'Should handle platform-specific runtime detection' {
-            $result = Get-DotNetVersion -ComputerName 'localhost' -All
-
-            # Should return appropriate runtime information for the platform
-            $result | Should -Not -BeNullOrEmpty
-            $result | ForEach-Object {
-                $_.RuntimeType | Should -Not -BeNullOrEmpty
-            }
-        }
-    }
-
-    Context 'Runtime type filtering' {
-        It 'Should filter to Framework only when requested' {
-            $result = Get-DotNetVersion -ComputerName 'localhost' -FrameworkOnly -All
-
-            if ($result)
-            {
-                $result | ForEach-Object {
-                    $_.RuntimeType | Should -Match 'Framework'
+                if ($RemainingArgs[0] -eq '--list-sdks')
+                {
+                    $global:LASTEXITCODE = 0
+                    return @('10.0.100-preview.2.25164.34 [/mock/sdk]')
                 }
+
+                $global:LASTEXITCODE = 1
+                return @()
             }
+
+            Mock Get-Command {
+                [PSCustomObject]@{
+                    Source = 'Invoke-MockDotNet'
+                }
+            } -ParameterFilter { $Name -eq 'dotnet' }
         }
 
-        It 'Should filter to .NET only when requested' {
+        AfterEach {
+            Remove-Item -Path Function:\Invoke-MockDotNet -ErrorAction SilentlyContinue
+        }
+
+        It 'Parses prerelease runtime versions and prefers stable as latest' {
             $result = Get-DotNetVersion -ComputerName 'localhost' -DotNetOnly -All
+            $netRows = $result | Where-Object { $_.RuntimeType -eq '.NET' }
 
-            if ($result)
+            $netRows | Should -Not -BeNullOrEmpty
+            ($netRows | Where-Object { $_.Version -eq '10.0.0-preview.7.25380.108' }).Count | Should -Be 1
+            ($netRows | Where-Object { $_.Version -eq '10.0.0' -and $_.IsLatest }).Count | Should -Be 1
+        }
+    }
+
+    Context 'Directory fallback behavior' {
+        It 'Falls back to runtime directory scanning when dotnet command is unavailable' {
+            $originalDotnetRoot = $env:DOTNET_ROOT
+            $env:DOTNET_ROOT = '/fake/dotnet'
+
+            try
             {
-                $result | ForEach-Object {
-                    $_.RuntimeType | Should -Not -Match 'Framework'
+                Mock Get-Command { $null }
+
+                Mock Test-Path {
+                    if ($Path -eq '/fake/dotnet/shared/Microsoft.NETCore.App') { return $true }
+                    return $false
                 }
+
+                Mock Get-ChildItem {
+                    @(
+                        [PSCustomObject]@{ Name = '8.0.14'; FullName = '/fake/dotnet/shared/Microsoft.NETCore.App/8.0.14' }
+                    )
+                } -ParameterFilter { $Path -eq '/fake/dotnet/shared/Microsoft.NETCore.App' -and $Directory }
+
+                $result = Get-DotNetVersion -ComputerName 'localhost' -DotNetOnly
+                $netRow = $result | Where-Object { $_.RuntimeType -eq '.NET' } | Select-Object -First 1
+
+                $netRow | Should -Not -BeNullOrEmpty
+                $netRow.Version | Should -Be '8.0.14'
+                $netRow.Type | Should -Be 'Runtime'
+            }
+            finally
+            {
+                $env:DOTNET_ROOT = $originalDotnetRoot
             }
         }
 
-        It 'Should include both runtime types by default' {
-            $result = Get-DotNetVersion -ComputerName 'localhost' -All
-            $result | Should -Not -BeNullOrEmpty
+        It 'Falls back to SDK directory scanning when runtime CLI output exists but SDK CLI output is missing' {
+            $originalDotnetRoot = $env:DOTNET_ROOT
+            $env:DOTNET_ROOT = '/fake/dotnet'
 
-            # Should have information about both runtime types (even if not installed)
-            $runtimeTypes = $result | ForEach-Object { $_.RuntimeType } | Select-Object -Unique
-            $runtimeTypes | Should -Not -BeNullOrEmpty
-        }
-    }
+            try
+            {
+                function Invoke-MockDotNet
+                {
+                    param(
+                        [Parameter(ValueFromRemainingArguments = $true)]
+                        [string[]]$RemainingArgs
+                    )
 
-    Context 'ComputerName parameter support' {
-        It 'Should handle localhost as ComputerName' {
-            $result = Get-DotNetVersion -ComputerName 'localhost'
-            $result | Should -Not -BeNullOrEmpty
-            $result[0].ComputerName | Should -Be 'localhost'
-        }
+                    if ($RemainingArgs[0] -eq '--list-runtimes')
+                    {
+                        $global:LASTEXITCODE = 0
+                        return @('Microsoft.NETCore.App 10.0.1 [/mock/shared/Microsoft.NETCore.App]')
+                    }
 
-        It 'Should handle pipeline input for ComputerName' {
-            $result = @('localhost') | Get-DotNetVersion
-            $result | Should -Not -BeNullOrEmpty
-            $result[0].ComputerName | Should -Be 'localhost'
-        }
+                    if ($RemainingArgs[0] -eq '--list-sdks')
+                    {
+                        $global:LASTEXITCODE = 1
+                        return @()
+                    }
 
-        It 'Should handle multiple computer names' {
-            $result = Get-DotNetVersion -ComputerName @('localhost', 'localhost')
-            $result | Should -Not -BeNullOrEmpty
+                    $global:LASTEXITCODE = 1
+                    return @()
+                }
 
-            # Should have results for both entries
-            ($result | Where-Object { $_.ComputerName -eq 'localhost' }).Count | Should -BeGreaterThan 0
-        }
-    }
+                Mock Get-Command {
+                    [PSCustomObject]@{
+                        Source = 'Invoke-MockDotNet'
+                    }
+                } -ParameterFilter { $Name -eq 'dotnet' }
 
-    Context 'Version detection accuracy' {
-        It 'Should detect PowerShell version information' {
-            $result = Get-DotNetVersion -ComputerName 'localhost' -All
-            $result | Should -Not -BeNullOrEmpty
+                Mock Test-Path {
+                    if ($Path -eq '/fake/dotnet/sdk') { return $true }
+                    return $false
+                } -ParameterFilter { $Path -like '/fake/*' }
 
-            # At minimum, should detect something about the current PowerShell runtime
-            # which runs on some version of .NET
-            $result | Should -Not -BeNullOrEmpty
-        }
+                Mock Get-ChildItem {
+                    @(
+                        [PSCustomObject]@{ Name = '10.0.200'; FullName = '/fake/dotnet/sdk/10.0.200' }
+                    )
+                } -ParameterFilter { $Path -eq '/fake/dotnet/sdk' -and $Directory }
 
-        It 'Should handle cases where no versions are installed' {
-            # This tests the error handling when certain runtime types aren't available
-            $result = Get-DotNetVersion -ComputerName 'localhost' -All
+                $result = Get-DotNetVersion -ComputerName 'localhost' -DotNetOnly -IncludeSDKs
+                $sdkRow = $result | Where-Object { $_.RuntimeType -eq '.NET SDK' } | Select-Object -First 1
 
-            # Even if nothing is installed, should return objects indicating "Not installed"
-            $result | Should -Not -BeNullOrEmpty
-            $result | ForEach-Object {
-                $_.RuntimeType | Should -Not -BeNullOrEmpty
+                $sdkRow | Should -Not -BeNullOrEmpty
+                $sdkRow.Version | Should -Be '10.0.200'
+                $sdkRow.Type | Should -Be 'SDK'
+            }
+            finally
+            {
+                Remove-Item -Path Function:\Invoke-MockDotNet -ErrorAction SilentlyContinue
+                $env:DOTNET_ROOT = $originalDotnetRoot
             }
         }
     }
