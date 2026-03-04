@@ -6,7 +6,7 @@ function Remove-DockerArtifacts
 
     .DESCRIPTION
         Removes unused Docker images, networks, build cache, and (optionally) stopped containers, volumes,
-        and Docker Desktop build history.
+        Buildx builder instances, and Docker Desktop build history.
         Supports -WhatIf/-Confirm and lets you choose between pruning all unused images or only dangling ones.
         For -WhatIf, EstimatedReclaimable is calculated by scanning unused images so you know what would be freed.
 
@@ -15,6 +15,7 @@ function Remove-DockerArtifacts
         - Unused networks and build cache are pruned
         - Stopped containers are NOT removed unless -IncludeStoppedContainers is specified
         - Volumes are NOT removed unless -IncludeVolumes is specified
+        - Buildx builder instances are NOT removed unless -IncludeBuildxBuilders is specified
         - Docker Desktop build history is NOT removed unless -IncludeBuildHistory is specified
 
         Cross-platform compatible with PowerShell 5.1+ on Windows, macOS, and Linux. Requires Docker CLI
@@ -22,7 +23,7 @@ function Remove-DockerArtifacts
 
     .PARAMETER All
         Convenience switch that includes all cleanup categories: stopped containers, unused volumes,
-        and Docker Desktop build history.
+        Buildx builder instances, and Docker Desktop build history.
 
     .PARAMETER IncludeStoppedContainers
         Also remove stopped containers. When specified, cleanup uses 'docker system prune' to mirror Docker's
@@ -34,6 +35,10 @@ function Remove-DockerArtifacts
 
     .PARAMETER IncludeVolumes
         Also prune unused volumes. Volumes can hold data you care about; use -WhatIf or -Confirm first if unsure.
+
+    .PARAMETER IncludeBuildxBuilders
+        Also remove Buildx builders that use the 'docker-container' driver. This removes their BuildKit
+        containers so pinned images like 'moby/buildkit:buildx-stable-1' can be pruned in the same run.
 
     .PARAMETER IncludeBuildHistory
         Also remove Docker Desktop build records from the current buildx builder and prune BuildKit cache.
@@ -77,15 +82,23 @@ function Remove-DockerArtifacts
         Includes Docker Desktop build history cleanup by removing build records and pruning build cache.
 
     .EXAMPLE
+        PS > Remove-DockerArtifacts -IncludeBuildxBuilders
+
+        Removes Buildx builders that use the docker-container driver so their BuildKit containers no longer
+        hold BuildKit images in-use.
+
+    .EXAMPLE
         PS > Remove-DockerArtifacts -All
 
-        Includes stopped containers, unused volumes, and Docker Desktop build history in a single cleanup run.
+        Includes stopped containers, unused volumes, Buildx builder instances, and Docker Desktop build
+        history in a single cleanup run.
 
     .OUTPUTS
         [PSCustomObject]
         Returns an object with summary information:
         - ContainersPruned      : $true if stopped containers were included
         - VolumesPruned         : $true if volumes were included
+        - BuildxBuildersPruned  : $true if Buildx builder removal was included
         - BuildHistoryPruned    : $true if Docker Desktop build history cleanup was included
         - ImageMode             : 'AllUnused' or 'DanglingOnly'
         - EstimatedReclaimable  : Estimated unused image size in -WhatIf runs; otherwise reports not calculated
@@ -95,6 +108,7 @@ function Remove-DockerArtifacts
     .NOTES
         - Requires Docker CLI
         - Respects -WhatIf and -Confirm for safety
+        - Buildx builder cleanup only targets builders using the 'docker-container' driver
         - When -IncludeStoppedContainers is not used, pruning is composed of targeted image/network/builder
           commands to avoid touching containers
 
@@ -128,6 +142,9 @@ function Remove-DockerArtifacts
         [Switch]$IncludeVolumes,
 
         [Parameter()]
+        [Switch]$IncludeBuildxBuilders,
+
+        [Parameter()]
         [Switch]$IncludeBuildHistory
     )
 
@@ -138,6 +155,7 @@ function Remove-DockerArtifacts
         $stats = @{
             ContainersPruned = $false
             VolumesPruned = $false
+            BuildxBuildersPruned = $false
             BuildHistoryPruned = $false
             ImageMode = if ($DanglingImagesOnly) { 'DanglingOnly' } else { 'AllUnused' }
             SpaceFreedBytes = [int64]0
@@ -232,7 +250,9 @@ function Remove-DockerArtifacts
                 $inUseIds = @()
                 try
                 {
-                    $inUseIds = & $dockerCommand.Name ps -a --format '{{.ImageID}}' 2>&1 | Where-Object { $_ -and $_.Trim() -ne '' }
+                    $inUseIds = & $dockerCommand.Name ps -a --format '{{.ImageID}}' 2>&1 |
+                    ForEach-Object { $_.ToString().Trim() } |
+                    Where-Object { $_ -ne '' }
                 }
                 catch
                 {
@@ -252,10 +272,11 @@ function Remove-DockerArtifacts
 
                 foreach ($line in $imagesOutput)
                 {
-                    if (-not $line -or $line.Trim() -eq '') { continue }
+                    $lineText = $line.ToString()
+                    if ([string]::IsNullOrWhiteSpace($lineText)) { continue }
                     try
                     {
-                        $img = $line | ConvertFrom-Json
+                        $img = $lineText | ConvertFrom-Json
                         $imageId = Convert-ImageId $img.ID
                         $isDangling = ($img.Repository -eq '<none>') -or ($img.Tag -eq '<none>')
 
@@ -371,12 +392,125 @@ function Remove-DockerArtifacts
 
             return $reclaimedBytes
         }
+
+        function Remove-BuildxContainerBuilders
+        {
+            $builderNames = @()
+            $listArgs = @('buildx', 'ls', '--format', '{{json .}}')
+
+            try
+            {
+                $listOutput = & $dockerCommand.Name @listArgs 2>&1
+                $listExitCode = $LASTEXITCODE
+                if ($listExitCode -ne 0)
+                {
+                    $stats.Errors++
+                    $errorSummary = $null
+                    if ($listOutput)
+                    {
+                        $errorSummary = $listOutput |
+                        ForEach-Object { $_.ToString().Trim() } |
+                        Where-Object { $_ -ne '' } |
+                        Select-Object -First 1
+                    }
+
+                    if ($errorSummary)
+                    {
+                        Write-Warning "Failed to run 'docker $($listArgs -join ' ')' (exit code $listExitCode): $errorSummary"
+                    }
+                    else
+                    {
+                        Write-Warning "Failed to run 'docker $($listArgs -join ' ')' (exit code $listExitCode)."
+                    }
+
+                    return
+                }
+
+                foreach ($line in $listOutput)
+                {
+                    $lineText = $line.ToString()
+                    if ([string]::IsNullOrWhiteSpace($lineText)) { continue }
+                    try
+                    {
+                        $builder = $lineText | ConvertFrom-Json
+                        if ($builder -and
+                            $builder.Driver -eq 'docker-container' -and
+                            -not [string]::IsNullOrWhiteSpace($builder.Name))
+                        {
+                            $builderNames += $builder.Name.Trim()
+                        }
+                    }
+                    catch
+                    {
+                        Write-Verbose "Failed to parse buildx builder entry: $($_.Exception.Message)"
+                    }
+                }
+            }
+            catch
+            {
+                $stats.Errors++
+                Write-Warning "Failed to run 'docker $($listArgs -join ' ')': $($_.Exception.Message)"
+                return
+            }
+
+            $builderNames = $builderNames | Sort-Object -Unique
+            if (-not $builderNames -or $builderNames.Count -eq 0)
+            {
+                Write-Verbose 'No docker-container Buildx builders found to remove.'
+                return
+            }
+
+            foreach ($builderName in $builderNames)
+            {
+                $removeArgs = @('buildx', 'rm', '--force', $builderName)
+                $description = "docker $($removeArgs -join ' ')"
+                if ($PSCmdlet.ShouldProcess("Docker Buildx builder '$builderName'", $description))
+                {
+                    try
+                    {
+                        $removeOutput = & $dockerCommand.Name @removeArgs 2>&1
+                        $removeExitCode = $LASTEXITCODE
+                        if ($removeExitCode -ne 0)
+                        {
+                            $stats.Errors++
+                            $errorSummary = $null
+                            if ($removeOutput)
+                            {
+                                $errorSummary = $removeOutput |
+                                ForEach-Object { $_.ToString().Trim() } |
+                                Where-Object { $_ -ne '' } |
+                                Select-Object -First 1
+                            }
+
+                            if ($errorSummary)
+                            {
+                                Write-Warning "Failed to run 'docker $($removeArgs -join ' ')' (exit code $removeExitCode): $errorSummary"
+                            }
+                            else
+                            {
+                                Write-Warning "Failed to run 'docker $($removeArgs -join ' ')' (exit code $removeExitCode)."
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        $stats.Errors++
+                        Write-Warning "Failed to run 'docker $($removeArgs -join ' ')': $($_.Exception.Message)"
+                    }
+                }
+                else
+                {
+                    Write-Verbose "WhatIf: Would run 'docker $($removeArgs -join ' ')'"
+                }
+            }
+        }
     }
 
     process
     {
         $includeStoppedContainersEffective = $IncludeStoppedContainers -or $All
         $includeVolumesEffective = $IncludeVolumes -or $All
+        $includeBuildxBuildersEffective = $IncludeBuildxBuilders -or $All
         $includeBuildHistoryEffective = $IncludeBuildHistory -or $All
 
         # Estimate unused image space only for WhatIf previews
@@ -392,6 +526,12 @@ function Remove-DockerArtifacts
         }
 
         $reclaimedTotal = [int64]0
+
+        if ($includeBuildxBuildersEffective)
+        {
+            $stats.BuildxBuildersPruned = $true
+            Remove-BuildxContainerBuilders
+        }
 
         if ($includeStoppedContainersEffective)
         {
@@ -476,6 +616,7 @@ function Remove-DockerArtifacts
         $result = [PSCustomObject]@{
             ContainersPruned = $stats.ContainersPruned
             VolumesPruned = $stats.VolumesPruned
+            BuildxBuildersPruned = $stats.BuildxBuildersPruned
             BuildHistoryPruned = $stats.BuildHistoryPruned
             ImageMode = $stats.ImageMode
             EstimatedReclaimable = $estimatedDisplay
@@ -486,6 +627,7 @@ function Remove-DockerArtifacts
         Write-Host "`nDocker Cleanup Summary:" -ForegroundColor Cyan
         Write-Host "  Containers pruned : $($result.ContainersPruned)" -ForegroundColor White
         Write-Host "  Volumes pruned    : $($result.VolumesPruned)" -ForegroundColor White
+        Write-Host "  Buildx builders   : $($result.BuildxBuildersPruned)" -ForegroundColor White
         Write-Host "  Build history     : $($result.BuildHistoryPruned)" -ForegroundColor White
         Write-Host "  Image mode        : $($result.ImageMode)" -ForegroundColor White
 
