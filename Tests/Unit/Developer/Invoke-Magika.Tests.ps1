@@ -247,6 +247,52 @@ Describe 'Invoke-Magika' {
             $script:MagikaShimInvocations[0] | Should -Contain '--recursive'
             $script:DockerShimInvocations.Count | Should -Be 0
         }
+
+        It 'Passes translated --prediction-mode to local Magika when PredictionMode is set' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'magika' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:MagikaCommandName
+                    Source = '/usr/local/bin/magika'
+                }
+            }
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:DockerCommandName
+                    Source = '/usr/local/bin/docker'
+                }
+            }
+
+            Invoke-Magika -Path $script:SampleFile -PredictionMode High | Out-Null
+
+            $script:MagikaShimInvocations.Count | Should -Be 1
+            $script:MagikaShimInvocations[0] | Should -Contain '--prediction-mode'
+            $script:MagikaShimInvocations[0] | Should -Contain 'HIGH_CONFIDENCE'
+            $script:DockerShimInvocations.Count | Should -Be 0
+        }
+
+        It 'Passes translated default --prediction-mode to local Magika when PredictionMode is omitted' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'magika' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:MagikaCommandName
+                    Source = '/usr/local/bin/magika'
+                }
+            }
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:DockerCommandName
+                    Source = '/usr/local/bin/docker'
+                }
+            }
+
+            Invoke-Magika -Path $script:SampleFile | Out-Null
+
+            $script:MagikaShimInvocations.Count | Should -Be 1
+            $script:MagikaShimInvocations[0] | Should -Contain '--prediction-mode'
+            $script:MagikaShimInvocations[0] | Should -Contain 'HIGH_CONFIDENCE'
+            $script:DockerShimInvocations.Count | Should -Be 0
+        }
     }
 
     Context 'Parameter validation' {
@@ -264,6 +310,10 @@ Describe 'Invoke-Magika' {
 
         It 'Rejects invalid Runtime' {
             { Invoke-Magika -Path 'README.md' -Runtime 'Container' } | Should -Throw
+        }
+
+        It 'Rejects invalid PredictionMode' {
+            { Invoke-Magika -Path 'README.md' -PredictionMode 'BEST_GUESS' } | Should -Throw
         }
     }
 
@@ -363,6 +413,24 @@ Describe 'Invoke-Magika' {
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
             $runCall | Should -Contain '--recursive'
+        }
+
+        It 'Appends translated --prediction-mode when PredictionMode is set' {
+            Invoke-Magika -Path $script:SampleFile -PredictionMode Medium | Out-Null
+
+            $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
+            $runCall | Should -Not -BeNullOrEmpty
+            $runCall | Should -Contain '--prediction-mode'
+            $runCall | Should -Contain 'MEDIUM_CONFIDENCE'
+        }
+
+        It 'Appends translated default --prediction-mode when PredictionMode is omitted' {
+            Invoke-Magika -Path $script:SampleFile | Out-Null
+
+            $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
+            $runCall | Should -Not -BeNullOrEmpty
+            $runCall | Should -Contain '--prediction-mode'
+            $runCall | Should -Contain 'HIGH_CONFIDENCE'
         }
 
         It 'Includes normalized relative path in docker args' {

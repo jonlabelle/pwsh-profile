@@ -34,6 +34,16 @@ function Invoke-Magika
         Passes Magika's --recursive option so directory paths are scanned
         recursively.
 
+    .PARAMETER PredictionMode
+        Sets Magika's prediction mode via --prediction-mode.
+
+        Accepted values are Low, Medium, and High, which map to Magika's
+        BEST_GUESS, MEDIUM_CONFIDENCE, and HIGH_CONFIDENCE modes.
+
+        Defaults to High (HIGH_CONFIDENCE), matching Magika's default.
+
+        More information at https://securityresearch.google/magika/core-concepts/prediction-modes/
+
     .PARAMETER ImageTag
         The Docker image tag to use for the jonlabelle/magika image. Defaults to
         'latest'. Use a specific version tag for reproducible results when running
@@ -62,8 +72,7 @@ function Invoke-Magika
     .EXAMPLE
         Invoke-Magika -Path '*.ps1' -AdditionalArgs '--json'
 
-        Analyzes all PowerShell files in the current directory and returns JSON
-        output from Magika.
+        Analyzes all PowerShell files in the current directory and returns JSON output from Magika.
 
     .EXAMPLE
         Invoke-Magika -LiteralPath 'report[1].txt'
@@ -83,14 +92,17 @@ function Invoke-Magika
     .EXAMPLE
         Invoke-Magika -Path . -Recurse
 
-        Recursively analyzes files under the current directory by passing
-        --recursive to Magika.
+        Recursively analyzes files under the current directory by passing --recursive to Magika.
+
+    .EXAMPLE
+        Invoke-Magika -Path . -PredictionMode High
+
+        Runs Magika with --prediction-mode HIGH_CONFIDENCE.
 
     .EXAMPLE
         Invoke-Magika -Path . -ImageTag 'latest'
 
-        Analyzes the current directory explicitly using the latest Docker image
-        tag when Docker mode is used.
+        Analyzes the current directory explicitly using the latest Docker image tag when Docker mode is used.
 
     .EXAMPLE
         Invoke-Magika -Path README.md -Runtime Local
@@ -141,6 +153,10 @@ function Invoke-Magika
 
         [Parameter()]
         [Switch]$Recurse,
+
+        [Parameter()]
+        [ValidateSet('Low', 'Medium', 'High')]
+        [String]$PredictionMode = 'High',
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
@@ -330,6 +346,16 @@ function Invoke-Magika
             return
         }
 
+        $magikaPredictionMode = $null
+        if ($PredictionMode)
+        {
+            $magikaPredictionMode = @{
+                Low = 'BEST_GUESS'
+                Medium = 'MEDIUM_CONFIDENCE'
+                High = 'HIGH_CONFIDENCE'
+            }[$PredictionMode]
+        }
+
         if ($useDockerFallback)
         {
             # Build volume mount and docker arguments
@@ -343,6 +369,12 @@ function Invoke-Magika
             {
                 $dockerArgs += '--recursive'
                 Write-Verbose "Recurse enabled: adding '--recursive'"
+            }
+
+            if ($magikaPredictionMode)
+            {
+                $dockerArgs += @('--prediction-mode', $magikaPredictionMode)
+                Write-Verbose "Prediction mode: $PredictionMode (translated to $magikaPredictionMode)"
             }
 
             # Append any additional user-supplied arguments
@@ -368,6 +400,12 @@ function Invoke-Magika
             {
                 $magikaArgs += '--recursive'
                 Write-Verbose "Recurse enabled: adding '--recursive'"
+            }
+
+            if ($magikaPredictionMode)
+            {
+                $magikaArgs += @('--prediction-mode', $magikaPredictionMode)
+                Write-Verbose "Prediction mode: $PredictionMode (translated to $magikaPredictionMode)"
             }
 
             if ($AdditionalArgs)
