@@ -119,6 +119,14 @@ Describe 'Get-DotNetVersion' {
             ($netRows | Where-Object { $_.Version -eq '10.0.0-preview.7.25380.108' }).Count | Should -Be 1
             ($netRows | Where-Object { $_.Version -eq '10.0.0' -and $_.IsLatest }).Count | Should -Be 1
         }
+
+        It 'Includes SDK rows when -All is used without -IncludeSDKs' {
+            $result = Get-DotNetVersion -ComputerName 'localhost' -DotNetOnly -All
+            $sdkRows = $result | Where-Object { $_.RuntimeType -eq '.NET SDK' -and $_.Type -eq 'SDK' }
+
+            $sdkRows | Should -Not -BeNullOrEmpty
+            ($sdkRows | Where-Object { $_.Version -eq '10.0.100-preview.2.25164.34' }).Count | Should -Be 1
+        }
     }
 
     Context 'Directory fallback behavior' {
@@ -128,7 +136,7 @@ Describe 'Get-DotNetVersion' {
 
             try
             {
-                Mock Get-Command { $null }
+                Mock Get-Command { $null } -ParameterFilter { $Name -eq 'dotnet' }
 
                 Mock Test-Path {
                     if ($Path -eq '/fake/dotnet/shared/Microsoft.NETCore.App') { return $true }
