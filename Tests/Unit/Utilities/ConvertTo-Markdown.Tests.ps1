@@ -143,6 +143,18 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
             $runCall | Should -Contain '--strip-comments'
         }
 
+        It 'Accepts only Pandoc markdown output variants for -To' {
+            $inputFile = Join-Path -Path $script:TestDir -ChildPath 'sample.html'
+            '<h1>Hello</h1>' | Set-Content -LiteralPath $inputFile -NoNewline
+
+            ConvertTo-Markdown -InputObject $inputFile -To commonmark | Out-Null
+            ConvertTo-Markdown -InputObject $inputFile -To markdown_strict | Out-Null
+            ConvertTo-Markdown -InputObject $inputFile -To markua | Out-Null
+
+            { ConvertTo-Markdown -InputObject $inputFile -To html } |
+            Should -Throw "*Cannot validate argument on parameter 'To'*"
+        }
+
         It 'Writes to -OutputPath and returns path with -PassThru' {
             $inputFile = Join-Path -Path $script:TestDir -ChildPath 'sample.html'
             '<h1>Hello</h1>' | Set-Content -LiteralPath $inputFile -NoNewline

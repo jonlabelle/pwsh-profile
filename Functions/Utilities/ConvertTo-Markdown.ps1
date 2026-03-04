@@ -17,7 +17,8 @@ function ConvertTo-Markdown
         Supports pipeline input and accepts multiple values.
 
     .PARAMETER To
-        Pandoc output format. Defaults to GitHub-flavored Markdown ('gfm').
+        Pandoc Markdown output format. Defaults to GitHub-flavored Markdown ('gfm').
+        Accepted values: commonmark, commonmark_x, gfm, markdown, markdown_github, markdown_mmd, markdown_phpextra, markdown_strict, markua
 
     .PARAMETER From
         Optional explicit Pandoc input format (for example: html, docx, rst).
@@ -81,6 +82,17 @@ function ConvertTo-Markdown
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
+        [ValidateSet(
+            'commonmark',
+            'commonmark_x',
+            'gfm',
+            'markdown',
+            'markdown_github',
+            'markdown_mmd',
+            'markdown_phpextra',
+            'markdown_strict',
+            'markua'
+        )]
         [String]$To = 'gfm',
 
         [Parameter()]
