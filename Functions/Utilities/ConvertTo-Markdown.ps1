@@ -102,6 +102,59 @@ function ConvertTo-Markdown
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
+        [ValidateSet(
+            'asciidoc',
+            'biblatex',
+            'bibtex',
+            'bits',
+            'commonmark',
+            'commonmark_x',
+            'creole',
+            'csljson',
+            'csv',
+            'djot',
+            'docbook',
+            'docx',
+            'dokuwiki',
+            'endnotexml',
+            'epub',
+            'fb2',
+            'gfm',
+            'haddock',
+            'html',
+            'ipynb',
+            'jats',
+            'jira',
+            'json',
+            'latex',
+            'man',
+            'markdown',
+            'markdown_github',
+            'markdown_mmd',
+            'markdown_phpextra',
+            'markdown_strict',
+            'mdoc',
+            'mediawiki',
+            'muse',
+            'native',
+            'odt',
+            'opml',
+            'org',
+            'pod',
+            'pptx',
+            'ris',
+            'rst',
+            'rtf',
+            't2t',
+            'textile',
+            'tikiwiki',
+            'tsv',
+            'twiki',
+            'typst',
+            'vimwiki',
+            'xlsx',
+            'xml'
+        )]
         [String]$From = 'html',
 
         [Parameter()]
@@ -214,6 +267,8 @@ function ConvertTo-Markdown
         }
         Write-Verbose "Pandoc found at: $($pandocCommand.Source)"
 
+        $pandocRequestUserAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36'
+
         $processedCount = 0
         $hasExplicitOutputPath = $PSBoundParameters.ContainsKey('OutputPath')
         $resolvedOutputPath = $null
@@ -286,6 +341,7 @@ function ConvertTo-Markdown
             {
                 $pandocCallArgs += $PandocArgs
             }
+            $pandocCallArgs += "--request-header=User-Agent: $pandocRequestUserAgent"
 
             if ($effectiveOutputPath)
             {
