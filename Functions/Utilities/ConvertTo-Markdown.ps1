@@ -20,7 +20,16 @@ function ConvertTo-Markdown
 
     .PARAMETER To
         Pandoc Markdown output format. Defaults to GitHub-flavored Markdown ('gfm').
-        Accepted values: commonmark, commonmark_x, gfm, markdown, markdown_github, markdown_mmd, markdown_phpextra, markdown_strict, markua
+
+        Accepted values: commonmark, commonmark_x, gfm, markdown, markdown_github,
+        markdown_mmd, markdown_phpextra, markdown_strict, markua.
+
+        Supports extension modifiers in Pandoc format syntax:
+        FORMAT[+EXTENSION|-EXTENSION]...
+        Example: gfm+task_lists+pipe_tables-smart
+
+        To view all possible extensions, run:
+        pandoc --list-extensions markdown
 
     .PARAMETER From
         Pandoc input format (for example: html, docx, rst).
@@ -55,6 +64,11 @@ function ConvertTo-Markdown
         Converts a Word document to GitHub-flavored Markdown.
 
     .EXAMPLE
+        PS > ConvertTo-Markdown -InputObject './report.html' -To 'gfm+task_lists+pipe_tables-smart'
+
+        Converts HTML to GFM with task lists and pipe tables enabled, and smart typography disabled.
+
+    .EXAMPLE
         PS > 'https://example.com', './notes.html' | ConvertTo-Markdown
 
         Converts multiple inputs from the pipeline and writes one auto-named
@@ -87,17 +101,17 @@ function ConvertTo-Markdown
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
-        [ValidateSet(
-            'commonmark',
-            'commonmark_x',
-            'gfm',
-            'markdown',
-            'markdown_github',
-            'markdown_mmd',
-            'markdown_phpextra',
-            'markdown_strict',
-            'markua'
-        )]
+        [ValidateScript({
+                $value = [String]$_
+                $pattern = '^(commonmark|commonmark_x|gfm|markdown|markdown_github|markdown_mmd|markdown_phpextra|markdown_strict|markua)([+-][a-z][a-z0-9_]*)*$'
+
+                if ($value -notmatch $pattern)
+                {
+                    throw 'Value must be a Pandoc markdown writer (commonmark, commonmark_x, gfm, markdown, markdown_github, markdown_mmd, markdown_phpextra, markdown_strict, markua) optionally followed by extension modifiers such as +footnotes or -emoji.'
+                }
+
+                $true
+            })]
         [String]$To = 'gfm',
 
         [Parameter()]

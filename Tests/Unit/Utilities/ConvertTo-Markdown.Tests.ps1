@@ -191,15 +191,31 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
             $runCall | Should -Contain '--strip-comments'
         }
 
-        It 'Accepts only Pandoc markdown output variants for -To' {
+        It 'Accepts Pandoc markdown output variants and extension modifiers for -To' {
             $inputFile = Join-Path -Path $script:TestDir -ChildPath 'sample.html'
             '<h1>Hello</h1>' | Set-Content -LiteralPath $inputFile -NoNewline
 
             ConvertTo-Markdown -InputObject $inputFile -To commonmark | Out-Null
             ConvertTo-Markdown -InputObject $inputFile -To markdown_strict | Out-Null
             ConvertTo-Markdown -InputObject $inputFile -To markua | Out-Null
+            ConvertTo-Markdown -InputObject $inputFile -To 'gfm+task_lists+pipe_tables-smart' | Out-Null
+
+            $runCall = $script:PandocShimInvocations[-1]
+            $runCall | Should -Contain '--to'
+            $runCall | Should -Contain 'gfm+task_lists+pipe_tables-smart'
+        }
+
+        It 'Rejects non-markdown or malformed values for -To' {
+            $inputFile = Join-Path -Path $script:TestDir -ChildPath 'sample.html'
+            '<h1>Hello</h1>' | Set-Content -LiteralPath $inputFile -NoNewline
 
             { ConvertTo-Markdown -InputObject $inputFile -To html } |
+            Should -Throw "*Cannot validate argument on parameter 'To'*"
+
+            { ConvertTo-Markdown -InputObject $inputFile -To 'gfm++task_lists' } |
+            Should -Throw "*Cannot validate argument on parameter 'To'*"
+
+            { ConvertTo-Markdown -InputObject $inputFile -To 'gfm+1invalid' } |
             Should -Throw "*Cannot validate argument on parameter 'To'*"
         }
 
