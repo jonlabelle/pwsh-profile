@@ -225,6 +225,28 @@ Describe 'Invoke-Magika' {
             $script:MagikaShimInvocations.Count | Should -Be 1
             $script:DockerShimInvocations.Count | Should -Be 0
         }
+
+        It 'Passes --recursive to local Magika when Recurse is set' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'magika' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:MagikaCommandName
+                    Source = '/usr/local/bin/magika'
+                }
+            }
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:DockerCommandName
+                    Source = '/usr/local/bin/docker'
+                }
+            }
+
+            Invoke-Magika -Path $script:SampleFile -Recurse | Out-Null
+
+            $script:MagikaShimInvocations.Count | Should -Be 1
+            $script:MagikaShimInvocations[0] | Should -Contain '--recursive'
+            $script:DockerShimInvocations.Count | Should -Be 0
+        }
     }
 
     Context 'Parameter validation' {
@@ -333,6 +355,14 @@ Describe 'Invoke-Magika' {
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
             $runCall | Should -Contain '--json'
+        }
+
+        It 'Appends --recursive when Recurse is set' {
+            Invoke-Magika -Path $script:SampleFile -Recurse | Out-Null
+
+            $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
+            $runCall | Should -Not -BeNullOrEmpty
+            $runCall | Should -Contain '--recursive'
         }
 
         It 'Includes normalized relative path in docker args' {

@@ -30,6 +30,10 @@ function Invoke-Magika
         One or more literal file or directory paths to analyze. Unlike -Path,
         wildcard characters are treated literally.
 
+    .PARAMETER Recurse
+        Passes Magika's --recursive option so directory paths are scanned
+        recursively.
+
     .PARAMETER ImageTag
         The Docker image tag to use for the jonlabelle/magika image. Defaults to
         'latest'. Use a specific version tag for reproducible results when running
@@ -75,6 +79,12 @@ function Invoke-Magika
         Invoke-Magika -AdditionalArgs '--help'
 
         Displays Magika help output.
+
+    .EXAMPLE
+        Invoke-Magika -Path . -Recurse
+
+        Recursively analyzes files under the current directory by passing
+        --recursive to Magika.
 
     .EXAMPLE
         Invoke-Magika -Path . -ImageTag 'latest'
@@ -128,6 +138,9 @@ function Invoke-Magika
         [Parameter(ParameterSetName = 'LiteralPath')]
         [ValidateNotNullOrEmpty()]
         [String[]]$LiteralPath,
+
+        [Parameter()]
+        [Switch]$Recurse,
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
@@ -326,6 +339,12 @@ function Invoke-Magika
             $dockerArgs += @('-w', '/workspace')
             $dockerArgs += $imageRef
 
+            if ($Recurse)
+            {
+                $dockerArgs += '--recursive'
+                Write-Verbose "Recurse enabled: adding '--recursive'"
+            }
+
             # Append any additional user-supplied arguments
             if ($AdditionalArgs)
             {
@@ -344,6 +363,12 @@ function Invoke-Magika
         else
         {
             $magikaArgs = @()
+
+            if ($Recurse)
+            {
+                $magikaArgs += '--recursive'
+                Write-Verbose "Recurse enabled: adding '--recursive'"
+            }
 
             if ($AdditionalArgs)
             {
@@ -368,5 +393,19 @@ function Invoke-Magika
         }
 
         $exitCode
+    }
+}
+
+# Create 'detect-file' alias only if it doesn't already exist
+if (-not (Get-Command -Name 'detect-file' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Write-Verbose "Creating 'detect-file' alias for Invoke-Magika"
+        Set-Alias -Name 'detect-file' -Value 'Invoke-Magika' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Invoke-Magika: Could not create 'detect-file' alias: $($_.Exception.Message)"
     }
 }
