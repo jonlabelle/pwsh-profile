@@ -96,6 +96,75 @@ Describe 'ConvertTo-MarkdownObject' -Tag 'Unit' {
         }
     }
 
+    Context 'Table rendering' {
+        It 'Renders arrays of records as markdown tables when -AsTable is used' {
+            $inputObject = @(
+                [ordered]@{ Name = 'Jon'; Role = 'Admin' },
+                [ordered]@{ Name = 'Ava'; Role = 'Author' }
+            )
+
+            $result = ConvertTo-MarkdownObject -InputObject $inputObject -AsTable
+
+            $result | Should -Match ([Regex]::Escape('| Name | Role |'))
+            $result | Should -Match ([Regex]::Escape('| --- | --- |'))
+            $result | Should -Match ([Regex]::Escape('| Jon | Admin |'))
+            $result | Should -Match ([Regex]::Escape('| Ava | Author |'))
+        }
+
+        It 'Renders a scalar hashtable as a Property/Value table with -AsTable' {
+            $inputObject = [ordered]@{
+                Name = 'Jon'
+                Age = 42
+            }
+
+            $result = ConvertTo-MarkdownObject -InputObject $inputObject -AsTable
+
+            $result | Should -Match ([Regex]::Escape('| Property | Value |'))
+            $result | Should -Match ([Regex]::Escape('| Name | Jon |'))
+            $result | Should -Match ([Regex]::Escape('| Age | 42 |'))
+        }
+
+        It 'Renders nested compatible collections as tables with -AsTable' {
+            $inputObject = [ordered]@{
+                Users = @(
+                    [ordered]@{ Name = 'Jon'; Role = 'Admin' },
+                    [ordered]@{ Name = 'Ava'; Role = 'Author' }
+                )
+            }
+
+            $result = ConvertTo-MarkdownObject -InputObject $inputObject -AsTable
+
+            $result | Should -Match ([Regex]::Escape('- `Users`'))
+            $result | Should -Match ([Regex]::Escape('| Name | Role |'))
+            $result | Should -Match ([Regex]::Escape('| Jon | Admin |'))
+        }
+
+        It 'Falls back to list rendering when rows contain non-scalar values' {
+            $inputObject = @(
+                [ordered]@{
+                    Name = 'Jon'
+                    Meta = [ordered]@{
+                        Enabled = $true
+                    }
+                },
+                [ordered]@{
+                    Name = 'Ava'
+                    Meta = [ordered]@{
+                        Enabled = $false
+                    }
+                }
+            )
+
+            $result = ConvertTo-MarkdownObject -InputObject $inputObject -AsTable
+
+            $result | Should -Not -Match ([Regex]::Escape('| Name | Meta |'))
+            $result | Should -Match ([Regex]::Escape('- `[0]`'))
+            $result | Should -Match ([Regex]::Escape('- `[1]`'))
+            $result | Should -Match ([Regex]::Escape('- `Meta`'))
+            $result | Should -Match ([Regex]::Escape('| Enabled |'))
+        }
+    }
+
     Context 'Pipeline support' {
         It 'Returns one markdown string per piped input object' {
             $results = @(
