@@ -120,8 +120,11 @@ function Remove-DotNetBuildArtifacts
             Errors = 0
         }
 
-        # Project file patterns
+        # Project file patterns (single source of truth)
         $projectPatterns = @('*.csproj', '*.vbproj', '*.fsproj', '*.sqlproj')
+        $projectExtensions = $projectPatterns | ForEach-Object {
+            $_.Substring(1).ToLowerInvariant()
+        }
 
         # Log excluded directories
         if ($ExcludeDirectory -and $ExcludeDirectory.Count -gt 0)
@@ -188,7 +191,7 @@ function Remove-DotNetBuildArtifacts
             # Filter by project extensions and exclusions
             $projectFiles = $allProjectFiles | Where-Object {
                 $ext = $_.Extension.ToLowerInvariant()
-                $isProject = $ext -in @('.csproj', '.vbproj', '.fsproj', '.sqlproj')
+                $isProject = $ext -in $projectExtensions
                 if (-not $isProject)
                 {
                     return $false
