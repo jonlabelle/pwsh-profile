@@ -158,6 +158,7 @@
     "pacman",
     "pacmd",
     "pactl",
+    "Pandoc",
     "physicalcpu",
     "Pipfile",
     "PKCS",

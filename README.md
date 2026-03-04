@@ -544,6 +544,7 @@ The profile includes utility functions organized by category:
 - **[`Convert-LineEndings`](Functions/Utilities/Convert-LineEndings.ps1)** — Converts line endings between Unix and Windows
 - **[`ConvertFrom-Base64`](Functions/Utilities/ConvertFrom-Base64.ps1)** — Decodes Base64-encoded strings or files with URL-safe support
 - **[`ConvertTo-Base64`](Functions/Utilities/ConvertTo-Base64.ps1)** — Encodes strings or files to Base64 with URL-safe support
+- **[`ConvertTo-Markdown`](Functions/Utilities/ConvertTo-Markdown.ps1)** — Converts URLs or local files to Markdown with Pandoc
 - **[`Copy-Directory`](Functions/Utilities/Copy-Directory.ps1)** — Copies directories recursively while excluding specific directories
 - **[`Extract-Archives`](Functions/Utilities/Extract-Archives.ps1)** — Finds all archives (zip, tar, 7z, rar) and extracts them
 - **[`Get-CommandAlias`](Functions/Utilities/Get-CommandAlias.ps1)** — Displays aliases for PowerShell cmdlets
