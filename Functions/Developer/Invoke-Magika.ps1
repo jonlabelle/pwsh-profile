@@ -363,6 +363,8 @@ function Invoke-Magika
             $dockerArgs = @('run', '-i', '--rm')
             $dockerArgs += @('-v', $volWork)
             $dockerArgs += @('-w', '/workspace')
+            # Avoid depending on image entrypoint implementation details.
+            $dockerArgs += @('--entrypoint', 'magika')
             $dockerArgs += $imageRef
 
             if ($Recurse)

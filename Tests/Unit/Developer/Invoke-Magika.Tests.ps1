@@ -383,6 +383,15 @@ Describe 'Invoke-Magika' {
             $runCall | Should -Contain '/workspace'
         }
 
+        It 'Overrides image entrypoint to magika' {
+            Invoke-Magika -Path $script:SampleFile | Out-Null
+
+            $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
+            $runCall | Should -Not -BeNullOrEmpty
+            $runCall | Should -Contain '--entrypoint'
+            $runCall | Should -Contain 'magika'
+        }
+
         It 'Uses correct image reference with default tag' {
             Invoke-Magika -Path $script:SampleFile | Out-Null
 
