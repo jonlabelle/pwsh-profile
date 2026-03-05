@@ -42,6 +42,10 @@ function Invoke-Magika
 
         Defaults to High (HIGH_CONFIDENCE), matching Magika's default.
 
+        Some Magika CLI builds do not support --prediction-mode. In that case,
+        Invoke-Magika retries without the flag. If -PredictionMode was
+        explicitly provided, a warning is emitted.
+
         More information at https://securityresearch.google/magika/core-concepts/prediction-modes/
 
     .PARAMETER ImageTag
@@ -356,75 +360,121 @@ function Invoke-Magika
             }[$PredictionMode]
         }
 
+        $predictionArgs = @()
+        if ($magikaPredictionMode)
+        {
+            $predictionArgs = @('--prediction-mode', $magikaPredictionMode)
+            Write-Verbose "Prediction mode: $PredictionMode (translated to $magikaPredictionMode)"
+        }
+
+        $predictionUnsupportedPattern = '(?i)(unexpected|unknown|unrecognized).{0,80}--prediction-mode'
+
         if ($useDockerFallback)
         {
             # Build volume mount and docker arguments
             $volWork = "${resolvedPwd}:/workspace:ro"
-            $dockerArgs = @('run', '-i', '--rm')
-            $dockerArgs += @('-v', $volWork)
-            $dockerArgs += @('-w', '/workspace')
-            # Avoid depending on image entrypoint implementation details.
-            $dockerArgs += @('--entrypoint', 'magika')
-            $dockerArgs += $imageRef
+            $dockerPreArgs = @('run', '-i', '--rm')
+            $dockerPreArgs += @('-v', $volWork)
+            $dockerPreArgs += @('-w', '/workspace')
+            $dockerPreArgs += $imageRef
 
             if ($Recurse)
             {
-                $dockerArgs += '--recursive'
+                $dockerPreArgs += '--recursive'
                 Write-Verbose "Recurse enabled: adding '--recursive'"
             }
 
-            if ($magikaPredictionMode)
-            {
-                $dockerArgs += @('--prediction-mode', $magikaPredictionMode)
-                Write-Verbose "Prediction mode: $PredictionMode (translated to $magikaPredictionMode)"
-            }
-
             # Append any additional user-supplied arguments
+            $dockerPostArgs = @()
             if ($AdditionalArgs)
             {
-                $dockerArgs += $AdditionalArgs
+                $dockerPostArgs += $AdditionalArgs
                 Write-Verbose "Additional args: $($AdditionalArgs -join ' ')"
             }
 
             # Append normalized path arguments
-            $dockerArgs += $targetPaths
+            $dockerPostArgs += $targetPaths
+
+            $dockerArgs = @($dockerPreArgs + $predictionArgs + $dockerPostArgs)
 
             Write-Verbose "Docker command: docker $($dockerArgs -join ' ')"
 
             $global:LASTEXITCODE = 0
-            & $dockerCommand.Name @dockerArgs
+            $commandOutput = @(& $dockerCommand.Name @dockerArgs 2>&1)
+            $exitCode = $LASTEXITCODE
+
+            if ($exitCode -ne 0 -and $predictionArgs.Count -gt 0)
+            {
+                $errorText = ($commandOutput | ForEach-Object { "$_" }) -join "`n"
+                if ($errorText -match $predictionUnsupportedPattern)
+                {
+                    Write-Verbose "Magika runtime does not support '--prediction-mode'. Retrying without prediction mode."
+
+                    if ($PSBoundParameters.ContainsKey('PredictionMode'))
+                    {
+                        Write-Warning "Selected Magika runtime does not support '--prediction-mode'; retrying without it."
+                    }
+
+                    $dockerRetryArgs = @($dockerPreArgs + $dockerPostArgs)
+                    Write-Verbose "Docker retry command: docker $($dockerRetryArgs -join ' ')"
+
+                    $global:LASTEXITCODE = 0
+                    $commandOutput = @(& $dockerCommand.Name @dockerRetryArgs 2>&1)
+                    $exitCode = $LASTEXITCODE
+                }
+            }
         }
         else
         {
-            $magikaArgs = @()
+            $magikaPreArgs = @()
 
             if ($Recurse)
             {
-                $magikaArgs += '--recursive'
+                $magikaPreArgs += '--recursive'
                 Write-Verbose "Recurse enabled: adding '--recursive'"
             }
 
-            if ($magikaPredictionMode)
-            {
-                $magikaArgs += @('--prediction-mode', $magikaPredictionMode)
-                Write-Verbose "Prediction mode: $PredictionMode (translated to $magikaPredictionMode)"
-            }
-
+            $magikaPostArgs = @()
             if ($AdditionalArgs)
             {
-                $magikaArgs += $AdditionalArgs
+                $magikaPostArgs += $AdditionalArgs
                 Write-Verbose "Additional args: $($AdditionalArgs -join ' ')"
             }
 
-            $magikaArgs += $targetPaths
+            $magikaPostArgs += $targetPaths
+
+            $magikaArgs = @($magikaPreArgs + $predictionArgs + $magikaPostArgs)
 
             Write-Verbose "Magika command: $($magikaCommand.Name) $($magikaArgs -join ' ')"
 
             $global:LASTEXITCODE = 0
-            & $magikaCommand.Name @magikaArgs
+            $commandOutput = @(& $magikaCommand.Name @magikaArgs 2>&1)
+            $exitCode = $LASTEXITCODE
+
+            if ($exitCode -ne 0 -and $predictionArgs.Count -gt 0)
+            {
+                $errorText = ($commandOutput | ForEach-Object { "$_" }) -join "`n"
+                if ($errorText -match $predictionUnsupportedPattern)
+                {
+                    Write-Verbose "Magika runtime does not support '--prediction-mode'. Retrying without prediction mode."
+
+                    if ($PSBoundParameters.ContainsKey('PredictionMode'))
+                    {
+                        Write-Warning "Selected Magika runtime does not support '--prediction-mode'; retrying without it."
+                    }
+
+                    $magikaRetryArgs = @($magikaPreArgs + $magikaPostArgs)
+                    Write-Verbose "Magika retry command: $($magikaCommand.Name) $($magikaRetryArgs -join ' ')"
+
+                    $global:LASTEXITCODE = 0
+                    $commandOutput = @(& $magikaCommand.Name @magikaRetryArgs 2>&1)
+                    $exitCode = $LASTEXITCODE
+                }
+            }
         }
 
-        $exitCode = $LASTEXITCODE
+        $commandOutput
+
         Write-Verbose "Magika exited with code: $exitCode"
 
         if ($exitCode -ne 0)

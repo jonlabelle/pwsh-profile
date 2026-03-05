@@ -19,8 +19,10 @@ BeforeAll {
     # Deterministic shim used by Get-Command mocks so tests do not depend on Docker being installed.
     $script:DockerCommandName = 'pwshDockerTestShim'
     $script:DockerShimInvocations = @()
+    $script:DockerShimRejectsPredictionMode = $false
     $script:MagikaCommandName = 'pwshMagikaTestShim'
     $script:MagikaShimInvocations = @()
+    $script:MagikaShimRejectsPredictionMode = $false
 
     function pwshDockerTestShim
     {
@@ -31,6 +33,12 @@ BeforeAll {
 
         $argsArray = @($RemainingArgs)
         $script:DockerShimInvocations += , $argsArray
+
+        if ($script:DockerShimRejectsPredictionMode -and $argsArray.Count -gt 0 -and $argsArray[0] -eq 'run' -and ($argsArray -contains '--prediction-mode'))
+        {
+            $global:LASTEXITCODE = 2
+            return @("error: unexpected argument '--prediction-mode' found")
+        }
 
         $global:LASTEXITCODE = 0
         return @('shim output')
@@ -45,6 +53,12 @@ BeforeAll {
 
         $argsArray = @($RemainingArgs)
         $script:MagikaShimInvocations += , $argsArray
+
+        if ($script:MagikaShimRejectsPredictionMode -and ($argsArray -contains '--prediction-mode'))
+        {
+            $global:LASTEXITCODE = 2
+            return @("error: unexpected argument '--prediction-mode' found")
+        }
 
         $global:LASTEXITCODE = 0
         return @('shim output')
@@ -64,6 +78,8 @@ Describe 'Invoke-Magika' {
         # Reset shim state for each test
         $script:DockerShimInvocations = @()
         $script:MagikaShimInvocations = @()
+        $script:DockerShimRejectsPredictionMode = $false
+        $script:MagikaShimRejectsPredictionMode = $false
 
         # Default to Docker fallback mode for deterministic tests unless a test
         # explicitly mocks a local Magika command.
@@ -293,6 +309,32 @@ Describe 'Invoke-Magika' {
             $script:MagikaShimInvocations[0] | Should -Contain 'HIGH_CONFIDENCE'
             $script:DockerShimInvocations.Count | Should -Be 0
         }
+
+        It 'Retries without --prediction-mode when local Magika runtime does not support it' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'magika' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:MagikaCommandName
+                    Source = '/usr/local/bin/magika'
+                }
+            }
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith {
+                [PSCustomObject]@{
+                    Name = $script:DockerCommandName
+                    Source = '/usr/local/bin/docker'
+                }
+            }
+
+            $script:MagikaShimRejectsPredictionMode = $true
+
+            $result = @(Invoke-Magika -Path $script:SampleFile)
+            $result[-1] | Should -Be 0
+
+            $script:MagikaShimInvocations.Count | Should -Be 2
+            $script:MagikaShimInvocations[0] | Should -Contain '--prediction-mode'
+            $script:MagikaShimInvocations[1] | Should -Not -Contain '--prediction-mode'
+            $script:DockerShimInvocations.Count | Should -Be 0
+        }
     }
 
     Context 'Parameter validation' {
@@ -383,13 +425,12 @@ Describe 'Invoke-Magika' {
             $runCall | Should -Contain '/workspace'
         }
 
-        It 'Overrides image entrypoint to magika' {
+        It 'Uses image entrypoint by default (no --entrypoint override)' {
             Invoke-Magika -Path $script:SampleFile | Out-Null
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '--entrypoint'
-            $runCall | Should -Contain 'magika'
+            $runCall | Should -Not -Contain '--entrypoint'
         }
 
         It 'Uses correct image reference with default tag' {
@@ -440,6 +481,30 @@ Describe 'Invoke-Magika' {
             $runCall | Should -Not -BeNullOrEmpty
             $runCall | Should -Contain '--prediction-mode'
             $runCall | Should -Contain 'HIGH_CONFIDENCE'
+        }
+
+        It 'Retries without --prediction-mode when Docker runtime does not support it' {
+            $script:DockerShimRejectsPredictionMode = $true
+
+            $result = @(Invoke-Magika -Path $script:SampleFile)
+            $result[-1] | Should -Be 0
+
+            $runCalls = @($script:DockerShimInvocations | Where-Object { $_ -contains 'run' })
+            $runCalls.Count | Should -Be 2
+            $runCalls[0] | Should -Contain '--prediction-mode'
+            $runCalls[1] | Should -Not -Contain '--prediction-mode'
+        }
+
+        It 'Warns when explicit PredictionMode is unsupported by Docker runtime' {
+            $script:DockerShimRejectsPredictionMode = $true
+
+            $result = @(Invoke-Magika -Path $script:SampleFile -PredictionMode Medium 3>&1)
+            $exitCode = $result | Where-Object { $_ -is [Int32] -or $_ -is [Int64] }
+            $exitCode | Should -Be 0
+
+            $warnings = @($result | Where-Object { $_ -is [System.Management.Automation.WarningRecord] })
+            $warnings.Count | Should -BeGreaterThan 0
+            $warnings[0].Message | Should -BeLike '*does not support*--prediction-mode*'
         }
 
         It 'Includes normalized relative path in docker args' {
