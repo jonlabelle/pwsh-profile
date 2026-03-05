@@ -397,8 +397,34 @@ function Invoke-SqlFluff
             }
             else
             {
-                # -Path supports wildcard expansion; Resolve-Path may return multiple matches
-                $resolvedItems = @(Resolve-Path -Path $item -ErrorAction Stop)
+                $hasWildcard = [System.Management.Automation.WildcardPattern]::ContainsWildcardCharacters($item)
+
+                # For wildcard patterns with -Recurse, discover file matches recursively.
+                # This enables patterns like '*.sql' to match files in subdirectories.
+                if ($Recurse -and $hasWildcard)
+                {
+                    $recursiveMatches = @(Get-ChildItem -Path $item -File -Recurse -ErrorAction SilentlyContinue)
+                    if ($recursiveMatches.Count -gt 0)
+                    {
+                        Write-Verbose "Discovered $($recursiveMatches.Count) file(s) from wildcard path '$item' recursively"
+                        $expandedPaths += $recursiveMatches.FullName
+                        continue
+                    }
+                }
+
+                # -Path supports wildcard expansion; Resolve-Path may return multiple matches.
+                # For unmatched wildcard patterns, Resolve-Path returns no results.
+                $resolvedItems = @(Resolve-Path -Path $item -ErrorAction SilentlyContinue)
+                if ($resolvedItems.Count -eq 0)
+                {
+                    if ($hasWildcard)
+                    {
+                        Write-Warning "No files matched path pattern '$item'$(if ($Recurse) { ' (recursive)' })."
+                        continue
+                    }
+
+                    throw "Cannot find path '$item' because it does not exist."
+                }
             }
 
             foreach ($resolvedItem in $resolvedItems)

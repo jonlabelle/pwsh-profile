@@ -519,6 +519,18 @@ Describe 'Invoke-SqlFluff' {
             $runCalls.Count | Should -Be 2
         }
 
+        It 'Expands wildcard Path patterns recursively with -Recurse' {
+            $subDir = Join-Path -Path $script:TestDir -ChildPath 'nested/deeper'
+            New-Item -Path $subDir -ItemType Directory -Force | Out-Null
+            'SELECT 1' | Set-Content -LiteralPath (Join-Path -Path $subDir -ChildPath 'one.sql')
+            'SELECT 2' | Set-Content -LiteralPath (Join-Path -Path $subDir -ChildPath 'two.sql')
+
+            Invoke-SqlFluff -Mode lint -Path '*.sql' -Recurse | Out-Null
+
+            $runCalls = @($script:DockerShimInvocations | Where-Object { $_ -contains 'run' })
+            $runCalls.Count | Should -Be 2
+        }
+
         It 'Treats wildcard characters literally with LiteralPath' {
             $specialName = 'report[1].sql'
             'SELECT 1' | Set-Content -LiteralPath (Join-Path -Path $script:TestDir -ChildPath $specialName)
