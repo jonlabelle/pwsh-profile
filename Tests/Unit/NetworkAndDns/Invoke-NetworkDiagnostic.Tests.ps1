@@ -138,12 +138,13 @@ Describe 'Invoke-NetworkDiagnostic (Default continuous mode single iteration via
         Mock -CommandName Start-Sleep {}
 
         $output = Invoke-NetworkDiagnostic -HostName 'example.com' -Count 5 -MaxIterations 2 -Interval 1 *>&1 | Out-String
+        $upArrowPattern = [Regex]::Escape(([string][char]0x2191))
 
-        $output | Should -Match 'Trend'
-        $output | Should -Match 'avg'
-        $output | Should -Match 'jitter'
-        $output | Should -Match 'loss'
-        $output | Should -Match '↑'
+        Should -ActualValue $output -Match 'Trend'
+        Should -ActualValue $output -Match 'avg'
+        Should -ActualValue $output -Match 'jitter'
+        Should -ActualValue $output -Match 'loss'
+        Should -ActualValue $output -Match $upArrowPattern
     }
 
     It 'continues when Clear-Host fails in continuous clear render mode' {
@@ -180,8 +181,9 @@ Describe 'Invoke-NetworkDiagnostic (Default continuous mode single iteration via
         Mock -CommandName Clear-Host { throw [System.IO.IOException]::new('The handle is invalid.') }
 
         $output = Invoke-NetworkDiagnostic -HostName 'example.com' -Count 5 -MaxIterations 2 -Interval 1 -RenderMode Clear *>&1 | Out-String
+        $upArrowPattern = [Regex]::Escape(([string][char]0x2191))
 
-        $output | Should -Match 'Trend'
-        $output | Should -Match '↑'
+        Should -ActualValue $output -Match 'Trend'
+        Should -ActualValue $output -Match $upArrowPattern
     }
 }
