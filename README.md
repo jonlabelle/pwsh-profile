@@ -412,18 +412,9 @@ PowerShell profiles don't load automatically in remote sessions (via `Enter-PSSe
 
 > **Note:** SSH-based remoting requires PowerShell 6+ and SSH to be installed on both local and remote computers. For setup instructions, see [PowerShell remoting over SSH](https://learn.microsoft.com/en-us/powershell/scripting/security/remoting/ssh-remoting-in-powershell).
 
-To use your profile functions in a remote session, you have two options:
+To use profile functions in a remote session with this repository, prefer dot-sourcing the remote computer's own profile. `Invoke-Command -FilePath $PROFILE` sends only the local profile file content and does not copy sibling folders such as `Functions`.
 
-### Load Your Local Profile in the Remote Session
-
-Use `Invoke-Command` to run your local profile script on the remote computer:
-
-```powershell
-$session = New-PSSession -HostName RemoteHost -UserName YourUser
-Invoke-Command -Session $session -FilePath $PROFILE
-```
-
-### Load the Remote Computer's Profile
+### Load the Remote Computer's Profile (Recommended)
 
 Dot-source the profile on the remote computer by probing common profile locations. This works when `$PROFILE` is unset in non-interactive remoting endpoints (common in Windows PowerShell 5.1):
 
@@ -462,6 +453,15 @@ Invoke-Command -Session $session -ScriptBlock {
 
     . $profilePath
 }
+```
+
+### Run Your Local Profile File in the Remote Session (Advanced)
+
+Use `-FilePath` only when the remote endpoint is compatible with the profile logic and expected file layout:
+
+```powershell
+$session = New-PSSession -HostName RemoteHost -UserName YourUser
+Invoke-Command -Session $session -FilePath $PROFILE
 ```
 
 After running either command, the profile's functions and aliases will be available in `$session`.

@@ -1,8 +1,31 @@
 # Dot source all functions
 $profileStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-$functionsPath = Join-Path -Path $PSScriptRoot -ChildPath 'Functions'
+$profileRoot = $null
 
-if (Test-Path -LiteralPath $functionsPath -PathType Container)
+if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot))
+{
+    $profileRoot = $PSScriptRoot
+}
+elseif (-not [string]::IsNullOrWhiteSpace($PSCommandPath))
+{
+    $profileRoot = Split-Path -Path $PSCommandPath -Parent
+}
+elseif ($PROFILE -and -not [string]::IsNullOrWhiteSpace($PROFILE.ToString()))
+{
+    $profileRoot = Split-Path -Path $PROFILE.ToString() -Parent
+}
+
+$functionsPath = $null
+if (-not [string]::IsNullOrWhiteSpace($profileRoot))
+{
+    $functionsPath = Join-Path -Path $profileRoot -ChildPath 'Functions'
+}
+else
+{
+    Write-Verbose 'Profile root path is unavailable; skipping function auto-load.'
+}
+
+if (-not [string]::IsNullOrWhiteSpace($functionsPath) -and (Test-Path -LiteralPath $functionsPath -PathType Container))
 {
     $functions = @(Get-ChildItem -LiteralPath $functionsPath -Filter '*-*.ps1' -File -Recurse)
     $failedCount = 0
@@ -30,11 +53,14 @@ if (Test-Path -LiteralPath $functionsPath -PathType Container)
 }
 else
 {
-    Write-Verbose ('Functions directory not found: {0}' -f $functionsPath)
+    if (-not [string]::IsNullOrWhiteSpace($functionsPath))
+    {
+        Write-Verbose ('Functions directory not found: {0}' -f $functionsPath)
+    }
 }
 
 # Prevent ths script's vars from leaking into the global scope
-Remove-Variable -Name functionsPath, functions, function, failedCount -ErrorAction SilentlyContinue
+Remove-Variable -Name profileRoot, functionsPath, functions, function, failedCount -ErrorAction SilentlyContinue
 
 # Use UTF-8 output encoding (no bom) when supported by the host.
 try
@@ -42,7 +68,13 @@ try
     $utf8OutputEncoding = New-Object -TypeName System.Text.UTF8Encoding -ArgumentList $false
     $OutputEncoding = $utf8OutputEncoding
 
-    if ($Host.UI -and $Host.UI.RawUI)
+    $canSetConsoleEncoding = [Environment]::UserInteractive -and
+    ($null -eq $PSSenderInfo) -and
+    ($Host.Name -eq 'ConsoleHost') -and
+    $Host.UI -and
+    $Host.UI.RawUI
+
+    if ($canSetConsoleEncoding)
     {
         [Console]::OutputEncoding = $utf8OutputEncoding
     }
@@ -53,7 +85,7 @@ catch
 }
 finally
 {
-    Remove-Variable -Name utf8OutputEncoding -ErrorAction SilentlyContinue
+    Remove-Variable -Name utf8OutputEncoding, canSetConsoleEncoding -ErrorAction SilentlyContinue
 }
 
 # Custom prompt function
