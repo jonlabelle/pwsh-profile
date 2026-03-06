@@ -425,12 +425,42 @@ Invoke-Command -Session $session -FilePath $PROFILE
 
 ### Load the Remote Computer's Profile
 
-Dot-source the profile on the remote computer using its explicit path:
+Dot-source the profile on the remote computer by probing common profile locations. This works when `$PROFILE` is unset in non-interactive remoting endpoints (common in Windows PowerShell 5.1):
 
 ```powershell
 $session = New-PSSession -HostName RemoteHost -UserName YourUser
 Invoke-Command -Session $session -ScriptBlock {
-    . "$HOME/.config/powershell/Microsoft.PowerShell_profile.ps1"
+    $profileCandidates = @()
+    $profileVar = $PROFILE
+
+    if (-not [string]::IsNullOrWhiteSpace($profileVar))
+    {
+        $profileCandidates += $profileVar
+    }
+
+    $documents = [Environment]::GetFolderPath('MyDocuments')
+    if (-not [string]::IsNullOrWhiteSpace($documents))
+    {
+        $profileCandidates += (Join-Path -Path $documents -ChildPath 'WindowsPowerShell/Microsoft.PowerShell_profile.ps1')
+        $profileCandidates += (Join-Path -Path $documents -ChildPath 'PowerShell/Microsoft.PowerShell_profile.ps1')
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($HOME))
+    {
+        $profileCandidates += (Join-Path -Path $HOME -ChildPath '.config/powershell/Microsoft.PowerShell_profile.ps1')
+    }
+
+    $profilePath = $profileCandidates |
+        Select-Object -Unique |
+        Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
+        Select-Object -First 1
+
+    if (-not $profilePath)
+    {
+        throw ('Remote profile not found. Tried: {0}' -f ($profileCandidates -join '; '))
+    }
+
+    . $profilePath
 }
 ```
 
@@ -449,7 +479,7 @@ Test-DnsNameResolution example.com
 Exit-PSSession
 ```
 
-> **Note:** For Windows PowerShell Desktop 5.1, replace `.config/powershell` with `Documents\WindowsPowerShell` in the path.
+> **Note:** Some remoting endpoints leave `$PROFILE` unset in non-interactive commands. The snippet above handles this by trying the standard Windows PowerShell, PowerShell 7+, and Unix-style profile paths.
 
 For more information, see Microsoft's documentation on [Profiles and Remote Sessions](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_profiles#profiles-and-remote-sessions).
 
