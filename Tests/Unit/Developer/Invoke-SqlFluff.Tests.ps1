@@ -359,6 +359,19 @@ Describe 'Invoke-SqlFluff' {
             $runCall | Should -Contain 'tsql'
         }
 
+        It 'Defaults to --dialect ansi when no config file and no dialect are provided' {
+            Mock -CommandName Test-Path -ParameterFilter {
+                $LiteralPath -and $LiteralPath -match '(^|[\\/])\.sqlfluff$'
+            } -MockWith { $false }
+
+            Invoke-SqlFluff -Mode lint -Path $script:SqlFile | Out-Null
+
+            $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
+            $runCall | Should -Not -BeNullOrEmpty
+            $runCall | Should -Contain '--dialect'
+            $runCall | Should -Contain 'ansi'
+        }
+
         It 'Appends additional arguments' {
             Invoke-SqlFluff -Mode lint -Path $script:SqlFile -AdditionalArgs '--exclude-rules', 'LT01' | Out-Null
 
@@ -418,6 +431,17 @@ Describe 'Invoke-SqlFluff' {
             }
             $configMount = $volArgs | Where-Object { $_ -match ':/config/' }
             $configMount | Should -Not -BeNullOrEmpty
+        }
+
+        It 'Does not pass a default dialect when a config file is provided and -Dialect is omitted' {
+            $configFile = Join-Path -Path $script:TestDir -ChildPath '.sqlfluff'
+            '[sqlfluff]' | Set-Content -LiteralPath $configFile
+
+            Invoke-SqlFluff -Mode lint -Path $script:SqlFile -ConfigPath $configFile | Out-Null
+
+            $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
+            $runCall | Should -Not -BeNullOrEmpty
+            $runCall | Should -Not -Contain '--dialect'
         }
 
         It 'Throws when explicitly specified config file does not exist' {

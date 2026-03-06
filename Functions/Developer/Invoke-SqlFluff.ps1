@@ -66,11 +66,12 @@ function Invoke-SqlFluff
         Defaults to $HOME/.sqlfluff.
 
         When the config file is not found (and -ConfigPath was not explicitly specified),
-        SQLFluff runs with its built-in defaults. You can still control behavior via
-        -Dialect and -AdditionalArgs.
+        SQLFluff runs without a config file. In that case, if -Dialect is not provided,
+        Invoke-SqlFluff defaults to the 'ansi' dialect.
 
     .PARAMETER Dialect
         The SQL dialect to use for parsing. Overrides any dialect set in the config file.
+        If omitted and no config file is used, Invoke-SqlFluff defaults to 'ansi'.
         Common dialects include: ansi, tsql, mysql, postgres, bigquery, sparksql, sqlite,
         clickhouse, duckdb, hive, redshift, snowflake, soql, trino.
 
@@ -246,6 +247,7 @@ function Invoke-SqlFluff
         $sqlFluffCommand = $null
         $dockerCommand = $null
         $useDockerRuntime = $false
+        $effectiveDialect = $null
 
         switch ($Runtime)
         {
@@ -308,7 +310,8 @@ function Invoke-SqlFluff
         }
 
         # Check if the config file exists. When explicitly provided via -ConfigPath,
-        # throw on missing file. Otherwise, run without config using SQLFluff defaults.
+        # throw on missing file. Otherwise, run without config and apply dialect
+        # fallback logic below.
         $resolvedConfig = $null
         if (Test-Path -LiteralPath $ConfigPath -PathType Leaf)
         {
@@ -322,7 +325,18 @@ function Invoke-SqlFluff
         }
         else
         {
-            Write-Verbose "No config file found at default path '$ConfigPath'. Running with SQLFluff defaults."
+            Write-Verbose "No config file found at default path '$ConfigPath'. Running without a config file."
+        }
+
+        if ($PSBoundParameters.ContainsKey('Dialect'))
+        {
+            $effectiveDialect = $Dialect
+            Write-Verbose "Using dialect from -Dialect: $effectiveDialect"
+        }
+        elseif (-not $resolvedConfig)
+        {
+            $effectiveDialect = 'ansi'
+            Write-Verbose "No config file and no -Dialect specified. Defaulting dialect to: $effectiveDialect"
         }
 
         # Resolve PWD to an absolute path for path normalization and Docker mounts
@@ -523,11 +537,11 @@ function Invoke-SqlFluff
                     $dockerArgs += @('--config', '/config/.sqlfluff')
                 }
 
-                # Append --dialect if specified
-                if ($PSBoundParameters.ContainsKey('Dialect'))
+                # Append --dialect when explicitly provided, or default to ansi when
+                # no config file is available.
+                if ($effectiveDialect)
                 {
-                    $dockerArgs += @('--dialect', $Dialect)
-                    Write-Verbose "Using dialect: $Dialect"
+                    $dockerArgs += @('--dialect', $effectiveDialect)
                 }
 
                 # Append any additional user-supplied arguments
@@ -569,11 +583,11 @@ function Invoke-SqlFluff
                     $localArgs += @('--config', $resolvedConfig)
                 }
 
-                # Append --dialect if specified
-                if ($PSBoundParameters.ContainsKey('Dialect'))
+                # Append --dialect when explicitly provided, or default to ansi when
+                # no config file is available.
+                if ($effectiveDialect)
                 {
-                    $localArgs += @('--dialect', $Dialect)
-                    Write-Verbose "Using dialect: $Dialect"
+                    $localArgs += @('--dialect', $effectiveDialect)
                 }
 
                 # Append any additional user-supplied arguments
