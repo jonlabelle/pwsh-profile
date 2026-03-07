@@ -17,6 +17,7 @@ function Test-PendingReboot
         - Component Based Servicing (RebootPending, RebootInProgress, PackagesPending)
         - Windows Update (RebootRequired, PostRebootReporting, Services\Pending)
         - Session Manager (PendingFileRenameOperations)
+        - SCCM/ConfigMgr client reboot state (CCM_ClientUtilities)
         - Computer name changes
         - Domain join operations
         - Server Manager reboot attempts
@@ -151,23 +152,56 @@ function Test-PendingReboot
 
     $ErrorActionPreference = 'Stop'
 
-    # Optimized function to test for pending reboots locally
-    function Test-LocalPendingReboot
-    {
-        [CmdletBinding()]
-        [OutputType([PSCustomObject])]
-        param()
+    # Shared scriptblock for both local and remote execution
+    $pendingRebootCheckScriptBlock = {
+        param(
+            [bool]$EnableVerbose = $false
+        )
+
+        if ($EnableVerbose)
+        {
+            $VerbosePreference = 'Continue'
+        }
 
         $reasons = @()
+
+        function Test-RegistryValuePresent
+        {
+            param(
+                [Parameter(Mandatory = $true)]
+                [string]$Path,
+
+                [Parameter(Mandatory = $true)]
+                [string]$Name
+            )
+
+            $registryValue = Get-ItemPropertyValue -Path $Path -Name $Name -ErrorAction SilentlyContinue
+            if ($null -eq $registryValue)
+            {
+                return $false
+            }
+
+            if ($registryValue -is [string])
+            {
+                return -not [string]::IsNullOrWhiteSpace($registryValue)
+            }
+
+            if ($registryValue -is [System.Array])
+            {
+                return $registryValue.Count -gt 0
+            }
+
+            return $true
+        }
 
         # Registry paths that indicate pending reboot
         $regPaths = @(
             @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending'; Reason = 'Component Based Servicing - Reboot Pending' }
             @{ Path = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootInProgress'; Reason = 'Component Based Servicing - Reboot In Progress' }
             @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'; Reason = 'Windows Update - Reboot Required' }
-            @{ Path = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\PackagesPending'; Reason = 'Component Based Servicing - Packages Pending' }
             @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\PostRebootReporting'; Reason = 'Windows Update - Post Reboot Reporting' }
-            @{ Path = 'HKLM:\SOFTWARE\Microsoft\ServerManager\CurrentRebootAttempts'; Reason = 'Server Manager - Reboot Attempts' }
+            @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Services\Pending'; Reason = 'Windows Update - Services Pending' }
+            @{ Path = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\PackagesPending'; Reason = 'Component Based Servicing - Packages Pending' }
         )
 
         # Check for registry keys that indicate pending reboot
@@ -191,8 +225,7 @@ function Test-PendingReboot
 
             foreach ($pendingOperation in $pendingOps)
             {
-                $value = Get-ItemProperty -Path $sessionManager -Name $pendingOperation.Name -ErrorAction SilentlyContinue
-                if ($value -and $value.($pendingOperation.Name))
+                if (Test-RegistryValuePresent -Path $sessionManager -Name $pendingOperation.Name)
                 {
                     Write-Verbose "Pending reboot detected: $($pendingOperation.Name) exists"
                     $reasons += $pendingOperation.Reason
@@ -210,21 +243,38 @@ function Test-PendingReboot
             $updatesPath = 'HKLM:\SOFTWARE\Microsoft\Updates'
             if (Test-Path $updatesPath -PathType Container)
             {
-                $volatilePath = Join-Path -Path $updatesPath -ChildPath 'UpdateExeVolatile'
-                if (Test-Path $volatilePath)
+                $volatileValue = Get-ItemPropertyValue -Path $updatesPath -Name 'UpdateExeVolatile' -ErrorAction SilentlyContinue
+                $volatileInt = 0
+                if ($null -ne $volatileValue -and [int]::TryParse("$volatileValue", [ref]$volatileInt) -and $volatileInt -ne 0)
                 {
-                    $volatileValue = Get-ItemProperty -Path $updatesPath -Name 'UpdateExeVolatile' -ErrorAction SilentlyContinue
-                    if ($volatileValue -and $volatileValue.UpdateExeVolatile -ne 0)
-                    {
-                        Write-Verbose "Pending reboot detected: UpdateExeVolatile = $($volatileValue.UpdateExeVolatile)"
-                        $reasons += 'Windows Update - Volatile Operations'
-                    }
+                    Write-Verbose "Pending reboot detected: UpdateExeVolatile = $volatileInt"
+                    $reasons += 'Windows Update - Volatile Operations'
                 }
             }
         }
         catch
         {
             Write-Verbose "Could not check Windows Update volatile operations: $($_.Exception.Message)"
+        }
+
+        # Check for Server Manager reboot attempts (only when attempts is a non-zero value)
+        try
+        {
+            $serverManagerPath = 'HKLM:\SOFTWARE\Microsoft\ServerManager'
+            if (Test-Path $serverManagerPath -PathType Container)
+            {
+                $currentRebootAttempts = Get-ItemPropertyValue -Path $serverManagerPath -Name 'CurrentRebootAttempts' -ErrorAction SilentlyContinue
+                $attemptsInt = 0
+                if ($null -ne $currentRebootAttempts -and [int]::TryParse("$currentRebootAttempts", [ref]$attemptsInt) -and $attemptsInt -gt 0)
+                {
+                    Write-Verbose "Pending reboot detected: Server Manager reboot attempts = $attemptsInt"
+                    $reasons += 'Server Manager - Reboot Attempts'
+                }
+            }
+        }
+        catch
+        {
+            Write-Verbose "Could not check Server Manager reboot attempts: $($_.Exception.Message)"
         }
 
         # Check for registry values that indicate pending operations
@@ -238,7 +288,7 @@ function Test-PendingReboot
         {
             try
             {
-                if (Get-ItemProperty -Path $check.Path -Name $check.Value -ErrorAction SilentlyContinue)
+                if (Test-RegistryValuePresent -Path $check.Path -Name $check.Value)
                 {
                     Write-Verbose "Pending reboot detected: Registry value exists - $($check.Path)\$($check.Value)"
                     $reasons += $check.Reason
@@ -248,6 +298,48 @@ function Test-PendingReboot
             {
                 Write-Verbose "Could not check registry path $($check.Path): $($_.Exception.Message)"
             }
+        }
+
+        # Check for SCCM/ConfigMgr client reboot state
+        try
+        {
+            $ccmResult = $null
+
+            if (Get-Command -Name Invoke-CimMethod -ErrorAction SilentlyContinue)
+            {
+                $ccmResult = Invoke-CimMethod -Namespace 'ROOT\ccm\ClientSDK' -ClassName 'CCM_ClientUtilities' -MethodName 'DetermineIfRebootPending' -ErrorAction SilentlyContinue
+            }
+
+            if (-not $ccmResult -and (Get-Command -Name Invoke-WmiMethod -ErrorAction SilentlyContinue))
+            {
+                $ccmResult = Invoke-WmiMethod -Namespace 'ROOT\ccm\ClientSDK' -Class 'CCM_ClientUtilities' -Name 'DetermineIfRebootPending' -ErrorAction SilentlyContinue
+            }
+
+            if ($ccmResult)
+            {
+                $softPending = $false
+                $hardPending = $false
+
+                if ($null -ne $ccmResult.PSObject.Properties['RebootPending'])
+                {
+                    $softPending = [bool]$ccmResult.RebootPending
+                }
+
+                if ($null -ne $ccmResult.PSObject.Properties['IsHardRebootPending'])
+                {
+                    $hardPending = [bool]$ccmResult.IsHardRebootPending
+                }
+
+                if ($softPending -or $hardPending)
+                {
+                    Write-Verbose "Pending reboot detected: SCCM reboot state (RebootPending=$softPending, IsHardRebootPending=$hardPending)"
+                    $reasons += 'SCCM Client - Reboot Pending'
+                }
+            }
+        }
+        catch
+        {
+            Write-Verbose "Could not check SCCM reboot status: $($_.Exception.Message)"
         }
 
         # Check for computer name changes
@@ -267,158 +359,11 @@ function Test-PendingReboot
             Write-Verbose "Could not check computer name changes: $($_.Exception.Message)"
         }
 
-        # Check for pending Windows Update services
-        try
-        {
-            $pendingServicesPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Services\Pending'
-            if ((Test-Path $pendingServicesPath -PathType Container) -and (Get-ChildItem -Path $pendingServicesPath -ErrorAction SilentlyContinue))
-            {
-                Write-Verbose 'Pending reboot detected: Windows Update services pending'
-                $reasons += 'Windows Update - Services Pending'
-            }
-        }
-        catch
-        {
-            Write-Verbose "Could not check Windows Update pending services: $($_.Exception.Message)"
-        }
-
         # Return result with reasons
+        $uniqueReasons = $reasons | Select-Object -Unique
         return [PSCustomObject]@{
-            PendingReboot = $reasons.Count -gt 0
-            Reason = if ($reasons.Count -gt 0) { $reasons -join '; ' } else { $null }
-        }
-    }
-
-    # Remote scriptblock for PS remoting
-    $remoteScriptBlock = {
-        $reasons = @()
-
-        # Registry paths that indicate pending reboot
-        $regPaths = @(
-            @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending'; Reason = 'Component Based Servicing - Reboot Pending' }
-            @{ Path = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootInProgress'; Reason = 'Component Based Servicing - Reboot In Progress' }
-            @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'; Reason = 'Windows Update - Reboot Required' }
-            @{ Path = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\PackagesPending'; Reason = 'Component Based Servicing - Packages Pending' }
-            @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\PostRebootReporting'; Reason = 'Windows Update - Post Reboot Reporting' }
-            @{ Path = 'HKLM:\SOFTWARE\Microsoft\ServerManager\CurrentRebootAttempts'; Reason = 'Server Manager - Reboot Attempts' }
-        )
-
-        # Check for registry keys that indicate pending reboot
-        foreach ($regPath in $regPaths)
-        {
-            if (Test-Path -Path $regPath.Path -PathType Container)
-            {
-                Write-Verbose "Pending reboot detected: Registry key exists - $($regPath.Path)"
-                $reasons += $regPath.Reason
-            }
-        }
-
-        # Check for pending file rename operations
-        try
-        {
-            $sessionManager = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager'
-            $pendingOps = @(
-                @{ Name = 'PendingFileRenameOperations'; Reason = 'Pending File Rename Operations' }
-                @{ Name = 'PendingFileRenameOperations2'; Reason = 'Pending File Rename Operations 2' }
-            )
-
-            foreach ($pendingOperation in $pendingOps)
-            {
-                $value = Get-ItemProperty -Path $sessionManager -Name $pendingOperation.Name -ErrorAction SilentlyContinue
-                if ($value -and $value.($pendingOperation.Name))
-                {
-                    Write-Verbose "Pending reboot detected: $($pendingOperation.Name) exists"
-                    $reasons += $pendingOperation.Reason
-                }
-            }
-        }
-        catch
-        {
-            Write-Verbose "Could not check pending file operations: $($_.Exception.Message)"
-        }
-
-        # Check for Windows Update volatile operations
-        try
-        {
-            $updatesPath = 'HKLM:\SOFTWARE\Microsoft\Updates'
-            if (Test-Path $updatesPath -PathType Container)
-            {
-                $volatilePath = Join-Path -Path $updatesPath -ChildPath 'UpdateExeVolatile'
-                if (Test-Path $volatilePath)
-                {
-                    $volatileValue = Get-ItemProperty -Path $updatesPath -Name 'UpdateExeVolatile' -ErrorAction SilentlyContinue
-                    if ($volatileValue -and $volatileValue.UpdateExeVolatile -ne 0)
-                    {
-                        Write-Verbose "Pending reboot detected: UpdateExeVolatile = $($volatileValue.UpdateExeVolatile)"
-                        $reasons += 'Windows Update - Volatile Operations'
-                    }
-                }
-            }
-        }
-        catch
-        {
-            Write-Verbose "Could not check Windows Update volatile operations: $($_.Exception.Message)"
-        }
-
-        # Check for registry values that indicate pending operations
-        $registryChecks = @(
-            @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce'; Value = 'DVDRebootSignal'; Reason = 'DVD Reboot Signal' }
-            @{ Path = 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon'; Value = 'JoinDomain'; Reason = 'Domain Join Operations' }
-            @{ Path = 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon'; Value = 'AvoidSpnSet'; Reason = 'Netlogon SPN Operations' }
-        )
-
-        foreach ($check in $registryChecks)
-        {
-            try
-            {
-                if (Get-ItemProperty -Path $check.Path -Name $check.Value -ErrorAction SilentlyContinue)
-                {
-                    Write-Verbose "Pending reboot detected: Registry value exists - $($check.Path)\$($check.Value)"
-                    $reasons += $check.Reason
-                }
-            }
-            catch
-            {
-                Write-Verbose "Could not check registry path $($check.Path): $($_.Exception.Message)"
-            }
-        }
-
-        # Check for computer name changes
-        try
-        {
-            $activeComputer = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ActiveComputerName' -Name 'ComputerName' -ErrorAction SilentlyContinue
-            $pendingComputer = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName' -Name 'ComputerName' -ErrorAction SilentlyContinue
-
-            if ($activeComputer -and $pendingComputer -and ($activeComputer.ComputerName -ne $pendingComputer.ComputerName))
-            {
-                Write-Verbose "Pending reboot detected: Computer name change from '$($activeComputer.ComputerName)' to '$($pendingComputer.ComputerName)'"
-                $reasons += "Computer Name Change ($($activeComputer.ComputerName) -> $($pendingComputer.ComputerName))"
-            }
-        }
-        catch
-        {
-            Write-Verbose "Could not check computer name changes: $($_.Exception.Message)"
-        }
-
-        # Check for pending Windows Update services
-        try
-        {
-            $pendingServicesPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Services\Pending'
-            if ((Test-Path $pendingServicesPath -PathType Container) -and (Get-ChildItem -Path $pendingServicesPath -ErrorAction SilentlyContinue))
-            {
-                Write-Verbose 'Pending reboot detected: Windows Update services pending'
-                $reasons += 'Windows Update - Services Pending'
-            }
-        }
-        catch
-        {
-            Write-Verbose "Could not check Windows Update pending services: $($_.Exception.Message)"
-        }
-
-        # Return result with reasons
-        return [PSCustomObject]@{
-            PendingReboot = $reasons.Count -gt 0
-            Reason = if ($reasons.Count -gt 0) { $reasons -join '; ' } else { $null }
+            PendingReboot = $uniqueReasons.Count -gt 0
+            Reason = if ($uniqueReasons.Count -gt 0) { $uniqueReasons -join '; ' } else { $null }
         }
     }
 
@@ -427,6 +372,8 @@ function Test-PendingReboot
     {
         $ComputerName = @('localhost')
     }
+
+    $isVerboseRequested = $PSBoundParameters.ContainsKey('Verbose')
 
     foreach ($computer in $ComputerName)
     {
@@ -443,8 +390,8 @@ function Test-PendingReboot
 
             if ($isLocal)
             {
-                # Use optimized local function for better performance
-                $result = Test-LocalPendingReboot
+                # Local execution without remoting overhead
+                $result = & $pendingRebootCheckScriptBlock -EnableVerbose:$isVerboseRequested
                 $output.PendingReboot = $result.PendingReboot
                 $output.Reason = $result.Reason
             }
@@ -464,7 +411,7 @@ function Test-PendingReboot
                 $session = New-PSSession @sessionParams
                 try
                 {
-                    $result = Invoke-Command -Session $session -ScriptBlock $remoteScriptBlock
+                    $result = Invoke-Command -Session $session -ScriptBlock $pendingRebootCheckScriptBlock -ArgumentList $isVerboseRequested -Verbose:$isVerboseRequested
                     $output.PendingReboot = $result.PendingReboot
                     $output.Reason = $result.Reason
                 }
