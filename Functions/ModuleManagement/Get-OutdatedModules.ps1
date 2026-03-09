@@ -6,8 +6,9 @@ function Get-OutdatedModules
 
     .DESCRIPTION
         This function checks all installed PowerShell modules against the PowerShell Gallery to identify
-        modules that have newer versions available. It returns detailed information about all checked modules
-        including current and available versions, with an indicator showing whether they're up-to-date.
+        modules that have newer versions available. By default, it returns only modules that are outdated.
+        Use -ShowAll to return detailed information about every checked module, including current and
+        available versions with a status indicator.
         Cross-platform compatible with PowerShell 5.1+ on Windows, macOS, and Linux.
 
     .PARAMETER ExcludeModule
@@ -19,48 +20,57 @@ function Get-OutdatedModules
     .PARAMETER Repository
         Specifies the repository to check for newer versions. Defaults to 'PSGallery'.
 
+    .PARAMETER ShowAll
+        Returns all checked modules instead of only outdated ones. This includes modules with
+        'Current' and 'Newer' status values.
+
     .EXAMPLE
         PS > Get-OutdatedModules
 
-        Returns all checked modules with current version, available version, and up-to-date status.
+        Returns only modules that have updates available.
 
     .EXAMPLE
         PS > Get-OutdatedModules -ExcludeModule @('PSReadLine', 'PowerShellGet')
 
-        Gets module status while excluding specific modules from the check.
+        Gets only outdated modules while excluding specific modules from the check.
 
     .EXAMPLE
-        PS > Get-OutdatedModules | Format-Table Name, CurrentVersion, AvailableVersion, Status
+        PS > Get-OutdatedModules -ShowAll
+
+        Returns all checked modules with current version, available version, and detailed status.
+
+    .EXAMPLE
+        PS > Get-OutdatedModules -ShowAll | Format-Table Name, CurrentVersion, AvailableVersion, Status
 
         Displays all modules in a formatted table showing version information and detailed status.
 
     .EXAMPLE
-        PS > Get-OutdatedModules | Where-Object Status -eq 'Outdated'
+        PS > Get-OutdatedModules -ShowAll | Where-Object Status -eq 'Outdated'
 
-        Gets only modules that have updates available using the new Status property.
+        Gets only modules that have updates available using the Status property.
 
     .EXAMPLE
-        PS > Get-OutdatedModules | Where-Object Status -eq 'Current'
+        PS > Get-OutdatedModules -ShowAll | Where-Object Status -eq 'Current'
 
         Gets only modules that are already up-to-date.
 
     .EXAMPLE
-        PS > Get-OutdatedModules | Where-Object IsPrerelease
+        PS > Get-OutdatedModules -ShowAll | Where-Object IsPrerelease
 
         Gets modules that are prerelease versions.
 
     .EXAMPLE
-        PS > Get-OutdatedModules | Where-Object VersionAge -lt 30
+        PS > Get-OutdatedModules -ShowAll | Where-Object VersionAge -lt 30
 
         Gets modules where the available version was published within the last 30 days.
 
     .EXAMPLE
-        PS > Get-OutdatedModules | Where-Object Name -like 'Azure*'
+        PS > Get-OutdatedModules -ShowAll | Where-Object Name -like 'Azure*'
 
         Gets status for all Azure modules using pipeline filtering.
 
     .EXAMPLE
-        PS > $results = Get-OutdatedModules; $results | Where-Object -Not IsUpToDate | Update-AllModules
+        PS > $results = Get-OutdatedModules -ShowAll; $results | Where-Object -Not IsUpToDate | Update-AllModules
 
         Check all modules and selectively update only those that are outdated.
 
@@ -84,6 +94,7 @@ function Get-OutdatedModules
         - Internet connection required to check for available versions
         - System modules are excluded by default for safety
         - Results can be piped to other cmdlets for filtering and processing
+        - Use -ShowAll to include modules that are already current or newer than the repository
 
         Author: Jon LaBelle
         License: MIT
@@ -105,7 +116,10 @@ function Get-OutdatedModules
         [Switch]$IncludeSystemModules,
 
         [Parameter()]
-        [String]$Repository = 'PSGallery'
+        [String]$Repository = 'PSGallery',
+
+        [Parameter()]
+        [Switch]$ShowAll
     )
 
     begin
@@ -296,6 +310,15 @@ function Get-OutdatedModules
     end
     {
         Write-Verbose 'Module check process completed'
-        return [PSCustomObject[]]$moduleResults
+        $resultsToReturn = if ($ShowAll)
+        {
+            $moduleResults
+        }
+        else
+        {
+            $moduleResults | Where-Object { -not $_.IsUpToDate }
+        }
+
+        return [PSCustomObject[]]$resultsToReturn
     }
 }
