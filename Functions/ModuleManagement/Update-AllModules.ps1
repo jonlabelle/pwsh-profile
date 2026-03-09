@@ -5,10 +5,10 @@ function Update-AllModules
         Updates all installed PowerShell modules to their latest versions.
 
     .DESCRIPTION
-        This function updates all installed PowerShell modules to their latest versions from the PowerShell Gallery.
-        Each module is updated individually with proper error handling and progress reporting. It supports excluding
-        specific modules and can optionally configure PSGallery trust. Cross-platform compatible with PowerShell 5.1+
-        on Windows, macOS, and Linux.
+        This function checks installed PowerShell modules for newer versions in the PowerShell Gallery and
+        updates only the modules that are actually outdated. Each module is updated individually with proper
+        error handling and progress reporting. It supports excluding specific modules and can optionally
+        configure PSGallery trust. Cross-platform compatible with PowerShell 5.1+ on Windows, macOS, and Linux.
 
     .PARAMETER ExcludeModule
         Array of module names to exclude from updates.
@@ -227,12 +227,71 @@ function Update-AllModules
             }
         }
 
+        function Get-OutdatedModuleInfo
+        {
+            param(
+                [Parameter(Mandatory)]
+                [Object[]]$InstalledModules
+            )
+
+            $outdatedModuleInfo = @()
+            $processedCount = 0
+
+            foreach ($module in $InstalledModules)
+            {
+                $processedCount++
+
+                $percentComplete = if ($InstalledModules.Count -gt 0)
+                {
+                    ($processedCount / $InstalledModules.Count) * 100
+                }
+                else
+                {
+                    0
+                }
+
+                Write-Progress -Activity 'Checking for available updates' -Status "Checking $($module.Name)" -PercentComplete $percentComplete
+
+                try
+                {
+                    $latestModule = Find-Module -Name $module.Name -Repository 'PSGallery' -ErrorAction Stop
+                    if ($latestModule.Version -gt $module.Version)
+                    {
+                        $outdatedModuleInfo += [PSCustomObject]@{
+                            Name = $module.Name
+                            CurrentVersion = $module.Version
+                            AvailableVersion = $latestModule.Version
+                            Module = $module
+                        }
+                    }
+                    else
+                    {
+                        Write-Verbose "$($module.Name) is already up to date"
+                    }
+                }
+                catch [System.InvalidOperationException]
+                {
+                    Write-Warning "Module '$($module.Name)' was not found in PSGallery - skipping"
+                }
+                catch
+                {
+                    Write-Warning "Could not check updates for $($module.Name): $($_.Exception.Message)"
+                }
+            }
+
+            Write-Progress -Activity 'Checking for available updates' -Completed
+
+            return [PSCustomObject[]]$outdatedModuleInfo
+        }
+
         Write-Verbose 'Starting module update process'
+        $cancelUpdateProcess = $false
 
         # Check for conflicting parameters
         if ($ExcludeModule.Count -gt 0 -and $IncludeModule.Count -gt 0)
         {
             Write-Error 'Cannot use both ExcludeModule and IncludeModule parameters together. Use one or the other.'
+            $cancelUpdateProcess = $true
             return
         }
 
@@ -284,12 +343,13 @@ function Update-AllModules
             else
             {
                 Write-Warning 'SkipPublisherCheck bypasses module publisher verification - a security feature that helps prevent malicious updates. Only proceed if you trust the module sources.'
-                if ($Host.UI.RawUI -and [Environment]::UserInteractive)
+                if (-not $WhatIfPreference -and $Host.UI.RawUI -and [Environment]::UserInteractive)
                 {
                     $response = Read-Host 'Do you want to continue with publisher check disabled? (y/N)'
                     if ($response -notmatch '^[Yy]([Ee][Ss])?$')
                     {
                         Write-Host 'Operation cancelled by user.' -ForegroundColor Yellow
+                        $cancelUpdateProcess = $true
                         return
                     }
                 }
@@ -319,6 +379,7 @@ function Update-AllModules
             catch
             {
                 Write-Error "Failed to configure PSGallery: $($_.Exception.Message)"
+                $cancelUpdateProcess = $true
                 return
             }
         }
@@ -326,11 +387,17 @@ function Update-AllModules
 
     process
     {
+        if ($cancelUpdateProcess)
+        {
+            Write-Verbose 'Module update process cancelled before execution'
+            return
+        }
+
         try
         {
             # Get all installed modules
             Write-Host 'Retrieving installed modules...' -ForegroundColor Cyan
-            $allInstalledModules = Get-InstalledModule
+            $allInstalledModules = @(Get-InstalledModule)
 
             # Apply include/exclude filtering
             if ($IncludeModule.Count -gt 0)
@@ -354,69 +421,44 @@ function Update-AllModules
                 $installedModules = $allInstalledModules
             }
 
+            $installedModules = @($installedModules)
+
             if (-not $installedModules -or $installedModules.Count -eq 0)
             {
                 Write-Host 'No modules found to update.' -ForegroundColor Yellow
                 return
             }
 
-            # If Interactive mode, check which modules have updates available first
+            Write-Host 'Checking for available updates...' -ForegroundColor Cyan
+            $outdatedModules = @(Get-OutdatedModuleInfo -InstalledModules $installedModules)
+
+            if ($outdatedModules.Count -eq 0)
+            {
+                Write-Host 'No modules with available updates were found.' -ForegroundColor Green
+                return
+            }
+
+            Write-Host "Found $($outdatedModules.Count) module(s) with available updates" -ForegroundColor Yellow
+
             if ($Interactive)
             {
-                Write-Host 'Checking for available updates...' -ForegroundColor Cyan
-                $outdatedModules = @()
-
-                foreach ($module in $installedModules)
-                {
-                    try
-                    {
-                        $latestModule = Find-Module -Name $module.Name -Repository PSGallery -ErrorAction Stop
-                        if ($latestModule.Version -gt $module.Version)
-                        {
-                            $outdatedModules += [PSCustomObject]@{
-                                Name = $module.Name
-                                CurrentVersion = $module.Version
-                                AvailableVersion = $latestModule.Version
-                                Module = $module
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        Write-Verbose "Could not check updates for $($module.Name): $($_.Exception.Message)"
-                    }
-                }
-
-                if ($outdatedModules.Count -eq 0)
-                {
-                    Write-Host 'All modules are already up to date.' -ForegroundColor Green
-                    return
-                }
-
                 Write-Host "Found $($outdatedModules.Count) module(s) with available updates:" -ForegroundColor Yellow
                 foreach ($outdated in $outdatedModules)
                 {
                     Write-Host "  - $($outdated.Name): $($outdated.CurrentVersion) ~> $($outdated.AvailableVersion)" -ForegroundColor Cyan
                 }
                 Write-Host ''
-
-                # Filter installedModules to only include outdated ones for interactive prompting
-                $modulesToProcess = $outdatedModules.Module
-            }
-            else
-            {
-                $modulesToProcess = $installedModules
             }
 
-            Write-Host "Found $($modulesToProcess.Count) module(s) to check for updates" -ForegroundColor Green
+            $modulesToProcess = @($outdatedModules)
 
             # Check if this is a WhatIf operation
             if ($WhatIfPreference)
             {
                 Write-Host 'WhatIf: The following modules would be updated:' -ForegroundColor Yellow
-                foreach ($module in $modulesToProcess)
+                foreach ($moduleInfo in $modulesToProcess)
                 {
-                    Write-Host "  - $($module.Name) (Current version: $($module.Version))" -ForegroundColor Cyan
+                    Write-Host "  - $($moduleInfo.Name): $($moduleInfo.CurrentVersion) ~> $($moduleInfo.AvailableVersion)" -ForegroundColor Cyan
                 }
                 return
             }
@@ -445,9 +487,12 @@ function Update-AllModules
                 $processedCount = 0
                 $skippedCount = 0
 
-                foreach ($module in $modulesToProcess)
+                foreach ($moduleInfo in $modulesToProcess)
                 {
                     $processedCount++
+                    $moduleName = $moduleInfo.Name
+                    $currentVersion = $moduleInfo.CurrentVersion
+                    $availableVersion = $moduleInfo.AvailableVersion
 
                     # Calculate progress percentage
                     $percentComplete = if ($modulesToProcess.Count -gt 0)
@@ -458,23 +503,14 @@ function Update-AllModules
                     {
                         0
                     }
-                    Write-Progress -Activity 'Updating PowerShell modules' -Status "Processing $($module.Name)" -PercentComplete $percentComplete
+                    Write-Progress -Activity 'Updating PowerShell modules' -Status "Processing $moduleName" -PercentComplete $percentComplete
 
                     # Interactive mode: prompt user for each module
                     if ($Interactive)
                     {
-                        $availableVersion = if ($outdatedModules)
-                        {
-                            ($outdatedModules | Where-Object Name -EQ $module.Name).AvailableVersion
-                        }
-                        else
-                        {
-                            'Unknown'
-                        }
-
                         Write-Host ''
-                        Write-Host "Module: $($module.Name)" -ForegroundColor Cyan
-                        Write-Host "  Current version: $($module.Version)" -ForegroundColor Gray
+                        Write-Host "Module: $moduleName" -ForegroundColor Cyan
+                        Write-Host "  Current version: $currentVersion" -ForegroundColor Gray
                         Write-Host "  Available version: $availableVersion" -ForegroundColor Gray
 
                         $response = Read-Host 'Do you want to update this module? (y/N/a=all/q=quit)'
@@ -499,23 +535,23 @@ function Update-AllModules
                             }
                             default
                             {
-                                Write-Host "Skipping $($module.Name)" -ForegroundColor Yellow
+                                Write-Host "Skipping $moduleName" -ForegroundColor Yellow
                                 $skippedCount++
                                 continue
                             }
                         }
                     }
 
-                    Write-Host "Updating module: $($module.Name) (current version: $($module.Version))" -ForegroundColor Cyan
+                    Write-Host "Updating module: $moduleName ($currentVersion -> $availableVersion)" -ForegroundColor Cyan
 
                     try
                     {
                         $moduleUpdateParams = $updateParams.Clone()
-                        $moduleUpdateParams.Name = $module.Name
+                        $moduleUpdateParams.Name = $moduleName
 
                         Update-Module @moduleUpdateParams
                         $updatedCount++
-                        Write-Verbose "Successfully updated $($module.Name)"
+                        Write-Verbose "Successfully updated $moduleName"
                     }
                     catch [Microsoft.PowerShell.Commands.WriteErrorException]
                     {
@@ -524,12 +560,12 @@ function Update-AllModules
                         # Check for specific error conditions
                         if ($errorMessage -like '*No match was found*')
                         {
-                            Write-Warning "Module $($module.Name) not found in repository - skipping"
+                            Write-Warning "Module $moduleName not found in repository - skipping"
                             $skippedCount++
                         }
                         elseif ($errorMessage -like '*newer version*' -or $errorMessage -like '*already up to date*')
                         {
-                            Write-Host "  Module $($module.Name) is already up to date" -ForegroundColor Green
+                            Write-Host "  Module $moduleName is already up to date" -ForegroundColor Green
                             $skippedCount++
                         }
                         elseif ($UseElevation -and $script:IsWindowsPlatform -and $errorMessage -like '*Administrator rights are required*')
@@ -541,7 +577,7 @@ function Update-AllModules
                                 # Create the script block with embedded variables to avoid parameter passing issues
                                 $elevatedScriptBlock = [ScriptBlock]::Create(@"
                                     `$elevatedUpdateParams = @{
-                                        Name = '$($module.Name)'
+                                        Name = '$moduleName'
                                         ErrorAction = 'Stop'
                                     }
                                     if ('$($Force.IsPresent)' -eq 'True') { `$elevatedUpdateParams.Force = `$true }
@@ -562,18 +598,18 @@ function Update-AllModules
                                 Invoke-ElevatedCommand -Scriptblock $elevatedScriptBlock
 
                                 $updatedCount++
-                                Write-Host "  Successfully updated $($module.Name) with elevation" -ForegroundColor Green
-                                Write-Verbose "Successfully updated $($module.Name) with elevation"
+                                Write-Host "  Successfully updated $moduleName with elevation" -ForegroundColor Green
+                                Write-Verbose "Successfully updated $moduleName with elevation"
                             }
                             catch
                             {
-                                Write-Warning "Failed to update $($module.Name) even with elevation: $($_.Exception.Message)"
+                                Write-Warning "Failed to update $moduleName even with elevation: $($_.Exception.Message)"
                                 $failedCount++
                             }
                         }
                         else
                         {
-                            Write-Warning "Failed to update $($module.Name): $errorMessage"
+                            Write-Warning "Failed to update ${moduleName}: $errorMessage"
                             $failedCount++
                         }
                     }
@@ -583,12 +619,12 @@ function Update-AllModules
 
                         if ($errorMessage -like '*No match was found*')
                         {
-                            Write-Warning "Module $($module.Name) not found in repository - skipping"
+                            Write-Warning "Module $moduleName not found in repository - skipping"
                             $skippedCount++
                         }
                         elseif ($errorMessage -like '*newer version*')
                         {
-                            Write-Host "  Module $($module.Name) is already up to date" -ForegroundColor Green
+                            Write-Host "  Module $moduleName is already up to date" -ForegroundColor Green
                             $skippedCount++
                         }
                         elseif ($UseElevation -and $script:IsWindowsPlatform -and $errorMessage -like '*Administrator rights are required*')
@@ -600,7 +636,7 @@ function Update-AllModules
                                 # Create the script block with embedded variables to avoid parameter passing issues
                                 $elevatedScriptBlock = [ScriptBlock]::Create(@"
                                     `$elevatedUpdateParams = @{
-                                        Name = '$($module.Name)'
+                                        Name = '$moduleName'
                                         ErrorAction = 'Stop'
                                     }
                                     if ('$($Force.IsPresent)' -eq 'True') { `$elevatedUpdateParams.Force = `$true }
@@ -621,24 +657,24 @@ function Update-AllModules
                                 Invoke-ElevatedCommand -Scriptblock $elevatedScriptBlock
 
                                 $updatedCount++
-                                Write-Host "  Successfully updated $($module.Name) with elevation" -ForegroundColor Green
-                                Write-Verbose "Successfully updated $($module.Name) with elevation"
+                                Write-Host "  Successfully updated $moduleName with elevation" -ForegroundColor Green
+                                Write-Verbose "Successfully updated $moduleName with elevation"
                             }
                             catch
                             {
-                                Write-Warning "Failed to update $($module.Name) even with elevation: $($_.Exception.Message)"
+                                Write-Warning "Failed to update $moduleName even with elevation: $($_.Exception.Message)"
                                 $failedCount++
                             }
                         }
                         else
                         {
-                            Write-Warning "Failed to update $($module.Name): $errorMessage"
+                            Write-Warning "Failed to update ${moduleName}: $errorMessage"
                             $failedCount++
                         }
                     }
                     catch
                     {
-                        Write-Warning "Failed to update $($module.Name): $($_.Exception.Message)"
+                        Write-Warning "Failed to update ${moduleName}: $($_.Exception.Message)"
                         $failedCount++
                     }
                 }

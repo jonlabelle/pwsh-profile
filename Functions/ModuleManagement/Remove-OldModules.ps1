@@ -132,6 +132,7 @@ function Remove-OldModules
 
             $processedCount = 0
             $removedCount = 0
+            $identifiedOldVersionCount = 0
 
             foreach ($latestModule in $allModules)
             {
@@ -174,8 +175,10 @@ function Remove-OldModules
 
                     if ($oldVersions)
                     {
+                        $oldVersions = @($oldVersions)
+                        $identifiedOldVersionCount += $oldVersions.Count
                         $oldVersionList = ($oldVersions | ForEach-Object { $_.Version }) -join ', '
-                        Write-Host "Processing $moduleName [latest: $($latestModule.Version)] - removing versions: $oldVersionList" -ForegroundColor Cyan
+                        Write-Host "Processing $moduleName [latest: $($latestModule.Version)] - found old versions: $oldVersionList" -ForegroundColor Cyan
 
                         foreach ($oldVersion in $oldVersions)
                         {
@@ -227,9 +230,17 @@ function Remove-OldModules
 
             Write-Progress -Activity 'Cleaning up old module versions' -Completed
 
-            if ($removedCount -gt 0)
+            if ($WhatIfPreference -and $identifiedOldVersionCount -gt 0)
+            {
+                Write-Host "WhatIf: Would remove $identifiedOldVersionCount old module version(s)" -ForegroundColor Yellow
+            }
+            elseif ($removedCount -gt 0)
             {
                 Write-Host "Successfully removed $removedCount old module version(s)" -ForegroundColor Green
+            }
+            elseif ($identifiedOldVersionCount -gt 0)
+            {
+                Write-Host "Identified $identifiedOldVersionCount old module version(s), but none were removed" -ForegroundColor Yellow
             }
             else
             {
