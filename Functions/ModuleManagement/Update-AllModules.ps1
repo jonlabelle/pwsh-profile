@@ -42,6 +42,10 @@ function Update-AllModules
         Prompts the user for each module update, allowing them to choose whether to update each
         individual module. This provides fine-grained control over which modules are updated.
 
+    .PARAMETER RemoveOldVersions
+        Removes older installed versions for modules that were successfully updated. This reuses
+        the Remove-OldModules function so the cleanup behavior stays consistent.
+
     .PARAMETER WhatIf
         Shows what modules would be updated without actually updating them.
 
@@ -97,6 +101,11 @@ function Update-AllModules
         Forcefully updates all modules with verbose output.
 
     .EXAMPLE
+        PS > Update-AllModules -RemoveOldVersions
+
+        Updates all outdated modules and removes their older installed versions afterward.
+
+    .EXAMPLE
         PS > Update-AllModules -WhatIf
         PS > Get-OutdatedModules | ForEach-Object { Update-Module -Name $_.Name -SkipPublisherCheck }
 
@@ -132,6 +141,7 @@ function Update-AllModules
         - Use -SkipPublisherCheck to bypass digital signature verification issues (requires PowerShellGet 2.0+)
         - Use -Interactive for fine-grained control over which modules to update
         - The Invoke-ElevatedCommand function (Functions/SystemAdministration/Invoke-ElevatedCommand.ps1) function must be available for elevation support
+        - The Remove-OldModules function (Functions/ModuleManagement/Remove-OldModules.ps1) must be available when using -RemoveOldVersions
 
         SECURITY CONSIDERATIONS:
         - The -SkipPublisherCheck parameter bypasses PowerShell's built-in security that validates
@@ -180,7 +190,10 @@ function Update-AllModules
         [Switch]$SkipPublisherCheck,
 
         [Parameter()]
-        [Switch]$Interactive
+        [Switch]$Interactive,
+
+        [Parameter()]
+        [Switch]$RemoveOldVersions
     )
 
     begin
@@ -318,6 +331,11 @@ function Update-AllModules
         if ($UseElevation -and $script:IsWindowsPlatform)
         {
             Import-DependencyIfNeeded -FunctionName 'Invoke-ElevatedCommand' -RelativePath '..\SystemAdministration\Invoke-ElevatedCommand.ps1'
+        }
+
+        if ($RemoveOldVersions)
+        {
+            Import-DependencyIfNeeded -FunctionName 'Remove-OldModules' -RelativePath 'Remove-OldModules.ps1'
         }
 
         # Check PowerShellGet version for SkipPublisherCheck compatibility
@@ -460,6 +478,14 @@ function Update-AllModules
                 {
                     Write-Host "  - $($moduleInfo.Name): $($moduleInfo.CurrentVersion) ~> $($moduleInfo.AvailableVersion)" -ForegroundColor Cyan
                 }
+
+                if ($RemoveOldVersions)
+                {
+                    Write-Host ''
+                    Write-Host 'WhatIf: Older installed versions would be removed for successfully updated modules:' -ForegroundColor Yellow
+                    Remove-OldModules -IncludeModule $modulesToProcess.Name -Force:$Force -Verbose:($VerbosePreference -eq 'Continue') -WhatIf
+                }
+
                 return
             }
 
@@ -486,6 +512,7 @@ function Update-AllModules
                 $failedCount = 0
                 $processedCount = 0
                 $skippedCount = 0
+                $updatedModuleNames = @()
 
                 foreach ($moduleInfo in $modulesToProcess)
                 {
@@ -551,6 +578,7 @@ function Update-AllModules
 
                         Update-Module @moduleUpdateParams
                         $updatedCount++
+                        $updatedModuleNames += $moduleName
                         Write-Verbose "Successfully updated $moduleName"
                     }
                     catch [Microsoft.PowerShell.Commands.WriteErrorException]
@@ -598,6 +626,7 @@ function Update-AllModules
                                 Invoke-ElevatedCommand -Scriptblock $elevatedScriptBlock
 
                                 $updatedCount++
+                                $updatedModuleNames += $moduleName
                                 Write-Host "  Successfully updated $moduleName with elevation" -ForegroundColor Green
                                 Write-Verbose "Successfully updated $moduleName with elevation"
                             }
@@ -657,6 +686,7 @@ function Update-AllModules
                                 Invoke-ElevatedCommand -Scriptblock $elevatedScriptBlock
 
                                 $updatedCount++
+                                $updatedModuleNames += $moduleName
                                 Write-Host "  Successfully updated $moduleName with elevation" -ForegroundColor Green
                                 Write-Verbose "Successfully updated $moduleName with elevation"
                             }
@@ -705,6 +735,21 @@ function Update-AllModules
                 if ($updatedCount -eq 0 -and $failedCount -eq 0 -and $skippedCount -eq 0)
                 {
                     Write-Host 'No modules were processed' -ForegroundColor Yellow
+                }
+
+                if ($RemoveOldVersions -and $updatedModuleNames.Count -gt 0)
+                {
+                    $updatedModuleNames = @($updatedModuleNames | Select-Object -Unique)
+
+                    try
+                    {
+                        Write-Host 'Removing old versions for successfully updated modules...' -ForegroundColor Cyan
+                        Remove-OldModules -IncludeModule $updatedModuleNames -Force:$Force -Verbose:($VerbosePreference -eq 'Continue')
+                    }
+                    catch
+                    {
+                        Write-Warning "Failed to remove old module versions after update: $($_.Exception.Message)"
+                    }
                 }
 
                 Write-Host 'Module update process completed' -ForegroundColor Green

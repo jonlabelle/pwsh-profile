@@ -12,6 +12,10 @@ function Remove-OldModules
     .PARAMETER ExcludeModule
         Array of module names to exclude from cleanup. These modules will not have old versions removed.
 
+    .PARAMETER IncludeModule
+        Array of specific module names to clean up. When specified, only these modules
+        will be considered. Cannot be used together with ExcludeModule.
+
     .PARAMETER WhatIf
         Shows what modules would be removed without actually removing them.
 
@@ -30,6 +34,11 @@ function Remove-OldModules
         PS > Remove-OldModules -ExcludeModule @('PSReadLine', 'PowerShellGet') -WhatIf
 
         Shows what would be removed while excluding specific modules from cleanup.
+
+    .EXAMPLE
+        PS > Remove-OldModules -IncludeModule @('Pester', 'PSScriptAnalyzer')
+
+        Removes old versions only for the specified modules.
 
     .EXAMPLE
         PS > Remove-OldModules -Force -Verbose
@@ -65,6 +74,7 @@ function Remove-OldModules
         - May require elevated permissions on some systems
         - System modules are excluded by default for safety
         - Always keeps the newest version of each module
+        - IncludeModule targets specific modules and overrides the default safety exclusions for those modules
 
         Original concept by Luke Murray (Luke.Geek.NZ)
         Enhanced for cross-platform compatibility and error handling
@@ -87,6 +97,9 @@ function Remove-OldModules
         [String[]]$ExcludeModule = @(),
 
         [Parameter()]
+        [String[]]$IncludeModule = @(),
+
+        [Parameter()]
         [Switch]$Force,
 
         [Parameter()]
@@ -96,6 +109,14 @@ function Remove-OldModules
     begin
     {
         Write-Verbose 'Starting old module cleanup process'
+        $cancelCleanupProcess = $false
+
+        if ($ExcludeModule.Count -gt 0 -and $IncludeModule.Count -gt 0)
+        {
+            Write-Error 'Cannot use both ExcludeModule and IncludeModule parameters together. Use one or the other.'
+            $cancelCleanupProcess = $true
+            return
+        }
 
         # System modules that should typically be excluded for safety
         $systemModules = @(
@@ -116,11 +137,17 @@ function Remove-OldModules
 
     process
     {
+        if ($cancelCleanupProcess)
+        {
+            Write-Verbose 'Old module cleanup process cancelled before execution'
+            return
+        }
+
         try
         {
             # Get all installed modules
             Write-Host 'Retrieving installed modules...' -ForegroundColor Cyan
-            $allModules = Get-InstalledModule -ErrorAction Stop
+            $allModules = @(Get-InstalledModule -ErrorAction Stop)
 
             if (-not $allModules -or $allModules.Count -eq 0)
             {
@@ -128,38 +155,85 @@ function Remove-OldModules
                 return
             }
 
-            Write-Host "Found $($allModules.Count) installed module(s)" -ForegroundColor Green
+            if ($IncludeModule.Count -gt 0)
+            {
+                $modulesToProcess = foreach ($installedModule in $allModules)
+                {
+                    foreach ($includePattern in $IncludeModule)
+                    {
+                        if ($installedModule.Name -like $includePattern)
+                        {
+                            $installedModule
+                            break
+                        }
+                    }
+                }
+
+                $notFoundPatterns = foreach ($includePattern in $IncludeModule)
+                {
+                    if (-not ($allModules | Where-Object { $_.Name -like $includePattern }))
+                    {
+                        $includePattern
+                    }
+                }
+
+                foreach ($missingPattern in $notFoundPatterns)
+                {
+                    Write-Warning "No installed modules matched IncludeModule pattern '$missingPattern'"
+                }
+            }
+            elseif ($ExcludeModule.Count -gt 0)
+            {
+                $modulesToProcess = $allModules | Where-Object { $_.Name -notin $ExcludeModule }
+            }
+            else
+            {
+                $modulesToProcess = $allModules
+            }
+
+            $modulesToProcess = @($modulesToProcess)
+
+            if (-not $modulesToProcess -or $modulesToProcess.Count -eq 0)
+            {
+                Write-Host 'No modules found to clean up.' -ForegroundColor Yellow
+                return
+            }
+
+            Write-Host "Found $($modulesToProcess.Count) installed module(s) to evaluate" -ForegroundColor Green
 
             $processedCount = 0
             $removedCount = 0
             $identifiedOldVersionCount = 0
 
-            foreach ($latestModule in $allModules)
+            foreach ($latestModule in $modulesToProcess)
             {
                 $processedCount++
                 $moduleName = $latestModule.Name
 
-                # Check if module should be excluded
-                $shouldExclude = $false
-                foreach ($excludePattern in $finalExcludeList)
+                # IncludeModule explicitly targets the requested modules, even if they are otherwise excluded for safety.
+                if ($IncludeModule.Count -eq 0)
                 {
-                    if ($moduleName -like $excludePattern)
+                    $shouldExclude = $false
+                    foreach ($excludePattern in $finalExcludeList)
                     {
-                        $shouldExclude = $true
-                        break
+                        if ($moduleName -like $excludePattern)
+                        {
+                            $shouldExclude = $true
+                            break
+                        }
+                    }
+
+                    if ($shouldExclude)
+                    {
+                        Write-Verbose "Skipping excluded module: $moduleName"
+                        continue
                     }
                 }
 
-                if ($shouldExclude)
-                {
-                    Write-Verbose "Skipping excluded module: $moduleName"
-                    continue
-                }
-
                 # Calculate progress percentage safely
-                $percentComplete = if ($allModules.Count -gt 0)
+                $percentComplete = if ($modulesToProcess.Count -gt 0)
                 {
-                    ($processedCount / $allModules.Count) * 100
+                    ($processedCount / $modulesToProcess.Count) * 100
                 }
                 else
                 {
