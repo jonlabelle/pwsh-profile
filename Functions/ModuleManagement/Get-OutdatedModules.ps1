@@ -124,6 +124,79 @@ function Get-OutdatedModules
 
     begin
     {
+        function Test-ModuleRepositoryAccess
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$RepositoryName
+            )
+
+            try
+            {
+                $null = Get-PSRepository -Name $RepositoryName -ErrorAction Stop
+            }
+            catch
+            {
+                throw "Repository '$RepositoryName' is not registered. Verify it with Get-PSRepository -Name $RepositoryName."
+            }
+
+            if ($PSVersionTable.PSVersion.Major -lt 6)
+            {
+                try
+                {
+                    $tls12 = [System.Net.SecurityProtocolType]::Tls12
+                    $currentProtocol = [System.Net.ServicePointManager]::SecurityProtocol
+
+                    if (($currentProtocol -band $tls12) -eq 0)
+                    {
+                        [System.Net.ServicePointManager]::SecurityProtocol = $currentProtocol -bor $tls12
+                    }
+
+                    Write-Verbose 'Ensured TLS 1.2 is enabled for repository queries in this session'
+                }
+                catch
+                {
+                    Write-Verbose "Could not auto-configure TLS 1.2 for repository queries: $($_.Exception.Message)"
+                }
+            }
+
+            try
+            {
+                $repositoryProbeParams = @{
+                    Repository = $RepositoryName
+                    ErrorAction = 'Stop'
+                    WarningAction = 'SilentlyContinue'
+                }
+
+                if ($RepositoryName -eq 'PSGallery')
+                {
+                    $repositoryProbeParams.Name = 'PowerShellGet'
+                }
+
+                Find-Module @repositoryProbeParams | Select-Object -First 1 | Out-Null
+            }
+            catch
+            {
+                $resolutionSteps = @(
+                    "Repository '$RepositoryName' could not be reached.",
+                    "Verify the repository with: Get-PSRepository -Name $RepositoryName"
+                )
+
+                if ($RepositoryName -eq 'PSGallery')
+                {
+                    if ($PSVersionTable.PSVersion.Major -lt 6)
+                    {
+                        $resolutionSteps += 'On Windows PowerShell 5.1, enable TLS 1.2 for this session with: Set-TlsSecurityProtocol -Protocol Tls12'
+                    }
+
+                    $resolutionSteps += 'If PSGallery registration is broken, restore it with: Register-PSRepository -Default'
+                }
+
+                $resolutionSteps += "Original error: $($_.Exception.Message)"
+                throw ($resolutionSteps -join ' ')
+            }
+        }
+
         Write-Verbose 'Starting outdated module check process'
 
         # System modules that should typically be excluded for safety
@@ -159,10 +232,21 @@ function Get-OutdatedModules
                 return
             }
 
+            try
+            {
+                Test-ModuleRepositoryAccess -RepositoryName $Repository
+            }
+            catch
+            {
+                Write-Error $_.Exception.Message
+                return
+            }
+
             Write-Host "Found $($installedModules.Count) installed module(s) to check" -ForegroundColor Green
 
             $processedCount = 0
             $checkedCount = 0
+            $unavailableCount = 0
 
             foreach ($installedModule in $installedModules)
             {
@@ -203,7 +287,7 @@ function Get-OutdatedModules
                     Write-Verbose "Checking $moduleName (current: $($installedModule.Version))"
 
                     # Find the latest version in the repository
-                    $latestModule = Find-Module -Name $moduleName -Repository $Repository -ErrorAction Stop
+                    $latestModule = Find-Module -Name $moduleName -Repository $Repository -ErrorAction Stop -WarningAction SilentlyContinue
 
                     $isUpToDate = $latestModule.Version -le $installedModule.Version
 
@@ -261,7 +345,16 @@ function Get-OutdatedModules
                 }
                 catch [System.InvalidOperationException]
                 {
-                    Write-Warning "Module $moduleName not found in repository $Repository or access denied"
+                    if ($_.Exception.Message -like '*No match was found*')
+                    {
+                        $unavailableCount++
+                        Write-Verbose "Module $moduleName is not available in repository $Repository - skipping"
+                    }
+                    else
+                    {
+                        Write-Warning "Error checking module $moduleName`: $($_.Exception.Message)"
+                    }
+
                     continue
                 }
                 catch
@@ -292,6 +385,11 @@ function Get-OutdatedModules
             else
             {
                 Write-Host "All $checkedCount checked modules are up to date" -ForegroundColor Green
+            }
+
+            if ($unavailableCount -gt 0)
+            {
+                Write-Host "$unavailableCount module(s) were not available in $Repository and were skipped" -ForegroundColor DarkYellow
             }
         }
         catch [System.Management.Automation.CommandNotFoundException]
