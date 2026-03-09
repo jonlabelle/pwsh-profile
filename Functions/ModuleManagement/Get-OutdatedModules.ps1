@@ -184,9 +184,14 @@ function Get-OutdatedModules
 
                 if ($RepositoryName -eq 'PSGallery')
                 {
+                    if (-not (Get-PackageProvider -Name NuGet -ListAvailable -ErrorAction SilentlyContinue))
+                    {
+                        $resolutionSteps += 'Install the NuGet package provider with: Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force'
+                    }
+
                     if ($PSVersionTable.PSVersion.Major -lt 6)
                     {
-                        $resolutionSteps += 'On Windows PowerShell 5.1, enable TLS 1.2 for this session with: Set-TlsSecurityProtocol -Protocol Tls12'
+                        $resolutionSteps += 'On Windows PowerShell 5.1, enable TLS 1.2 for this session with: [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12'
                     }
 
                     $resolutionSteps += 'If PSGallery registration is broken, restore it with: Register-PSRepository -Default'
