@@ -476,7 +476,7 @@ Final line
             $singleFile = Join-Path -Path $script:testDir -ChildPath 'file1.txt'
             $results = Search-FileContent -Pattern 'MATCH' -Path @($script:testDir, $singleFile, $singleFile) -Simple
             $results.Count | Should -Be 2
-            ($results | Where-Object { $_.Path -eq $singleFile }).Count | Should -Be 1
+            @($results | Where-Object { $_.Path -eq $singleFile }).Count | Should -Be 1
         }
     }
 
