@@ -123,7 +123,8 @@ function Get-EncodingFromName
     }
     catch
     {
-        Write-Error "Failed to create encoding '$EncodingName': $($_.Exception.Message)"
+        # Keep this error non-terminating even when caller preference is Stop.
+        Write-Error "Failed to create encoding '$EncodingName': $($_.Exception.Message)" -ErrorAction Continue
         return $null
     }
 }
