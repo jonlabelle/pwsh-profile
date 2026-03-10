@@ -713,7 +713,7 @@
             return $result.ToString()
         }
 
-        function Remove-ControlCharacters
+        function Get-StringWithoutControlCharacter
         {
             param([String]$Text)
 
@@ -726,7 +726,7 @@
             return [regex]::Replace($Text, '[\x00-\x1F\x7F]', '')
         }
 
-        function Remove-ShellMetaCharacters
+        function Get-StringWithoutShellMetaCharacter
         {
             param([String]$Text)
 
@@ -913,13 +913,13 @@
             # 5. Remove control/shell characters
             if ($RemoveControlCharacters)
             {
-                $result = Remove-ControlCharacters -Text $result
+                $result = Get-StringWithoutControlCharacter -Text $result
                 Write-Verbose "After removing control characters: '$result'"
             }
 
             if ($RemoveShellMetaCharacters)
             {
-                $result = Remove-ShellMetaCharacters -Text $result
+                $result = Get-StringWithoutShellMetaCharacter -Text $result
                 Write-Verbose "After removing shell meta-characters: '$result'"
             }
 
