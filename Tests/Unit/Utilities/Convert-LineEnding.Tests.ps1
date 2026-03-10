@@ -634,10 +634,11 @@ Describe 'Convert-LineEndings' {
             $script:ContentBinaryFile = Join-Path -Path $script:TestDir -ChildPath 'content-binary.dat'  # For content-based detection
             $script:ImageFile = Join-Path -Path $script:TestDir -ChildPath 'image-test.jpg'            # For extension-based detection
             $script:ExecutableFile = Join-Path -Path $script:TestDir -ChildPath 'executable-test.exe'  # For extension-based detection
+            $script:WasmFile = Join-Path -Path $script:TestDir -ChildPath 'module-test.wasm'           # New binary extension
         }
 
         AfterEach {
-            @($script:ContentBinaryFile, $script:ImageFile, $script:ExecutableFile) | ForEach-Object {
+            @($script:ContentBinaryFile, $script:ImageFile, $script:ExecutableFile, $script:WasmFile) | ForEach-Object {
                 if (Test-Path $_)
                 {
                     Remove-Item -Path $_ -Force -ErrorAction SilentlyContinue
@@ -660,6 +661,15 @@ Describe 'Convert-LineEndings' {
 
             $exeContent = Get-Content -Path $script:ExecutableFile -Raw
             $exeContent | Should -Be 'fake content'
+        }
+
+        It 'Should detect additional binary extensions (WASM)' {
+            [System.IO.File]::WriteAllText($script:WasmFile, "line1`r`nline2", [System.Text.Encoding]::UTF8)
+
+            { Convert-LineEndings -Path $script:WasmFile -LineEnding 'LF' } | Should -Not -Throw
+
+            $wasmContent = Get-Content -Path $script:WasmFile -Raw
+            $wasmContent | Should -Match "`r"
         }
 
         It 'Should detect binary files by content (null bytes)' {
@@ -688,12 +698,16 @@ Describe 'Convert-LineEndings' {
     Context 'Directory Processing' {
         BeforeEach {
             $script:SubDir = Join-Path -Path $script:TestDir -ChildPath 'subdir'
+            $script:IdeaDir = Join-Path -Path $script:TestDir -ChildPath '.idea'
             New-Item -Path $script:SubDir -ItemType Directory -Force | Out-Null
+            New-Item -Path $script:IdeaDir -ItemType Directory -Force | Out-Null
 
             # Create test files with explicit CRLF line endings using direct file writing
             [System.IO.File]::WriteAllText((Join-Path -Path $script:TestDir -ChildPath 'test1.txt'), "Line 1`r`nLine 2", [System.Text.Encoding]::UTF8)
             [System.IO.File]::WriteAllText((Join-Path -Path $script:TestDir -ChildPath 'test1.ps1'), "Line A`r`nLine B", [System.Text.Encoding]::UTF8)
+            [System.IO.File]::WriteAllText((Join-Path -Path $script:TestDir -ChildPath '.env.local'), "KEY=value`r`n", [System.Text.Encoding]::UTF8)
             [System.IO.File]::WriteAllText((Join-Path -Path $script:SubDir -ChildPath 'test2.txt'), "Line X`r`nLine Y", [System.Text.Encoding]::UTF8)
+            [System.IO.File]::WriteAllText((Join-Path -Path $script:IdeaDir -ChildPath 'workspace.xml'), "<root>`r`n</root>`r`n", [System.Text.Encoding]::UTF8)
 
             # Create binary file that should be skipped
             [System.IO.File]::WriteAllBytes((Join-Path -Path $script:TestDir -ChildPath 'binary.exe'), [byte[]](1, 2, 3, 0, 4, 5))
@@ -704,6 +718,7 @@ Describe 'Convert-LineEndings' {
             $filesToClean = @(
                 (Join-Path -Path $script:TestDir -ChildPath 'test1.txt'),
                 (Join-Path -Path $script:TestDir -ChildPath 'test1.ps1'),
+                (Join-Path -Path $script:TestDir -ChildPath '.env.local'),
                 (Join-Path -Path $script:TestDir -ChildPath 'binary.exe')
             )
 
@@ -718,6 +733,11 @@ Describe 'Convert-LineEndings' {
             if (Test-Path $script:SubDir)
             {
                 Remove-Item -Path $script:SubDir -Recurse -Force -ErrorAction SilentlyContinue
+            }
+
+            if (Test-Path $script:IdeaDir)
+            {
+                Remove-Item -Path $script:IdeaDir -Recurse -Force -ErrorAction SilentlyContinue
             }
         }
 
@@ -770,6 +790,21 @@ Describe 'Convert-LineEndings' {
             # .txt file should not be converted (excluded)
             $txtResult = Get-Content -Path (Join-Path -Path $script:TestDir -ChildPath 'test1.txt') -Raw
             $txtResult | Should -Match "`r"
+        }
+
+        It 'Should include .env.* files by default' {
+            Convert-LineEndings -Path $script:TestDir -LineEnding 'LF'
+
+            $envResult = Get-Content -Path (Join-Path -Path $script:TestDir -ChildPath '.env.local') -Raw
+            $envResult | Should -Not -Match "`r"
+            $envResult | Should -Be "KEY=value`n"
+        }
+
+        It 'Should exclude .idea directory by default' {
+            Convert-LineEndings -Path $script:TestDir -LineEnding 'LF' -Recurse
+
+            $ideaResult = Get-Content -Path (Join-Path -Path $script:IdeaDir -ChildPath 'workspace.xml') -Raw
+            $ideaResult | Should -Match "`r"
         }
     }
 

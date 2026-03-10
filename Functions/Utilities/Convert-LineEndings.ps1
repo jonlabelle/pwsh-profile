@@ -386,7 +386,7 @@ function Convert-LineEndings
 
             # Configuration Files
             '*.ini', '*.cfg', '*.config', '*.conf', '*.rc', '*.properties',
-            '*.toml', '*.env', '*.editorconfig', '*.htaccess',
+            '*.toml', '*.env', '.env.*', '*.editorconfig', '*.htaccess',
 
             # Data Formats
             '*.xml', '*.json', '*.yml', '*.yaml', '*.csv', '*.tsv',
@@ -424,13 +424,14 @@ function Convert-LineEndings
         [Parameter()]
         [String[]]$Exclude = @(
             # Executables and Libraries
-            '*.exe', '*.dll', '*.so', '*.dylib', '.a', '.lib', '*.obj', '*.o',
+            '*.exe', '*.dll', '*.so', '*.dylib', '*.a', '*.lib', '*.obj', '*.o',
 
             # Archives
-            '*.zip', '*.7z', '*.rar', '*.tar', '*.gz', '*.bz2', '.xz',
+            '*.zip', '*.7z', '*.rar', '*.tar', '*.gz', '*.bz2', '*.xz',
 
             # Images
             '*.jpg', '*.jpeg', '*.png', '*.gif', '*.bmp', '*.tiff', '*.ico',
+            '*.webp', '*.avif', '*.heic', '*.svgz',
 
             # Audio/Video
             '*.mp3', '*.mp4', '*.avi', '*.mkv', '*.mov', '*.wmv', '*.flv',
@@ -443,10 +444,10 @@ function Convert-LineEndings
 
             # Additional Archives and Binaries
             '*.tgz', '*.tbz2', '*.txz', '*.cab', '*.msi', '*.dmg', '*.pkg',
-            '*.deb', '*.rpm',
+            '*.deb', '*.rpm', '*.nupkg', '*.snupkg',
 
             # Compiled Code
-            '*.class', '*.jar', '*.pyc', '*.pyo', '*.pyd',
+            '*.class', '*.jar', '*.pyc', '*.pyo', '*.pyd', '*.wasm',
 
             # Additional Media Formats
             '*.flac', '*.wav', '*.aac', '*.ogg', '*.m4a', '*.m4v', '*.3gp', '*.webm',
@@ -459,7 +460,9 @@ function Convert-LineEndings
 
             # Version Control and Build Directories
             '.svn', '.hg', '.bzr', '__pycache__', 'dist', 'build', 'target',
-            'bin', 'obj',
+            'bin', 'obj', '.idea',
+            '.venv', 'venv', '.tox', '.pytest_cache', '.mypy_cache',
+            '.next', '.nuxt', '.svelte-kit', '.terraform', 'coverage',
 
             # System/Cache Files
             '.DS_Store', 'Thumbs.db', '.cache'
@@ -531,6 +534,35 @@ function Convert-LineEndings
 
         $targetLineEnding = $lineEndings[$LineEnding]
         $processedFiles = [System.Collections.ArrayList]::new()
+        $binaryExtensions = @(
+            # Executables and libraries
+            '.exe', '.dll', '.so', '.dylib', '.a', '.lib', '.obj', '.o',
+
+            # Archives, packages, and installers
+            '.zip', '.7z', '.rar', '.tar', '.gz', '.bz2', '.xz', '.tgz', '.tbz2', '.txz',
+            '.cab', '.iso', '.vhd', '.vhdx', '.msi', '.dmg', '.pkg', '.deb', '.rpm',
+            '.nupkg', '.snupkg', '.appimage',
+
+            # Images
+            '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.ico',
+            '.webp', '.avif', '.heic', '.svgz', '.psd',
+
+            # Audio and video
+            '.mp3', '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv',
+            '.webm', '.flac', '.wav', '.aac', '.ogg', '.m4a', '.m4v', '.3gp',
+
+            # Documents
+            '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.odt', '.ods', '.odp',
+
+            # Compiled code and binaries
+            '.class', '.jar', '.pyc', '.pyo', '.pyd', '.swf', '.wasm',
+
+            # Fonts
+            '.ttf', '.otf', '.woff', '.woff2',
+
+            # Databases
+            '.sqlite', '.db', '.mdb'
+        )
 
         function Get-FileAnalysis
         {
@@ -551,7 +583,7 @@ function Convert-LineEndings
 
             try
             {
-                $fileInfo = Get-Item -Path $FilePath -ErrorAction Stop
+                $fileInfo = Get-Item -Path $FilePath -Force -ErrorAction Stop
                 if ($fileInfo.Length -eq 0)
                 {
                     return @{
@@ -566,16 +598,6 @@ function Convert-LineEndings
 
                 # First check file extension for obvious binary files
                 $extension = [System.IO.Path]::GetExtension($FilePath).ToLower()
-                $binaryExtensions = @(
-                    '.exe', '.dll', '.so', '.dylib', '.a', '.lib', '.obj', '.o',
-                    '.zip', '.7z', '.rar', '.tar', '.gz', '.bz2', '.xz', '.tgz', '.tbz2', '.txz',
-                    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.ico', '.webp',
-                    '.mp3', '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.flac', '.wav',
-                    '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
-                    '.class', '.jar', '.pyc', '.pyo', '.pyd',
-                    '.ttf', '.otf', '.woff', '.woff2',
-                    '.sqlite', '.db', '.mdb'
-                )
 
                 if ($binaryExtensions -contains $extension)
                 {
@@ -1048,34 +1070,6 @@ function Convert-LineEndings
             {
                 # First check file extension
                 $extension = [System.IO.Path]::GetExtension($FilePath).ToLower()
-                $binaryExtensions = @(
-                    # Executables and Libraries
-                    '.exe', '.dll', '.so', '.dylib', '.a', '.lib', '.obj', '.o',
-
-                    # Archives
-                    '.zip', '.7z', '.rar', '.tar', '.gz', '.bz2', '.xz',
-                    '.cab', '.iso', '.vhd', '.vhdx',
-
-                    # Images
-                    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.ico',
-                    '.svgz', '.webp', '.heic', '.psd',
-
-                    # Audio/Video
-                    '.mp3', '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv',
-                    '.webm', '.flac', '.wav', '.m4a', '.m4v', '.3gp',
-
-                    # Documents
-                    '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.rtf',
-
-                    # Installers and Packages
-                    '.msi', '.dmg', '.pkg', '.deb', '.rpm', '.appimage', '.bin', '.jar',
-
-                    # Fonts
-                    '.ttf', '.otf', '.woff', '.woff2',
-
-                    # Databases and Compiled Files
-                    '.sqlite', '.db', '.pyc', '.class', '.swf'
-                )
 
                 if ($binaryExtensions -contains $extension)
                 {
@@ -1417,7 +1411,7 @@ function Convert-LineEndings
 
             try
             {
-                $fileInfo = Get-Item -Path $FilePath
+                $fileInfo = Get-Item -Path $FilePath -Force
                 if ($fileInfo.Length -eq 0)
                 {
                     # Empty files don't end with newline
@@ -1622,7 +1616,7 @@ function Convert-LineEndings
             {
                 try
                 {
-                    $fileInfo = Get-Item -Path $FilePath
+                    $fileInfo = Get-Item -Path $FilePath -Force
                     $originalTimestamps = @{
                         CreationTime = $fileInfo.CreationTime
                         LastWriteTime = $fileInfo.LastWriteTime
@@ -1902,7 +1896,7 @@ function Convert-LineEndings
                 }
 
                 # Replace original file with converted file
-                if ($Force -or -not (Get-Item $FilePath).IsReadOnly)
+                if ($Force -or -not (Get-Item -Path $FilePath -Force).IsReadOnly)
                 {
                     Move-Item -Path $tempFilePath -Destination $FilePath -Force
 
@@ -1911,7 +1905,7 @@ function Convert-LineEndings
                     {
                         try
                         {
-                            $fileInfo = Get-Item -Path $FilePath
+                            $fileInfo = Get-Item -Path $FilePath -Force
                             $fileInfo.CreationTime = $originalTimestamps.CreationTime
                             $fileInfo.LastWriteTime = $originalTimestamps.LastWriteTime
                             Write-Verbose "Restored original timestamps for '$FilePath'"
@@ -1986,7 +1980,7 @@ function Convert-LineEndings
                 continue
             }
 
-            $item = Get-Item $resolvedPath
+            $item = Get-Item -Path $resolvedPath -Force
 
             if ($item.PSIsContainer)
             {
@@ -1996,6 +1990,7 @@ function Convert-LineEndings
                 $getChildItemParams = @{
                     Path = $resolvedPath
                     File = $true
+                    Force = $true
                     ErrorAction = 'SilentlyContinue'
                 }
 
