@@ -331,15 +331,18 @@ Line 9
             $gitDir = Join-Path -Path $script:testDir -ChildPath '.git'
             $nodeDir = Join-Path -Path $script:testDir -ChildPath 'node_modules'
             $srcDir = Join-Path -Path $script:testDir -ChildPath 'src'
+            $srcUtilsDir = Join-Path -Path $script:testDir -ChildPath 'src-utils'
 
             New-Item -ItemType Directory -Path $gitDir -Force | Out-Null
             New-Item -ItemType Directory -Path $nodeDir -Force | Out-Null
             New-Item -ItemType Directory -Path $srcDir -Force | Out-Null
+            New-Item -ItemType Directory -Path $srcUtilsDir -Force | Out-Null
 
             # Create files in different directories
             'MATCH in git' | Set-Content -Path (Join-Path -Path $gitDir -ChildPath 'config')
             'MATCH in node' | Set-Content -Path (Join-Path -Path $nodeDir -ChildPath 'package.json')
             'MATCH in src' | Set-Content -Path (Join-Path -Path $srcDir -ChildPath 'main.ps1')
+            'MATCH in src-utils' | Set-Content -Path (Join-Path -Path $srcUtilsDir -ChildPath 'helper.ps1')
         }
 
         It 'Should exclude .git directories by default' {
@@ -354,11 +357,22 @@ Line 9
 
         It 'Should allow custom directory exclusions' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -ExcludeDirectory 'src'
-            $results.Path | Should -Not -BeLike '*src*'
+            $results.Path | Should -Not -Match '[\\/]src[\\/]'
+        }
+
+        It 'Should not exclude similarly named directories without wildcards' {
+            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -ExcludeDirectory 'src'
+            $results.Path | Should -Contain (Join-Path -Path $script:testDir -ChildPath 'src-utils/helper.ps1')
+        }
+
+        It 'Should support wildcard directory exclusions' {
+            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -ExcludeDirectory 'src*'
+            $results.Path | Should -Not -Contain (Join-Path -Path $script:testDir -ChildPath 'src/main.ps1')
+            $results.Path | Should -Not -Contain (Join-Path -Path $script:testDir -ChildPath 'src-utils/helper.ps1')
         }
 
         It 'Should support multiple directory exclusions' {
-            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -ExcludeDirectory '.git', 'node_modules', 'src'
+            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -ExcludeDirectory '.git', 'node_modules', 'src', 'src-utils'
             $results | Should -BeNullOrEmpty
         }
     }
@@ -456,6 +470,13 @@ Final line
         It 'Should accept path strings from pipeline' {
             $results = (Get-ChildItem $script:testDir -File).FullName | Search-FileContent -Pattern 'MATCH' -Simple
             $results.Count | Should -Be 2
+        }
+
+        It 'Should de-duplicate files from overlapping path inputs' {
+            $singleFile = Join-Path -Path $script:testDir -ChildPath 'file1.txt'
+            $results = Search-FileContent -Pattern 'MATCH' -Path @($script:testDir, $singleFile, $singleFile) -Simple
+            $results.Count | Should -Be 2
+            ($results | Where-Object { $_.Path -eq $singleFile }).Count | Should -Be 1
         }
     }
 

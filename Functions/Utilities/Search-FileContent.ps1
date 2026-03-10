@@ -69,8 +69,10 @@ function Search-FileContent
         Supports multiple patterns as an array.
 
     .PARAMETER ExcludeDirectory
-        Directory names to exclude from recursive search (e.g., '.git', 'node_modules').
-        Supports multiple patterns as an array.
+        Directory names or wildcard patterns to exclude from recursive search
+        (e.g., '.git', 'node_modules', 'build*').
+        Exclusion is applied to directory path segments, so a pattern like 'src'
+        excludes '/project/src/*' but not '/project/src-utils/*' unless you use a wildcard.
 
     .PARAMETER MaxDepth
         Maximum directory depth for recursive search. Default is unlimited.
@@ -342,6 +344,10 @@ function Search-FileContent
     {
         Write-Verbose 'Initializing Search-FileContent'
 
+        # Detect platform once for case-sensitive/insensitive path comparisons.
+        $isWindowsPlatform = if ($PSVersionTable.PSVersion.Major -lt 6) { $true } else { $IsWindows }
+        $filePathComparer = if ($isWindowsPlatform) { [System.StringComparer]::OrdinalIgnoreCase } else { [System.StringComparer]::Ordinal }
+
         # Helper function to convert a pattern to separator-aware regex
         function Convert-ToSeparatorAwarePattern
         {
@@ -586,6 +592,45 @@ function Search-FileContent
         }
 
         # Function to get files to search
+        function Test-IsExcludedDirectoryPath
+        {
+            param(
+                [String]$FilePath,
+                [String[]]$DirectoryPatterns
+            )
+
+            if (-not $DirectoryPatterns -or $DirectoryPatterns.Count -eq 0)
+            {
+                return $false
+            }
+
+            $directoryPath = [System.IO.Path]::GetDirectoryName($FilePath)
+            if ([String]::IsNullOrEmpty($directoryPath))
+            {
+                return $false
+            }
+
+            $pathSegments = $directoryPath -split '[\\/]'
+            foreach ($segment in $pathSegments)
+            {
+                if ([String]::IsNullOrWhiteSpace($segment))
+                {
+                    continue
+                }
+
+                foreach ($pattern in $DirectoryPatterns)
+                {
+                    if ($segment -like $pattern)
+                    {
+                        return $true
+                    }
+                }
+            }
+
+            return $false
+        }
+
+        # Function to get files to search
         function Get-SearchFile
         {
             param(
@@ -628,62 +673,61 @@ function Search-FileContent
                 }
 
                 $files = Get-ChildItem @getChildItemParams
+                $filteredFiles = [System.Collections.Generic.List[System.IO.FileInfo]]::new()
 
-                # Apply include filter
-                if ($IncludePatterns)
+                foreach ($candidateFile in $files)
                 {
-                    $files = $files | Where-Object {
-                        $fileName = $_.Name
-                        $shouldInclude = $false
+                    $fileName = $candidateFile.Name
+
+                    # Apply include filter.
+                    if ($IncludePatterns)
+                    {
+                        $includeMatch = $false
                         foreach ($pattern in $IncludePatterns)
                         {
                             if ($fileName -like $pattern)
                             {
-                                $shouldInclude = $true
+                                $includeMatch = $true
                                 break
                             }
                         }
-                        $shouldInclude
-                    }
-                }
 
-                # Apply exclude filter
-                if ($ExcludePatterns)
-                {
-                    $files = $files | Where-Object {
-                        $fileName = $_.Name
-                        $shouldExclude = $false
+                        if (-not $includeMatch)
+                        {
+                            continue
+                        }
+                    }
+
+                    # Apply exclude filter.
+                    if ($ExcludePatterns)
+                    {
+                        $excludeMatch = $false
                         foreach ($pattern in $ExcludePatterns)
                         {
                             if ($fileName -like $pattern)
                             {
-                                $shouldExclude = $true
+                                $excludeMatch = $true
                                 break
                             }
                         }
-                        -not $shouldExclude
-                    }
-                }
 
-                # Apply directory exclusion
-                if ($ExcludeDirs)
-                {
-                    $files = $files | Where-Object {
-                        $filePath = $_.FullName
-                        $shouldExclude = $false
-                        foreach ($dirPattern in $ExcludeDirs)
+                        if ($excludeMatch)
                         {
-                            if ($filePath -match [Regex]::Escape($dirPattern))
-                            {
-                                $shouldExclude = $true
-                                break
-                            }
+                            continue
                         }
-                        -not $shouldExclude
                     }
+
+                    # Apply directory exclusion against directory path segments
+                    # to avoid false positives from plain substring matching.
+                    if ($ExcludeDirs -and (Test-IsExcludedDirectoryPath -FilePath $candidateFile.FullName -DirectoryPatterns $ExcludeDirs))
+                    {
+                        continue
+                    }
+
+                    $filteredFiles.Add($candidateFile)
                 }
 
-                $files
+                $filteredFiles
             }
             else
             {
@@ -864,43 +908,76 @@ function Search-FileContent
 
             try
             {
-                # Read all lines for context support
-                $lines = [System.IO.File]::ReadAllLines($File.FullName)
                 $matchCount = 0
-                $results = @()
-                $matchedLineNumbers = @()
+                $results = [System.Collections.Generic.List[object]]::new()
+                $hasContext = $BeforeLines -gt 0 -or $AfterLines -gt 0
 
-                for ($i = 0; $i -lt $lines.Count; $i++)
+                if (-not $hasContext)
                 {
-                    $line = $lines[$i]
-                    $lineNumber = $i + 1
-
-                    if ($Regex.IsMatch($line))
+                    # Stream lines when context is not requested to reduce memory use
+                    # for large files and large file sets.
+                    $lineNumber = 0
+                    foreach ($line in [System.IO.File]::ReadLines($File.FullName))
                     {
-                        $matchCount++
-                        $matchedLineNumbers += $lineNumber
-
-                        # Store match with context
-                        $contextStart = [Math]::Max(0, $i - $BeforeLines)
-                        $contextEnd = [Math]::Min($lines.Count - 1, $i + $AfterLines)
-
-                        $contextLines = @()
-                        for ($c = $contextStart; $c -le $contextEnd; $c++)
+                        $lineNumber++
+                        if ($Regex.IsMatch($line))
                         {
-                            $contextLines += [PSCustomObject]@{
-                                LineNumber = $c + 1
-                                Content = $lines[$c]
-                                IsMatch = ($c -eq $i)
-                            }
-                        }
+                            $matchCount++
+                            $matchValue = $Regex.Match($line).Value
+                            $contextLines = @(
+                                [PSCustomObject]@{
+                                    LineNumber = $lineNumber
+                                    Content = $line
+                                    IsMatch = $true
+                                }
+                            )
 
-                        $matchValue = $Regex.Match($line).Value
-                        $results += [PSCustomObject]@{
-                            Path = $File.FullName
-                            LineNumber = $lineNumber
-                            Line = $line
-                            Match = $matchValue
-                            Context = $contextLines
+                            $results.Add([PSCustomObject]@{
+                                    Path = $File.FullName
+                                    LineNumber = $lineNumber
+                                    Line = $line
+                                    Match = $matchValue
+                                    Context = $contextLines
+                                })
+                        }
+                    }
+                }
+                else
+                {
+                    # Context output requires random access to surrounding lines.
+                    $lines = [System.IO.File]::ReadAllLines($File.FullName)
+
+                    for ($i = 0; $i -lt $lines.Count; $i++)
+                    {
+                        $line = $lines[$i]
+                        $lineNumber = $i + 1
+
+                        if ($Regex.IsMatch($line))
+                        {
+                            $matchCount++
+
+                            # Store match with context
+                            $contextStart = [Math]::Max(0, $i - $BeforeLines)
+                            $contextEnd = [Math]::Min($lines.Count - 1, $i + $AfterLines)
+
+                            $contextLines = [System.Collections.Generic.List[object]]::new()
+                            for ($c = $contextStart; $c -le $contextEnd; $c++)
+                            {
+                                $contextLines.Add([PSCustomObject]@{
+                                        LineNumber = $c + 1
+                                        Content = $lines[$c]
+                                        IsMatch = ($c -eq $i)
+                                    })
+                            }
+
+                            $matchValue = $Regex.Match($line).Value
+                            $results.Add([PSCustomObject]@{
+                                    Path = $File.FullName
+                                    LineNumber = $lineNumber
+                                    Line = $line
+                                    Match = $matchValue
+                                    Context = @($contextLines)
+                                })
                         }
                     }
                 }
@@ -909,7 +986,7 @@ function Search-FileContent
                 [PSCustomObject]@{
                     Path = $File.FullName
                     MatchCount = $matchCount
-                    Matches = $results
+                    Matches = @($results)
                 }
             }
             catch
@@ -921,6 +998,7 @@ function Search-FileContent
 
         # Collection for all files to process
         $allFiles = [System.Collections.Generic.List[System.IO.FileInfo]]::new()
+        $seenFilePaths = [System.Collections.Generic.HashSet[string]]::new($filePathComparer)
     }
 
     process
@@ -936,7 +1014,10 @@ function Search-FileContent
 
             foreach ($file in $files)
             {
-                $allFiles.Add($file)
+                if ($seenFilePaths.Add($file.FullName))
+                {
+                    $allFiles.Add($file)
+                }
             }
         }
     }
