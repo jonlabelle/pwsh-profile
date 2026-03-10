@@ -1653,6 +1653,7 @@ function Convert-LineEndings
                 {
                     $buffer = New-Object char[] 8192
                     $lineBuffer = New-Object System.Text.StringBuilder
+                    $pendingCR = $false
 
                     while ($true)
                     {
@@ -1663,15 +1664,14 @@ function Convert-LineEndings
                         {
                             $char = $buffer[$i]
 
-                            if ($char -eq "`r")
+                            # Handle CR that may have been at the end of the previous read buffer.
+                            if ($pendingCR)
                             {
-                                # Check if next character is LF (CRLF sequence)
-                                if ($i + 1 -lt $charsRead -and $buffer[$i + 1] -eq "`n")
+                                if ($char -eq "`n")
                                 {
+                                    # CRLF sequence split across read boundaries.
                                     $originalCrlfCount++
-                                    $i++  # Skip the LF character
 
-                                    # Write line with appropriate ending
                                     $writer.Write($lineBuffer.ToString())
                                     if ($ConvertLineEndings)
                                     {
@@ -1691,13 +1691,16 @@ function Convert-LineEndings
                                         $writer.Write("`r`n")
                                         $newCrlfCount++
                                     }
+
+                                    $lineBuffer.Clear() | Out-Null
+                                    $pendingCR = $false
+                                    continue
                                 }
                                 else
                                 {
-                                    # Standalone CR (treat as line ending)
+                                    # Previous CR was standalone.
                                     $originalLfCount++
 
-                                    # Write line with appropriate ending
                                     $writer.Write($lineBuffer.ToString())
                                     if ($ConvertLineEndings)
                                     {
@@ -1717,9 +1720,77 @@ function Convert-LineEndings
                                         $writer.Write("`r")
                                         $newLfCount++
                                     }
-                                }
 
-                                $lineBuffer.Clear() | Out-Null
+                                    $lineBuffer.Clear() | Out-Null
+                                    $pendingCR = $false
+                                }
+                            }
+
+                            if ($char -eq "`r")
+                            {
+                                # Check if next character is LF (CRLF sequence).
+                                if ($i + 1 -lt $charsRead)
+                                {
+                                    if ($buffer[$i + 1] -eq "`n")
+                                    {
+                                        $originalCrlfCount++
+                                        $i++  # Skip the LF character
+
+                                        # Write line with appropriate ending
+                                        $writer.Write($lineBuffer.ToString())
+                                        if ($ConvertLineEndings)
+                                        {
+                                            $writer.Write($TargetLineEnding)
+                                            if ($TargetLineEnding -eq "`n")
+                                            {
+                                                $newLfCount++
+                                            }
+                                            else
+                                            {
+                                                $newCrlfCount++
+                                            }
+                                        }
+                                        else
+                                        {
+                                            # Preserve original CRLF
+                                            $writer.Write("`r`n")
+                                            $newCrlfCount++
+                                        }
+                                    }
+                                    else
+                                    {
+                                        # Standalone CR (treat as line ending)
+                                        $originalLfCount++
+
+                                        # Write line with appropriate ending
+                                        $writer.Write($lineBuffer.ToString())
+                                        if ($ConvertLineEndings)
+                                        {
+                                            $writer.Write($TargetLineEnding)
+                                            if ($TargetLineEnding -eq "`n")
+                                            {
+                                                $newLfCount++
+                                            }
+                                            else
+                                            {
+                                                $newCrlfCount++
+                                            }
+                                        }
+                                        else
+                                        {
+                                            # Preserve original CR
+                                            $writer.Write("`r")
+                                            $newLfCount++
+                                        }
+                                    }
+
+                                    $lineBuffer.Clear() | Out-Null
+                                }
+                                else
+                                {
+                                    # CR at the end of this buffer; defer until next read.
+                                    $pendingCR = $true
+                                }
                             }
                             elseif ($char -eq "`n")
                             {
@@ -1753,6 +1824,34 @@ function Convert-LineEndings
                                 $lineBuffer.Append($char) | Out-Null
                             }
                         }
+                    }
+
+                    # If the file ended with a CR at buffer boundary, treat it as standalone CR.
+                    if ($pendingCR)
+                    {
+                        $originalLfCount++
+
+                        $writer.Write($lineBuffer.ToString())
+                        if ($ConvertLineEndings)
+                        {
+                            $writer.Write($TargetLineEnding)
+                            if ($TargetLineEnding -eq "`n")
+                            {
+                                $newLfCount++
+                            }
+                            else
+                            {
+                                $newCrlfCount++
+                            }
+                        }
+                        else
+                        {
+                            # Preserve original CR
+                            $writer.Write("`r")
+                            $newLfCount++
+                        }
+
+                        $lineBuffer.Clear() | Out-Null
                     }
 
                     # Write any remaining content

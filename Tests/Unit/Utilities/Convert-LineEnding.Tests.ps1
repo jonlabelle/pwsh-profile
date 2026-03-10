@@ -100,6 +100,22 @@ Describe 'Convert-LineEndings' {
             $result | Should -Not -Match "`r"
         }
 
+        It 'Should correctly handle CRLF split across stream read boundary' {
+            # StreamReader uses an internal char buffer. Put CR at the end of that buffer
+            # so LF is read in the next chunk.
+            $prefix = 'A' * 8191
+            $content = $prefix + "`r`n" + 'B'
+            [System.IO.File]::WriteAllText($script:TestFile, $content, [System.Text.UTF8Encoding]::new($false))
+
+            $conversionResult = Convert-LineEndings -Path $script:TestFile -LineEnding 'LF' -PassThru
+            $result = [System.IO.File]::ReadAllText($script:TestFile, [System.Text.UTF8Encoding]::new($false))
+
+            $result | Should -Be ($prefix + "`n" + 'B')
+            $result | Should -Not -Match "`n`nB$"
+            $conversionResult.OriginalCRLF | Should -Be 1
+            $conversionResult.NewLF | Should -Be 1
+        }
+
         It 'Should convert LF to CRLF' {
             # Create file with LF line endings
             $content = "Line 1`nLine 2`nLine 3"
