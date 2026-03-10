@@ -385,75 +385,82 @@
             # When UTF-8 bytes are interpreted as ISO-8859-1, we get mojibake sequences
             # We construct these strings from escape sequences for maximum compatibility
             $normalized = $Text
-            $mojibakeReplacements = @{}
+            if (-not $script:RenameFileMojibakeReplacements)
+            {
+                $script:RenameFileMojibakeReplacements = @{}
+            }
+            $mojibakeReplacements = $script:RenameFileMojibakeReplacements
 
-            # Lowercase vowels with diacritics
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA1)] = 'a'  # á bytes C3 A1
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA0)] = 'a'  # à bytes C3 A0
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA4)] = 'a'  # ä bytes C3 A4
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA2)] = 'a'  # â bytes C3 A2
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA3)] = 'a'  # ã bytes C3 A3
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA5)] = 'a'  # å bytes C3 A5
+            if ($mojibakeReplacements.Count -eq 0)
+            {
+                # Lowercase vowels with diacritics
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA1)] = 'a'  # á bytes C3 A1
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA0)] = 'a'  # à bytes C3 A0
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA4)] = 'a'  # ä bytes C3 A4
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA2)] = 'a'  # â bytes C3 A2
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA3)] = 'a'  # ã bytes C3 A3
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA5)] = 'a'  # å bytes C3 A5
 
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA9)] = 'e'  # é bytes C3 A9
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA8)] = 'e'  # è bytes C3 A8
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xAB)] = 'e'  # ë bytes C3 AB
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xAA)] = 'e'  # ê bytes C3 AA
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA9)] = 'e'  # é bytes C3 A9
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA8)] = 'e'  # è bytes C3 A8
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xAB)] = 'e'  # ë bytes C3 AB
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xAA)] = 'e'  # ê bytes C3 AA
 
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xAD)] = 'i'  # í bytes C3 AD
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xAC)] = 'i'  # ì bytes C3 AC
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xAF)] = 'i'  # ï bytes C3 AF
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xAE)] = 'i'  # î bytes C3 AE
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xAD)] = 'i'  # í bytes C3 AD
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xAC)] = 'i'  # ì bytes C3 AC
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xAF)] = 'i'  # ï bytes C3 AF
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xAE)] = 'i'  # î bytes C3 AE
 
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB3)] = 'o'  # ó bytes C3 B3
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB2)] = 'o'  # ò bytes C3 B2
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB6)] = 'o'  # ö bytes C3 B6
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB4)] = 'o'  # ô bytes C3 B4
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB5)] = 'o'  # õ bytes C3 B5
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB8)] = 'o'  # ø bytes C3 B8
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB3)] = 'o'  # ó bytes C3 B3
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB2)] = 'o'  # ò bytes C3 B2
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB6)] = 'o'  # ö bytes C3 B6
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB4)] = 'o'  # ô bytes C3 B4
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB5)] = 'o'  # õ bytes C3 B5
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB8)] = 'o'  # ø bytes C3 B8
 
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xBA)] = 'u'  # ú bytes C3 BA
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB9)] = 'u'  # ù bytes C3 B9
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xBC)] = 'u'  # ü bytes C3 BC
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xBB)] = 'u'  # û bytes C3 BB
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xBA)] = 'u'  # ú bytes C3 BA
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB9)] = 'u'  # ù bytes C3 B9
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xBC)] = 'u'  # ü bytes C3 BC
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xBB)] = 'u'  # û bytes C3 BB
 
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB1)] = 'n'  # ñ bytes C3 B1
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA7)] = 'c'  # ç bytes C3 A7
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xBD)] = 'y'  # ý bytes C3 BD
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xBF)] = 'y'  # ÿ bytes C3 BF
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xB1)] = 'n'  # ñ bytes C3 B1
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xA7)] = 'c'  # ç bytes C3 A7
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xBD)] = 'y'  # ý bytes C3 BD
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0xBF)] = 'y'  # ÿ bytes C3 BF
 
-            # Uppercase vowels with diacritics
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x80)] = 'A'  # À bytes C3 80
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x84)] = 'A'  # Ä bytes C3 84
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x82)] = 'A'  # Â bytes C3 82
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x83)] = 'A'  # Ã bytes C3 83
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x85)] = 'A'  # Å bytes C3 85
+                # Uppercase vowels with diacritics
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x80)] = 'A'  # À bytes C3 80
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x84)] = 'A'  # Ä bytes C3 84
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x82)] = 'A'  # Â bytes C3 82
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x83)] = 'A'  # Ã bytes C3 83
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x85)] = 'A'  # Å bytes C3 85
 
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x89)] = 'E'  # É bytes C3 89
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x88)] = 'E'  # È bytes C3 88
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x8B)] = 'E'  # Ë bytes C3 8B
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x8A)] = 'E'  # Ê bytes C3 8A
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x89)] = 'E'  # É bytes C3 89
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x88)] = 'E'  # È bytes C3 88
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x8B)] = 'E'  # Ë bytes C3 8B
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x8A)] = 'E'  # Ê bytes C3 8A
 
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x8D)] = 'I'  # Í bytes C3 8D
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x8C)] = 'I'  # Ì bytes C3 8C
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x8F)] = 'I'  # Ï bytes C3 8F
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x8E)] = 'I'  # Î bytes C3 8E
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x8D)] = 'I'  # Í bytes C3 8D
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x8C)] = 'I'  # Ì bytes C3 8C
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x8F)] = 'I'  # Ï bytes C3 8F
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x8E)] = 'I'  # Î bytes C3 8E
 
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x93)] = 'O'  # Ó bytes C3 93
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x92)] = 'O'  # Ò bytes C3 92
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x96)] = 'O'  # Ö bytes C3 96
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x94)] = 'O'  # Ô bytes C3 94
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x95)] = 'O'  # Õ bytes C3 95
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x98)] = 'O'  # Ø bytes C3 98
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x93)] = 'O'  # Ó bytes C3 93
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x92)] = 'O'  # Ò bytes C3 92
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x96)] = 'O'  # Ö bytes C3 96
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x94)] = 'O'  # Ô bytes C3 94
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x95)] = 'O'  # Õ bytes C3 95
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x98)] = 'O'  # Ø bytes C3 98
 
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x9A)] = 'U'  # Ú bytes C3 9A
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x99)] = 'U'  # Ù bytes C3 99
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x9C)] = 'U'  # Ü bytes C3 9C
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x9B)] = 'U'  # Û bytes C3 9B
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x9A)] = 'U'  # Ú bytes C3 9A
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x99)] = 'U'  # Ù bytes C3 99
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x9C)] = 'U'  # Ü bytes C3 9C
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x9B)] = 'U'  # Û bytes C3 9B
 
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x91)] = 'N'  # Ñ bytes C3 91
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x87)] = 'C'  # Ç bytes C3 87
-            $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x9D)] = 'Y'  # Ý bytes C3 9D
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x91)] = 'N'  # Ñ bytes C3 91
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x87)] = 'C'  # Ç bytes C3 87
+                $mojibakeReplacements[[string]([char]0xC3) + [string]([char]0x9D)] = 'Y'  # Ý bytes C3 9D
+            }
 
             foreach ($key in $mojibakeReplacements.Keys)
             {
@@ -469,7 +476,14 @@
             {
                 # Fallback for PowerShell 5.1 or if Normalize method fails
                 # Use a character-by-character replacement table for common accented characters
-                $replacements = @{}
+                if (-not $script:RenameFileFallbackReplacements)
+                {
+                    $script:RenameFileFallbackReplacements = @{}
+                }
+                $replacements = $script:RenameFileFallbackReplacements
+
+                if ($replacements.Count -eq 0)
+                {
 
                 # Lowercase a variants
                 $replacements['á'] = 'a'
@@ -581,6 +595,7 @@
                 $replacements['Ÿ'] = 'Y'
                 $replacements['Ç'] = 'C'
                 $replacements['Ñ'] = 'N'
+                }
 
                 foreach ($key in $replacements.Keys)
                 {
@@ -1034,7 +1049,7 @@
     {
         # Collect all files from pipeline input before processing
         # This prevents PassThru output from flowing back into the pipeline and being processed again
-        $files = @()
+        $files = [System.Collections.Generic.List[System.IO.FileInfo]]::new()
 
         if ($PSCmdlet.ParameterSetName -eq 'Path')
         {
@@ -1056,16 +1071,22 @@
                             # If it's a directory and Recurse is specified, get all files
                             if ($Recurse)
                             {
-                                $files += Get-ChildItem -LiteralPath $item.FullName -File -Recurse -ErrorAction Stop
+                                foreach ($childFile in (Get-ChildItem -LiteralPath $item.FullName -File -Recurse -ErrorAction Stop))
+                                {
+                                    $files.Add($childFile)
+                                }
                             }
                             else
                             {
-                                $files += Get-ChildItem -LiteralPath $item.FullName -File -ErrorAction Stop
+                                foreach ($childFile in (Get-ChildItem -LiteralPath $item.FullName -File -ErrorAction Stop))
+                                {
+                                    $files.Add($childFile)
+                                }
                             }
                         }
                         else
                         {
-                            $files += $item
+                            $files.Add($item)
                         }
                     }
                 }
@@ -1088,16 +1109,22 @@
                     {
                         if ($Recurse)
                         {
-                            $files += Get-ChildItem -LiteralPath $item.FullName -File -Recurse -ErrorAction Stop
+                            foreach ($childFile in (Get-ChildItem -LiteralPath $item.FullName -File -Recurse -ErrorAction Stop))
+                            {
+                                $files.Add($childFile)
+                            }
                         }
                         else
                         {
-                            $files += Get-ChildItem -LiteralPath $item.FullName -File -ErrorAction Stop
+                            foreach ($childFile in (Get-ChildItem -LiteralPath $item.FullName -File -ErrorAction Stop))
+                            {
+                                $files.Add($childFile)
+                            }
                         }
                     }
                     else
                     {
-                        $files += $item
+                        $files.Add($item)
                     }
                 }
                 catch
