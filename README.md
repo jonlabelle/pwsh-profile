@@ -585,6 +585,8 @@ The profile includes utility functions organized by category:
 - **[`Copy-Directory`](Functions/Utilities/Copy-Directory.ps1)** — Copies directories recursively while excluding specific directories
 - **[`Extract-Archives`](Functions/Utilities/Extract-Archives.ps1)** — Finds all archives (zip, tar, 7z, rar) and extracts them
 - **[`Get-CommandAlias`](Functions/Utilities/Get-CommandAlias.ps1)** — Displays aliases for PowerShell cmdlets
+- **[`Get-EncodingFromName`](Functions/Utilities/Get-EncodingFromName.ps1)** — Resolves profile encoding names to .NET encoding instances
+- **[`Get-FileEncoding`](Functions/Utilities/Get-FileEncoding.ps1)** — Detects file text encoding using BOM and content sampling
 - **[`Get-StringHash`](Functions/Utilities/Get-StringHash.ps1)** — Computes hash values for strings (like `Get-FileHash` but for strings)
 - **[`Get-WhichCommand`](Functions/Utilities/Get-WhichCommand.ps1)** — Locates commands and displays their type or path (cross-platform which alternative)
 - **[`New-SymbolicLink`](Functions/Utilities/New-SymbolicLink.ps1)** — Creates symbolic links (symlinks) for files and directories

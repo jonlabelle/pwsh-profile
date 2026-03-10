@@ -11,6 +11,12 @@ function ConvertTo-Markdown
         or local input filename (for example, https://example.com => example-com.md).
         Use -OutputPath to write the conversion result to a specific file path.
 
+        Dependencies:
+        - Get-EncodingFromName: Resolves profile encoding names to .NET encoding instances.
+        - Get-FileEncoding: Detects current output file encoding before optional conversion.
+
+        Both dependencies are automatically loaded when needed.
+
     .PARAMETER InputObject
         The source to convert. Accepts:
         - HTTP/HTTPS URLs
@@ -43,6 +49,21 @@ function ConvertTo-Markdown
     .PARAMETER PandocArgs
         Additional arguments to append to the Pandoc command.
 
+    .PARAMETER Encoding
+        Specifies the target output file encoding. When set to 'Auto' (default),
+        the encoding produced by Pandoc is preserved.
+
+        Valid values:
+        - Auto: Preserve Pandoc output encoding (default)
+        - UTF8: UTF-8 without BOM
+        - UTF8BOM: UTF-8 with BOM
+        - UTF16LE: UTF-16 Little Endian with BOM
+        - UTF16BE: UTF-16 Big Endian with BOM
+        - UTF32: UTF-32 Little Endian with BOM
+        - UTF32BE: UTF-32 Big Endian with BOM
+        - ASCII: 7-bit ASCII encoding
+        - ANSI: System default ANSI encoding (code page dependent)
+
     .PARAMETER PassThru
         Returns the resolved output path after successful conversion:
         - Explicit -OutputPath path
@@ -73,6 +94,11 @@ function ConvertTo-Markdown
 
         Converts multiple inputs from the pipeline and writes one auto-named
         markdown file per input.
+
+    .EXAMPLE
+        PS > ConvertTo-Markdown -InputObject './report.html' -Encoding 'UTF8BOM'
+
+        Converts HTML to Markdown and rewrites the output file as UTF-8 with BOM.
 
     .OUTPUTS
         System.String
@@ -179,11 +205,78 @@ function ConvertTo-Markdown
         [String[]]$PandocArgs,
 
         [Parameter()]
+        [ValidateSet('Auto', 'UTF8', 'UTF8BOM', 'UTF16LE', 'UTF16BE', 'UTF32', 'UTF32BE', 'ASCII', 'ANSI')]
+        [String]$Encoding = 'Auto',
+
+        [Parameter()]
         [Switch]$PassThru
     )
 
     begin
     {
+        # Helper function to load dependencies on demand
+        function Import-DependencyIfNeeded
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$FunctionName,
+
+                [Parameter(Mandatory)]
+                [String]$RelativePath
+            )
+
+            if (-not (Get-Command -Name $FunctionName -ErrorAction Ignore))
+            {
+                Write-Verbose "$FunctionName is required - attempting to load it"
+
+                # Resolve path from current script location
+                $dependencyPath = Join-Path -Path $PSScriptRoot -ChildPath $RelativePath
+                $dependencyPath = [System.IO.Path]::GetFullPath($dependencyPath)
+
+                if (Test-Path -Path $dependencyPath -PathType Leaf)
+                {
+                    return $dependencyPath
+                }
+                else
+                {
+                    throw "Required function '$FunctionName' could not be found. Expected location: $dependencyPath"
+                }
+            }
+            else
+            {
+                Write-Verbose "$FunctionName is already loaded"
+                return $null
+            }
+        }
+
+        $dependencyPath = Import-DependencyIfNeeded -FunctionName 'Get-EncodingFromName' -RelativePath 'Get-EncodingFromName.ps1'
+        if ($dependencyPath)
+        {
+            try
+            {
+                . $dependencyPath
+                Write-Verbose "Loaded Get-EncodingFromName from: $dependencyPath"
+            }
+            catch
+            {
+                throw "Failed to load required dependency 'Get-EncodingFromName' from '$dependencyPath': $($_.Exception.Message)"
+            }
+        }
+
+        $dependencyPath = Import-DependencyIfNeeded -FunctionName 'Get-FileEncoding' -RelativePath 'Get-FileEncoding.ps1'
+        if ($dependencyPath)
+        {
+            try
+            {
+                . $dependencyPath
+                Write-Verbose "Loaded Get-FileEncoding from: $dependencyPath"
+            }
+            catch
+            {
+                throw "Failed to load required dependency 'Get-FileEncoding' from '$dependencyPath': $($_.Exception.Message)"
+            }
+        }
+
         function ConvertTo-FileSlug
         {
             param(
@@ -379,6 +472,51 @@ function ConvertTo-Markdown
             if ($exitCode -ne 0)
             {
                 throw "Pandoc failed for '$item' with exit code $exitCode."
+            }
+
+            if ($Encoding -ne 'Auto' -and $effectiveOutputPath)
+            {
+                $targetEncoding = Get-EncodingFromName -EncodingName $Encoding
+                if ($null -eq $targetEncoding)
+                {
+                    throw "Failed to resolve target encoding '$Encoding'."
+                }
+
+                $sourceEncoding = Get-FileEncoding -FilePath $effectiveOutputPath
+
+                $sourceType = $sourceEncoding.ToString()
+                $targetType = $targetEncoding.ToString()
+                $sourceBomLength = $sourceEncoding.GetPreamble().Length
+                $targetBomLength = $targetEncoding.GetPreamble().Length
+                $encodingMatches = ($sourceType -eq $targetType) -and ($sourceBomLength -eq $targetBomLength)
+
+                if (-not $encodingMatches)
+                {
+                    $reader = New-Object System.IO.StreamReader($effectiveOutputPath, $sourceEncoding, $true)
+                    try
+                    {
+                        $markdownContent = $reader.ReadToEnd()
+                    }
+                    finally
+                    {
+                        $reader.Close()
+                    }
+
+                    $preamble = $targetEncoding.GetPreamble()
+                    $contentBytes = $targetEncoding.GetBytes($markdownContent)
+                    if ($preamble.Length -gt 0)
+                    {
+                        $newBytes = New-Object byte[] ($preamble.Length + $contentBytes.Length)
+                        [Array]::Copy($preamble, 0, $newBytes, 0, $preamble.Length)
+                        [Array]::Copy($contentBytes, 0, $newBytes, $preamble.Length, $contentBytes.Length)
+                    }
+                    else
+                    {
+                        $newBytes = $contentBytes
+                    }
+
+                    [System.IO.File]::WriteAllBytes($effectiveOutputPath, $newBytes)
+                }
             }
 
             if ($PassThru)

@@ -43,7 +43,8 @@ BeforeAll {
                 $null = New-Item -Path $outputDirectory -ItemType Directory -Force
             }
 
-            Set-Content -LiteralPath $outputPath -Value $markdownText -NoNewline -Encoding UTF8
+            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText($outputPath, $markdownText, $utf8NoBom)
             return @()
         }
 
@@ -246,6 +247,50 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
         It 'Rejects multiple input values when -OutputPath is specified' {
             { @('https://example.com/one', 'https://example.com/two') | ConvertTo-Markdown -OutputPath (Join-Path -Path $script:TestDir -ChildPath 'out.md') } |
             Should -Throw '*only one InputObject value is supported*'
+        }
+
+        It 'Accepts valid values for -Encoding' {
+            $command = Get-Command ConvertTo-Markdown
+            $encodingParam = $command.Parameters['Encoding']
+            $validEncodings = $encodingParam.Attributes |
+            Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] } |
+            Select-Object -ExpandProperty ValidValues
+
+            $validEncodings | Should -Contain 'Auto'
+            $validEncodings | Should -Contain 'UTF8'
+            $validEncodings | Should -Contain 'UTF8BOM'
+            $validEncodings | Should -Contain 'UTF16LE'
+            $validEncodings | Should -Contain 'UTF16BE'
+            $validEncodings | Should -Contain 'UTF32'
+            $validEncodings | Should -Contain 'UTF32BE'
+            $validEncodings | Should -Contain 'ASCII'
+            $validEncodings | Should -Contain 'ANSI'
+        }
+
+        It 'Preserves Pandoc output encoding when -Encoding Auto' {
+            $inputFile = Join-Path -Path $script:TestDir -ChildPath 'sample.html'
+            '<h1>Hello</h1>' | Set-Content -LiteralPath $inputFile -NoNewline
+            $outputPath = Join-Path -Path $script:TestDir -ChildPath 'auto.md'
+
+            ConvertTo-Markdown -InputObject $inputFile -OutputPath $outputPath -Encoding Auto | Out-Null
+
+            $bytes = [System.IO.File]::ReadAllBytes($outputPath)
+            $bytes[0] | Should -Not -Be 0xEF
+            $bytes[0] | Should -Not -Be 0xFF
+            $bytes[0] | Should -Not -Be 0xFE
+        }
+
+        It 'Converts output file encoding when -Encoding is specified' {
+            $inputFile = Join-Path -Path $script:TestDir -ChildPath 'sample.html'
+            '<h1>Hello</h1>' | Set-Content -LiteralPath $inputFile -NoNewline
+            $outputPath = Join-Path -Path $script:TestDir -ChildPath 'utf8bom.md'
+
+            ConvertTo-Markdown -InputObject $inputFile -OutputPath $outputPath -Encoding UTF8BOM | Out-Null
+
+            $bytes = [System.IO.File]::ReadAllBytes($outputPath)
+            $bytes[0] | Should -Be 0xEF
+            $bytes[1] | Should -Be 0xBB
+            $bytes[2] | Should -Be 0xBF
         }
     }
 

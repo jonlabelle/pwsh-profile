@@ -12,6 +12,12 @@ function Replace-StringInFile
         By default, performs case-sensitive literal string replacement. Use -Regex for
         pattern matching and -CaseInsensitive for case-insensitive matching.
 
+        Dependencies:
+        - Get-EncodingFromName: Resolves profile encoding names to .NET encoding instances.
+        - Get-FileEncoding: Detects source file encoding for preservation/conversion decisions.
+
+        Both dependencies are automatically loaded when needed.
+
         ALIASES:
         The 'sarep' alias is created only if it doesn't already exist in the current environment.
 
@@ -395,6 +401,69 @@ function Replace-StringInFile
     {
         Write-Verbose 'Starting Replace-StringInFile'
 
+        # Helper function to load dependencies on demand
+        function Import-DependencyIfNeeded
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$FunctionName,
+
+                [Parameter(Mandatory)]
+                [String]$RelativePath
+            )
+
+            if (-not (Get-Command -Name $FunctionName -ErrorAction Ignore))
+            {
+                Write-Verbose "$FunctionName is required - attempting to load it"
+
+                # Resolve path from current script location
+                $dependencyPath = Join-Path -Path $PSScriptRoot -ChildPath $RelativePath
+                $dependencyPath = [System.IO.Path]::GetFullPath($dependencyPath)
+
+                if (Test-Path -Path $dependencyPath -PathType Leaf)
+                {
+                    return $dependencyPath
+                }
+                else
+                {
+                    throw "Required function '$FunctionName' could not be found. Expected location: $dependencyPath"
+                }
+            }
+            else
+            {
+                Write-Verbose "$FunctionName is already loaded"
+                return $null
+            }
+        }
+
+        $dependencyPath = Import-DependencyIfNeeded -FunctionName 'Get-EncodingFromName' -RelativePath 'Get-EncodingFromName.ps1'
+        if ($dependencyPath)
+        {
+            try
+            {
+                . $dependencyPath
+                Write-Verbose "Loaded Get-EncodingFromName from: $dependencyPath"
+            }
+            catch
+            {
+                throw "Failed to load required dependency 'Get-EncodingFromName' from '$dependencyPath': $($_.Exception.Message)"
+            }
+        }
+
+        $dependencyPath = Import-DependencyIfNeeded -FunctionName 'Get-FileEncoding' -RelativePath 'Get-FileEncoding.ps1'
+        if ($dependencyPath)
+        {
+            try
+            {
+                . $dependencyPath
+                Write-Verbose "Loaded Get-FileEncoding from: $dependencyPath"
+            }
+            catch
+            {
+                throw "Failed to load required dependency 'Get-FileEncoding' from '$dependencyPath': $($_.Exception.Message)"
+            }
+        }
+
         # Helper function to convert a pattern to separator-aware regex
         function Convert-ToSeparatorAwarePattern
         {
@@ -564,164 +633,6 @@ function Replace-StringInFile
         if ($PreserveCase -and -not $CaseInsensitive)
         {
             throw 'PreserveCase requires CaseInsensitive to be enabled'
-        }
-
-        # Helper function to detect file encoding
-        function Get-FileEncoding
-        {
-            param(
-                [String]$FilePath
-            )
-
-            try
-            {
-                # Read only the first few bytes to detect BOM and sample for encoding detection
-                $stream = [System.IO.File]::OpenRead($FilePath)
-                try
-                {
-                    if ($stream.Length -eq 0)
-                    {
-                        return New-Object System.Text.UTF8Encoding($false)  # UTF-8 without BOM for empty files
-                    }
-
-                    # Read up to 4 bytes for BOM detection
-                    $bomBuffer = New-Object byte[] 4
-                    $bomBytesRead = $stream.Read($bomBuffer, 0, 4)
-
-                    # Check for BOM patterns - Order matters! Check longer BOMs first
-                    # UTF-32 LE BOM: FF FE 00 00 (4 bytes)
-                    if ($bomBytesRead -ge 4 -and $bomBuffer[0] -eq 0xFF -and $bomBuffer[1] -eq 0xFE -and $bomBuffer[2] -eq 0x00 -and $bomBuffer[3] -eq 0x00)
-                    {
-                        return [System.Text.Encoding]::UTF32  # UTF-32 LE
-                    }
-                    # UTF-32 BE BOM: 00 00 FE FF (4 bytes)
-                    elseif ($bomBytesRead -ge 4 -and $bomBuffer[0] -eq 0x00 -and $bomBuffer[1] -eq 0x00 -and $bomBuffer[2] -eq 0xFE -and $bomBuffer[3] -eq 0xFF)
-                    {
-                        return New-Object System.Text.UTF32Encoding($true, $true)  # UTF-32 BE
-                    }
-                    # UTF-8 BOM: EF BB BF (3 bytes)
-                    elseif ($bomBytesRead -ge 3 -and $bomBuffer[0] -eq 0xEF -and $bomBuffer[1] -eq 0xBB -and $bomBuffer[2] -eq 0xBF)
-                    {
-                        return New-Object System.Text.UTF8Encoding($true)  # UTF-8 with BOM
-                    }
-                    # UTF-16 LE BOM: FF FE (2 bytes) - Check after UTF-32 LE to avoid conflict
-                    elseif ($bomBytesRead -ge 2 -and $bomBuffer[0] -eq 0xFF -and $bomBuffer[1] -eq 0xFE)
-                    {
-                        return [System.Text.Encoding]::Unicode  # UTF-16 LE
-                    }
-                    # UTF-16 BE BOM: FE FF (2 bytes)
-                    elseif ($bomBytesRead -ge 2 -and $bomBuffer[0] -eq 0xFE -and $bomBuffer[1] -eq 0xFF)
-                    {
-                        return [System.Text.Encoding]::BigEndianUnicode  # UTF-16 BE
-                    }
-
-                    # No BOM detected, read a sample to determine encoding
-                    # Reset stream position to beginning
-                    $stream.Position = 0
-
-                    # Read up to 8KB sample for encoding detection
-                    $sampleSize = [Math]::Min($stream.Length, 8192)
-                    $sampleBuffer = New-Object byte[] $sampleSize
-                    $sampleBytesRead = $stream.Read($sampleBuffer, 0, $sampleSize)
-
-                    if ($sampleBytesRead -eq 0)
-                    {
-                        return New-Object System.Text.UTF8Encoding($false)  # UTF-8 without BOM for empty files
-                    }
-
-                    # Check if it's valid UTF-8 using the sample
-                    try
-                    {
-                        $utf8NoBom = New-Object System.Text.UTF8Encoding($false, $true)  # Strict UTF-8 validation
-                        $decoded = $utf8NoBom.GetString($sampleBuffer, 0, $sampleBytesRead)
-                        $reencoded = $utf8NoBom.GetBytes($decoded)
-
-                        # If reencoding produces the same bytes, it's likely UTF-8
-                        if ($sampleBytesRead -eq $reencoded.Length)
-                        {
-                            $match = $true
-                            for ($i = 0; $i -lt $sampleBytesRead; $i++)
-                            {
-                                if ($sampleBuffer[$i] -ne $reencoded[$i])
-                                {
-                                    $match = $false
-                                    break
-                                }
-                            }
-                            if ($match)
-                            {
-                                return $utf8NoBom  # UTF-8 without BOM
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        # Not valid UTF-8, continue to next encoding check
-                        Write-Verbose "File '$FilePath' sample is not valid UTF-8"
-                    }
-
-                    # Check if sample bytes are all ASCII
-                    $isAscii = $true
-                    for ($i = 0; $i -lt $sampleBytesRead; $i++)
-                    {
-                        if ($sampleBuffer[$i] -gt 127)
-                        {
-                            $isAscii = $false
-                            break
-                        }
-                    }
-
-                    if ($isAscii)
-                    {
-                        return [System.Text.Encoding]::ASCII
-                    }
-
-                    # Default to UTF-8 without BOM for other cases
-                    return New-Object System.Text.UTF8Encoding($false)
-                }
-                finally
-                {
-                    $stream.Close()
-                }
-            }
-            catch
-            {
-                Write-Verbose "Error detecting encoding for '$FilePath': $($_.Exception.Message)"
-                return New-Object System.Text.UTF8Encoding($false)  # UTF-8 without BOM as fallback
-            }
-        }
-
-        # Helper function to convert encoding name to encoding object
-        function Get-EncodingFromName
-        {
-            param(
-                [String]$EncodingName
-            )
-
-            try
-            {
-                switch ($EncodingName.ToUpper())
-                {
-                    'AUTO' { return $null }  # Return null to indicate auto-detect
-                    'UTF8' { return New-Object System.Text.UTF8Encoding($false) }
-                    'UTF8BOM' { return New-Object System.Text.UTF8Encoding($true) }
-                    'UTF16LE' { return [System.Text.Encoding]::Unicode }
-                    'UTF16BE' { return [System.Text.Encoding]::BigEndianUnicode }
-                    'UTF32' { return [System.Text.Encoding]::UTF32 }
-                    'UTF32BE' { return New-Object System.Text.UTF32Encoding($true, $true) }
-                    'ASCII' { return [System.Text.Encoding]::ASCII }
-                    'ANSI' { return [System.Text.Encoding]::Default }
-                    default
-                    {
-                        throw "Unsupported encoding: $EncodingName"
-                    }
-                }
-            }
-            catch
-            {
-                Write-Error "Failed to create encoding '$EncodingName': $($_.Exception.Message)"
-                return $null
-            }
         }
 
         # Build regex options
