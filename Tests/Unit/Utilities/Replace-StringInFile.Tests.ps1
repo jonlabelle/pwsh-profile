@@ -371,6 +371,34 @@ Line 3
         }
     }
 
+    Context 'Match Details' {
+        It 'Should compute line and column accurately for CRLF content' {
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'crlf.txt'
+            $content = "first line`r`nalpha target`r`nlast line"
+            [System.IO.File]::WriteAllText($testFile, $content)
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'target' -NewString 'value'
+
+            $result.MatchCount | Should -Be 1
+            $result.Matches[0].Line | Should -Be 2
+            $result.Matches[0].Column | Should -Be 7
+            $result.Matches[0].LineContent | Should -Be 'alpha target'
+        }
+
+        It 'Should compute line and column accurately for mixed newline styles' {
+            $testFile = Join-Path -Path $script:testDir -ChildPath 'mixed-newlines.txt'
+            $content = "one`rtwo match`nthree"
+            [System.IO.File]::WriteAllText($testFile, $content)
+
+            $result = Replace-StringInFile -Path $testFile -OldString 'match' -NewString 'done'
+
+            $result.MatchCount | Should -Be 1
+            $result.Matches[0].Line | Should -Be 2
+            $result.Matches[0].Column | Should -Be 5
+            $result.Matches[0].LineContent | Should -Be 'two match'
+        }
+    }
+
     Context 'Verbose Output' {
         It 'Should provide verbose messages' {
             $testFile = Join-Path -Path $script:testDir -ChildPath 'verbose.txt'
