@@ -414,6 +414,25 @@ Describe 'Copy-Directory' {
             $result.ExcludedDirectories | Should -Be 1
             Test-Path "$testDest\.GIT" | Should -Be $false
         }
+
+        It 'Should support wildcard directory exclusions' {
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'wildcard_exclude_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'wildcard_exclude_dest'
+            New-Item -ItemType Directory -Path $testSource -Force | Out-Null
+            New-Item -ItemType Directory -Path "$testSource\cache-api" -Force | Out-Null
+            New-Item -ItemType Directory -Path "$testSource\cache-ui" -Force | Out-Null
+            New-Item -ItemType Directory -Path "$testSource\src" -Force | Out-Null
+            'cached' | Set-Content -Path "$testSource\cache-api\one.txt"
+            'cached' | Set-Content -Path "$testSource\cache-ui\two.txt"
+            'source' | Set-Content -Path "$testSource\src\main.txt"
+
+            $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeDirectories 'cache-*' -UpdateMode Skip -Recurse
+
+            $result.ExcludedDirectories | Should -Be 2
+            Test-Path "$testDest\cache-api" | Should -Be $false
+            Test-Path "$testDest\cache-ui" | Should -Be $false
+            Test-Path "$testDest\src\main.txt" | Should -Be $true
+        }
         It 'Should accept Skip mode explicitly' {
             $testSource = Join-Path -Path $TestDrive -ChildPath 'skip_source'
             $testDest = Join-Path -Path $TestDrive -ChildPath 'skip_dest'
