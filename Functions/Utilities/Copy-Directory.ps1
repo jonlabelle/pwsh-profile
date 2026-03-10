@@ -10,6 +10,8 @@ function Copy-Directory
         node_modules, bin, obj) from the copy operation.
 
         Supports multi-threaded copying for improved performance with large directory trees.
+        Includes safety checks to prevent recursive self-copy scenarios (for example, copying
+        a directory into itself or into one of its own subdirectories).
 
         For very large trees, you can opt in to OS-native copy tools (robocopy on Windows,
         rsync on macOS/Linux) using -UseNativeTools. This is cross-platform compatible
@@ -21,6 +23,8 @@ function Copy-Directory
     .PARAMETER Destination
         The destination directory path to copy to. Will be created if it doesn't exist.
         Supports relative paths and tilde (~) expansion.
+        Cannot be the same as Source. When -Recurse is used, Destination also cannot be
+        located inside Source.
 
     .PARAMETER ExcludeDirectories
         An array of directory names to exclude from the copy operation. Directory names are
@@ -142,6 +146,10 @@ function Copy-Directory
         - ExcludeDirectories matching follows native tool behavior (case sensitivity may differ)
         - FilesOverwritten counts are not available from native tools
 
+        Safety:
+        - Source and Destination cannot be the same directory
+        - When -Recurse is specified, Destination cannot be within Source
+
         Author: Jon LaBelle
         License: MIT
         Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Copy-Directory.ps1
@@ -184,9 +192,28 @@ function Copy-Directory
     {
         Write-Verbose 'Starting Copy-Directory'
 
+        # Detect platform once for path comparison and native tool selection.
+        $IsWindowsPlatform = $IsWindows -or $env:OS -eq 'Windows_NT'
+        $pathComparison = if ($IsWindowsPlatform) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
+        $separatorChars = @([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+
         # Resolve paths to absolute paths (cross-platform compatible)
         $Source = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Source)
         $Destination = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Destination)
+        $Source = [System.IO.Path]::GetFullPath($Source)
+        $Destination = [System.IO.Path]::GetFullPath($Destination)
+
+        $sourceComparable = $Source.TrimEnd($separatorChars)
+        if ([String]::IsNullOrEmpty($sourceComparable))
+        {
+            $sourceComparable = [System.IO.Path]::DirectorySeparatorChar.ToString()
+        }
+
+        $destinationComparable = $Destination.TrimEnd($separatorChars)
+        if ([String]::IsNullOrEmpty($destinationComparable))
+        {
+            $destinationComparable = [System.IO.Path]::DirectorySeparatorChar.ToString()
+        }
 
         Write-Verbose "Resolved source path: $Source"
         Write-Verbose "Resolved destination path: $Destination"
@@ -208,13 +235,41 @@ function Copy-Directory
             throw "Source directory does not exist: $Source"
         }
 
+        if (Test-Path -Path $Destination -PathType Leaf)
+        {
+            throw "Destination path exists as a file. Specify a directory path instead: $Destination"
+        }
+
+        # Prevent recursive self-copy and source==destination scenarios.
+        if ([String]::Equals($sourceComparable, $destinationComparable, $pathComparison))
+        {
+            throw "Source and destination cannot be the same directory: $Source"
+        }
+
+        if ($Recurse.IsPresent)
+        {
+            $sourcePrefix = if ($sourceComparable.EndsWith([System.IO.Path]::DirectorySeparatorChar.ToString()))
+            {
+                $sourceComparable
+            }
+            else
+            {
+                $sourceComparable + [System.IO.Path]::DirectorySeparatorChar
+            }
+
+            if ($destinationComparable.StartsWith($sourcePrefix, $pathComparison))
+            {
+                throw "Destination cannot be inside the source directory when -Recurse is used. Source: $Source Destination: $Destination"
+            }
+        }
+
         # Create destination if it doesn't exist
-        if (-not (Test-Path -Path $Destination))
+        if (-not [System.IO.Directory]::Exists($Destination))
         {
             if ($PSCmdlet.ShouldProcess($Destination, 'Create destination directory'))
             {
                 Write-Verbose "Creating destination directory: $Destination"
-                New-Item -Path $Destination -ItemType Directory -Force | Out-Null
+                [System.IO.Directory]::CreateDirectory($Destination) | Out-Null
             }
         }
 
@@ -255,7 +310,6 @@ function Copy-Directory
 
         # Detect PowerShell version for parallel implementation choice
         $IsPowerShell7OrLater = $PSVersionTable.PSVersion.Major -ge 7
-        $IsWindowsPlatform = $IsWindows -or $env:OS -eq 'Windows_NT'
 
         Write-Verbose "UseParallel: $UseParallel"
         Write-Verbose "PowerShell 7+: $IsPowerShell7OrLater"
@@ -408,7 +462,9 @@ function Copy-Directory
             catch
             {
                 Write-Warning "Native tool copy failed to start: $($_.Exception.Message)"
-                return $true
+                $script:UsedNativeTools = $false
+                $script:NativeToolName = $null
+                return $false
             }
 
             $exitCode = $LASTEXITCODE
@@ -500,12 +556,12 @@ function Copy-Directory
 
                             $destDirPath = [System.IO.Path]::Combine($currentDest, $entry.Name)
 
-                            if (-not (Test-Path -Path $destDirPath))
+                            if (-not [System.IO.Directory]::Exists($destDirPath))
                             {
                                 if ($PSCmdlet.ShouldProcess($destDirPath, 'Create directory'))
                                 {
                                     Write-Verbose "Creating directory: $destDirPath"
-                                    New-Item -Path $destDirPath -ItemType Directory -Force | Out-Null
+                                    [System.IO.Directory]::CreateDirectory($destDirPath) | Out-Null
                                     $CountersRef.DirectoriesCreated++
                                 }
                             }
@@ -555,7 +611,7 @@ function Copy-Directory
 
                     $shouldCopyFile = $true
 
-                    if (Test-Path -Path $fileOp.DestPath -PathType Leaf)
+                    if ([System.IO.File]::Exists($fileOp.DestPath))
                     {
                         switch ($UpdateMode)
                         {
@@ -572,8 +628,7 @@ function Copy-Directory
                             }
                             'IfNewer'
                             {
-                                $destFile = Get-Item -Path $fileOp.DestPath
-                                if ($fileOp.LastWriteTime -gt $destFile.LastWriteTime)
+                                if ($fileOp.LastWriteTime -gt [System.IO.File]::GetLastWriteTime($fileOp.DestPath))
                                 {
                                     Write-Verbose "Overwriting with newer file: $($fileOp.DestPath)"
                                     $script:Counters.FilesOverwritten++
@@ -641,7 +696,7 @@ function Copy-Directory
                     $whatIfEnabled = $using:whatIfEnabled
 
                     $shouldCopyFile = $true
-                    $destExists = Test-Path -Path $fileOp.DestPath -PathType Leaf
+                    $destExists = [System.IO.File]::Exists($fileOp.DestPath)
 
                     if ($destExists)
                     {
@@ -663,8 +718,7 @@ function Copy-Directory
                             }
                             'IfNewer'
                             {
-                                $destFile = Get-Item -Path $fileOp.DestPath
-                                if ($fileOp.LastWriteTime -gt $destFile.LastWriteTime)
+                                if ($fileOp.LastWriteTime -gt [System.IO.File]::GetLastWriteTime($fileOp.DestPath))
                                 {
                                     [System.Threading.Monitor]::Enter($localCounters.SyncRoot)
                                     try { $localCounters.FilesOverwritten++ }
@@ -731,7 +785,7 @@ function Copy-Directory
                             foreach ($fileOp in $WorkQueue.GetConsumingEnumerable())
                             {
                                 $shouldCopyFile = $true
-                                $destExists = Test-Path -Path $fileOp.DestPath -PathType Leaf
+                                $destExists = [System.IO.File]::Exists($fileOp.DestPath)
 
                                 if ($destExists)
                                 {
@@ -752,8 +806,7 @@ function Copy-Directory
                                         }
                                         'IfNewer'
                                         {
-                                            $destFile = Get-Item -Path $fileOp.DestPath
-                                            if ($fileOp.LastWriteTime -gt $destFile.LastWriteTime)
+                                            if ($fileOp.LastWriteTime -gt [System.IO.File]::GetLastWriteTime($fileOp.DestPath))
                                             {
                                                 [System.Threading.Monitor]::Enter($Counters.SyncRoot)
                                                 try { $Counters.FilesOverwritten++ }

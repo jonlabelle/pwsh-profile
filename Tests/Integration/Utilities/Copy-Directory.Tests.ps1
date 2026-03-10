@@ -354,6 +354,38 @@ Describe 'Copy-Directory Integration Tests' {
         }
     }
 
+    Context 'Path Safety Guards' {
+        BeforeAll {
+            $script:pathSafetyTestDir = Join-Path -Path $TestDrive -ChildPath 'PathSafetyTests'
+            New-Item -ItemType Directory -Path $script:pathSafetyTestDir -Force | Out-Null
+        }
+
+        AfterAll {
+            Remove-TestDirectory -Path $script:pathSafetyTestDir
+        }
+
+        It 'Should reject copying to the same source directory' {
+            $sourceDir = Join-Path -Path $script:pathSafetyTestDir -ChildPath 'same_source_dest'
+            New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
+            'content' | Set-Content -Path (Join-Path -Path $sourceDir -ChildPath 'file.txt')
+
+            {
+                Copy-Directory -Source $sourceDir -Destination $sourceDir -UpdateMode Skip -Recurse
+            } | Should -Throw -ExpectedMessage '*same directory*'
+        }
+
+        It 'Should reject recursive copy when destination is inside source' {
+            $sourceDir = Join-Path -Path $script:pathSafetyTestDir -ChildPath 'nested_source_dest'
+            $destDir = Join-Path -Path $sourceDir -ChildPath 'backup'
+            New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
+            'content' | Set-Content -Path (Join-Path -Path $sourceDir -ChildPath 'file.txt')
+
+            {
+                Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip -Recurse
+            } | Should -Throw -ExpectedMessage '*inside the source directory*'
+        }
+    }
+
     Context 'Output Statistics Accuracy' {
         BeforeAll {
             $script:statsTestDir = Join-Path -Path $TestDrive -ChildPath 'StatsTests'

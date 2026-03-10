@@ -316,6 +316,54 @@ Describe 'Copy-Directory' {
 
             { Copy-Directory -Source $nonExistentSource -Destination $testDest -UpdateMode Skip -Recurse } | Should -Throw
         }
+
+        It 'Should throw when source and destination are the same directory' {
+            $testPath = Join-Path -Path $TestDrive -ChildPath 'same_path'
+            New-Item -ItemType Directory -Path $testPath -Force | Out-Null
+            'content' | Set-Content -Path (Join-Path -Path $testPath -ChildPath 'test.txt')
+
+            {
+                Copy-Directory -Source $testPath -Destination $testPath -UpdateMode Skip -Recurse
+            } | Should -Throw -ExpectedMessage '*same directory*'
+        }
+
+        It 'Should throw when recursive destination is inside source' {
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'nested_source_guard'
+            $testDest = Join-Path -Path $testSource -ChildPath 'backup'
+            New-Item -ItemType Directory -Path $testSource -Force | Out-Null
+            'content' | Set-Content -Path (Join-Path -Path $testSource -ChildPath 'test.txt')
+
+            {
+                Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip -Recurse
+            } | Should -Throw -ExpectedMessage '*inside the source directory*'
+        }
+
+        It 'Should throw when destination path exists as a file' {
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'source_for_file_dest'
+            $testDestFile = Join-Path -Path $TestDrive -ChildPath 'destination_file.txt'
+            New-Item -ItemType Directory -Path $testSource -Force | Out-Null
+            'content' | Set-Content -Path (Join-Path -Path $testSource -ChildPath 'test.txt')
+            'not a directory' | Set-Content -Path $testDestFile
+
+            {
+                Copy-Directory -Source $testSource -Destination $testDestFile -UpdateMode Skip
+            } | Should -Throw -ExpectedMessage '*exists as a file*'
+        }
+
+        It 'Should allow non-recursive copy when destination is inside source' {
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'nonrecursive_nested_source'
+            $testDest = Join-Path -Path $testSource -ChildPath 'backup'
+            New-Item -ItemType Directory -Path "$testSource\subdir" -Force | Out-Null
+            'root content' | Set-Content -Path (Join-Path -Path $testSource -ChildPath 'root.txt')
+            'nested content' | Set-Content -Path (Join-Path -Path $testSource -ChildPath 'subdir/nested.txt')
+
+            {
+                Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip
+            } | Should -Not -Throw
+
+            Test-Path (Join-Path -Path $testDest -ChildPath 'root.txt') | Should -BeTrue
+            Test-Path (Join-Path -Path $testDest -ChildPath 'subdir/nested.txt') | Should -BeFalse
+        }
     }
 
     Context 'Directory Exclusion' {
