@@ -12,7 +12,7 @@ function ConvertFrom-Base64
         Cross-platform compatible with PowerShell 5.1+ and PowerShell Core.
 
         Aliases:
-        The 'base64-decode' alias is created only if it doesn't already exist in the current environment.
+        The 'decode-base64' alias is created only if it doesn't already exist in the current environment.
 
     .PARAMETER InputObject
         The Base64-encoded string to decode. Can be provided via pipeline.
@@ -189,16 +189,16 @@ function ConvertFrom-Base64
     }
 }
 
-# Create 'base64-decode' alias only if it doesn't already exist
-if (-not (Get-Command -Name 'base64-decode' -ErrorAction SilentlyContinue))
+# Create 'decode-base64' alias only if it doesn't already exist
+if (-not (Get-Command -Name 'decode-base64' -ErrorAction SilentlyContinue))
 {
     try
     {
-        Write-Verbose "Creating 'base64-decode' alias for ConvertFrom-Base64"
-        Set-Alias -Name 'base64-decode' -Value 'ConvertFrom-Base64' -Force -ErrorAction Stop
+        Write-Verbose "Creating 'decode-base64' alias for ConvertFrom-Base64"
+        Set-Alias -Name 'decode-base64' -Value 'ConvertFrom-Base64' -Force -ErrorAction Stop
     }
     catch
     {
-        Write-Warning "ConvertFrom-Base64: Could not create 'base64-decode' alias: $($_.Exception.Message)"
+        Write-Warning "ConvertFrom-Base64: Could not create 'decode-base64' alias: $($_.Exception.Message)"
     }
 }
