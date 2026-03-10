@@ -746,6 +746,16 @@ function Replace-StringInFile
             [regex]::Escape($OldString)
         }
 
+        try
+        {
+            # Compile once and reuse across all files.
+            $searchRegex = [regex]::new($searchPattern, $regexOptions)
+        }
+        catch
+        {
+            throw "Invalid search pattern '$OldString': $($_.Exception.Message)"
+        }
+
         Write-Verbose "Search pattern: $searchPattern"
         Write-Verbose "Replacement: $NewString"
         Write-Verbose "Regex mode: $Regex"
@@ -814,7 +824,14 @@ function Replace-StringInFile
                                 $testBytes = Get-Content -Path $file.FullName -Encoding Byte -TotalCount 8000 -ErrorAction Stop
                             }
 
-                            $nullBytes = ($testBytes | Where-Object { $_ -eq 0 }).Count
+                            $nullBytes = 0
+                            foreach ($testByte in $testBytes)
+                            {
+                                if ($testByte -eq 0)
+                                {
+                                    $nullBytes++
+                                }
+                            }
                             # Allow a small number of null bytes, but flag as binary if > 1% are null
                             if ($testBytes.Count -gt 0 -and $nullBytes -gt ($testBytes.Count * 0.01))
                             {
@@ -854,7 +871,7 @@ function Replace-StringInFile
                     # Perform replacement
                     $replacementCount = 0
                     $newContent = $null
-                    $matchDetails = @()
+                    $matchDetails = [System.Collections.Generic.List[object]]::new()
 
                     try
                     {
@@ -865,32 +882,45 @@ function Replace-StringInFile
                         }
                         else
                         {
-                            $regexMatches = [regex]::Matches($content, $searchPattern, $regexOptions)
+                            $regexMatches = $searchRegex.Matches($content)
                             $replacementCount = $regexMatches.Count
 
                             if ($replacementCount -gt 0)
                             {
+                                # Precompute line starts once and reuse for all matches.
+                                $lineStartIndices = [System.Collections.Generic.List[int]]::new()
+                                $lineStartIndices.Add(0)
+                                foreach ($newlineMatch in [regex]::Matches($content, "`r`n|`n|`r"))
+                                {
+                                    $lineStartIndices.Add([int]($newlineMatch.Index + $newlineMatch.Length))
+                                }
+
+                                $lineStartArray = $lineStartIndices.ToArray()
+                                $lines = [regex]::Split($content, "`r`n|`n|`r")
+
                                 # Calculate line and column numbers for each match
                                 foreach ($match in $regexMatches)
                                 {
-                                    # Find line number by counting newlines before match
-                                    $textBeforeMatch = $content.Substring(0, $match.Index)
-                                    $lineNumber = ($textBeforeMatch.ToCharArray() | Where-Object { $_ -eq "`n" }).Count + 1
-
-                                    # Find column by getting position after last newline
-                                    $lastNewlineIndex = $textBeforeMatch.LastIndexOf("`n")
-                                    $columnNumber = if ($lastNewlineIndex -ge 0)
+                                    # Locate the line by binary-searching the nearest line start
+                                    # index that is <= match index.
+                                    $lineStartLookup = [System.Array]::BinarySearch($lineStartArray, [int]$match.Index)
+                                    $lineIndex = if ($lineStartLookup -ge 0)
                                     {
-                                        $match.Index - $lastNewlineIndex
+                                        $lineStartLookup
                                     }
                                     else
                                     {
-                                        $match.Index + 1
+                                        (-bnot $lineStartLookup) - 1
                                     }
 
-                                    # Get the line content for context
-                                    $lines = $content -split "`r?`n"
-                                    $lineContent = if ($lineNumber -le $lines.Count) { $lines[$lineNumber - 1] } else { '' }
+                                    if ($lineIndex -lt 0)
+                                    {
+                                        $lineIndex = 0
+                                    }
+
+                                    $lineNumber = $lineIndex + 1
+                                    $columnNumber = ($match.Index - $lineStartArray[$lineIndex]) + 1
+                                    $lineContent = if ($lineIndex -lt $lines.Count) { $lines[$lineIndex] } else { '' }
 
                                     # Calculate replacement value (respecting PreserveCase if enabled)
                                     $replacementValue = $NewString
@@ -1285,13 +1315,13 @@ function Replace-StringInFile
                                     }
 
                                     # Store match details
-                                    $matchDetails += [PSCustomObject]@{
+                                    $matchDetails.Add([PSCustomObject]@{
                                         Line = $lineNumber
                                         Column = $columnNumber
                                         OldValue = $match.Value
                                         NewValue = $replacementValue
                                         LineContent = $lineContent
-                                    }
+                                    })
                                 }
 
                                 if ($PreserveCase)
@@ -1688,11 +1718,11 @@ function Replace-StringInFile
                                         }
                                     }
 
-                                    $newContent = [regex]::Replace($content, $searchPattern, $matchEvaluator, $regexOptions)
+                                    $newContent = $searchRegex.Replace($content, $matchEvaluator)
                                 }
                                 else
                                 {
-                                    $newContent = [regex]::Replace($content, $searchPattern, $NewString, $regexOptions)
+                                    $newContent = $searchRegex.Replace($content, $NewString)
                                 }
                             }
                         }
@@ -1708,7 +1738,7 @@ function Replace-StringInFile
                         FilePath = $file.FullName
                         FileName = $file.Name
                         MatchCount = $replacementCount
-                        Matches = $matchDetails
+                        Matches = @($matchDetails)
                         ReplacementsMade = $false
                         BackupCreated = $false
                         Encoding = if ($Encoding -eq 'Auto') { $sourceEncoding.EncodingName } else { $Encoding }
