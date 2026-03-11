@@ -348,7 +348,8 @@ function Set-PathPermission
 
         if ($isModeOperation -or ($isPortableOperation -and $isUnixPlatform))
         {
-            $chmodCommand = Get-Command -Name 'chmod' -CommandType Application -ErrorAction SilentlyContinue
+            $chmodCommand = Get-Command -Name 'chmod' -CommandType Application -ErrorAction SilentlyContinue |
+            Select-Object -First 1
             if (-not $chmodCommand)
             {
                 throw 'The chmod executable was not found in PATH. Install chmod or ensure it is available before using -Mode.'

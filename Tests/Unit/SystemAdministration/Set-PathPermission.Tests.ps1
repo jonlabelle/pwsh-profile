@@ -184,6 +184,28 @@ Describe 'Set-PathPermission' {
             $result.Octal | Should -Be '600'
         }
 
+        It 'selects a single chmod executable when multiple application matches are returned' {
+            $chmodPath = (Get-Command -Name 'chmod' -CommandType Application -ErrorAction Stop | Select-Object -First 1).Path
+
+            Mock Get-Command {
+                @(
+                    [PSCustomObject]@{
+                        Path = $chmodPath
+                        Source = $chmodPath
+                    }
+                    [PSCustomObject]@{
+                        Path = $chmodPath
+                        Source = $chmodPath
+                    }
+                )
+            } -ParameterFilter { $Name -eq 'chmod' -and @($CommandType) -contains 'Application' }
+
+            Set-PathPermission -Path $script:RegularFile -Mode 600
+
+            $result = Get-PathPermission -Path $script:RegularFile
+            $result.Octal | Should -Be '600'
+        }
+
         It 'skips raw numeric mode updates that are already compliant when -Idempotent is used' {
             $result = Set-PathPermission -Path $script:RegularFile -Mode 0644 -Idempotent -PassThru
 
