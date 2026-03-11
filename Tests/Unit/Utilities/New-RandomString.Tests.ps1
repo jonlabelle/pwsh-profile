@@ -498,6 +498,18 @@ Describe 'New-RandomString' {
             ($result.ToCharArray() | Select-Object -Unique).Count | Should -Be 40
         }
 
+        It 'Should honor NoAdjacentDuplicates when combined with UniqueCharacters' {
+            $result = New-RandomString -Length 20 -UniqueCharacters -NoAdjacentDuplicates
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 20
+            ($result.ToCharArray() | Select-Object -Unique).Count | Should -Be 20
+
+            for ($i = 1; $i -lt $result.Length; $i++)
+            {
+                $result[$i] | Should -Not -Be $result[$i - 1]
+            }
+        }
+
         It 'Should work with custom-only pools when UniqueCharacters is specified' {
             $customChars = @('-', '_', '.', '+')
             $result = New-RandomString -Length 4 -ExcludeCharacters $script:DefaultRandomStringCharacters -IncludeCharacters $customChars -UniqueCharacters

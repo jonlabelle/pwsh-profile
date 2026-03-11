@@ -36,8 +36,8 @@ function New-RandomString
         applied afterward.
 
     .PARAMETER NoAdjacentDuplicates
-        Prevents the same character from appearing twice in a row. Characters may still repeat
-        elsewhere in the string unless UniqueCharacters is also specified.
+        Prevents the same character from appearing twice in a row (case-insensitive for letters).
+        Characters may still repeat elsewhere in the string unless UniqueCharacters is also specified.
 
     .PARAMETER UniqueCharacters
         Samples characters without replacement so each character can appear at most once.
@@ -310,15 +310,25 @@ function New-RandomString
 
     # Convert to array for better performance
     $characters = $characterPool.ToArray()
+    $adjacencyComparer = [System.StringComparer]::OrdinalIgnoreCase
 
     if ($UniqueCharacters -and $Length -gt $characters.Length)
     {
         throw "Length ($Length) exceeds the number of unique characters available in the pool ($($characters.Length)). Reduce -Length or widen the character pool."
     }
 
-    if ($NoAdjacentDuplicates -and -not $UniqueCharacters -and $Length -gt 1 -and $characters.Length -lt 2)
+    if ($NoAdjacentDuplicates -and $Length -gt 1)
     {
-        throw 'At least two distinct characters are required when using -NoAdjacentDuplicates with a length greater than 1.'
+        $adjacentDistinctCharacters = New-Object 'System.Collections.Generic.HashSet[string]' ($adjacencyComparer)
+        foreach ($character in $characters)
+        {
+            [void] $adjacentDistinctCharacters.Add($character)
+        }
+
+        if ($adjacentDistinctCharacters.Count -lt 2)
+        {
+            throw 'At least two distinct characters are required when using -NoAdjacentDuplicates with a length greater than 1.'
+        }
     }
 
     # Generate the random string
@@ -380,7 +390,44 @@ function New-RandomString
             return Get-Random -Minimum 0 -Maximum $MaximumExclusive
         }
 
-        if ($UniqueCharacters)
+        if ($UniqueCharacters -and $NoAdjacentDuplicates)
+        {
+            $availableCharacters = New-Object 'System.Collections.Generic.List[string]'
+            foreach ($character in $characters)
+            {
+                [void] $availableCharacters.Add($character)
+            }
+
+            $previousCharacter = $null
+
+            for ($i = 0; $i -lt $Length; $i++)
+            {
+                $candidateIndices = New-Object 'System.Collections.Generic.List[int]'
+                for ($candidateIndex = 0; $candidateIndex -lt $availableCharacters.Count; $candidateIndex++)
+                {
+                    if ($null -ne $previousCharacter -and $adjacencyComparer.Equals($availableCharacters[$candidateIndex], $previousCharacter))
+                    {
+                        continue
+                    }
+
+                    [void] $candidateIndices.Add($candidateIndex)
+                }
+
+                if ($candidateIndices.Count -eq 0)
+                {
+                    throw 'Unable to satisfy -UniqueCharacters and -NoAdjacentDuplicates with the available character pool. Reduce -Length or widen the character pool.'
+                }
+
+                $selectedCandidate = & $getRandomIndex $candidateIndices.Count
+                $selectedIndex = $candidateIndices[$selectedCandidate]
+                $selectedCharacter = $availableCharacters[$selectedIndex]
+
+                [void] $result.Append($selectedCharacter)
+                $availableCharacters.RemoveAt($selectedIndex)
+                $previousCharacter = $selectedCharacter
+            }
+        }
+        elseif ($UniqueCharacters)
         {
             $availableCharacters = [string[]] $characters.Clone()
 
@@ -401,25 +448,34 @@ function New-RandomString
         }
         elseif ($NoAdjacentDuplicates)
         {
-            $previousIndex = -1
+            $previousCharacter = $null
 
             for ($i = 0; $i -lt $Length; $i++)
             {
-                if ($previousIndex -lt 0)
+                if ($null -eq $previousCharacter)
                 {
                     $index = & $getRandomIndex $characters.Length
                 }
                 else
                 {
-                    $index = & $getRandomIndex ($characters.Length - 1)
-                    if ($index -ge $previousIndex)
+                    $candidateIndices = New-Object 'System.Collections.Generic.List[int]'
+                    for ($candidateIndex = 0; $candidateIndex -lt $characters.Length; $candidateIndex++)
                     {
-                        $index++
+                        if ($adjacencyComparer.Equals($characters[$candidateIndex], $previousCharacter))
+                        {
+                            continue
+                        }
+
+                        [void] $candidateIndices.Add($candidateIndex)
                     }
+
+                    $selectedCandidate = & $getRandomIndex $candidateIndices.Count
+                    $index = $candidateIndices[$selectedCandidate]
                 }
 
-                [void] $result.Append($characters[$index])
-                $previousIndex = $index
+                $selectedCharacter = $characters[$index]
+                [void] $result.Append($selectedCharacter)
+                $previousCharacter = $selectedCharacter
             }
         }
         else
