@@ -88,20 +88,23 @@ Describe 'Set-PathPermission' {
 
     It 'writes an error for missing paths and continues processing' {
         $missingPath = Join-Path -Path $script:TestDir -ChildPath 'does-not-exist.txt'
-        $errors = $null
+        $errors = @(
+            @($script:RegularFile, $missingPath) |
+            Set-PathPermission -OwnerPermission Read -ErrorAction Continue 2>&1 |
+            Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }
+        )
 
-        @($script:RegularFile, $missingPath) | Set-PathPermission -OwnerPermission Read -ErrorAction Continue -ErrorVariable errors
-
-        @($errors).Count | Should -BeGreaterThan 0
+        $errors.Count | Should -BeGreaterThan 0
         $errors[0].FullyQualifiedErrorId | Should -Match '^PathNotFound'
     }
 
     It 'writes an error for non-filesystem providers' {
-        $errors = $null
+        $errors = @(
+            Set-PathPermission -Path 'Variable:\PSVersionTable' -OwnerPermission Read -ErrorAction Continue 2>&1 |
+            Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }
+        )
 
-        Set-PathPermission -Path 'Variable:\PSVersionTable' -OwnerPermission Read -ErrorAction Continue -ErrorVariable errors
-
-        @($errors).Count | Should -BeGreaterThan 0
+        $errors.Count | Should -BeGreaterThan 0
         $errors[0].FullyQualifiedErrorId | Should -Match '^UnsupportedProvider'
     }
 
