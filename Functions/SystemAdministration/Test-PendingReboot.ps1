@@ -175,7 +175,15 @@ function Test-PendingReboot
                 [string]$Name
             )
 
-            $registryValue = Get-ItemPropertyValue -Path $Path -Name $Name -ErrorAction SilentlyContinue
+            try
+            {
+                $registryValue = Get-ItemPropertyValue -Path $Path -Name $Name -ErrorAction Stop
+            }
+            catch
+            {
+                return $false
+            }
+
             if ($null -eq $registryValue)
             {
                 return $false
@@ -188,7 +196,8 @@ function Test-PendingReboot
 
             if ($registryValue -is [System.Array])
             {
-                return $registryValue.Count -gt 0
+                $nonEmpty = @($registryValue | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+                return $nonEmpty.Count -gt 0
             }
 
             return $true
@@ -200,7 +209,6 @@ function Test-PendingReboot
             @{ Path = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootInProgress'; Reason = 'Component Based Servicing - Reboot In Progress' }
             @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'; Reason = 'Windows Update - Reboot Required' }
             @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\PostRebootReporting'; Reason = 'Windows Update - Post Reboot Reporting' }
-            @{ Path = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Services\Pending'; Reason = 'Windows Update - Services Pending' }
             @{ Path = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\PackagesPending'; Reason = 'Component Based Servicing - Packages Pending' }
         )
 
@@ -214,27 +222,74 @@ function Test-PendingReboot
             }
         }
 
-        # Check for pending file rename operations
+        # Check for Windows Update Services Pending (requires child subkeys - empty container is not a pending reboot)
         try
         {
-            $sessionManager = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager'
-            $pendingOps = @(
-                @{ Name = 'PendingFileRenameOperations'; Reason = 'Pending File Rename Operations' }
-                @{ Name = 'PendingFileRenameOperations2'; Reason = 'Pending File Rename Operations 2' }
-            )
-
-            foreach ($pendingOperation in $pendingOps)
+            $servicesPendingPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Services\Pending'
+            if (Test-Path -Path $servicesPendingPath -PathType Container)
             {
-                if (Test-RegistryValuePresent -Path $sessionManager -Name $pendingOperation.Name)
+                $pendingServices = @(Get-ChildItem -Path $servicesPendingPath -ErrorAction SilentlyContinue)
+                if ($pendingServices.Count -gt 0)
                 {
-                    Write-Verbose "Pending reboot detected: $($pendingOperation.Name) exists"
-                    $reasons += $pendingOperation.Reason
+                    Write-Verbose "Pending reboot detected: Windows Update Services\Pending has $($pendingServices.Count) pending service(s)"
+                    $reasons += 'Windows Update - Services Pending'
                 }
             }
         }
         catch
         {
-            Write-Verbose "Could not check pending file operations: $($_.Exception.Message)"
+            Write-Verbose "Could not check Windows Update Services Pending: $($_.Exception.Message)"
+        }
+
+        # Check for pending file rename operations
+        # PendingFileRenameOperations is a REG_MULTI_SZ with pairs of strings:
+        #   even-indexed: source path (prefixed with \??\)
+        #   odd-indexed:  destination path (empty string means delete)
+        # After a reboot, stale entries can remain for files that were already processed.
+        # Only flag as pending if at least one source file still exists on disk.
+        $sessionManager = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager'
+        $pendingOps = @(
+            @{ Name = 'PendingFileRenameOperations'; Reason = 'Pending File Rename Operations' }
+            @{ Name = 'PendingFileRenameOperations2'; Reason = 'Pending File Rename Operations 2' }
+        )
+
+        foreach ($pendingOperation in $pendingOps)
+        {
+            try
+            {
+                $entries = Get-ItemPropertyValue -Path $sessionManager -Name $pendingOperation.Name -ErrorAction Stop
+            }
+            catch
+            {
+                continue
+            }
+
+            if ($null -eq $entries) { continue }
+
+            $hasRealPendingOp = $false
+            for ($i = 0; $i -lt $entries.Count; $i += 2)
+            {
+                $source = $entries[$i]
+                if ([string]::IsNullOrWhiteSpace($source)) { continue }
+
+                # Strip \??\ device path prefix to get a usable filesystem path
+                $filePath = $source -replace '^\\\?\?\\', ''
+                if (Test-Path -Path $filePath -PathType Leaf)
+                {
+                    $hasRealPendingOp = $true
+                    break
+                }
+            }
+
+            if ($hasRealPendingOp)
+            {
+                Write-Verbose "Pending reboot detected: $($pendingOperation.Name) has active file operations"
+                $reasons += $pendingOperation.Reason
+            }
+            else
+            {
+                Write-Verbose "Skipping $($pendingOperation.Name): all referenced source files no longer exist on disk (stale entries)"
+            }
         }
 
         # Check for Windows Update volatile operations
