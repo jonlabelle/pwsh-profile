@@ -250,6 +250,28 @@ Describe 'Sync-Directory' -Tag 'Unit' {
                 if (Test-Path $TestDest) { Remove-Item -Path $TestDest -Recurse -Force }
             }
         }
+
+        It 'Should return a successful skipped result when using -WhatIf' {
+            $TestSource = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-whatif-source'
+            $TestDest = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-whatif-dest'
+
+            try
+            {
+                New-Item -ItemType Directory -Path $TestSource -Force | Out-Null
+                'test' | Out-File (Join-Path -Path $TestSource -ChildPath 'test.txt')
+
+                $Result = Sync-Directory -Source $TestSource -Destination $TestDest -WhatIf
+
+                $Result.Success | Should -BeTrue
+                $Result.ExitCode | Should -Be 0
+                $Result.Message | Should -Match 'skipped'
+            }
+            finally
+            {
+                if (Test-Path $TestSource) { Remove-Item -Path $TestSource -Recurse -Force }
+                if (Test-Path $TestDest) { Remove-Item -Path $TestDest -Recurse -Force }
+            }
+        }
     }
 
     Context 'Output Structure' {

@@ -385,6 +385,12 @@ function Sync-Directory
                         }
                     }
                 }
+                else
+                {
+                    $Result.ExitCode = 0
+                    $Result.Success = $true
+                    $Result.Message = 'Synchronization skipped by WhatIf/Confirm'
+                }
 
                 #endregion
             }
@@ -504,6 +510,12 @@ function Sync-Directory
                         $Result.Success = $false
                         $Result.Message = "rsync failed with exit code $($Result.ExitCode)"
                     }
+                }
+                else
+                {
+                    $Result.ExitCode = 0
+                    $Result.Success = $true
+                    $Result.Message = 'Synchronization skipped by WhatIf/Confirm'
                 }
 
                 #endregion
