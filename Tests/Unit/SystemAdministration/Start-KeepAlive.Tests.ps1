@@ -214,6 +214,15 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
             $job.State | Should -Be 'Running'
         }
 
+        It 'Should stamp keep-alive metadata on started jobs' {
+            $job = Start-KeepAlive -KeepAliveHours 0.1 -JobName 'TestKeepAliveMeta'
+
+            $job.PSObject.Properties['KeepAliveJob'] | Should -Not -BeNullOrEmpty
+            $job.KeepAliveJob | Should -Be $true
+            $job.PSObject.Properties['KeepAliveEndTime'] | Should -Not -BeNullOrEmpty
+            $job.KeepAliveEndTime | Should -BeOfType [DateTime]
+        }
+
         It 'Should prevent starting duplicate jobs' {
             # Start first job
             $job1 = Start-KeepAlive -KeepAliveHours 0.1 -JobName 'TestKeepAlive2'
@@ -262,6 +271,28 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
             $warningMessages | Should -Match "No keep-alive job named 'NonExistentJob' found"
         }
 
+        It 'Should include scheduled end time for keep-alive jobs' {
+            $job = Start-KeepAlive -KeepAliveHours 0.1 -JobName 'TestQueryScheduled'
+            $job | Should -Not -BeNullOrEmpty
+
+            $output = Start-KeepAlive -Query -JobName 'TestQueryScheduled' 6>&1 | Out-String
+
+            $output | Should -Match "Job Status for 'TestQueryScheduled'"
+            $output | Should -Match 'Scheduled End:'
+        }
+
+        It 'Should warn when multiple jobs share the same name' {
+            $null = Start-Job -Name 'TestQueryDuplicate' -ScriptBlock { Start-Sleep -Seconds 30 }
+            Start-Sleep -Milliseconds 100
+            $null = Start-Job -Name 'TestQueryDuplicate' -ScriptBlock { Start-Sleep -Seconds 30 }
+
+            $warningMessages = @()
+            $output = Start-KeepAlive -Query -JobName 'TestQueryDuplicate' -WarningVariable warningMessages 6>&1 | Out-String
+
+            $warningMessages | Should -Match "Multiple jobs named 'TestQueryDuplicate' were found"
+            $output | Should -Match "Job Status for 'TestQueryDuplicate'"
+        }
+
         It 'Should clean up completed jobs when queried' {
             # This test would need a way to create a completed job
             # Skipping detailed implementation for brevity
@@ -306,6 +337,18 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
 
             # Verify job is gone
             Get-Job -Name 'TestEnd1' -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
+        }
+
+        It 'Should remove all matching jobs when duplicate names exist' {
+            $null = Start-Job -Name 'TestEndDuplicate' -ScriptBlock { Start-Sleep -Seconds 30 }
+            $null = Start-Job -Name 'TestEndDuplicate' -ScriptBlock { Start-Sleep -Seconds 30 }
+
+            $warningMessages = @()
+            $output = Start-KeepAlive -EndJob -JobName 'TestEndDuplicate' -WarningVariable warningMessages 6>&1 | Out-String
+
+            $warningMessages | Should -Match "Multiple jobs named 'TestEndDuplicate' were found"
+            $output | Should -Match "Removed 2 matching jobs named 'TestEndDuplicate'"
+            Get-Job -Name 'TestEndDuplicate' -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
         }
     }
 

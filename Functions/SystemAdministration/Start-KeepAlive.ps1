@@ -125,6 +125,8 @@ function Start-KeepAlive
     #
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingEmptyCatchBlock', '', Justification = '')]
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'EndJob', Justification = 'Switch parameter is used to select the End parameter set.')]
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'Query', Justification = 'Switch parameter is used to select the Query parameter set.')]
     [CmdletBinding(DefaultParameterSetName = 'Start')]
     [OutputType([System.Management.Automation.Job], ParameterSetName = 'Start')]
     [OutputType([System.Void], ParameterSetName = 'Query')]
@@ -160,26 +162,64 @@ function Start-KeepAlive
     {
         Write-Verbose "Starting Start-KeepAlive function with ParameterSet: $($PSCmdlet.ParameterSetName)"
 
+        function Write-KeepAliveInfo
+        {
+            param (
+                [Parameter(Mandatory)]
+                [AllowEmptyString()]
+                [String]$Message
+            )
+
+            Write-Information -MessageData $Message -InformationAction Continue
+        }
+
+        function Get-KeepAliveJobsByName
+        {
+            param (
+                [Parameter(Mandatory)]
+                [ValidateNotNullOrEmpty()]
+                [String]$Name
+            )
+
+            @(Get-Job -Name $Name -ErrorAction SilentlyContinue |
+                Sort-Object -Property @(
+                    @{ Expression = { if ($_.PSBeginTime) { $_.PSBeginTime } else { [DateTime]::MinValue } }; Descending = $true },
+                    @{ Expression = { $_.Id }; Descending = $true }
+                ))
+        }
+
+        function Get-RelatedKeepAliveJob
+        {
+            @(Get-Job -ErrorAction SilentlyContinue | Where-Object {
+                    $_.Name -like '*KeepAlive*' -or
+                    ($null -ne $_.PSObject.Properties['KeepAliveJob'] -and $_.KeepAliveJob)
+                } | Sort-Object -Property @(
+                    @{ Expression = { $_.Name }; Descending = $false },
+                    @{ Expression = { if ($_.PSBeginTime) { $_.PSBeginTime } else { [DateTime]::MinValue } }; Descending = $true },
+                    @{ Expression = { $_.Id }; Descending = $true }
+                ))
+        }
+
         # Platform detection for cross-platform compatibility
         if ($PSVersionTable.PSVersion.Major -lt 6)
         {
             # PowerShell 5.1 - Windows only
-            $script:IsWindowsPlatform = $true
-            $script:IsMacOSPlatform = $false
-            $script:IsLinuxPlatform = $false
+            $isWindowsPlatform = $true
+            $isMacOSPlatform = $false
+            $isLinuxPlatform = $false
         }
         else
         {
             # PowerShell Core - use built-in platform variables
-            $script:IsWindowsPlatform = $IsWindows
-            $script:IsMacOSPlatform = $IsMacOS
-            $script:IsLinuxPlatform = $IsLinux
+            $isWindowsPlatform = $IsWindows
+            $isMacOSPlatform = $IsMacOS
+            $isLinuxPlatform = $IsLinux
         }
 
         # Validate platform-specific requirements
         if ($PSCmdlet.ParameterSetName -eq 'Start')
         {
-            if ($script:IsLinuxPlatform)
+            if ($isLinuxPlatform)
             {
                 # Check for required Linux tools
                 $hasSystemdInhibit = $null -ne (Get-Command systemd-inhibit -ErrorAction SilentlyContinue)
@@ -190,18 +230,32 @@ function Start-KeepAlive
                     Write-Error "Linux platform requires either 'systemd-inhibit' or 'xdotool' to be installed. Install with: sudo apt-get install xdotool (Debian/Ubuntu) or sudo dnf install xdotool (RHEL/Fedora)" -Category NotInstalled -ErrorAction Stop
                 }
 
+                if ($hasSystemdInhibit)
+                {
+                    $platformMethod = 'LinuxSystemdInhibit'
+                    $platformDescription = 'Linux (using systemd-inhibit)'
+                }
+                else
+                {
+                    $platformMethod = 'LinuxXdotool'
+                    $platformDescription = 'Linux (using xdotool)'
+                }
+
                 Write-Verbose "Linux keep-alive method: $(if ($hasSystemdInhibit) { 'systemd-inhibit' } else { 'xdotool' })"
             }
-            elseif ($script:IsMacOSPlatform)
+            elseif ($isMacOSPlatform)
             {
                 # macOS has caffeinate built-in, verify it's available
                 if ($null -eq (Get-Command caffeinate -ErrorAction SilentlyContinue))
                 {
                     Write-Error "macOS 'caffeinate' command not found. This should be built-in to macOS." -Category NotInstalled -ErrorAction Stop
                 }
+
+                $platformMethod = 'MacOSCaffeinate'
+                $platformDescription = 'macOS (using caffeinate)'
                 Write-Verbose 'macOS keep-alive method: caffeinate'
             }
-            elseif ($script:IsWindowsPlatform)
+            elseif ($isWindowsPlatform)
             {
                 # Windows - validate COM object availability
                 try
@@ -209,12 +263,18 @@ function Start-KeepAlive
                     Write-Verbose 'Testing WScript.Shell COM object availability'
                     $testCOM = New-Object -ComObject WScript.Shell
                     [System.Runtime.Interopservices.Marshal]::ReleaseComObject($testCOM) | Out-Null
+                    $platformMethod = 'WindowsSendKeys'
+                    $platformDescription = 'Windows'
                     Write-Verbose 'Windows keep-alive method: WScript.Shell COM object'
                 }
                 catch
                 {
                     Write-Error "WScript.Shell COM object not available: $($_.Exception.Message)" -ErrorAction Stop
                 }
+            }
+            else
+            {
+                Write-Error 'Unable to determine the current operating system platform.' -Category InvalidOperation -ErrorAction Stop
             }
         }
 
@@ -234,20 +294,40 @@ function Start-KeepAlive
             {
                 Write-Verbose "Attempting to stop and remove job: $JobName"
 
-                $existingJob = Get-Job -Name $JobName -ErrorAction SilentlyContinue
-                if ($existingJob)
+                $matchingJobs = @(Get-KeepAliveJobsByName -Name $JobName)
+                if ($matchingJobs.Count -gt 0)
                 {
+                    if ($matchingJobs.Count -gt 1)
+                    {
+                        Write-Warning "Multiple jobs named '$JobName' were found. Stopping and removing all matching jobs."
+                    }
+
                     try
                     {
-                        if ($existingJob.State -eq 'Running')
+                        foreach ($jobRecord in $matchingJobs)
                         {
-                            Write-Verbose "Stopping running job: $JobName"
-                            Stop-Job -Name $JobName -PassThru | Out-Null
+                            if ($jobRecord.State -in @('Running', 'NotStarted', 'Blocked', 'Suspended'))
+                            {
+                                try
+                                {
+                                    Write-Verbose "Stopping job '$($jobRecord.Name)' (Id: $($jobRecord.Id)) in state '$($jobRecord.State)'"
+                                    Stop-Job -Job $jobRecord -ErrorAction Stop | Out-Null
+                                }
+                                catch
+                                {
+                                    Write-Verbose "Stop-Job for '$($jobRecord.Name)' (Id: $($jobRecord.Id)) reported: $($_.Exception.Message)"
+                                }
+                            }
+
+                            Write-Verbose "Removing job '$($jobRecord.Name)' (Id: $($jobRecord.Id))"
+                            Remove-Job -Job $jobRecord -Force -ErrorAction Stop
                         }
 
-                        Write-Verbose "Removing job: $JobName"
-                        Remove-Job -Name $JobName -Force
-                        Write-Host "Keep-alive job '$JobName' has been stopped and removed." -ForegroundColor Green
+                        Write-KeepAliveInfo "Keep-alive job '$JobName' has been stopped and removed."
+                        if ($matchingJobs.Count -gt 1)
+                        {
+                            Write-KeepAliveInfo "Removed $($matchingJobs.Count) matching jobs named '$JobName'."
+                        }
                     }
                     catch
                     {
@@ -265,51 +345,77 @@ function Start-KeepAlive
             {
                 Write-Verbose "Querying status of job: $JobName"
 
-                $existingJob = Get-Job -Name $JobName -ErrorAction SilentlyContinue
-                if ($existingJob)
+                $matchingJobs = @(Get-KeepAliveJobsByName -Name $JobName)
+                if ($matchingJobs.Count -gt 0)
                 {
+                    if ($matchingJobs.Count -gt 1)
+                    {
+                        Write-Warning "Multiple jobs named '$JobName' were found. Displaying the most recent job (Id: $($matchingJobs[0].Id))."
+                    }
+
+                    $existingJob = $matchingJobs[0]
+
                     try
                     {
-                        Write-Host "Job Status for '$JobName':" -ForegroundColor Cyan
-                        Write-Host "  State: $($existingJob.State)" -ForegroundColor Yellow
-                        Write-Host "  Started: $($existingJob.PSBeginTime)" -ForegroundColor Yellow
+                        Write-KeepAliveInfo "Job Status for '$JobName':"
+                        Write-KeepAliveInfo "  State: $($existingJob.State)"
+                        Write-KeepAliveInfo "  Started: $($existingJob.PSBeginTime)"
+
+                        if ($null -ne $existingJob.PSObject.Properties['KeepAliveEndTime'])
+                        {
+                            Write-KeepAliveInfo "  Scheduled End: $($existingJob.KeepAliveEndTime)"
+                        }
 
                         if ($existingJob.State -eq 'Completed')
                         {
-                            Write-Host "  Completed: $($existingJob.PSEndTime)" -ForegroundColor Yellow
+                            Write-KeepAliveInfo "  Completed: $($existingJob.PSEndTime)"
                             Write-Verbose 'Job completed, retrieving final output and cleaning up'
 
-                            $jobOutput = Receive-Job -Name $JobName -ErrorAction SilentlyContinue
+                            $jobOutput = @(Receive-Job -Job $existingJob -ErrorAction SilentlyContinue)
                             if ($jobOutput)
                             {
-                                Write-Host "`nJob Output:" -ForegroundColor Cyan
-                                $jobOutput | Write-Host
+                                Write-KeepAliveInfo ''
+                                Write-KeepAliveInfo 'Job Output:'
+                                foreach ($line in $jobOutput)
+                                {
+                                    Write-KeepAliveInfo ([String]$line)
+                                }
                             }
 
-                            Remove-Job -Name $JobName -Force
-                            Write-Host "`nCompleted job '$JobName' has been cleaned up." -ForegroundColor Green
+                            Remove-Job -Job $existingJob -Force
+                            Write-KeepAliveInfo ''
+                            Write-KeepAliveInfo "Completed job '$JobName' has been cleaned up."
                         }
                         elseif ($existingJob.State -eq 'Running')
                         {
-                            Write-Host '  Status: Job is actively running' -ForegroundColor Green
+                            Write-KeepAliveInfo '  Status: Job is actively running'
 
                             # Get recent output without removing it
-                            $recentOutput = Receive-Job -Name $JobName -Keep -ErrorAction SilentlyContinue
+                            $recentOutput = @(Receive-Job -Job $existingJob -Keep -ErrorAction SilentlyContinue)
                             if ($recentOutput)
                             {
-                                Write-Host "`nRecent Output:" -ForegroundColor Cyan
-                                ($recentOutput | Select-Object -Last 5) | Write-Host
+                                Write-KeepAliveInfo ''
+                                Write-KeepAliveInfo 'Recent Output:'
+                                foreach ($line in ($recentOutput | Select-Object -Last 5))
+                                {
+                                    Write-KeepAliveInfo ([String]$line)
+                                }
                             }
                         }
                         else
                         {
-                            Write-Host "  Status: Job is in '$($existingJob.State)' state" -ForegroundColor Yellow
+                            Write-KeepAliveInfo "  Status: Job is in '$($existingJob.State)' state"
 
                             # Check for any errors
-                            if ($existingJob.ChildJobs[0].Error.Count -gt 0)
+                            $jobErrors = @($existingJob.ChildJobs | ForEach-Object { $_.Error } | Where-Object { $_ })
+                            if ($jobErrors.Count -gt 0)
                             {
-                                Write-Host "`nJob Errors:" -ForegroundColor Red
-                                $existingJob.ChildJobs[0].Error | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+                                Write-KeepAliveInfo ''
+                                Write-KeepAliveInfo 'Job Errors:'
+                                foreach ($jobError in $jobErrors)
+                                {
+                                    Write-KeepAliveInfo "  $jobError"
+                                }
                             }
                         }
                     }
@@ -323,11 +429,18 @@ function Start-KeepAlive
                     Write-Warning "No keep-alive job named '$JobName' found."
 
                     # Check for other keep-alive jobs
-                    $allKeepAliveJobs = Get-Job | Where-Object { $_.Name -like '*KeepAlive*' }
-                    if ($allKeepAliveJobs)
+                    $allKeepAliveJobs = @(Get-RelatedKeepAliveJob)
+                    if ($allKeepAliveJobs.Count -gt 0)
                     {
-                        Write-Host "`nOther keep-alive jobs found:" -ForegroundColor Cyan
-                        $allKeepAliveJobs | Format-Table Name, State, PSBeginTime -AutoSize | Out-Host
+                        Write-KeepAliveInfo ''
+                        Write-KeepAliveInfo 'Other keep-alive jobs found:'
+                        foreach ($line in ($allKeepAliveJobs | Select-Object Name, State, PSBeginTime | Format-Table -AutoSize | Out-String -Stream))
+                        {
+                            if (-not [String]::IsNullOrWhiteSpace($line))
+                            {
+                                Write-KeepAliveInfo $line.TrimEnd()
+                            }
+                        }
                     }
                 }
                 break
@@ -338,93 +451,107 @@ function Start-KeepAlive
                 Write-Verbose "Starting new keep-alive job: $JobName"
 
                 # Check if job already exists
-                $existingJob = Get-Job -Name $JobName -ErrorAction SilentlyContinue
-                if ($existingJob)
+                $existingJobs = @(Get-KeepAliveJobsByName -Name $JobName)
+                if ($existingJobs.Count -gt 0)
                 {
-                    if ($existingJob.State -eq 'Running')
+                    $runningJobs = @($existingJobs | Where-Object { $_.State -eq 'Running' })
+                    if ($runningJobs.Count -gt 0)
                     {
                         Write-Warning "Keep-alive job '$JobName' is already running. Use -Query to check status or -EndJob to stop it first."
                         return
                     }
                     else
                     {
-                        Write-Verbose "Cleaning up previous job '$JobName' in state: $($existingJob.State)"
-                        Remove-Job -Name $JobName -Force -ErrorAction SilentlyContinue
+                        Write-Verbose "Cleaning up $($existingJobs.Count) previous job(s) named '$JobName'"
+                        foreach ($jobRecord in $existingJobs)
+                        {
+                            Remove-Job -Job $jobRecord -Force -ErrorAction SilentlyContinue
+                        }
                     }
                 }
 
                 # Create the background job script
                 $jobScript = {
-                    param ($EndTime, $SleepSeconds, $JobName, $KeyToPress, $PlatformIsWindows, $PlatformIsMacOS, $PlatformIsLinux)
+                    param ($EndTime, $SleepSeconds, $JobName, $KeyToPress, $PlatformMethod)
 
                     try
                     {
+                        function Get-RemainingSleepInterval
+                        {
+                            param (
+                                [Parameter(Mandatory)]
+                                [DateTime]$TargetTime,
+
+                                [Parameter(Mandatory)]
+                                [Int32]$IntervalSeconds
+                            )
+
+                            $remainingMilliseconds = [Math]::Floor(($TargetTime - (Get-Date)).TotalMilliseconds)
+                            if ($remainingMilliseconds -le 0)
+                            {
+                                return 0
+                            }
+
+                            return [Int32][Math]::Min(($IntervalSeconds * 1000), $remainingMilliseconds)
+                        }
+
                         Write-Output "Keep-alive job '$JobName' started at: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
                         Write-Output "Job will end at: $(Get-Date $EndTime -Format 'yyyy-MM-dd HH:mm:ss')"
 
                         # Platform-specific initialization
-                        if ($PlatformIsWindows)
+                        switch ($PlatformMethod)
                         {
-                            Write-Output 'Platform: Windows (using WScript.Shell for keystroke simulation)'
-                            Write-Output "Key simulation interval: $SleepSeconds seconds"
-                            Write-Output "Key to simulate: $KeyToPress`n"
+                            'WindowsSendKeys'
+                            {
+                                Write-Output 'Platform: Windows (using WScript.Shell for keystroke simulation)'
+                                Write-Output "Key simulation interval: $SleepSeconds seconds"
+                                Write-Output "Key to simulate: $KeyToPress`n"
 
-                            # Create COM object once and reuse it (more efficient and reliable)
-                            $wshell = New-Object -ComObject WScript.Shell
-                        }
-                        elseif ($PlatformIsMacOS)
-                        {
-                            Write-Output 'Platform: macOS (using caffeinate to prevent sleep)'
-                            Write-Output "Note: caffeinate runs continuously, no interval needed`n"
+                                # Create COM object once and reuse it (more efficient and reliable)
+                                $wshell = New-Object -ComObject WScript.Shell
+                            }
+                            'MacOSCaffeinate'
+                            {
+                                Write-Output 'Platform: macOS (using caffeinate to prevent sleep)'
+                                Write-Output "Note: caffeinate runs continuously, no interval needed`n"
 
-                            # Start caffeinate in the background
-                            # -d prevents display sleep, -i prevents system idle sleep
-                            $caffeinateProcess = Start-Process -FilePath 'caffeinate' -ArgumentList '-di' -PassThru -NoNewWindow
-                        }
-                        elseif ($PlatformIsLinux)
-                        {
-                            # Check which method is available
-                            $hasSystemdInhibit = $null -ne (Get-Command systemd-inhibit -ErrorAction SilentlyContinue)
-                            $hasXdotool = $null -ne (Get-Command xdotool -ErrorAction SilentlyContinue)
-
-                            if ($hasSystemdInhibit)
+                                # Start caffeinate in the background
+                                # -d prevents display sleep, -i prevents system idle sleep
+                                $caffeinateProcess = Start-Process -FilePath 'caffeinate' -ArgumentList '-di' -PassThru -NoNewWindow -ErrorAction Stop
+                            }
+                            'LinuxSystemdInhibit'
                             {
                                 Write-Output 'Platform: Linux (using systemd-inhibit to prevent sleep)'
                                 Write-Output "Note: systemd-inhibit runs continuously, no interval needed`n"
 
-                                # Start systemd-inhibit to block idle and sleep
-                                # We'll run 'sleep' for the duration with systemd-inhibit
-                                $durationSeconds = [Math]::Ceiling(($EndTime - (Get-Date)).TotalSeconds)
+                                # Start systemd-inhibit to block idle and sleep.
+                                # Use a one-second minimum in case the job starts just before the requested end time.
+                                $durationSeconds = [Math]::Max([Int32][Math]::Ceiling(($EndTime - (Get-Date)).TotalSeconds), 1)
                                 $inhibitProcess = Start-Process -FilePath 'systemd-inhibit' -ArgumentList @(
                                     '--what=idle:sleep',
                                     '--who=PowerShell',
                                     '--why=Keep-alive job active',
                                     'sleep',
                                     $durationSeconds
-                                ) -PassThru -NoNewWindow
+                                ) -PassThru -NoNewWindow -ErrorAction Stop
                             }
-                            elseif ($hasXdotool)
+                            'LinuxXdotool'
                             {
                                 Write-Output 'Platform: Linux (using xdotool for mouse movement simulation)'
                                 Write-Output "Activity simulation interval: $SleepSeconds seconds`n"
-                                $useXdotool = $true
                             }
-                            else
+                            default
                             {
-                                throw "Linux platform requires either 'systemd-inhibit' or 'xdotool' to be installed"
+                                throw "Unsupported keep-alive platform method: $PlatformMethod"
                             }
                         }
 
                         $iterationCount = 0
 
                         # Main keep-alive loop
-                        while ((Get-Date) -le $EndTime)
+                        while ((Get-Date) -lt $EndTime)
                         {
-                            # Wait SleepSeconds before next activity (for methods that need periodic activity)
-                            Start-Sleep -Seconds $SleepSeconds
-
-                            $current = Get-Date
-                            $remaining = [Math]::Round((($EndTime - $current).TotalMinutes), 2)
+                            $remaining = [Math]::Round((($EndTime - (Get-Date)).TotalMinutes), 2)
 
                             # Only show progress every 5 iterations to reduce output volume
                             if (($iterationCount % 5) -eq 0)
@@ -435,37 +562,44 @@ function Start-KeepAlive
                             # Platform-specific activity simulation
                             try
                             {
-                                if ($PlatformIsWindows)
+                                switch ($PlatformMethod)
                                 {
-                                    # Send keystroke using COM object
-                                    $wshell.SendKeys($KeyToPress)
-                                }
-                                elseif ($PlatformIsMacOS)
-                                {
-                                    # caffeinate runs continuously, just check if it's still running
-                                    if ($caffeinateProcess.HasExited)
+                                    'WindowsSendKeys'
                                     {
-                                        Write-Error 'caffeinate process has unexpectedly exited'
-                                        break
+                                        # Send keystroke using COM object
+                                        $wshell.SendKeys($KeyToPress)
                                     }
-                                }
-                                elseif ($PlatformIsLinux)
-                                {
-                                    if ($hasSystemdInhibit)
+                                    'MacOSCaffeinate'
+                                    {
+                                        # caffeinate runs continuously, just check if it's still running
+                                        if ($caffeinateProcess.HasExited)
+                                        {
+                                            throw 'caffeinate process has unexpectedly exited'
+                                        }
+                                    }
+                                    'LinuxSystemdInhibit'
                                     {
                                         # systemd-inhibit runs continuously, check if it's still running
                                         if ($inhibitProcess.HasExited)
                                         {
-                                            Write-Error 'systemd-inhibit process has unexpectedly exited'
-                                            break
+                                            throw 'systemd-inhibit process has unexpectedly exited'
                                         }
                                     }
-                                    elseif ($useXdotool)
+                                    'LinuxXdotool'
                                     {
                                         # Simulate minimal mouse movement (move cursor 1 pixel and back)
                                         # This is less intrusive than key presses
                                         $null = & xdotool mousemove_relative --sync -- 1 0
+                                        if ($LASTEXITCODE -ne 0)
+                                        {
+                                            throw "xdotool returned exit code $LASTEXITCODE while moving the cursor"
+                                        }
+
                                         $null = & xdotool mousemove_relative --sync -- -1 0
+                                        if ($LASTEXITCODE -ne 0)
+                                        {
+                                            throw "xdotool returned exit code $LASTEXITCODE while restoring the cursor position"
+                                        }
                                     }
                                 }
                             }
@@ -476,14 +610,23 @@ function Start-KeepAlive
                             }
 
                             $iterationCount++
+
+                            $sleepMilliseconds = Get-RemainingSleepInterval -TargetTime $EndTime -IntervalSeconds $SleepSeconds
+                            if ($sleepMilliseconds -le 0)
+                            {
+                                break
+                            }
+
+                            Start-Sleep -Milliseconds $sleepMilliseconds
                         }
 
-                        Write-Output "`nKeep-alive job '$JobName' completed successfully at: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
-                        if ($PlatformIsWindows)
+                        Write-Output ''
+                        Write-Output "Keep-alive job '$JobName' completed successfully at: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+                        if ($PlatformMethod -eq 'WindowsSendKeys')
                         {
                             Write-Output "Total keystrokes sent: $iterationCount"
                         }
-                        elseif ($PlatformIsLinux -and $useXdotool)
+                        elseif ($PlatformMethod -eq 'LinuxXdotool')
                         {
                             Write-Output "Total activity simulations: $iterationCount"
                         }
@@ -500,50 +643,53 @@ function Start-KeepAlive
                     finally
                     {
                         # Platform-specific cleanup
-                        if ($PlatformIsWindows)
+                        switch ($PlatformMethod)
                         {
-                            # Clean up COM object
-                            if ($wshell)
+                            'WindowsSendKeys'
                             {
-                                try
+                                # Clean up COM object
+                                if ($wshell)
                                 {
-                                    [System.Runtime.Interopservices.Marshal]::ReleaseComObject($wshell) | Out-Null
-                                }
-                                catch
-                                {
-                                    # Ignore cleanup errors
+                                    try
+                                    {
+                                        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($wshell) | Out-Null
+                                    }
+                                    catch
+                                    {
+                                        # Ignore cleanup errors
+                                    }
                                 }
                             }
-                        }
-                        elseif ($PlatformIsMacOS)
-                        {
-                            # Stop caffeinate process
-                            if ($caffeinateProcess -and -not $caffeinateProcess.HasExited)
+                            'MacOSCaffeinate'
                             {
-                                try
+                                # Stop caffeinate process
+                                if ($caffeinateProcess -and -not $caffeinateProcess.HasExited)
                                 {
-                                    $caffeinateProcess.Kill()
-                                    $caffeinateProcess.WaitForExit(5000)  # Wait up to 5 seconds
-                                }
-                                catch
-                                {
-                                    # Ignore cleanup errors
+                                    try
+                                    {
+                                        $caffeinateProcess.Kill()
+                                        $caffeinateProcess.WaitForExit(5000)  # Wait up to 5 seconds
+                                    }
+                                    catch
+                                    {
+                                        # Ignore cleanup errors
+                                    }
                                 }
                             }
-                        }
-                        elseif ($PlatformIsLinux)
-                        {
-                            # Stop systemd-inhibit process if it's still running
-                            if ($inhibitProcess -and -not $inhibitProcess.HasExited)
+                            'LinuxSystemdInhibit'
                             {
-                                try
+                                # Stop systemd-inhibit process if it's still running
+                                if ($inhibitProcess -and -not $inhibitProcess.HasExited)
                                 {
-                                    $inhibitProcess.Kill()
-                                    $inhibitProcess.WaitForExit(5000)  # Wait up to 5 seconds
-                                }
-                                catch
-                                {
-                                    # Ignore cleanup errors
+                                    try
+                                    {
+                                        $inhibitProcess.Kill()
+                                        $inhibitProcess.WaitForExit(5000)  # Wait up to 5 seconds
+                                    }
+                                    catch
+                                    {
+                                        # Ignore cleanup errors
+                                    }
                                 }
                             }
                         }
@@ -568,34 +714,29 @@ function Start-KeepAlive
                         }
                     }
 
-                    $job = Start-Job -ScriptBlock $jobScript -Name $JobName -InitializationScript $initScript -ArgumentList $endTime, $SleepSeconds, $JobName, $KeyToPress, $script:IsWindowsPlatform, $script:IsMacOSPlatform, $script:IsLinuxPlatform
+                    $job = Start-Job -ScriptBlock $jobScript -Name $JobName -InitializationScript $initScript -ArgumentList $endTime, $SleepSeconds, $JobName, $KeyToPress, $platformMethod
+                    $job | Add-Member -NotePropertyName 'KeepAliveJob' -NotePropertyValue $true -Force
+                    $job | Add-Member -NotePropertyName 'KeepAlivePlatformMethod' -NotePropertyValue $platformMethod -Force
+                    $job | Add-Member -NotePropertyName 'KeepAliveEndTime' -NotePropertyValue $endTime -Force
 
-                    Write-Host "Keep-alive job '$JobName' started successfully." -ForegroundColor Green
-                    Write-Host "  Job ID: $($job.Id)" -ForegroundColor Cyan
-                    Write-Host "  Duration: $KeepAliveHours hours" -ForegroundColor Cyan
-                    Write-Host "  End time: $(Get-Date $endTime -Format 'yyyy-MM-dd h:mm:ss tt')" -ForegroundColor Cyan
+                    Write-KeepAliveInfo "Keep-alive job '$JobName' started successfully."
+                    Write-KeepAliveInfo "  Job ID: $($job.Id)"
+                    Write-KeepAliveInfo "  Duration: $KeepAliveHours hours"
+                    Write-KeepAliveInfo "  End time: $(Get-Date $endTime -Format 'yyyy-MM-dd h:mm:ss tt')"
+                    Write-KeepAliveInfo "  Platform: $platformDescription"
 
-                    if ($script:IsWindowsPlatform)
+                    if ($platformMethod -eq 'WindowsSendKeys')
                     {
-                        Write-Host '  Platform: Windows' -ForegroundColor Cyan
-                        Write-Host "  Interval: $SleepSeconds seconds" -ForegroundColor Cyan
-                        Write-Host "  Key: $KeyToPress" -ForegroundColor Cyan
+                        Write-KeepAliveInfo "  Interval: $SleepSeconds seconds"
+                        Write-KeepAliveInfo "  Key: $KeyToPress"
                     }
-                    elseif ($script:IsMacOSPlatform)
+                    elseif ($platformMethod -eq 'LinuxXdotool')
                     {
-                        Write-Host '  Platform: macOS (using caffeinate)' -ForegroundColor Cyan
-                    }
-                    elseif ($script:IsLinuxPlatform)
-                    {
-                        $method = if (Get-Command systemd-inhibit -ErrorAction SilentlyContinue) { 'systemd-inhibit' } else { 'xdotool' }
-                        Write-Host "  Platform: Linux (using $method)" -ForegroundColor Cyan
-                        if ($method -eq 'xdotool')
-                        {
-                            Write-Host "  Interval: $SleepSeconds seconds" -ForegroundColor Cyan
-                        }
+                        Write-KeepAliveInfo "  Interval: $SleepSeconds seconds"
                     }
 
-                    Write-Host "`nUse 'Start-KeepAlive -Query -JobName $JobName' to check status" -ForegroundColor Yellow
+                    Write-KeepAliveInfo ''
+                    Write-KeepAliveInfo "Use 'Start-KeepAlive -Query -JobName $JobName' to check status"
 
                     return $job
                 }
