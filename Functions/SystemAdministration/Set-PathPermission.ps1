@@ -518,13 +518,19 @@ function Set-PathPermission
 
             if ($UseLiteralPath)
             {
-                return @($InputPath)
+                return [PSCustomObject]@{
+                    Paths       = @($InputPath)
+                    ErrorRecord = $null
+                }
             }
 
             $resolvedPaths = @(Resolve-Path -Path $InputPath -ErrorAction Ignore | Select-Object -ExpandProperty Path)
             if ($resolvedPaths.Count -gt 0)
             {
-                return $resolvedPaths
+                return [PSCustomObject]@{
+                    Paths       = $resolvedPaths
+                    ErrorRecord = $null
+                }
             }
 
             $message = "Path not found: $InputPath"
@@ -535,8 +541,10 @@ function Set-PathPermission
                 [System.Management.Automation.ErrorCategory]::ObjectNotFound,
                 $InputPath
             )
-            $PSCmdlet.WriteError($errorRecord)
-            return @()
+            return [PSCustomObject]@{
+                Paths       = @()
+                ErrorRecord = $errorRecord
+            }
         }
 
         function Get-PermissionSnapshot
@@ -1421,8 +1429,14 @@ function Set-PathPermission
                 continue
             }
 
-            $resolvedPaths = Get-ResolvedPaths -InputPath $inputPath -UseLiteralPath $useLiteralPath
-            foreach ($resolvedPath in $resolvedPaths)
+            $resolutionResult = Get-ResolvedPaths -InputPath $inputPath -UseLiteralPath $useLiteralPath
+            if ($null -ne $resolutionResult.ErrorRecord)
+            {
+                $PSCmdlet.WriteError($resolutionResult.ErrorRecord)
+                continue
+            }
+
+            foreach ($resolvedPath in $resolutionResult.Paths)
             {
                 try
                 {
