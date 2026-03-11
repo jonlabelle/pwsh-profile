@@ -5,14 +5,14 @@ function Set-TlsSecurityProtocol
         Configures TLS security protocol settings for secure network connections.
 
     .DESCRIPTION
-        This function intelligently configures the .NET ServicePointManager SecurityProtocol
-        setting to ensure secure TLS connections. It supports both PowerShell Desktop (5.1)
+        This function configures the .NET ServicePointManager SecurityProtocol setting
+        for the current PowerShell session. It supports both PowerShell Desktop (5.1)
         and PowerShell Core (6+).
 
         On modern systems, it's often best to let the operating system decide the best
         security protocol by not setting a specific version. This function defaults to
-        letting the operating system decide the best security protocol, but can be used
-        to enforce other versions.
+        letting the operating system decide the best security protocol, but can also
+        ensure a specific protocol is enabled while trimming weaker legacy protocols.
 
     .PARAMETER Protocol
         The TLS protocol configuration to apply.
@@ -20,8 +20,11 @@ function Set-TlsSecurityProtocol
         Default is SystemDefault. 'SystemDefault' allows the OS to choose the best protocol.
 
     .PARAMETER Force
-        Forces the security protocol to be set, even if a secure version is already configured.
-        This is useful for overwriting an existing configuration.
+        Replaces the current explicit protocol set with the resolved target protocol,
+        even if the current session is already using an acceptable configuration.
+
+        By default, secure protocols already enabled for the current session are preserved
+        when they still make sense for the requested configuration.
 
     .PARAMETER PassThru
         Returns the current security protocol setting after any changes are made.
@@ -36,9 +39,9 @@ function Set-TlsSecurityProtocol
 
         VERBOSE: Current security protocol: Tls12
         VERBOSE: TLS 1.3 is available on this system.
-        VERBOSE: Updating security protocol to include Tls12, Tls13.
+        VERBOSE: Updated security protocol to: Tls12, Tls13
 
-        Adds TLS 1.3 to the existing security protocols.
+        Enables TLS 1.3 while preserving already-enabled secure protocols.
 
     .EXAMPLE
         PS > Set-TlsSecurityProtocol -Protocol Tls12
@@ -53,6 +56,8 @@ function Set-TlsSecurityProtocol
         - PowerShell Desktop (5.1) on older Windows supports up to TLS 1.2.
         - PowerShell Core (6+) and modern Windows versions may support TLS 1.3.
         - Using 'SystemDefault' is recommended for forward compatibility.
+        - When SystemDefault is unavailable, the function falls back to the best
+          explicit protocol set available on the current platform.
         - Changes apply globally to the current PowerShell session.
 
         Author: Jon LaBelle
@@ -62,7 +67,7 @@ function Set-TlsSecurityProtocol
     .LINK
         https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Set-TlsSecurityProtocol.ps1
     #>
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess)]
     [OutputType([System.Net.SecurityProtocolType])]
     param(
         [Parameter()]
@@ -80,28 +85,166 @@ function Set-TlsSecurityProtocol
     {
         Write-Verbose "Starting TLS security protocol configuration (Protocol: $Protocol)"
 
-        # Create a mapping of protocol names to their enum values and strength
-        $protocolMap = @{
-            'Tls' = @{ Value = 0; Strength = 1 }
-            'Tls11' = @{ Value = 0; Strength = 2 }
-            'Tls12' = @{ Value = 0; Strength = 3 }
-            'Tls13' = @{ Value = 0; Strength = 4 }
-            'SystemDefault' = @{ Value = 0; Strength = 99 } # Highest strength
-        }
+        $protocolDefinitions = @(
+            [PSCustomObject]@{ Name = 'Tls'; Strength = 1 }
+            [PSCustomObject]@{ Name = 'Tls11'; Strength = 2 }
+            [PSCustomObject]@{ Name = 'Tls12'; Strength = 3 }
+            [PSCustomObject]@{ Name = 'Tls13'; Strength = 4 }
+            [PSCustomObject]@{ Name = 'SystemDefault'; Strength = 99 }
+        )
 
-        # Populate enum values dynamically to avoid errors on older systems
-        foreach ($name in $protocolMap.Keys)
+        $protocolDefinitionsByName = @{}
+        $availableProtocols = @{}
+
+        foreach ($definition in $protocolDefinitions)
         {
+            $protocolDefinitionsByName[$definition.Name] = $definition
+
             try
             {
-                $protocolMap[$name].Value = [Net.SecurityProtocolType]::$name
-                Write-Verbose "Protocol '$name' is available on this system."
+                $protocolValue = [Net.SecurityProtocolType]::$($definition.Name)
+                $availableProtocols[$definition.Name] = [PSCustomObject]@{
+                    Name = $definition.Name
+                    Strength = $definition.Strength
+                    Value = [System.Net.SecurityProtocolType]$protocolValue
+                }
+
+                Write-Verbose "Protocol '$($definition.Name)' is available on this system."
             }
             catch
             {
-                Write-Verbose "Protocol '$name' is not available on this system."
-                $protocolMap.Remove($name)
+                Write-Verbose "Protocol '$($definition.Name)' is not available on this system."
             }
+        }
+
+        $availableExplicitProtocols = @(
+            $availableProtocols.Values |
+            Where-Object { $_.Name -ne 'SystemDefault' } |
+            Sort-Object -Property Strength
+        )
+
+        if ($availableExplicitProtocols.Count -eq 0)
+        {
+            throw 'No supported TLS protocol values are available on this system.'
+        }
+
+        $securePreservationFloor = $protocolDefinitionsByName['Tls12'].Strength
+        $systemDefaultInfo = if ($availableProtocols.ContainsKey('SystemDefault')) { $availableProtocols['SystemDefault'] } else { $null }
+
+        function Format-ProtocolDisplay
+        {
+            param(
+                [Parameter(Mandatory)]
+                [System.Net.SecurityProtocolType]$Value
+            )
+
+            if ($systemDefaultInfo -and $Value -eq $systemDefaultInfo.Value)
+            {
+                return 'SystemDefault'
+            }
+
+            $enabledNames = New-Object 'System.Collections.Generic.List[string]'
+            $matchedValue = [System.Net.SecurityProtocolType]0
+
+            foreach ($definition in $availableExplicitProtocols)
+            {
+                if (($Value -band $definition.Value) -ne 0)
+                {
+                    $enabledNames.Add($definition.Name)
+                    $matchedValue = $matchedValue -bor $definition.Value
+                }
+            }
+
+            if ($enabledNames.Count -eq 0)
+            {
+                return $Value.ToString()
+            }
+
+            if ($matchedValue -ne $Value)
+            {
+                return $Value.ToString()
+            }
+
+            return ($enabledNames -join ', ')
+        }
+
+        function Get-ResolvedProtocolInfo
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$RequestedProtocol
+            )
+
+            if ($availableProtocols.ContainsKey($RequestedProtocol))
+            {
+                return [PSCustomObject]@{
+                    Protocol = $availableProtocols[$RequestedProtocol]
+                    IsFallback = $false
+                    Direction = $null
+                }
+            }
+
+            $requestedDefinition = $protocolDefinitionsByName[$RequestedProtocol]
+            $strongerProtocol = @(
+                $availableExplicitProtocols |
+                Where-Object { $_.Strength -gt $requestedDefinition.Strength } |
+                Select-Object -First 1
+            )
+
+            if ($strongerProtocol.Count -gt 0)
+            {
+                return [PSCustomObject]@{
+                    Protocol = $strongerProtocol[0]
+                    IsFallback = $true
+                    Direction = 'Higher'
+                }
+            }
+
+            $lowerProtocol = @(
+                $availableExplicitProtocols |
+                Where-Object { $_.Strength -lt $requestedDefinition.Strength } |
+                Sort-Object -Property Strength -Descending |
+                Select-Object -First 1
+            )
+
+            if ($lowerProtocol.Count -gt 0)
+            {
+                return [PSCustomObject]@{
+                    Protocol = $lowerProtocol[0]
+                    IsFallback = $true
+                    Direction = 'Lower'
+                }
+            }
+
+            return $null
+        }
+
+        function Get-BestExplicitDefaultProtocol
+        {
+            $secureProtocols = @(
+                $availableExplicitProtocols |
+                Where-Object { $_.Strength -ge $securePreservationFloor }
+            )
+
+            if ($secureProtocols.Count -gt 0)
+            {
+                $protocolValue = [System.Net.SecurityProtocolType]0
+
+                foreach ($protocolInfo in $secureProtocols)
+                {
+                    $protocolValue = $protocolValue -bor $protocolInfo.Value
+                }
+
+                return $protocolValue
+            }
+
+            $strongestProtocol = @(
+                $availableExplicitProtocols |
+                Sort-Object -Property Strength -Descending |
+                Select-Object -First 1
+            )
+
+            return $strongestProtocol[0].Value
         }
     }
 
@@ -110,70 +253,79 @@ function Set-TlsSecurityProtocol
         try
         {
             $currentProtocol = [Net.ServicePointManager]::SecurityProtocol
-            Write-Verbose "Current security protocol: $currentProtocol"
+            $currentDisplay = Format-ProtocolDisplay -Value $currentProtocol
+            Write-Verbose "Current security protocol: $currentDisplay"
 
-            # Handle SystemDefault as a special case
             if ($Protocol -eq 'SystemDefault')
             {
-                if ($Force -or $currentProtocol -ne $protocolMap.SystemDefault.Value)
+                if ($systemDefaultInfo)
                 {
-                    [Net.ServicePointManager]::SecurityProtocol = $protocolMap.SystemDefault.Value
-                    Write-Verbose 'Updated security protocol to: SystemDefault'
+                    $targetProtocol = $systemDefaultInfo.Value
+                    $targetDisplay = 'SystemDefault'
                 }
                 else
                 {
-                    Write-Verbose 'Security protocol is already set to SystemDefault.'
+                    $targetProtocol = Get-BestExplicitDefaultProtocol
+                    $targetDisplay = Format-ProtocolDisplay -Value $targetProtocol
+                    Write-Verbose "SystemDefault is not available on this system. Falling back to: $targetDisplay"
                 }
             }
             else
             {
-                # Determine if the current configuration is already sufficient
-                $isSufficient = $false
-                $minStrength = $protocolMap[$Protocol].Strength
-                foreach ($protocolName in $protocolMap.Keys)
+                $resolvedProtocolInfo = Get-ResolvedProtocolInfo -RequestedProtocol $Protocol
+                if (-not $resolvedProtocolInfo)
                 {
-                    if ($protocolMap[$protocolName].Strength -ge $minStrength)
-                    {
-                        if (($currentProtocol -band $protocolMap[$protocolName].Value) -ne 0)
-                        {
-                            $isSufficient = $true
-                            break
-                        }
-                    }
+                    throw "Requested protocol '$Protocol' is not available on this system."
                 }
 
-                if (-not $isSufficient -or $Force)
+                $effectiveProtocol = $resolvedProtocolInfo.Protocol
+                if ($resolvedProtocolInfo.IsFallback)
                 {
-                    # Build the new protocol by combining all available protocols >= minimum
-                    $newProtocol = [Net.SecurityProtocolType]0
-                    foreach ($protocolName in $protocolMap.Keys)
+                    if ($resolvedProtocolInfo.Direction -eq 'Higher')
                     {
-                        if ($protocolMap[$protocolName].Strength -ge $minStrength -and $protocolName -ne 'SystemDefault')
-                        {
-                            $newProtocol = $newProtocol -bor $protocolMap[$protocolName].Value
-                        }
-                    }
-
-                    # If forcing, this becomes the new value. Otherwise, add to existing.
-                    if (-not $Force -and $currentProtocol -ne 'SystemDefault')
-                    {
-                        $newProtocol = $currentProtocol -bor $newProtocol
-                    }
-
-                    if ($newProtocol -ne $currentProtocol)
-                    {
-                        [Net.ServicePointManager]::SecurityProtocol = $newProtocol
-                        Write-Verbose "Updated security protocol to: $newProtocol"
+                        Write-Verbose "Requested protocol '$Protocol' is not available on this system. Using stronger available protocol '$($effectiveProtocol.Name)'."
                     }
                     else
                     {
-                        Write-Verbose 'Security protocol already meets the requirements. No change needed.'
+                        Write-Verbose "Requested protocol '$Protocol' is not available on this system. Falling back to '$($effectiveProtocol.Name)'."
                     }
                 }
-                else
+
+                $targetProtocol = $effectiveProtocol.Value
+
+                if (-not $Force)
                 {
-                    Write-Verbose "Security protocol already configured with $Protocol or higher."
+                    $requestedStrength = $protocolDefinitionsByName[$Protocol].Strength
+                    $preservationFloor = [Math]::Min($requestedStrength, $securePreservationFloor)
+
+                    foreach ($protocolInfo in $availableExplicitProtocols)
+                    {
+                        if ($protocolInfo.Strength -lt $preservationFloor)
+                        {
+                            continue
+                        }
+
+                        if (($currentProtocol -band $protocolInfo.Value) -ne 0)
+                        {
+                            $targetProtocol = $targetProtocol -bor $protocolInfo.Value
+                        }
+                    }
                 }
+
+                $targetDisplay = Format-ProtocolDisplay -Value $targetProtocol
+            }
+
+            if ($Force -or $currentProtocol -ne $targetProtocol)
+            {
+                if ($PSCmdlet.ShouldProcess('Net.ServicePointManager.SecurityProtocol', "Set TLS protocols to $targetDisplay"))
+                {
+                    [Net.ServicePointManager]::SecurityProtocol = $targetProtocol
+                    Write-Verbose "Updated security protocol to: $targetDisplay"
+                }
+            }
+            else
+            {
+                Write-Verbose 'Security protocol already meets the requested requirements.'
             }
 
             if ($PassThru)
@@ -183,8 +335,16 @@ function Set-TlsSecurityProtocol
         }
         catch
         {
-            Write-Error "Failed to configure TLS security protocol: $($_.Exception.Message)"
-            throw
+            $message = "Failed to configure TLS security protocol: $($_.Exception.Message)"
+            $exception = New-Object System.InvalidOperationException($message, $_.Exception)
+            $errorRecord = New-Object System.Management.Automation.ErrorRecord(
+                $exception,
+                'SetTlsSecurityProtocolFailed',
+                [System.Management.Automation.ErrorCategory]::InvalidOperation,
+                [Net.ServicePointManager]
+            )
+
+            $PSCmdlet.ThrowTerminatingError($errorRecord)
         }
     }
 

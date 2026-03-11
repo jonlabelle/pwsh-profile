@@ -352,7 +352,6 @@ if (-not (Get-Command -Name 'which' -CommandType Application -ErrorAction Silent
 ### Suppressed PSScriptAnalyzer Rules
 
 - `PSAvoidUsingWriteHost` - Allow `Write-Host` for user-facing output
-- `PSUseShouldProcessForStateChangingFunctions` - Profile functions don't need `-WhatIf`
 
 ### File Organization
 

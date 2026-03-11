@@ -37,6 +37,7 @@ Describe 'Set-TlsSecurityProtocol' {
 
     Context 'Parameter Validation' {
         It 'Should accept valid Protocol values' {
+            { Set-TlsSecurityProtocol -Protocol 'SystemDefault' } | Should -Not -Throw
             { Set-TlsSecurityProtocol -Protocol 'Tls' } | Should -Not -Throw
             { Set-TlsSecurityProtocol -Protocol 'Tls11' } | Should -Not -Throw
             { Set-TlsSecurityProtocol -Protocol 'Tls12' } | Should -Not -Throw
@@ -48,35 +49,38 @@ Describe 'Set-TlsSecurityProtocol' {
         }
 
         It 'Should have SystemDefault as default Protocol' {
-            # Set to a different protocol first
             try
             {
                 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
             }
             catch
             {
-                # If we can't set TLS 1.2, use whatever is available
                 [Net.ServicePointManager]::SecurityProtocol = $script:OriginalSecurityProtocol
             }
 
             Set-TlsSecurityProtocol
 
             $current = [Net.ServicePointManager]::SecurityProtocol
-            # Should be set to SystemDefault (value of 0)
-            $current | Should -Be ([Net.SecurityProtocolType]::SystemDefault)
+
+            if ([enum]::GetNames([Net.SecurityProtocolType]) -contains 'SystemDefault')
+            {
+                $current | Should -Be ([Net.SecurityProtocolType]::SystemDefault)
+            }
+            else
+            {
+                $current.ToString() | Should -Not -BeNullOrEmpty
+            }
         }
     }
 
     Context 'Basic Functionality' {
         It 'Should update protocol when current setting is insecure' {
-            # Set to less secure protocol (TLS 1.0)
             try
             {
                 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls
             }
             catch
             {
-                # If TLS 1.0 is not supported, skip this test
                 Set-ItResult -Skipped -Because 'TLS 1.0 not supported on this system'
                 return
             }
@@ -85,10 +89,10 @@ Describe 'Set-TlsSecurityProtocol' {
 
             $current = [Net.ServicePointManager]::SecurityProtocol
             ($current -band [Net.SecurityProtocolType]::Tls12) | Should -Not -Be 0
+            ($current -band [Net.SecurityProtocolType]::Tls) | Should -Be 0
         }
 
         It 'Should not update protocol when already secure' {
-            # Set to secure protocol
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
             $originalProtocol = [Net.ServicePointManager]::SecurityProtocol
 
@@ -99,13 +103,20 @@ Describe 'Set-TlsSecurityProtocol' {
         }
 
         It 'Should force update when Force parameter is used' {
-            # Set to secure protocol
-            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            try
+            {
+                [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+            }
+            catch
+            {
+                Set-ItResult -Skipped -Because 'TLS 1.3 not supported on this system'
+                return
+            }
 
             Set-TlsSecurityProtocol -Protocol 'Tls12' -Force
 
             $current = [Net.ServicePointManager]::SecurityProtocol
-            ($current -band [Net.SecurityProtocolType]::Tls12) | Should -Not -Be 0
+            $current | Should -Be ([Net.SecurityProtocolType]::Tls12)
         }
     }
 
@@ -157,24 +168,23 @@ Describe 'Set-TlsSecurityProtocol' {
     }
 
     Context 'Protocol Preservation' {
-        It 'Should preserve existing secure protocols when not using Force' {
-            # Set multiple secure protocols
+        It 'Should preserve existing secure protocols and remove weaker ones when not using Force' {
             if ($PSVersionTable.PSVersion.Major -ge 6)
             {
                 try
                 {
-                    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+                    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
                     $hadTls13 = $true
                 }
                 catch
                 {
-                    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+                    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls12
                     $hadTls13 = $false
                 }
             }
             else
             {
-                [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+                [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls12
                 $hadTls13 = $false
             }
 
@@ -182,6 +192,7 @@ Describe 'Set-TlsSecurityProtocol' {
 
             $current = [Net.ServicePointManager]::SecurityProtocol
             ($current -band [Net.SecurityProtocolType]::Tls12) | Should -Not -Be 0
+            ($current -band [Net.SecurityProtocolType]::Tls11) | Should -Be 0
 
             if ($hadTls13)
             {
@@ -192,13 +203,30 @@ Describe 'Set-TlsSecurityProtocol' {
 
     Context 'Error Handling' {
         It 'Should handle ServicePointManager access errors gracefully' {
-            # This is difficult to test directly, but we can verify the function structure
-            # The function should catch and re-throw errors with meaningful messages
             $functionContent = Get-Content "$PSScriptRoot/../../../Functions/SystemAdministration/Set-TlsSecurityProtocol.ps1" -Raw
             $functionContent | Should -Match 'try\s*\{'
             $functionContent | Should -Match 'catch\s*\{'
-            $functionContent | Should -Match 'Write-Error'
-            $functionContent | Should -Match 'throw'
+            $functionContent | Should -Match 'ThrowTerminatingError|throw'
+        }
+    }
+
+    Context 'ShouldProcess Support' {
+        It 'Should support WhatIf without changing the current protocol' {
+            try
+            {
+                [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls
+            }
+            catch
+            {
+                Set-ItResult -Skipped -Because 'TLS 1.0 not supported on this system'
+                return
+            }
+
+            $originalProtocol = [Net.ServicePointManager]::SecurityProtocol
+
+            Set-TlsSecurityProtocol -Protocol 'Tls12' -WhatIf
+
+            [Net.ServicePointManager]::SecurityProtocol | Should -Be $originalProtocol
         }
     }
 
@@ -225,11 +253,9 @@ Describe 'Set-TlsSecurityProtocol' {
         It 'Should handle TLS 1.3 appropriately based on PowerShell version' {
             if ($PSVersionTable.PSVersion.Major -ge 6)
             {
-                # PowerShell Core - should attempt TLS 1.3
                 { Set-TlsSecurityProtocol -Protocol 'Tls13' } | Should -Not -Throw
 
                 $current = [Net.ServicePointManager]::SecurityProtocol
-                # Should have either TLS 1.3 or TLS 1.2 (fallback) set
                 $hasTls12 = ($current -band [Net.SecurityProtocolType]::Tls12) -ne 0
                 $hasTls13 = try { ($current -band [Net.SecurityProtocolType]::Tls13) -ne 0 } catch { $false }
 
@@ -237,10 +263,8 @@ Describe 'Set-TlsSecurityProtocol' {
             }
             else
             {
-                # PowerShell Desktop - should fall back to TLS 1.2 (but might set TLS 1.3 if available)
                 { Set-TlsSecurityProtocol -Protocol 'Tls13' } | Should -Not -Throw
                 $current = [Net.ServicePointManager]::SecurityProtocol
-                # Should have either TLS 1.3 or TLS 1.2 set
                 $hasTls12 = ($current -band [Net.SecurityProtocolType]::Tls12) -ne 0
                 $hasTls13 = try { ($current -band [Net.SecurityProtocolType]::Tls13) -ne 0 } catch { $false }
 
