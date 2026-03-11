@@ -9,10 +9,13 @@ function Get-TlsSecurityProtocol
         PowerShell session and reports which TLS protocol values are available on the
         current system.
 
-        When -Protocol is specified, the function also evaluates how
-        Set-TlsSecurityProtocol would treat that request without -Force. This includes
-        protocol fallback behavior when a requested version is unavailable and whether a
-        change would be required for the current session.
+        When -Protocol is specified, the function evaluates how
+        Set-TlsSecurityProtocol would treat that request by default and with -Force.
+
+        Important: SystemDefault is not a single TLS version. It means the operating
+        system chooses the protocol for each connection based on OS policy and the
+        remote endpoint. Because of that, the actual negotiated TLS version cannot be
+        determined from ServicePointManager alone.
 
     .PARAMETER Protocol
         Optional TLS protocol request to evaluate against the current session.
@@ -28,7 +31,7 @@ function Get-TlsSecurityProtocol
         PS > Get-TlsSecurityProtocol -Protocol Tls12
 
         Returns the current setting plus evaluation details showing whether the session
-        already satisfies a TLS 1.2 request and what target configuration would be used.
+        would change for a TLS 1.2 request by default and what -Force would pin.
 
     .EXAMPLE
         PS > Get-TlsSecurityProtocol -Protocol SystemDefault | Select-Object CurrentProtocolDisplay, TargetProtocolDisplay, ChangeRequired
@@ -43,6 +46,8 @@ function Get-TlsSecurityProtocol
         - PowerShell Desktop (5.1) on older Windows supports up to TLS 1.2.
         - PowerShell Core (6+) and modern Windows versions may support TLS 1.3.
         - Using 'SystemDefault' is recommended for forward compatibility when available.
+        - SystemDefault does not expose one concrete TLS version; the final protocol is
+          negotiated per connection.
         - Results apply to the current PowerShell session only.
 
         Author: Jon LaBelle
@@ -250,6 +255,7 @@ function Get-TlsSecurityProtocol
         {
             $currentProtocol = [Net.ServicePointManager]::SecurityProtocol
             $currentDisplay = Format-ProtocolDisplay -Value $currentProtocol
+            $isCurrentSystemDefault = [Boolean]($systemDefaultInfo -and $currentProtocol -eq $systemDefaultInfo.Value)
             $availableProtocolNames = @(
                 $protocolDefinitions |
                 Where-Object { $availableProtocols.ContainsKey($_.Name) } |
@@ -261,8 +267,18 @@ function Get-TlsSecurityProtocol
                 CurrentProtocolDisplay = $currentDisplay
                 EnabledProtocols       = [String[]]@(Get-EnabledProtocolNames -Value $currentProtocol)
                 AvailableProtocols     = [String[]]$availableProtocolNames
+                ConfigurationMode      = if ($isCurrentSystemDefault) { 'SystemDefault' } else { 'Explicit' }
                 SupportsSystemDefault  = [Boolean]$systemDefaultInfo
-                IsSystemDefault        = [Boolean]($systemDefaultInfo -and $currentProtocol -eq $systemDefaultInfo.Value)
+                IsSystemDefault        = $isCurrentSystemDefault
+                EffectiveProtocolKnown = -not $isCurrentSystemDefault
+                EffectiveProtocolNote  = if ($isCurrentSystemDefault)
+                {
+                    'SystemDefault is OS-managed. The actual TLS version is negotiated per connection and cannot be read from ServicePointManager.'
+                }
+                else
+                {
+                    'The session is pinned to explicit protocol flags.'
+                }
             }
 
             if ($PSBoundParameters.ContainsKey('Protocol'))
@@ -271,22 +287,42 @@ function Get-TlsSecurityProtocol
                 $requestedAvailable = $availableProtocols.ContainsKey($requestedProtocol)
                 $fallbackUsed = $false
                 $fallbackDirection = $null
+                $forceTargetProtocol = $null
+                $forceTargetDisplay = $null
+                $resolvedProtocol = $null
+                $targetProtocol = $null
+                $targetDisplay = $null
+                $changeRequired = $false
+                $forceRequired = $false
+                $evaluationNote = $null
 
                 if ($requestedProtocol -eq 'SystemDefault')
                 {
                     if ($systemDefaultInfo)
                     {
                         $resolvedProtocol = 'SystemDefault'
-                        $targetProtocol = $systemDefaultInfo.Value
-                        $targetDisplay = 'SystemDefault'
+                        $forceTargetProtocol = $systemDefaultInfo.Value
+                        $forceTargetDisplay = 'SystemDefault'
                     }
                     else
                     {
                         $fallbackUsed = $true
                         $fallbackDirection = 'Explicit'
-                        $targetProtocol = Get-BestExplicitDefaultProtocol
-                        $targetDisplay = Format-ProtocolDisplay -Value $targetProtocol
-                        $resolvedProtocol = $targetDisplay
+                        $forceTargetProtocol = Get-BestExplicitDefaultProtocol
+                        $forceTargetDisplay = Format-ProtocolDisplay -Value $forceTargetProtocol
+                        $resolvedProtocol = $forceTargetDisplay
+                    }
+
+                    $targetProtocol = $forceTargetProtocol
+                    $targetDisplay = $forceTargetDisplay
+                    $changeRequired = ($currentProtocol -ne $targetProtocol)
+                    $evaluationNote = if ($resolvedProtocol -eq 'SystemDefault')
+                    {
+                        'SystemDefault means the OS chooses the TLS version per connection.'
+                    }
+                    else
+                    {
+                        "SystemDefault is unavailable on this system. The best explicit fallback is '$forceTargetDisplay'."
                     }
                 }
                 else
@@ -300,25 +336,54 @@ function Get-TlsSecurityProtocol
                     $fallbackUsed = $resolvedProtocolInfo.IsFallback
                     $fallbackDirection = $resolvedProtocolInfo.Direction
                     $resolvedProtocol = $resolvedProtocolInfo.Protocol.Name
-                    $targetProtocol = $resolvedProtocolInfo.Protocol.Value
+                    $forceTargetProtocol = $resolvedProtocolInfo.Protocol.Value
+                    $forceTargetDisplay = Format-ProtocolDisplay -Value $forceTargetProtocol
 
-                    $requestedStrength = $protocolDefinitionsByName[$requestedProtocol].Strength
-                    $preservationFloor = [Math]::Min($requestedStrength, $securePreservationFloor)
-
-                    foreach ($protocolInfo in $availableExplicitProtocols)
+                    if ($isCurrentSystemDefault)
                     {
-                        if ($protocolInfo.Strength -lt $preservationFloor)
+                        $resolvedProtocol = $currentDisplay
+                        $targetProtocol = $currentProtocol
+                        $targetDisplay = $currentDisplay
+                        $changeRequired = $false
+                        $forceRequired = $true
+                        $evaluationNote = "Current session uses SystemDefault. Leave the OS-managed configuration unchanged unless you want to pin '$forceTargetDisplay' with -Force."
+                    }
+                    else
+                    {
+                        $targetProtocol = $forceTargetProtocol
+
+                        $requestedStrength = $protocolDefinitionsByName[$requestedProtocol].Strength
+                        $preservationFloor = [Math]::Min($requestedStrength, $securePreservationFloor)
+
+                        foreach ($protocolInfo in $availableExplicitProtocols)
                         {
-                            continue
+                            if ($protocolInfo.Strength -lt $preservationFloor)
+                            {
+                                continue
+                            }
+
+                            if (($currentProtocol -band $protocolInfo.Value) -ne 0)
+                            {
+                                $targetProtocol = $targetProtocol -bor $protocolInfo.Value
+                            }
                         }
 
-                        if (($currentProtocol -band $protocolInfo.Value) -ne 0)
+                        $targetDisplay = Format-ProtocolDisplay -Value $targetProtocol
+                        $changeRequired = ($currentProtocol -ne $targetProtocol)
+                        $forceRequired = ($currentProtocol -ne $forceTargetProtocol)
+
+                        if ($fallbackUsed)
                         {
-                            $targetProtocol = $targetProtocol -bor $protocolInfo.Value
+                            if ($fallbackDirection -eq 'Higher')
+                            {
+                                $evaluationNote = "Requested protocol '$requestedProtocol' is unavailable. The stronger available fallback is '$resolvedProtocol'."
+                            }
+                            else
+                            {
+                                $evaluationNote = "Requested protocol '$requestedProtocol' is unavailable. Falling back to '$resolvedProtocol'."
+                            }
                         }
                     }
-
-                    $targetDisplay = Format-ProtocolDisplay -Value $targetProtocol
                 }
 
                 $result['RequestedProtocol'] = $requestedProtocol
@@ -326,9 +391,13 @@ function Get-TlsSecurityProtocol
                 $result['ResolvedProtocol'] = $resolvedProtocol
                 $result['TargetProtocol'] = $targetProtocol
                 $result['TargetProtocolDisplay'] = $targetDisplay
+                $result['ForceTargetProtocol'] = $forceTargetProtocol
+                $result['ForceTargetProtocolDisplay'] = $forceTargetDisplay
                 $result['FallbackUsed'] = $fallbackUsed
                 $result['FallbackDirection'] = $fallbackDirection
-                $result['ChangeRequired'] = ($currentProtocol -ne $targetProtocol)
+                $result['ChangeRequired'] = $changeRequired
+                $result['ForceRequired'] = $forceRequired
+                $result['EvaluationNote'] = $evaluationNote
             }
 
             [PSCustomObject]$result

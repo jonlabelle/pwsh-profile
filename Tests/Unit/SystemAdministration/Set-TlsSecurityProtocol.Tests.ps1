@@ -118,6 +118,34 @@ Describe 'Set-TlsSecurityProtocol' {
             $current = [Net.ServicePointManager]::SecurityProtocol
             $current | Should -Be ([Net.SecurityProtocolType]::Tls12)
         }
+
+        It 'Should leave SystemDefault unchanged unless Force is specified' {
+            if (-not ([enum]::GetNames([Net.SecurityProtocolType]) -contains 'SystemDefault'))
+            {
+                Set-ItResult -Skipped -Because 'SystemDefault is not available on this system'
+                return
+            }
+
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::SystemDefault
+
+            Set-TlsSecurityProtocol -Protocol 'Tls12'
+
+            [Net.ServicePointManager]::SecurityProtocol | Should -Be ([Net.SecurityProtocolType]::SystemDefault)
+        }
+
+        It 'Should pin an explicit protocol from SystemDefault when Force is used' {
+            if (-not ([enum]::GetNames([Net.SecurityProtocolType]) -contains 'SystemDefault'))
+            {
+                Set-ItResult -Skipped -Because 'SystemDefault is not available on this system'
+                return
+            }
+
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::SystemDefault
+
+            Set-TlsSecurityProtocol -Protocol 'Tls12' -Force
+
+            [Net.ServicePointManager]::SecurityProtocol | Should -Be ([Net.SecurityProtocolType]::Tls12)
+        }
     }
 
     Context 'PassThru Parameter' {

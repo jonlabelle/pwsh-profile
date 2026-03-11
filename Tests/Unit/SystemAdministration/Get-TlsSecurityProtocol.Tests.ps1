@@ -44,8 +44,11 @@ Describe 'Get-TlsSecurityProtocol' {
             $result.PSObject.Properties.Name | Should -Contain 'CurrentProtocolDisplay'
             $result.PSObject.Properties.Name | Should -Contain 'EnabledProtocols'
             $result.PSObject.Properties.Name | Should -Contain 'AvailableProtocols'
+            $result.PSObject.Properties.Name | Should -Contain 'ConfigurationMode'
             $result.PSObject.Properties.Name | Should -Contain 'SupportsSystemDefault'
             $result.PSObject.Properties.Name | Should -Contain 'IsSystemDefault'
+            $result.PSObject.Properties.Name | Should -Contain 'EffectiveProtocolKnown'
+            $result.PSObject.Properties.Name | Should -Contain 'EffectiveProtocolNote'
 
             $result.CurrentProtocol | Should -BeOfType [System.Net.SecurityProtocolType]
             $result.CurrentProtocolDisplay | Should -BeOfType [String]
@@ -61,13 +64,19 @@ Describe 'Get-TlsSecurityProtocol' {
             $result.PSObject.Properties.Name | Should -Contain 'ResolvedProtocol'
             $result.PSObject.Properties.Name | Should -Contain 'TargetProtocol'
             $result.PSObject.Properties.Name | Should -Contain 'TargetProtocolDisplay'
+            $result.PSObject.Properties.Name | Should -Contain 'ForceTargetProtocol'
+            $result.PSObject.Properties.Name | Should -Contain 'ForceTargetProtocolDisplay'
             $result.PSObject.Properties.Name | Should -Contain 'FallbackUsed'
             $result.PSObject.Properties.Name | Should -Contain 'FallbackDirection'
             $result.PSObject.Properties.Name | Should -Contain 'ChangeRequired'
+            $result.PSObject.Properties.Name | Should -Contain 'ForceRequired'
+            $result.PSObject.Properties.Name | Should -Contain 'EvaluationNote'
 
             $result.RequestedProtocol | Should -Be 'Tls12'
             $result.TargetProtocol | Should -BeOfType [System.Net.SecurityProtocolType]
+            $result.ForceTargetProtocol | Should -BeOfType [System.Net.SecurityProtocolType]
             $result.ChangeRequired | Should -BeOfType [Boolean]
+            $result.ForceRequired | Should -BeOfType [Boolean]
         }
     }
 
@@ -132,6 +141,29 @@ Describe 'Get-TlsSecurityProtocol' {
             $result.RequestedProtocol | Should -Be 'SystemDefault'
             $result.TargetProtocolDisplay | Should -Not -BeNullOrEmpty
             $result.ChangeRequired | Should -BeOfType [Boolean]
+        }
+
+        It 'treats explicit requests as no-op when the current session is SystemDefault' {
+            if (-not ([enum]::GetNames([Net.SecurityProtocolType]) -contains 'SystemDefault'))
+            {
+                Set-ItResult -Skipped -Because 'SystemDefault is not available on this system'
+                return
+            }
+
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::SystemDefault
+
+            $result = Get-TlsSecurityProtocol -Protocol 'Tls12'
+
+            $result.IsSystemDefault | Should -Be $true
+            $result.ConfigurationMode | Should -Be 'SystemDefault'
+            $result.EffectiveProtocolKnown | Should -Be $false
+            $result.ChangeRequired | Should -Be $false
+            $result.ForceRequired | Should -Be $true
+            $result.ResolvedProtocol | Should -Be 'SystemDefault'
+            $result.TargetProtocol | Should -Be ([Net.SecurityProtocolType]::SystemDefault)
+            $result.TargetProtocolDisplay | Should -Be 'SystemDefault'
+            $result.ForceTargetProtocolDisplay | Should -Be 'Tls12'
+            $result.EvaluationNote | Should -Match 'SystemDefault|OS-managed|Force'
         }
     }
 }
