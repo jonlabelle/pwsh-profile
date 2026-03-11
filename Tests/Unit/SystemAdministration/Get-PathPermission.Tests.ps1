@@ -29,12 +29,18 @@ Describe 'Get-PathPermission' {
         $script:WildcardMatchFile1 = Join-Path -Path $script:TestDir -ChildPath 'wild-1.txt'
         $script:WildcardMatchFile2 = Join-Path -Path $script:TestDir -ChildPath 'wild-2.txt'
         $script:SampleDirectory = Join-Path -Path $script:TestDir -ChildPath 'folder'
+        $script:ChildFile = Join-Path -Path $script:SampleDirectory -ChildPath 'child.txt'
+        $script:NestedDirectory = Join-Path -Path $script:SampleDirectory -ChildPath 'nested'
+        $script:NestedFile = Join-Path -Path $script:NestedDirectory -ChildPath 'deep.txt'
 
         Set-Content -LiteralPath $script:RegularFile -Value 'sample content' -NoNewline
         Set-Content -LiteralPath $script:LiteralWildcardFile -Value 'literal wildcard content' -NoNewline
         Set-Content -LiteralPath $script:WildcardMatchFile1 -Value 'wildcard content 1' -NoNewline
         Set-Content -LiteralPath $script:WildcardMatchFile2 -Value 'wildcard content 2' -NoNewline
         New-Item -Path $script:SampleDirectory -ItemType Directory -Force | Out-Null
+        New-Item -Path $script:NestedDirectory -ItemType Directory -Force | Out-Null
+        Set-Content -LiteralPath $script:ChildFile -Value 'child content' -NoNewline
+        Set-Content -LiteralPath $script:NestedFile -Value 'deep content' -NoNewline
 
         if ($script:IsUnixTest)
         {
@@ -43,6 +49,9 @@ Describe 'Get-PathPermission' {
             chmod 644 $script:WildcardMatchFile1
             chmod 644 $script:WildcardMatchFile2
             chmod 755 $script:SampleDirectory
+            chmod 644 $script:ChildFile
+            chmod 755 $script:NestedDirectory
+            chmod 600 $script:NestedFile
         }
     }
 
@@ -57,6 +66,11 @@ Describe 'Get-PathPermission' {
         $command = Get-Command -Name 'Get-PathPermission' -ErrorAction SilentlyContinue
         $command | Should -Not -BeNullOrEmpty
         $command.CommandType | Should -Be 'Function'
+    }
+
+    It 'has a Recurse switch parameter' {
+        $command = Get-Command -Name 'Get-PathPermission' -ErrorAction SilentlyContinue
+        $command.Parameters['Recurse'].SwitchParameter | Should -BeTrue
     }
 
     It 'returns permission details for a file path' {
@@ -93,6 +107,26 @@ Describe 'Get-PathPermission' {
         $result | Should -Not -BeNullOrEmpty
         $result.InputPath | Should -Be $script:LiteralWildcardFile
         $result.Path | Should -Be ([System.IO.Path]::GetFullPath($script:LiteralWildcardFile))
+    }
+
+    It 'recurses into directory contents with -Path -Recurse' {
+        $results = @(Get-PathPermission -Path $script:SampleDirectory -Recurse)
+
+        $results.Count | Should -Be 4
+        @($results.Path) | Should -Contain ([System.IO.Path]::GetFullPath($script:SampleDirectory))
+        @($results.Path) | Should -Contain ([System.IO.Path]::GetFullPath($script:ChildFile))
+        @($results.Path) | Should -Contain ([System.IO.Path]::GetFullPath($script:NestedDirectory))
+        @($results.Path) | Should -Contain ([System.IO.Path]::GetFullPath($script:NestedFile))
+    }
+
+    It 'recurses into directory contents with -LiteralPath -Recurse' {
+        $results = @(Get-PathPermission -LiteralPath $script:SampleDirectory -Recurse)
+
+        $results.Count | Should -Be 4
+        @($results.Path) | Should -Contain ([System.IO.Path]::GetFullPath($script:SampleDirectory))
+        @($results.Path) | Should -Contain ([System.IO.Path]::GetFullPath($script:ChildFile))
+        @($results.Path) | Should -Contain ([System.IO.Path]::GetFullPath($script:NestedDirectory))
+        @($results.Path) | Should -Contain ([System.IO.Path]::GetFullPath($script:NestedFile))
     }
 
     It 'writes an error for missing paths and continues processing' {
