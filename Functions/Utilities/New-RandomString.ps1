@@ -25,12 +25,15 @@ function New-RandomString
 
     .PARAMETER ExcludeCharacters
         An array of specific characters to exclude from the generated string.
-        This parameter allows fine-grained control over which characters should not appear.
+        Each string entry is treated as one or more individual characters, so values like 'AB'
+        exclude both 'A' and 'B'. This parameter allows fine-grained control over which
+        characters should not appear.
 
     .PARAMETER IncludeCharacters
         An array of additional characters to include in the character pool beyond the standard
-        alphanumeric and symbol sets. These characters will be added to the available character
-        pool before any exclusions are applied.
+        alphanumeric and symbol sets. Each string entry is treated as one or more individual
+        characters before being added to the available character pool, and exclusions are
+        applied afterward.
 
     .PARAMETER Secure
         Uses cryptographically secure random number generation instead of Get-Random.
@@ -130,6 +133,7 @@ function New-RandomString
     .LINK
         https://jonlabelle.com/snippets/view/powershell/generate-random-string-in-powershell
     #>
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [CmdletBinding()]
     [OutputType([String])]
     param (
@@ -173,41 +177,105 @@ function New-RandomString
 
     $symbols = @('!', '@', '#', '$', '%', '^', '&', '*')
 
-    # Build the character pool
-    $characterPool = @()
-    $characterPool += $numbers
-    $characterPool += $uppercaseLetters
-    $characterPool += $lowercaseLetters
+    $characterPool = New-Object 'System.Collections.Generic.List[string]'
+    $seenCharacters = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+
+    $addCharacters = {
+        param ([string[]] $Values)
+
+        foreach ($value in $Values)
+        {
+            if ([string]::IsNullOrEmpty($value))
+            {
+                continue
+            }
+
+            foreach ($character in $value.ToCharArray())
+            {
+                $stringCharacter = [string] $character
+                if ($seenCharacters.Add($stringCharacter))
+                {
+                    [void] $characterPool.Add($stringCharacter)
+                }
+            }
+        }
+    }
+
+    & $addCharacters $numbers
+    & $addCharacters $uppercaseLetters
+    & $addCharacters $lowercaseLetters
 
     if ($IncludeSymbols)
     {
-        $characterPool += $symbols
+        & $addCharacters $symbols
     }
 
-    # Add custom characters if specified
+    $normalizedIncludeCharacters = New-Object 'System.Collections.Generic.List[string]'
     if ($IncludeCharacters.Count -gt 0)
     {
-        Write-Verbose "Including additional characters: $($IncludeCharacters -join ', ')"
-        $characterPool += $IncludeCharacters
-    }
-
-    # Apply custom character exclusions if specified
-    if ($ExcludeCharacters.Count -gt 0)
-    {
-        Write-Verbose "Excluding characters: $($ExcludeCharacters -join ', ')"
-        $characterPool = $characterPool | Where-Object { $_ -notin $ExcludeCharacters }
-
-        # Validate that we still have characters left
-        if ($characterPool.Count -eq 0)
+        foreach ($value in $IncludeCharacters)
         {
-            throw 'All available characters have been excluded. Please reduce the exclusion list.'
+            if ([string]::IsNullOrEmpty($value))
+            {
+                continue
+            }
+
+            foreach ($character in $value.ToCharArray())
+            {
+                [void] $normalizedIncludeCharacters.Add([string] $character)
+            }
         }
 
-        Write-Verbose "Character pool size after exclusions: $($characterPool.Count)"
+        if ($normalizedIncludeCharacters.Count -gt 0)
+        {
+            Write-Verbose "Including additional characters: $($normalizedIncludeCharacters.ToArray() -join ', ')"
+            & $addCharacters $normalizedIncludeCharacters.ToArray()
+        }
     }
 
+    if ($ExcludeCharacters.Count -gt 0)
+    {
+        $normalizedExclusions = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+
+        foreach ($value in $ExcludeCharacters)
+        {
+            if ([string]::IsNullOrEmpty($value))
+            {
+                continue
+            }
+
+            foreach ($character in $value.ToCharArray())
+            {
+                [void] $normalizedExclusions.Add([string] $character)
+            }
+        }
+
+        if ($normalizedExclusions.Count -gt 0)
+        {
+            Write-Verbose "Excluding characters: $(@($normalizedExclusions) -join ', ')"
+
+            $filteredCharacterPool = New-Object 'System.Collections.Generic.List[string]'
+            foreach ($character in $characterPool)
+            {
+                if (-not $normalizedExclusions.Contains($character))
+                {
+                    [void] $filteredCharacterPool.Add($character)
+                }
+            }
+
+            $characterPool = $filteredCharacterPool
+        }
+    }
+
+    if ($characterPool.Count -eq 0)
+    {
+        throw 'All available characters have been excluded. Please reduce the exclusion list.'
+    }
+
+    Write-Verbose "Character pool size: $($characterPool.Count)"
+
     # Convert to array for better performance
-    $characters = $characterPool
+    $characters = $characterPool.ToArray()
 
     # Generate the random string
     $result = [System.Text.StringBuilder]::new($Length)

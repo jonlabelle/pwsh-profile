@@ -19,6 +19,9 @@ BeforeAll {
 
     # Load the function under test
     . "$PSScriptRoot/../../../Functions/Utilities/New-RandomString.ps1"
+
+    $script:DefaultRandomStringCharacters = [char[]] '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz' |
+        ForEach-Object { [string] $_ }
 }
 
 Describe 'New-RandomString' {
@@ -134,7 +137,7 @@ Describe 'New-RandomString' {
             # None of the excluded characters should appear
             foreach ($char in $excludedChars)
             {
-                $result | Should -Not -Match [regex]::Escape($char)
+                $result.Contains($char) | Should -Be $false
             }
         }
 
@@ -147,7 +150,7 @@ Describe 'New-RandomString' {
             # Excluded symbols should not appear
             foreach ($symbol in $excludedSymbols)
             {
-                $result | Should -Not -Match [regex]::Escape($symbol)
+                $result.Contains($symbol) | Should -Be $false
             }
 
             # But other symbols should still be possible
@@ -177,7 +180,7 @@ Describe 'New-RandomString' {
             # Should also exclude additional characters
             foreach ($char in $additionalExclusions)
             {
-                $result | Should -Not -Match [regex]::Escape($char)
+                $result.Contains($char) | Should -Be $false
             }
         }
 
@@ -190,7 +193,7 @@ Describe 'New-RandomString' {
             # None of the excluded characters should appear
             foreach ($char in $excludedChars)
             {
-                $result | Should -Not -Match [regex]::Escape($char)
+                $result.Contains($char) | Should -Be $false
             }
         }
 
@@ -217,7 +220,7 @@ Describe 'New-RandomString' {
             $result = New-RandomString -Length 100 -ExcludeCharacters @('X')
             $result | Should -Not -BeNullOrEmpty
             $result.Length | Should -Be 100
-            $result | Should -Not -Match 'X'
+            $result.Contains('X') | Should -Be $false
         }
 
         It 'Should handle case-sensitive exclusions' {
@@ -225,13 +228,40 @@ Describe 'New-RandomString' {
             $result = New-RandomString -Length 100 -ExcludeCharacters @('A')
             $result | Should -Not -BeNullOrEmpty
             $result.Length | Should -Be 100
-            $result | Should -Not -Match 'A'
+            $result.Contains('A') | Should -Be $false
 
             # Test excluding lowercase 'a'
             $result2 = New-RandomString -Length 100 -ExcludeCharacters @('a')
             $result2 | Should -Not -BeNullOrEmpty
             $result2.Length | Should -Be 100
-            $result2 | Should -Not -Match 'a'
+            $result2.Contains('a') | Should -Be $false
+        }
+
+        It 'Should split multi-character exclusion entries into individual characters' {
+            $allowedCharacter = 'x'
+            $charactersToExclude = foreach ($character in $script:DefaultRandomStringCharacters)
+            {
+                if ($character -cne 'A' -and $character -cne 'B' -and $character -cne '1' -and $character -cne '2' -and $character -cne $allowedCharacter)
+                {
+                    $character
+                }
+            }
+
+            $result = New-RandomString -Length 50 -ExcludeCharacters ($charactersToExclude + @('AB', '12'))
+            $result | Should -Be ($allowedCharacter * 50)
+        }
+
+        It 'Should treat ExcludeCharacters as case-sensitive when only one case remains in the pool' {
+            $charactersToExclude = foreach ($character in $script:DefaultRandomStringCharacters)
+            {
+                if ($character -cne 'a')
+                {
+                    $character
+                }
+            }
+
+            $result = New-RandomString -Length 20 -ExcludeCharacters $charactersToExclude
+            $result | Should -Be ('a' * 20)
         }
     }
 
@@ -326,7 +356,7 @@ Describe 'New-RandomString' {
             # Excluded characters should not appear, even if they were in IncludeCharacters
             foreach ($char in $excludeChars)
             {
-                $result | Should -Not -Match [regex]::Escape($char)
+                $result.Contains($char) | Should -Be $false
             }
 
             # But non-excluded custom characters should still be possible
@@ -412,6 +442,13 @@ Describe 'New-RandomString' {
                 }
             }
             $foundCustomChar | Should -Be $true
+        }
+
+        It 'Should split multi-character IncludeCharacters entries into individual characters without changing the requested length' {
+            $result = New-RandomString -Length 40 -ExcludeCharacters $script:DefaultRandomStringCharacters -IncludeCharacters @('AB', '-_')
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 40
+            $result | Should -MatchExactly '^[AB_-]+$'
         }
 
         It 'Should work with separator characters' {
