@@ -151,17 +151,17 @@ function Get-FileEncoding
 
                 if ($sampleBytesRead -eq $reencoded.Length)
                 {
-                    $matches = $true
+                    $bytesMatch = $true
                     for ($i = 0; $i -lt $sampleBytesRead; $i++)
                     {
                         if ($sampleBuffer[$i] -ne $reencoded[$i])
                         {
-                            $matches = $false
+                            $bytesMatch = $false
                             break
                         }
                     }
 
-                    if ($matches)
+                    if ($bytesMatch)
                     {
                         return $utf8NoBom
                     }
