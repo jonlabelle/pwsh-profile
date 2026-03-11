@@ -342,6 +342,7 @@ function Extract-Archives
 
             $lowerName = $Archive.Name.ToLowerInvariant()
             $patterns = @($Archive.Name)
+            $searchPath = if ($MergeMultipartAcrossDirectories) { $SearchRoot } else { $Archive.Directory.FullName }
 
             if ($lowerName -match '^(?<root>.+)\.part(?<index>\d+)\.(?<ext>rar|7z|zip)$')
             {
@@ -363,11 +364,27 @@ function Extract-Archives
             {
                 $patterns = @("$($Archive.BaseName).rar", "$($Archive.BaseName).r??")
             }
+            elseif ($lowerName -match '\.zip$')
+            {
+                $patterns = @("$($Archive.BaseName).zip", "$($Archive.BaseName).z??", "$($Archive.BaseName).z???")
+            }
 
             $found = New-Object -TypeName System.Collections.Generic.List[System.IO.FileInfo]
             foreach ($pattern in $patterns)
             {
-                $items = Get-ChildItem -Path $SearchRoot -Recurse -File -Filter $pattern -ErrorAction SilentlyContinue
+                $getChildItemParams = @{
+                    Path = $searchPath
+                    File = $true
+                    Filter = $pattern
+                    ErrorAction = 'SilentlyContinue'
+                }
+
+                if ($MergeMultipartAcrossDirectories)
+                {
+                    $getChildItemParams['Recurse'] = $true
+                }
+
+                $items = Get-ChildItem @getChildItemParams
                 if ($items)
                 {
                     foreach ($item in $items)

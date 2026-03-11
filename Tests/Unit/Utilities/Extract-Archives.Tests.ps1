@@ -271,6 +271,43 @@ Describe 'Extract-Archives' {
             (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'multipart content'
             ($result.Results | Where-Object { $_.Archive -like '*multi.7z.001' }).Status | Should -Be 'Extracted'
         }
+
+        It 'Deletes split zip archives that use .z01 style parts after extraction' -Skip:(($null -eq (Get-Command -Name 'zip' -ErrorAction SilentlyContinue)) -or ($null -eq (Get-Command -Name '7z', '7za' -ErrorAction SilentlyContinue | Select-Object -First 1))) {
+            $zipCommand = Get-Command -Name 'zip' -ErrorAction SilentlyContinue
+            $root = Join-Path -Path $TestDrive -ChildPath 'delete-split-zip'
+            New-Item -ItemType Directory -Path $root -Force | Out-Null
+
+            $payloadSource = Join-Path -Path $root -ChildPath 'payload-src'
+            New-Item -ItemType Directory -Path $payloadSource -Force | Out-Null
+            $payloadFile = Join-Path -Path $payloadSource -ChildPath 'data.bin'
+            $bytes = New-Object byte[] 250000
+            (New-Object System.Random).NextBytes($bytes)
+            [System.IO.File]::WriteAllBytes($payloadFile, $bytes)
+
+            $zipPath = Join-Path -Path $root -ChildPath 'split.zip'
+            Push-Location $payloadSource
+            try
+            {
+                & $zipCommand.Path '-q' '-s' '64k' $zipPath 'data.bin' | Out-Null
+            }
+            finally
+            {
+                Pop-Location
+            }
+
+            $result = Extract-Archives -Path $root -DeleteArchive
+
+            $destination = Join-Path -Path $root -ChildPath 'split'
+            $extractedFile = Join-Path -Path $destination -ChildPath 'data.bin'
+            $remainingParts = Get-ChildItem -Path $root -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -like 'split.z??' -or $_.Name -like 'split.z???' -or $_.Name -eq 'split.zip' }
+
+            $remainingParts | Should -BeNullOrEmpty
+            Test-Path -LiteralPath $destination | Should -Be $true
+            Test-Path -LiteralPath $extractedFile | Should -Be $true
+            (Get-Item -LiteralPath $extractedFile).Length | Should -Be (Get-Item -LiteralPath $payloadFile).Length
+            ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should -Be 'Extracted'
+        }
     }
 
     Context 'Filtering and destination options' {
