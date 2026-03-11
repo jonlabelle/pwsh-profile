@@ -181,6 +181,44 @@ function Remove-OldFiles
             }
         }
 
+        function Test-IsExcludedDirectoryPath
+        {
+            param(
+                [String]$FilePath,
+                [String[]]$DirectoryPatterns
+            )
+
+            if (-not $DirectoryPatterns -or $DirectoryPatterns.Count -eq 0)
+            {
+                return $false
+            }
+
+            $directoryPath = [System.IO.Path]::GetDirectoryName($FilePath)
+            if ([String]::IsNullOrEmpty($directoryPath))
+            {
+                return $false
+            }
+
+            $pathSegments = $directoryPath -split '[\\/]'
+            foreach ($segment in $pathSegments)
+            {
+                if ([String]::IsNullOrWhiteSpace($segment))
+                {
+                    continue
+                }
+
+                foreach ($pattern in $DirectoryPatterns)
+                {
+                    if ($segment -like $pattern)
+                    {
+                        return $true
+                    }
+                }
+            }
+
+            return $false
+        }
+
         Write-Verbose 'Starting Remove-OldFiles'
 
         # Initialize counters
@@ -296,21 +334,7 @@ function Remove-OldFiles
         if ($ExcludeDirectory)
         {
             $files = $files | Where-Object {
-                $filePath = $_.FullName
-                $shouldExclude = $false
-
-                foreach ($excludePattern in $ExcludeDirectory)
-                {
-                    # Check if any parent directory matches the exclude pattern
-                    $pathParts = $filePath -split [regex]::Escape([System.IO.Path]::DirectorySeparatorChar)
-                    if ($pathParts -contains $excludePattern)
-                    {
-                        $shouldExclude = $true
-                        break
-                    }
-                }
-
-                -not $shouldExclude
+                -not (Test-IsExcludedDirectoryPath -FilePath $_.FullName -DirectoryPatterns $ExcludeDirectory)
             }
         }
 

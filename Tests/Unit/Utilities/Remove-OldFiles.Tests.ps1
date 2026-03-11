@@ -259,4 +259,27 @@ Describe 'Remove-OldFiles' {
             Test-Path $childFile | Should -BeTrue
         }
     }
+
+    Context 'ExcludeDirectory wildcard handling' {
+        It 'Should apply wildcard directory exclusions to individual path segments' {
+            $root = Join-Path -Path $TestDrive -ChildPath 'WildcardExclude'
+            $keepDir = Join-Path -Path $root -ChildPath 'KeepLogs'
+            $removeDir = Join-Path -Path $root -ChildPath 'RemoveLogs'
+            New-Item -ItemType Directory -Path $keepDir -Force | Out-Null
+            New-Item -ItemType Directory -Path $removeDir -Force | Out-Null
+
+            $keptFile = Join-Path -Path $keepDir -ChildPath 'keep.log'
+            $removedFile = Join-Path -Path $removeDir -ChildPath 'remove.log'
+            'keep me' | Set-Content -Path $keptFile
+            'remove me' | Set-Content -Path $removedFile
+            (Get-Item $keptFile).LastWriteTime = (Get-Date).AddDays(-45)
+            (Get-Item $removedFile).LastWriteTime = (Get-Date).AddDays(-45)
+
+            $result = Remove-OldFiles -Path $root -OlderThan 30 -ExcludeDirectory 'Keep*' -Recurse -Confirm:$false
+
+            $result.FilesRemoved | Should -Be 1
+            Test-Path $keptFile | Should -BeTrue
+            Test-Path $removedFile | Should -BeFalse
+        }
+    }
 }
