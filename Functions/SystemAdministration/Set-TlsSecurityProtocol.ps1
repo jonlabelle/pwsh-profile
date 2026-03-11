@@ -85,6 +85,17 @@ function Set-TlsSecurityProtocol
     {
         Write-Verbose "Starting TLS security protocol configuration (Protocol: $Protocol)"
 
+        if (-not (Get-Command -Name 'Get-TlsSecurityProtocol' -CommandType Function -ErrorAction SilentlyContinue))
+        {
+            $getTlsSecurityProtocolPath = Join-Path -Path $PSScriptRoot -ChildPath 'Get-TlsSecurityProtocol.ps1'
+            if (-not (Test-Path -LiteralPath $getTlsSecurityProtocolPath))
+            {
+                throw "Required dependency not found: $getTlsSecurityProtocolPath"
+            }
+
+            . $getTlsSecurityProtocolPath
+        }
+
         $protocolDefinitions = @(
             [PSCustomObject]@{ Name = 'Tls'; Strength = 1 }
             [PSCustomObject]@{ Name = 'Tls11'; Strength = 2 }
@@ -252,11 +263,45 @@ function Set-TlsSecurityProtocol
     {
         try
         {
-            $currentProtocol = [Net.ServicePointManager]::SecurityProtocol
-            $currentDisplay = Format-ProtocolDisplay -Value $currentProtocol
+            $currentState = Get-TlsSecurityProtocol -Protocol $Protocol
+            $currentProtocol = $currentState.CurrentProtocol
+            $currentDisplay = $currentState.CurrentProtocolDisplay
             Write-Verbose "Current security protocol: $currentDisplay"
 
-            if ($Protocol -eq 'SystemDefault')
+            if (-not $Force)
+            {
+                if ($currentState.FallbackUsed)
+                {
+                    if ($Protocol -eq 'SystemDefault')
+                    {
+                        Write-Verbose "SystemDefault is not available on this system. Falling back to: $($currentState.TargetProtocolDisplay)"
+                    }
+                    elseif ($currentState.FallbackDirection -eq 'Higher')
+                    {
+                        Write-Verbose "Requested protocol '$Protocol' is not available on this system. Using stronger available protocol '$($currentState.ResolvedProtocol)'."
+                    }
+                    else
+                    {
+                        Write-Verbose "Requested protocol '$Protocol' is not available on this system. Falling back to '$($currentState.ResolvedProtocol)'."
+                    }
+                }
+
+                if (-not $currentState.ChangeRequired)
+                {
+                    Write-Verbose 'Security protocol already meets the requested requirements.'
+
+                    if ($PassThru)
+                    {
+                        return $currentProtocol
+                    }
+
+                    return
+                }
+
+                $targetProtocol = $currentState.TargetProtocol
+                $targetDisplay = $currentState.TargetProtocolDisplay
+            }
+            elseif ($Protocol -eq 'SystemDefault')
             {
                 if ($systemDefaultInfo)
                 {
@@ -292,26 +337,6 @@ function Set-TlsSecurityProtocol
                 }
 
                 $targetProtocol = $effectiveProtocol.Value
-
-                if (-not $Force)
-                {
-                    $requestedStrength = $protocolDefinitionsByName[$Protocol].Strength
-                    $preservationFloor = [Math]::Min($requestedStrength, $securePreservationFloor)
-
-                    foreach ($protocolInfo in $availableExplicitProtocols)
-                    {
-                        if ($protocolInfo.Strength -lt $preservationFloor)
-                        {
-                            continue
-                        }
-
-                        if (($currentProtocol -band $protocolInfo.Value) -ne 0)
-                        {
-                            $targetProtocol = $targetProtocol -bor $protocolInfo.Value
-                        }
-                    }
-                }
-
                 $targetDisplay = Format-ProtocolDisplay -Value $targetProtocol
             }
 

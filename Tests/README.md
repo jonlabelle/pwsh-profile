@@ -22,6 +22,7 @@ Tests/
 │   ├── Security/                                   # Security tests
 │   │   └── ConvertFrom-JwtToken.Tests.ps1           # JWT token decoding tests
 │   ├── SystemAdministration/                       # System administration tests
+│   │   ├── Get-TlsSecurityProtocol.Tests.ps1       # TLS protocol inspection tests
 │   │   ├── Get-PathPermission.Tests.ps1            # Path permissions and octal mode tests
 │   │   ├── Set-TlsSecurityProtocol.Tests.ps1       # TLS protocol configuration tests
 │   │   └── Start-KeepAlive.Tests.ps1               # System sleep prevention tests
