@@ -521,23 +521,22 @@ function Set-PathPermission
                 return @($InputPath)
             }
 
-            try
+            $resolvedPaths = @(Resolve-Path -Path $InputPath -ErrorAction Ignore | Select-Object -ExpandProperty Path)
+            if ($resolvedPaths.Count -gt 0)
             {
-                return @(Resolve-Path -Path $InputPath -ErrorAction Stop | Select-Object -ExpandProperty Path)
+                return $resolvedPaths
             }
-            catch
-            {
-                $message = "Path not found: $InputPath"
-                $exception = New-Object System.IO.FileNotFoundException($message)
-                $errorRecord = New-Object System.Management.Automation.ErrorRecord(
-                    $exception,
-                    'PathNotFound',
-                    [System.Management.Automation.ErrorCategory]::ObjectNotFound,
-                    $InputPath
-                )
-                $PSCmdlet.WriteError($errorRecord)
-                return @()
-            }
+
+            $message = "Path not found: $InputPath"
+            $exception = New-Object System.IO.FileNotFoundException($message)
+            $errorRecord = New-Object System.Management.Automation.ErrorRecord(
+                $exception,
+                'PathNotFound',
+                [System.Management.Automation.ErrorCategory]::ObjectNotFound,
+                $InputPath
+            )
+            $PSCmdlet.WriteError($errorRecord)
+            return @()
         }
 
         function Get-PermissionSnapshot
