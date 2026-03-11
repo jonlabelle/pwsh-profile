@@ -462,12 +462,90 @@ Describe 'New-RandomString' {
         }
     }
 
+    Context 'Repeat control parameters' {
+        It 'Should not generate adjacent duplicates when NoAdjacentDuplicates is specified' {
+            $result = New-RandomString -Length 200 -NoAdjacentDuplicates
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 200
+
+            for ($i = 1; $i -lt $result.Length; $i++)
+            {
+                $result[$i] | Should -Not -Be $result[$i - 1]
+            }
+        }
+
+        It 'Should work with custom-only pools when NoAdjacentDuplicates is specified' {
+            $result = New-RandomString -Length 40 -ExcludeCharacters $script:DefaultRandomStringCharacters -IncludeCharacters @('-', '_') -NoAdjacentDuplicates
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 40
+            $result | Should -MatchExactly '^[-_]+$'
+
+            for ($i = 1; $i -lt $result.Length; $i++)
+            {
+                $result[$i] | Should -Not -Be $result[$i - 1]
+            }
+        }
+
+        It 'Should throw when NoAdjacentDuplicates is impossible' {
+            { New-RandomString -Length 2 -ExcludeCharacters $script:DefaultRandomStringCharacters -IncludeCharacters @('-') -NoAdjacentDuplicates } |
+                Should -Throw -ExpectedMessage '*At least two distinct characters are required*'
+        }
+
+        It 'Should generate unique characters when UniqueCharacters is specified' {
+            $result = New-RandomString -Length 40 -UniqueCharacters
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 40
+            ($result.ToCharArray() | Select-Object -Unique).Count | Should -Be 40
+        }
+
+        It 'Should work with custom-only pools when UniqueCharacters is specified' {
+            $customChars = @('-', '_', '.', '+')
+            $result = New-RandomString -Length 4 -ExcludeCharacters $script:DefaultRandomStringCharacters -IncludeCharacters $customChars -UniqueCharacters
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 4
+            ($result.ToCharArray() | Select-Object -Unique).Count | Should -Be 4
+
+            foreach ($char in $customChars)
+            {
+                $result.Contains($char) | Should -Be $true
+            }
+        }
+
+        It 'Should support WithoutReplacement as an alias for UniqueCharacters' {
+            $result = New-RandomString -Length 20 -WithoutReplacement
+            $result | Should -Not -BeNullOrEmpty
+            $result.Length | Should -Be 20
+            ($result.ToCharArray() | Select-Object -Unique).Count | Should -Be 20
+        }
+
+        It 'Should throw when UniqueCharacters exceeds pool size' {
+            { New-RandomString -Length 63 -UniqueCharacters } |
+                Should -Throw -ExpectedMessage '*exceeds the number of unique characters available*'
+        }
+    }
+
     Context 'Secure parameter' {
         It 'Should generate cryptographically secure random when Secure is specified' {
             # We can't directly test cryptographic security, but we can test that it works
             $result = New-RandomString -Length 32 -Secure
             $result | Should -Not -BeNullOrEmpty
             $result.Length | Should -Be 32
+        }
+
+        It 'Should support repeat control options when Secure is specified' {
+            $noAdjacentResult = New-RandomString -Length 100 -NoAdjacentDuplicates -Secure
+            $noAdjacentResult | Should -Not -BeNullOrEmpty
+            $noAdjacentResult.Length | Should -Be 100
+
+            for ($i = 1; $i -lt $noAdjacentResult.Length; $i++)
+            {
+                $noAdjacentResult[$i] | Should -Not -Be $noAdjacentResult[$i - 1]
+            }
+
+            $uniqueResult = New-RandomString -Length 20 -UniqueCharacters -Secure
+            $uniqueResult | Should -Not -BeNullOrEmpty
+            $uniqueResult.Length | Should -Be 20
+            ($uniqueResult.ToCharArray() | Select-Object -Unique).Count | Should -Be 20
         }
 
         It 'Should work with all parameter combinations when Secure is specified' {

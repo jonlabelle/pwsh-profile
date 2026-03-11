@@ -35,6 +35,14 @@ function New-RandomString
         characters before being added to the available character pool, and exclusions are
         applied afterward.
 
+    .PARAMETER NoAdjacentDuplicates
+        Prevents the same character from appearing twice in a row. Characters may still repeat
+        elsewhere in the string unless UniqueCharacters is also specified.
+
+    .PARAMETER UniqueCharacters
+        Samples characters without replacement so each character can appear at most once.
+        Length cannot exceed the number of distinct characters available in the final pool.
+
     .PARAMETER Secure
         Uses cryptographically secure random number generation instead of Get-Random.
         Recommended for passwords and security tokens.
@@ -100,6 +108,25 @@ function New-RandomString
         Returns a 10-character string with custom characters, excluding potentially confusing characters.
 
     .EXAMPLE
+        PS > New-RandomString -Length 24 -NoAdjacentDuplicates
+        dM9qX2sN7bV4kR8wT3yH6cP1
+
+        Returns a random 24-character string with no repeated adjacent characters.
+
+    .EXAMPLE
+        PS > New-RandomString -Length 10 -IncludeCharacters @('-', '_', '.') -NoAdjacentDuplicates
+        t-3_.W9a-K
+
+        Returns a random 10-character string that prevents adjacent duplicates while allowing
+        custom separator characters.
+
+    .EXAMPLE
+        PS > New-RandomString -Length 12 -UniqueCharacters -ExcludeAmbiguous
+        4wBz9rQ2TmYk
+
+        Returns a random 12-character string where every character is unique.
+
+    .EXAMPLE
         PS > $secret = New-RandomString -Length 48 -IncludeSymbols -Secure
         PS > dotnet user-secrets set 'Api:SharedSecret' $secret
 
@@ -154,6 +181,13 @@ function New-RandomString
 
         [Parameter()]
         [switch] $IncludeSymbols,
+
+        [Parameter()]
+        [switch] $NoAdjacentDuplicates,
+
+        [Parameter()]
+        [Alias('WithoutReplacement')]
+        [switch] $UniqueCharacters,
 
         [Parameter()]
         [switch] $Secure
@@ -277,64 +311,130 @@ function New-RandomString
     # Convert to array for better performance
     $characters = $characterPool.ToArray()
 
+    if ($UniqueCharacters -and $Length -gt $characters.Length)
+    {
+        throw "Length ($Length) exceeds the number of unique characters available in the pool ($($characters.Length)). Reduce -Length or widen the character pool."
+    }
+
+    if ($NoAdjacentDuplicates -and -not $UniqueCharacters -and $Length -gt 1 -and $characters.Length -lt 2)
+    {
+        throw 'At least two distinct characters are required when using -NoAdjacentDuplicates with a length greater than 1.'
+    }
+
     # Generate the random string
     $result = [System.Text.StringBuilder]::new($Length)
 
-    if ($Secure)
+    $rng = $null
+    $bytes = $null
+    $useSecureRandom = $false
+
+    try
     {
-        # Use cryptographically secure random number generation
-        try
+        if ($Secure)
         {
-            # Use System.Security.Cryptography.RandomNumberGenerator for all modern PowerShell versions
-            if ($PSVersionTable.PSVersion.Major -ge 6)
+            try
             {
-                # PowerShell Core 6+ - use System.Security.Cryptography.RandomNumberGenerator
-                $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+                # Use System.Security.Cryptography.RandomNumberGenerator for all modern PowerShell versions
+                if ($PSVersionTable.PSVersion.Major -ge 6)
+                {
+                    # PowerShell Core 6+ - use System.Security.Cryptography.RandomNumberGenerator
+                    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+                }
+                else
+                {
+                    # PowerShell Desktop 5.1 - use RNGCryptoServiceProvider for compatibility
+                    $rng = New-Object System.Security.Cryptography.RNGCryptoServiceProvider
+                }
+
+                $bytes = New-Object byte[] 4
+                $useSecureRandom = $true
             }
-            else
+            catch
             {
-                # PowerShell Desktop 5.1 - use RNGCryptoServiceProvider for compatibility
-                $rng = New-Object System.Security.Cryptography.RNGCryptoServiceProvider
+                # If secure random generation fails, fall back to standard Get-Random
+                Write-Warning "Secure random generation failed, falling back to Get-Random: $($_.Exception.Message)"
+                $useSecureRandom = $false
+            }
+        }
+
+        $getRandomIndex = {
+            param ([int] $MaximumExclusive)
+
+            if ($MaximumExclusive -le 0)
+            {
+                throw 'Random selection requires a positive maximum value.'
             }
 
-            $bytes = New-Object byte[] 4
-            for ($i = 0; $i -lt $Length; $i++)
+            if ($useSecureRandom)
             {
+                $exclusiveLimit = [uint32] $MaximumExclusive
                 do
                 {
                     $rng.GetBytes($bytes)
                     $randomValue = [BitConverter]::ToUInt32($bytes, 0)
-                } while ($randomValue -ge ([uint32]::MaxValue - ([uint32]::MaxValue % $characters.Length)))
+                } while ($randomValue -ge ([uint32]::MaxValue - ([uint32]::MaxValue % $exclusiveLimit)))
 
-                $index = $randomValue % $characters.Length
-                [void]$result.Append($characters[$index])
+                return [int] ($randomValue % $exclusiveLimit)
             }
+
+            return Get-Random -Minimum 0 -Maximum $MaximumExclusive
         }
-        catch
+
+        if ($UniqueCharacters)
         {
-            # If secure random generation fails, fall back to standard Get-Random
-            Write-Warning "Secure random generation failed, falling back to Get-Random: $($_.Exception.Message)"
-            $result.Clear()
+            $availableCharacters = [string[]] $characters.Clone()
 
             for ($i = 0; $i -lt $Length; $i++)
             {
-                $randomIndex = Get-Random -Minimum 0 -Maximum $characters.Length
-                [void]$result.Append($characters[$randomIndex])
+                $swapOffset = & $getRandomIndex ($availableCharacters.Length - $i)
+                $swapIndex = $i + $swapOffset
+
+                if ($swapIndex -ne $i)
+                {
+                    $currentCharacter = $availableCharacters[$i]
+                    $availableCharacters[$i] = $availableCharacters[$swapIndex]
+                    $availableCharacters[$swapIndex] = $currentCharacter
+                }
+
+                [void] $result.Append($availableCharacters[$i])
             }
         }
-        finally
+        elseif ($NoAdjacentDuplicates)
         {
-            if ($rng) { $rng.Dispose() }
+            $previousIndex = -1
+
+            for ($i = 0; $i -lt $Length; $i++)
+            {
+                if ($previousIndex -lt 0)
+                {
+                    $index = & $getRandomIndex $characters.Length
+                }
+                else
+                {
+                    $index = & $getRandomIndex ($characters.Length - 1)
+                    if ($index -ge $previousIndex)
+                    {
+                        $index++
+                    }
+                }
+
+                [void] $result.Append($characters[$index])
+                $previousIndex = $index
+            }
+        }
+        else
+        {
+            # Use standard sampling with replacement for default random-string behavior
+            for ($i = 0; $i -lt $Length; $i++)
+            {
+                $randomIndex = & $getRandomIndex $characters.Length
+                [void] $result.Append($characters[$randomIndex])
+            }
         }
     }
-    else
+    finally
     {
-        # Use standard Get-Random for better performance in non-secure scenarios
-        for ($i = 0; $i -lt $Length; $i++)
-        {
-            $randomIndex = Get-Random -Minimum 0 -Maximum $characters.Length
-            [void]$result.Append($characters[$randomIndex])
-        }
+        if ($rng) { $rng.Dispose() }
     }
 
     return $result.ToString()
