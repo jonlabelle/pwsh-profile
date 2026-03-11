@@ -39,8 +39,12 @@ Describe 'Sync-Directory' -Tag 'Unit' {
             (Get-Command Sync-Directory).Parameters['DryRun'].SwitchParameter | Should -BeTrue
         }
 
-        It 'Should have optional Exclude parameter' {
-            (Get-Command Sync-Directory).Parameters['Exclude'].ParameterType | Should -Be ([String[]])
+        It 'Should have optional ExcludeFiles parameter' {
+            (Get-Command Sync-Directory).Parameters['ExcludeFiles'].ParameterType | Should -Be ([String[]])
+        }
+
+        It 'Should have optional ExcludeDirectories parameter' {
+            (Get-Command Sync-Directory).Parameters['ExcludeDirectories'].ParameterType | Should -Be ([String[]])
         }
 
         It 'Should have optional ExtraOptions parameter' {
@@ -49,6 +53,10 @@ Describe 'Sync-Directory' -Tag 'Unit' {
 
         It 'Should have optional ThreadCount parameter' {
             (Get-Command Sync-Directory).Parameters['ThreadCount'].ParameterType | Should -Be ([Int32])
+        }
+
+        It 'Should not have legacy Exclude parameter' {
+            (Get-Command Sync-Directory).Parameters.ContainsKey('Exclude') | Should -BeFalse
         }
 
         It 'Should support ShouldProcess' {
@@ -338,7 +346,7 @@ Describe 'Sync-Directory' -Tag 'Unit' {
                 'test' | Out-File (Join-Path -Path $TestSource -ChildPath 'test.txt')
                 'log' | Out-File (Join-Path -Path $TestSource -ChildPath 'test.log')
 
-                $Result = Sync-Directory -Source $TestSource -Destination $TestDest -Exclude '*.log', '.git' -DryRun
+                $Result = Sync-Directory -Source $TestSource -Destination $TestDest -ExcludeFiles '*.log' -ExcludeDirectories '.git' -DryRun
 
                 if ($IsWindowsPlatform)
                 {
@@ -349,6 +357,39 @@ Describe 'Sync-Directory' -Tag 'Unit' {
                 {
                     $Result.Command | Should -Match '--exclude=\*.log'
                     $Result.Command | Should -Match '--exclude=.git'
+                }
+            }
+            finally
+            {
+                if (Test-Path $TestSource) { Remove-Item -Path $TestSource -Recurse -Force }
+                if (Test-Path $TestDest) { Remove-Item -Path $TestDest -Recurse -Force }
+            }
+        }
+
+        It 'Should include explicit file and directory exclusions in command' {
+            $TestSource = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-exclude-explicit'
+            $TestDest = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-exclude-explicit-dest'
+
+            try
+            {
+                New-Item -ItemType Directory -Path $TestSource -Force | Out-Null
+                'test' | Out-File (Join-Path -Path $TestSource -ChildPath 'test.txt')
+                'log' | Out-File (Join-Path -Path $TestSource -ChildPath 'test.log')
+                New-Item -ItemType Directory -Path (Join-Path -Path $TestSource -ChildPath 'node_modules') -Force | Out-Null
+
+                $Result = Sync-Directory -Source $TestSource -Destination $TestDest -ExcludeFiles '*.log' -ExcludeDirectories 'node_modules' -DryRun
+
+                if ($IsWindowsPlatform)
+                {
+                    $Result.Command | Should -Match '/XF'
+                    $Result.Command | Should -Match '\*.log'
+                    $Result.Command | Should -Match '/XD'
+                    $Result.Command | Should -Match 'node_modules'
+                }
+                else
+                {
+                    $Result.Command | Should -Match '--exclude=\*.log'
+                    $Result.Command | Should -Match '--exclude=node_modules'
                 }
             }
             finally

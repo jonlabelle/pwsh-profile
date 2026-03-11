@@ -229,7 +229,7 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
                 'Also exclude' | Out-File (Join-Path -Path $Source -ChildPath 'temp.tmp')
 
                 # Sync with exclusions
-                $Result = Sync-Directory -Source $Source -Destination $Dest -Exclude '*.log', '*.tmp'
+                $Result = Sync-Directory -Source $Source -Destination $Dest -ExcludeFiles '*.log', '*.tmp'
 
                 # Verify
                 $Result.Success | Should -BeTrue
@@ -260,7 +260,7 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
                 'Exclude' | Out-File (Join-Path -Path $ExcludeDir -ChildPath 'package.json')
 
                 # Sync with directory exclusion
-                $Result = Sync-Directory -Source $Source -Destination $Dest -Exclude 'node_modules'
+                $Result = Sync-Directory -Source $Source -Destination $Dest -ExcludeDirectories 'node_modules'
 
                 # Verify
                 $Result.Success | Should -BeTrue

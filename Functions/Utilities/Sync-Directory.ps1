@@ -31,9 +31,13 @@ function Sync-Directory
         Shows what would be synchronized without actually performing the operation.
         Useful for testing synchronization before executing.
 
-    .PARAMETER Exclude
-        An array of patterns to exclude from synchronization.
-        Examples: '*.log', '.git', 'node_modules', 'bin/', 'obj/'
+    .PARAMETER ExcludeFiles
+        File patterns to exclude from synchronization.
+        Examples: '*.log', '*.tmp', '*.bak'
+
+    .PARAMETER ExcludeDirectories
+        Directory names or patterns to exclude from synchronization.
+        Examples: '.git', 'node_modules', 'bin', 'obj'
 
     .PARAMETER ExtraOptions
         Additional platform-specific options to pass to the underlying tool.
@@ -51,7 +55,7 @@ function Sync-Directory
         Synchronizes MyProject directory to D:\Backup\MyProject using platform-native tools.
 
     .EXAMPLE
-        PS > Sync-Directory -Source '/home/user/data' -Destination '/mnt/backup/data' -Delete -Exclude '.git', '*.tmp'
+        PS > Sync-Directory -Source '/home/user/data' -Destination '/mnt/backup/data' -Delete -ExcludeDirectories '.git' -ExcludeFiles '*.tmp'
 
         Mirrors the data directory to backup, deleting files in destination that don't exist in source,
         while excluding .git directories and .tmp files.
@@ -73,7 +77,7 @@ function Sync-Directory
         Linux/macOS example using rsync with compression and verbose output.
 
     .EXAMPLE
-        PS > Sync-Directory -Source './src' -Destination './dist' -Exclude 'node_modules', 'bin', 'obj', '*.log'
+        PS > Sync-Directory -Source './src' -Destination './dist' -ExcludeDirectories 'node_modules', 'bin', 'obj' -ExcludeFiles '*.log'
 
         Syncs a source code directory while excluding common build artifacts and dependencies.
 
@@ -90,12 +94,12 @@ function Sync-Directory
         Test the sync operation first with DryRun, then execute only if successful.
 
     .EXAMPLE
-        PS > Sync-Directory -Source '/media/videos' -Destination '/backup/videos' -Exclude '*.tmp', '*.part', '.DS_Store'
+        PS > Sync-Directory -Source '/media/videos' -Destination '/backup/videos' -ExcludeFiles '*.tmp', '*.part', '.DS_Store'
 
         Backup videos while excluding temporary files, partial downloads, and macOS metadata files.
 
     .EXAMPLE
-        PS > Sync-Directory -Source 'C:\Development' -Destination '\\ServerName\Backups\Dev' -Exclude '.git', '.vs', 'packages', 'bin', 'obj'
+        PS > Sync-Directory -Source 'C:\Development' -Destination '\\ServerName\Backups\Dev' -ExcludeDirectories '.git', '.vs', 'packages', 'bin', 'obj'
 
         Sync development projects to a network share, excluding version control and build outputs.
 
@@ -105,7 +109,7 @@ function Sync-Directory
         Sync web server files using custom rsync exclusions for socket files and cache directories.
 
     .EXAMPLE
-        PS > Sync-Directory -Source './src/' -Destination '/mnt/wsl/projects/app/' -Exclude '.git', '.vscode', 'node_modules'
+        PS > Sync-Directory -Source './src/' -Destination '/mnt/wsl/projects/app/' -ExcludeDirectories '.git', '.vscode', 'node_modules'
 
         Mirrors the working tree into a mounted WSL path so Linux-specific tooling sees the latest code without committing.
 
@@ -153,7 +157,10 @@ function Sync-Directory
         [Switch]$DryRun,
 
         [Parameter()]
-        [String[]]$Exclude = @(),
+        [String[]]$ExcludeFiles = @(),
+
+        [Parameter()]
+        [String[]]$ExcludeDirectories = @(),
 
         [Parameter()]
         [String[]]$ExtraOptions = @(),
@@ -303,21 +310,16 @@ function Sync-Directory
                 }
 
                 # Handle exclusions
-                foreach ($Pattern in $Exclude)
+                foreach ($Pattern in $ExcludeDirectories)
                 {
-                    # Check if it's a directory or file pattern
-                    if ($Pattern -match '[\\/]$' -or $Pattern -notmatch '\.')
-                    {
-                        # Likely a directory
-                        $robocopyArgs += '/XD'
-                        $robocopyArgs += "`"$Pattern`""
-                    }
-                    else
-                    {
-                        # Likely a file pattern
-                        $robocopyArgs += '/XF'
-                        $robocopyArgs += "`"$Pattern`""
-                    }
+                    $robocopyArgs += '/XD'
+                    $robocopyArgs += "`"$Pattern`""
+                }
+
+                foreach ($Pattern in $ExcludeFiles)
+                {
+                    $robocopyArgs += '/XF'
+                    $robocopyArgs += "`"$Pattern`""
                 }
 
                 # Add extra options
@@ -433,7 +435,12 @@ function Sync-Directory
                 }
 
                 # Handle exclusions
-                foreach ($Pattern in $Exclude)
+                foreach ($Pattern in $ExcludeDirectories)
+                {
+                    $rsyncArgs += "--exclude=$Pattern"
+                }
+
+                foreach ($Pattern in $ExcludeFiles)
                 {
                     $rsyncArgs += "--exclude=$Pattern"
                 }
