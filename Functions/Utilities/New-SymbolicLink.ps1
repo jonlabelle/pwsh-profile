@@ -142,19 +142,69 @@ function New-SymbolicLink
         }
 
         Write-Verbose 'Starting symbolic link creation'
+
+        function Test-ResolvedItemExists
+        {
+            param([String]$LiteralPath)
+
+            if (Test-Path -LiteralPath $LiteralPath)
+            {
+                return $true
+            }
+
+            try
+            {
+                [void][System.IO.File]::GetAttributes($LiteralPath)
+                return $true
+            }
+            catch
+            {
+                return $false
+            }
+        }
+
+        function Get-ResolvedItemAttributes
+        {
+            param([String]$LiteralPath)
+
+            try
+            {
+                return [System.IO.File]::GetAttributes($LiteralPath)
+            }
+            catch
+            {
+                return $null
+            }
+        }
     }
 
     process
     {
-        # Resolve paths using cross-platform compatible method
-        $resolvedPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
-        $resolvedTarget = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Target)
+        try
+        {
+            $resolvedPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
+        }
+        catch
+        {
+            Write-Error "Failed to resolve symbolic link path '$Path': $($_.Exception.Message)"
+            return
+        }
+
+        try
+        {
+            $resolvedTarget = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Target)
+        }
+        catch
+        {
+            Write-Error "Failed to resolve target path '$Target': $($_.Exception.Message)"
+            return
+        }
 
         Write-Verbose "Symbolic link path: $resolvedPath"
         Write-Verbose "Target path: $resolvedTarget"
 
         # Check if target exists
-        $targetExists = Test-Path -Path $resolvedTarget
+        $targetExists = Test-ResolvedItemExists -LiteralPath $resolvedTarget
         if (-not $targetExists -and -not $Force)
         {
             Write-Error "Target path does not exist: $resolvedTarget. Use -Force to create symbolic links to non-existent targets."
@@ -163,13 +213,17 @@ function New-SymbolicLink
 
         # Determine the item type for the symbolic link
         $linkType = 'SymbolicLink'
+        $targetIsDirectory = $false
         if ($ItemType -eq 'Auto')
         {
             if ($targetExists)
             {
-                $targetItem = Get-Item -Path $resolvedTarget -ErrorAction SilentlyContinue
-                if ($targetItem.PSIsContainer)
+                $targetItem = Get-Item -LiteralPath $resolvedTarget -Force -ErrorAction SilentlyContinue
+                $targetAttributes = Get-ResolvedItemAttributes -LiteralPath $resolvedTarget
+                if (($null -ne $targetItem -and $targetItem.PSIsContainer) -or
+                    ($null -ne $targetAttributes -and ($targetAttributes -band [System.IO.FileAttributes]::Directory)))
                 {
+                    $targetIsDirectory = $true
                     Write-Verbose 'Auto-detected target type: Directory'
                 }
                 else
@@ -184,11 +238,12 @@ function New-SymbolicLink
         }
         else
         {
+            $targetIsDirectory = $ItemType -eq 'Directory'
             Write-Verbose "Using specified item type: $ItemType"
         }
 
         # Check if the symlink path already exists
-        if (Test-Path -Path $resolvedPath)
+        if (Test-ResolvedItemExists -LiteralPath $resolvedPath)
         {
             if (-not $Force)
             {
@@ -201,21 +256,40 @@ function New-SymbolicLink
             {
                 try
                 {
-                    $existingItem = Get-Item -Path $resolvedPath -Force
-                    $isSymlink = $existingItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint
+                    $existingItem = Get-Item -LiteralPath $resolvedPath -Force -ErrorAction SilentlyContinue
+                    $existingAttributes = Get-ResolvedItemAttributes -LiteralPath $resolvedPath
+                    $isSymlink = $false
+                    $isDirectory = $false
+
+                    if ($null -ne $existingItem -and $null -ne $existingItem.Attributes)
+                    {
+                        $isSymlink = [bool]($existingItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint)
+                        $isDirectory = $existingItem.PSIsContainer
+                    }
+                    elseif ($null -ne $existingAttributes)
+                    {
+                        $isSymlink = [bool]($existingAttributes -band [System.IO.FileAttributes]::ReparsePoint)
+                        $isDirectory = [bool]($existingAttributes -band [System.IO.FileAttributes]::Directory)
+                    }
 
                     if ($isSymlink)
                     {
                         Write-Verbose "Removing existing symbolic link at: $resolvedPath"
                         # Do NOT use -Recurse on symbolic links, especially on Windows PowerShell 5.1.
                         # Using -Recurse on a directory symlink attempts to recurse into the target directory.
-                        Remove-Item -Path $resolvedPath -Force -ErrorAction Stop
+                        Remove-Item -LiteralPath $resolvedPath -Force -ErrorAction Stop
                     }
                     else
                     {
                         Write-Verbose "Removing existing item at: $resolvedPath"
-                        # Only use -Recurse for non-symlink directories
-                        Remove-Item -Path $resolvedPath -Force -Recurse -ErrorAction Stop
+                        if ($isDirectory)
+                        {
+                            Remove-Item -LiteralPath $resolvedPath -Force -Recurse -ErrorAction Stop
+                        }
+                        else
+                        {
+                            Remove-Item -LiteralPath $resolvedPath -Force -ErrorAction Stop
+                        }
                     }
                 }
                 catch
@@ -228,7 +302,7 @@ function New-SymbolicLink
 
         # Create the parent directory if it doesn't exist
         $parentPath = Split-Path -Path $resolvedPath -Parent
-        if (-not [String]::IsNullOrEmpty($parentPath) -and -not (Test-Path -Path $parentPath))
+        if (-not [String]::IsNullOrEmpty($parentPath) -and -not (Test-Path -LiteralPath $parentPath))
         {
             if ($PSCmdlet.ShouldProcess($parentPath, 'Create parent directory'))
             {
@@ -250,19 +324,19 @@ function New-SymbolicLink
         {
             try
             {
-                # PowerShell 5.1 on Windows has a limitation: New-Item cannot create symlinks to non-existent targets.
-                # For non-existent targets on Windows PS 5.1, we need to use cmd.exe's mklink command.
+                # On Windows, cmd.exe mklink is more reliable for non-existent targets because it
+                # preserves the intended file-vs-directory link type explicitly.
                 $useNativeCommand = $false
-                if ($script:IsWindowsPlatform -and $PSVersionTable.PSVersion.Major -lt 6 -and -not $targetExists)
+                if ($script:IsWindowsPlatform -and -not $targetExists)
                 {
-                    Write-Verbose 'PowerShell 5.1 detected with non-existent target; using cmd.exe mklink'
+                    Write-Verbose 'Windows detected with non-existent target; using cmd.exe mklink so the link type is explicit'
                     $useNativeCommand = $true
                 }
 
                 if ($useNativeCommand)
                 {
-                    # Use cmd.exe mklink for PowerShell 5.1 with non-existent targets
-                    $mklinkType = if ($ItemType -eq 'Auto' -or $ItemType -eq 'File') { '' } else { '/D' }
+                    # Use cmd.exe mklink for non-existent Windows targets
+                    $mklinkType = if ($targetIsDirectory) { '/D' } else { '' }
                     $cmdArgs = if ($mklinkType) { "/c mklink $mklinkType `"$resolvedPath`" `"$resolvedTarget`"" } else { "/c mklink `"$resolvedPath`" `"$resolvedTarget`"" }
 
                     Write-Verbose "Executing: cmd.exe $cmdArgs"
@@ -278,7 +352,7 @@ function New-SymbolicLink
 
                     if ($PassThru)
                     {
-                        return Get-Item -Path $resolvedPath -Force
+                        return Get-Item -LiteralPath $resolvedPath -Force
                     }
                 }
                 else

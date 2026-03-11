@@ -120,6 +120,25 @@ Describe 'New-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
             # Cleanup second target
             Remove-Item -Path $targetFile2 -Force -ErrorAction SilentlyContinue
         }
+
+        It 'Should overwrite an existing dangling link when Force is specified' {
+            $missingTarget = Join-Path -Path $script:targetDir -ChildPath 'missing-target.txt'
+            New-SymbolicLink -Path $script:linkPath -Target $missingTarget -Force
+
+            $replacementTarget = Join-Path -Path $script:targetDir -ChildPath 'replacement.txt'
+            'replacement content' | Out-File -FilePath $replacementTarget -Encoding UTF8
+
+            try
+            {
+                New-SymbolicLink -Path $script:linkPath -Target $replacementTarget -Force
+
+                Get-Content -Path $script:linkPath | Should -Be 'replacement content'
+            }
+            finally
+            {
+                Remove-Item -Path $replacementTarget -Force -ErrorAction SilentlyContinue
+            }
+        }
     }
 
     Context 'Creating Directory Symbolic Links' {
