@@ -20,6 +20,32 @@ BeforeAll {
     # Load the function
     . "$PSScriptRoot/../../../Functions/Security/ConvertFrom-JwtToken.ps1"
 
+    function New-TestJwtToken {
+        param(
+            [Parameter(Mandatory)]
+            [Object]$Header,
+
+            [Parameter(Mandatory)]
+            [Object]$Payload,
+
+            [String]$Signature = 'sig'
+        )
+
+        function ConvertTo-Base64Url {
+            param([Parameter(Mandatory)][String]$Value)
+
+            $bytes = [System.Text.Encoding]::UTF8.GetBytes($Value)
+            $base64 = [System.Convert]::ToBase64String($bytes)
+
+            return $base64.TrimEnd('=').Replace('+', '-').Replace('/', '_')
+        }
+
+        $encodedHeader = ConvertTo-Base64Url -Value ($Header | ConvertTo-Json -Compress -Depth 10)
+        $encodedPayload = ConvertTo-Base64Url -Value ($Payload | ConvertTo-Json -Compress -Depth 10)
+
+        return "$encodedHeader.$encodedPayload.$Signature"
+    }
+
     # Standard test JWT token from jwt.io
     # Header: {"alg":"HS256","typ":"JWT"}
     # Payload: {"sub":"1234567890","name":"John Doe","iat":1516239022}
@@ -29,6 +55,20 @@ BeforeAll {
     # Header: {"alg":"RS256","typ":"JWT"}
     # Payload: {"sub":"user123","name":"Jane Smith","email":"jane@example.com","exp":1735689600,"iat":1704067200,"iss":"https://example.com","aud":"api://default"}
     $script:ComplexToken = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMTIzIiwibmFtZSI6IkphbmUgU21pdGgiLCJlbWFpbCI6ImphbmVAZXhhbXBsZS5jb20iLCJleHAiOjE3MzU2ODk2MDAsImlhdCI6MTcwNDA2NzIwMCwiaXNzIjoiaHR0cHM6Ly9leGFtcGxlLmNvbSIsImF1ZCI6ImFwaTovL2RlZmF1bHQifQ.signature'
+
+    $script:NestedClaimsToken = New-TestJwtToken `
+        -Header ([ordered]@{ alg = 'HS256'; typ = 'JWT'; kid = 'test-key' }) `
+        -Payload ([ordered]@{
+            sub = 'user456'
+            roles = @('admin', 'reader')
+            aud = @('api://default', 'api://secondary')
+            email_verified = $true
+            profile = [ordered]@{
+                region = 'us-east-1'
+                tenant = 'lab'
+            }
+        }) `
+        -Signature 'nested-signature'
 }
 
 Describe 'ConvertFrom-JwtToken Unit Tests' {
@@ -103,6 +143,14 @@ Describe 'ConvertFrom-JwtToken Unit Tests' {
 
             $result.Payload.name | Should -Be 'John Doe'
         }
+
+        It 'Should handle bearer tokens with embedded whitespace and line breaks' {
+            $tokenWithWhitespace = "  Bearer`n$script:ValidToken`r`n"
+            $result = ConvertFrom-JwtToken -Token $tokenWithWhitespace -AsObject
+
+            $result.Header.alg | Should -Be 'HS256'
+            $result.Payload.name | Should -Be 'John Doe'
+        }
     }
 
     Context 'JWT Decoding - Complex Token' {
@@ -136,6 +184,16 @@ Describe 'ConvertFrom-JwtToken Unit Tests' {
             $decoded = ConvertFrom-JwtToken -Token $script:ComplexToken -AsObject
 
             $decoded.Header.alg | Should -Be 'RS256'
+        }
+
+        It 'Should preserve nested objects, arrays, and booleans in payload claims' {
+            $result = ConvertFrom-JwtToken -Token $script:NestedClaimsToken -AsObject
+
+            $result.Payload.roles | Should -Be @('admin', 'reader')
+            $result.Payload.aud | Should -Be @('api://default', 'api://secondary')
+            $result.Payload.email_verified | Should -BeTrue
+            $result.Payload.profile.region | Should -Be 'us-east-1'
+            $result.Header.kid | Should -Be 'test-key'
         }
     }
 
@@ -209,27 +267,27 @@ Describe 'ConvertFrom-JwtToken Unit Tests' {
         It 'Should throw on invalid Base64 in header' {
             $invalidToken = 'invalid!!!.eyJzdWIiOiIxMjM0NTY3ODkwIn0.sig'
 
-            { ConvertFrom-JwtToken -Token $invalidToken } | Should -Throw
+            { ConvertFrom-JwtToken -Token $invalidToken } | Should -Throw '*header segment*'
         }
 
         It 'Should throw on invalid Base64 in payload' {
             $invalidToken = 'eyJhbGciOiJIUzI1NiJ9.invalid!!!.sig'
 
-            { ConvertFrom-JwtToken -Token $invalidToken } | Should -Throw
+            { ConvertFrom-JwtToken -Token $invalidToken } | Should -Throw '*payload segment*'
         }
 
         It 'Should throw on invalid JSON in header' {
             # Valid Base64 but invalid JSON
             $invalidToken = 'bm90anNvbg.eyJzdWIiOiIxMjM0NTY3ODkwIn0.sig'
 
-            { ConvertFrom-JwtToken -Token $invalidToken } | Should -Throw
+            { ConvertFrom-JwtToken -Token $invalidToken } | Should -Throw '*Invalid JSON in the header segment*'
         }
 
         It 'Should throw on invalid JSON in payload' {
             # Valid Base64 but invalid JSON
             $invalidToken = 'eyJhbGciOiJIUzI1NiJ9.bm90anNvbg.sig'
 
-            { ConvertFrom-JwtToken -Token $invalidToken } | Should -Throw
+            { ConvertFrom-JwtToken -Token $invalidToken } | Should -Throw '*Invalid JSON in the payload segment*'
         }
     }
 

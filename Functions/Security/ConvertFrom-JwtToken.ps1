@@ -198,7 +198,7 @@
         Write-Verbose 'Starting JWT token decoding'
 
         # Define standard JWT claim descriptions (kept short to avoid line wrapping)
-        $script:ClaimDescriptions = @{
+        $claimDescriptions = @{
             # Standard header claims
             'alg' = 'Signing algorithm'
             'typ' = 'Token type'
@@ -275,14 +275,331 @@
             'xms_mirid' = 'Managed identity resource ID'
             'ver' = 'Version'
         }
+
+        $timestampClaims = @('iat', 'exp', 'nbf', 'auth_time', 'updated_at')
+
+        function ConvertTo-NormalizedJwtToken
+        {
+            param([Parameter(Mandatory)][String]$InputToken)
+
+            $normalizedToken = $InputToken.Trim()
+            $normalizedToken = $normalizedToken -replace '^(?i:Bearer)\s+', ''
+            $normalizedToken = [System.Text.RegularExpressions.Regex]::Replace($normalizedToken, '\s+', '')
+
+            if ([String]::IsNullOrWhiteSpace($normalizedToken))
+            {
+                throw 'JWT token is empty after trimming whitespace.'
+            }
+
+            return $normalizedToken
+        }
+
+        function ConvertFrom-Base64UrlSegment
+        {
+            param(
+                [Parameter(Mandatory)]
+                [AllowEmptyString()]
+                [String]$Base64Url,
+
+                [Parameter(Mandatory)]
+                [String]$SegmentName
+            )
+
+            if ([String]::IsNullOrEmpty($Base64Url))
+            {
+                throw "JWT $SegmentName segment is empty."
+            }
+
+            $normalizedSegment = $Base64Url.TrimEnd('=')
+
+            if ($normalizedSegment -notmatch '^[A-Za-z0-9_-]+$')
+            {
+                throw "Invalid Base64URL encoding in the $SegmentName segment."
+            }
+
+            $base64 = $normalizedSegment.Replace('-', '+').Replace('_', '/')
+
+            switch ($base64.Length % 4)
+            {
+                0 { break }
+                2 { $base64 += '==' }
+                3 { $base64 += '=' }
+                default { throw "Invalid Base64URL length in the $SegmentName segment." }
+            }
+
+            try
+            {
+                $bytes = [System.Convert]::FromBase64String($base64)
+                return [System.Text.Encoding]::UTF8.GetString($bytes)
+            }
+            catch
+            {
+                throw "Invalid Base64URL encoding in the $SegmentName segment. $($_.Exception.Message)"
+            }
+        }
+
+        function ConvertFrom-JsonSegment
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$Json,
+
+                [Parameter(Mandatory)]
+                [String]$SegmentName
+            )
+
+            if ([String]::IsNullOrWhiteSpace($Json))
+            {
+                throw "The $SegmentName segment decoded to an empty string."
+            }
+
+            try
+            {
+                return $Json | ConvertFrom-Json -ErrorAction Stop
+            }
+            catch
+            {
+                throw "Invalid JSON in the $SegmentName segment. $($_.Exception.Message)"
+            }
+        }
+
+        function Get-JwtRelativeTimeText
+        {
+            param([Parameter(Mandatory)][DateTimeOffset]$TargetTime)
+
+            $delta = $TargetTime - [DateTimeOffset]::UtcNow
+            $absoluteDelta = $delta.Duration()
+
+            if ($absoluteDelta.TotalDays -ge 1)
+            {
+                $quantity = [Math]::Floor($absoluteDelta.TotalDays)
+                $unit = 'day'
+            }
+            elseif ($absoluteDelta.TotalHours -ge 1)
+            {
+                $quantity = [Math]::Floor($absoluteDelta.TotalHours)
+                $unit = 'hour'
+            }
+            elseif ($absoluteDelta.TotalMinutes -ge 1)
+            {
+                $quantity = [Math]::Floor($absoluteDelta.TotalMinutes)
+                $unit = 'minute'
+            }
+            else
+            {
+                $quantity = [Math]::Max([Math]::Floor($absoluteDelta.TotalSeconds), 0)
+                $unit = 'second'
+            }
+
+            if ($quantity -ne 1)
+            {
+                $unit += 's'
+            }
+
+            if ($delta.TotalSeconds -lt 0)
+            {
+                return "expired $quantity $unit ago"
+            }
+
+            return "expires in $quantity $unit"
+        }
+
+        function Format-JwtTimestampValue
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$ClaimName,
+
+                [Parameter(Mandatory)]
+                $Value,
+
+                [Parameter(Mandatory)]
+                [Boolean]$UseUtc
+            )
+
+            $unixSeconds = 0L
+
+            if ($Value -is [String])
+            {
+                if (-not [Int64]::TryParse($Value, [ref]$unixSeconds))
+                {
+                    return $null
+                }
+            }
+            elseif ($Value -is [SByte] -or
+                $Value -is [Byte] -or
+                $Value -is [Int16] -or
+                $Value -is [UInt16] -or
+                $Value -is [Int32] -or
+                $Value -is [UInt32] -or
+                $Value -is [Int64] -or
+                $Value -is [UInt64] -or
+                $Value -is [Single] -or
+                $Value -is [Double] -or
+                $Value -is [Decimal])
+            {
+                try
+                {
+                    $unixSeconds = [Int64]$Value
+                }
+                catch
+                {
+                    return $null
+                }
+            }
+            else
+            {
+                return $null
+            }
+
+            try
+            {
+                $timestamp = [DateTimeOffset]::FromUnixTimeSeconds($unixSeconds)
+            }
+            catch
+            {
+                return $null
+            }
+
+            if ($UseUtc)
+            {
+                $formattedTime = $timestamp.UtcDateTime.ToString('M/d/yyyy h:mm:ss tt') + ' UTC'
+            }
+            else
+            {
+                $formattedTime = $timestamp.ToLocalTime().DateTime.ToString('M/d/yyyy h:mm:ss tt')
+            }
+
+            if ($ClaimName -eq 'exp')
+            {
+                $relativeTime = Get-JwtRelativeTimeText -TargetTime $timestamp
+                return "$unixSeconds ($formattedTime, $relativeTime)"
+            }
+
+            return "$unixSeconds ($formattedTime)"
+        }
+
+        function Format-JwtValue
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$ClaimName,
+
+                [Parameter()]
+                $Value,
+
+                [Parameter(Mandatory)]
+                [Boolean]$UseUtc
+            )
+
+            if ($timestampClaims -contains $ClaimName)
+            {
+                $timestampDisplay = Format-JwtTimestampValue -ClaimName $ClaimName -Value $Value -UseUtc:$UseUtc
+
+                if ($null -ne $timestampDisplay)
+                {
+                    return $timestampDisplay
+                }
+            }
+
+            if ($null -eq $Value)
+            {
+                return '<null>'
+            }
+
+            if ($Value -is [Boolean])
+            {
+                return $Value.ToString().ToLowerInvariant()
+            }
+
+            if ($Value -is [String])
+            {
+                return $Value
+            }
+
+            if ($Value -is [DateTime] -or $Value -is [DateTimeOffset])
+            {
+                return $Value.ToString('o')
+            }
+
+            $isComplexObject =
+            $Value -is [PSCustomObject] -or
+            $Value -is [System.Collections.IDictionary] -or
+            ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [String]) -or
+            ($Value -is [PSObject] -and
+            $Value -isnot [ValueType] -and
+            $Value.PSObject.Properties.Count -gt 0)
+
+            if ($isComplexObject)
+            {
+                try
+                {
+                    return $Value | ConvertTo-Json -Compress -Depth 10
+                }
+                catch
+                {
+                    return [String]$Value
+                }
+            }
+
+            return [String]$Value
+        }
+
+        function Write-JwtSection
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$Title,
+
+                [Parameter(Mandatory)]
+                [Object]$Data,
+
+                [Parameter(Mandatory)]
+                [Boolean]$UseUtc
+            )
+
+            Write-Host $Title -ForegroundColor Green
+            Write-Host '──────────────────────────────────────────────────────────────' -ForegroundColor DarkGray
+
+            $properties = @($Data.PSObject.Properties)
+
+            if ($properties.Count -eq 0)
+            {
+                Write-Host '  <empty>' -ForegroundColor DarkGray
+                Write-Host ''
+                return
+            }
+
+            $maxPropertyWidth = ($properties.Name | Measure-Object -Maximum Length).Maximum
+            $labelWidth = [Math]::Min([Math]::Max($maxPropertyWidth, 20), 28)
+
+            foreach ($property in $properties)
+            {
+                $formattedValue = Format-JwtValue -ClaimName $property.Name -Value $property.Value -UseUtc:$UseUtc
+
+                Write-Host ("  {0,-$labelWidth}: " -f $property.Name) -NoNewline -ForegroundColor Yellow
+                Write-Host $formattedValue -NoNewline -ForegroundColor White
+
+                if ($claimDescriptions.ContainsKey($property.Name))
+                {
+                    Write-Host "  # $($claimDescriptions[$property.Name])" -ForegroundColor DarkGray
+                }
+                else
+                {
+                    Write-Host ''
+                }
+            }
+
+            Write-Host ''
+        }
     }
 
     process
     {
         try
         {
-            # Trim whitespace from token
-            $Token = $Token.Trim()
+            Write-Verbose 'Normalizing JWT token input'
+            $Token = ConvertTo-NormalizedJwtToken -InputToken $Token
 
             # Split the JWT into its three parts
             $parts = $Token.Split('.')
@@ -292,45 +609,29 @@
                 throw "Invalid JWT token format. Expected 3 parts (header.payload.signature), found $($parts.Count) parts."
             }
 
-            Write-Verbose 'JWT token has valid structure (3 parts)'
-
-            # Function to decode Base64URL to string
-            function ConvertFrom-Base64Url
+            if ([String]::IsNullOrEmpty($parts[0]) -or [String]::IsNullOrEmpty($parts[1]))
             {
-                param([String]$Base64Url)
-
-                # Convert Base64URL to standard Base64
-                $base64 = $Base64Url.Replace('-', '+').Replace('_', '/')
-
-                # Add padding if necessary
-                switch ($base64.Length % 4)
-                {
-                    0 { break }
-                    2 { $base64 += '==' }
-                    3 { $base64 += '=' }
-                    default { throw 'Invalid Base64URL string' }
-                }
-
-                # Decode Base64 to bytes, then to UTF8 string
-                $bytes = [System.Convert]::FromBase64String($base64)
-                return [System.Text.Encoding]::UTF8.GetString($bytes)
+                throw 'Invalid JWT token format. Header and payload segments must not be empty.'
             }
+
+            Write-Verbose 'JWT token has valid structure (3 parts)'
 
             # Decode header
             Write-Verbose 'Decoding JWT header'
-            $headerJson = ConvertFrom-Base64Url -Base64Url $parts[0]
-            $header = $headerJson | ConvertFrom-Json
+            $headerJson = ConvertFrom-Base64UrlSegment -Base64Url $parts[0] -SegmentName 'header'
+            $header = ConvertFrom-JsonSegment -Json $headerJson -SegmentName 'header'
 
             # Decode payload
             Write-Verbose 'Decoding JWT payload'
-            $payloadJson = ConvertFrom-Base64Url -Base64Url $parts[1]
-            $payload = $payloadJson | ConvertFrom-Json
+            $payloadJson = ConvertFrom-Base64UrlSegment -Base64Url $parts[1] -SegmentName 'payload'
+            $payload = ConvertFrom-JsonSegment -Json $payloadJson -SegmentName 'payload'
 
             # Build result object
-            $result = [PSCustomObject]@{
+            $result = [PSCustomObject][ordered]@{
                 Header = $header
                 Payload = $payload
             }
+            $result.PSObject.TypeNames.Insert(0, 'PwshProfile.JwtToken')
 
             # Add signature if requested
             if ($IncludeSignature)
@@ -355,70 +656,8 @@
                 Write-Host '═══════════════════════════════════════════════════════════════' -ForegroundColor Cyan
                 Write-Host ''
 
-                Write-Host 'HEADER' -ForegroundColor Green
-                Write-Host '──────────────────────────────────────────────────────────────' -ForegroundColor DarkGray
-                $header.PSObject.Properties | ForEach-Object {
-                    Write-Host "  $($_.Name.PadRight(20)): " -NoNewline -ForegroundColor Yellow
-                    Write-Host $_.Value -NoNewline -ForegroundColor White
-
-                    if ($script:ClaimDescriptions.ContainsKey($_.Name))
-                    {
-                        Write-Host "  # $($script:ClaimDescriptions[$_.Name])" -ForegroundColor DarkGray
-                    }
-                    else
-                    {
-                        Write-Host ''
-                    }
-                }
-                Write-Host ''
-
-                Write-Host 'PAYLOAD' -ForegroundColor Green
-                Write-Host '──────────────────────────────────────────────────────────────' -ForegroundColor DarkGray
-                $payload.PSObject.Properties | ForEach-Object {
-                    Write-Host "  $($_.Name.PadRight(20)): " -NoNewline -ForegroundColor Yellow
-
-                    # Special handling for timestamps (iat, exp, nbf)
-                    if ($_.Name -in @('iat', 'exp', 'nbf') -and $_.Value -is [long])
-                    {
-                        if ($NoLocalTimeConversion)
-                        {
-                            # Display in UTC without conversion
-                            $utcTime = [DateTimeOffset]::FromUnixTimeSeconds($_.Value).UtcDateTime
-                            $formattedTime = $utcTime.ToString('M/d/yyyy h:mm:ss tt') + ' UTC'
-                        }
-                        else
-                        {
-                            # Convert to local time with proper timezone handling (including DST)
-                            $localTime = [DateTimeOffset]::FromUnixTimeSeconds($_.Value).ToLocalTime().DateTime
-                            $formattedTime = $localTime.ToString('M/d/yyyy h:mm:ss tt')
-                        }
-
-                        Write-Host "$($_.Value) " -NoNewline -ForegroundColor White
-                        Write-Host "($formattedTime)" -NoNewline -ForegroundColor DarkGray
-
-                        if ($script:ClaimDescriptions.ContainsKey($_.Name))
-                        {
-                            Write-Host "  # $($script:ClaimDescriptions[$_.Name])" -ForegroundColor DarkGray
-                        }
-                        else
-                        {
-                            Write-Host ''
-                        }
-                    }
-                    else
-                    {
-                        Write-Host $_.Value -NoNewline -ForegroundColor White
-
-                        if ($script:ClaimDescriptions.ContainsKey($_.Name))
-                        {
-                            Write-Host "  # $($script:ClaimDescriptions[$_.Name])" -ForegroundColor DarkGray
-                        }
-                        else
-                        {
-                            Write-Host ''
-                        }
-                    }
-                }
+                Write-JwtSection -Title 'HEADER' -Data $header -UseUtc:$NoLocalTimeConversion
+                Write-JwtSection -Title 'PAYLOAD' -Data $payload -UseUtc:$NoLocalTimeConversion
 
                 if ($IncludeSignature)
                 {
@@ -435,8 +674,14 @@
         }
         catch
         {
-            Write-Error "Failed to decode JWT token: $($_.Exception.Message)"
-            throw $_
+            $message = $_.Exception.Message
+
+            if ($message -notlike 'Failed to decode JWT token*')
+            {
+                $message = "Failed to decode JWT token. $message"
+            }
+
+            throw [System.InvalidOperationException]::new($message, $_.Exception)
         }
     }
 
