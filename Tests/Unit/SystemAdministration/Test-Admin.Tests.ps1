@@ -38,6 +38,51 @@ BeforeAll {
         $script:HasUnixIdCommand = $false
         $script:IsUnixElevatedSession = $false
     }
+
+    $script:NewNativeCommandDirectory = {
+        param(
+            [Parameter(Mandatory)]
+            [string]$IdOutput,
+
+            [Parameter()]
+            [int]$IdExitCode = 0,
+
+            [Parameter()]
+            [switch]$IncludeSudo,
+
+            [Parameter()]
+            [int]$SudoExitCode = 0
+        )
+
+        $directory = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "test-admin-native-$(Get-Random)"
+        New-Item -Path $directory -ItemType Directory -Force | Out-Null
+
+        $idScript = Join-Path -Path $directory -ChildPath 'id'
+        $idContent = @"
+#!/bin/sh
+if [ "`$1" = "-u" ]; then
+    echo "$IdOutput"
+    exit $IdExitCode
+fi
+
+exit 1
+"@
+        [System.IO.File]::WriteAllText($idScript, $idContent, [System.Text.UTF8Encoding]::new($false))
+        /bin/chmod 755 $idScript
+
+        if ($IncludeSudo)
+        {
+            $sudoScript = Join-Path -Path $directory -ChildPath 'sudo'
+            $sudoContent = @"
+#!/bin/sh
+exit $SudoExitCode
+"@
+            [System.IO.File]::WriteAllText($sudoScript, $sudoContent, [System.Text.UTF8Encoding]::new($false))
+            /bin/chmod 755 $sudoScript
+        }
+
+        return $directory
+    }
 }
 
 Describe 'Test-Admin' {
@@ -45,6 +90,7 @@ Describe 'Test-Admin' {
         $script:OriginalSudoUser = $env:SUDO_USER
         $script:OriginalSudoUid = $env:SUDO_UID
         $script:OriginalPath = $env:PATH
+        $script:NativeCommandTestDir = $null
 
         Remove-Variable -Name 'IsWindowsPlatform', 'IsMacOSPlatform', 'IsLinuxPlatform' -Scope Script -ErrorAction SilentlyContinue
     }
@@ -69,6 +115,11 @@ Describe 'Test-Admin' {
         }
 
         $env:PATH = $script:OriginalPath
+
+        if ($script:NativeCommandTestDir -and (Test-Path -LiteralPath $script:NativeCommandTestDir))
+        {
+            Remove-Item -LiteralPath $script:NativeCommandTestDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
 
         Remove-Variable -Name 'IsWindowsPlatform', 'IsMacOSPlatform', 'IsLinuxPlatform' -Scope Script -ErrorAction SilentlyContinue
     }
@@ -118,6 +169,27 @@ Describe 'Test-Admin' {
             $env:SUDO_UID = '0'
 
             Test-Admin | Should -BeFalse
+        }
+
+        It 'does not treat sudo capability as elevation unless AllowSudo is specified' {
+            $script:NativeCommandTestDir = & $script:NewNativeCommandDirectory -IdOutput '501' -IncludeSudo -SudoExitCode 0
+            $env:PATH = $script:NativeCommandTestDir
+
+            Test-Admin | Should -BeFalse
+        }
+
+        It 'returns true with AllowSudo when non-interactive sudo succeeds' {
+            $script:NativeCommandTestDir = & $script:NewNativeCommandDirectory -IdOutput '501' -IncludeSudo -SudoExitCode 0
+            $env:PATH = $script:NativeCommandTestDir
+
+            Test-Admin -AllowSudo | Should -BeTrue
+        }
+
+        It 'returns false with AllowSudo when non-interactive sudo fails' {
+            $script:NativeCommandTestDir = & $script:NewNativeCommandDirectory -IdOutput '501' -IncludeSudo -SudoExitCode 1
+            $env:PATH = $script:NativeCommandTestDir
+
+            Test-Admin -AllowSudo | Should -BeFalse
         }
 
         It 'writes a warning and returns false when the id command cannot be resolved' {

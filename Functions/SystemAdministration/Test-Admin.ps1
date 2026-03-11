@@ -13,6 +13,7 @@ function Test-Admin
 
         - macOS/Linux: Checks if the current PowerShell process is running as root
           by examining the effective user ID (EUID).
+          Optionally, you can also treat non-interactive sudo capability as sufficient.
 
         This provides a cross-platform way to determine if the current session has the
         necessary permissions to perform administrative tasks.
@@ -22,6 +23,19 @@ function Test-Admin
     .PARAMETER Quiet
         When specified, suppresses any warning messages and returns only the boolean result.
         Useful for silent checks in scripts.
+
+    .PARAMETER AllowSudo
+        On macOS/Linux, also returns $true when the current user can run `sudo` without
+        an interactive password prompt.
+
+        This is useful when you want to know whether administrative operations can be
+        performed immediately, even if the current `pwsh` process is not running as root.
+
+        When omitted, macOS/Linux checks remain strict and only return $true when the
+        current PowerShell process is actually running as root.
+
+        On Windows, this parameter has no practical effect and administrator token
+        membership is still used.
 
     .EXAMPLE
         PS > Test-Admin
@@ -38,6 +52,13 @@ function Test-Admin
         PS > Test-Sudo
 
         Alias for Test-Admin. Returns $true if running with elevated privileges.
+
+    .EXAMPLE
+        $ sudo pwsh
+        PS > Test-Admin
+        True
+
+        When running PowerShell with sudo on macOS/Linux, Test-Admin should return $true
 
     .EXAMPLE
         PS > if (Test-Admin) {
@@ -61,6 +82,13 @@ function Test-Admin
         PS > Write-Host "Elevated privileges: $isAdmin"
 
         Checks privilege status without any warning messages.
+
+    .EXAMPLE
+        PS > sudo -v
+        PS > Test-Admin -AllowSudo
+
+        Returns $true on macOS/Linux when the current user has a valid cached sudo ticket
+        or passwordless sudo access, even if the current `pwsh` process is not root.
 
     .EXAMPLE
         PS > Get-Process | Where-Object { $_.ProcessName -eq 'svchost' } |
@@ -105,6 +133,7 @@ function Test-Admin
         - Returns true only when the current process is actually elevated
         - A cached sudo timestamp or SUDO_* environment variables alone do not mean the
           current PowerShell process has elevated privileges
+        - With -AllowSudo, also returns true when `sudo -n true` succeeds
 
         The function is designed to be fast and reliable, using platform-appropriate methods:
         - Windows: .NET security classes
@@ -131,7 +160,10 @@ function Test-Admin
     param(
         ## Suppress warning messages and return only the boolean result
         [Parameter()]
-        [switch]$Quiet
+        [switch]$Quiet,
+
+        [Parameter()]
+        [switch]$AllowSudo
     )
 
     function Write-TestAdminWarning
@@ -199,7 +231,7 @@ function Test-Admin
         try
         {
             $idCommand = Get-Command -Name 'id' -CommandType Application -ErrorAction Stop |
-            Select-Object -First 1
+                Select-Object -First 1
             $effectiveUserIdOutput = & $idCommand.Source -u 2>$null
             $idExitCode = $LASTEXITCODE
 
@@ -227,7 +259,31 @@ function Test-Admin
 
             Write-Verbose "Effective user ID: $effectiveUserId"
 
-            return ($effectiveUserId -eq 0)
+            if ($effectiveUserId -eq 0)
+            {
+                return $true
+            }
+
+            if (-not $AllowSudo)
+            {
+                return $false
+            }
+
+            $sudoCommand = Get-Command -Name 'sudo' -CommandType Application -ErrorAction SilentlyContinue |
+                Select-Object -First 1
+
+            if ($null -eq $sudoCommand)
+            {
+                Write-Verbose 'AllowSudo was specified, but the sudo command is not available.'
+                return $false
+            }
+
+            Write-Verbose "AllowSudo enabled; testing non-interactive sudo access via '$($sudoCommand.Source) -n true'"
+            $null = & $sudoCommand.Source -n true 2>$null
+            $sudoExitCode = $LASTEXITCODE
+            Write-Verbose "sudo -n true exit code: $sudoExitCode"
+
+            return ($sudoExitCode -eq 0)
         }
         catch
         {
