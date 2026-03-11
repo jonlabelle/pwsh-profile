@@ -11,8 +11,8 @@ function Test-Admin
         - Windows: Checks if the session is running with administrator privileges by examining
           the user's Windows identity and role membership using Windows security principals.
 
-        - macOS/Linux: Checks if the user is root (UID 0) or has an active sudo session by
-          examining the effective user ID and environment variables (SUDO_USER, SUDO_UID).
+        - macOS/Linux: Checks if the current PowerShell process is running as root
+          by examining the effective user ID (EUID).
 
         This provides a cross-platform way to determine if the current session has the
         necessary permissions to perform administrative tasks.
@@ -27,7 +27,7 @@ function Test-Admin
         PS > Test-Admin
 
         Returns $true if the current PowerShell session is running with elevated privileges
-        (administrator on Windows, root or active sudo on macOS/Linux), otherwise returns $false.
+        (administrator on Windows, root on macOS/Linux), otherwise returns $false.
 
     .EXAMPLE
         PS > Test-Root
@@ -101,13 +101,14 @@ function Test-Admin
 
         macOS/Linux:
         - Checks if the effective user ID (EUID) is 0 (root)
-        - Checks for active sudo session via SUDO_USER or SUDO_UID environment variables
-        - Checks for valid sudo timestamp (password-less sudo available via 'sudo -n')
-        - Returns true if running as root OR if sudo is active OR if sudo timestamp is valid
+        - Uses the `id -u` system command to determine the current process EUID
+        - Returns true only when the current process is actually elevated
+        - A cached sudo timestamp or SUDO_* environment variables alone do not mean the
+          current PowerShell process has elevated privileges
 
         The function is designed to be fast and reliable, using platform-appropriate methods:
         - Windows: .NET security classes
-        - Unix-like: id command to get effective user ID and environment variable checks
+        - Unix-like: `id -u` to get the effective user ID
 
         Author: Jon LaBelle
         License: MIT
@@ -125,97 +126,117 @@ function Test-Admin
     .LINK
         https://www.man7.org/linux/man-pages/man1/id.1.html
     #>
-
+    [CmdletBinding()]
+    [OutputType([System.Boolean])]
     param(
         ## Suppress warning messages and return only the boolean result
         [Parameter()]
-        [switch] $Quiet
+        [switch]$Quiet
     )
 
-    # Platform detection
-    if ($PSVersionTable.PSVersion.Major -lt 6)
+    function Write-TestAdminWarning
     {
-        # PowerShell 5.1 - Windows only
-        $script:IsWindowsPlatform = $true
-        $script:IsMacOSPlatform = $false
-        $script:IsLinuxPlatform = $false
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Message
+        )
+
+        if (-not $Quiet)
+        {
+            Write-Warning "Test-Admin: $Message"
+        }
+    }
+
+    $isWindowsPlatform = if ($PSVersionTable.PSVersion.Major -lt 6)
+    {
+        $true
     }
     else
     {
-        # PowerShell Core - cross-platform
-        $script:IsWindowsPlatform = $IsWindows
-        $script:IsMacOSPlatform = $IsMacOS
-        $script:IsLinuxPlatform = $IsLinux
+        [bool]$IsWindows
     }
 
-    # Windows: Check administrator role
-    if ($script:IsWindowsPlatform)
+    $isMacOSPlatform = if ($PSVersionTable.PSVersion.Major -lt 6)
+    {
+        $false
+    }
+    else
+    {
+        [bool]$IsMacOS
+    }
+
+    $isLinuxPlatform = if ($PSVersionTable.PSVersion.Major -lt 6)
+    {
+        $false
+    }
+    else
+    {
+        [bool]$IsLinux
+    }
+
+    Write-Verbose "Platform detection - Windows: $isWindowsPlatform, macOS: $isMacOSPlatform, Linux: $isLinuxPlatform"
+
+    if ($isWindowsPlatform)
     {
         try
         {
+            Write-Verbose 'Checking Windows administrator token membership'
             $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
             $principal = New-Object System.Security.Principal.WindowsPrincipal($identity)
 
-            return $principal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
+            return [bool]$principal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
         }
         catch
         {
-            if (-not $Quiet)
-            {
-                Write-Warning "Failed to determine administrator status: $($_.Exception.Message)"
-            }
-
-            # Return false if we can't determine admin status
+            Write-TestAdminWarning -Message "Failed to determine administrator status: $($_.Exception.Message)"
             return $false
         }
     }
 
-    # macOS/Linux: Check for root or active sudo session
-    if ($script:IsMacOSPlatform -or $script:IsLinuxPlatform)
+    if ($isMacOSPlatform -or $isLinuxPlatform)
     {
         try
         {
-            # Check if effective user ID is 0 (root)
-            $euid = id -u
-            if ($LASTEXITCODE -eq 0 -and $euid -eq 0)
+            $idCommand = Get-Command -Name 'id' -CommandType Application -ErrorAction Stop |
+            Select-Object -First 1
+            $effectiveUserIdOutput = & $idCommand.Source -u 2>$null
+            $idExitCode = $LASTEXITCODE
+
+            if ($idExitCode -ne 0)
             {
-                return $true
+                throw "The '$($idCommand.Source) -u' check failed with exit code $idExitCode."
             }
 
-            # Check for active sudo session via environment variables (when running under sudo)
+            $effectiveUserIdText = [string]($effectiveUserIdOutput | Select-Object -First 1)
+            if ([string]::IsNullOrWhiteSpace($effectiveUserIdText))
+            {
+                throw "The '$($idCommand.Source) -u' check returned no effective user ID."
+            }
+
+            $effectiveUserId = 0
+            if (-not [int]::TryParse($effectiveUserIdText.Trim(), [ref]$effectiveUserId))
+            {
+                throw "Unexpected effective user ID value '$effectiveUserIdText' returned by '$($idCommand.Source) -u'."
+            }
+
             if ($env:SUDO_USER -or $env:SUDO_UID)
             {
-                return $true
+                Write-Verbose 'SUDO_* environment variables are present; using only the current process EUID to determine elevation.'
             }
 
-            # Check for active sudo timestamp (password-less sudo available)
-            # 'sudo -n true' returns 0 if sudo is available without password, non-zero otherwise
-            $null = sudo -n true 2>&1
-            if ($LASTEXITCODE -eq 0)
-            {
-                return $true
-            }
+            Write-Verbose "Effective user ID: $effectiveUserId"
 
-            return $false
+            return ($effectiveUserId -eq 0)
         }
         catch
         {
-            if (-not $Quiet)
-            {
-                Write-Warning "Failed to determine privilege status: $($_.Exception.Message)"
-            }
-
-            # Return false if we can't determine privilege status
+            Write-TestAdminWarning -Message "Failed to determine privilege status: $($_.Exception.Message)"
             return $false
         }
     }
 
-    # Unknown platform
-    if (-not $Quiet)
-    {
-        Write-Warning 'Test-Admin: Platform detection failed or unsupported platform'
-    }
-
+    Write-TestAdminWarning -Message 'Platform detection failed or this platform is unsupported.'
     return $false
 }
 
@@ -228,7 +249,7 @@ if (-not (Get-Command -Name 'Test-Root' -ErrorAction SilentlyContinue))
     }
     catch
     {
-        Write-Warning "Failed to create 'Test-Root' alias: $($_.Exception.Message)"
+        Write-Warning "Test-Admin: Could not create 'Test-Root' alias: $($_.Exception.Message)"
     }
 }
 
@@ -241,6 +262,6 @@ if (-not (Get-Command -Name 'Test-Sudo' -ErrorAction SilentlyContinue))
     }
     catch
     {
-        Write-Warning "Failed to create 'Test-Sudo' alias: $($_.Exception.Message)"
+        Write-Warning "Test-Admin: Could not create 'Test-Sudo' alias: $($_.Exception.Message)"
     }
 }
