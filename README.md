@@ -518,6 +518,7 @@ The profile includes utility functions organized by category:
 ### System Administration
 
 - **[`Get-PathPermission`](Functions/SystemAdministration/Get-PathPermission.ps1)** — Shows permissions, octal modes, and ownership for files and directories
+- **[`Set-PathPermission`](Functions/SystemAdministration/Set-PathPermission.ps1)** — Sets portable file and directory owner/group/other permissions
 - **[`Invoke-ElevatedCommand`](Functions/SystemAdministration/Invoke-ElevatedCommand.ps1)** — Executes commands with elevated privileges (Run as Administrator)
 - **[`Set-TlsSecurityProtocol`](Functions/SystemAdministration/Set-TlsSecurityProtocol.ps1)** — Configures TLS security protocol settings for secure network connections
 - **[`Show-SystemResourceMonitor`](Functions/SystemAdministration/Show-SystemResourceMonitor.ps1)** — Displays a visual monitor for CPU, memory, disk, and network activity
