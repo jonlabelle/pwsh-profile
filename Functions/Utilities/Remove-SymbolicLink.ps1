@@ -112,19 +112,57 @@ function Remove-SymbolicLink
     {
         Write-Verbose 'Starting symbolic link removal'
         $results = [System.Collections.ArrayList]::new()
+
+        function Test-ResolvedItemExists
+        {
+            param([String]$LiteralPath)
+
+            if (Test-Path -LiteralPath $LiteralPath)
+            {
+                return $true
+            }
+
+            try
+            {
+                [void][System.IO.File]::GetAttributes($LiteralPath)
+                return $true
+            }
+            catch
+            {
+                return $false
+            }
+        }
     }
 
     process
     {
         foreach ($symlinkPath in $Path)
         {
-            # Resolve paths using cross-platform compatible method
-            $resolvedPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($symlinkPath)
+            try
+            {
+                $resolvedPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($symlinkPath)
+            }
+            catch
+            {
+                Write-Error "Failed to resolve path '$symlinkPath': $($_.Exception.Message)"
+                if ($PassThru)
+                {
+                    $result = [PSCustomObject]@{
+                        Path = $symlinkPath
+                        Target = $null
+                        ItemType = $null
+                        Removed = $false
+                        Error = $_.Exception.Message
+                    }
+                    $null = $results.Add($result)
+                }
+                continue
+            }
 
             Write-Verbose "Processing symbolic link: $resolvedPath"
 
             # Check if the path exists
-            if (-not (Test-Path -Path $resolvedPath))
+            if (-not (Test-ResolvedItemExists -LiteralPath $resolvedPath))
             {
                 Write-Error "Path not found: $resolvedPath"
                 if ($PassThru)
@@ -149,14 +187,14 @@ function Remove-SymbolicLink
             $itemAttributes = $null
             try
             {
-                $item = Get-Item -Path $resolvedPath -Force -ErrorAction Stop
+                $item = Get-Item -LiteralPath $resolvedPath -Force -ErrorAction Stop
                 # Try to get attributes via .NET for more reliable detection on PS 5.1
                 $itemAttributes = [System.IO.File]::GetAttributes($resolvedPath)
             }
             catch
             {
                 # If Get-Item fails but path exists, try .NET approach for attributes
-                if (Test-Path -Path $resolvedPath)
+                if (Test-ResolvedItemExists -LiteralPath $resolvedPath)
                 {
                     try
                     {
@@ -315,7 +353,7 @@ function Remove-SymbolicLink
                             try
                             {
                                 $null = cmd.exe /c "rmdir `"$resolvedPath`"" 2>&1
-                                if (-not (Test-Path -Path $resolvedPath))
+                                if (-not (Test-ResolvedItemExists -LiteralPath $resolvedPath))
                                 {
                                     $removed = $true
                                     Write-Verbose "Removed directory symlink using cmd.exe rmdir: $resolvedPath"
@@ -334,7 +372,7 @@ function Remove-SymbolicLink
                         # IMPORTANT: Do NOT use -Recurse on symbolic links, especially on Windows PowerShell 5.1.
                         # Using -Recurse on a directory symlink attempts to recurse into the target directory,
                         # which can fail or delete target contents. We only remove the symlink itself.
-                        Remove-Item -Path $resolvedPath -Force -ErrorAction Stop
+                        Remove-Item -LiteralPath $resolvedPath -Force -ErrorAction Stop
                         $removed = $true
                     }
 

@@ -75,6 +75,16 @@ Describe 'Remove-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
             $result.Removed | Should -Be $true
             $result.ItemType | Should -Be 'File'
         }
+
+        It 'Should remove a dangling symbolic link without touching the missing target path' {
+            Remove-Item -Path $script:targetFile -Force -ErrorAction SilentlyContinue
+
+            $result = Remove-SymbolicLink -Path $script:linkPath -PassThru
+
+            Test-Path -Path $script:linkPath | Should -Be $false
+            Test-Path -Path $script:targetFile | Should -Be $false
+            $result.Removed | Should -Be $true
+        }
     }
 
     Context 'Removing Directory Symbolic Links' {
