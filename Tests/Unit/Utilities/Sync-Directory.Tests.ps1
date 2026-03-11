@@ -47,6 +47,10 @@ Describe 'Sync-Directory' -Tag 'Unit' {
             (Get-Command Sync-Directory).Parameters['ExtraOptions'].ParameterType | Should -Be ([String[]])
         }
 
+        It 'Should have optional ThreadCount parameter' {
+            (Get-Command Sync-Directory).Parameters['ThreadCount'].ParameterType | Should -Be ([Int32])
+        }
+
         It 'Should support ShouldProcess' {
             (Get-Command Sync-Directory).Parameters.ContainsKey('WhatIf') | Should -BeTrue
             (Get-Command Sync-Directory).Parameters.ContainsKey('Confirm') | Should -BeTrue
@@ -84,6 +88,75 @@ Describe 'Sync-Directory' -Tag 'Unit' {
             {
                 if (Test-Path $TestSource) { Remove-Item -Path $TestSource -Recurse -Force }
                 if (Test-Path $TestDest) { Remove-Item -Path $TestDest -Recurse -Force }
+            }
+        }
+
+        It 'Should throw error when source and destination are the same directory' {
+            $TempPath = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "sync-test-same-path-$(Get-Random)"
+
+            try
+            {
+                New-Item -ItemType Directory -Path $TempPath -Force | Out-Null
+
+                { Sync-Directory -Source $TempPath -Destination $TempPath -DryRun -ErrorAction Stop } |
+                Should -Throw '*same directory*'
+            }
+            finally
+            {
+                if (Test-Path $TempPath) { Remove-Item -Path $TempPath -Recurse -Force }
+            }
+        }
+
+        It 'Should throw error when destination is inside source' {
+            $TestSource = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "sync-test-nested-source-$(Get-Random)"
+            $TestDest = Join-Path -Path $TestSource -ChildPath 'nested-destination'
+
+            try
+            {
+                New-Item -ItemType Directory -Path $TestSource -Force | Out-Null
+
+                { Sync-Directory -Source $TestSource -Destination $TestDest -DryRun -ErrorAction Stop } |
+                Should -Throw '*Destination cannot be inside source*'
+            }
+            finally
+            {
+                if (Test-Path $TestSource) { Remove-Item -Path $TestSource -Recurse -Force }
+            }
+        }
+
+        It 'Should throw error when source is inside destination and -Delete is used' {
+            $TestDest = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "sync-test-parent-dest-$(Get-Random)"
+            $TestSource = Join-Path -Path $TestDest -ChildPath 'nested-source'
+
+            try
+            {
+                New-Item -ItemType Directory -Path $TestSource -Force | Out-Null
+
+                { Sync-Directory -Source $TestSource -Destination $TestDest -Delete -DryRun -ErrorAction Stop } |
+                Should -Throw '*Source cannot be inside destination when -Delete is used*'
+            }
+            finally
+            {
+                if (Test-Path $TestDest) { Remove-Item -Path $TestDest -Recurse -Force }
+            }
+        }
+
+        It 'Should throw error when destination path exists as a file' {
+            $TestSource = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "sync-test-dest-file-source-$(Get-Random)"
+            $TestDestFile = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "sync-test-dest-file-$(Get-Random).txt"
+
+            try
+            {
+                New-Item -ItemType Directory -Path $TestSource -Force | Out-Null
+                'file destination' | Out-File -FilePath $TestDestFile
+
+                { Sync-Directory -Source $TestSource -Destination $TestDestFile -DryRun -ErrorAction Stop } |
+                Should -Throw '*exists as a file*'
+            }
+            finally
+            {
+                if (Test-Path $TestSource) { Remove-Item -Path $TestSource -Recurse -Force }
+                if (Test-Path $TestDestFile) { Remove-Item -Path $TestDestFile -Force }
             }
         }
     }
@@ -317,6 +390,50 @@ Describe 'Sync-Directory' -Tag 'Unit' {
                     $Result.Command | Should -Match '--compress'
                     $Result.Command | Should -Match '--links'
                 }
+            }
+            finally
+            {
+                if (Test-Path $TestSource) { Remove-Item -Path $TestSource -Recurse -Force }
+                if (Test-Path $TestDest) { Remove-Item -Path $TestDest -Recurse -Force }
+            }
+        }
+
+        It 'Should validate ThreadCount range' {
+            $TestSource = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-threadcount-source'
+            $TestDest = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-threadcount-dest'
+
+            try
+            {
+                New-Item -ItemType Directory -Path $TestSource -Force | Out-Null
+                'test' | Out-File (Join-Path -Path $TestSource -ChildPath 'test.txt')
+
+                { Sync-Directory -Source $TestSource -Destination $TestDest -ThreadCount 0 -DryRun -ErrorAction Stop } |
+                Should -Throw
+            }
+            finally
+            {
+                if (Test-Path $TestSource) { Remove-Item -Path $TestSource -Recurse -Force }
+                if (Test-Path $TestDest) { Remove-Item -Path $TestDest -Recurse -Force }
+            }
+        }
+
+        It 'Should include ThreadCount in robocopy command when running on Windows' {
+            if (-not $IsWindowsPlatform)
+            {
+                Set-ItResult -Skipped -Because 'robocopy thread count is Windows-specific'
+                return
+            }
+
+            $TestSource = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-threadcount-win-source'
+            $TestDest = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'sync-test-threadcount-win-dest'
+
+            try
+            {
+                New-Item -ItemType Directory -Path $TestSource -Force | Out-Null
+                'test' | Out-File (Join-Path -Path $TestSource -ChildPath 'test.txt')
+
+                $Result = Sync-Directory -Source $TestSource -Destination $TestDest -ThreadCount 12 -DryRun
+                $Result.Command | Should -Match '/MT:12'
             }
             finally
             {

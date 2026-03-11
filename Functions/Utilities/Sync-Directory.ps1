@@ -40,6 +40,11 @@ function Sync-Directory
         For rsync: array of rsync flags (e.g., @('--compress', '--links'))
         For robocopy: array of robocopy switches (e.g., @('/MT:8', '/R:3'))
 
+    .PARAMETER ThreadCount
+        Number of threads to use for robocopy on Windows (`/MT:n`).
+        Ignored on macOS/Linux. Valid range is 1-128.
+        If `-ExtraOptions` already includes `/MT` or `/MT:n`, that value is used instead.
+
     .EXAMPLE
         PS > Sync-Directory -Source '.\MyProject' -Destination 'D:\Backup\MyProject'
 
@@ -151,30 +156,41 @@ function Sync-Directory
         [String[]]$Exclude = @(),
 
         [Parameter()]
-        [String[]]$ExtraOptions = @()
+        [String[]]$ExtraOptions = @(),
+
+        [Parameter()]
+        [ValidateRange(1, 128)]
+        [Int32]$ThreadCount = ([Math]::Min(32, [Math]::Max(4, [Environment]::ProcessorCount)))
     )
 
     begin
     {
         Write-Verbose 'Starting Sync-Directory'
 
-        # Detect platform
-        if ($PSVersionTable.PSVersion.Major -lt 6)
-        {
-            # PowerShell 5.1 - Windows only
-            $IsWindowsPlatform = $true
-        }
-        else
-        {
-            # PowerShell Core - use built-in variables
-            $IsWindowsPlatform = $IsWindows
-        }
+        # Detect platform once for path comparison and tool selection.
+        $IsWindowsPlatform = $IsWindows -or $env:OS -eq 'Windows_NT'
+        $pathComparison = if ($IsWindowsPlatform) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
+        $separatorChars = @([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
 
         Write-Verbose "Platform: $(if ($IsWindowsPlatform) { 'Windows' } else { 'macOS/Linux' })"
 
         # Resolve paths to absolute paths (cross-platform compatible)
         $Source = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Source)
         $Destination = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Destination)
+        $Source = [System.IO.Path]::GetFullPath($Source)
+        $Destination = [System.IO.Path]::GetFullPath($Destination)
+
+        $sourceComparable = $Source.TrimEnd($separatorChars)
+        if ([String]::IsNullOrEmpty($sourceComparable))
+        {
+            $sourceComparable = [System.IO.Path]::DirectorySeparatorChar.ToString()
+        }
+
+        $destinationComparable = $Destination.TrimEnd($separatorChars)
+        if ([String]::IsNullOrEmpty($destinationComparable))
+        {
+            $destinationComparable = [System.IO.Path]::DirectorySeparatorChar.ToString()
+        }
 
         Write-Verbose "Resolved source path: $Source"
         Write-Verbose "Resolved destination path: $Destination"
@@ -183,6 +199,45 @@ function Sync-Directory
         if (-not (Test-Path -Path $Source -PathType Container))
         {
             throw "Source directory does not exist: $Source"
+        }
+
+        if (Test-Path -Path $Destination -PathType Leaf)
+        {
+            throw "Destination path exists as a file. Specify a directory path instead: $Destination"
+        }
+
+        # Prevent recursive self-sync scenarios.
+        if ([String]::Equals($sourceComparable, $destinationComparable, $pathComparison))
+        {
+            throw "Source and destination cannot be the same directory: $Source"
+        }
+
+        $sourcePrefix = if ($sourceComparable.EndsWith([System.IO.Path]::DirectorySeparatorChar.ToString()))
+        {
+            $sourceComparable
+        }
+        else
+        {
+            $sourceComparable + [System.IO.Path]::DirectorySeparatorChar
+        }
+
+        $destinationPrefix = if ($destinationComparable.EndsWith([System.IO.Path]::DirectorySeparatorChar.ToString()))
+        {
+            $destinationComparable
+        }
+        else
+        {
+            $destinationComparable + [System.IO.Path]::DirectorySeparatorChar
+        }
+
+        if ($destinationComparable.StartsWith($sourcePrefix, $pathComparison))
+        {
+            throw "Destination cannot be inside source: $Destination"
+        }
+
+        if ($Delete -and $sourceComparable.StartsWith($destinationPrefix, $pathComparison))
+        {
+            throw "Source cannot be inside destination when -Delete is used: $Source"
         }
     }
 
@@ -239,6 +294,13 @@ function Sync-Directory
                 # Retry settings (1 retry, 1 second wait)
                 $robocopyArgs += '/R:1'
                 $robocopyArgs += '/W:1'
+
+                # Enable multi-threaded copy by default for better performance
+                $hasThreadingOption = $ExtraOptions | Where-Object { $_ -match '^/MT(?::\d+)?$' }
+                if (-not $hasThreadingOption)
+                {
+                    $robocopyArgs += "/MT:$ThreadCount"
+                }
 
                 # Handle exclusions
                 foreach ($Pattern in $Exclude)
