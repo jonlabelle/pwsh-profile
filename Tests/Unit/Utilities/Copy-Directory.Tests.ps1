@@ -48,6 +48,12 @@ Describe 'Copy-Directory' {
             $excludeParam.Attributes.Mandatory | Should -Not -Contain $true
         }
 
+        It 'Should have optional ExcludeFiles parameter' {
+            $command = Get-Command Copy-Directory
+            $excludeParam = $command.Parameters['ExcludeFiles']
+            $excludeParam.Attributes.Mandatory | Should -Not -Contain $true
+        }
+
         It 'Should have UpdateMode parameter with correct default' {
             $command = Get-Command Copy-Directory
             $updateModeParam = $command.Parameters['UpdateMode']
@@ -433,6 +439,87 @@ Describe 'Copy-Directory' {
             Test-Path "$testDest\cache-ui" | Should -Be $false
             Test-Path "$testDest\src\main.txt" | Should -Be $true
         }
+
+        It 'Should exclude specified files' {
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'exclude_files_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'exclude_files_dest'
+            $nestedSource = Join-Path -Path $testSource -ChildPath 'nested'
+
+            New-Item -ItemType Directory -Path $nestedSource -Force | Out-Null
+            'keep' | Set-Content -Path (Join-Path -Path $testSource -ChildPath 'keep.txt')
+            'skip' | Set-Content -Path (Join-Path -Path $testSource -ChildPath 'secret.txt')
+            'nested keep' | Set-Content -Path (Join-Path -Path $nestedSource -ChildPath 'keep.md')
+            'nested skip' | Set-Content -Path (Join-Path -Path $nestedSource -ChildPath 'secret.txt')
+
+            $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeFiles 'secret.txt' -UpdateMode Skip -Recurse
+
+            $result.TotalFiles | Should -Be 2
+            Test-Path (Join-Path -Path $testDest -ChildPath 'keep.txt') | Should -BeTrue
+            Test-Path (Join-Path -Path $testDest -ChildPath 'secret.txt') | Should -BeFalse
+            Test-Path (Join-Path -Path $testDest -ChildPath 'nested/keep.md') | Should -BeTrue
+            Test-Path (Join-Path -Path $testDest -ChildPath 'nested/secret.txt') | Should -BeFalse
+        }
+
+        It 'Should support wildcard file exclusions' {
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'wildcard_file_exclude_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'wildcard_file_exclude_dest'
+            $nestedSource = Join-Path -Path $testSource -ChildPath 'nested'
+
+            New-Item -ItemType Directory -Path $nestedSource -Force | Out-Null
+            'keep' | Set-Content -Path (Join-Path -Path $testSource -ChildPath 'keep.txt')
+            'log root' | Set-Content -Path (Join-Path -Path $testSource -ChildPath 'debug.log')
+            'log nested' | Set-Content -Path (Join-Path -Path $nestedSource -ChildPath 'trace.log')
+            'nested keep' | Set-Content -Path (Join-Path -Path $nestedSource -ChildPath 'data.json')
+
+            $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeFiles '*.log' -UpdateMode Skip -Recurse
+
+            $result.TotalFiles | Should -Be 2
+            Test-Path (Join-Path -Path $testDest -ChildPath 'keep.txt') | Should -BeTrue
+            Test-Path (Join-Path -Path $testDest -ChildPath 'debug.log') | Should -BeFalse
+            Test-Path (Join-Path -Path $testDest -ChildPath 'nested/trace.log') | Should -BeFalse
+            Test-Path (Join-Path -Path $testDest -ChildPath 'nested/data.json') | Should -BeTrue
+        }
+
+        It 'Should perform case-insensitive file exclusion' {
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'case_file_exclude_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'case_file_exclude_dest'
+
+            New-Item -ItemType Directory -Path $testSource -Force | Out-Null
+            'skip' | Set-Content -Path (Join-Path -Path $testSource -ChildPath 'README.MD')
+            'keep' | Set-Content -Path (Join-Path -Path $testSource -ChildPath 'notes.txt')
+
+            $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeFiles 'readme.md' -UpdateMode Skip -Recurse
+
+            $result.TotalFiles | Should -Be 1
+            Test-Path (Join-Path -Path $testDest -ChildPath 'README.MD') | Should -BeFalse
+            Test-Path (Join-Path -Path $testDest -ChildPath 'notes.txt') | Should -BeTrue
+        }
+
+        It 'Should exclude files and directories when using native tools' {
+            $nativeToolName = if ($IsWindowsPlatform) { 'robocopy' } else { 'rsync' }
+            if (-not (Get-Command -Name $nativeToolName -ErrorAction SilentlyContinue))
+            {
+                Set-ItResult -Skipped -Because "$nativeToolName is not available on this system"
+                return
+            }
+
+            $testSource = Join-Path -Path $TestDrive -ChildPath 'native_exclude_source'
+            $testDest = Join-Path -Path $TestDrive -ChildPath 'native_exclude_dest'
+            $gitDir = Join-Path -Path $testSource -ChildPath '.git'
+
+            New-Item -ItemType Directory -Path $gitDir -Force | Out-Null
+            'keep' | Set-Content -Path (Join-Path -Path $testSource -ChildPath 'keep.txt')
+            'skip' | Set-Content -Path (Join-Path -Path $testSource -ChildPath 'debug.log')
+            'git config' | Set-Content -Path (Join-Path -Path $gitDir -ChildPath 'config')
+
+            $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeDirectories '.git' -ExcludeFiles '*.log' -UpdateMode Skip -Recurse -UseNativeTools
+
+            $result.TotalFiles | Should -Be 1
+            Test-Path (Join-Path -Path $testDest -ChildPath 'keep.txt') | Should -BeTrue
+            Test-Path (Join-Path -Path $testDest -ChildPath 'debug.log') | Should -BeFalse
+            Test-Path (Join-Path -Path $testDest -ChildPath '.git') | Should -BeFalse
+        }
+
         It 'Should accept Skip mode explicitly' {
             $testSource = Join-Path -Path $TestDrive -ChildPath 'skip_source'
             $testDest = Join-Path -Path $TestDrive -ChildPath 'skip_dest'

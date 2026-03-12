@@ -2,12 +2,12 @@ function Copy-Directory
 {
     <#
     .SYNOPSIS
-        Copies a directory with optional recursion, directory exclusions, and parallel processing.
+        Copies a directory with optional recursion, directory and file exclusions, and parallel processing.
 
     .DESCRIPTION
         Copies files from a source path to a destination path, optionally recursing into
         subdirectories. Provides the ability to exclude specific directories (e.g., .git,
-        node_modules, bin, obj) from the copy operation.
+        node_modules, bin, obj) and files (e.g., *.log, .DS_Store) from the copy operation.
 
         Supports multi-threaded copying for improved performance with large directory trees.
         Includes safety checks to prevent recursive self-copy scenarios (for example, copying
@@ -30,6 +30,11 @@ function Copy-Directory
         An array of directory names or wildcard patterns to exclude from the copy operation.
         Exact names are matched case-insensitively (for example: .git, node_modules, bin, obj).
         Wildcards are also supported (for example: cache-*, temp?, build[0-9]).
+
+    .PARAMETER ExcludeFiles
+        An array of file names or wildcard patterns to exclude from the copy operation.
+        Exact names are matched case-insensitively (for example: .DS_Store, Thumbs.db, appsettings.local.json).
+        Wildcards are also supported (for example: *.log, *.tmp, temp-*.json).
 
     .PARAMETER UpdateMode
         Specifies how to handle existing files at the destination.
@@ -70,9 +75,9 @@ function Copy-Directory
         Prompts for confirmation before copying files.
 
     .EXAMPLE
-        PS > Copy-Directory -Source '.\MyProject' -Destination 'C:\Backup\MyProject' -ExcludeDirectories '.git', 'node_modules' -Recurse
+        PS > Copy-Directory -Source '.\MyProject' -Destination 'C:\Backup\MyProject' -ExcludeDirectories '.git', 'node_modules' -ExcludeFiles '*.log', '.DS_Store' -Recurse
 
-        Copies the MyProject directory to C:\Backup\MyProject, excluding '.git' and 'node_modules' directories.
+        Copies the MyProject directory to C:\Backup\MyProject, excluding '.git' and 'node_modules' directories plus log files and macOS metadata files.
 
     .EXAMPLE
         PS > Copy-Directory -Source 'C:\Dev\Project' -Destination 'D:\Archive\Project' -ExcludeDirectories 'bin', 'obj', '.vs' -UpdateMode Overwrite -Recurse
@@ -143,7 +148,7 @@ function Copy-Directory
         - Requires -Recurse and does not support UpdateMode 'Prompt'
         - UpdateMode mappings are best-effort and may not be exact
         - ThrottleLimit maps to robocopy /MT on Windows and is ignored by rsync
-        - ExcludeDirectories matching follows native tool behavior (case sensitivity may differ)
+        - ExcludeDirectories and ExcludeFiles matching follows native tool behavior (case sensitivity may differ)
         - FilesOverwritten counts are not available from native tools
 
         Safety:
@@ -172,6 +177,10 @@ function Copy-Directory
         [Parameter(Position = 2)]
         [ValidateNotNullOrEmpty()]
         [String[]]$ExcludeDirectories = @(),
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [String[]]$ExcludeFiles = @(),
 
         [Parameter()]
         [ValidateSet('Skip', 'Overwrite', 'IfNewer', 'Prompt')]
@@ -286,7 +295,8 @@ function Copy-Directory
         $script:UsedNativeTools = $false
         $script:NativeToolName = $null
 
-        # Use a HashSet for fast, case-insensitive directory exclusion checks
+        # Use HashSet/List structures for fast, case-insensitive exclusion checks.
+        $SanitizedExcludeDirectories = [System.Collections.Generic.List[string]]::new()
         $ExcludeSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
         $ExcludeWildcardPatterns = [System.Collections.Generic.List[string]]::new()
         foreach ($excludeDir in $ExcludeDirectories)
@@ -295,6 +305,8 @@ function Copy-Directory
             {
                 continue
             }
+
+            $SanitizedExcludeDirectories.Add($excludeDir)
 
             if ($excludeDir.IndexOfAny([char[]]@('*', '?', '[')) -ge 0)
             {
@@ -305,7 +317,29 @@ function Copy-Directory
             $null = $ExcludeSet.Add($excludeDir)
         }
 
-        Write-Verbose "Excluding directories: $($ExcludeDirectories -join ', ')"
+        $SanitizedExcludeFiles = [System.Collections.Generic.List[string]]::new()
+        $ExcludeFileSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+        $ExcludeFileWildcardPatterns = [System.Collections.Generic.List[string]]::new()
+        foreach ($excludeFile in $ExcludeFiles)
+        {
+            if ([String]::IsNullOrWhiteSpace($excludeFile))
+            {
+                continue
+            }
+
+            $SanitizedExcludeFiles.Add($excludeFile)
+
+            if ($excludeFile.IndexOfAny([char[]]@('*', '?', '[')) -ge 0)
+            {
+                $ExcludeFileWildcardPatterns.Add($excludeFile)
+                continue
+            }
+
+            $null = $ExcludeFileSet.Add($excludeFile)
+        }
+
+        Write-Verbose "Excluding directories: $($SanitizedExcludeDirectories -join ', ')"
+        Write-Verbose "Excluding files: $($SanitizedExcludeFiles -join ', ')"
         Write-Verbose "UpdateMode: $UpdateMode"
         Write-Verbose "ThrottleLimit: $ThrottleLimit"
         Write-Verbose "UseNativeTools: $UseNativeTools"
@@ -337,6 +371,7 @@ function Copy-Directory
                 [String]$SourcePath,
                 [String]$DestPath,
                 [String[]]$ExcludeDirs,
+                [String[]]$ExcludeFilePatterns,
                 [String]$Mode,
                 [Int32]$Throttle,
                 [Bool]$EnableRecurse,
@@ -403,6 +438,12 @@ function Copy-Directory
                     $nativeArgs += '/XD'  # Exclude directories
                     $nativeArgs += $ExcludeDirs
                 }
+
+                if ($ExcludeFilePatterns -and $ExcludeFilePatterns.Count -gt 0)
+                {
+                    $nativeArgs += '/XF'  # Exclude files
+                    $nativeArgs += $ExcludeFilePatterns
+                }
             }
             else
             {
@@ -445,6 +486,17 @@ function Copy-Directory
                         if (-not [String]::IsNullOrWhiteSpace($excludeDir))
                         {
                             $nativeArgs += "--exclude=$excludeDir/"  # Exclude directory pattern from transfer
+                        }
+                    }
+                }
+
+                if ($ExcludeFilePatterns -and $ExcludeFilePatterns.Count -gt 0)
+                {
+                    foreach ($excludeFile in $ExcludeFilePatterns)
+                    {
+                        if (-not [String]::IsNullOrWhiteSpace($excludeFile))
+                        {
+                            $nativeArgs += "--exclude=$excludeFile"
                         }
                     }
                 }
@@ -524,6 +576,30 @@ function Copy-Directory
             return $true
         }
 
+        function Test-IsExcludedEntryName
+        {
+            param(
+                [String]$EntryName,
+                [System.Collections.Generic.HashSet[string]]$ExactMatches,
+                [System.Collections.Generic.List[string]]$WildcardMatches
+            )
+
+            if ($ExactMatches.Contains($EntryName))
+            {
+                return $true
+            }
+
+            foreach ($wildcardPattern in $WildcardMatches)
+            {
+                if ($EntryName -like $wildcardPattern)
+                {
+                    return $true
+                }
+            }
+
+            return $false
+        }
+
         # Function to stream file operations while creating directories on the fly
         function Get-CopyFileOperations
         {
@@ -531,7 +607,9 @@ function Copy-Directory
                 [String]$SourcePath,
                 [String]$DestPath,
                 [System.Collections.Generic.HashSet[string]]$ExcludeSet,
-                [String[]]$ExcludeWildcardPatterns,
+                [System.Collections.Generic.List[string]]$ExcludeWildcardPatterns,
+                [System.Collections.Generic.HashSet[string]]$ExcludeFileSet,
+                [System.Collections.Generic.List[string]]$ExcludeFileWildcardPatterns,
                 [Bool]$EnableRecurse,
                 [Bool]$IncludeLastWriteTime,
                 [hashtable]$CountersRef,
@@ -555,19 +633,7 @@ function Copy-Directory
                     {
                         if ($entry -is [System.IO.DirectoryInfo])
                         {
-                            $isExcludedDirectory = $ExcludeSet.Contains($entry.Name)
-
-                            if (-not $isExcludedDirectory -and $ExcludeWildcardPatterns.Count -gt 0)
-                            {
-                                foreach ($wildcardPattern in $ExcludeWildcardPatterns)
-                                {
-                                    if ($entry.Name -like $wildcardPattern)
-                                    {
-                                        $isExcludedDirectory = $true
-                                        break
-                                    }
-                                }
-                            }
+                            $isExcludedDirectory = Test-IsExcludedEntryName -EntryName $entry.Name -ExactMatches $ExcludeSet -WildcardMatches $ExcludeWildcardPatterns
 
                             if ($isExcludedDirectory)
                             {
@@ -597,6 +663,11 @@ function Copy-Directory
                         }
                         else
                         {
+                            if (Test-IsExcludedEntryName -EntryName $entry.Name -ExactMatches $ExcludeFileSet -WildcardMatches $ExcludeFileWildcardPatterns)
+                            {
+                                continue
+                            }
+
                             $FoundFiles.Value = $true
                             $destFilePath = [System.IO.Path]::Combine($currentDest, $entry.Name)
                             @{
@@ -617,7 +688,7 @@ function Copy-Directory
         $usedNativeTools = $false
         if ($UseNativeTools)
         {
-            $usedNativeTools = Invoke-NativeDirectoryCopy -SourcePath $Source -DestPath $Destination -ExcludeDirs $ExcludeDirectories -Mode $UpdateMode -Throttle $ThrottleLimit -EnableRecurse $Recurse.IsPresent -IsWindowsPlatform $IsWindowsPlatform -CountersRef $script:Counters
+            $usedNativeTools = Invoke-NativeDirectoryCopy -SourcePath $Source -DestPath $Destination -ExcludeDirs $SanitizedExcludeDirectories.ToArray() -ExcludeFilePatterns $SanitizedExcludeFiles.ToArray() -Mode $UpdateMode -Throttle $ThrottleLimit -EnableRecurse $Recurse.IsPresent -IsWindowsPlatform $IsWindowsPlatform -CountersRef $script:Counters
         }
 
         $hasFiles = $false
@@ -628,7 +699,7 @@ function Copy-Directory
             {
                 $copyHeaderWritten = $false
 
-                foreach ($fileOp in Get-CopyFileOperations -SourcePath $Source -DestPath $Destination -ExcludeSet $ExcludeSet -ExcludeWildcardPatterns $ExcludeWildcardPatterns -EnableRecurse $Recurse.IsPresent -IncludeLastWriteTime $IncludeLastWriteTime -CountersRef $script:Counters -FoundFiles ([ref]$hasFiles))
+                foreach ($fileOp in Get-CopyFileOperations -SourcePath $Source -DestPath $Destination -ExcludeSet $ExcludeSet -ExcludeWildcardPatterns $ExcludeWildcardPatterns -ExcludeFileSet $ExcludeFileSet -ExcludeFileWildcardPatterns $ExcludeFileWildcardPatterns -EnableRecurse $Recurse.IsPresent -IncludeLastWriteTime $IncludeLastWriteTime -CountersRef $script:Counters -FoundFiles ([ref]$hasFiles))
                 {
                     if (-not $copyHeaderWritten)
                     {
@@ -709,7 +780,7 @@ function Copy-Directory
                 $updateModeValue = $UpdateMode
                 $whatIfEnabled = $WhatIfPreference
 
-                Get-CopyFileOperations -SourcePath $Source -DestPath $Destination -ExcludeSet $ExcludeSet -ExcludeWildcardPatterns $ExcludeWildcardPatterns -EnableRecurse $Recurse.IsPresent -IncludeLastWriteTime $IncludeLastWriteTime -CountersRef $script:Counters -FoundFiles ([ref]$hasFiles) | ForEach-Object {
+                Get-CopyFileOperations -SourcePath $Source -DestPath $Destination -ExcludeSet $ExcludeSet -ExcludeWildcardPatterns $ExcludeWildcardPatterns -ExcludeFileSet $ExcludeFileSet -ExcludeFileWildcardPatterns $ExcludeFileWildcardPatterns -EnableRecurse $Recurse.IsPresent -IncludeLastWriteTime $IncludeLastWriteTime -CountersRef $script:Counters -FoundFiles ([ref]$hasFiles) | ForEach-Object {
                     if (-not $copyHeaderWritten)
                     {
                         Write-Verbose "Copying files in parallel (ThrottleLimit: $ThrottleLimit, PowerShell 7+ mode)..."
@@ -881,7 +952,7 @@ function Copy-Directory
 
                 try
                 {
-                    foreach ($fileOp in Get-CopyFileOperations -SourcePath $Source -DestPath $Destination -ExcludeSet $ExcludeSet -ExcludeWildcardPatterns $ExcludeWildcardPatterns -EnableRecurse $Recurse.IsPresent -IncludeLastWriteTime $IncludeLastWriteTime -CountersRef $script:Counters -FoundFiles ([ref]$hasFiles))
+                    foreach ($fileOp in Get-CopyFileOperations -SourcePath $Source -DestPath $Destination -ExcludeSet $ExcludeSet -ExcludeWildcardPatterns $ExcludeWildcardPatterns -ExcludeFileSet $ExcludeFileSet -ExcludeFileWildcardPatterns $ExcludeFileWildcardPatterns -EnableRecurse $Recurse.IsPresent -IncludeLastWriteTime $IncludeLastWriteTime -CountersRef $script:Counters -FoundFiles ([ref]$hasFiles))
                     {
                         if (-not $copyHeaderWritten)
                         {
