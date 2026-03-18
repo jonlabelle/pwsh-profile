@@ -7,12 +7,21 @@ BeforeAll {
     . "$PSScriptRoot/../../../Functions/Developer/Get-GitHubVariable.ps1"
     . "$PSScriptRoot/../../../Functions/Developer/Remove-GitHubVariable.ps1"
 
-    function Reset-GitHubHelperState
+    function ConvertTo-TestSecureString
     {
-        Remove-Variable -Name PwshProfileGitHubConfigurationHelpers -Scope Script -ErrorAction SilentlyContinue
+        param([String]$Value)
+
+        $secureString = New-Object System.Security.SecureString
+        foreach ($character in $Value.ToCharArray())
+        {
+            $secureString.AppendChar($character)
+        }
+
+        $secureString.MakeReadOnly()
+        return $secureString
     }
 
-    function Import-GitHubHelperForTests
+    function Import-GitHubHelperForTest
     {
         if (-not (Get-Variable -Name PwshProfileGitHubConfigurationHelpers -Scope Script -ErrorAction SilentlyContinue))
         {
@@ -22,12 +31,12 @@ BeforeAll {
         return (Get-Variable -Name PwshProfileGitHubConfigurationHelpers -Scope Script).Value
     }
 
-    $script:TokenValue = ConvertTo-SecureString 'ghp_test_token_123' -AsPlainText -Force
+    $script:TokenValue = ConvertTo-TestSecureString 'ghp_test_token_123'
 }
 
 Describe 'GitHub variable functions' {
     BeforeEach {
-        Reset-GitHubHelperState
+        Remove-Variable -Name PwshProfileGitHubConfigurationHelpers -Scope Script -ErrorAction SilentlyContinue
         $global:LASTEXITCODE = 0
 
         Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'gh' } -MockWith {
@@ -39,7 +48,7 @@ Describe 'GitHub variable functions' {
     }
 
     AfterEach {
-        Reset-GitHubHelperState
+        Remove-Variable -Name PwshProfileGitHubConfigurationHelpers -Scope Script -ErrorAction SilentlyContinue
     }
 
     Context 'Dependency loading' {
@@ -49,6 +58,70 @@ Describe 'GitHub variable functions' {
     }
 
     Context 'Set-GitHubVariable' {
+        It 'rejects invalid variable names before making GitHub calls' -ForEach @(
+            @{ Name = 'INVALID NAME'; Error = '*letters, numbers, or underscores*' }
+            @{ Name = '1INVALID'; Error = '*cannot start with a number*' }
+            @{ Name = 'GITHUB_TOKEN'; Error = "*cannot start with the 'GITHUB_' prefix*" }
+        ) {
+            {
+                Set-GitHubVariable -Name $Name -Value 'enabled' -Repository 'octo-org/service-api'
+            } | Should -Throw $Error
+
+            {
+                Get-GitHubVariable -Name $Name -Repository 'octo-org/service-api'
+            } | Should -Throw $Error
+
+            {
+                Remove-GitHubVariable -Name $Name -Repository 'octo-org/service-api'
+            } | Should -Throw $Error
+        }
+
+        It 'rejects environment names longer than 255 characters' {
+            $tooLongEnvironmentName = 'a' * 256
+
+            {
+                Set-GitHubVariable `
+                    -Name 'DEPLOY_RING' `
+                    -Value 'production' `
+                    -Repository 'octo-org/service-api' `
+                    -Environment $tooLongEnvironmentName
+            } | Should -Throw '*may not exceed 255 characters*'
+
+            {
+                Get-GitHubVariable `
+                    -Name 'DEPLOY_RING' `
+                    -Repository 'octo-org/service-api' `
+                    -Environment $tooLongEnvironmentName
+            } | Should -Throw '*may not exceed 255 characters*'
+
+            {
+                Remove-GitHubVariable `
+                    -Name 'DEPLOY_RING' `
+                    -Repository 'octo-org/service-api' `
+                    -Environment $tooLongEnvironmentName
+            } | Should -Throw '*may not exceed 255 characters*'
+        }
+
+        It 'accepts environment names that contain slashes' {
+            Mock -CommandName gh -MockWith {
+                if ($args[0] -eq 'api' -and $args -contains '/repos/octo-org/service-api/environments/Production%2FBlue/variables/DEPLOY_RING')
+                {
+                    $global:LASTEXITCODE = 0
+                    return '{"name":"DEPLOY_RING","value":"production","visibility":"private"}'
+                }
+
+                throw "Unexpected gh arguments: $($args -join ' ')"
+            }
+
+            $result = Get-GitHubVariable `
+                -Name 'DEPLOY_RING' `
+                -Repository 'octo-org/service-api' `
+                -Environment 'Production/Blue'
+
+            $result.Name | Should -Be 'DEPLOY_RING'
+            $result.Target | Should -Be "environment 'Production/Blue' in octo-org/service-api"
+        }
+
         It 'returns Unchanged when the existing value already matches' {
             Mock -CommandName gh -MockWith {
                 if ($args[0] -eq 'api' -and $args -contains '/repos/octo-org/service-api/actions/variables/DOTNET_VERSION')
@@ -226,7 +299,7 @@ Describe 'GitHub variable functions' {
         }
 
         It 'redacts the GitHub token from REST fallback errors' {
-            $redactionToken = ConvertTo-SecureString 'ghp_Abc123Sensitive' -AsPlainText -Force
+            $redactionToken = ConvertTo-TestSecureString 'ghp_Abc123Sensitive'
 
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'gh' } -MockWith { $null }
             Mock -CommandName Invoke-RestMethod -MockWith {
@@ -253,7 +326,7 @@ Describe 'GitHub variable functions' {
 
     Context 'Helper behaviors' {
         It 'defaults missing REST auth guidance to GH_TOKEN when no auth context exists' {
-            $helpers = Import-GitHubHelperForTests
+            $helpers = Import-GitHubHelperForTest
 
             {
                 & $helpers.InvokeGitHubRequest `

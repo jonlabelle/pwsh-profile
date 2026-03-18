@@ -14,6 +14,12 @@ function Remove-GitHubSecret
     .PARAMETER Name
         The name of the GitHub secret to remove.
 
+        Secret names:
+        - Can contain only letters, numbers, and underscores
+        - Cannot start with a number
+        - Cannot start with the GITHUB_ prefix
+        - Are case-insensitive when referenced by GitHub
+
     .PARAMETER Repository
         The target repository in OWNER/REPO or HOST/OWNER/REPO format.
 
@@ -23,6 +29,14 @@ function Remove-GitHubSecret
         The deployment environment name for environment secrets.
 
         This parameter is only valid for environment-scoped secrets and requires -Repository.
+
+        GitHub environment names:
+        - Are not case sensitive
+        - May not exceed 255 characters
+        - Must be unique within the repository
+
+        GitHub REST endpoints require environment names to be URL-encoded. This function handles
+        that automatically, so names containing `/` are supported.
 
     .PARAMETER Organization
         The target organization for organization secrets.
@@ -81,6 +95,19 @@ function Remove-GitHubSecret
     param(
         [Parameter(Mandatory, Position = 0)]
         [ValidateNotNullOrEmpty()]
+        [ValidateScript({
+            if ($_ -match '^(?i:GITHUB_)')
+            {
+                throw "GitHub secret names cannot start with the 'GITHUB_' prefix."
+            }
+
+            if ($_ -notmatch '^(?![0-9])[A-Za-z0-9_]+$')
+            {
+                throw 'GitHub secret names may only contain letters, numbers, or underscores, and cannot start with a number.'
+            }
+
+            $true
+        })]
         [String]$Name,
 
         [Parameter(ParameterSetName = 'Repository')]
@@ -88,6 +115,19 @@ function Remove-GitHubSecret
         [String]$Repository,
 
         [Parameter(Mandatory, ParameterSetName = 'Environment')]
+        [ValidateScript({
+            if ([string]::IsNullOrWhiteSpace($_))
+            {
+                throw 'GitHub environment names cannot be empty or whitespace.'
+            }
+
+            if ($_.Length -gt 255)
+            {
+                throw 'GitHub environment names may not exceed 255 characters.'
+            }
+
+            $true
+        })]
         [String]$Environment,
 
         [Parameter(Mandatory, ParameterSetName = 'Organization')]

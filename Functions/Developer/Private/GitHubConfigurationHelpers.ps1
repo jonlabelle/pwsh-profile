@@ -43,6 +43,7 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
     $script:PwshProfileGitHubConfigurationHelpers = [ordered]@{
         DefaultRetryCount = 3
         DefaultInitialRetryDelaySeconds = 2
+        MaxSecretSizeBytes = 48KB
         MaxBackoffSeconds = 60
     }
 
@@ -82,6 +83,27 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
         }
 
         return $result
+    }
+
+    $script:PwshProfileGitHubConfigurationHelpers.GetUtf8ByteCount = {
+        param([AllowNull()][String]$Value)
+
+        if ($null -eq $Value)
+        {
+            return 0
+        }
+
+        return [System.Text.UTF8Encoding]::new($false).GetByteCount($Value)
+    }
+
+    $script:PwshProfileGitHubConfigurationHelpers.AssertValidGitHubSecretValue = {
+        param([AllowNull()][String]$Value)
+
+        $utf8ByteCount = & $script:PwshProfileGitHubConfigurationHelpers.GetUtf8ByteCount $Value
+        if ($utf8ByteCount -gt $script:PwshProfileGitHubConfigurationHelpers.MaxSecretSizeBytes)
+        {
+            throw "GitHub secret values may not exceed 48 KB ($($script:PwshProfileGitHubConfigurationHelpers.MaxSecretSizeBytes) bytes)."
+        }
     }
 
     $script:PwshProfileGitHubConfigurationHelpers.GetExceptionStatusCode = {

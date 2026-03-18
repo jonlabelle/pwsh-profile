@@ -21,6 +21,12 @@ function Set-GitHubSecret
     .PARAMETER Name
         The name of the GitHub secret.
 
+        Secret names:
+        - Can contain only letters, numbers, and underscores
+        - Cannot start with a number
+        - Cannot start with the GITHUB_ prefix
+        - Are case-insensitive when referenced by GitHub
+
         GitHub secret names are typically uppercase with underscores, for example:
         - BUILD_TOKEN
         - AZURE_CLIENT_SECRET
@@ -32,6 +38,8 @@ function Set-GitHubSecret
         Use Read-Host -AsSecureString or ConvertTo-SecureString to avoid adding sensitive data to
         shell history. The secure string is converted to plain text only for the outbound GitHub call
         and is sent to `gh` over standard input so it is not exposed in process arguments.
+
+        GitHub secret values are limited to 48 KB in size.
 
     .PARAMETER Repository
         The target repository in OWNER/REPO or HOST/OWNER/REPO format.
@@ -47,6 +55,14 @@ function Set-GitHubSecret
 
         This parameter is only valid for environment-scoped secrets and requires -Repository.
         Environment secrets always target GitHub Actions.
+
+        GitHub environment names:
+        - Are not case sensitive
+        - May not exceed 255 characters
+        - Must be unique within the repository
+
+        GitHub REST endpoints require environment names to be URL-encoded. This function handles
+        that automatically, so names containing `/` are supported.
 
     .PARAMETER Organization
         The target organization for organization secrets.
@@ -164,6 +180,19 @@ function Set-GitHubSecret
     param(
         [Parameter(Mandatory, Position = 0)]
         [ValidateNotNullOrEmpty()]
+        [ValidateScript({
+            if ($_ -match '^(?i:GITHUB_)')
+            {
+                throw "GitHub secret names cannot start with the 'GITHUB_' prefix."
+            }
+
+            if ($_ -notmatch '^(?![0-9])[A-Za-z0-9_]+$')
+            {
+                throw 'GitHub secret names may only contain letters, numbers, or underscores, and cannot start with a number.'
+            }
+
+            $true
+        })]
         [String]$Name,
 
         [Parameter(Mandatory)]
@@ -175,6 +204,19 @@ function Set-GitHubSecret
         [String]$Repository,
 
         [Parameter(Mandatory, ParameterSetName = 'Environment')]
+        [ValidateScript({
+            if ([string]::IsNullOrWhiteSpace($_))
+            {
+                throw 'GitHub environment names cannot be empty or whitespace.'
+            }
+
+            if ($_.Length -gt 255)
+            {
+                throw 'GitHub environment names may not exceed 255 characters.'
+            }
+
+            $true
+        })]
         [String]$Environment,
 
         [Parameter(Mandatory, ParameterSetName = 'Organization')]
@@ -279,6 +321,16 @@ function Set-GitHubSecret
         if ($transport.Name -ne 'GhCli')
         {
             throw 'GitHub secret operations require the GitHub CLI (gh) to be installed and available in PATH.'
+        }
+
+        $plainTextValueForValidation = & $helpers.ConvertSecureStringToPlainText $Value
+        try
+        {
+            & $helpers.AssertValidGitHubSecretValue -Value $plainTextValueForValidation
+        }
+        finally
+        {
+            $plainTextValueForValidation = $null
         }
 
         $authContext = & $helpers.ResolveAuthContext `
