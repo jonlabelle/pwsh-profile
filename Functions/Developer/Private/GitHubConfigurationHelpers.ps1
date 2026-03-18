@@ -370,6 +370,24 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
         Select-Object -First 1
     }
 
+    $script:PwshProfileGitHubConfigurationHelpers.GetResolvedCommandPath = {
+        param(
+            [Object]$CommandInfo,
+            [String]$FallbackName
+        )
+
+        foreach ($propertyName in @('Path', 'Source', 'Definition'))
+        {
+            $property = $CommandInfo.PSObject.Properties[$propertyName]
+            if ($property -and -not [string]::IsNullOrWhiteSpace([string]$property.Value))
+            {
+                return [string]$property.Value
+            }
+        }
+
+        return $FallbackName
+    }
+
     $script:PwshProfileGitHubConfigurationHelpers.ResolveTransport = {
         $ghCommand = & $script:PwshProfileGitHubConfigurationHelpers.GetGhCommand
 
@@ -378,12 +396,16 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             return [PSCustomObject]@{
                 Name = 'GhCli'
                 Command = $ghCommand
+                CommandPath = & $script:PwshProfileGitHubConfigurationHelpers.GetResolvedCommandPath `
+                    -CommandInfo $ghCommand `
+                    -FallbackName 'gh'
             }
         }
 
         return [PSCustomObject]@{
             Name = 'RestApi'
             Command = $null
+            CommandPath = $null
         }
     }
 
@@ -462,7 +484,11 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             return $null
         }
 
-        $output = & git remote get-url origin 2>&1
+        $gitCommandPath = & $script:PwshProfileGitHubConfigurationHelpers.GetResolvedCommandPath `
+            -CommandInfo $gitCommand `
+            -FallbackName 'git'
+
+        $output = & $gitCommandPath remote get-url origin 2>&1
         if ($LASTEXITCODE -ne 0)
         {
             return $null
@@ -696,6 +722,10 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
         $ghArguments = @($Arguments)
         $ghAuthContext = $AuthContext
         $ghSensitiveValues = @($SensitiveValues)
+        $ghCommand = & $script:PwshProfileGitHubConfigurationHelpers.GetGhCommand
+        $ghCommandPath = & $script:PwshProfileGitHubConfigurationHelpers.GetResolvedCommandPath `
+            -CommandInfo $ghCommand `
+            -FallbackName 'gh'
 
         $operation = {
             $previousGhToken = [Environment]::GetEnvironmentVariable('GH_TOKEN', 'Process')
@@ -711,7 +741,7 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
 
             try
             {
-                $output = & gh @ghArguments 2>&1
+                $output = & $ghCommandPath @ghArguments 2>&1
                 $exitCode = $LASTEXITCODE
             }
             finally
@@ -756,6 +786,11 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             [String]$StandardInputText
         )
 
+        $ghCommand = & $script:PwshProfileGitHubConfigurationHelpers.GetGhCommand
+        $ghCommandPath = & $script:PwshProfileGitHubConfigurationHelpers.GetResolvedCommandPath `
+            -CommandInfo $ghCommand `
+            -FallbackName 'gh'
+
         if ($PSVersionTable.PSVersion.Major -lt 6)
         {
             $standardInputPath = $null
@@ -770,9 +805,15 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
 
                 [System.IO.File]::WriteAllText($standardInputPath, $StandardInputText, [System.Text.UTF8Encoding]::new($false))
 
+                $escapedArguments = foreach ($argument in @($Arguments))
+                {
+                    & $script:PwshProfileGitHubConfigurationHelpers.QuoteNativeProcessArgument `
+                        -Argument ([string]$argument)
+                }
+
                 $process = Start-Process `
-                    -FilePath 'gh' `
-                    -ArgumentList $Arguments `
+                    -FilePath $ghCommandPath `
+                    -ArgumentList ($escapedArguments -join ' ') `
                     -Wait `
                     -PassThru `
                     -NoNewWindow `
@@ -802,7 +843,7 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
         try
         {
             $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-            $startInfo.FileName = 'gh'
+            $startInfo.FileName = $ghCommandPath
             $startInfo.UseShellExecute = $false
             $startInfo.RedirectStandardInput = $true
             $startInfo.RedirectStandardOutput = $true
@@ -840,6 +881,57 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
                 $process.Dispose()
             }
         }
+    }
+
+    $script:PwshProfileGitHubConfigurationHelpers.QuoteNativeProcessArgument = {
+        param([AllowNull()][String]$Argument)
+
+        if ($null -eq $Argument -or $Argument.Length -eq 0)
+        {
+            return '""'
+        }
+
+        if ($Argument -notmatch '[\s"]')
+        {
+            return $Argument
+        }
+
+        $builder = [System.Text.StringBuilder]::new()
+        $null = $builder.Append('"')
+        $backslashCount = 0
+
+        foreach ($character in $Argument.ToCharArray())
+        {
+            if ($character -eq '\')
+            {
+                $backslashCount++
+                continue
+            }
+
+            if ($character -eq '"')
+            {
+                $null = $builder.Append(('\' * (($backslashCount * 2) + 1)))
+                $null = $builder.Append('"')
+                $backslashCount = 0
+                continue
+            }
+
+            if ($backslashCount -gt 0)
+            {
+                $null = $builder.Append(('\' * $backslashCount))
+                $backslashCount = 0
+            }
+
+            $null = $builder.Append($character)
+        }
+
+        if ($backslashCount -gt 0)
+        {
+            $null = $builder.Append(('\' * ($backslashCount * 2)))
+        }
+
+        $null = $builder.Append('"')
+        return $builder.ToString()
     }
 
     $script:PwshProfileGitHubConfigurationHelpers.InvokeGhCommandWithStandardInput = {
