@@ -503,27 +503,20 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
 
     $script:PwshProfileGitHubConfigurationHelpers.GetSecretContext = {
         param(
-            [String]$ParameterSetName,
+            [String]$Scope,
             [String]$Repository,
             [String]$Environment,
             [String]$Organization,
-            [Boolean]$User,
             [String]$Application
         )
 
-        $scope = if ($User)
+        $scope = if ([string]::IsNullOrWhiteSpace($Scope))
         {
-            'User'
+            'Repository'
         }
         else
         {
-            switch ($ParameterSetName)
-            {
-                'Environment' { 'Environment' }
-                'Organization' { 'Organization' }
-                'User' { 'User' }
-                default { 'Repository' }
-            }
+            $Scope
         }
 
         $effectiveApplication = if ([string]::IsNullOrWhiteSpace($Application))
@@ -708,11 +701,14 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
 
         $operation = {
             $previousGhToken = [Environment]::GetEnvironmentVariable('GH_TOKEN', 'Process')
+            $previousGhPromptDisabled = [Environment]::GetEnvironmentVariable('GH_PROMPT_DISABLED', 'Process')
 
             if ($ghAuthContext -and -not [string]::IsNullOrWhiteSpace($ghAuthContext.Token))
             {
                 [Environment]::SetEnvironmentVariable('GH_TOKEN', $ghAuthContext.Token, 'Process')
             }
+
+            [Environment]::SetEnvironmentVariable('GH_PROMPT_DISABLED', '1', 'Process')
 
             try
             {
@@ -725,6 +721,8 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
                 {
                     [Environment]::SetEnvironmentVariable('GH_TOKEN', $previousGhToken, 'Process')
                 }
+
+                [Environment]::SetEnvironmentVariable('GH_PROMPT_DISABLED', $previousGhPromptDisabled, 'Process')
             }
 
             if ($exitCode -ne 0)
@@ -863,11 +861,14 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
 
         $operation = {
             $previousGhToken = [Environment]::GetEnvironmentVariable('GH_TOKEN', 'Process')
+            $previousGhPromptDisabled = [Environment]::GetEnvironmentVariable('GH_PROMPT_DISABLED', 'Process')
 
             if ($ghAuthContext -and -not [string]::IsNullOrWhiteSpace($ghAuthContext.Token))
             {
                 [Environment]::SetEnvironmentVariable('GH_TOKEN', $ghAuthContext.Token, 'Process')
             }
+
+            [Environment]::SetEnvironmentVariable('GH_PROMPT_DISABLED', '1', 'Process')
 
             try
             {
@@ -881,6 +882,8 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
                 {
                     [Environment]::SetEnvironmentVariable('GH_TOKEN', $previousGhToken, 'Process')
                 }
+
+                [Environment]::SetEnvironmentVariable('GH_PROMPT_DISABLED', $previousGhPromptDisabled, 'Process')
             }
 
             if ($result.ExitCode -ne 0)

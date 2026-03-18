@@ -537,11 +537,11 @@ The profile includes utility functions organized by category:
 - **[`Invoke-BfgRepoCleaner`](Functions/Developer/Invoke-BfgRepoCleaner.ps1)** — Cleans Git history with configurable runtime
 - **[`Invoke-Magika`](Functions/Developer/Invoke-Magika.ps1)** — Intelligent file type detection using Magika
 - **[`Invoke-SqlFluff`](Functions/Developer/Invoke-SqlFluff.ps1)** — Runs SQLFluff lint, fix, or format against SQL files
-- **[`Remove-GitHubSecret`](Functions/Developer/Remove-GitHubSecret.ps1)** — Removes a GitHub secret from repository, environment, organization, or user scope
+- **[`Remove-GitHubSecret`](Functions/Developer/Remove-GitHubSecret.ps1)** — Removes a GitHub secret from repository, environment, organization, or user `-Scope` targets
 - **[`Remove-GitHubVariable`](Functions/Developer/Remove-GitHubVariable.ps1)** — Removes a GitHub Actions variable from repository, environment, or organization scope
 - **[`Remove-GitIgnoredFiles`](Functions/Developer/Remove-GitIgnoredFiles.ps1)** — Removes ignored and optionally untracked files from Git repositories
 - **[`Remove-NodeModules`](Functions/Developer/Remove-NodeModules.ps1)** — Removes node_modules folders from Node.js project directories
-- **[`Set-GitHubSecret`](Functions/Developer/Set-GitHubSecret.ps1)** — Creates or updates a GitHub secret with idempotent `-Force` and `-WhatIf` support
+- **[`Set-GitHubSecret`](Functions/Developer/Set-GitHubSecret.ps1)** — Creates or updates a GitHub secret across repository, environment, organization, or user `-Scope` targets with idempotent `-Force` and `-WhatIf` support
 - **[`Set-GitHubVariable`](Functions/Developer/Set-GitHubVariable.ps1)** — Creates or updates a GitHub Actions variable with idempotent `-Force` and `-WhatIf` support
 - **[`Invoke-DockerAutoRun`](Functions/Developer/Invoke-DockerAutoRun.ps1)** — Auto-detects project type and builds/runs a Docker container
 - **[`Remove-DockerArtifacts`](Functions/Developer/Remove-DockerArtifacts.ps1)** — Prunes unused Docker images, networks, cache, containers, and build-history

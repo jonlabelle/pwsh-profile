@@ -20,13 +20,29 @@ function Remove-GitHubSecret
         - Cannot start with the GITHUB_ prefix
         - Are case-insensitive when referenced by GitHub
 
+    .PARAMETER Scope
+        The GitHub secret scope. Valid values are Repository, Environment, Organization, and User.
+
+        Meanings:
+        - Repository: a repository-level secret for one repository
+        - Environment: an environment-level secret for one deployment environment in a repository
+        - Organization: an organization-level secret that can be shared with repositories
+        - User: an account-level Codespaces secret for the authenticated user
+
+        This is the primary scope selector for the command. Use -Scope User instead of a separate
+        user switch; it maps to GitHub's user-level Codespaces secret behavior.
+
+        Repository is the default when -Scope is omitted. If you specify -Environment or
+        -Organization without -Scope, the function infers Environment or Organization scope.
+
     .PARAMETER Repository
         The target repository in OWNER/REPO or HOST/OWNER/REPO format.
 
         This targets a repository-scoped secret. Repository secrets are available only to the
         specified repository.
 
-        When omitted for repository and environment scopes, the current Git repository origin is used.
+        When omitted for repository scope, the current Git repository origin is used.
+        When -Scope Environment is used, -Repository is required.
 
     .PARAMETER Environment
         The deployment environment name for environment secrets.
@@ -49,11 +65,7 @@ function Remove-GitHubSecret
 
         This targets an organization-scoped secret. Organization secrets can be shared with
         repositories in the organization according to the access policy used when the secret was set.
-
-    .PARAMETER User
-        Targets the authenticated user's Codespaces secrets.
-
-        This targets an account-level Codespaces secret for the authenticated user.
+        When -Scope Organization is used, -Organization is required.
 
     .PARAMETER Application
         The secret application. Valid values are actions, codespaces, and dependabot.
@@ -62,6 +74,8 @@ function Remove-GitHubSecret
         - actions: the secret is available to GitHub Actions workflows
         - codespaces: the secret is available to GitHub Codespaces
         - dependabot: the secret is available to Dependabot
+
+        At user scope, the application is fixed to Codespaces even when -Application is omitted.
 
         Valid combinations depend on scope in the same way as Set-GitHubSecret.
 
@@ -89,7 +103,7 @@ function Remove-GitHubSecret
         Removes an environment secret.
 
     .EXAMPLE
-        PS > Remove-GitHubSecret -Name 'DEVCONTAINER_PAT' -User -WhatIf
+        PS > Remove-GitHubSecret -Name 'DEVCONTAINER_PAT' -Scope User -WhatIf
 
         Shows what would happen before deleting a user-level Codespaces secret.
 
@@ -107,7 +121,7 @@ function Remove-GitHubSecret
     .NOTES
         If the secret does not exist, the function returns an AlreadyAbsent result instead of failing.
     #>
-    [CmdletBinding(SupportsShouldProcess, DefaultParameterSetName = 'Repository')]
+    [CmdletBinding(SupportsShouldProcess)]
     [OutputType([PSCustomObject])]
     param(
         [Parameter(Mandatory, Position = 0)]
@@ -127,11 +141,14 @@ function Remove-GitHubSecret
         })]
         [String]$Name,
 
-        [Parameter(ParameterSetName = 'Repository')]
-        [Parameter(Mandatory, ParameterSetName = 'Environment')]
+        [Parameter()]
+        [ValidateSet('Repository', 'Environment', 'Organization', 'User')]
+        [String]$Scope = 'Repository',
+
+        [Parameter()]
         [String]$Repository,
 
-        [Parameter(Mandatory, ParameterSetName = 'Environment')]
+        [Parameter()]
         [ValidateScript({
             if ([string]::IsNullOrWhiteSpace($_))
             {
@@ -147,12 +164,9 @@ function Remove-GitHubSecret
         })]
         [String]$Environment,
 
-        [Parameter(Mandatory, ParameterSetName = 'Organization')]
+        [Parameter()]
         [ValidateNotNullOrEmpty()]
         [String]$Organization,
-
-        [Parameter(Mandatory, ParameterSetName = 'User')]
-        [Switch]$User,
 
         [Parameter()]
         [ValidateSet('actions', 'codespaces', 'dependabot')]
@@ -198,12 +212,95 @@ function Remove-GitHubSecret
         $helpers = $script:PwshProfileGitHubConfigurationHelpers
         $maxRetryCount = $helpers.DefaultRetryCount
         $initialRetryDelaySeconds = $helpers.DefaultInitialRetryDelaySeconds
+        $resolvedScope = if ($PSBoundParameters.ContainsKey('Scope'))
+        {
+            $Scope
+        }
+        elseif ($PSBoundParameters.ContainsKey('Organization'))
+        {
+            'Organization'
+        }
+        elseif ($PSBoundParameters.ContainsKey('Environment'))
+        {
+            'Environment'
+        }
+        else
+        {
+            'Repository'
+        }
+
+        switch ($resolvedScope)
+        {
+            'Repository'
+            {
+                if ($PSBoundParameters.ContainsKey('Environment'))
+                {
+                    throw "Use -Scope Environment when specifying -Environment."
+                }
+
+                if ($PSBoundParameters.ContainsKey('Organization'))
+                {
+                    throw "Use -Scope Organization when specifying -Organization."
+                }
+            }
+            'Environment'
+            {
+                if (-not $PSBoundParameters.ContainsKey('Repository'))
+                {
+                    throw '-Scope Environment requires -Repository.'
+                }
+
+                if (-not $PSBoundParameters.ContainsKey('Environment'))
+                {
+                    throw '-Scope Environment requires -Environment.'
+                }
+
+                if ($PSBoundParameters.ContainsKey('Organization'))
+                {
+                    throw '-Scope Environment does not support -Organization.'
+                }
+            }
+            'Organization'
+            {
+                if (-not $PSBoundParameters.ContainsKey('Organization'))
+                {
+                    throw '-Scope Organization requires -Organization.'
+                }
+
+                if ($PSBoundParameters.ContainsKey('Repository'))
+                {
+                    throw '-Scope Organization does not support -Repository.'
+                }
+
+                if ($PSBoundParameters.ContainsKey('Environment'))
+                {
+                    throw '-Scope Organization does not support -Environment.'
+                }
+            }
+            'User'
+            {
+                if ($PSBoundParameters.ContainsKey('Repository'))
+                {
+                    throw '-Scope User does not support -Repository.'
+                }
+
+                if ($PSBoundParameters.ContainsKey('Environment'))
+                {
+                    throw '-Scope User does not support -Environment.'
+                }
+
+                if ($PSBoundParameters.ContainsKey('Organization'))
+                {
+                    throw '-Scope User does not support -Organization.'
+                }
+            }
+        }
+
         $secretContext = & $helpers.GetSecretContext `
-            -ParameterSetName $PSCmdlet.ParameterSetName `
+            -Scope $resolvedScope `
             -Repository $Repository `
             -Environment $Environment `
             -Organization $Organization `
-            -User $User.IsPresent `
             -Application $Application
 
         $transport = & $helpers.ResolveTransport

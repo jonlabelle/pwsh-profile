@@ -74,6 +74,108 @@ Describe 'GitHub secret functions' {
     }
 
     Context 'Set-GitHubSecret' {
+        It 'supports user scope through -Scope User' {
+            $script:CapturedSecretSetArguments = $null
+
+            Mock -CommandName gh -MockWith {
+                if ($args[0] -eq 'api')
+                {
+                    $global:LASTEXITCODE = 1
+                    return 'HTTP 404: Not Found'
+                }
+
+                throw "Unexpected gh arguments: $($args -join ' ')"
+            }
+
+            $helpers = Import-GitHubHelperForTest
+            $helpers.StartGhCommandWithStandardInput = {
+                param(
+                    [String[]]$Arguments,
+                    [String]$StandardInputText
+                )
+
+                $script:CapturedSecretSetArguments = @($Arguments)
+                $null = $StandardInputText
+
+                return [PSCustomObject]@{
+                    ExitCode = 0
+                    StandardOutput = ''
+                    StandardError = ''
+                }
+            }
+
+            $result = Set-GitHubSecret -Name 'DEVCONTAINER_PAT' -Value $script:SecretValue -Scope User
+
+            $result.Status | Should -Be 'Created'
+            $script:CapturedSecretSetArguments | Should -Contain '--user'
+            $script:CapturedSecretSetArguments | Should -Not -Contain '--app'
+        }
+
+        It 'rejects repository targeting for -Scope User' {
+            {
+                Set-GitHubSecret `
+                    -Name 'DEVCONTAINER_PAT' `
+                    -Value $script:SecretValue `
+                    -Scope User `
+                    -Repository 'octo-org/service-api'
+            } | Should -Throw '*-Scope User does not support -Repository*'
+        }
+
+        It 'infers environment scope when -Environment is used without -Scope' {
+            Mock -CommandName gh -MockWith {
+                if ($args[0] -eq 'api')
+                {
+                    $global:LASTEXITCODE = 1
+                    return 'HTTP 404: Not Found'
+                }
+
+                throw "Unexpected gh arguments: $($args -join ' ')"
+            }
+
+            $result = Set-GitHubSecret `
+                -Name 'DEPLOY_TOKEN' `
+                -Value $script:SecretValue `
+                -Repository 'octo-org/service-api' `
+                -Environment 'Production' `
+                -WhatIf
+
+            $result.Status | Should -Be 'WhatIf'
+            $result.Scope | Should -Be 'Environment'
+            $result.Target | Should -Be "environment 'Production' in octo-org/service-api"
+        }
+
+        It 'infers organization scope when -Organization is used without -Scope' {
+            Mock -CommandName gh -MockWith {
+                if ($args[0] -eq 'api')
+                {
+                    $global:LASTEXITCODE = 1
+                    return 'HTTP 404: Not Found'
+                }
+
+                throw "Unexpected gh arguments: $($args -join ' ')"
+            }
+
+            $result = Set-GitHubSecret `
+                -Name 'ORG_SECRET' `
+                -Value $script:SecretValue `
+                -Organization 'octo-org' `
+                -WhatIf
+
+            $result.Status | Should -Be 'WhatIf'
+            $result.Scope | Should -Be 'Organization'
+            $result.Target | Should -Be 'organization octo-org'
+        }
+
+        It 'rejects non-codespaces applications for -Scope User' {
+            {
+                Set-GitHubSecret `
+                    -Name 'DEVCONTAINER_PAT' `
+                    -Value $script:SecretValue `
+                    -Scope User `
+                    -Application actions
+            } | Should -Throw '*User secrets support only the codespaces application*'
+        }
+
         It 'rejects invalid secret names before making GitHub calls' -ForEach @(
             @{ Name = 'INVALID NAME'; Error = '*letters, numbers, or underscores*' }
             @{ Name = '1INVALID'; Error = '*cannot start with a number*' }
@@ -300,6 +402,33 @@ Describe 'GitHub secret functions' {
             Assert-MockCalled -CommandName gh -ParameterFilter { $args[0] -eq 'secret' -and $args[1] -eq 'delete' } -Times 0
         }
 
+        It 'disables gh interactive prompts during deletion' {
+            $script:ObservedPromptDisabled = $null
+
+            Mock -CommandName gh -MockWith {
+                $script:ObservedPromptDisabled = [Environment]::GetEnvironmentVariable('GH_PROMPT_DISABLED', 'Process')
+
+                if ($args[0] -eq 'api')
+                {
+                    $global:LASTEXITCODE = 0
+                    return '{"name":"TO_DELETE","updated_at":"2025-01-01T00:00:00Z"}'
+                }
+
+                if ($args[0] -eq 'secret' -and $args[1] -eq 'delete')
+                {
+                    $global:LASTEXITCODE = 0
+                    return @()
+                }
+
+                throw "Unexpected gh arguments: $($args -join ' ')"
+            }
+
+            $result = Remove-GitHubSecret -Name 'TO_DELETE' -Repository 'octo-org/service-api'
+
+            $result.Status | Should -Be 'Removed'
+            $script:ObservedPromptDisabled | Should -Be '1'
+        }
+
         It 'supports WhatIf without deleting the secret' {
             Mock -CommandName gh -MockWith {
                 if ($args[0] -eq 'api')
@@ -315,6 +444,51 @@ Describe 'GitHub secret functions' {
 
             $result.Status | Should -Be 'WhatIf'
             Assert-MockCalled -CommandName gh -ParameterFilter { $args[0] -eq 'secret' -and $args[1] -eq 'delete' } -Times 0
+        }
+
+        It 'supports user scope deletion through -Scope User' {
+            $script:CapturedDeleteArguments = $null
+
+            Mock -CommandName gh -MockWith {
+                if ($args[0] -eq 'api')
+                {
+                    $global:LASTEXITCODE = 0
+                    return '{"name":"DEVCONTAINER_PAT","updated_at":"2025-01-01T00:00:00Z"}'
+                }
+
+                if ($args[0] -eq 'secret' -and $args[1] -eq 'delete')
+                {
+                    $script:CapturedDeleteArguments = @($args)
+                    $global:LASTEXITCODE = 0
+                    return @()
+                }
+
+                throw "Unexpected gh arguments: $($args -join ' ')"
+            }
+
+            $result = Remove-GitHubSecret -Name 'DEVCONTAINER_PAT' -Scope User
+
+            $result.Status | Should -Be 'Removed'
+            $script:CapturedDeleteArguments | Should -Contain '--user'
+            $script:CapturedDeleteArguments | Should -Not -Contain '--app'
+        }
+
+        It 'infers organization scope during removal when -Organization is used without -Scope' {
+            Mock -CommandName gh -MockWith {
+                if ($args[0] -eq 'api')
+                {
+                    $global:LASTEXITCODE = 1
+                    return 'HTTP 404: Not Found'
+                }
+
+                throw "Unexpected gh arguments: $($args -join ' ')"
+            }
+
+            $result = Remove-GitHubSecret -Name 'ORG_SECRET' -Organization 'octo-org'
+
+            $result.Status | Should -Be 'AlreadyAbsent'
+            $result.Scope | Should -Be 'Organization'
+            $result.Target | Should -Be 'organization octo-org'
         }
     }
 }
