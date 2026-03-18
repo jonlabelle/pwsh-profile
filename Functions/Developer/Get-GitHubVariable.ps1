@@ -2,14 +2,17 @@ function Get-GitHubVariable
 {
     <#
     .SYNOPSIS
-        Retrieves a GitHub variable from repository, environment, or organization scope.
+        Retrieves a GitHub configuration variable from an explicit repository, environment, or organization scope.
 
     .DESCRIPTION
-        Retrieves the current value and metadata for a GitHub variable from repository, environment,
-        or organization scope.
+        Retrieves the current value and metadata for a GitHub configuration variable. Scope selection
+        is always explicit through the required -Scope parameter.
 
-        The function uses the GitHub CLI-backed API transport when available and falls back to the
-        REST API otherwise.
+        Repository scope can omit -Repository and use the current Git repository's origin remote.
+        Environment and organization scopes require their matching target parameters.
+
+        The function prefers the GitHub CLI-backed API transport when `gh` is available and falls
+        back to the REST API otherwise.
 
     .PARAMETER Name
         The GitHub variable name to retrieve.
@@ -28,22 +31,31 @@ function Get-GitHubVariable
         - Environment: an environment-level variable for one deployment environment in a repository
         - Organization: an organization-level variable that can be shared with repositories
 
-        This is the primary scope selector for the command. It is required so the target type is
-        always explicit.
+        Companion parameter rules:
+        - Repository: use -Scope Repository; -Repository is optional
+        - Environment: use -Scope Environment; -Repository and -Environment are required
+        - Organization: use -Scope Organization; -Organization is required
 
     .PARAMETER Repository
         The target repository in OWNER/REPO or HOST/OWNER/REPO format.
 
-        This targets a repository-scoped variable. Repository variables are available only to the
-        specified repository.
+        Supported with -Scope Repository and -Scope Environment.
 
-        When -Scope Repository is used and -Repository is omitted, the current Git repository origin
-        is used. When -Scope Environment is used, -Repository is required.
+        Repository variables are available within the specified repository. Environment variables
+        belong to a specific environment in the specified repository.
+
+        When -Scope Repository is used and -Repository is omitted, the function tries to resolve the
+        current Git repository's origin remote. If that cannot be determined, specify -Repository
+        explicitly.
+
+        Examples:
+        - octo-org/service-api
+        - github.example.com/platform/service-api
 
     .PARAMETER Environment
         The deployment environment name for environment variables.
 
-        This parameter is only valid for environment-scoped variables and requires -Repository.
+        Supported only with -Scope Environment and requires -Repository.
 
         Environment variables belong to a single named environment within the repository and are
         intended for jobs that reference that environment.
@@ -54,32 +66,39 @@ function Get-GitHubVariable
         - Must be unique within the repository
 
         GitHub REST endpoints require environment names to be URL-encoded. This function handles
-        that automatically, so names containing `/` are supported.
+        that automatically, so names containing spaces or `/` are supported.
 
     .PARAMETER Organization
         The target organization for organization variables.
 
-        This targets an organization-scoped variable. Organization variables can be shared with
-        repositories in the organization according to the access policy configured on GitHub.
-        When -Scope Organization is used, -Organization is required.
+        Supported only with -Scope Organization.
+
+        Organization variables can be shared with repositories in the organization according to the
+        access policy configured on GitHub.
 
     .PARAMETER Token
         Optional GitHub personal access token as a SecureString.
 
+        If supplied, the token is used only for the outbound `gh` or REST request and is never
+        written to command output.
+
         When omitted, the function checks the environment variable named by
         -TokenEnvironmentVariableName. If the GitHub CLI is installed, its existing authenticated
-        session can also be used when no token is supplied.
+        session can also be used when no token is supplied. If `gh` is not available and the
+        function falls back to REST, a token or token environment variable is required.
 
     .PARAMETER TokenEnvironmentVariableName
         The environment variable name to check for a GitHub token when -Token is not supplied.
 
-        Defaults to GH_TOKEN. The named environment variable is used for `gh` authentication and REST
-        fallback when -Token is not supplied.
+        Defaults to GH_TOKEN.
+
+        This environment variable is read only when -Token is not supplied. It is used for `gh`
+        authentication and REST fallback.
 
     .EXAMPLE
-        PS > Get-GitHubVariable -Name 'DOTNET_VERSION' -Scope Repository -Repository 'octo-org/service-api'
+        PS > Get-GitHubVariable -Name 'DOTNET_VERSION' -Scope Repository
 
-        Retrieves a repository variable.
+        Retrieves a repository variable from the current Git repository.
 
     .EXAMPLE
         PS > Get-GitHubVariable -Name 'DEPLOY_RING' -Scope Environment -Repository 'octo-org/service-api' -Environment 'Production'
@@ -92,10 +111,26 @@ function Get-GitHubVariable
 
         Retrieves an organization variable by using an explicit token.
 
+    .EXAMPLE
+        PS > Get-GitHubVariable -Name 'PACKAGE_SOURCE' -Scope Organization -Organization 'octo-org' -TokenEnvironmentVariableName 'GITHUB_ADMIN_TOKEN'
+
+        Reads the GitHub token from a non-default environment variable.
+
     .OUTPUTS
         GitHub.Variable
 
-        Returns the variable name, value, visibility details, timestamps, and transport metadata.
+        Returns the variable name, plain-text value, visibility details, timestamps, and transport
+        metadata.
+
+    .NOTES
+        -Scope is required for all GitHub helper functions in this module family.
+        Variables prefer the GitHub CLI-backed transport and fall back to direct REST API requests.
+
+    .LINK
+        https://cli.github.com/manual/gh_variable_get
+
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Get-GitHubVariable.ps1
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]

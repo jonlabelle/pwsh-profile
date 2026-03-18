@@ -2,11 +2,17 @@ function Set-GitHubSecret
 {
     <#
     .SYNOPSIS
-        Creates or updates a GitHub secret across repository, environment, organization, or user scopes.
+        Creates or updates a GitHub secret at an explicit repository, environment, organization, or user scope.
 
     .DESCRIPTION
-        Sets a GitHub secret by using the GitHub CLI. Existing secrets are never overwritten unless
-        -Force is specified, so repeated calls stay idempotent.
+        Creates or updates a GitHub secret by using the GitHub CLI. Scope selection is always explicit
+        through the required -Scope parameter.
+
+        Repository scope can omit -Repository and use the current Git repository's origin remote.
+        Environment, organization, and user scopes require their matching target parameters.
+
+        Existing secrets are never overwritten unless -Force is specified, so repeated calls stay
+        idempotent.
 
         The function supports:
         - Repository, environment, organization, and user secret scopes via -Scope
@@ -31,13 +37,15 @@ function Set-GitHubSecret
         - BUILD_TOKEN
         - AZURE_CLIENT_SECRET
         - NPM_AUTH_TOKEN
+        - DEVCONTAINER_PAT
 
     .PARAMETER Value
         The secret value to store.
 
         Use Read-Host -AsSecureString or ConvertTo-SecureString to avoid adding sensitive data to
         shell history. The secure string is converted to plain text only for the outbound GitHub call
-        and is sent to `gh` over standard input so it is not exposed in process arguments.
+        and is sent to `gh` over standard input so it is not exposed in process arguments. The `gh`
+        CLI encrypts the value locally before it is sent to GitHub.
 
         GitHub secret values are limited to 48 KB in size.
 
@@ -50,18 +58,26 @@ function Set-GitHubSecret
         - Organization: an organization-level secret that can be shared with repositories
         - User: an account-level Codespaces secret for the authenticated user
 
-        This is the primary scope selector for the command. It is required so the target type is
-        always explicit. Use -Scope User instead of a separate user switch; it maps to GitHub's
-        user-level Codespaces secret behavior.
+        Companion parameter rules:
+        - Repository: use -Scope Repository; -Repository is optional
+        - Environment: use -Scope Environment; -Repository and -Environment are required
+        - Organization: use -Scope Organization; -Organization is required
+        - User: use -Scope User for a user-level Codespaces secret; -Repository, -Environment, and -Organization are not valid
+
+        Use -Scope User instead of a separate user switch. It maps to GitHub's user-level
+        Codespaces secret behavior.
 
     .PARAMETER Repository
         The target repository in OWNER/REPO or HOST/OWNER/REPO format.
 
-        This targets a repository-scoped secret. Repository secrets are available only to the
-        specified repository.
+        Supported with -Scope Repository and -Scope Environment.
 
-        When -Scope Repository is used and -Repository is omitted, the current Git repository origin
-        is used. When -Scope Environment is used, -Repository is required.
+        Repository secrets are available only to the specified repository. Environment secrets belong
+        to a specific environment in the specified repository.
+
+        When -Scope Repository is used and -Repository is omitted, the function tries to resolve the
+        current Git repository's origin remote. If that cannot be determined, specify -Repository
+        explicitly.
 
         Examples:
         - octo-org/service-api
@@ -70,7 +86,8 @@ function Set-GitHubSecret
     .PARAMETER Environment
         The deployment environment name for environment secrets.
 
-        This parameter is only valid for environment-scoped secrets and requires -Repository.
+        Supported only with -Scope Environment and requires -Repository.
+
         Environment secrets always target GitHub Actions and belong to a single named environment
         within the repository. They are intended for jobs that reference that environment.
 
@@ -80,14 +97,15 @@ function Set-GitHubSecret
         - Must be unique within the repository
 
         GitHub REST endpoints require environment names to be URL-encoded. This function handles
-        that automatically, so names containing `/` are supported.
+        that automatically, so names containing spaces or `/` are supported.
 
     .PARAMETER Organization
         The target organization for organization secrets.
 
-        This targets an organization-scoped secret. Organization secrets can be shared with
-        repositories in the organization according to the access policy set by -Visibility and
-        -SelectedRepository. When -Scope Organization is used, -Organization is required.
+        Supported only with -Scope Organization.
+
+        Organization secrets can be shared with repositories in the organization according to the
+        access policy set by -Visibility and -SelectedRepository.
 
     .PARAMETER Application
         The secret application. Valid values are actions, codespaces, and dependabot.
@@ -97,7 +115,11 @@ function Set-GitHubSecret
         - codespaces: the secret is available to GitHub Codespaces
         - dependabot: the secret is available to Dependabot
 
-        At user scope, the application is fixed to Codespaces even when -Application is omitted.
+        If -Application is omitted, the function defaults to:
+        - Repository scope: actions
+        - Environment scope: actions
+        - Organization scope: actions
+        - User scope: codespaces
 
         Typical combinations:
         - Repository scope: actions, codespaces, or dependabot
@@ -105,22 +127,30 @@ function Set-GitHubSecret
         - Organization scope: actions, codespaces, or dependabot
         - User scope: codespaces only
 
+        Specify the same application when updating an existing secret that was originally created for
+        a non-default application such as dependabot or codespaces.
+
     .PARAMETER Visibility
         Organization secret visibility. Valid values are all, private, and selected.
 
-        This parameter is only valid for organization secrets.
+        Supported only with -Scope Organization.
+
         Meanings:
         - all: every repository in the organization can use the secret
         - private: only private repositories in the organization can use the secret
         - selected: only repositories listed in -SelectedRepository can use the secret
 
-        When -SelectedRepository is used and -Visibility is omitted, visibility is treated as selected.
+        If -Visibility is omitted for an organization secret, GitHub defaults to private visibility.
+        When -SelectedRepository is used and -Visibility is omitted, GitHub treats the access policy
+        as selected visibility.
 
     .PARAMETER SelectedRepository
         The repositories that can access an organization or user secret.
 
+        Supported only with -Scope Organization and -Scope User.
+
         For organization secrets, this is the repository allow-list used when visibility is selected.
-        You can use bare repository names such as 'app1' alongside -Organization.
+        When -Organization is also supplied, you can use bare repository names such as 'app1'.
 
         For user-scope Codespaces secrets, this is the list of repositories whose codespaces can use the
         account-level secret. Use OWNER/REPO format.
@@ -128,9 +158,10 @@ function Set-GitHubSecret
     .PARAMETER NoRepositoriesSelected
         Creates an organization secret that is not available to any repositories.
 
-        This is only valid for organization secrets and cannot be combined with -SelectedRepository.
-        Use this when you want to create the secret now but leave its repository allow-list empty
-        until access is granted later.
+        Supported only with -Scope Organization.
+
+        This parameter cannot be combined with -SelectedRepository. Use it when you want to create
+        the secret now but leave repository access disabled until access is granted later.
 
     .PARAMETER Force
         Overwrites an existing secret.
@@ -139,25 +170,34 @@ function Set-GitHubSecret
         does not let clients read secret values back, an existing secret is treated as protected state
         and is not overwritten unless you opt in with -Force.
 
+        Result behavior:
+        - Existing secret + no -Force: Skipped
+        - Existing secret + -Force: Updated
+        - Missing secret: Created
+
     .PARAMETER Token
         Optional GitHub personal access token as a SecureString.
 
+        If supplied, the token is injected only for the outbound `gh` call and is never written to
+        command output.
+
         When omitted, the function checks the environment variable named by
-        -TokenEnvironmentVariableName. If the GitHub CLI is installed, its existing authenticated
-        session can also be used when no token is supplied.
+        -TokenEnvironmentVariableName. If neither is supplied, an existing authenticated `gh`
+        session can still be used.
 
     .PARAMETER TokenEnvironmentVariableName
         The environment variable name to check for a GitHub token when -Token is not supplied.
 
-        Defaults to GH_TOKEN. Use this when your token is stored in a different environment variable,
-        such as GITHUB_ADMIN_TOKEN. The named environment variable is used for both `gh` authentication
-        injection and REST fallback where applicable.
+        Defaults to GH_TOKEN.
+
+        This environment variable is read only when -Token is not supplied. Use it when automation
+        stores the GitHub token under a non-default name such as GITHUB_ADMIN_TOKEN.
 
     .EXAMPLE
         PS > $value = Read-Host -AsSecureString
-        PS > Set-GitHubSecret -Name 'MY_SECRET' -Value $value -Scope Repository -Repository 'octo-org/octo-repo'
+        PS > Set-GitHubSecret -Name 'MY_SECRET' -Value $value -Scope Repository
 
-        Creates a repository secret in octo-org/octo-repo.
+        Creates a repository secret for the current Git repository.
 
     .EXAMPLE
         PS > $value = ConvertTo-SecureString $env:MY_SECRET -AsPlainText -Force
@@ -172,16 +212,22 @@ function Set-GitHubSecret
         Creates or updates a production environment secret for a repository.
 
     .EXAMPLE
-        PS > $value = ConvertTo-SecureString $env:CODESPACES_TOKEN -AsPlainText -Force
-        PS > Set-GitHubSecret -Name 'DEVCONTAINER_PAT' -Value $value -Scope User
+        PS > $value = Read-Host -AsSecureString
+        PS > Set-GitHubSecret -Name 'ORG_BOOTSTRAP_SECRET' -Value $value -Scope Organization -Organization 'octo-org' -NoRepositoriesSelected
 
-        Creates a user-level Codespaces secret.
+        Creates an organization secret that currently has no repository access.
+
+    .EXAMPLE
+        PS > $value = ConvertTo-SecureString $env:CODESPACES_TOKEN -AsPlainText -Force
+        PS > Set-GitHubSecret -Name 'DEVCONTAINER_PAT' -Value $value -Scope User -SelectedRepository 'octo-org/service-api', 'octo-org/web-app'
+
+        Creates a user-level Codespaces secret that is available only to the listed repositories.
 
     .EXAMPLE
         PS > $value = ConvertTo-SecureString $env:DEPENDABOT_NUGET_TOKEN -AsPlainText -Force
-        PS > Set-GitHubSecret -Name 'NUGET_AUTH_TOKEN' -Value $value -Scope Organization -Organization 'octo-org' -Application dependabot -Force
+        PS > Set-GitHubSecret -Name 'NUGET_AUTH_TOKEN' -Value $value -Scope Repository -Repository 'octo-org/service-api' -Application dependabot -Force
 
-        Overwrites an existing organization-level Dependabot secret.
+        Overwrites an existing repository-level Dependabot secret.
 
     .EXAMPLE
         PS > $token = ConvertTo-SecureString $env:GITHUB_ADMIN_TOKEN -AsPlainText -Force
@@ -199,11 +245,18 @@ function Set-GitHubSecret
     .OUTPUTS
         GitHub.SecretSetResult
 
-        Returns a summary object with status, target scope, transport used, and whether the secret changed.
+        Returns a summary object with status, target scope, resolved application, transport used,
+        and whether the secret changed.
 
     .NOTES
+        -Scope is required for all GitHub helper functions in this module family.
         Secret operations require the GitHub CLI (gh) to be installed and available in PATH.
         Secret values are passed to `gh secret set` through standard input, not command-line arguments.
+        The GitHub CLI performs local encryption before sending secret values to GitHub.
+        GitHub does not return secret values, so overwrite decisions are name-based plus -Force.
+
+    .LINK
+        https://cli.github.com/manual/gh_secret_set
 
     .LINK
         https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Set-GitHubSecret.ps1

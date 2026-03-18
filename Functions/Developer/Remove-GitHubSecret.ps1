@@ -2,11 +2,16 @@ function Remove-GitHubSecret
 {
     <#
     .SYNOPSIS
-        Removes a GitHub secret from repository, environment, organization, or user scope.
+        Removes a GitHub secret from an explicit repository, environment, organization, or user scope.
 
     .DESCRIPTION
-        Removes a GitHub secret by using the GitHub CLI. Missing secrets are treated as an idempotent
-        no-op so repeated runs remain safe.
+        Removes a GitHub secret by using the GitHub CLI. Scope selection is always explicit through
+        the required -Scope parameter.
+
+        Repository scope can omit -Repository and use the current Git repository's origin remote.
+        Environment, organization, and user scopes require their matching target parameters.
+
+        Missing secrets are treated as an idempotent no-op so repeated runs remain safe.
 
         Secret operations require the GitHub CLI (gh). This function intentionally does not use a
         Python-based encryption fallback.
@@ -29,23 +34,35 @@ function Remove-GitHubSecret
         - Organization: an organization-level secret that can be shared with repositories
         - User: an account-level Codespaces secret for the authenticated user
 
-        This is the primary scope selector for the command. It is required so the target type is
-        always explicit. Use -Scope User instead of a separate user switch; it maps to GitHub's
-        user-level Codespaces secret behavior.
+        Companion parameter rules:
+        - Repository: use -Scope Repository; -Repository is optional
+        - Environment: use -Scope Environment; -Repository and -Environment are required
+        - Organization: use -Scope Organization; -Organization is required
+        - User: use -Scope User for a user-level Codespaces secret; -Repository, -Environment, and -Organization are not valid
+
+        Use -Scope User instead of a separate user switch. It maps to GitHub's user-level
+        Codespaces secret behavior.
 
     .PARAMETER Repository
         The target repository in OWNER/REPO or HOST/OWNER/REPO format.
 
-        This targets a repository-scoped secret. Repository secrets are available only to the
-        specified repository.
+        Supported with -Scope Repository and -Scope Environment.
 
-        When -Scope Repository is used and -Repository is omitted, the current Git repository origin
-        is used. When -Scope Environment is used, -Repository is required.
+        Repository secrets are available only to the specified repository. Environment secrets belong
+        to a specific environment in the specified repository.
+
+        When -Scope Repository is used and -Repository is omitted, the function tries to resolve the
+        current Git repository's origin remote. If that cannot be determined, specify -Repository
+        explicitly.
+
+        Examples:
+        - octo-org/service-api
+        - github.example.com/platform/service-api
 
     .PARAMETER Environment
         The deployment environment name for environment secrets.
 
-        This parameter is only valid for environment-scoped secrets and requires -Repository.
+        Supported only with -Scope Environment and requires -Repository.
 
         Environment secrets always target GitHub Actions and belong to a single named environment
         within the repository. They are intended for jobs that reference that environment.
@@ -56,14 +73,15 @@ function Remove-GitHubSecret
         - Must be unique within the repository
 
         GitHub REST endpoints require environment names to be URL-encoded. This function handles
-        that automatically, so names containing `/` are supported.
+        that automatically, so names containing spaces or `/` are supported.
 
     .PARAMETER Organization
         The target organization for organization secrets.
 
-        This targets an organization-scoped secret. Organization secrets can be shared with
-        repositories in the organization according to the access policy used when the secret was set.
-        When -Scope Organization is used, -Organization is required.
+        Supported only with -Scope Organization.
+
+        Organization secrets can be shared with repositories in the organization according to the
+        access policy that was configured when the secret was created or last updated.
 
     .PARAMETER Application
         The secret application. Valid values are actions, codespaces, and dependabot.
@@ -73,12 +91,26 @@ function Remove-GitHubSecret
         - codespaces: the secret is available to GitHub Codespaces
         - dependabot: the secret is available to Dependabot
 
-        At user scope, the application is fixed to Codespaces even when -Application is omitted.
+        If -Application is omitted, the function defaults to:
+        - Repository scope: actions
+        - Environment scope: actions
+        - Organization scope: actions
+        - User scope: codespaces
 
-        Valid combinations depend on scope in the same way as Set-GitHubSecret.
+        Typical combinations:
+        - Repository scope: actions, codespaces, or dependabot
+        - Environment scope: actions only
+        - Organization scope: actions, codespaces, or dependabot
+        - User scope: codespaces only
+
+        When deleting a secret for a non-default application such as dependabot or codespaces,
+        specify the same -Application value that was used when the secret was created.
 
     .PARAMETER Token
         Optional GitHub personal access token as a SecureString.
+
+        If supplied, the token is injected only for the outbound `gh` call and is never written to
+        command output.
 
         When omitted, the function checks the environment variable named by
         -TokenEnvironmentVariableName. If the GitHub CLI is installed, its existing authenticated
@@ -87,13 +119,15 @@ function Remove-GitHubSecret
     .PARAMETER TokenEnvironmentVariableName
         The environment variable name to check for a GitHub token when -Token is not supplied.
 
-        Defaults to GH_TOKEN. The named environment variable is used for `gh` authentication when
-        -Token is not supplied.
+        Defaults to GH_TOKEN.
+
+        This environment variable is read only when -Token is not supplied. Use it when automation
+        stores the GitHub token under a non-default name such as GITHUB_ADMIN_TOKEN.
 
     .EXAMPLE
-        PS > Remove-GitHubSecret -Name 'MY_SECRET' -Scope Repository -Repository 'octo-org/octo-repo'
+        PS > Remove-GitHubSecret -Name 'MY_SECRET' -Scope Repository
 
-        Removes a repository secret.
+        Removes a repository secret from the current Git repository.
 
     .EXAMPLE
         PS > Remove-GitHubSecret -Name 'DEPLOY_TOKEN' -Scope Environment -Repository 'octo-org/service-api' -Environment 'Production'
@@ -111,13 +145,27 @@ function Remove-GitHubSecret
 
         Removes an organization-level Dependabot secret by using an explicit token.
 
+    .EXAMPLE
+        PS > Remove-GitHubSecret -Name 'CODESPACES_BOOTSTRAP' -Scope Organization -Organization 'octo-org' -Application codespaces
+
+        Removes an organization-level Codespaces secret.
+
     .OUTPUTS
         GitHub.SecretRemoveResult
 
-        Returns a summary object with status, target scope, transport used, and whether the secret changed.
+        Returns a summary object with status, target scope, resolved application, transport used,
+        and whether the secret changed.
 
     .NOTES
+        -Scope is required for all GitHub helper functions in this module family.
+        Secret operations require the GitHub CLI (gh) to be installed and available in PATH.
         If the secret does not exist, the function returns an AlreadyAbsent result instead of failing.
+
+    .LINK
+        https://cli.github.com/manual/gh_secret_delete
+
+    .LINK
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-GitHubSecret.ps1
     #>
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([PSCustomObject])]
