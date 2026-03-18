@@ -103,6 +103,12 @@ function Remove-GitHubSecret
         - Organization scope: actions, codespaces, or dependabot
         - User scope: codespaces only
 
+        Use these patterns:
+        - Actions secret: omit -Application or specify -Application actions
+        - Codespaces secret: specify -Application codespaces for repository or organization scope
+        - Dependabot secret: specify -Application dependabot for repository or organization scope
+        - User secret: use -Scope User, which always targets Codespaces
+
         When deleting a secret for a non-default application such as dependabot or codespaces,
         specify the same -Application value that was used when the secret was created.
 
@@ -127,12 +133,17 @@ function Remove-GitHubSecret
     .EXAMPLE
         PS > Remove-GitHubSecret -Name 'MY_SECRET' -Scope Repository
 
-        Removes a repository secret from the current Git repository.
+        Removes a repository-level Actions secret from the current Git repository.
+
+    .EXAMPLE
+        PS > Remove-GitHubSecret -Name 'DEVCONTAINER_PAT' -Scope Repository -Repository 'octo-org/service-api' -Application codespaces
+
+        Removes a repository-level Codespaces secret.
 
     .EXAMPLE
         PS > Remove-GitHubSecret -Name 'DEPLOY_TOKEN' -Scope Environment -Repository 'octo-org/service-api' -Environment 'Production'
 
-        Removes an environment secret.
+        Removes an environment Actions secret.
 
     .EXAMPLE
         PS > Remove-GitHubSecret -Name 'DEVCONTAINER_PAT' -Scope User -WhatIf

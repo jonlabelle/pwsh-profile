@@ -127,6 +127,12 @@ function Set-GitHubSecret
         - Organization scope: actions, codespaces, or dependabot
         - User scope: codespaces only
 
+        Use these patterns:
+        - Actions secret: omit -Application or specify -Application actions
+        - Codespaces secret: specify -Application codespaces for repository or organization scope
+        - Dependabot secret: specify -Application dependabot for repository or organization scope
+        - User secret: use -Scope User, which always targets Codespaces
+
         Specify the same application when updating an existing secret that was originally created for
         a non-default application such as dependabot or codespaces.
 
@@ -197,19 +203,37 @@ function Set-GitHubSecret
         PS > $value = Read-Host -AsSecureString
         PS > Set-GitHubSecret -Name 'MY_SECRET' -Value $value -Scope Repository
 
-        Creates a repository secret for the current Git repository.
+        Creates a repository-level Actions secret for the current Git repository.
+
+    .EXAMPLE
+        PS > $value = ConvertTo-SecureString $env:CODESPACES_TOKEN -AsPlainText -Force
+        PS > Set-GitHubSecret -Name 'DEVCONTAINER_PAT' -Value $value -Scope Repository -Repository 'octo-org/service-api' -Application codespaces
+
+        Creates a repository-level Codespaces secret.
+
+    .EXAMPLE
+        PS > $value = ConvertTo-SecureString $env:DEPENDABOT_NUGET_TOKEN -AsPlainText -Force
+        PS > Set-GitHubSecret -Name 'NUGET_AUTH_TOKEN' -Value $value -Scope Repository -Repository 'octo-org/service-api' -Application dependabot -Force
+
+        Overwrites an existing repository-level Dependabot secret.
 
     .EXAMPLE
         PS > $value = ConvertTo-SecureString $env:MY_SECRET -AsPlainText -Force
         PS > Set-GitHubSecret -Name 'MY_SECRET' -Value $value -Scope Organization -Organization 'octo-org' -Visibility selected -SelectedRepository 'app1', 'app2'
 
-        Creates an organization secret restricted to specific repositories.
+        Creates an organization-level Actions secret restricted to specific repositories.
+
+    .EXAMPLE
+        PS > $value = ConvertTo-SecureString $env:CODESPACES_BOOTSTRAP -AsPlainText -Force
+        PS > Set-GitHubSecret -Name 'CODESPACES_BOOTSTRAP' -Value $value -Scope Organization -Organization 'octo-org' -Application codespaces -Visibility all
+
+        Creates an organization-level Codespaces secret.
 
     .EXAMPLE
         PS > $value = Read-Host -AsSecureString
         PS > Set-GitHubSecret -Name 'DEPLOY_TOKEN' -Value $value -Scope Environment -Repository 'octo-org/service-api' -Environment 'Production'
 
-        Creates or updates a production environment secret for a repository.
+        Creates or updates a production environment Actions secret for a repository.
 
     .EXAMPLE
         PS > $value = Read-Host -AsSecureString
@@ -222,12 +246,6 @@ function Set-GitHubSecret
         PS > Set-GitHubSecret -Name 'DEVCONTAINER_PAT' -Value $value -Scope User -SelectedRepository 'octo-org/service-api', 'octo-org/web-app'
 
         Creates a user-level Codespaces secret that is available only to the listed repositories.
-
-    .EXAMPLE
-        PS > $value = ConvertTo-SecureString $env:DEPENDABOT_NUGET_TOKEN -AsPlainText -Force
-        PS > Set-GitHubSecret -Name 'NUGET_AUTH_TOKEN' -Value $value -Scope Repository -Repository 'octo-org/service-api' -Application dependabot -Force
-
-        Overwrites an existing repository-level Dependabot secret.
 
     .EXAMPLE
         PS > $token = ConvertTo-SecureString $env:GITHUB_ADMIN_TOKEN -AsPlainText -Force
