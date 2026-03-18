@@ -530,14 +530,19 @@ The profile includes utility functions organized by category:
 ### Developer
 
 - **[`Get-DotNetVersion`](Functions/Developer/Get-DotNetVersion.ps1)** — Retrieves installed .NET Framework and .NET Core versions
+- **[`Get-GitHubVariable`](Functions/Developer/Get-GitHubVariable.ps1)** — Retrieves a GitHub Actions variable from repository, environment, or organization scope
 - **[`Remove-DotNetBuildArtifacts`](Functions/Developer/Remove-DotNetBuildArtifacts.ps1)** — Cleans up .NET build artifacts from a project directory
 - **[`Import-DotEnv`](Functions/Developer/Import-DotEnv.ps1)** — Loads environment variables from dotenv (.env) files
 - **[`Invoke-GitPull`](Functions/Developer/Invoke-GitPull.ps1)** — Performs bulk `git pull` operations across multiple repositories
 - **[`Invoke-BfgRepoCleaner`](Functions/Developer/Invoke-BfgRepoCleaner.ps1)** — Cleans Git history with configurable runtime
 - **[`Invoke-Magika`](Functions/Developer/Invoke-Magika.ps1)** — Intelligent file type detection using Magika
 - **[`Invoke-SqlFluff`](Functions/Developer/Invoke-SqlFluff.ps1)** — Runs SQLFluff lint, fix, or format against SQL files
+- **[`Remove-GitHubSecret`](Functions/Developer/Remove-GitHubSecret.ps1)** — Removes a GitHub secret from repository, environment, organization, or user scope
+- **[`Remove-GitHubVariable`](Functions/Developer/Remove-GitHubVariable.ps1)** — Removes a GitHub Actions variable from repository, environment, or organization scope
 - **[`Remove-GitIgnoredFiles`](Functions/Developer/Remove-GitIgnoredFiles.ps1)** — Removes ignored and optionally untracked files from Git repositories
 - **[`Remove-NodeModules`](Functions/Developer/Remove-NodeModules.ps1)** — Removes node_modules folders from Node.js project directories
+- **[`Set-GitHubSecret`](Functions/Developer/Set-GitHubSecret.ps1)** — Creates or updates a GitHub secret with idempotent `-Force` and `-WhatIf` support
+- **[`Set-GitHubVariable`](Functions/Developer/Set-GitHubVariable.ps1)** — Creates or updates a GitHub Actions variable with idempotent `-Force` and `-WhatIf` support
 - **[`Invoke-DockerAutoRun`](Functions/Developer/Invoke-DockerAutoRun.ps1)** — Auto-detects project type and builds/runs a Docker container
 - **[`Remove-DockerArtifacts`](Functions/Developer/Remove-DockerArtifacts.ps1)** — Prunes unused Docker images, networks, cache, containers, and build-history
 - **[`Update-DockerImages`](Functions/Developer/Update-DockerImages.ps1)** — Updates all Docker images by pulling the latest versions from their registries
@@ -620,6 +625,7 @@ Functions with dependencies automatically load what they need, so you only need 
 Contributions are welcome! Please follow these guidelines:
 
 - One function per file in `Functions/{Category}` (named `Verb-Noun.ps1`) — auto-loaded by the main profile
+- Private helper scripts may live under paths such as `Functions/{Category}/Private`, but they should avoid the public `Verb-Noun.ps1` / `*-*.ps1` naming pattern so the profile loader ignores them; public functions should lazy-load those helpers on demand
 - Include Pester tests for new functions — both unit and integration tests where applicable (see [`Tests/README.md`](Tests/README.md) for test structure and examples)
 - Open a [pull request](https://github.com/jonlabelle/pwsh-profile/pulls) with a clear description and basic verification steps (linting + functional testing)
 - Maintain cross-platform compatibility following the project's conventions (see [`./Functions`](./Functions/) for examples)
