@@ -67,7 +67,7 @@ Describe 'GitHub secret functions' {
                 throw "Unexpected gh arguments: $($args -join ' ')"
             }
 
-            Set-GitHubSecret -Name 'LAZY_LOAD_SECRET' -Value $script:SecretValue -Repository 'octo-org/service-api' -WhatIf | Out-Null
+            Set-GitHubSecret -Name 'LAZY_LOAD_SECRET' -Value $script:SecretValue -Scope Repository -Repository 'octo-org/service-api' -WhatIf | Out-Null
 
             Get-Variable -Name PwshProfileGitHubConfigurationHelpers -Scope Script -ErrorAction SilentlyContinue | Should -Not -BeNullOrEmpty
         }
@@ -121,7 +121,7 @@ Describe 'GitHub secret functions' {
             } | Should -Throw '*-Scope User does not support -Repository*'
         }
 
-        It 'infers environment scope when -Environment is used without -Scope' {
+        It 'supports environment scope through -Scope Environment' {
             Mock -CommandName gh -MockWith {
                 if ($args[0] -eq 'api')
                 {
@@ -135,6 +135,7 @@ Describe 'GitHub secret functions' {
             $result = Set-GitHubSecret `
                 -Name 'DEPLOY_TOKEN' `
                 -Value $script:SecretValue `
+                -Scope Environment `
                 -Repository 'octo-org/service-api' `
                 -Environment 'Production' `
                 -WhatIf
@@ -144,7 +145,7 @@ Describe 'GitHub secret functions' {
             $result.Target | Should -Be "environment 'Production' in octo-org/service-api"
         }
 
-        It 'infers organization scope when -Organization is used without -Scope' {
+        It 'supports organization scope through -Scope Organization' {
             Mock -CommandName gh -MockWith {
                 if ($args[0] -eq 'api')
                 {
@@ -158,6 +159,7 @@ Describe 'GitHub secret functions' {
             $result = Set-GitHubSecret `
                 -Name 'ORG_SECRET' `
                 -Value $script:SecretValue `
+                -Scope Organization `
                 -Organization 'octo-org' `
                 -WhatIf
 
@@ -182,11 +184,11 @@ Describe 'GitHub secret functions' {
             @{ Name = 'GITHUB_TOKEN'; Error = "*cannot start with the 'GITHUB_' prefix*" }
         ) {
             {
-                Set-GitHubSecret -Name $Name -Value $script:SecretValue -Repository 'octo-org/service-api'
+                Set-GitHubSecret -Name $Name -Value $script:SecretValue -Scope Repository -Repository 'octo-org/service-api'
             } | Should -Throw $Error
 
             {
-                Remove-GitHubSecret -Name $Name -Repository 'octo-org/service-api'
+                Remove-GitHubSecret -Name $Name -Scope Repository -Repository 'octo-org/service-api'
             } | Should -Throw $Error
         }
 
@@ -197,6 +199,7 @@ Describe 'GitHub secret functions' {
                 Set-GitHubSecret `
                     -Name 'DEPLOY_TOKEN' `
                     -Value $script:SecretValue `
+                    -Scope Environment `
                     -Repository 'octo-org/service-api' `
                     -Environment $tooLongEnvironmentName
             } | Should -Throw '*may not exceed 255 characters*'
@@ -204,6 +207,7 @@ Describe 'GitHub secret functions' {
             {
                 Remove-GitHubSecret `
                     -Name 'DEPLOY_TOKEN' `
+                    -Scope Environment `
                     -Repository 'octo-org/service-api' `
                     -Environment $tooLongEnvironmentName
             } | Should -Throw '*may not exceed 255 characters*'
@@ -223,6 +227,7 @@ Describe 'GitHub secret functions' {
             $result = Set-GitHubSecret `
                 -Name 'DEPLOY_TOKEN' `
                 -Value $script:SecretValue `
+                -Scope Environment `
                 -Repository 'octo-org/service-api' `
                 -Environment 'Production/Blue' `
                 -WhatIf
@@ -238,7 +243,7 @@ Describe 'GitHub secret functions' {
             }
 
             {
-                Set-GitHubSecret -Name 'OVERSIZED_SECRET' -Value $tooLargeValue -Repository 'octo-org/service-api'
+                Set-GitHubSecret -Name 'OVERSIZED_SECRET' -Value $tooLargeValue -Scope Repository -Repository 'octo-org/service-api'
             } | Should -Throw '*48 KB*'
 
             Assert-MockCalled -CommandName gh -Times 0
@@ -255,7 +260,7 @@ Describe 'GitHub secret functions' {
                 throw "Unexpected gh arguments: $($args -join ' ')"
             }
 
-            $result = Set-GitHubSecret -Name 'EXISTING_SECRET' -Value $script:SecretValue -Repository 'octo-org/service-api'
+            $result = Set-GitHubSecret -Name 'EXISTING_SECRET' -Value $script:SecretValue -Scope Repository -Repository 'octo-org/service-api'
 
             $result.Status | Should -Be 'Skipped'
             $result.Changed | Should -BeFalse
@@ -293,7 +298,7 @@ Describe 'GitHub secret functions' {
                 }
             }
 
-            $result = Set-GitHubSecret -Name 'EXISTING_SECRET' -Value $script:SecretValue -Repository 'octo-org/service-api' -Force
+            $result = Set-GitHubSecret -Name 'EXISTING_SECRET' -Value $script:SecretValue -Scope Repository -Repository 'octo-org/service-api' -Force
 
             $result.Status | Should -Be 'Updated'
             $result.Changed | Should -BeTrue
@@ -312,7 +317,7 @@ Describe 'GitHub secret functions' {
                 throw "Unexpected gh arguments: $($args -join ' ')"
             }
 
-            $result = Set-GitHubSecret -Name 'NEW_SECRET' -Value $script:SecretValue -Repository 'octo-org/service-api' -WhatIf
+            $result = Set-GitHubSecret -Name 'NEW_SECRET' -Value $script:SecretValue -Scope Repository -Repository 'octo-org/service-api' -WhatIf
 
             $result.Status | Should -Be 'WhatIf'
             Assert-MockCalled -CommandName gh -ParameterFilter { $args[0] -eq 'secret' -and $args[1] -eq 'set' } -Times 0
@@ -322,7 +327,7 @@ Describe 'GitHub secret functions' {
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'gh' } -MockWith { $null }
 
             {
-                Set-GitHubSecret -Name 'REST_SECRET' -Value $script:SecretValue -Repository 'octo-org/service-api' -Token $script:TokenValue
+                Set-GitHubSecret -Name 'REST_SECRET' -Value $script:SecretValue -Scope Repository -Repository 'octo-org/service-api' -Token $script:TokenValue
             } | Should -Throw '*GitHub CLI*'
         }
 
@@ -358,7 +363,7 @@ Describe 'GitHub secret functions' {
 
             try
             {
-                Set-GitHubSecret -Name 'REDACTION_TEST' -Value $script:SecretValue -Repository 'octo-org/service-api' -Token $redactionToken
+                Set-GitHubSecret -Name 'REDACTION_TEST' -Value $script:SecretValue -Scope Repository -Repository 'octo-org/service-api' -Token $redactionToken
                 throw 'Expected Set-GitHubSecret to fail.'
             }
             catch
@@ -395,7 +400,7 @@ Describe 'GitHub secret functions' {
                 throw "Unexpected gh arguments: $($args -join ' ')"
             }
 
-            $result = Remove-GitHubSecret -Name 'MISSING_SECRET' -Repository 'octo-org/service-api'
+            $result = Remove-GitHubSecret -Name 'MISSING_SECRET' -Scope Repository -Repository 'octo-org/service-api'
 
             $result.Status | Should -Be 'AlreadyAbsent'
             $result.Changed | Should -BeFalse
@@ -423,7 +428,7 @@ Describe 'GitHub secret functions' {
                 throw "Unexpected gh arguments: $($args -join ' ')"
             }
 
-            $result = Remove-GitHubSecret -Name 'TO_DELETE' -Repository 'octo-org/service-api'
+            $result = Remove-GitHubSecret -Name 'TO_DELETE' -Scope Repository -Repository 'octo-org/service-api'
 
             $result.Status | Should -Be 'Removed'
             $script:ObservedPromptDisabled | Should -Be '1'
@@ -440,7 +445,7 @@ Describe 'GitHub secret functions' {
                 throw "Unexpected gh arguments: $($args -join ' ')"
             }
 
-            $result = Remove-GitHubSecret -Name 'TO_DELETE' -Repository 'octo-org/service-api' -WhatIf
+            $result = Remove-GitHubSecret -Name 'TO_DELETE' -Scope Repository -Repository 'octo-org/service-api' -WhatIf
 
             $result.Status | Should -Be 'WhatIf'
             Assert-MockCalled -CommandName gh -ParameterFilter { $args[0] -eq 'secret' -and $args[1] -eq 'delete' } -Times 0
@@ -473,7 +478,7 @@ Describe 'GitHub secret functions' {
             $script:CapturedDeleteArguments | Should -Not -Contain '--app'
         }
 
-        It 'infers organization scope during removal when -Organization is used without -Scope' {
+        It 'supports organization scope during removal through -Scope Organization' {
             Mock -CommandName gh -MockWith {
                 if ($args[0] -eq 'api')
                 {
@@ -484,7 +489,7 @@ Describe 'GitHub secret functions' {
                 throw "Unexpected gh arguments: $($args -join ' ')"
             }
 
-            $result = Remove-GitHubSecret -Name 'ORG_SECRET' -Organization 'octo-org'
+            $result = Remove-GitHubSecret -Name 'ORG_SECRET' -Scope Organization -Organization 'octo-org'
 
             $result.Status | Should -Be 'AlreadyAbsent'
             $result.Scope | Should -Be 'Organization'

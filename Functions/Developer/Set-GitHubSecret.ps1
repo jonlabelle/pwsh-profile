@@ -50,11 +50,9 @@ function Set-GitHubSecret
         - Organization: an organization-level secret that can be shared with repositories
         - User: an account-level Codespaces secret for the authenticated user
 
-        This is the primary scope selector for the command. Use -Scope User instead of a separate
-        user switch; it maps to GitHub's user-level Codespaces secret behavior.
-
-        Repository is the default when -Scope is omitted. If you specify -Environment or
-        -Organization without -Scope, the function infers Environment or Organization scope.
+        This is the primary scope selector for the command. It is required so the target type is
+        always explicit. Use -Scope User instead of a separate user switch; it maps to GitHub's
+        user-level Codespaces secret behavior.
 
     .PARAMETER Repository
         The target repository in OWNER/REPO or HOST/OWNER/REPO format.
@@ -62,8 +60,8 @@ function Set-GitHubSecret
         This targets a repository-scoped secret. Repository secrets are available only to the
         specified repository.
 
-        When omitted for repository scope, the current Git repository origin is used.
-        When -Scope Environment is used, -Repository is required.
+        When -Scope Repository is used and -Repository is omitted, the current Git repository origin
+        is used. When -Scope Environment is used, -Repository is required.
 
         Examples:
         - octo-org/service-api
@@ -157,19 +155,19 @@ function Set-GitHubSecret
 
     .EXAMPLE
         PS > $value = Read-Host -AsSecureString
-        PS > Set-GitHubSecret -Name 'MY_SECRET' -Value $value -Repository 'octo-org/octo-repo'
+        PS > Set-GitHubSecret -Name 'MY_SECRET' -Value $value -Scope Repository -Repository 'octo-org/octo-repo'
 
         Creates a repository secret in octo-org/octo-repo.
 
     .EXAMPLE
         PS > $value = ConvertTo-SecureString $env:MY_SECRET -AsPlainText -Force
-        PS > Set-GitHubSecret -Name 'MY_SECRET' -Value $value -Organization 'octo-org' -Visibility selected -SelectedRepository 'app1', 'app2'
+        PS > Set-GitHubSecret -Name 'MY_SECRET' -Value $value -Scope Organization -Organization 'octo-org' -Visibility selected -SelectedRepository 'app1', 'app2'
 
         Creates an organization secret restricted to specific repositories.
 
     .EXAMPLE
         PS > $value = Read-Host -AsSecureString
-        PS > Set-GitHubSecret -Name 'DEPLOY_TOKEN' -Value $value -Repository 'octo-org/service-api' -Environment 'Production'
+        PS > Set-GitHubSecret -Name 'DEPLOY_TOKEN' -Value $value -Scope Environment -Repository 'octo-org/service-api' -Environment 'Production'
 
         Creates or updates a production environment secret for a repository.
 
@@ -181,20 +179,20 @@ function Set-GitHubSecret
 
     .EXAMPLE
         PS > $value = ConvertTo-SecureString $env:DEPENDABOT_NUGET_TOKEN -AsPlainText -Force
-        PS > Set-GitHubSecret -Name 'NUGET_AUTH_TOKEN' -Value $value -Organization 'octo-org' -Application dependabot -Force
+        PS > Set-GitHubSecret -Name 'NUGET_AUTH_TOKEN' -Value $value -Scope Organization -Organization 'octo-org' -Application dependabot -Force
 
         Overwrites an existing organization-level Dependabot secret.
 
     .EXAMPLE
         PS > $token = ConvertTo-SecureString $env:GITHUB_ADMIN_TOKEN -AsPlainText -Force
         PS > $value = ConvertTo-SecureString $env:BUILD_SECRET -AsPlainText -Force
-        PS > Set-GitHubSecret -Name 'BUILD_SECRET' -Value $value -Organization 'octo-org' -Token $token -WhatIf
+        PS > Set-GitHubSecret -Name 'BUILD_SECRET' -Value $value -Scope Organization -Organization 'octo-org' -Token $token -WhatIf
 
         Shows what would happen without changing the secret.
 
     .EXAMPLE
         PS > $value = ConvertTo-SecureString $env:CI_SECRET -AsPlainText -Force
-        PS > Set-GitHubSecret -Name 'CI_SECRET' -Value $value -Repository 'octo-org/service-api' -TokenEnvironmentVariableName 'GITHUB_ADMIN_TOKEN'
+        PS > Set-GitHubSecret -Name 'CI_SECRET' -Value $value -Scope Repository -Repository 'octo-org/service-api' -TokenEnvironmentVariableName 'GITHUB_ADMIN_TOKEN'
 
         Reads the GitHub token from a non-default environment variable.
 
@@ -234,9 +232,9 @@ function Set-GitHubSecret
         [ValidateNotNull()]
         [SecureString]$Value,
 
-        [Parameter()]
+        [Parameter(Mandatory)]
         [ValidateSet('Repository', 'Environment', 'Organization', 'User')]
-        [String]$Scope = 'Repository',
+        [String]$Scope,
 
         [Parameter()]
         [String]$Repository,
@@ -318,22 +316,7 @@ function Set-GitHubSecret
         $helpers = $script:PwshProfileGitHubConfigurationHelpers
         $maxRetryCount = $helpers.DefaultRetryCount
         $initialRetryDelaySeconds = $helpers.DefaultInitialRetryDelaySeconds
-        $resolvedScope = if ($PSBoundParameters.ContainsKey('Scope'))
-        {
-            $Scope
-        }
-        elseif ($PSBoundParameters.ContainsKey('Organization'))
-        {
-            'Organization'
-        }
-        elseif ($PSBoundParameters.ContainsKey('Environment'))
-        {
-            'Environment'
-        }
-        else
-        {
-            'Repository'
-        }
+        $resolvedScope = $Scope
 
         switch ($resolvedScope)
         {

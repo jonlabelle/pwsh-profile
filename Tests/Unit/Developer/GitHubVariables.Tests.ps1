@@ -64,15 +64,15 @@ Describe 'GitHub variable functions' {
             @{ Name = 'GITHUB_TOKEN'; Error = "*cannot start with the 'GITHUB_' prefix*" }
         ) {
             {
-                Set-GitHubVariable -Name $Name -Value 'enabled' -Repository 'octo-org/service-api'
+                Set-GitHubVariable -Name $Name -Value 'enabled' -Scope Repository -Repository 'octo-org/service-api'
             } | Should -Throw $Error
 
             {
-                Get-GitHubVariable -Name $Name -Repository 'octo-org/service-api'
+                Get-GitHubVariable -Name $Name -Scope Repository -Repository 'octo-org/service-api'
             } | Should -Throw $Error
 
             {
-                Remove-GitHubVariable -Name $Name -Repository 'octo-org/service-api'
+                Remove-GitHubVariable -Name $Name -Scope Repository -Repository 'octo-org/service-api'
             } | Should -Throw $Error
         }
 
@@ -83,6 +83,7 @@ Describe 'GitHub variable functions' {
                 Set-GitHubVariable `
                     -Name 'DEPLOY_RING' `
                     -Value 'production' `
+                    -Scope Environment `
                     -Repository 'octo-org/service-api' `
                     -Environment $tooLongEnvironmentName
             } | Should -Throw '*may not exceed 255 characters*'
@@ -90,6 +91,7 @@ Describe 'GitHub variable functions' {
             {
                 Get-GitHubVariable `
                     -Name 'DEPLOY_RING' `
+                    -Scope Environment `
                     -Repository 'octo-org/service-api' `
                     -Environment $tooLongEnvironmentName
             } | Should -Throw '*may not exceed 255 characters*'
@@ -97,6 +99,7 @@ Describe 'GitHub variable functions' {
             {
                 Remove-GitHubVariable `
                     -Name 'DEPLOY_RING' `
+                    -Scope Environment `
                     -Repository 'octo-org/service-api' `
                     -Environment $tooLongEnvironmentName
             } | Should -Throw '*may not exceed 255 characters*'
@@ -115,6 +118,7 @@ Describe 'GitHub variable functions' {
 
             $result = Get-GitHubVariable `
                 -Name 'DEPLOY_RING' `
+                -Scope Environment `
                 -Repository 'octo-org/service-api' `
                 -Environment 'Production/Blue'
 
@@ -133,7 +137,7 @@ Describe 'GitHub variable functions' {
                 throw "Unexpected gh arguments: $($args -join ' ')"
             }
 
-            $result = Set-GitHubVariable -Name 'DOTNET_VERSION' -Value '8.0.x' -Repository 'octo-org/service-api'
+            $result = Set-GitHubVariable -Name 'DOTNET_VERSION' -Value '8.0.x' -Scope Repository -Repository 'octo-org/service-api'
 
             $result.Status | Should -Be 'Unchanged'
             $result.Changed | Should -BeFalse
@@ -153,7 +157,7 @@ Describe 'GitHub variable functions' {
                 throw "Unexpected gh arguments: $($args -join ' ')"
             }
 
-            $result = Set-GitHubVariable -Name 'DOTNET_VERSION' -Value '8.0.x' -Repository 'octo-org/service-api'
+            $result = Set-GitHubVariable -Name 'DOTNET_VERSION' -Value '8.0.x' -Scope Repository -Repository 'octo-org/service-api'
 
             $result.Status | Should -Be 'Skipped'
             Assert-MockCalled -CommandName gh -ParameterFilter {
@@ -186,7 +190,7 @@ Describe 'GitHub variable functions' {
                 throw "Unexpected gh arguments: $($args -join ' ')"
             }
 
-            $result = Set-GitHubVariable -Name 'DOTNET_VERSION' -Value '8.0.x' -Repository 'octo-org/service-api' -Force
+            $result = Set-GitHubVariable -Name 'DOTNET_VERSION' -Value '8.0.x' -Scope Repository -Repository 'octo-org/service-api' -Force
 
             $result.Status | Should -Be 'Updated'
             $script:TempRequestBodies.Count | Should -Be 1
@@ -227,6 +231,7 @@ Describe 'GitHub variable functions' {
             $result = Set-GitHubVariable `
                 -Name 'REGION' `
                 -Value 'us-east-1' `
+                -Scope Organization `
                 -Organization 'octo-org' `
                 -SelectedRepository @('app1', 'app2') `
                 -Token $script:TokenValue
@@ -262,7 +267,7 @@ Describe 'GitHub variable functions' {
                 throw "Unexpected gh arguments: $($args -join ' ')"
             }
 
-            $result = Set-GitHubVariable -Name 'FEATURE_FLAG' -Value 'enabled' -Repository 'octo-org/service-api'
+            $result = Set-GitHubVariable -Name 'FEATURE_FLAG' -Value 'enabled' -Scope Repository -Repository 'octo-org/service-api'
 
             $result.Status | Should -Be 'Created'
             $script:CreateAttempts | Should -Be 2
@@ -290,7 +295,7 @@ Describe 'GitHub variable functions' {
                 throw "Unexpected REST request: $Method $Uri"
             }
 
-            $result = Get-GitHubVariable -Name 'REGION' -Organization 'octo-org' -Token $script:TokenValue
+            $result = Get-GitHubVariable -Name 'REGION' -Scope Organization -Organization 'octo-org' -Token $script:TokenValue
 
             $result.Name | Should -Be 'REGION'
             $result.Value | Should -Be 'us-east-1'
@@ -313,7 +318,7 @@ Describe 'GitHub variable functions' {
 
             try
             {
-                Get-GitHubVariable -Name 'REGION' -Organization 'octo-org' -Token $redactionToken | Out-Null
+                Get-GitHubVariable -Name 'REGION' -Scope Organization -Organization 'octo-org' -Token $redactionToken | Out-Null
                 throw 'Expected Get-GitHubVariable to fail.'
             }
             catch
@@ -355,7 +360,7 @@ Describe 'GitHub variable functions' {
                 throw "Unexpected gh arguments: $($args -join ' ')"
             }
 
-            $result = Remove-GitHubVariable -Name 'MISSING_FLAG' -Repository 'octo-org/service-api'
+            $result = Remove-GitHubVariable -Name 'MISSING_FLAG' -Scope Repository -Repository 'octo-org/service-api'
 
             $result.Status | Should -Be 'AlreadyAbsent'
             Assert-MockCalled -CommandName gh -ParameterFilter {
@@ -374,7 +379,7 @@ Describe 'GitHub variable functions' {
                 throw "Unexpected gh arguments: $($args -join ' ')"
             }
 
-            $result = Remove-GitHubVariable -Name 'FEATURE_FLAG' -Repository 'octo-org/service-api' -WhatIf
+            $result = Remove-GitHubVariable -Name 'FEATURE_FLAG' -Scope Repository -Repository 'octo-org/service-api' -WhatIf
 
             $result.Status | Should -Be 'WhatIf'
             Assert-MockCalled -CommandName gh -ParameterFilter {

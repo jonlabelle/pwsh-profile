@@ -10,7 +10,7 @@ function Set-GitHubVariable
         unless the current value already matches the requested value.
 
         The function supports:
-        - Repository, environment, and organization variables
+        - Repository, environment, and organization variables via -Scope
         - Organization visibility and selected repository targeting
         - -WhatIf/-Confirm through ShouldProcess
         - Secure PAT input via -Token with fallback to GH_TOKEN
@@ -32,13 +32,25 @@ function Set-GitHubVariable
         GitHub Actions configuration variables are intended for non-secret configuration values that
         workflows can reference, such as `${{ vars.NAME }}`.
 
+    .PARAMETER Scope
+        The GitHub variable scope. Valid values are Repository, Environment, and Organization.
+
+        Meanings:
+        - Repository: a repository-level variable for one repository
+        - Environment: an environment-level variable for one deployment environment in a repository
+        - Organization: an organization-level variable that can be shared with repositories
+
+        This is the primary scope selector for the command. It is required so the target type is
+        always explicit.
+
     .PARAMETER Repository
         The target repository in OWNER/REPO or HOST/OWNER/REPO format.
 
         This targets a repository-scoped variable. Repository variables are available only to the
         specified repository.
 
-        When omitted for repository and environment scopes, the current Git repository origin is used.
+        When -Scope Repository is used and -Repository is omitted, the current Git repository origin
+        is used. When -Scope Environment is used, -Repository is required.
 
     .PARAMETER Environment
         The deployment environment name for environment variables.
@@ -61,7 +73,7 @@ function Set-GitHubVariable
 
         This targets an organization-scoped variable. Organization variables can be shared with
         repositories in the organization according to the access policy set by -Visibility and
-        -SelectedRepository.
+        -SelectedRepository. When -Scope Organization is used, -Organization is required.
 
     .PARAMETER Visibility
         Organization variable visibility. Valid values are all, private, and selected.
@@ -88,6 +100,10 @@ function Set-GitHubVariable
     .PARAMETER Token
         Optional GitHub personal access token as a SecureString.
 
+        When omitted, the function checks the environment variable named by
+        -TokenEnvironmentVariableName. If the GitHub CLI is installed, its existing authenticated
+        session can also be used when no token is supplied.
+
     .PARAMETER TokenEnvironmentVariableName
         The environment variable name to check for a GitHub token when -Token is not supplied.
 
@@ -95,28 +111,28 @@ function Set-GitHubVariable
         fallback when -Token is not supplied.
 
     .EXAMPLE
-        PS > Set-GitHubVariable -Name 'DOTNET_VERSION' -Value '8.0.x' -Repository 'octo-org/service-api'
+        PS > Set-GitHubVariable -Name 'DOTNET_VERSION' -Value '8.0.x' -Scope Repository -Repository 'octo-org/service-api'
 
         Creates a repository variable.
 
     .EXAMPLE
-        PS > Set-GitHubVariable -Name 'DEPLOY_RING' -Value 'production' -Repository 'octo-org/service-api' -Environment 'Production'
+        PS > Set-GitHubVariable -Name 'DEPLOY_RING' -Value 'production' -Scope Environment -Repository 'octo-org/service-api' -Environment 'Production'
 
         Creates an environment variable for the Production deployment environment.
 
     .EXAMPLE
-        PS > Set-GitHubVariable -Name 'REGION' -Value 'us-east-1' -Organization 'octo-org' -Visibility selected -SelectedRepository 'app1', 'app2'
+        PS > Set-GitHubVariable -Name 'REGION' -Value 'us-east-1' -Scope Organization -Organization 'octo-org' -Visibility selected -SelectedRepository 'app1', 'app2'
 
         Creates an organization variable that is visible only to selected repositories.
 
     .EXAMPLE
-        PS > Set-GitHubVariable -Name 'FEATURE_FLAG' -Value 'enabled' -Organization 'octo-org' -Force
+        PS > Set-GitHubVariable -Name 'FEATURE_FLAG' -Value 'enabled' -Scope Organization -Organization 'octo-org' -Force
 
         Overwrites an existing organization variable.
 
     .EXAMPLE
         PS > $token = ConvertTo-SecureString $env:GITHUB_ADMIN_TOKEN -AsPlainText -Force
-        PS > Set-GitHubVariable -Name 'BUILD_CONFIGURATION' -Value 'Release' -Repository 'octo-org/service-api' -Token $token -WhatIf
+        PS > Set-GitHubVariable -Name 'BUILD_CONFIGURATION' -Value 'Release' -Scope Repository -Repository 'octo-org/service-api' -Token $token -WhatIf
 
         Shows what would happen without modifying the variable.
 
@@ -128,7 +144,7 @@ function Set-GitHubVariable
     .NOTES
         Organization variables default to private visibility when they are created without explicit visibility settings.
     #>
-    [CmdletBinding(SupportsShouldProcess, DefaultParameterSetName = 'Repository')]
+    [CmdletBinding(SupportsShouldProcess)]
     [OutputType([PSCustomObject])]
     param(
         [Parameter(Mandatory, Position = 0)]
@@ -152,11 +168,14 @@ function Set-GitHubVariable
         [AllowEmptyString()]
         [String]$Value,
 
-        [Parameter(ParameterSetName = 'Repository')]
-        [Parameter(Mandatory, ParameterSetName = 'Environment')]
+        [Parameter(Mandatory)]
+        [ValidateSet('Repository', 'Environment', 'Organization')]
+        [String]$Scope,
+
+        [Parameter()]
         [String]$Repository,
 
-        [Parameter(Mandatory, ParameterSetName = 'Environment')]
+        [Parameter()]
         [ValidateScript({
             if ([string]::IsNullOrWhiteSpace($_))
             {
@@ -172,7 +191,7 @@ function Set-GitHubVariable
         })]
         [String]$Environment,
 
-        [Parameter(Mandatory, ParameterSetName = 'Organization')]
+        [Parameter()]
         [ValidateNotNullOrEmpty()]
         [String]$Organization,
 
@@ -226,15 +245,66 @@ function Set-GitHubVariable
         $helpers = $script:PwshProfileGitHubConfigurationHelpers
         $maxRetryCount = $helpers.DefaultRetryCount
         $initialRetryDelaySeconds = $helpers.DefaultInitialRetryDelaySeconds
+        $resolvedScope = $Scope
 
-        if ($SelectedRepository -and $PSCmdlet.ParameterSetName -ne 'Organization')
+        switch ($resolvedScope)
         {
-            throw '-SelectedRepository is supported only for organization variables.'
+            'Repository'
+            {
+                if ($PSBoundParameters.ContainsKey('Environment'))
+                {
+                    throw "Use -Scope Environment when specifying -Environment."
+                }
+
+                if ($PSBoundParameters.ContainsKey('Organization'))
+                {
+                    throw "Use -Scope Organization when specifying -Organization."
+                }
+            }
+            'Environment'
+            {
+                if (-not $PSBoundParameters.ContainsKey('Repository'))
+                {
+                    throw '-Scope Environment requires -Repository.'
+                }
+
+                if (-not $PSBoundParameters.ContainsKey('Environment'))
+                {
+                    throw '-Scope Environment requires -Environment.'
+                }
+
+                if ($PSBoundParameters.ContainsKey('Organization'))
+                {
+                    throw '-Scope Environment does not support -Organization.'
+                }
+            }
+            'Organization'
+            {
+                if (-not $PSBoundParameters.ContainsKey('Organization'))
+                {
+                    throw '-Scope Organization requires -Organization.'
+                }
+
+                if ($PSBoundParameters.ContainsKey('Repository'))
+                {
+                    throw '-Scope Organization does not support -Repository.'
+                }
+
+                if ($PSBoundParameters.ContainsKey('Environment'))
+                {
+                    throw '-Scope Organization does not support -Environment.'
+                }
+            }
         }
 
-        if ($Visibility -and $PSCmdlet.ParameterSetName -ne 'Organization')
+        if ($SelectedRepository -and $resolvedScope -ne 'Organization')
         {
-            throw '-Visibility is supported only for organization variables.'
+            throw '-SelectedRepository is supported only for -Scope Organization.'
+        }
+
+        if ($Visibility -and $resolvedScope -ne 'Organization')
+        {
+            throw '-Visibility is supported only for -Scope Organization.'
         }
 
         if ($Visibility -eq 'selected' -and -not $SelectedRepository)
@@ -243,7 +313,7 @@ function Set-GitHubVariable
         }
 
         $variableContext = & $helpers.GetVariableContext `
-            -ParameterSetName $PSCmdlet.ParameterSetName `
+            -Scope $resolvedScope `
             -Repository $Repository `
             -Environment $Environment `
             -Organization $Organization

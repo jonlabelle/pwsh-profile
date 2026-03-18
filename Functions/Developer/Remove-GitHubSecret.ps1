@@ -29,11 +29,9 @@ function Remove-GitHubSecret
         - Organization: an organization-level secret that can be shared with repositories
         - User: an account-level Codespaces secret for the authenticated user
 
-        This is the primary scope selector for the command. Use -Scope User instead of a separate
-        user switch; it maps to GitHub's user-level Codespaces secret behavior.
-
-        Repository is the default when -Scope is omitted. If you specify -Environment or
-        -Organization without -Scope, the function infers Environment or Organization scope.
+        This is the primary scope selector for the command. It is required so the target type is
+        always explicit. Use -Scope User instead of a separate user switch; it maps to GitHub's
+        user-level Codespaces secret behavior.
 
     .PARAMETER Repository
         The target repository in OWNER/REPO or HOST/OWNER/REPO format.
@@ -41,8 +39,8 @@ function Remove-GitHubSecret
         This targets a repository-scoped secret. Repository secrets are available only to the
         specified repository.
 
-        When omitted for repository scope, the current Git repository origin is used.
-        When -Scope Environment is used, -Repository is required.
+        When -Scope Repository is used and -Repository is omitted, the current Git repository origin
+        is used. When -Scope Environment is used, -Repository is required.
 
     .PARAMETER Environment
         The deployment environment name for environment secrets.
@@ -93,12 +91,12 @@ function Remove-GitHubSecret
         -Token is not supplied.
 
     .EXAMPLE
-        PS > Remove-GitHubSecret -Name 'MY_SECRET' -Repository 'octo-org/octo-repo'
+        PS > Remove-GitHubSecret -Name 'MY_SECRET' -Scope Repository -Repository 'octo-org/octo-repo'
 
         Removes a repository secret.
 
     .EXAMPLE
-        PS > Remove-GitHubSecret -Name 'DEPLOY_TOKEN' -Repository 'octo-org/service-api' -Environment 'Production'
+        PS > Remove-GitHubSecret -Name 'DEPLOY_TOKEN' -Scope Environment -Repository 'octo-org/service-api' -Environment 'Production'
 
         Removes an environment secret.
 
@@ -109,7 +107,7 @@ function Remove-GitHubSecret
 
     .EXAMPLE
         PS > $token = ConvertTo-SecureString $env:GITHUB_ADMIN_TOKEN -AsPlainText -Force
-        PS > Remove-GitHubSecret -Name 'NUGET_AUTH_TOKEN' -Organization 'octo-org' -Application dependabot -Token $token
+        PS > Remove-GitHubSecret -Name 'NUGET_AUTH_TOKEN' -Scope Organization -Organization 'octo-org' -Application dependabot -Token $token
 
         Removes an organization-level Dependabot secret by using an explicit token.
 
@@ -141,9 +139,9 @@ function Remove-GitHubSecret
         })]
         [String]$Name,
 
-        [Parameter()]
+        [Parameter(Mandatory)]
         [ValidateSet('Repository', 'Environment', 'Organization', 'User')]
-        [String]$Scope = 'Repository',
+        [String]$Scope,
 
         [Parameter()]
         [String]$Repository,
@@ -212,22 +210,7 @@ function Remove-GitHubSecret
         $helpers = $script:PwshProfileGitHubConfigurationHelpers
         $maxRetryCount = $helpers.DefaultRetryCount
         $initialRetryDelaySeconds = $helpers.DefaultInitialRetryDelaySeconds
-        $resolvedScope = if ($PSBoundParameters.ContainsKey('Scope'))
-        {
-            $Scope
-        }
-        elseif ($PSBoundParameters.ContainsKey('Organization'))
-        {
-            'Organization'
-        }
-        elseif ($PSBoundParameters.ContainsKey('Environment'))
-        {
-            'Environment'
-        }
-        else
-        {
-            'Repository'
-        }
+        $resolvedScope = $Scope
 
         switch ($resolvedScope)
         {

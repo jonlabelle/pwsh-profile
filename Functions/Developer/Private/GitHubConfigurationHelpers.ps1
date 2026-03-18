@@ -510,14 +510,12 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             [String]$Application
         )
 
-        $scope = if ([string]::IsNullOrWhiteSpace($Scope))
+        if ([string]::IsNullOrWhiteSpace($Scope))
         {
-            'Repository'
+            throw 'Secret scope is required.'
         }
-        else
-        {
-            $Scope
-        }
+
+        $scope = $Scope
 
         $effectiveApplication = if ([string]::IsNullOrWhiteSpace($Application))
         {
@@ -621,18 +619,18 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
 
     $script:PwshProfileGitHubConfigurationHelpers.GetVariableContext = {
         param(
-            [String]$ParameterSetName,
+            [String]$Scope,
             [String]$Repository,
             [String]$Environment,
             [String]$Organization
         )
 
-        $scope = switch ($ParameterSetName)
+        if ([string]::IsNullOrWhiteSpace($Scope))
         {
-            'Environment' { 'Environment' }
-            'Organization' { 'Organization' }
-            default { 'Repository' }
+            throw 'Variable scope is required.'
         }
+
+        $scope = $Scope
 
         $repositoryContext = $null
         $displayTarget = $null

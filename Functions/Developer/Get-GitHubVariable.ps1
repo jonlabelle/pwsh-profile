@@ -20,13 +20,25 @@ function Get-GitHubVariable
         - Cannot start with the GITHUB_ prefix
         - Are case-insensitive when referenced by GitHub
 
+    .PARAMETER Scope
+        The GitHub variable scope. Valid values are Repository, Environment, and Organization.
+
+        Meanings:
+        - Repository: a repository-level variable for one repository
+        - Environment: an environment-level variable for one deployment environment in a repository
+        - Organization: an organization-level variable that can be shared with repositories
+
+        This is the primary scope selector for the command. It is required so the target type is
+        always explicit.
+
     .PARAMETER Repository
         The target repository in OWNER/REPO or HOST/OWNER/REPO format.
 
         This targets a repository-scoped variable. Repository variables are available only to the
         specified repository.
 
-        When omitted for repository and environment scopes, the current Git repository origin is used.
+        When -Scope Repository is used and -Repository is omitted, the current Git repository origin
+        is used. When -Scope Environment is used, -Repository is required.
 
     .PARAMETER Environment
         The deployment environment name for environment variables.
@@ -49,9 +61,14 @@ function Get-GitHubVariable
 
         This targets an organization-scoped variable. Organization variables can be shared with
         repositories in the organization according to the access policy configured on GitHub.
+        When -Scope Organization is used, -Organization is required.
 
     .PARAMETER Token
         Optional GitHub personal access token as a SecureString.
+
+        When omitted, the function checks the environment variable named by
+        -TokenEnvironmentVariableName. If the GitHub CLI is installed, its existing authenticated
+        session can also be used when no token is supplied.
 
     .PARAMETER TokenEnvironmentVariableName
         The environment variable name to check for a GitHub token when -Token is not supplied.
@@ -60,18 +77,18 @@ function Get-GitHubVariable
         fallback when -Token is not supplied.
 
     .EXAMPLE
-        PS > Get-GitHubVariable -Name 'DOTNET_VERSION' -Repository 'octo-org/service-api'
+        PS > Get-GitHubVariable -Name 'DOTNET_VERSION' -Scope Repository -Repository 'octo-org/service-api'
 
         Retrieves a repository variable.
 
     .EXAMPLE
-        PS > Get-GitHubVariable -Name 'DEPLOY_RING' -Repository 'octo-org/service-api' -Environment 'Production'
+        PS > Get-GitHubVariable -Name 'DEPLOY_RING' -Scope Environment -Repository 'octo-org/service-api' -Environment 'Production'
 
         Retrieves an environment variable.
 
     .EXAMPLE
         PS > $token = ConvertTo-SecureString $env:GITHUB_ADMIN_TOKEN -AsPlainText -Force
-        PS > Get-GitHubVariable -Name 'REGION' -Organization 'octo-org' -Token $token
+        PS > Get-GitHubVariable -Name 'REGION' -Scope Organization -Organization 'octo-org' -Token $token
 
         Retrieves an organization variable by using an explicit token.
 
@@ -80,7 +97,7 @@ function Get-GitHubVariable
 
         Returns the variable name, value, visibility details, timestamps, and transport metadata.
     #>
-    [CmdletBinding(DefaultParameterSetName = 'Repository')]
+    [CmdletBinding()]
     [OutputType([PSCustomObject])]
     param(
         [Parameter(Mandatory, Position = 0)]
@@ -100,11 +117,14 @@ function Get-GitHubVariable
         })]
         [String]$Name,
 
-        [Parameter(ParameterSetName = 'Repository')]
-        [Parameter(Mandatory, ParameterSetName = 'Environment')]
+        [Parameter(Mandatory)]
+        [ValidateSet('Repository', 'Environment', 'Organization')]
+        [String]$Scope,
+
+        [Parameter()]
         [String]$Repository,
 
-        [Parameter(Mandatory, ParameterSetName = 'Environment')]
+        [Parameter()]
         [ValidateScript({
             if ([string]::IsNullOrWhiteSpace($_))
             {
@@ -120,7 +140,7 @@ function Get-GitHubVariable
         })]
         [String]$Environment,
 
-        [Parameter(Mandatory, ParameterSetName = 'Organization')]
+        [Parameter()]
         [ValidateNotNullOrEmpty()]
         [String]$Organization,
 
@@ -162,8 +182,60 @@ function Get-GitHubVariable
     $helpers = $script:PwshProfileGitHubConfigurationHelpers
     $maxRetryCount = $helpers.DefaultRetryCount
     $initialRetryDelaySeconds = $helpers.DefaultInitialRetryDelaySeconds
+    $resolvedScope = $Scope
+
+    switch ($resolvedScope)
+    {
+        'Repository'
+        {
+            if ($PSBoundParameters.ContainsKey('Environment'))
+            {
+                throw "Use -Scope Environment when specifying -Environment."
+            }
+
+            if ($PSBoundParameters.ContainsKey('Organization'))
+            {
+                throw "Use -Scope Organization when specifying -Organization."
+            }
+        }
+        'Environment'
+        {
+            if (-not $PSBoundParameters.ContainsKey('Repository'))
+            {
+                throw '-Scope Environment requires -Repository.'
+            }
+
+            if (-not $PSBoundParameters.ContainsKey('Environment'))
+            {
+                throw '-Scope Environment requires -Environment.'
+            }
+
+            if ($PSBoundParameters.ContainsKey('Organization'))
+            {
+                throw '-Scope Environment does not support -Organization.'
+            }
+        }
+        'Organization'
+        {
+            if (-not $PSBoundParameters.ContainsKey('Organization'))
+            {
+                throw '-Scope Organization requires -Organization.'
+            }
+
+            if ($PSBoundParameters.ContainsKey('Repository'))
+            {
+                throw '-Scope Organization does not support -Repository.'
+            }
+
+            if ($PSBoundParameters.ContainsKey('Environment'))
+            {
+                throw '-Scope Organization does not support -Environment.'
+            }
+        }
+    }
+
     $variableContext = & $helpers.GetVariableContext `
-        -ParameterSetName $PSCmdlet.ParameterSetName `
+        -Scope $resolvedScope `
         -Repository $Repository `
         -Environment $Environment `
         -Organization $Organization
