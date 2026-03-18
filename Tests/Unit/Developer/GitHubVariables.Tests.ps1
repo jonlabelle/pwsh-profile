@@ -214,6 +214,31 @@ Describe 'GitHub variable functions' {
             $result.NumSelectedRepos | Should -Be 2
             $result.SelectedReposUrl | Should -Be 'https://api.github.com/orgs/octo-org/actions/variables/REGION/repositories'
         }
+
+        It 'redacts the GitHub token from REST fallback errors' {
+            $redactionToken = ConvertTo-SecureString 'ghp_Abc123Sensitive' -AsPlainText -Force
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'gh' } -MockWith { $null }
+            Mock -CommandName Invoke-RestMethod -MockWith {
+                if ($Method -eq 'GET' -and $Uri -eq 'https://api.github.com/orgs/octo-org/actions/variables/REGION')
+                {
+                    throw [System.InvalidOperationException]::new('request failed for ghp_Abc123Sensitive')
+                }
+
+                throw "Unexpected REST request: $Method $Uri"
+            }
+
+            try
+            {
+                Get-GitHubVariable -Name 'REGION' -Organization 'octo-org' -Token $redactionToken | Out-Null
+                throw 'Expected Get-GitHubVariable to fail.'
+            }
+            catch
+            {
+                $_.Exception.Message | Should -Not -Match 'ghp_Abc123Sensitive'
+                $_.Exception.Message | Should -Match '\[REDACTED\]'
+            }
+        }
     }
 
     Context 'Remove-GitHubVariable' {

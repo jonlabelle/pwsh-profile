@@ -121,6 +121,38 @@ Describe 'GitHub secret functions' {
                 Set-GitHubSecret -Name 'REST_SECRET' -Value $script:SecretValue -Repository 'octo-org/service-api' -Token $script:TokenValue
             } | Should -Throw '*GitHub CLI*'
         }
+
+        It 'redacts the secret value and token from thrown errors' {
+            $redactionToken = ConvertTo-SecureString 'ghp_Abc123Sensitive' -AsPlainText -Force
+
+            Mock -CommandName gh -MockWith {
+                if ($args[0] -eq 'api')
+                {
+                    $global:LASTEXITCODE = 1
+                    return 'HTTP 404: Not Found'
+                }
+
+                if ($args[0] -eq 'secret' -and $args[1] -eq 'set')
+                {
+                    $global:LASTEXITCODE = 1
+                    return 'validation failed for SuperSecretValue123! with credential ghp_Abc123Sensitive'
+                }
+
+                throw 'Unexpected gh invocation'
+            }
+
+            try
+            {
+                Set-GitHubSecret -Name 'REDACTION_TEST' -Value $script:SecretValue -Repository 'octo-org/service-api' -Token $redactionToken
+                throw 'Expected Set-GitHubSecret to fail.'
+            }
+            catch
+            {
+                $_.Exception.Message | Should -Not -Match 'SuperSecretValue123!'
+                $_.Exception.Message | Should -Not -Match 'ghp_Abc123Sensitive'
+                $_.Exception.Message | Should -Match '\[REDACTED\]'
+            }
+        }
     }
 
     Context 'Remove-GitHubSecret' {

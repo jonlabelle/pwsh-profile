@@ -158,6 +158,38 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
         return $normalized.Trim()
     }
 
+    $script:PwshProfileGitHubConfigurationHelpers.RedactSensitiveText = {
+        param(
+            [String]$Message,
+            [String[]]$SensitiveValues
+        )
+
+        if ([string]::IsNullOrWhiteSpace($Message))
+        {
+            return $Message
+        }
+
+        $redactedMessage = $Message
+
+        foreach ($sensitiveValue in @($SensitiveValues | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object Length -Descending -Unique))
+        {
+            $escapedValue = [Regex]::Escape($sensitiveValue)
+            $redactedMessage = [Regex]::Replace($redactedMessage, $escapedValue, '[REDACTED]')
+        }
+
+        $tokenPatterns = @(
+            '\bgh[pousr]_[A-Za-z0-9_]+\b',
+            '\bgithub_pat_[A-Za-z0-9_]+\b'
+        )
+
+        foreach ($tokenPattern in $tokenPatterns)
+        {
+            $redactedMessage = [Regex]::Replace($redactedMessage, $tokenPattern, '[REDACTED]')
+        }
+
+        return $redactedMessage
+    }
+
     $script:PwshProfileGitHubConfigurationHelpers.IsTransientFailure = {
         param(
             [String]$Message,
@@ -620,7 +652,8 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             [PSCustomObject]$AuthContext,
             [Int]$MaxRetryCount,
             [Int]$InitialRetryDelaySeconds,
-            [String]$Activity
+            [String]$Activity,
+            [String[]]$SensitiveValues
         )
 
         $operation = {
@@ -646,8 +679,13 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
 
             if ($exitCode -ne 0)
             {
-                $exception = [System.InvalidOperationException]::new((& $script:PwshProfileGitHubConfigurationHelpers.TrimErrorMessage (($output | Out-String).Trim())))
-                if (($output | Out-String) -match 'HTTP (\d{3})')
+                $rawOutputText = ($output | Out-String).Trim()
+                $safeOutputText = & $script:PwshProfileGitHubConfigurationHelpers.RedactSensitiveText `
+                    -Message (& $script:PwshProfileGitHubConfigurationHelpers.TrimErrorMessage $rawOutputText) `
+                    -SensitiveValues (@($AuthContext.Token) + @($SensitiveValues))
+
+                $exception = [System.InvalidOperationException]::new($safeOutputText)
+                if ($rawOutputText -match 'HTTP (\d{3})')
                 {
                     $exception.Data['StatusCode'] = [int]$matches[1]
                 }
@@ -675,7 +713,8 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             [Object]$Body,
             [Int]$MaxRetryCount,
             [Int]$InitialRetryDelaySeconds,
-            [String]$Activity
+            [String]$Activity,
+            [String[]]$SensitiveValues
         )
 
         if ($Transport.Name -eq 'GhCli')
@@ -711,7 +750,8 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
                     -AuthContext $AuthContext `
                     -MaxRetryCount $MaxRetryCount `
                     -InitialRetryDelaySeconds $InitialRetryDelaySeconds `
-                    -Activity $Activity
+                    -Activity $Activity `
+                    -SensitiveValues $SensitiveValues
 
                 $text = ($output | Out-String).Trim()
                 if ([string]::IsNullOrWhiteSpace($text))
@@ -742,20 +782,39 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
         }
 
         $operation = {
-            $invokeRestParams = @{
-                Method = $Method
-                Uri = "$BaseUri$Path"
-                Headers = $headers
-                ErrorAction = 'Stop'
-            }
-
-            if ($null -ne $Body)
+            try
             {
-                $invokeRestParams['Body'] = ($Body | ConvertTo-Json -Depth 10 -Compress)
-                $invokeRestParams['ContentType'] = 'application/json'
-            }
+                $invokeRestParams = @{
+                    Method = $Method
+                    Uri = "$BaseUri$Path"
+                    Headers = $headers
+                    ErrorAction = 'Stop'
+                }
 
-            return Invoke-RestMethod @invokeRestParams
+                if ($null -ne $Body)
+                {
+                    $invokeRestParams['Body'] = ($Body | ConvertTo-Json -Depth 10 -Compress)
+                    $invokeRestParams['ContentType'] = 'application/json'
+                }
+
+                return Invoke-RestMethod @invokeRestParams
+            }
+            catch
+            {
+                $statusCode = & $script:PwshProfileGitHubConfigurationHelpers.GetExceptionStatusCode $_.Exception
+                $safeMessage = & $script:PwshProfileGitHubConfigurationHelpers.RedactSensitiveText `
+                    -Message (& $script:PwshProfileGitHubConfigurationHelpers.TrimErrorMessage `
+                        (& $script:PwshProfileGitHubConfigurationHelpers.GetExceptionMessage $_.Exception)) `
+                    -SensitiveValues (@($AuthContext.Token) + @($SensitiveValues))
+
+                $sanitizedException = [System.InvalidOperationException]::new($safeMessage)
+                if ($null -ne $statusCode)
+                {
+                    $sanitizedException.Data['StatusCode'] = $statusCode
+                }
+
+                throw $sanitizedException
+            }
         }
 
         return & $script:PwshProfileGitHubConfigurationHelpers.InvokeWithRetry `

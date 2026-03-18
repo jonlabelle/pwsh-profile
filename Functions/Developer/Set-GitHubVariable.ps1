@@ -319,7 +319,8 @@ function Set-GitHubVariable
                 -Body $body `
                 -MaxRetryCount $MaxRetryCount `
                 -InitialRetryDelaySeconds $InitialRetryDelaySeconds `
-                -Activity "$action $Name"
+                -Activity "$action $Name" `
+                -SensitiveValues @()
 
             return & $helpers.NewOperationResult -TypeName 'GitHub.VariableSetResult' -Properties @{
                 Name = $Name

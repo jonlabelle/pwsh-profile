@@ -186,7 +186,8 @@ function Remove-GitHubVariable
                 -Body $null `
                 -MaxRetryCount $MaxRetryCount `
                 -InitialRetryDelaySeconds $InitialRetryDelaySeconds `
-                -Activity "Remove GitHub variable $Name"
+                -Activity "Remove GitHub variable $Name" `
+                -SensitiveValues @()
 
             return & $helpers.NewOperationResult -TypeName 'GitHub.VariableRemoveResult' -Properties @{
                 Name = $Name

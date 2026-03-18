@@ -371,7 +371,8 @@ function Set-GitHubSecret
                 -AuthContext $authContext `
                 -MaxRetryCount $MaxRetryCount `
                 -InitialRetryDelaySeconds $InitialRetryDelaySeconds `
-                -Activity "$action $Name"
+                -Activity "$action $Name" `
+                -SensitiveValues @($plainTextValue)
 
             return & $helpers.NewOperationResult -TypeName 'GitHub.SecretSetResult' -Properties @{
                 Name = $Name
