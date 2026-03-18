@@ -708,6 +708,7 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
                 [Environment]::SetEnvironmentVariable('GH_TOKEN', $ghAuthContext.Token, 'Process')
             }
 
+            # gh secret delete does not expose a --yes flag, so disable interactive prompts centrally.
             [Environment]::SetEnvironmentVariable('GH_PROMPT_DISABLED', '1', 'Process')
 
             try
@@ -868,6 +869,7 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
                 [Environment]::SetEnvironmentVariable('GH_TOKEN', $ghAuthContext.Token, 'Process')
             }
 
+            # gh secret delete does not expose a --yes flag, so disable interactive prompts centrally.
             [Environment]::SetEnvironmentVariable('GH_PROMPT_DISABLED', '1', 'Process')
 
             try
