@@ -35,14 +35,6 @@ function Get-GitHubVariable
 
         Defaults to GH_TOKEN.
 
-    .PARAMETER MaxRetryCount
-        The number of retry attempts for transient failures.
-
-    .PARAMETER InitialRetryDelaySeconds
-        The initial retry delay in seconds.
-
-        Exponential backoff is capped at 60 seconds regardless of the retry count.
-
     .EXAMPLE
         PS > Get-GitHubVariable -Name 'DOTNET_VERSION' -Repository 'octo-org/service-api'
 
@@ -87,22 +79,16 @@ function Get-GitHubVariable
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
-        [String]$TokenEnvironmentVariableName = 'GH_TOKEN',
+        [String]$TokenEnvironmentVariableName = 'GH_TOKEN'
 
-        [Parameter()]
-        [ValidateRange(0, 10)]
-        [Int]$MaxRetryCount = 3,
-
-        [Parameter()]
-        [ValidateRange(1, 60)]
-        [Int]$InitialRetryDelaySeconds = 2
     )
 
     function Import-GitHubConfigurationHelpersIfNeeded
     {
         if (-not (Get-Variable -Name 'PwshProfileGitHubConfigurationHelpers' -Scope Script -ErrorAction SilentlyContinue))
         {
-            $dependencyPath = Join-Path -Path $PSScriptRoot -ChildPath 'Private/GitHubConfigurationHelpers.ps1'
+            $dependencyDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'Private'
+            $dependencyPath = Join-Path -Path $dependencyDirectory -ChildPath 'GitHubConfigurationHelpers.ps1'
             $dependencyPath = [System.IO.Path]::GetFullPath($dependencyPath)
 
             if (-not (Test-Path -LiteralPath $dependencyPath -PathType Leaf))
@@ -124,6 +110,8 @@ function Get-GitHubVariable
 
     Import-GitHubConfigurationHelpersIfNeeded
     $helpers = $script:PwshProfileGitHubConfigurationHelpers
+    $maxRetryCount = $helpers.DefaultRetryCount
+    $initialRetryDelaySeconds = $helpers.DefaultInitialRetryDelaySeconds
     $variableContext = & $helpers.GetVariableContext `
         -ParameterSetName $PSCmdlet.ParameterSetName `
         -Repository $Repository `
@@ -144,8 +132,8 @@ function Get-GitHubVariable
             -BaseUri $variableContext.ApiBaseUri `
             -Transport $transport `
             -AuthContext $authContext `
-            -MaxRetryCount $MaxRetryCount `
-            -InitialRetryDelaySeconds $InitialRetryDelaySeconds `
+            -MaxRetryCount $maxRetryCount `
+            -InitialRetryDelaySeconds $initialRetryDelaySeconds `
             -Activity "Get GitHub variable $Name"
 
         if (-not $resource.Found)

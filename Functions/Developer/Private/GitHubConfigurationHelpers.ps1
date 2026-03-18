@@ -41,6 +41,8 @@ $helperVariableName = 'PwshProfileGitHubConfigurationHelpers'
 if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction SilentlyContinue))
 {
     $script:PwshProfileGitHubConfigurationHelpers = [ordered]@{
+        DefaultRetryCount = 3
+        DefaultInitialRetryDelaySeconds = 2
         MaxBackoffSeconds = 60
     }
 
@@ -487,12 +489,19 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             [String]$Application
         )
 
-        $scope = switch ($ParameterSetName)
+        $scope = if ($User)
         {
-            'Environment' { 'Environment' }
-            'Organization' { 'Organization' }
-            'User' { 'User' }
-            default { 'Repository' }
+            'User'
+        }
+        else
+        {
+            switch ($ParameterSetName)
+            {
+                'Environment' { 'Environment' }
+                'Organization' { 'Organization' }
+                'User' { 'User' }
+                default { 'Repository' }
+            }
         }
 
         $effectiveApplication = if ([string]::IsNullOrWhiteSpace($Application))
@@ -671,22 +680,26 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             [String[]]$SensitiveValues
         )
 
+        $ghArguments = @($Arguments)
+        $ghAuthContext = $AuthContext
+        $ghSensitiveValues = @($SensitiveValues)
+
         $operation = {
             $previousGhToken = [Environment]::GetEnvironmentVariable('GH_TOKEN', 'Process')
 
-            if ($AuthContext -and -not [string]::IsNullOrWhiteSpace($AuthContext.Token))
+            if ($ghAuthContext -and -not [string]::IsNullOrWhiteSpace($ghAuthContext.Token))
             {
-                [Environment]::SetEnvironmentVariable('GH_TOKEN', $AuthContext.Token, 'Process')
+                [Environment]::SetEnvironmentVariable('GH_TOKEN', $ghAuthContext.Token, 'Process')
             }
 
             try
             {
-                $output = & gh @Arguments 2>&1
+                $output = & gh @ghArguments 2>&1
                 $exitCode = $LASTEXITCODE
             }
             finally
             {
-                if ($AuthContext -and -not [string]::IsNullOrWhiteSpace($AuthContext.Token))
+                if ($ghAuthContext -and -not [string]::IsNullOrWhiteSpace($ghAuthContext.Token))
                 {
                     [Environment]::SetEnvironmentVariable('GH_TOKEN', $previousGhToken, 'Process')
                 }
@@ -697,7 +710,7 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
                 $rawOutputText = ($output | Out-String).Trim()
                 $safeOutputText = & $script:PwshProfileGitHubConfigurationHelpers.RedactSensitiveText `
                     -Message (& $script:PwshProfileGitHubConfigurationHelpers.TrimErrorMessage $rawOutputText) `
-                    -SensitiveValues (@($AuthContext.Token) + @($SensitiveValues))
+                    -SensitiveValues (@($ghAuthContext.Token) + @($ghSensitiveValues))
 
                 $exception = [System.InvalidOperationException]::new($safeOutputText)
                 if ($rawOutputText -match 'HTTP (\d{3})')
@@ -821,23 +834,28 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             [String[]]$SensitiveValues
         )
 
+        $ghArguments = @($Arguments)
+        $ghStandardInputText = $StandardInputText
+        $ghAuthContext = $AuthContext
+        $ghSensitiveValues = @($SensitiveValues)
+
         $operation = {
             $previousGhToken = [Environment]::GetEnvironmentVariable('GH_TOKEN', 'Process')
 
-            if ($AuthContext -and -not [string]::IsNullOrWhiteSpace($AuthContext.Token))
+            if ($ghAuthContext -and -not [string]::IsNullOrWhiteSpace($ghAuthContext.Token))
             {
-                [Environment]::SetEnvironmentVariable('GH_TOKEN', $AuthContext.Token, 'Process')
+                [Environment]::SetEnvironmentVariable('GH_TOKEN', $ghAuthContext.Token, 'Process')
             }
 
             try
             {
                 $result = & $script:PwshProfileGitHubConfigurationHelpers.StartGhCommandWithStandardInput `
-                    -Arguments $Arguments `
-                    -StandardInputText $StandardInputText
+                    -Arguments $ghArguments `
+                    -StandardInputText $ghStandardInputText
             }
             finally
             {
-                if ($AuthContext -and -not [string]::IsNullOrWhiteSpace($AuthContext.Token))
+                if ($ghAuthContext -and -not [string]::IsNullOrWhiteSpace($ghAuthContext.Token))
                 {
                     [Environment]::SetEnvironmentVariable('GH_TOKEN', $previousGhToken, 'Process')
                 }
@@ -848,7 +866,7 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
                 $rawOutputText = @($result.StandardError, $result.StandardOutput) -join [Environment]::NewLine
                 $safeOutputText = & $script:PwshProfileGitHubConfigurationHelpers.RedactSensitiveText `
                     -Message (& $script:PwshProfileGitHubConfigurationHelpers.TrimErrorMessage $rawOutputText) `
-                    -SensitiveValues (@($AuthContext.Token) + @($StandardInputText) + @($SensitiveValues))
+                    -SensitiveValues (@($ghAuthContext.Token) + @($ghStandardInputText) + @($ghSensitiveValues))
 
                 $exception = [System.InvalidOperationException]::new($safeOutputText)
                 if ($rawOutputText -match 'HTTP (\d{3})')

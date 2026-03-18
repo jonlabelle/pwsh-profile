@@ -47,14 +47,6 @@ function Remove-GitHubSecret
 
         Defaults to GH_TOKEN.
 
-    .PARAMETER MaxRetryCount
-        The number of retry attempts for transient failures.
-
-    .PARAMETER InitialRetryDelaySeconds
-        The initial retry delay in seconds.
-
-        Exponential backoff is capped at 60 seconds regardless of the retry count.
-
     .EXAMPLE
         PS > Remove-GitHubSecret -Name 'MY_SECRET' -Repository 'octo-org/octo-repo'
 
@@ -114,15 +106,8 @@ function Remove-GitHubSecret
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
-        [String]$TokenEnvironmentVariableName = 'GH_TOKEN',
+        [String]$TokenEnvironmentVariableName = 'GH_TOKEN'
 
-        [Parameter()]
-        [ValidateRange(0, 10)]
-        [Int]$MaxRetryCount = 3,
-
-        [Parameter()]
-        [ValidateRange(1, 60)]
-        [Int]$InitialRetryDelaySeconds = 2
     )
 
     begin
@@ -131,7 +116,8 @@ function Remove-GitHubSecret
         {
             if (-not (Get-Variable -Name 'PwshProfileGitHubConfigurationHelpers' -Scope Script -ErrorAction SilentlyContinue))
             {
-                $dependencyPath = Join-Path -Path $PSScriptRoot -ChildPath 'Private/GitHubConfigurationHelpers.ps1'
+                $dependencyDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'Private'
+                $dependencyPath = Join-Path -Path $dependencyDirectory -ChildPath 'GitHubConfigurationHelpers.ps1'
                 $dependencyPath = [System.IO.Path]::GetFullPath($dependencyPath)
 
                 if (-not (Test-Path -LiteralPath $dependencyPath -PathType Leaf))
@@ -153,6 +139,8 @@ function Remove-GitHubSecret
 
         Import-GitHubConfigurationHelpersIfNeeded
         $helpers = $script:PwshProfileGitHubConfigurationHelpers
+        $maxRetryCount = $helpers.DefaultRetryCount
+        $initialRetryDelaySeconds = $helpers.DefaultInitialRetryDelaySeconds
         $secretContext = & $helpers.GetSecretContext `
             -ParameterSetName $PSCmdlet.ParameterSetName `
             -Repository $Repository `
@@ -178,8 +166,8 @@ function Remove-GitHubSecret
             -BaseUri $secretContext.ApiBaseUri `
             -Transport $transport `
             -AuthContext $authContext `
-            -MaxRetryCount $MaxRetryCount `
-            -InitialRetryDelaySeconds $InitialRetryDelaySeconds `
+            -MaxRetryCount $maxRetryCount `
+            -InitialRetryDelaySeconds $initialRetryDelaySeconds `
             -Activity "Get GitHub secret $Name"
     }
 
@@ -221,8 +209,8 @@ function Remove-GitHubSecret
             $null = & $helpers.InvokeGhCommand `
                 -Arguments $ghArguments `
                 -AuthContext $authContext `
-                -MaxRetryCount $MaxRetryCount `
-                -InitialRetryDelaySeconds $InitialRetryDelaySeconds `
+                -MaxRetryCount $maxRetryCount `
+                -InitialRetryDelaySeconds $initialRetryDelaySeconds `
                 -Activity "Remove GitHub secret $Name"
 
             return & $helpers.NewOperationResult -TypeName 'GitHub.SecretRemoveResult' -Properties @{
