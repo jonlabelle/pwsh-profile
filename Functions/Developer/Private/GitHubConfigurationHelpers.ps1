@@ -296,14 +296,30 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
         {
             $environmentToken = [Environment]::GetEnvironmentVariable($TokenEnvironmentVariableName, 'Process')
 
-            if ([string]::IsNullOrWhiteSpace($environmentToken))
+            $supportsPersistentEnvironmentScopes = if ($PSVersionTable.PSVersion.Major -lt 6) { $true } else { $IsWindows }
+
+            if ($supportsPersistentEnvironmentScopes -and [string]::IsNullOrWhiteSpace($environmentToken))
             {
-                $environmentToken = [Environment]::GetEnvironmentVariable($TokenEnvironmentVariableName, 'User')
+                try
+                {
+                    $environmentToken = [Environment]::GetEnvironmentVariable($TokenEnvironmentVariableName, 'User')
+                }
+                catch [System.PlatformNotSupportedException]
+                {
+                    $environmentToken = $null
+                }
             }
 
-            if ([string]::IsNullOrWhiteSpace($environmentToken))
+            if ($supportsPersistentEnvironmentScopes -and [string]::IsNullOrWhiteSpace($environmentToken))
             {
-                $environmentToken = [Environment]::GetEnvironmentVariable($TokenEnvironmentVariableName, 'Machine')
+                try
+                {
+                    $environmentToken = [Environment]::GetEnvironmentVariable($TokenEnvironmentVariableName, 'Machine')
+                }
+                catch [System.PlatformNotSupportedException]
+                {
+                    $environmentToken = $null
+                }
             }
 
             if (-not [string]::IsNullOrWhiteSpace($environmentToken))
@@ -702,6 +718,162 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             -Activity $Activity
     }
 
+    $script:PwshProfileGitHubConfigurationHelpers.StartGhCommandWithStandardInput = {
+        param(
+            [String[]]$Arguments,
+            [String]$StandardInputText
+        )
+
+        if ($PSVersionTable.PSVersion.Major -lt 6)
+        {
+            $standardInputPath = $null
+            $standardOutputPath = $null
+            $standardErrorPath = $null
+
+            try
+            {
+                $standardInputPath = [System.IO.Path]::GetTempFileName()
+                $standardOutputPath = [System.IO.Path]::GetTempFileName()
+                $standardErrorPath = [System.IO.Path]::GetTempFileName()
+
+                [System.IO.File]::WriteAllText($standardInputPath, $StandardInputText, [System.Text.UTF8Encoding]::new($false))
+
+                $process = Start-Process `
+                    -FilePath 'gh' `
+                    -ArgumentList $Arguments `
+                    -Wait `
+                    -PassThru `
+                    -NoNewWindow `
+                    -RedirectStandardInput $standardInputPath `
+                    -RedirectStandardOutput $standardOutputPath `
+                    -RedirectStandardError $standardErrorPath
+
+                return [PSCustomObject]@{
+                    ExitCode = $process.ExitCode
+                    StandardOutput = [System.IO.File]::ReadAllText($standardOutputPath)
+                    StandardError = [System.IO.File]::ReadAllText($standardErrorPath)
+                }
+            }
+            finally
+            {
+                foreach ($tempPath in @($standardInputPath, $standardOutputPath, $standardErrorPath))
+                {
+                    if (-not [string]::IsNullOrWhiteSpace($tempPath) -and (Test-Path -LiteralPath $tempPath))
+                    {
+                        Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue
+                    }
+                }
+            }
+        }
+
+        $process = [System.Diagnostics.Process]::new()
+        try
+        {
+            $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+            $startInfo.FileName = 'gh'
+            $startInfo.UseShellExecute = $false
+            $startInfo.RedirectStandardInput = $true
+            $startInfo.RedirectStandardOutput = $true
+            $startInfo.RedirectStandardError = $true
+
+            foreach ($argument in @($Arguments))
+            {
+                $null = $startInfo.ArgumentList.Add([string]$argument)
+            }
+
+            $process.StartInfo = $startInfo
+            $null = $process.Start()
+
+            if ($null -ne $StandardInputText)
+            {
+                $process.StandardInput.Write($StandardInputText)
+            }
+
+            $process.StandardInput.Close()
+
+            $standardOutput = $process.StandardOutput.ReadToEnd()
+            $standardError = $process.StandardError.ReadToEnd()
+            $process.WaitForExit()
+
+            return [PSCustomObject]@{
+                ExitCode = $process.ExitCode
+                StandardOutput = $standardOutput
+                StandardError = $standardError
+            }
+        }
+        finally
+        {
+            if ($process)
+            {
+                $process.Dispose()
+            }
+        }
+    }
+
+    $script:PwshProfileGitHubConfigurationHelpers.InvokeGhCommandWithStandardInput = {
+        param(
+            [String[]]$Arguments,
+            [String]$StandardInputText,
+            [PSCustomObject]$AuthContext,
+            [Int]$MaxRetryCount,
+            [Int]$InitialRetryDelaySeconds,
+            [String]$Activity,
+            [String[]]$SensitiveValues
+        )
+
+        $operation = {
+            $previousGhToken = [Environment]::GetEnvironmentVariable('GH_TOKEN', 'Process')
+
+            if ($AuthContext -and -not [string]::IsNullOrWhiteSpace($AuthContext.Token))
+            {
+                [Environment]::SetEnvironmentVariable('GH_TOKEN', $AuthContext.Token, 'Process')
+            }
+
+            try
+            {
+                $result = & $script:PwshProfileGitHubConfigurationHelpers.StartGhCommandWithStandardInput `
+                    -Arguments $Arguments `
+                    -StandardInputText $StandardInputText
+            }
+            finally
+            {
+                if ($AuthContext -and -not [string]::IsNullOrWhiteSpace($AuthContext.Token))
+                {
+                    [Environment]::SetEnvironmentVariable('GH_TOKEN', $previousGhToken, 'Process')
+                }
+            }
+
+            if ($result.ExitCode -ne 0)
+            {
+                $rawOutputText = @($result.StandardError, $result.StandardOutput) -join [Environment]::NewLine
+                $safeOutputText = & $script:PwshProfileGitHubConfigurationHelpers.RedactSensitiveText `
+                    -Message (& $script:PwshProfileGitHubConfigurationHelpers.TrimErrorMessage $rawOutputText) `
+                    -SensitiveValues (@($AuthContext.Token) + @($StandardInputText) + @($SensitiveValues))
+
+                $exception = [System.InvalidOperationException]::new($safeOutputText)
+                if ($rawOutputText -match 'HTTP (\d{3})')
+                {
+                    $exception.Data['StatusCode'] = [int]$matches[1]
+                }
+
+                throw $exception
+            }
+
+            if ([string]::IsNullOrWhiteSpace($result.StandardOutput))
+            {
+                return @()
+            }
+
+            return @($result.StandardOutput)
+        }
+
+        return & $script:PwshProfileGitHubConfigurationHelpers.InvokeWithRetry `
+            -Operation $operation `
+            -MaxRetryCount $MaxRetryCount `
+            -InitialRetryDelaySeconds $InitialRetryDelaySeconds `
+            -Activity $Activity
+    }
+
     $script:PwshProfileGitHubConfigurationHelpers.InvokeGitHubRequest = {
         param(
             [String]$Method,
@@ -768,9 +940,21 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             }
         }
 
+        $tokenEnvironmentVariableName = if (
+            $AuthContext -and
+            -not [string]::IsNullOrWhiteSpace($AuthContext.TokenEnvironmentVariableName)
+        )
+        {
+            $AuthContext.TokenEnvironmentVariableName
+        }
+        else
+        {
+            'GH_TOKEN'
+        }
+
         if ($null -eq $AuthContext -or [string]::IsNullOrWhiteSpace($AuthContext.Token))
         {
-            throw "No GitHub token is available for REST API access. Provide -Token or set the '$($AuthContext.TokenEnvironmentVariableName)' environment variable."
+            throw "No GitHub token is available for REST API access. Provide -Token or set the '$tokenEnvironmentVariableName' environment variable."
         }
 
         $headers = @{

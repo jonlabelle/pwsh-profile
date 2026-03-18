@@ -12,6 +12,16 @@ BeforeAll {
         Remove-Variable -Name PwshProfileGitHubConfigurationHelpers -Scope Script -ErrorAction SilentlyContinue
     }
 
+    function Import-GitHubHelperForTests
+    {
+        if (-not (Get-Variable -Name PwshProfileGitHubConfigurationHelpers -Scope Script -ErrorAction SilentlyContinue))
+        {
+            . "$PSScriptRoot/../../../Functions/Developer/Private/GitHubConfigurationHelpers.ps1"
+        }
+
+        return (Get-Variable -Name PwshProfileGitHubConfigurationHelpers -Scope Script).Value
+    }
+
     $script:TokenValue = ConvertTo-SecureString 'ghp_test_token_123' -AsPlainText -Force
 }
 
@@ -238,6 +248,25 @@ Describe 'GitHub variable functions' {
                 $_.Exception.Message | Should -Not -Match 'ghp_Abc123Sensitive'
                 $_.Exception.Message | Should -Match '\[REDACTED\]'
             }
+        }
+    }
+
+    Context 'Helper behaviors' {
+        It 'defaults missing REST auth guidance to GH_TOKEN when no auth context exists' {
+            $helpers = Import-GitHubHelperForTests
+
+            {
+                & $helpers.InvokeGitHubRequest `
+                    -Method 'GET' `
+                    -BaseUri 'https://api.github.com' `
+                    -Path '/user' `
+                    -Transport ([PSCustomObject]@{ Name = 'RestApi'; Command = $null }) `
+                    -AuthContext $null `
+                    -Body $null `
+                    -MaxRetryCount 0 `
+                    -InitialRetryDelaySeconds 1 `
+                    -Activity 'Get GitHub user'
+            } | Should -Throw "*'GH_TOKEN'*"
         }
     }
 

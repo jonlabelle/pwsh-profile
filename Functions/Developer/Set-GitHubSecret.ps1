@@ -30,7 +30,8 @@ function Set-GitHubSecret
         The secret value to store.
 
         Use Read-Host -AsSecureString or ConvertTo-SecureString to avoid adding sensitive data to
-        shell history. The secure string is converted to plain text only for the outbound GitHub call.
+        shell history. The secure string is converted to plain text only for the outbound GitHub call
+        and is sent to `gh` over standard input so it is not exposed in process arguments.
 
     .PARAMETER Repository
         The target repository in OWNER/REPO or HOST/OWNER/REPO format.
@@ -163,6 +164,7 @@ function Set-GitHubSecret
 
     .NOTES
         Secret operations require the GitHub CLI (gh) to be installed and available in PATH.
+        Secret values are passed to `gh secret set` through standard input, not command-line arguments.
 
     .LINK
         https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Set-GitHubSecret.ps1
@@ -349,7 +351,7 @@ function Set-GitHubSecret
         $plainTextValue = & $helpers.ConvertSecureStringToPlainText $Value
         try
         {
-            $ghArguments = @('secret', 'set', $Name) + $secretContext.GhTargetArguments + @('--body', $plainTextValue)
+            $ghArguments = @('secret', 'set', $Name) + $secretContext.GhTargetArguments
 
             if ($Visibility)
             {
@@ -366,8 +368,9 @@ function Set-GitHubSecret
                 $ghArguments += '--no-repos-selected'
             }
 
-            $null = & $helpers.InvokeGhCommand `
+            $null = & $helpers.InvokeGhCommandWithStandardInput `
                 -Arguments $ghArguments `
+                -StandardInputText $plainTextValue `
                 -AuthContext $authContext `
                 -MaxRetryCount $MaxRetryCount `
                 -InitialRetryDelaySeconds $InitialRetryDelaySeconds `

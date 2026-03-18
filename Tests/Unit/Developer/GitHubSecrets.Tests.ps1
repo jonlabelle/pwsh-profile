@@ -11,6 +11,16 @@ BeforeAll {
         Remove-Variable -Name PwshProfileGitHubConfigurationHelpers -Scope Script -ErrorAction SilentlyContinue
     }
 
+    function Import-GitHubHelperForTests
+    {
+        if (-not (Get-Variable -Name PwshProfileGitHubConfigurationHelpers -Scope Script -ErrorAction SilentlyContinue))
+        {
+            . "$PSScriptRoot/../../../Functions/Developer/Private/GitHubConfigurationHelpers.ps1"
+        }
+
+        return (Get-Variable -Name PwshProfileGitHubConfigurationHelpers -Scope Script).Value
+    }
+
     $script:SecretValue = ConvertTo-SecureString 'SuperSecretValue123!' -AsPlainText -Force
     $script:TokenValue = ConvertTo-SecureString 'ghp_test_token_123' -AsPlainText -Force
 }
@@ -74,6 +84,9 @@ Describe 'GitHub secret functions' {
         }
 
         It 'updates existing secrets when -Force is used' {
+            $script:CapturedSecretSetArguments = $null
+            $script:CapturedSecretStandardInput = $null
+
             Mock -CommandName gh -MockWith {
                 if ($args[0] -eq 'api')
                 {
@@ -81,20 +94,32 @@ Describe 'GitHub secret functions' {
                     return '{"name":"EXISTING_SECRET","updated_at":"2025-01-01T00:00:00Z"}'
                 }
 
-                if ($args[0] -eq 'secret' -and $args[1] -eq 'set')
-                {
-                    $global:LASTEXITCODE = 0
-                    return @()
-                }
-
                 throw "Unexpected gh arguments: $($args -join ' ')"
+            }
+
+            $helpers = Import-GitHubHelperForTests
+            $helpers.StartGhCommandWithStandardInput = {
+                param(
+                    [String[]]$Arguments,
+                    [String]$StandardInputText
+                )
+
+                $script:CapturedSecretSetArguments = @($Arguments)
+                $script:CapturedSecretStandardInput = $StandardInputText
+
+                return [PSCustomObject]@{
+                    ExitCode = 0
+                    StandardOutput = ''
+                    StandardError = ''
+                }
             }
 
             $result = Set-GitHubSecret -Name 'EXISTING_SECRET' -Value $script:SecretValue -Repository 'octo-org/service-api' -Force
 
             $result.Status | Should -Be 'Updated'
             $result.Changed | Should -BeTrue
-            Assert-MockCalled -CommandName gh -ParameterFilter { $args[0] -eq 'secret' -and $args[1] -eq 'set' } -Times 1
+            $script:CapturedSecretSetArguments | Should -Not -Contain '--body'
+            $script:CapturedSecretStandardInput | Should -Be 'SuperSecretValue123!'
         }
 
         It 'supports WhatIf without calling gh secret set' {
@@ -132,13 +157,21 @@ Describe 'GitHub secret functions' {
                     return 'HTTP 404: Not Found'
                 }
 
-                if ($args[0] -eq 'secret' -and $args[1] -eq 'set')
-                {
-                    $global:LASTEXITCODE = 1
-                    return 'validation failed for SuperSecretValue123! with credential ghp_Abc123Sensitive'
-                }
-
                 throw 'Unexpected gh invocation'
+            }
+
+            $helpers = Import-GitHubHelperForTests
+            $helpers.StartGhCommandWithStandardInput = {
+                param(
+                    [String[]]$Arguments,
+                    [String]$StandardInputText
+                )
+
+                return [PSCustomObject]@{
+                    ExitCode = 1
+                    StandardOutput = ''
+                    StandardError = 'validation failed for SuperSecretValue123! with credential ghp_Abc123Sensitive'
+                }
             }
 
             try
@@ -152,6 +185,19 @@ Describe 'GitHub secret functions' {
                 $_.Exception.Message | Should -Not -Match 'ghp_Abc123Sensitive'
                 $_.Exception.Message | Should -Match '\[REDACTED\]'
             }
+        }
+    }
+
+    Context 'Helper behaviors' {
+        It 'resolves auth safely when a process token is absent on non-Windows platforms' {
+            $helpers = Import-GitHubHelperForTests
+
+            {
+                & $helpers.ResolveAuthContext `
+                    -Token $null `
+                    -TokenEnvironmentVariableName 'PWSH_PROFILE_MISSING_GH_TOKEN' `
+                    -RequireToken:$false
+            } | Should -Not -Throw
         }
     }
 
