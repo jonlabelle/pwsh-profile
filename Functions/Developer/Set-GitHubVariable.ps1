@@ -29,9 +29,14 @@ function Set-GitHubVariable
         The variable value to store.
 
         Variables are not encrypted by GitHub like secrets are, so this parameter accepts plain text.
+        GitHub Actions configuration variables are intended for non-secret configuration values that
+        workflows can reference, such as `${{ vars.NAME }}`.
 
     .PARAMETER Repository
         The target repository in OWNER/REPO or HOST/OWNER/REPO format.
+
+        This targets a repository-scoped variable. Repository variables are available only to the
+        specified repository.
 
         When omitted for repository and environment scopes, the current Git repository origin is used.
 
@@ -39,6 +44,9 @@ function Set-GitHubVariable
         The deployment environment name for environment variables.
 
         This parameter is only valid for environment-scoped variables and requires -Repository.
+
+        Environment variables belong to a single named environment within the repository and are
+        intended for jobs that reference that environment.
 
         GitHub environment names:
         - Are not case sensitive
@@ -51,14 +59,24 @@ function Set-GitHubVariable
     .PARAMETER Organization
         The target organization for organization variables.
 
+        This targets an organization-scoped variable. Organization variables can be shared with
+        repositories in the organization according to the access policy set by -Visibility and
+        -SelectedRepository.
+
     .PARAMETER Visibility
         Organization variable visibility. Valid values are all, private, and selected.
+
+        Meanings:
+        - all: every repository in the organization can use the variable
+        - private: only private repositories in the organization can use the variable
+        - selected: only repositories listed in -SelectedRepository can use the variable
 
         When -SelectedRepository is used and -Visibility is omitted, visibility is treated as selected.
 
     .PARAMETER SelectedRepository
         The repositories that can access an organization variable.
 
+        This is the repository allow-list used when an organization variable has selected visibility.
         Bare repository names are resolved relative to -Organization for REST API fallback.
 
     .PARAMETER Force
@@ -73,7 +91,8 @@ function Set-GitHubVariable
     .PARAMETER TokenEnvironmentVariableName
         The environment variable name to check for a GitHub token when -Token is not supplied.
 
-        Defaults to GH_TOKEN.
+        Defaults to GH_TOKEN. The named environment variable is used for `gh` authentication and REST
+        fallback when -Token is not supplied.
 
     .EXAMPLE
         PS > Set-GitHubVariable -Name 'DOTNET_VERSION' -Value '8.0.x' -Repository 'octo-org/service-api'

@@ -23,12 +23,18 @@ function Remove-GitHubSecret
     .PARAMETER Repository
         The target repository in OWNER/REPO or HOST/OWNER/REPO format.
 
+        This targets a repository-scoped secret. Repository secrets are available only to the
+        specified repository.
+
         When omitted for repository and environment scopes, the current Git repository origin is used.
 
     .PARAMETER Environment
         The deployment environment name for environment secrets.
 
         This parameter is only valid for environment-scoped secrets and requires -Repository.
+
+        Environment secrets always target GitHub Actions and belong to a single named environment
+        within the repository. They are intended for jobs that reference that environment.
 
         GitHub environment names:
         - Are not case sensitive
@@ -41,11 +47,21 @@ function Remove-GitHubSecret
     .PARAMETER Organization
         The target organization for organization secrets.
 
+        This targets an organization-scoped secret. Organization secrets can be shared with
+        repositories in the organization according to the access policy used when the secret was set.
+
     .PARAMETER User
         Targets the authenticated user's Codespaces secrets.
 
+        This targets an account-level Codespaces secret for the authenticated user.
+
     .PARAMETER Application
         The secret application. Valid values are actions, codespaces, and dependabot.
+
+        Meanings:
+        - actions: the secret is available to GitHub Actions workflows
+        - codespaces: the secret is available to GitHub Codespaces
+        - dependabot: the secret is available to Dependabot
 
         Valid combinations depend on scope in the same way as Set-GitHubSecret.
 
@@ -59,7 +75,8 @@ function Remove-GitHubSecret
     .PARAMETER TokenEnvironmentVariableName
         The environment variable name to check for a GitHub token when -Token is not supplied.
 
-        Defaults to GH_TOKEN.
+        Defaults to GH_TOKEN. The named environment variable is used for `gh` authentication when
+        -Token is not supplied.
 
     .EXAMPLE
         PS > Remove-GitHubSecret -Name 'MY_SECRET' -Repository 'octo-org/octo-repo'

@@ -44,6 +44,9 @@ function Set-GitHubSecret
     .PARAMETER Repository
         The target repository in OWNER/REPO or HOST/OWNER/REPO format.
 
+        This targets a repository-scoped secret. Repository secrets are available only to the
+        specified repository.
+
         When omitted for repository and environment scopes, the current Git repository origin is used.
 
         Examples:
@@ -54,7 +57,8 @@ function Set-GitHubSecret
         The deployment environment name for environment secrets.
 
         This parameter is only valid for environment-scoped secrets and requires -Repository.
-        Environment secrets always target GitHub Actions.
+        Environment secrets always target GitHub Actions and belong to a single named environment
+        within the repository. They are intended for jobs that reference that environment.
 
         GitHub environment names:
         - Are not case sensitive
@@ -67,15 +71,24 @@ function Set-GitHubSecret
     .PARAMETER Organization
         The target organization for organization secrets.
 
-        This parameter is only valid for organization-scoped secrets.
+        This targets an organization-scoped secret. Organization secrets can be shared with
+        repositories in the organization according to the access policy set by -Visibility and
+        -SelectedRepository.
 
     .PARAMETER User
         Targets the authenticated user's Codespaces secrets.
 
-        User secrets are only valid for Codespaces and cannot be combined with -Organization or -Environment.
+        This targets an account-level Codespaces secret for the authenticated user. User secrets are
+        only valid for Codespaces, cannot be combined with -Organization or -Environment, and can be
+        restricted to specific repositories by using -SelectedRepository.
 
     .PARAMETER Application
         The secret application. Valid values are actions, codespaces, and dependabot.
+
+        Meanings:
+        - actions: the secret is available to GitHub Actions workflows
+        - codespaces: the secret is available to GitHub Codespaces
+        - dependabot: the secret is available to Dependabot
 
         Typical combinations:
         - Repository scope: actions, codespaces, or dependabot
@@ -87,18 +100,28 @@ function Set-GitHubSecret
         Organization secret visibility. Valid values are all, private, and selected.
 
         This parameter is only valid for organization secrets.
+        Meanings:
+        - all: every repository in the organization can use the secret
+        - private: only private repositories in the organization can use the secret
+        - selected: only repositories listed in -SelectedRepository can use the secret
+
         When -SelectedRepository is used and -Visibility is omitted, visibility is treated as selected.
 
     .PARAMETER SelectedRepository
         The repositories that can access an organization or user secret.
 
-        For organization secrets, you can use bare repository names such as 'app1' alongside -Organization.
-        For user secrets, use OWNER/REPO format.
+        For organization secrets, this is the repository allow-list used when visibility is selected.
+        You can use bare repository names such as 'app1' alongside -Organization.
+
+        For user Codespaces secrets, this is the list of repositories whose codespaces can use the
+        account-level secret. Use OWNER/REPO format.
 
     .PARAMETER NoRepositoriesSelected
         Creates an organization secret that is not available to any repositories.
 
         This is only valid for organization secrets and cannot be combined with -SelectedRepository.
+        Use this when you want to create the secret now but leave its repository allow-list empty
+        until access is granted later.
 
     .PARAMETER Force
         Overwrites an existing secret.
@@ -118,7 +141,8 @@ function Set-GitHubSecret
         The environment variable name to check for a GitHub token when -Token is not supplied.
 
         Defaults to GH_TOKEN. Use this when your token is stored in a different environment variable,
-        such as GITHUB_ADMIN_TOKEN.
+        such as GITHUB_ADMIN_TOKEN. The named environment variable is used for both `gh` authentication
+        injection and REST fallback where applicable.
 
     .EXAMPLE
         PS > $value = Read-Host -AsSecureString

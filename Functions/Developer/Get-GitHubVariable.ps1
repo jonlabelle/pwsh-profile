@@ -23,12 +23,18 @@ function Get-GitHubVariable
     .PARAMETER Repository
         The target repository in OWNER/REPO or HOST/OWNER/REPO format.
 
+        This targets a repository-scoped variable. Repository variables are available only to the
+        specified repository.
+
         When omitted for repository and environment scopes, the current Git repository origin is used.
 
     .PARAMETER Environment
         The deployment environment name for environment variables.
 
         This parameter is only valid for environment-scoped variables and requires -Repository.
+
+        Environment variables belong to a single named environment within the repository and are
+        intended for jobs that reference that environment.
 
         GitHub environment names:
         - Are not case sensitive
@@ -41,13 +47,17 @@ function Get-GitHubVariable
     .PARAMETER Organization
         The target organization for organization variables.
 
+        This targets an organization-scoped variable. Organization variables can be shared with
+        repositories in the organization according to the access policy configured on GitHub.
+
     .PARAMETER Token
         Optional GitHub personal access token as a SecureString.
 
     .PARAMETER TokenEnvironmentVariableName
         The environment variable name to check for a GitHub token when -Token is not supplied.
 
-        Defaults to GH_TOKEN.
+        Defaults to GH_TOKEN. The named environment variable is used for `gh` authentication and REST
+        fallback when -Token is not supplied.
 
     .EXAMPLE
         PS > Get-GitHubVariable -Name 'DOTNET_VERSION' -Repository 'octo-org/service-api'
