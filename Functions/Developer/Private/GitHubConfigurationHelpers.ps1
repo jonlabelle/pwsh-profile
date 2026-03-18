@@ -41,7 +41,6 @@ $helperVariableName = 'PwshProfileGitHubConfigurationHelpers'
 if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction SilentlyContinue))
 {
     $script:PwshProfileGitHubConfigurationHelpers = [ordered]@{
-        ApiVersion = '2022-11-28'
         MaxBackoffSeconds = 60
     }
 
@@ -722,8 +721,7 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             $arguments = @(
                 'api',
                 '--method', $Method.ToUpperInvariant(),
-                '-H', 'Accept: application/vnd.github+json',
-                '-H', "X-GitHub-Api-Version: $($script:PwshProfileGitHubConfigurationHelpers.ApiVersion)"
+                '-H', 'Accept: application/vnd.github+json'
             )
 
             $uri = [Uri]$BaseUri
@@ -778,7 +776,6 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
         $headers = @{
             Accept = 'application/vnd.github+json'
             Authorization = "Bearer $($AuthContext.Token)"
-            'X-GitHub-Api-Version' = $script:PwshProfileGitHubConfigurationHelpers.ApiVersion
         }
 
         $operation = {
