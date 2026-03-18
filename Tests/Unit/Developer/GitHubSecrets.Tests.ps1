@@ -6,6 +6,14 @@ BeforeAll {
     . "$PSScriptRoot/../../../Functions/Developer/Set-GitHubSecret.ps1"
     . "$PSScriptRoot/../../../Functions/Developer/Remove-GitHubSecret.ps1"
 
+    function Invoke-TestGhBinary
+    {
+    }
+
+    function Invoke-TestGitBinary
+    {
+    }
+
     function ConvertTo-TestSecureString
     {
         param([String]$Value)
@@ -42,7 +50,9 @@ Describe 'GitHub secret functions' {
         Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'gh' } -MockWith {
             [PSCustomObject]@{
                 Name = 'gh'
-                Source = '/usr/local/bin/gh'
+                Source = 'gh'
+                Path = 'gh'
+                Definition = 'gh'
             }
         }
     }
@@ -385,6 +395,86 @@ Describe 'GitHub secret functions' {
                     -TokenEnvironmentVariableName 'PWSH_PROFILE_MISSING_GH_TOKEN' `
                     -RequireToken:$false
             } | Should -Not -Throw
+        }
+
+        It 'uses the resolved gh executable path for gh-backed requests' {
+            $helpers = Import-GitHubHelperForTest
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'gh' } -MockWith {
+                [PSCustomObject]@{
+                    Name = 'gh'
+                    Source = 'Invoke-TestGhBinary'
+                    Path = 'Invoke-TestGhBinary'
+                    Definition = 'Invoke-TestGhBinary'
+                }
+            }
+
+            Mock -CommandName gh -MockWith {
+                throw 'Bare gh should not be invoked.'
+            }
+
+            Mock -CommandName Invoke-TestGhBinary -MockWith {
+                if ($args[0] -eq 'api')
+                {
+                    $global:LASTEXITCODE = 0
+                    return '{"name":"REGION","value":"us-east-1","visibility":"private"}'
+                }
+
+                throw "Unexpected resolved gh arguments: $($args -join ' ')"
+            }
+
+            $transport = & $helpers.ResolveTransport
+            $result = & $helpers.InvokeGitHubRequest `
+                -Method 'GET' `
+                -BaseUri 'https://api.github.com' `
+                -Path '/repos/octo-org/service-api/actions/variables/REGION' `
+                -Transport $transport `
+                -AuthContext ([PSCustomObject]@{
+                    Token = $null
+                    Source = 'ExistingGhAuth'
+                    TokenEnvironmentVariableName = 'GH_TOKEN'
+                }) `
+                -Body $null `
+                -MaxRetryCount 0 `
+                -InitialRetryDelaySeconds 1 `
+                -Activity 'Get GitHub variable REGION' `
+                -SensitiveValues @()
+
+            $result.name | Should -Be 'REGION'
+        }
+
+        It 'uses the resolved git executable path when discovering the current repository' {
+            $helpers = Import-GitHubHelperForTest
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'git' } -MockWith {
+                [PSCustomObject]@{
+                    Name = 'git'
+                    Source = 'Invoke-TestGitBinary'
+                    Path = 'Invoke-TestGitBinary'
+                    Definition = 'Invoke-TestGitBinary'
+                }
+            }
+
+            Mock -CommandName git -MockWith {
+                throw 'Bare git should not be invoked.'
+            }
+
+            Mock -CommandName Invoke-TestGitBinary -MockWith {
+                $global:LASTEXITCODE = 0
+                return 'https://github.com/octo-org/service-api.git'
+            }
+
+            $result = & $helpers.ResolveCurrentRepository
+
+            $result.NameWithOwner | Should -Be 'octo-org/service-api'
+        }
+
+        It 'quotes native process arguments that contain spaces' {
+            $helpers = Import-GitHubHelperForTest
+
+            $quoted = & $helpers.QuoteNativeProcessArgument -Argument 'Production Blue'
+
+            $quoted | Should -Be '"Production Blue"'
         }
     }
 

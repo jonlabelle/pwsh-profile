@@ -42,7 +42,9 @@ Describe 'GitHub variable functions' {
         Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'gh' } -MockWith {
             [PSCustomObject]@{
                 Name = 'gh'
-                Source = '/usr/local/bin/gh'
+                Source = 'gh'
+                Path = 'gh'
+                Definition = 'gh'
             }
         }
     }
