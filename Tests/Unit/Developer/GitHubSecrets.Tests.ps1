@@ -121,6 +121,49 @@ Describe 'GitHub secret functions' {
             $script:CapturedSecretSetArguments | Should -Not -Contain '--app'
         }
 
+        It 'normalizes and de-duplicates selected repositories for -Scope User' {
+            $script:CapturedSecretSetArguments = $null
+
+            Mock -CommandName gh -MockWith {
+                if ($args[0] -eq 'api')
+                {
+                    $global:LASTEXITCODE = 1
+                    return 'HTTP 404: Not Found'
+                }
+
+                throw "Unexpected gh arguments: $($args -join ' ')"
+            }
+
+            $helpers = Import-GitHubHelperForTest
+            $helpers.StartGhCommandWithStandardInput = {
+                param(
+                    [String[]]$Arguments,
+                    [String]$StandardInputText
+                )
+
+                $script:CapturedSecretSetArguments = @($Arguments)
+                $null = $StandardInputText
+
+                return [PSCustomObject]@{
+                    ExitCode = 0
+                    StandardOutput = ''
+                    StandardError = ''
+                }
+            }
+
+            $result = Set-GitHubSecret `
+                -Name 'DEVCONTAINER_PAT' `
+                -Value $script:SecretValue `
+                -Scope User `
+                -SelectedRepository @(' octo-org/service-api ', 'octo-org/service-api ')
+
+            $reposIndex = [Array]::IndexOf($script:CapturedSecretSetArguments, '--repos')
+
+            $result.Status | Should -Be 'Created'
+            $reposIndex | Should -BeGreaterThan -1
+            $script:CapturedSecretSetArguments[$reposIndex + 1] | Should -Be 'octo-org/service-api'
+        }
+
         It 'rejects repository targeting for -Scope User' {
             {
                 Set-GitHubSecret `
@@ -129,6 +172,16 @@ Describe 'GitHub secret functions' {
                     -Scope User `
                     -Repository 'octo-org/service-api'
             } | Should -Throw '*-Scope User does not support -Repository*'
+        }
+
+        It 'rejects bare selected repository names for -Scope User' {
+            {
+                Set-GitHubSecret `
+                    -Name 'DEVCONTAINER_PAT' `
+                    -Value $script:SecretValue `
+                    -Scope User `
+                    -SelectedRepository 'service-api'
+            } | Should -Throw '*must use OWNER/REPO format*'
         }
 
         It 'supports environment scope through -Scope Environment' {
@@ -475,6 +528,59 @@ Describe 'GitHub secret functions' {
             $quoted = & $helpers.QuoteNativeProcessArgument -Argument 'Production Blue'
 
             $quoted | Should -Be '"Production Blue"'
+        }
+
+        It 'uses GH_ENTERPRISE_TOKEN for gh requests to enterprise hosts' {
+            $helpers = Import-GitHubHelperForTest
+            $script:ObservedGhToken = $null
+            $script:ObservedEnterpriseToken = $null
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'gh' } -MockWith {
+                [PSCustomObject]@{
+                    Name = 'gh'
+                    Source = 'Invoke-TestGhBinary'
+                    Path = 'Invoke-TestGhBinary'
+                    Definition = 'Invoke-TestGhBinary'
+                }
+            }
+
+            Mock -CommandName Invoke-TestGhBinary -MockWith {
+                $script:ObservedGhToken = [Environment]::GetEnvironmentVariable('GH_TOKEN', 'Process')
+                $script:ObservedEnterpriseToken = [Environment]::GetEnvironmentVariable('GH_ENTERPRISE_TOKEN', 'Process')
+                $global:LASTEXITCODE = 0
+                return '{"viewer":{"login":"octocat"}}'
+            }
+
+            $previousGhToken = [Environment]::GetEnvironmentVariable('GH_TOKEN', 'Process')
+            $previousGhEnterpriseToken = [Environment]::GetEnvironmentVariable('GH_ENTERPRISE_TOKEN', 'Process')
+
+            try
+            {
+                $transport = & $helpers.ResolveTransport
+                $null = & $helpers.InvokeGitHubRequest `
+                    -Method 'GET' `
+                    -BaseUri 'https://git.example.com/api/v3' `
+                    -Path '/user' `
+                    -Transport $transport `
+                    -AuthContext ([PSCustomObject]@{
+                        Token = 'enterprise-token'
+                        Source = 'Parameter'
+                        TokenEnvironmentVariableName = 'GH_TOKEN'
+                    }) `
+                    -Body $null `
+                    -MaxRetryCount 0 `
+                    -InitialRetryDelaySeconds 1 `
+                    -Activity 'Get enterprise user' `
+                    -SensitiveValues @()
+            }
+            finally
+            {
+                [Environment]::SetEnvironmentVariable('GH_TOKEN', $previousGhToken, 'Process')
+                [Environment]::SetEnvironmentVariable('GH_ENTERPRISE_TOKEN', $previousGhEnterpriseToken, 'Process')
+            }
+
+            $script:ObservedGhToken | Should -BeNullOrEmpty
+            $script:ObservedEnterpriseToken | Should -Be 'enterprise-token'
         }
     }
 

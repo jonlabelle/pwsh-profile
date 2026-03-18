@@ -200,6 +200,7 @@ Describe 'GitHub variable functions' {
         }
 
         It 'falls back to the REST API when gh is not installed' {
+            $script:App1LookupCount = 0
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'gh' } -MockWith { $null }
 
             Mock -CommandName Invoke-RestMethod -MockWith {
@@ -212,6 +213,7 @@ Describe 'GitHub variable functions' {
 
                 if ($Method -eq 'GET' -and $Uri -eq 'https://api.github.com/repos/octo-org/app1')
                 {
+                    $script:App1LookupCount++
                     return [PSCustomObject]@{ id = 101 }
                 }
 
@@ -235,11 +237,12 @@ Describe 'GitHub variable functions' {
                 -Value 'us-east-1' `
                 -Scope Organization `
                 -Organization 'octo-org' `
-                -SelectedRepository @('app1', 'app2') `
+                -SelectedRepository @(' app1 ', 'app1', 'app2 ') `
                 -Token $script:TokenValue
 
             $result.Status | Should -Be 'Created'
             $result.Transport | Should -Be 'RestApi'
+            $script:App1LookupCount | Should -Be 1
         }
 
         It 'retries transient API failures with exponential backoff' {

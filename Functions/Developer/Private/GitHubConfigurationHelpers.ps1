@@ -409,6 +409,54 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
         }
     }
 
+    $script:PwshProfileGitHubConfigurationHelpers.GetGhTargetHost = {
+        param([String[]]$Arguments)
+
+        $argumentList = @($Arguments)
+
+        for ($index = 0; $index -lt $argumentList.Count; $index++)
+        {
+            $argument = [string]$argumentList[$index]
+
+            if ($argument -eq '--hostname' -and ($index + 1) -lt $argumentList.Count)
+            {
+                $hostValue = [string]$argumentList[$index + 1]
+                if (-not [string]::IsNullOrWhiteSpace($hostValue))
+                {
+                    return $hostValue.Trim()
+                }
+            }
+
+            if ($argument -eq '--repo' -and ($index + 1) -lt $argumentList.Count)
+            {
+                $repositoryValue = [string]$argumentList[$index + 1]
+                if ($repositoryValue -match '^(?<host>[^/]+)/(?<owner>[^/]+)/(?<repo>[^/]+)$' -and $repositoryValue -notmatch '^https?://')
+                {
+                    return $matches['host']
+                }
+            }
+        }
+
+        return 'github.com'
+    }
+
+    $script:PwshProfileGitHubConfigurationHelpers.GetGhTokenEnvironmentVariableName = {
+        param([String]$TargetHost)
+
+        if ([string]::IsNullOrWhiteSpace($TargetHost))
+        {
+            return 'GH_TOKEN'
+        }
+
+        $normalizedTargetHost = $TargetHost.Trim().ToLowerInvariant()
+        if ($normalizedTargetHost -eq 'github.com' -or $normalizedTargetHost -like '*.ghe.com')
+        {
+            return 'GH_TOKEN'
+        }
+
+        return 'GH_ENTERPRISE_TOKEN'
+    }
+
     $script:PwshProfileGitHubConfigurationHelpers.BuildGitHubApiBaseUri = {
         param([String]$GitHubHost)
 
@@ -473,6 +521,53 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             GhRepository = if ($gitHubHost -eq 'github.com') { $nameWithOwner } else { "$gitHubHost/$nameWithOwner" }
             ApiBaseUri = & $script:PwshProfileGitHubConfigurationHelpers.BuildGitHubApiBaseUri $gitHubHost
         }
+    }
+
+    $script:PwshProfileGitHubConfigurationHelpers.NormalizeSelectedRepositories = {
+        param(
+            [String[]]$Repositories,
+            [String]$Organization,
+            [Boolean]$RequireOwnerRepoFormat
+        )
+
+        if ($null -eq $Repositories)
+        {
+            return @()
+        }
+
+        $normalizedRepositories = New-Object System.Collections.Generic.List[String]
+        $seenRepositories = @{}
+
+        foreach ($repository in @($Repositories))
+        {
+            if ([string]::IsNullOrWhiteSpace($repository))
+            {
+                throw 'Selected repositories cannot contain empty or whitespace values.'
+            }
+
+            $trimmedRepository = $repository.Trim()
+            if ($RequireOwnerRepoFormat -and $trimmedRepository -notmatch '/')
+            {
+                throw "Selected repository '$trimmedRepository' must use OWNER/REPO format."
+            }
+
+            $dedupeKey = if ($trimmedRepository -notmatch '/' -and -not [string]::IsNullOrWhiteSpace($Organization))
+            {
+                "$Organization/$trimmedRepository".ToLowerInvariant()
+            }
+            else
+            {
+                $trimmedRepository.ToLowerInvariant()
+            }
+
+            if (-not $seenRepositories.ContainsKey($dedupeKey))
+            {
+                $seenRepositories[$dedupeKey] = $true
+                $normalizedRepositories.Add($trimmedRepository) | Out-Null
+            }
+        }
+
+        return @($normalizedRepositories.ToArray())
     }
 
     $script:PwshProfileGitHubConfigurationHelpers.ResolveCurrentRepository = {
@@ -726,14 +821,18 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
         $ghCommandPath = & $script:PwshProfileGitHubConfigurationHelpers.GetResolvedCommandPath `
             -CommandInfo $ghCommand `
             -FallbackName 'gh'
+        $ghTargetHost = & $script:PwshProfileGitHubConfigurationHelpers.GetGhTargetHost -Arguments $ghArguments
+        $ghTokenEnvironmentVariableName = & $script:PwshProfileGitHubConfigurationHelpers.GetGhTokenEnvironmentVariableName `
+            -TargetHost $ghTargetHost
 
         $operation = {
             $previousGhToken = [Environment]::GetEnvironmentVariable('GH_TOKEN', 'Process')
+            $previousGhEnterpriseToken = [Environment]::GetEnvironmentVariable('GH_ENTERPRISE_TOKEN', 'Process')
             $previousGhPromptDisabled = [Environment]::GetEnvironmentVariable('GH_PROMPT_DISABLED', 'Process')
 
             if ($ghAuthContext -and -not [string]::IsNullOrWhiteSpace($ghAuthContext.Token))
             {
-                [Environment]::SetEnvironmentVariable('GH_TOKEN', $ghAuthContext.Token, 'Process')
+                [Environment]::SetEnvironmentVariable($ghTokenEnvironmentVariableName, $ghAuthContext.Token, 'Process')
             }
 
             # gh secret delete does not expose a --yes flag, so disable interactive prompts centrally.
@@ -749,6 +848,7 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
                 if ($ghAuthContext -and -not [string]::IsNullOrWhiteSpace($ghAuthContext.Token))
                 {
                     [Environment]::SetEnvironmentVariable('GH_TOKEN', $previousGhToken, 'Process')
+                    [Environment]::SetEnvironmentVariable('GH_ENTERPRISE_TOKEN', $previousGhEnterpriseToken, 'Process')
                 }
 
                 [Environment]::SetEnvironmentVariable('GH_PROMPT_DISABLED', $previousGhPromptDisabled, 'Process')
@@ -791,54 +891,6 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             -CommandInfo $ghCommand `
             -FallbackName 'gh'
 
-        if ($PSVersionTable.PSVersion.Major -lt 6)
-        {
-            $standardInputPath = $null
-            $standardOutputPath = $null
-            $standardErrorPath = $null
-
-            try
-            {
-                $standardInputPath = [System.IO.Path]::GetTempFileName()
-                $standardOutputPath = [System.IO.Path]::GetTempFileName()
-                $standardErrorPath = [System.IO.Path]::GetTempFileName()
-
-                [System.IO.File]::WriteAllText($standardInputPath, $StandardInputText, [System.Text.UTF8Encoding]::new($false))
-
-                $escapedArguments = foreach ($argument in @($Arguments))
-                {
-                    & $script:PwshProfileGitHubConfigurationHelpers.QuoteNativeProcessArgument `
-                        -Argument ([string]$argument)
-                }
-
-                $process = Start-Process `
-                    -FilePath $ghCommandPath `
-                    -ArgumentList ($escapedArguments -join ' ') `
-                    -Wait `
-                    -PassThru `
-                    -NoNewWindow `
-                    -RedirectStandardInput $standardInputPath `
-                    -RedirectStandardOutput $standardOutputPath `
-                    -RedirectStandardError $standardErrorPath
-
-                return [PSCustomObject]@{
-                    ExitCode = $process.ExitCode
-                    StandardOutput = [System.IO.File]::ReadAllText($standardOutputPath)
-                    StandardError = [System.IO.File]::ReadAllText($standardErrorPath)
-                }
-            }
-            finally
-            {
-                foreach ($tempPath in @($standardInputPath, $standardOutputPath, $standardErrorPath))
-                {
-                    if (-not [string]::IsNullOrWhiteSpace($tempPath) -and (Test-Path -LiteralPath $tempPath))
-                    {
-                        Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue
-                    }
-                }
-            }
-        }
-
         $process = [System.Diagnostics.Process]::new()
         try
         {
@@ -849,9 +901,22 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             $startInfo.RedirectStandardOutput = $true
             $startInfo.RedirectStandardError = $true
 
-            foreach ($argument in @($Arguments))
+            if ($PSVersionTable.PSVersion.Major -lt 6)
             {
-                $null = $startInfo.ArgumentList.Add([string]$argument)
+                $escapedArguments = foreach ($argument in @($Arguments))
+                {
+                    & $script:PwshProfileGitHubConfigurationHelpers.QuoteNativeProcessArgument `
+                        -Argument ([string]$argument)
+                }
+
+                $startInfo.Arguments = ($escapedArguments -join ' ')
+            }
+            else
+            {
+                foreach ($argument in @($Arguments))
+                {
+                    $null = $startInfo.ArgumentList.Add([string]$argument)
+                }
             }
 
             $process.StartInfo = $startInfo
@@ -949,14 +1014,18 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
         $ghStandardInputText = $StandardInputText
         $ghAuthContext = $AuthContext
         $ghSensitiveValues = @($SensitiveValues)
+        $ghTargetHost = & $script:PwshProfileGitHubConfigurationHelpers.GetGhTargetHost -Arguments $ghArguments
+        $ghTokenEnvironmentVariableName = & $script:PwshProfileGitHubConfigurationHelpers.GetGhTokenEnvironmentVariableName `
+            -TargetHost $ghTargetHost
 
         $operation = {
             $previousGhToken = [Environment]::GetEnvironmentVariable('GH_TOKEN', 'Process')
+            $previousGhEnterpriseToken = [Environment]::GetEnvironmentVariable('GH_ENTERPRISE_TOKEN', 'Process')
             $previousGhPromptDisabled = [Environment]::GetEnvironmentVariable('GH_PROMPT_DISABLED', 'Process')
 
             if ($ghAuthContext -and -not [string]::IsNullOrWhiteSpace($ghAuthContext.Token))
             {
-                [Environment]::SetEnvironmentVariable('GH_TOKEN', $ghAuthContext.Token, 'Process')
+                [Environment]::SetEnvironmentVariable($ghTokenEnvironmentVariableName, $ghAuthContext.Token, 'Process')
             }
 
             # gh secret delete does not expose a --yes flag, so disable interactive prompts centrally.
@@ -973,6 +1042,7 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
                 if ($ghAuthContext -and -not [string]::IsNullOrWhiteSpace($ghAuthContext.Token))
                 {
                     [Environment]::SetEnvironmentVariable('GH_TOKEN', $previousGhToken, 'Process')
+                    [Environment]::SetEnvironmentVariable('GH_ENTERPRISE_TOKEN', $previousGhEnterpriseToken, 'Process')
                 }
 
                 [Environment]::SetEnvironmentVariable('GH_PROMPT_DISABLED', $previousGhPromptDisabled, 'Process')
