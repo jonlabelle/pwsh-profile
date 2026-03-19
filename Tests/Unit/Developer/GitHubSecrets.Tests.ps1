@@ -555,6 +555,24 @@ Describe 'GitHub secret functions' {
             $result.NameWithOwner | Should -Be 'octo-org/service-api'
         }
 
+        It 'returns null status code from exceptions that have no Response property' {
+            $helpers = Import-GitHubHelperForTest
+
+            $bareException = [System.InvalidOperationException]::new('something went wrong')
+            $statusCode = & $helpers.GetExceptionStatusCode $bareException
+
+            $statusCode | Should -BeNullOrEmpty
+        }
+
+        It 'returns the exception message when ErrorDetails is absent' {
+            $helpers = Import-GitHubHelperForTest
+
+            $bareException = [System.InvalidOperationException]::new('plain message')
+            $message = & $helpers.GetExceptionMessage $bareException
+
+            $message | Should -Be 'plain message'
+        }
+
         It 'quotes native process arguments that contain spaces' {
             $helpers = Import-GitHubHelperForTest
 

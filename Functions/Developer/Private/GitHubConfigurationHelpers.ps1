@@ -119,15 +119,22 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             return $Exception.Data['StatusCode']
         }
 
-        $response = $Exception.Response
+        $responseProperty = $Exception.PSObject.Properties['Response']
+        if ($null -eq $responseProperty)
+        {
+            return $null
+        }
+
+        $response = $responseProperty.Value
         if ($null -eq $response)
         {
             return $null
         }
 
-        if ($response.StatusCode)
+        $statusCodeProperty = $response.PSObject.Properties['StatusCode']
+        if ($null -ne $statusCodeProperty -and $null -ne $statusCodeProperty.Value)
         {
-            return [int]$response.StatusCode
+            return [int]$statusCodeProperty.Value
         }
 
         return $null
@@ -141,10 +148,14 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             return 'Unknown GitHub error.'
         }
 
-        $errorDetails = $Exception.ErrorDetails
-        if ($errorDetails -and -not [string]::IsNullOrWhiteSpace($errorDetails.Message))
+        $errorDetailsProperty = $Exception.PSObject.Properties['ErrorDetails']
+        if ($null -ne $errorDetailsProperty)
         {
-            return $errorDetails.Message.Trim()
+            $errorDetails = $errorDetailsProperty.Value
+            if ($null -ne $errorDetails -and -not [string]::IsNullOrWhiteSpace($errorDetails.Message))
+            {
+                return $errorDetails.Message.Trim()
+            }
         }
 
         if (-not [string]::IsNullOrWhiteSpace($Exception.Message))
