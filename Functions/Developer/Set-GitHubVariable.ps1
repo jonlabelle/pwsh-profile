@@ -378,6 +378,11 @@ function Set-GitHubVariable
             throw "Visibility 'selected' requires -SelectedRepository."
         }
 
+        if ($PSBoundParameters.ContainsKey('SelectedRepository') -and $Visibility -and $Visibility -ne 'selected')
+        {
+            throw "-SelectedRepository requires '-Visibility selected'. Specify '-Visibility selected' or omit -Visibility."
+        }
+
         if ($PSBoundParameters.ContainsKey('SelectedRepository'))
         {
             $SelectedRepository = & $helpers.NormalizeSelectedRepositories `

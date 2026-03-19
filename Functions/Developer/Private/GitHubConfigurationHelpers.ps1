@@ -1264,8 +1264,15 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
         )
 
         $repositoryIds = New-Object System.Collections.Generic.List[Int64]
+        $seenRepositoryKeys = @{}
 
-        foreach ($repository in @($Repositories | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }))
+        $effectiveRepositories = @($Repositories | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        if ($effectiveRepositories.Count -eq 0 -and $null -ne $Repositories -and $Repositories.Count -gt 0)
+        {
+            throw 'Selected repositories must contain at least one non-empty value.'
+        }
+
+        foreach ($repository in $effectiveRepositories)
         {
             $repositoryValue = $repository.Trim()
 
@@ -1280,6 +1287,13 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             }
 
             $repositoryContext = & $script:PwshProfileGitHubConfigurationHelpers.ParseRepositorySpecifier $repositoryValue
+            $dedupeKey = "$($repositoryContext.Host)/$($repositoryContext.Owner)/$($repositoryContext.Repo)".ToLowerInvariant()
+            if ($seenRepositoryKeys.ContainsKey($dedupeKey))
+            {
+                continue
+            }
+
+            $seenRepositoryKeys[$dedupeKey] = $true
             $lookup = & $script:PwshProfileGitHubConfigurationHelpers.InvokeGitHubRequest `
                 -Method 'GET' `
                 -BaseUri $repositoryContext.ApiBaseUri `
@@ -1309,7 +1323,7 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
         $message = & $script:PwshProfileGitHubConfigurationHelpers.TrimErrorMessage `
         (& $script:PwshProfileGitHubConfigurationHelpers.GetExceptionMessage $Exception)
 
-        if ($statusCode -eq 401 -or $message -match 'authentication|token|unauthorized')
+        if ($statusCode -eq 401 -or $message -match 'authentication|unauthorized')
         {
             return "Failed to $Operation '$Name' for ${Target}: authentication failed."
         }

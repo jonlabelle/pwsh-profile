@@ -278,6 +278,35 @@ Describe 'GitHub variable functions' {
             $script:CreateAttempts | Should -Be 2
             Assert-MockCalled -CommandName Start-Sleep -Times 1
         }
+
+        It 'rejects -SelectedRepository combined with incompatible -Visibility' -ForEach @(
+            @{ Visibility = 'all' }
+            @{ Visibility = 'private' }
+        ) {
+            {
+                Set-GitHubVariable `
+                    -Name 'REGION' `
+                    -Value 'us-east-1' `
+                    -Scope Organization `
+                    -Organization 'octo-org' `
+                    -SelectedRepository 'app1' `
+                    -Visibility $Visibility
+            } | Should -Throw "*'-Visibility selected'*"
+        }
+
+        It 'rejects whitespace-only entries in -SelectedRepository' {
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'gh' } -MockWith { $null }
+
+            {
+                Set-GitHubVariable `
+                    -Name 'REGION' `
+                    -Value 'us-east-1' `
+                    -Scope Organization `
+                    -Organization 'octo-org' `
+                    -SelectedRepository @('   ', '') `
+                    -Token $script:TokenValue
+            } | Should -Throw '*empty or whitespace*'
+        }
     }
 
     Context 'Get-GitHubVariable' {

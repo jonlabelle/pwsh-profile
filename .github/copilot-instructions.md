@@ -79,6 +79,11 @@ else
 - **Network Testing:** Prefer .NET Socket classes over Windows-specific cmdlets
 - **Admin Detection:** `Test-Admin` function only works on Windows
 
+### Splatting and Parameter Attributes
+
+- Use splatting for cmdlet calls with multiple parameters for readability
+- Avoid backticks for line continuation; instead, use splatting or parentheses
+
 ### File Encoding for Unicode Characters
 
 **CRITICAL for PowerShell 5.1 compatibility:**

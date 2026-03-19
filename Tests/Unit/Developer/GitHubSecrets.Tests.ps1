@@ -164,14 +164,30 @@ Describe 'GitHub secret functions' {
             $script:CapturedSecretSetArguments[$reposIndex + 1] | Should -Be 'octo-org/service-api'
         }
 
-        It 'rejects repository targeting for -Scope User' {
+        It 'rejects -SelectedRepository combined with non-selected -Visibility for organization scope' -ForEach @(
+            @{ Visibility = 'all' }
+            @{ Visibility = 'private' }
+        ) {
             {
                 Set-GitHubSecret `
-                    -Name 'DEVCONTAINER_PAT' `
+                    -Name 'ORG_SECRET' `
                     -Value $script:SecretValue `
-                    -Scope User `
-                    -Repository 'octo-org/service-api'
-            } | Should -Throw '*-Scope User does not support -Repository*'
+                    -Scope Organization `
+                    -Organization 'octo-org' `
+                    -SelectedRepository 'app1' `
+                    -Visibility $Visibility
+            } | Should -Throw "*'-Visibility selected'*"
+        }
+
+        It 'rejects whitespace-only entries in -SelectedRepository for organization scope' {
+            {
+                Set-GitHubSecret `
+                    -Name 'ORG_SECRET' `
+                    -Value $script:SecretValue `
+                    -Scope Organization `
+                    -Organization 'octo-org' `
+                    -SelectedRepository @('   ', '')
+            } | Should -Throw '*empty or whitespace*'
         }
 
         It 'rejects bare selected repository names for -Scope User' {
@@ -494,6 +510,23 @@ Describe 'GitHub secret functions' {
                 -SensitiveValues @()
 
             $result.name | Should -Be 'REGION'
+        }
+
+        It 'preserves actionable no-token-available message in error output' {
+            $helpers = Import-GitHubHelperForTest
+
+            $noTokenException = [System.InvalidOperationException]::new(
+                "No GitHub token is available. Provide -Token or set the 'GH_TOKEN' environment variable."
+            )
+
+            $message = & $helpers.GetFriendlyErrorMessage `
+                -Operation 'get secret' `
+                -Name 'REGION' `
+                -Target 'organization octo-org' `
+                -Exception $noTokenException
+
+            $message | Should -Match 'GH_TOKEN'
+            $message | Should -Not -Match 'authentication failed'
         }
 
         It 'uses the resolved git executable path when discovering the current repository' {

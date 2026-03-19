@@ -481,6 +481,11 @@ function Set-GitHubSecret
             throw "Visibility 'selected' requires -SelectedRepository."
         }
 
+        if ($PSBoundParameters.ContainsKey('SelectedRepository') -and $resolvedScope -eq 'Organization' -and $Visibility -and $Visibility -ne 'selected')
+        {
+            throw "-SelectedRepository for organization secrets requires '-Visibility selected'. Specify '-Visibility selected' or omit -Visibility."
+        }
+
         if ($PSBoundParameters.ContainsKey('SelectedRepository'))
         {
             $SelectedRepository = & $helpers.NormalizeSelectedRepositories `
