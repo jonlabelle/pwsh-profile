@@ -24,13 +24,13 @@
         OUTPUT FORMAT:
 
         Each host result displays:
-        ┌─ ✓ hostname:port [A] (collect XXms)
-        │  Latency   ▂▃▄▂▁▂▃ (sparkline graph)
-        │  Stats     min: Xms | max: Xms | avg: Xms | jitter: Xms
-        │  Quality   X/X successful (X%) | Packet Loss: X%
-        │  Trend     avg ↑+Xms | jitter ↓-Xms | loss → 0%  (continuous mode)
-        │  Findings  Healthy ✓ (or list of issues)
-        └───────────────────────────────────
+        ╔═ ✓ hostname:port [A Excellent] (collect XXms)
+        ║  Latency   ▂▃▄▂▁▂▃ (sparkline graph)
+        ║  Stats     min: Xms | max: Xms | avg: Xms | jitter: Xms
+        ║  Quality   X/X successful (X%) | Packet Loss: X% ██████████
+        ║  Trend     avg ↑+Xms | jitter ↓-Xms | loss → 0%  (continuous mode)
+        ║  Findings  Healthy ✓ (or list of issues)
+        ╚═══════════════════════════════════
 
         HEALTH GRADE SYSTEM:
 
@@ -855,7 +855,7 @@
                     [string]$Text = ''
                 )
 
-                Write-Host '│' -NoNewline -ForegroundColor $FrameColor
+                Write-Host ([char]0x2551) -NoNewline -ForegroundColor $FrameColor
                 if (-not [string]::IsNullOrEmpty($Text))
                 {
                     Write-Host $Text -NoNewline
@@ -949,10 +949,19 @@
                 {
                     $elapsedText = " (collect $([Math]::Round($result.ElapsedMs, 1))ms)"
                 }
-                Write-Host ("┌─ $statusIcon ") -ForegroundColor $statusColor -NoNewline
+                # Grade descriptive label for quick assessment
+                $gradeLabel = switch ($healthGrade)
+                {
+                    'A' { 'Excellent' }
+                    'B' { 'Good' }
+                    'C' { 'Fair' }
+                    'D' { 'Poor' }
+                    default { 'Critical' }
+                }
+                Write-Host ("$([char]0x2554)$([char]0x2550) $statusIcon ") -ForegroundColor $statusColor -NoNewline
                 Write-Host "$($result.HostName):$($result.Port)" -ForegroundColor $statusColor -NoNewline
                 Write-Host ' [' -ForegroundColor DarkGray -NoNewline
-                Write-Host $healthGrade -ForegroundColor $gradeColor -NoNewline
+                Write-Host "$healthGrade $gradeLabel" -ForegroundColor $gradeColor -NoNewline
                 Write-Host ']' -ForegroundColor DarkGray -NoNewline
                 if ($elapsedText)
                 {
@@ -1032,7 +1041,7 @@
                         $linesPrintedLocal++
                     }
 
-                    Write-Host (('└' + ('─' * 79) + $clearTail)) -ForegroundColor $statusColor
+                    Write-Host (([string][char]0x255A + ([string][char]0x2550) * 79 + $clearTail)) -ForegroundColor $statusColor
                     Write-Host
                     $linesPrintedLocal += 2
                     continue
@@ -1098,9 +1107,10 @@
                     {
                         Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Stats')
                         Write-Host 'min: ' -NoNewline -ForegroundColor Gray
-                        Write-Host "$($result.LatencyMin)ms" -NoNewline -ForegroundColor Cyan
+                        Write-Host "$($result.LatencyMin)ms" -NoNewline -ForegroundColor Green
                         Write-Host ' | max: ' -NoNewline -ForegroundColor Gray
-                        Write-Host "$($result.LatencyMax)ms" -NoNewline -ForegroundColor Cyan
+                        $maxColor = if ($result.LatencyMax -lt $t.Latency.Good) { 'Green' } elseif ($result.LatencyMax -lt $t.Latency.Warning) { 'Yellow' } else { 'Red' }
+                        Write-Host "$($result.LatencyMax)ms" -NoNewline -ForegroundColor $maxColor
                         Write-Host ' | avg: ' -NoNewline -ForegroundColor Gray
                         $avgColor = if ($result.LatencyAvg -lt $t.Latency.Good) { 'Green' } elseif ($result.LatencyAvg -lt $t.Latency.Warning) { 'Yellow' } else { 'Red' }
                         Write-Host "$($result.LatencyAvg)ms" -NoNewline -ForegroundColor $avgColor
@@ -1127,7 +1137,14 @@
                 Write-Host "$successRate%" -NoNewline -ForegroundColor $qualityColor
                 Write-Host ') | Packet Loss: ' -NoNewline
                 $lossColor = if ($result.PacketLoss -eq $t.PacketLoss.Good) { 'Green' } elseif ($result.PacketLoss -lt $t.PacketLoss.Critical) { 'Yellow' } else { 'Red' }
-                Write-Host ("$($result.PacketLoss)%$clearTail") -ForegroundColor $lossColor
+                Write-Host "$($result.PacketLoss)%" -NoNewline -ForegroundColor $lossColor
+                # Visual quality bar
+                $barWidth = 10
+                $filledCount = [Math]::Round(($successRate / 100) * $barWidth)
+                $emptyCount = $barWidth - $filledCount
+                Write-Host ' ' -NoNewline
+                Write-Host (([string][char]0x2588) * $filledCount) -NoNewline -ForegroundColor $qualityColor
+                Write-Host (([string][char]0x2591) * $emptyCount + $clearTail) -ForegroundColor DarkGray
                 $linesPrintedLocal++
 
                 if ($ShowTrend)
@@ -1200,7 +1217,7 @@
                     Write-Verbose "Failed to reset console color: $($_.Exception.Message)"
                 }
 
-                Write-Host (('└' + ('─' * 79) + $clearTail)) -ForegroundColor $statusColor
+                Write-Host (([string][char]0x255A + ([string][char]0x2550) * 79 + $clearTail)) -ForegroundColor $statusColor
                 Write-Host
                 $linesPrintedLocal += 2
             }
@@ -1427,9 +1444,11 @@
 
                 # Print a single header line each refresh with timestamp and iteration.
                 $timestamp = (Get-Date).ToString('HH:mm:ss')
-                Write-Host 'Network Diagnostic - Continuous Mode' -ForegroundColor DarkGray -NoNewline
-                Write-Host ' | ' -ForegroundColor DarkGray -NoNewline
-                Write-Host "[$timestamp]" -ForegroundColor DarkGray -NoNewline
+                $headerRule = ([string][char]0x2550) * 3
+                Write-Host "$headerRule " -ForegroundColor DarkGray -NoNewline
+                Write-Host 'Network Diagnostic - Continuous Mode' -ForegroundColor White -NoNewline
+                Write-Host " $headerRule " -ForegroundColor DarkGray -NoNewline
+                Write-Host "[$timestamp]" -ForegroundColor Cyan -NoNewline
                 Write-Host ' ' -NoNewline
                 Write-Host "Refresh #$iteration" -ForegroundColor White
                 Write-Host
