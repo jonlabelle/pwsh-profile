@@ -77,7 +77,7 @@ function Search-FileContent
     .PARAMETER MaxDepth
         Maximum directory depth for recursive search when -Recurse is specified.
 
-    .PARAMETER MaxFileSize
+    .PARAMETER MaxFileSizeMB
         Maximum file size to search (in MB). Files larger than this are skipped.
         Default is 100MB.
 
@@ -320,7 +320,7 @@ function Search-FileContent
 
         [Parameter()]
         [ValidateRange(1, 10240)]
-        [Int]$MaxFileSize = 100,
+        [Int]$MaxFileSizeMB = 100,
 
         [Parameter()]
         [Switch]$CountOnly,
@@ -490,7 +490,7 @@ function Search-FileContent
         }
 
         # Maximum file size in bytes
-        $maxFileSizeBytes = $MaxFileSize * 1MB
+        $maxFileSizeBytes = $MaxFileSizeMB * 1MB
 
         # Color codes for formatted output (only if not Simple mode)
         if (-not $Simple -and -not $FilesOnly)

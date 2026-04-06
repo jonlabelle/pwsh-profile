@@ -89,9 +89,9 @@ Describe 'Search-FileContent' {
             $validateRange.MaxRange | Should -Be 100
         }
 
-        It 'Should validate MaxFileSize parameter range' {
+        It 'Should validate MaxFileSizeMB parameter range' {
             $command = Get-Command Search-FileContent
-            $maxSizeParam = $command.Parameters['MaxFileSize']
+            $maxSizeParam = $command.Parameters['MaxFileSizeMB']
             $validateRange = $maxSizeParam.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateRangeAttribute] }
             $validateRange.MinRange | Should -Be 1
             $validateRange.MaxRange | Should -Be 10240
