@@ -108,32 +108,39 @@ Write-Host "Example usage"
             Remove-TestDirectory -Path $script:projectDir
         }
 
-        It 'Should find all TODO comments across project' {
+        It 'Should search only top-level project files by default after recursion became opt-in' {
             $results = Search-FileContent -Pattern 'TODO:' -Path $script:projectDir -Simple
+            $results.Count | Should -Be 2
+            ($results.Path | Select-Object -Unique).Count | Should -Be 1
+            $results[0].Path | Should -Be (Join-Path -Path $script:projectDir -ChildPath 'README.md')
+        }
+
+        It 'Should find all TODO comments across project' {
+            $results = Search-FileContent -Pattern 'TODO:' -Path $script:projectDir -Simple -Recurse
             # Should find TODOs in src files, test files, and README, but not in .git
             $results.Count | Should -BeGreaterOrEqual 4
             $results.Path | Should -Not -BeLike '*.git*'
         }
 
         It 'Should find function declarations in PowerShell files' {
-            $results = Search-FileContent -Pattern 'function\s+\w+-\w+' -Path $script:projectDir -Include '*.ps1' -Simple
+            $results = Search-FileContent -Pattern 'function\s+\w+-\w+' -Path $script:projectDir -Include '*.ps1' -Simple -Recurse
             # Should find Get-UserData and Set-UserData
             $results.Count | Should -BeGreaterOrEqual 2
         }
 
         It 'Should exclude test files when requested' {
-            $results = Search-FileContent -Pattern 'TODO' -Path $script:projectDir -Exclude '*.Tests.ps1' -Simple
+            $results = Search-FileContent -Pattern 'TODO' -Path $script:projectDir -Exclude '*.Tests.ps1' -Simple -Recurse
             $results.Path | Should -Not -BeLike '*Tests.ps1'
         }
 
         It 'Should search only PowerShell files' {
-            $results = Search-FileContent -Pattern 'Write-' -Path $script:projectDir -Include '*.ps1' -Simple
+            $results = Search-FileContent -Pattern 'Write-' -Path $script:projectDir -Include '*.ps1' -Simple -Recurse
             $results.Count | Should -BeGreaterOrEqual 2
             $results.Path | ForEach-Object { $_ | Should -BeLike '*.ps1' }
         }
 
         It 'Should find matches with context lines' {
-            $results = Search-FileContent -Pattern 'function Get-UserData' -Path $script:projectDir -Simple -Before 0 -After 2
+            $results = Search-FileContent -Pattern 'function Get-UserData' -Path $script:projectDir -Simple -Before 0 -After 2 -Recurse
             $results | Should -Not -BeNullOrEmpty
             # Verify it's finding the function
             $results[0].Line | Should -BeLike '*Get-UserData*'
@@ -409,22 +416,22 @@ Line with backslash: \PATTERN\
             Remove-TestDirectory -Path $script:nestedDir
         }
 
-        It 'Should search deep nested directories' {
+        It 'Should not search deep nested directories by default' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:nestedDir -Simple
+            $results | Should -BeNullOrEmpty
+        }
+
+        It 'Should search deep nested directories with -Recurse' {
+            $results = Search-FileContent -Pattern 'MATCH' -Path $script:nestedDir -Simple -Recurse
             $results.Count | Should -Be 5
         }
 
         It 'Should respect MaxDepth limitation' {
-            $results = Search-FileContent -Pattern 'MATCH' -Path $script:nestedDir -Simple -MaxDepth 2
+            $results = Search-FileContent -Pattern 'MATCH' -Path $script:nestedDir -Simple -Recurse -MaxDepth 2
             # Should only find matches in level1 and level2
             $results.Count | Should -BeLessOrEqual 2
         }
 
-        It 'Should not recurse with -NoRecurse' {
-            $results = Search-FileContent -Pattern 'MATCH' -Path $script:nestedDir -Simple -NoRecurse
-            # Should find no files since there are no files at root level
-            $results | Should -BeNullOrEmpty
-        }
     }
 
     Context 'Output Mode Comparisons' {
@@ -555,7 +562,7 @@ api_key=development_key
         }
 
         It 'Should find all case variations across multiple files' {
-            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple
+            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple -Recurse
             $results | Should -Not -BeNullOrEmpty
             $uniqueVariations = $results.Variation | Select-Object -Unique
             # Should find apiKey (camelCase) and ApiKey (PascalCase) across files
@@ -564,25 +571,25 @@ api_key=development_key
         }
 
         It 'Should correctly count each variation across files' {
-            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple
+            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple -Recurse
             $apiKeyResults = $results | Where-Object { $_.Variation -eq 'apiKey' }
             $apiKeyResults.Count | Should -BeGreaterThan 0
         }
 
         It 'Should identify JavaScript camelCase usage' {
-            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple
+            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple -Recurse
             $camelCase = $results | Where-Object { $_.CasePattern -eq 'camelCase' }
             $camelCase | Should -Not -BeNullOrEmpty
         }
 
         It 'Should identify PascalCase for class names' {
-            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple
+            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple -Recurse
             $pascalCase = $results | Where-Object { $_.CasePattern -eq 'PascalCase' }
             $pascalCase | Should -Not -BeNullOrEmpty
         }
 
         It 'Should NOT find separated patterns like snake_case or kebab-case when searching for continuous pattern' {
-            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple
+            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple -Recurse
             # Patterns like api_key, API_KEY, api-key should not match 'apikey'
             $snakeCase = $results | Where-Object { $_.CasePattern -match 'snake' }
             $snakeCase | Should -BeNullOrEmpty
@@ -591,7 +598,7 @@ api_key=development_key
         }
 
         It 'Should track which files contain each variation' {
-            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple
+            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple -Recurse
             foreach ($result in $results)
             {
                 $result.Files | Should -Not -BeNullOrEmpty
@@ -601,7 +608,7 @@ api_key=development_key
         }
 
         It 'Should work with Include filter for specific file types' {
-            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -Include '*.js', '*.ts' -CaseInsensitive -IncludeCaseVariations -Simple
+            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -Include '*.js', '*.ts' -CaseInsensitive -IncludeCaseVariations -Simple -Recurse
             $results | Should -Not -BeNullOrEmpty
             # Should only include JavaScript and TypeScript files
             foreach ($result in $results)
@@ -614,7 +621,7 @@ api_key=development_key
         }
 
         It 'Should show most common variation first when sorted' {
-            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple
+            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple -Recurse
             $sortedResults = $results | Sort-Object -Property Count -Descending
             $sortedResults[0].Count | Should -BeGreaterOrEqual $sortedResults[-1].Count
         }
@@ -625,7 +632,7 @@ api_key=development_key
         }
 
         It 'Should provide accurate file occurrence counts' {
-            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple
+            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple -Recurse
             foreach ($result in $results)
             {
                 $result.Count | Should -BeGreaterThan 0
@@ -636,7 +643,7 @@ api_key=development_key
         }
 
         It 'Should work with Exclude patterns' {
-            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -Exclude '*.json', '*.env' -CaseInsensitive -IncludeCaseVariations -Simple
+            $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -Exclude '*.json', '*.env' -CaseInsensitive -IncludeCaseVariations -Simple -Recurse
             $results | Should -Not -BeNullOrEmpty
             # Should not include config.json or .env files
             foreach ($result in $results)

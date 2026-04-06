@@ -31,7 +31,7 @@ function Search-FileContent
 
     .PARAMETER Path
         One or more paths to search. Accepts file paths, directory paths, and wildcards.
-        If a directory is specified, searches recursively unless -NoRecurse is used.
+        If a directory is specified, searches only files in that directory unless -Recurse is used.
         Supports pipeline input.
 
     .PARAMETER Literal
@@ -75,7 +75,7 @@ function Search-FileContent
         excludes '/project/src/*' but not '/project/src-utils/*' unless you use a wildcard.
 
     .PARAMETER MaxDepth
-        Maximum directory depth for recursive search. Default is unlimited.
+        Maximum directory depth for recursive search when -Recurse is specified.
 
     .PARAMETER MaxFileSize
         Maximum file size to search (in MB). Files larger than this are skipped.
@@ -93,8 +93,8 @@ function Search-FileContent
         Use simple output format suitable for pipelines and scripting.
         Outputs PSCustomObjects instead of formatted text.
 
-    .PARAMETER NoRecurse
-        Do not search subdirectories. Only search files in the specified path.
+    .PARAMETER Recurse
+        Search subdirectories recursively when Path points to a directory.
 
     .PARAMETER NoLineNumber
         Do not display line numbers in the output.
@@ -133,7 +133,7 @@ function Search-FileContent
         -Context, -Before, or -After (context parameters are not applicable to variation summaries).
 
     .EXAMPLE
-        PS > Search-FileContent -Pattern 'function' -Path ./Functions
+        PS > Search-FileContent -Pattern 'function' -Path ./Functions -Recurse
 
         /Users/jon/Functions/Utils.ps1
         42:function Get-Something {
@@ -146,7 +146,7 @@ function Search-FileContent
         Output is colorized with file paths, line numbers, and highlighted matches.
 
     .EXAMPLE
-        PS > Search-FileContent -Pattern 'TODO' -Path . -Include '*.ps1' -Context 2
+        PS > Search-FileContent -Pattern 'TODO' -Path . -Include '*.ps1' -Context 2 -Recurse
 
         /Users/jon/script.ps1
         18-    # Get user input
@@ -159,7 +159,7 @@ function Search-FileContent
         Context lines are shown with '-' and matches with ':' after line numbers.
 
     .EXAMPLE
-        PS > Search-FileContent -Pattern 'error' -Path ./logs -CaseInsensitive -CountOnly
+        PS > Search-FileContent -Pattern 'error' -Path ./logs -CaseInsensitive -CountOnly -Recurse
 
         /var/logs/app.log: 23 matches
         /var/logs/system.log: 5 matches
@@ -168,7 +168,7 @@ function Search-FileContent
         Case-insensitive search for 'error' showing only match counts per file.
 
     .EXAMPLE
-        PS > Search-FileContent -Pattern '\b\d{3}-\d{4}\b' -Path . -Include '*.txt'
+        PS > Search-FileContent -Pattern '\b\d{3}-\d{4}\b' -Path . -Include '*.txt' -Recurse
 
         Searches for phone number patterns (XXX-XXXX) in text files using regex.
 
@@ -185,7 +185,7 @@ function Search-FileContent
         Perfect for further processing in pipelines or scripts.
 
     .EXAMPLE
-        PS > Search-FileContent -Pattern 'import' -Path ./src -ExcludeDirectory 'node_modules','.git' -FilesOnly
+        PS > Search-FileContent -Pattern 'import' -Path ./src -ExcludeDirectory 'node_modules','.git' -FilesOnly -Recurse
 
         /src/app.js
         /src/utils/helpers.js
@@ -196,12 +196,12 @@ function Search-FileContent
         Similar to 'grep -l' for quickly identifying which files match.
 
     .EXAMPLE
-        PS > Search-FileContent -Pattern 'password' -Path . -Before 1 -After 3 -Include '*.config'
+        PS > Search-FileContent -Pattern 'password' -Path . -Before 1 -After 3 -Include '*.config' -Recurse
 
         Searches config files with 1 line before and 3 lines after each match.
 
     .EXAMPLE
-        PS > Search-FileContent -Pattern 'userName' -Path ./src -CaseInsensitive -IncludeCaseVariations
+        PS > Search-FileContent -Pattern 'userName' -Path ./src -CaseInsensitive -IncludeCaseVariations -Recurse
 
         Case Variations Found: 6 unique patterns
 
@@ -230,7 +230,7 @@ function Search-FileContent
         Helps identify naming inconsistencies across different files and coding conventions.
 
     .EXAMPLE
-        PS > Search-FileContent -Pattern 'apikey' -Path . -CaseInsensitive -IncludeCaseVariations -Simple
+        PS > Search-FileContent -Pattern 'apikey' -Path . -CaseInsensitive -IncludeCaseVariations -Simple -Recurse
 
         Variation     CasePattern              Count Files
         ---------     -----------              ----- -----
@@ -241,12 +241,12 @@ function Search-FileContent
         Simple output mode showing case variations as structured objects for pipeline processing.
 
     .EXAMPLE
-        PS > Search-FileContent -Pattern 'test' -Path ./src, ./lib, ./tests -Literal
+        PS > Search-FileContent -Pattern 'test' -Path ./src, ./lib, ./tests -Literal -Recurse
 
         Searches multiple directories for literal string 'test' (not regex).
 
     .EXAMPLE
-        PS > Search-FileContent -Pattern 'console\.log' -Path ./src -Include '*.ts' -FilesOnly | ForEach-Object { Write-Host "Remove logging in $($_.Path)" }
+        PS > Search-FileContent -Pattern 'console\.log' -Path ./src -Include '*.ts' -FilesOnly -Recurse | ForEach-Object { Write-Host "Remove logging in $($_.Path)" }
 
         Quickly enumerates files that still contain debug logging before promoting a build.
 
@@ -263,6 +263,7 @@ function Search-FileContent
         - Use -Simple for programmatic processing of results
         - Exclude common directories like .git, node_modules for better performance
         - Context lines are marked with '--' separator in formatted output
+        - Directory paths are non-recursive by default. Use -Recurse when you want to traverse subdirectories.
 
         Author: Jon LaBelle
         License: MIT
@@ -331,7 +332,7 @@ function Search-FileContent
         [Switch]$Simple,
 
         [Parameter()]
-        [Switch]$NoRecurse,
+        [Switch]$Recurse,
 
         [Parameter()]
         [Switch]$NoLineNumber,
@@ -1010,7 +1011,7 @@ function Search-FileContent
                 -ExcludePatterns $Exclude `
                 -ExcludeDirs $ExcludeDirectory `
                 -Depth $MaxDepth `
-                -Recurse (-not $NoRecurse)
+                -Recurse $Recurse.IsPresent
 
             foreach ($file in $files)
             {

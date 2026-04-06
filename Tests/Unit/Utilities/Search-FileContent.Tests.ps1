@@ -52,6 +52,11 @@ Describe 'Search-FileContent' {
             $pathParam.Attributes.ValueFromPipeline | Should -Contain $true
         }
 
+        It 'Should have optional Recurse switch parameter' {
+            $command = Get-Command Search-FileContent
+            $command.Parameters['Recurse'].SwitchParameter | Should -BeTrue
+        }
+
         It 'Should validate Context parameter range' {
             $command = Get-Command Search-FileContent
             $contextParam = $command.Parameters['Context']
@@ -346,33 +351,33 @@ Line 9
         }
 
         It 'Should exclude .git directories by default' {
-            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple
+            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Recurse
             $results.Path | Should -Not -BeLike '*.git*'
         }
 
         It 'Should exclude node_modules directories by default' {
-            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple
+            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Recurse
             $results.Path | Should -Not -BeLike '*node_modules*'
         }
 
         It 'Should allow custom directory exclusions' {
-            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -ExcludeDirectory 'src'
+            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Recurse -ExcludeDirectory 'src'
             $results.Path | Should -Not -Match '[\\/]src[\\/]'
         }
 
         It 'Should not exclude similarly named directories without wildcards' {
-            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -ExcludeDirectory 'src'
+            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Recurse -ExcludeDirectory 'src'
             $results.Path | Should -Contain (Join-Path -Path $script:testDir -ChildPath 'src-utils/helper.ps1')
         }
 
         It 'Should support wildcard directory exclusions' {
-            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -ExcludeDirectory 'src*'
+            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Recurse -ExcludeDirectory 'src*'
             $results.Path | Should -Not -Contain (Join-Path -Path $script:testDir -ChildPath 'src/main.ps1')
             $results.Path | Should -Not -Contain (Join-Path -Path $script:testDir -ChildPath 'src-utils/helper.ps1')
         }
 
         It 'Should support multiple directory exclusions' {
-            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -ExcludeDirectory '.git', 'node_modules', 'src', 'src-utils'
+            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Recurse -ExcludeDirectory '.git', 'node_modules', 'src', 'src-utils'
             $results | Should -BeNullOrEmpty
         }
     }
@@ -436,19 +441,19 @@ Final line
             'MATCH at level3' | Set-Content -Path (Join-Path -Path $level3 -ChildPath 'file3.txt')
         }
 
-        It 'Should search recursively by default' {
-            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple
-            $results.Count | Should -Be 4
-        }
-
-        It 'Should not search recursively with -NoRecurse' {
-            $results = @(Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -NoRecurse)
+        It 'Should search only the top-level directory by default after recursion became opt-in' {
+            $results = @(Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple)
             $results.Count | Should -Be 1
             $results[0].Path | Should -Match 'root\.txt$'
         }
 
+        It 'Should search recursively with -Recurse' {
+            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Recurse
+            $results.Count | Should -Be 4
+        }
+
         It 'Should respect MaxDepth parameter' {
-            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -MaxDepth 1
+            $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Recurse -MaxDepth 1
             $results.Count | Should -BeLessOrEqual 2
         }
     }

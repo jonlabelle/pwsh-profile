@@ -601,7 +601,7 @@ The profile includes utility functions organized by category:
 - **[`Remove-OldFiles`](Functions/Utilities/Remove-OldFiles.ps1)** — Removes files older than a specified time period with optional empty directory cleanup
 - **[`Rename-File`](Functions/Utilities/Rename-File.ps1)** — Renames files with advanced transformations
 - **[`Replace-StringInFile`](Functions/Utilities/Replace-StringInFile.ps1)** — Finds and replaces text in files with support for regex and backups
-- **[`Search-FileContent`](Functions/Utilities/Search-FileContent.ps1)** — Searches files with regex, context, filtering, and colorized output
+- **[`Search-FileContent`](Functions/Utilities/Search-FileContent.ps1)** — Searches files with regex, context, filtering, and colorized output; use `-Recurse` for directory traversal
 - **[`Set-FileEncoding`](Functions/Utilities/Set-FileEncoding.ps1)** — Converts text files to a specified encoding and skips files that already match unless forced
 - **[`Sync-Directory`](Functions/Utilities/Sync-Directory.ps1)** — Synchronizes directories using native platform tools (rsync/robocopy)
 - **[`Format-Bytes`](Functions/Utilities/Format-Bytes.ps1)** — Formats bytes/bits into human-friendly conversions
