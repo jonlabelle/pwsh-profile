@@ -7,7 +7,10 @@ function Get-CertificateExpiration
     .DESCRIPTION
         This function retrieves the certificate's expiration date (NotAfter) from either a remote host
         via SSL/TLS or from local certificate files (.cer/.crt/.der/.pem). It can check multiple hosts
-        or files, provides options for timeout configuration, and can return detailed certificate information.
+        or files, provides options for timeout configuration, and returns PSCustomObjects that always
+        include ComputerName, ExpirationDate, ExpiresIn, and Status. The default summary view is rendered as a table
+        in the console while still retaining additional properties on the underlying object. It can also return
+        detailed certificate information.
         Values passed through ComputerName (or positional input) are automatically interpreted as host/URL targets
         or local certificate paths.
 
@@ -27,9 +30,9 @@ function Get-CertificateExpiration
     .PARAMETER Timeout
         Connection timeout in milliseconds. Defaults to 10000 (10 seconds).
 
-    .PARAMETER IncludeCertificateDetails
+    .PARAMETER Detailed
         If specified, returns detailed certificate information including subject, issuer,
-        thumbprint, and other certificate properties instead of just the expiration date.
+        thumbprint, and other certificate properties in addition to the ComputerName and ExpirationDate fields.
 
     .PARAMETER WarnIfExpiresSoon
         If specified, displays a warning if the certificate expires within the specified number of days.
@@ -42,7 +45,9 @@ function Get-CertificateExpiration
     .EXAMPLE
         PS > Get-CertificateExpiration -ComputerName 'bing.com'
 
-        Monday, January 5, 2026 3:37:32 AM
+        ComputerName ExpirationDate          ExpiresIn Status
+        ------------ --------------          --------- ------
+        bing.com     1/5/2026 3:37:32 AM     31 days   Valid
 
         Gets the SSL certificate expiration date for bing.com on port 443.
 
@@ -61,14 +66,19 @@ function Get-CertificateExpiration
 
         WARNING: Certificate for expired.badssl.com:443 EXPIRED 3867 days ago on 2015-04-12 19:59:59
 
-        Sunday, April 12, 2015 7:59:59 PM
+        ComputerName       ExpirationDate         ExpiresIn     Status
+        ------------       --------------         ---------     ------
+        expired.badssl.com 4/12/2015 7:59:59 PM   3867 days ago Expired
 
         Gets the certificate expiration date and warns if it expires within 90 days.
 
     .EXAMPLE
-        PS > Get-CertificateExpiration -ComputerName 'jonlabelle.com' -IncludeCertificateDetails
+        PS > Get-CertificateExpiration -ComputerName 'jonlabelle.com' -Detailed
 
         ComputerName        : jonlabelle.com
+        ExpirationDate      : 1/16/2026 10:04:16 PM
+        ExpiresIn           : 64 days
+        Status              : Valid
         Port                : 443
         Subject             : CN=jonlabelle.com
         Issuer              : CN=E7, O=Let's Encrypt, C=US
@@ -96,17 +106,15 @@ function Get-CertificateExpiration
         Pulls hostnames from Kubernetes ingress objects, checks for certificates expiring within 21 days, and posts the results to a team chat.
 
     .EXAMPLE
-        PS > Get-CertificateExpiration -Path './certs/public.pem', './certs/internal.cer' -IncludeCertificateDetails
+        PS > Get-CertificateExpiration -Path './certs/public.pem', './certs/internal.cer' -Detailed
 
         Reads local certificate files and returns expiration details for each certificate.
 
     .OUTPUTS
-        System.DateTime
-        Returns the certificate expiration date when IncludeCertificateDetails is not specified.
-
-    .OUTPUTS
         System.Management.Automation.PSCustomObject
-        Returns detailed certificate information when IncludeCertificateDetails is specified.
+        Returns certificate expiration results. The default output includes ComputerName, ExpirationDate,
+        ExpiresIn, and Status.
+        When Detailed is specified, additional certificate properties are included.
 
     .LINK
         https://docs.microsoft.com/en-us/dotnet/api/system.security.cryptography.x509certificates.x509certificate2
@@ -126,7 +134,7 @@ function Get-CertificateExpiration
     #>
 
     [CmdletBinding(DefaultParameterSetName = 'ComputerName')]
-    [OutputType([System.DateTime], [System.Management.Automation.PSCustomObject])]
+    [OutputType([System.Management.Automation.PSCustomObject])]
     param
     (
         [Parameter(ParameterSetName = 'ComputerName', Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
@@ -153,7 +161,7 @@ function Get-CertificateExpiration
 
         [Parameter()]
         [Switch]
-        $IncludeCertificateDetails,
+        $Detailed,
 
         [Parameter()]
         [Switch]
@@ -254,16 +262,16 @@ function Get-CertificateExpiration
             }
 
             $looksLikePath = $trimmedValue -match '^[a-zA-Z]:[\\/]' -or
-                $trimmedValue -match '^[\\/]{2}' -or
-                $trimmedValue.StartsWith('./') -or
-                $trimmedValue.StartsWith('.\\') -or
-                $trimmedValue.StartsWith('../') -or
-                $trimmedValue.StartsWith('..\\') -or
-                $trimmedValue.StartsWith('~/') -or
-                $trimmedValue.StartsWith('~\\') -or
-                $trimmedValue -match '[\\/]' -or
-                $trimmedValue -like '*`**' -or
-                $trimmedValue -match '\.(cer|crt|der|pem|p7b|pfx|p12)$'
+            $trimmedValue -match '^[\\/]{2}' -or
+            $trimmedValue.StartsWith('./') -or
+            $trimmedValue.StartsWith('.\\') -or
+            $trimmedValue.StartsWith('../') -or
+            $trimmedValue.StartsWith('..\\') -or
+            $trimmedValue.StartsWith('~/') -or
+            $trimmedValue.StartsWith('~\\') -or
+            $trimmedValue -match '[\\/]' -or
+            $trimmedValue -like '*`**' -or
+            $trimmedValue -match '\.(cer|crt|der|pem|p7b|pfx|p12)$'
 
             if ($looksLikePath)
             {
@@ -466,6 +474,58 @@ function Get-CertificateExpiration
 
             return $results
         }
+
+        function Get-ExpirationMetadata
+        {
+            param
+            (
+                [DateTime]$ExpirationDate,
+                [Int32]$WarningDays
+            )
+
+            $totalDaysUntilExpiration = ($ExpirationDate - (Get-Date)).TotalDays
+
+            if ($totalDaysUntilExpiration -lt 0)
+            {
+                $daysUntilExpiration = [Int32][Math]::Floor($totalDaysUntilExpiration)
+                $daysDisplay = [Math]::Abs($daysUntilExpiration)
+                $dayLabel = if ($daysDisplay -eq 1) { 'day' } else { 'days' }
+
+                return [PSCustomObject]@{
+                    DaysUntilExpiration = $daysUntilExpiration
+                    ExpiresIn = "$daysDisplay $dayLabel ago"
+                    Status = 'Expired'
+                }
+            }
+
+            $daysUntilExpiration = [Int32][Math]::Floor($totalDaysUntilExpiration)
+            $dayLabel = if ($daysUntilExpiration -eq 1) { 'day' } else { 'days' }
+            $status = if ($daysUntilExpiration -le $WarningDays) { 'ExpiringSoon' } else { 'Valid' }
+
+            return [PSCustomObject]@{
+                DaysUntilExpiration = $daysUntilExpiration
+                ExpiresIn = "$daysUntilExpiration $dayLabel"
+                Status = $status
+            }
+        }
+
+        function Add-DefaultDisplayPropertySet
+        {
+            param
+            (
+                [Parameter(Mandatory)]
+                [PSObject]$InputObject,
+
+                [Parameter(Mandatory)]
+                [String[]]$PropertyName
+            )
+
+            $psPropertySet = New-Object -TypeName System.Management.Automation.PSPropertySet -ArgumentList @('DefaultDisplayPropertySet', $PropertyName)
+            $psStandardMembers = [System.Management.Automation.PSMemberInfo[]]$psPropertySet
+            Add-Member -InputObject $InputObject -MemberType MemberSet -Name PSStandardMembers -Value $psStandardMembers
+
+            return $InputObject
+        }
     }
 
     process
@@ -497,7 +557,8 @@ function Get-CertificateExpiration
                     }
 
                     $expirationDate = $certificate.NotAfter
-                    $daysUntilExpiration = ($expirationDate - (Get-Date)).Days
+                    $expirationMetadata = Get-ExpirationMetadata -ExpirationDate $expirationDate -WarningDays $DaysToWarn
+                    $daysUntilExpiration = $expirationMetadata.DaysUntilExpiration
 
                     # Check if warning should be displayed
                     if ($WarnIfExpiresSoon -and $daysUntilExpiration -le $DaysToWarn)
@@ -512,11 +573,14 @@ function Get-CertificateExpiration
                         }
                     }
 
-                    if ($IncludeCertificateDetails)
+                    if ($Detailed)
                     {
                         # Return detailed certificate information
                         [PSCustomObject]@{
                             ComputerName = $null
+                            ExpirationDate = $certificate.NotAfter
+                            ExpiresIn = $expirationMetadata.ExpiresIn
+                            Status = $expirationMetadata.Status
                             Port = $null
                             CertificatePath = $certificateEntry.CertificatePath
                             Subject = $certificate.Subject
@@ -534,8 +598,17 @@ function Get-CertificateExpiration
                     }
                     else
                     {
-                        # Return just the expiration date
-                        $expirationDate
+                        $summaryResult = [PSCustomObject][Ordered]@{
+                            PSTypeName = 'CertificateExpiration.Result'
+                            ComputerName = $null
+                            ExpirationDate = $expirationDate
+                            ExpiresIn = $expirationMetadata.ExpiresIn
+                            Status = $expirationMetadata.Status
+                            Port = $null
+                            CertificatePath = $certificateEntry.CertificatePath
+                        }
+
+                        Add-DefaultDisplayPropertySet -InputObject $summaryResult -PropertyName @('ComputerName', 'ExpirationDate', 'ExpiresIn', 'Status')
                     }
                 }
                 continue
@@ -548,7 +621,8 @@ function Get-CertificateExpiration
             if ($certificate)
             {
                 $expirationDate = $certificate.NotAfter
-                $daysUntilExpiration = ($expirationDate - (Get-Date)).Days
+                $expirationMetadata = Get-ExpirationMetadata -ExpirationDate $expirationDate -WarningDays $DaysToWarn
+                $daysUntilExpiration = $expirationMetadata.DaysUntilExpiration
 
                 # Check if warning should be displayed
                 if ($WarnIfExpiresSoon -and $daysUntilExpiration -le $DaysToWarn)
@@ -563,12 +637,16 @@ function Get-CertificateExpiration
                     }
                 }
 
-                if ($IncludeCertificateDetails)
+                if ($Detailed)
                 {
                     # Return detailed certificate information
                     [PSCustomObject]@{
                         ComputerName = $target.HostName
+                        ExpirationDate = $certificate.NotAfter
+                        ExpiresIn = $expirationMetadata.ExpiresIn
+                        Status = $expirationMetadata.Status
                         Port = $target.Port
+                        CertificatePath = $null
                         Subject = $certificate.Subject
                         Issuer = $certificate.Issuer
                         NotBefore = $certificate.NotBefore
@@ -584,8 +662,17 @@ function Get-CertificateExpiration
                 }
                 else
                 {
-                    # Return just the expiration date
-                    $expirationDate
+                    $summaryResult = [PSCustomObject][Ordered]@{
+                        PSTypeName = 'CertificateExpiration.Result'
+                        ComputerName = $target.HostName
+                        ExpirationDate = $expirationDate
+                        ExpiresIn = $expirationMetadata.ExpiresIn
+                        Status = $expirationMetadata.Status
+                        Port = $target.Port
+                        CertificatePath = $null
+                    }
+
+                    Add-DefaultDisplayPropertySet -InputObject $summaryResult -PropertyName @('ComputerName', 'ExpirationDate', 'ExpiresIn', 'Status')
                 }
             }
         }
