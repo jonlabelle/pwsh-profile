@@ -139,18 +139,18 @@ function Remove-GitHubVariable
         [Parameter(Mandatory, Position = 0)]
         [ValidateNotNullOrEmpty()]
         [ValidateScript({
-            if ($_ -match '^(?i:GITHUB_)')
-            {
-                throw "GitHub variable names cannot start with the 'GITHUB_' prefix."
-            }
+                if ($_ -match '^(?i:GITHUB_)')
+                {
+                    throw "GitHub variable names cannot start with the 'GITHUB_' prefix."
+                }
 
-            if ($_ -notmatch '^(?![0-9])[A-Za-z0-9_]+$')
-            {
-                throw 'GitHub variable names may only contain letters, numbers, or underscores, and cannot start with a number.'
-            }
+                if ($_ -notmatch '^(?![0-9])[A-Za-z0-9_]+$')
+                {
+                    throw 'GitHub variable names may only contain letters, numbers, or underscores, and cannot start with a number.'
+                }
 
-            $true
-        })]
+                $true
+            })]
         [String]$Name,
 
         [Parameter(Mandatory)]
@@ -162,18 +162,18 @@ function Remove-GitHubVariable
 
         [Parameter()]
         [ValidateScript({
-            if ([string]::IsNullOrWhiteSpace($_))
-            {
-                throw 'GitHub environment names cannot be empty or whitespace.'
-            }
+                if ([string]::IsNullOrWhiteSpace($_))
+                {
+                    throw 'GitHub environment names cannot be empty or whitespace.'
+                }
 
-            if ($_.Length -gt 255)
-            {
-                throw 'GitHub environment names may not exceed 255 characters.'
-            }
+                if ($_.Length -gt 255)
+                {
+                    throw 'GitHub environment names may not exceed 255 characters.'
+                }
 
-            $true
-        })]
+                $true
+            })]
         [String]$Environment,
 
         [Parameter()]
@@ -228,12 +228,12 @@ function Remove-GitHubVariable
             {
                 if ($PSBoundParameters.ContainsKey('Environment'))
                 {
-                    throw "Use -Scope Environment when specifying -Environment."
+                    throw 'Use -Scope Environment when specifying -Environment.'
                 }
 
                 if ($PSBoundParameters.ContainsKey('Organization'))
                 {
-                    throw "Use -Scope Organization when specifying -Organization."
+                    throw 'Use -Scope Organization when specifying -Organization.'
                 }
             }
             'Environment'
