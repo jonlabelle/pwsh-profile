@@ -4,6 +4,9 @@
 
 .DESCRIPTION
     This file is an internal implementation detail used by the following public functions:
+    - Get-GitHubRepositoryTopic
+    - Set-GitHubRepositoryTopic
+    - Remove-GitHubRepositoryTopic
     - Set-GitHubSecret
     - Remove-GitHubSecret
     - Set-GitHubVariable
@@ -581,6 +584,35 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
         return @($normalizedRepositories.ToArray())
     }
 
+    $script:PwshProfileGitHubConfigurationHelpers.NormalizeTopicNames = {
+        param([String[]]$Names)
+
+        if ($null -eq $Names)
+        {
+            return @()
+        }
+
+        $normalizedNames = New-Object System.Collections.Generic.List[String]
+        $seenNames = @{}
+
+        foreach ($name in @($Names))
+        {
+            if ([string]::IsNullOrWhiteSpace($name))
+            {
+                throw 'GitHub topic names cannot be empty or whitespace.'
+            }
+
+            $normalizedName = $name.Trim().ToLowerInvariant()
+            if (-not $seenNames.ContainsKey($normalizedName))
+            {
+                $seenNames[$normalizedName] = $true
+                $normalizedNames.Add($normalizedName) | Out-Null
+            }
+        }
+
+        return @($normalizedNames.ToArray())
+    }
+
     $script:PwshProfileGitHubConfigurationHelpers.ResolveCurrentRepository = {
         $gitCommand = Get-Command -Name 'git' -CommandType Application, ExternalScript -ErrorAction SilentlyContinue |
         Select-Object -First 1
@@ -631,6 +663,21 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
         }
 
         throw 'Unable to determine the GitHub repository from the current directory. Use -Repository OWNER/REPO.'
+    }
+
+    $script:PwshProfileGitHubConfigurationHelpers.GetRepositoryTopicsContext = {
+        param([String]$Repository)
+
+        $repositoryContext = & $script:PwshProfileGitHubConfigurationHelpers.ResolveRepositoryContext $Repository
+        $collectionPath = "/repos/$($repositoryContext.Owner)/$($repositoryContext.Repo)/topics"
+
+        return [PSCustomObject]@{
+            Scope = 'Repository'
+            RepositoryContext = $repositoryContext
+            DisplayTarget = "repository $($repositoryContext.NameWithOwner)"
+            CollectionPath = $collectionPath
+            ApiBaseUri = $repositoryContext.ApiBaseUri
+        }
     }
 
     $script:PwshProfileGitHubConfigurationHelpers.GetSecretContext = {
@@ -835,6 +882,14 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
         $ghTargetHost = & $script:PwshProfileGitHubConfigurationHelpers.GetGhTargetHost -Arguments $ghArguments
         $ghTokenEnvironmentVariableName = & $script:PwshProfileGitHubConfigurationHelpers.GetGhTokenEnvironmentVariableName `
             -TargetHost $ghTargetHost
+        $inactiveGhTokenEnvironmentVariableName = if ($ghTokenEnvironmentVariableName -eq 'GH_ENTERPRISE_TOKEN')
+        {
+            'GH_TOKEN'
+        }
+        else
+        {
+            'GH_ENTERPRISE_TOKEN'
+        }
 
         $operation = {
             $previousGhToken = [Environment]::GetEnvironmentVariable('GH_TOKEN', 'Process')
@@ -844,6 +899,7 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             if ($ghAuthContext -and -not [string]::IsNullOrWhiteSpace($ghAuthContext.Token))
             {
                 [Environment]::SetEnvironmentVariable($ghTokenEnvironmentVariableName, $ghAuthContext.Token, 'Process')
+                [Environment]::SetEnvironmentVariable($inactiveGhTokenEnvironmentVariableName, $null, 'Process')
             }
 
             # gh secret delete does not expose a --yes flag, so disable interactive prompts centrally.
@@ -1028,6 +1084,14 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
         $ghTargetHost = & $script:PwshProfileGitHubConfigurationHelpers.GetGhTargetHost -Arguments $ghArguments
         $ghTokenEnvironmentVariableName = & $script:PwshProfileGitHubConfigurationHelpers.GetGhTokenEnvironmentVariableName `
             -TargetHost $ghTargetHost
+        $inactiveGhTokenEnvironmentVariableName = if ($ghTokenEnvironmentVariableName -eq 'GH_ENTERPRISE_TOKEN')
+        {
+            'GH_TOKEN'
+        }
+        else
+        {
+            'GH_ENTERPRISE_TOKEN'
+        }
 
         $operation = {
             $previousGhToken = [Environment]::GetEnvironmentVariable('GH_TOKEN', 'Process')
@@ -1037,6 +1101,7 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             if ($ghAuthContext -and -not [string]::IsNullOrWhiteSpace($ghAuthContext.Token))
             {
                 [Environment]::SetEnvironmentVariable($ghTokenEnvironmentVariableName, $ghAuthContext.Token, 'Process')
+                [Environment]::SetEnvironmentVariable($inactiveGhTokenEnvironmentVariableName, $null, 'Process')
             }
 
             # gh secret delete does not expose a --yes flag, so disable interactive prompts centrally.
@@ -1201,7 +1266,7 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
                 $statusCode = & $script:PwshProfileGitHubConfigurationHelpers.GetExceptionStatusCode $_.Exception
                 $safeMessage = & $script:PwshProfileGitHubConfigurationHelpers.RedactSensitiveText `
                     -Message (& $script:PwshProfileGitHubConfigurationHelpers.TrimErrorMessage `
-                        (& $script:PwshProfileGitHubConfigurationHelpers.GetExceptionMessage $_.Exception)) `
+                    (& $script:PwshProfileGitHubConfigurationHelpers.GetExceptionMessage $_.Exception)) `
                     -SensitiveValues (@($AuthContext.Token) + @($SensitiveValues))
 
                 $sanitizedException = [System.InvalidOperationException]::new($safeMessage)

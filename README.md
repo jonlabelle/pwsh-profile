@@ -530,6 +530,7 @@ The profile includes utility functions organized by category:
 ### Developer
 
 - **[`Get-DotNetVersion`](Functions/Developer/Get-DotNetVersion.ps1)** — Retrieves installed .NET Framework and .NET Core versions
+- **[`Get-GitHubRepositoryTopic`](Functions/Developer/Get-GitHubRepositoryTopic.ps1)** — Gets GitHub repository topics
 - **[`Get-GitHubVariable`](Functions/Developer/Get-GitHubVariable.ps1)** — Gets a GitHub variable by scope
 - **[`Remove-DotNetBuildArtifacts`](Functions/Developer/Remove-DotNetBuildArtifacts.ps1)** — Cleans up .NET build artifacts from a project directory
 - **[`Import-DotEnv`](Functions/Developer/Import-DotEnv.ps1)** — Loads environment variables from dotenv (.env) files
@@ -537,10 +538,12 @@ The profile includes utility functions organized by category:
 - **[`Invoke-BfgRepoCleaner`](Functions/Developer/Invoke-BfgRepoCleaner.ps1)** — Cleans Git history with configurable runtime
 - **[`Invoke-Magika`](Functions/Developer/Invoke-Magika.ps1)** — Intelligent file type detection using Magika
 - **[`Invoke-SqlFluff`](Functions/Developer/Invoke-SqlFluff.ps1)** — Runs SQLFluff lint, fix, or format against SQL files
+- **[`Remove-GitHubRepositoryTopic`](Functions/Developer/Remove-GitHubRepositoryTopic.ps1)** — Removes GitHub repository topics idempotently
 - **[`Remove-GitHubSecret`](Functions/Developer/Remove-GitHubSecret.ps1)** — Removes a GitHub secret by scope
 - **[`Remove-GitHubVariable`](Functions/Developer/Remove-GitHubVariable.ps1)** — Removes a GitHub variable by scope
 - **[`Remove-GitIgnoredFiles`](Functions/Developer/Remove-GitIgnoredFiles.ps1)** — Removes ignored and optionally untracked files from Git repositories
 - **[`Remove-NodeModules`](Functions/Developer/Remove-NodeModules.ps1)** — Removes node_modules folders from Node.js project directories
+- **[`Set-GitHubRepositoryTopic`](Functions/Developer/Set-GitHubRepositoryTopic.ps1)** — Ensures GitHub repository topics are present
 - **[`Set-GitHubSecret`](Functions/Developer/Set-GitHubSecret.ps1)** — Creates or updates a GitHub secret by scope
 - **[`Set-GitHubVariable`](Functions/Developer/Set-GitHubVariable.ps1)** — Creates or updates a GitHub variable by scope
 - **[`Invoke-DockerAutoRun`](Functions/Developer/Invoke-DockerAutoRun.ps1)** — Auto-detects project type and builds/runs a Docker container
