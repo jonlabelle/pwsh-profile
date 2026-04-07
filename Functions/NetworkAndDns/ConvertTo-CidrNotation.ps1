@@ -5,7 +5,7 @@ function ConvertTo-CidrNotation
         Converts between subnet mask, CIDR prefix length, and wildcard mask formats.
 
     .DESCRIPTION
-        Converts subnet information between three common representations:
+        Converts IPv4 subnet information between three common representations:
         - Dotted-decimal subnet mask (e.g., 255.255.255.0)
         - CIDR prefix length (e.g., 24)
         - Wildcard mask (e.g., 0.0.0.255)
@@ -16,13 +16,13 @@ function ConvertTo-CidrNotation
         Compatible with PowerShell Desktop 5.1+ on Windows, macOS, and Linux.
 
     .PARAMETER SubnetMask
-        A dotted-decimal subnet mask to convert (e.g., '255.255.255.0').
+        An IPv4 dotted-decimal subnet mask to convert (e.g., '255.255.255.0').
 
     .PARAMETER PrefixLength
         A CIDR prefix length to convert (e.g., 24). Valid range: 0-32.
 
     .PARAMETER WildcardMask
-        A wildcard mask to convert (e.g., '0.0.0.255').
+        An IPv4 wildcard mask to convert (e.g., '0.0.0.255').
 
     .EXAMPLE
         PS > ConvertTo-CidrNotation -SubnetMask '255.255.255.0'
@@ -80,15 +80,23 @@ function ConvertTo-CidrNotation
     [OutputType([PSCustomObject])]
     param
     (
-        [Parameter(ParameterSetName = 'SubnetMask', Mandatory, Position = 0)]
+        [Parameter(ParameterSetName = 'SubnetMask', Mandatory, Position = 0, ValueFromPipelineByPropertyName)]
+        [Alias('Mask')]
         [ValidateScript({
-                if (-not ([System.Net.IPAddress]::TryParse($_, [ref]$null)))
+                $parsedAddress = $null
+
+                if (-not ([System.Net.IPAddress]::TryParse($_, [ref]$parsedAddress)))
                 {
-                    throw "'$_' is not a valid IP address format."
+                    throw "'$_' is not a valid IPv4 address format."
                 }
+
+                if ($parsedAddress.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork)
+                {
+                    throw "'$_' must be an IPv4 subnet mask."
+                }
+
                 # Validate it is a contiguous mask
-                $ipAddr = [System.Net.IPAddress]::Parse($_)
-                $bytes = $ipAddr.GetAddressBytes()
+                $bytes = $parsedAddress.GetAddressBytes()
                 $bits = ($bytes | ForEach-Object { [System.Convert]::ToString($_, 2).PadLeft(8, '0') }) -join ''
                 if ($bits -notmatch '^1*0*$')
                 {
@@ -99,20 +107,29 @@ function ConvertTo-CidrNotation
         [String]
         $SubnetMask,
 
-        [Parameter(ParameterSetName = 'PrefixLength', Mandatory, Position = 0, ValueFromPipeline)]
+        [Parameter(ParameterSetName = 'PrefixLength', Mandatory, Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Alias('Prefix')]
         [ValidateRange(0, 32)]
         [Int32]
         $PrefixLength,
 
-        [Parameter(ParameterSetName = 'WildcardMask', Mandatory, Position = 0)]
+        [Parameter(ParameterSetName = 'WildcardMask', Mandatory, Position = 0, ValueFromPipelineByPropertyName)]
+        [Alias('Wildcard')]
         [ValidateScript({
-                if (-not ([System.Net.IPAddress]::TryParse($_, [ref]$null)))
+                $parsedAddress = $null
+
+                if (-not ([System.Net.IPAddress]::TryParse($_, [ref]$parsedAddress)))
                 {
-                    throw "'$_' is not a valid IP address format."
+                    throw "'$_' is not a valid IPv4 address format."
                 }
+
+                if ($parsedAddress.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork)
+                {
+                    throw "'$_' must be an IPv4 wildcard mask."
+                }
+
                 # Validate it is a valid wildcard mask (inverted contiguous mask)
-                $ipAddr = [System.Net.IPAddress]::Parse($_)
-                $bytes = $ipAddr.GetAddressBytes()
+                $bytes = $parsedAddress.GetAddressBytes()
                 $bits = ($bytes | ForEach-Object { [System.Convert]::ToString($_, 2).PadLeft(8, '0') }) -join ''
                 if ($bits -notmatch '^0*1*$')
                 {
@@ -127,6 +144,92 @@ function ConvertTo-CidrNotation
     begin
     {
         Write-Verbose 'Starting subnet notation conversion'
+
+        function ConvertTo-IPv4BinaryString
+        {
+            param
+            (
+                [Parameter(Mandatory)]
+                [System.Net.IPAddress]
+                $Address
+            )
+
+            if ($Address.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork)
+            {
+                throw "'$($Address.IPAddressToString)' must be an IPv4 address."
+            }
+
+            return ($Address.GetAddressBytes() | ForEach-Object {
+                    [System.Convert]::ToString($_, 2).PadLeft(8, '0')
+                }) -join ''
+        }
+
+        function ConvertTo-IPv4PrefixLength
+        {
+            param
+            (
+                [Parameter(Mandatory)]
+                [String]
+                $Address,
+
+                [Parameter(Mandatory)]
+                [ValidateSet('SubnetMask', 'WildcardMask')]
+                [String]
+                $InputKind
+            )
+
+            $parsedAddress = [System.Net.IPAddress]::Parse($Address)
+            $binaryString = ConvertTo-IPv4BinaryString -Address $parsedAddress
+            $bitToCount = if ($InputKind -eq 'SubnetMask') { '1' } else { '0' }
+
+            return ($binaryString.ToCharArray() | Where-Object { $_ -eq $bitToCount } | Measure-Object).Count
+        }
+
+        function New-CidrNotationResult
+        {
+            param
+            (
+                [Parameter(Mandatory)]
+                [Int32]
+                $ResolvedPrefix
+            )
+
+            # Build subnet mask from prefix length using byte-level arithmetic
+            # (avoids UInt32 overflow issues with PowerShell's bitwise operators)
+            $maskBytes = [byte[]]::new(4)
+            $fullBytes = [Int32][System.Math]::Floor($ResolvedPrefix / 8)
+            $remainBits = $ResolvedPrefix % 8
+
+            for ($i = 0; $i -lt $fullBytes; $i++)
+            {
+                $maskBytes[$i] = [byte]255
+            }
+
+            if ($remainBits -gt 0 -and $fullBytes -lt 4)
+            {
+                $maskBytes[$fullBytes] = [byte](256 - [System.Math]::Pow(2, 8 - $remainBits))
+            }
+
+            $maskAddress = [System.Net.IPAddress]::new($maskBytes)
+
+            # Build wildcard mask (inverse of subnet mask)
+            $wildcardBytes = [byte[]]::new(4)
+            for ($i = 0; $i -lt 4; $i++)
+            {
+                $wildcardBytes[$i] = [byte](255 - $maskBytes[$i])
+            }
+
+            $wildcardAddress = [System.Net.IPAddress]::new($wildcardBytes)
+
+            Write-Verbose "Prefix: /$ResolvedPrefix | Mask: $($maskAddress.ToString()) | Wildcard: $($wildcardAddress.ToString())"
+
+            return [PSCustomObject][Ordered]@{
+                PSTypeName = 'CidrNotation.Result'
+                PrefixLength = $ResolvedPrefix
+                SubnetMask = $maskAddress.ToString()
+                WildcardMask = $wildcardAddress.ToString()
+            }
+        }
     }
 
     process
@@ -139,10 +242,7 @@ function ConvertTo-CidrNotation
             'SubnetMask'
             {
                 Write-Verbose "Converting subnet mask '$SubnetMask' to prefix length"
-                $ipAddr = [System.Net.IPAddress]::Parse($SubnetMask)
-                $bytes = $ipAddr.GetAddressBytes()
-                $binaryString = ($bytes | ForEach-Object { [System.Convert]::ToString($_, 2).PadLeft(8, '0') }) -join ''
-                $resolvedPrefix = ($binaryString.ToCharArray() | Where-Object { $_ -eq '1' } | Measure-Object).Count
+                $resolvedPrefix = ConvertTo-IPv4PrefixLength -Address $SubnetMask -InputKind 'SubnetMask'
             }
             'PrefixLength'
             {
@@ -152,45 +252,11 @@ function ConvertTo-CidrNotation
             'WildcardMask'
             {
                 Write-Verbose "Converting wildcard mask '$WildcardMask' to prefix length"
-                $ipAddr = [System.Net.IPAddress]::Parse($WildcardMask)
-                $bytes = $ipAddr.GetAddressBytes()
-                $binaryString = ($bytes | ForEach-Object { [System.Convert]::ToString($_, 2).PadLeft(8, '0') }) -join ''
-                $resolvedPrefix = ($binaryString.ToCharArray() | Where-Object { $_ -eq '0' } | Measure-Object).Count
+                $resolvedPrefix = ConvertTo-IPv4PrefixLength -Address $WildcardMask -InputKind 'WildcardMask'
             }
         }
 
-        # Build subnet mask from prefix length using byte-level arithmetic
-        # (avoids UInt32 overflow issues with PowerShell's bitwise operators)
-        $maskBytes = [byte[]]::new(4)
-        $fullBytes = [System.Math]::Floor($resolvedPrefix / 8)
-        $remainBits = $resolvedPrefix % 8
-
-        for ($i = 0; $i -lt $fullBytes; $i++)
-        {
-            $maskBytes[$i] = [byte]255
-        }
-        if ($remainBits -gt 0 -and $fullBytes -lt 4)
-        {
-            $maskBytes[$fullBytes] = [byte](256 - [System.Math]::Pow(2, 8 - $remainBits))
-        }
-
-        $maskAddress = [System.Net.IPAddress]::new($maskBytes)
-
-        # Build wildcard mask (inverse of subnet mask)
-        $wildcardBytes = [byte[]]::new(4)
-        for ($i = 0; $i -lt 4; $i++)
-        {
-            $wildcardBytes[$i] = [byte](255 - $maskBytes[$i])
-        }
-        $wildcardAddress = [System.Net.IPAddress]::new($wildcardBytes)
-
-        Write-Verbose "Prefix: /$resolvedPrefix | Mask: $($maskAddress.ToString()) | Wildcard: $($wildcardAddress.ToString())"
-
-        [PSCustomObject]@{
-            PrefixLength = $resolvedPrefix
-            SubnetMask = $maskAddress.ToString()
-            WildcardMask = $wildcardAddress.ToString()
-        }
+        New-CidrNotationResult -ResolvedPrefix $resolvedPrefix
     }
 
     end

@@ -111,6 +111,30 @@ Describe 'ConvertTo-CidrNotation' {
             $results[1].PrefixLength | Should -Be 16
             $results[2].PrefixLength | Should -Be 24
         }
+
+        It 'Should accept PrefixLength by property name from the pipeline' {
+            $result = [pscustomobject]@{ PrefixLength = 27 } | ConvertTo-CidrNotation
+
+            $result.PrefixLength | Should -Be 27
+            $result.SubnetMask | Should -Be '255.255.255.224'
+            $result.WildcardMask | Should -Be '0.0.0.31'
+        }
+
+        It 'Should accept SubnetMask by property name from the pipeline' {
+            $result = [pscustomobject]@{ SubnetMask = '255.255.255.240' } | ConvertTo-CidrNotation
+
+            $result.PrefixLength | Should -Be 28
+            $result.SubnetMask | Should -Be '255.255.255.240'
+            $result.WildcardMask | Should -Be '0.0.0.15'
+        }
+
+        It 'Should accept WildcardMask by property name from the pipeline' {
+            $result = [pscustomobject]@{ WildcardMask = '0.0.0.7' } | ConvertTo-CidrNotation
+
+            $result.PrefixLength | Should -Be 29
+            $result.SubnetMask | Should -Be '255.255.255.248'
+            $result.WildcardMask | Should -Be '0.0.0.7'
+        }
     }
 
     Context 'Round-trip consistency' {
@@ -134,6 +158,14 @@ Describe 'ConvertTo-CidrNotation' {
 
         It 'Should reject invalid subnet mask format' {
             { ConvertTo-CidrNotation -SubnetMask 'not-an-ip' } | Should -Throw
+        }
+
+        It 'Should reject IPv6 subnet masks' {
+            { ConvertTo-CidrNotation -SubnetMask 'ffff:ffff:ffff:ffff::' } | Should -Throw
+        }
+
+        It 'Should reject IPv6 wildcard masks' {
+            { ConvertTo-CidrNotation -WildcardMask '::ffff' } | Should -Throw
         }
     }
 }
