@@ -590,22 +590,22 @@ The profile includes utility functions organized by category:
 - **[`ConvertTo-Base64`](Functions/Utilities/ConvertTo-Base64.ps1)** — Encodes strings or files to Base64 with URL-safe support
 - **[`ConvertTo-Markdown`](Functions/Utilities/ConvertTo-Markdown.ps1)** — Converts URLs or local files to Markdown with Pandoc
 - **[`ConvertTo-MarkdownObject`](Functions/Utilities/ConvertTo-MarkdownObject.ps1)** — Converts PowerShell objects and optional JSON strings to Markdown
-- **[`ConvertTo-UrlSlug`](Functions/Utilities/ConvertTo-UrlSlug.ps1)** — Creates URL-friendly slugs from text or renames files/directories using slugified names
+- **[`ConvertTo-UrlSlug`](Functions/Utilities/ConvertTo-UrlSlug.ps1)** — Creates URL-friendly slugs from text or filenames
 - **[`Copy-Directory`](Functions/Utilities/Copy-Directory.ps1)** — Copies directories recursively while excluding specific directories
 - **[`Extract-Archives`](Functions/Utilities/Extract-Archives.ps1)** — Finds all archives (zip, tar, 7z, rar) and extracts them
 - **[`Get-CommandAlias`](Functions/Utilities/Get-CommandAlias.ps1)** — Displays aliases for PowerShell cmdlets
 - **[`Get-EncodingFromName`](Functions/Utilities/Get-EncodingFromName.ps1)** — Resolves profile encoding names to .NET encoding instances
 - **[`Get-FileEncoding`](Functions/Utilities/Get-FileEncoding.ps1)** — Detects file text encoding using BOM and content sampling
 - **[`Get-StringHash`](Functions/Utilities/Get-StringHash.ps1)** — Computes hash values for strings (like `Get-FileHash` but for strings)
-- **[`Get-WhichCommand`](Functions/Utilities/Get-WhichCommand.ps1)** — Locates commands and displays their type or path (cross-platform which alternative)
+- **[`Get-WhichCommand`](Functions/Utilities/Get-WhichCommand.ps1)** — Locates commands and displays their type or path (x-platform which alternative)
 - **[`New-SymbolicLink`](Functions/Utilities/New-SymbolicLink.ps1)** — Creates symbolic links (symlinks) for files and directories
 - **[`Remove-SymbolicLink`](Functions/Utilities/Remove-SymbolicLink.ps1)** — Removes symbolic links (symlinks) for files and directories
 - **[`New-RandomString`](Functions/Utilities/New-RandomString.ps1)** — Generates random strings for passwords, tokens, and other uses
-- **[`Remove-OldFiles`](Functions/Utilities/Remove-OldFiles.ps1)** — Removes files older than a specified time period with optional empty directory cleanup
+- **[`Remove-OldFiles`](Functions/Utilities/Remove-OldFiles.ps1)** — Removes files older than a specified time period
 - **[`Rename-File`](Functions/Utilities/Rename-File.ps1)** — Renames files with advanced transformations
 - **[`Replace-StringInFile`](Functions/Utilities/Replace-StringInFile.ps1)** — Finds and replaces text in files with support for regex and backups
-- **[`Search-FileContent`](Functions/Utilities/Search-FileContent.ps1)** — Searches files with regex, context, filtering, and colorized output; use `-Recurse` for directory traversal
-- **[`Set-FileEncoding`](Functions/Utilities/Set-FileEncoding.ps1)** — Converts text files to a specified encoding and skips files that already match unless forced
+- **[`Search-FileContent`](Functions/Utilities/Search-FileContent.ps1)** — Searches files with regex, context, filtering, and colorized output
+- **[`Set-FileEncoding`](Functions/Utilities/Set-FileEncoding.ps1)** — Converts text files to a specified encoding
 - **[`Sync-Directory`](Functions/Utilities/Sync-Directory.ps1)** — Synchronizes directories using native platform tools (rsync/robocopy)
 - **[`Format-Bytes`](Functions/Utilities/Format-Bytes.ps1)** — Formats bytes/bits into human-friendly conversions
 
