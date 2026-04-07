@@ -3,8 +3,17 @@ name: ci
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**.md"
+      - ".vscode/**"
+      - "resources/**"
   pull_request:
     branches: [main]
+    types: [opened, reopened, synchronize]
+    paths-ignore:
+      - "**.md"
+      - ".vscode/**"
+      - "resources/**"
   workflow_dispatch:
     inputs:
       powershell-core:
