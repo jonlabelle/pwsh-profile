@@ -6,6 +6,7 @@
 # Exclude these directories from being exported:
 .github/   export-ignore
 .vscode/   export-ignore
+resources/ export-ignore
 scripts/   export-ignore
 test/      export-ignore
 
