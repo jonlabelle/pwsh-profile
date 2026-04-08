@@ -80,6 +80,7 @@ function Get-WhichCommand
         [String[]]$Name,
 
         [Parameter()]
+        [Alias('Detailed')]
         [Switch]$All
     )
 
