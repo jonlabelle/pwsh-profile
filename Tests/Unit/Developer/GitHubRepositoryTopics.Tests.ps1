@@ -169,10 +169,12 @@ Describe 'GitHub repository topic functions' {
                 throw "Unexpected REST request: $Method $Uri"
             }
 
-            $result = Set-GitHubRepositoryTopic `
-                -Name 'Automation' `
-                -Repository 'octo-org/service-api' `
-                -Token $script:TokenValue
+            $setGitHubRepositoryTopicParams = @{
+                Name = 'Automation'
+                Repository = 'octo-org/service-api'
+                Token = $script:TokenValue
+            }
+            $result = Set-GitHubRepositoryTopic @setGitHubRepositoryTopicParams
 
             $result.Status | Should -Be 'Updated'
             $result.Transport | Should -Be 'RestApi'

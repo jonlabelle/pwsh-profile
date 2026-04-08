@@ -272,27 +272,33 @@ function Remove-GitHubVariable
             }
         }
 
-        $variableContext = & $helpers.GetVariableContext `
-            -Scope $resolvedScope `
-            -Repository $Repository `
-            -Environment $Environment `
-            -Organization $Organization
+        $getVariableContextParams = @{
+            Scope = $resolvedScope
+            Repository = $Repository
+            Environment = $Environment
+            Organization = $Organization
+        }
+        $variableContext = & $helpers.GetVariableContext @getVariableContextParams
 
         $transport = & $helpers.ResolveTransport
-        $authContext = & $helpers.ResolveAuthContext `
-            -Token $Token `
-            -TokenEnvironmentVariableName $TokenEnvironmentVariableName `
-            -RequireToken:($transport.Name -ne 'GhCli')
+        $resolveAuthContextParams = @{
+            Token = $Token
+            TokenEnvironmentVariableName = $TokenEnvironmentVariableName
+            RequireToken = ($transport.Name -ne 'GhCli')
+        }
+        $authContext = & $helpers.ResolveAuthContext @resolveAuthContextParams
 
         $variablePath = & $helpers.GetSingleItemPath -CollectionPath $variableContext.CollectionPath -Name $Name
-        $existingVariable = & $helpers.TryGetGitHubResource `
-            -Path $variablePath `
-            -BaseUri $variableContext.ApiBaseUri `
-            -Transport $transport `
-            -AuthContext $authContext `
-            -MaxRetryCount $maxRetryCount `
-            -InitialRetryDelaySeconds $initialRetryDelaySeconds `
-            -Activity "Get GitHub variable $Name"
+        $tryGetGitHubResourceParams = @{
+            Path = $variablePath
+            BaseUri = $variableContext.ApiBaseUri
+            Transport = $transport
+            AuthContext = $authContext
+            MaxRetryCount = $maxRetryCount
+            InitialRetryDelaySeconds = $initialRetryDelaySeconds
+            Activity = "Get GitHub variable $Name"
+        }
+        $existingVariable = & $helpers.TryGetGitHubResource @tryGetGitHubResourceParams
     }
 
     process
@@ -327,17 +333,19 @@ function Remove-GitHubVariable
 
         try
         {
-            $null = & $helpers.InvokeGitHubRequest `
-                -Method 'DELETE' `
-                -BaseUri $variableContext.ApiBaseUri `
-                -Path $variablePath `
-                -Transport $transport `
-                -AuthContext $authContext `
-                -Body $null `
-                -MaxRetryCount $maxRetryCount `
-                -InitialRetryDelaySeconds $initialRetryDelaySeconds `
-                -Activity "Remove GitHub variable $Name" `
-                -SensitiveValues @()
+            $invokeGitHubRequestParams = @{
+                Method = 'DELETE'
+                BaseUri = $variableContext.ApiBaseUri
+                Path = $variablePath
+                Transport = $transport
+                AuthContext = $authContext
+                Body = $null
+                MaxRetryCount = $maxRetryCount
+                InitialRetryDelaySeconds = $initialRetryDelaySeconds
+                Activity = "Remove GitHub variable $Name"
+                SensitiveValues = @()
+            }
+            $null = & $helpers.InvokeGitHubRequest @invokeGitHubRequestParams
 
             return & $helpers.NewOperationResult -TypeName 'GitHub.VariableRemoveResult' -Properties @{
                 Name = $Name
@@ -352,11 +360,13 @@ function Remove-GitHubVariable
         }
         catch
         {
-            $friendlyMessage = & $helpers.GetFriendlyErrorMessage `
-                -Operation 'remove variable' `
-                -Name $Name `
-                -Target $variableContext.DisplayTarget `
-                -Exception $_.Exception
+            $getFriendlyErrorMessageParams = @{
+                Operation = 'remove variable'
+                Name = $Name
+                Target = $variableContext.DisplayTarget
+                Exception = $_.Exception
+            }
+            $friendlyMessage = & $helpers.GetFriendlyErrorMessage @getFriendlyErrorMessageParams
 
             throw $friendlyMessage
         }

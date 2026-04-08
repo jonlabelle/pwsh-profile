@@ -153,23 +153,27 @@ function Remove-GitHubRepositoryTopic
 
         $topicContext = & $helpers.GetRepositoryTopicsContext -Repository $Repository
         $transport = & $helpers.ResolveTransport
-        $authContext = & $helpers.ResolveAuthContext `
-            -Token $Token `
-            -TokenEnvironmentVariableName $TokenEnvironmentVariableName `
-            -RequireToken:($transport.Name -ne 'GhCli')
+        $resolveAuthContextParams = @{
+            Token = $Token
+            TokenEnvironmentVariableName = $TokenEnvironmentVariableName
+            RequireToken = ($transport.Name -ne 'GhCli')
+        }
+        $authContext = & $helpers.ResolveAuthContext @resolveAuthContextParams
 
         $requestedTopicDisplay = $requestedTopics -join ', '
 
         try
         {
-            $resource = & $helpers.TryGetGitHubResource `
-                -Path $topicContext.CollectionPath `
-                -BaseUri $topicContext.ApiBaseUri `
-                -Transport $transport `
-                -AuthContext $authContext `
-                -MaxRetryCount $maxRetryCount `
-                -InitialRetryDelaySeconds $initialRetryDelaySeconds `
-                -Activity "Get repository topics for $($topicContext.RepositoryContext.NameWithOwner)"
+            $tryGetGitHubResourceParams = @{
+                Path = $topicContext.CollectionPath
+                BaseUri = $topicContext.ApiBaseUri
+                Transport = $transport
+                AuthContext = $authContext
+                MaxRetryCount = $maxRetryCount
+                InitialRetryDelaySeconds = $initialRetryDelaySeconds
+                Activity = "Get repository topics for $($topicContext.RepositoryContext.NameWithOwner)"
+            }
+            $resource = & $helpers.TryGetGitHubResource @tryGetGitHubResourceParams
 
             if (-not $resource.Found)
             {
@@ -212,17 +216,19 @@ function Remove-GitHubRepositoryTopic
                 }
             }
 
-            $response = & $helpers.InvokeGitHubRequest `
-                -Method 'PUT' `
-                -BaseUri $topicContext.ApiBaseUri `
-                -Path $topicContext.CollectionPath `
-                -Transport $transport `
-                -AuthContext $authContext `
-                -Body @{ names = $finalTopics } `
-                -MaxRetryCount $maxRetryCount `
-                -InitialRetryDelaySeconds $initialRetryDelaySeconds `
-                -Activity "Update repository topics for $($topicContext.RepositoryContext.NameWithOwner)" `
-                -SensitiveValues @()
+            $invokeGitHubRequestParams = @{
+                Method = 'PUT'
+                BaseUri = $topicContext.ApiBaseUri
+                Path = $topicContext.CollectionPath
+                Transport = $transport
+                AuthContext = $authContext
+                Body = @{ names = $finalTopics }
+                MaxRetryCount = $maxRetryCount
+                InitialRetryDelaySeconds = $initialRetryDelaySeconds
+                Activity = "Update repository topics for $($topicContext.RepositoryContext.NameWithOwner)"
+                SensitiveValues = @()
+            }
+            $response = & $helpers.InvokeGitHubRequest @invokeGitHubRequestParams
 
             $resolvedTopics = if ($null -ne $response)
             {
@@ -248,11 +254,13 @@ function Remove-GitHubRepositoryTopic
         }
         catch
         {
-            $friendlyMessage = & $helpers.GetFriendlyErrorMessage `
-                -Operation 'remove repository topics' `
-                -Name $requestedTopicDisplay `
-                -Target $topicContext.DisplayTarget `
-                -Exception $_.Exception
+            $getFriendlyErrorMessageParams = @{
+                Operation = 'remove repository topics'
+                Name = $requestedTopicDisplay
+                Target = $topicContext.DisplayTarget
+                Exception = $_.Exception
+            }
+            $friendlyMessage = & $helpers.GetFriendlyErrorMessage @getFriendlyErrorMessageParams
 
             throw $friendlyMessage
         }

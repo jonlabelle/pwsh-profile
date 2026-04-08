@@ -385,33 +385,41 @@ function Set-GitHubVariable
 
         if ($PSBoundParameters.ContainsKey('SelectedRepository'))
         {
-            $SelectedRepository = & $helpers.NormalizeSelectedRepositories `
-                -Repositories $SelectedRepository `
-                -Organization $Organization `
-                -RequireOwnerRepoFormat:$false
+            $normalizeSelectedRepositoriesParams = @{
+                Repositories = $SelectedRepository
+                Organization = $Organization
+                RequireOwnerRepoFormat = $false
+            }
+            $SelectedRepository = & $helpers.NormalizeSelectedRepositories @normalizeSelectedRepositoriesParams
         }
 
-        $variableContext = & $helpers.GetVariableContext `
-            -Scope $resolvedScope `
-            -Repository $Repository `
-            -Environment $Environment `
-            -Organization $Organization
+        $getVariableContextParams = @{
+            Scope = $resolvedScope
+            Repository = $Repository
+            Environment = $Environment
+            Organization = $Organization
+        }
+        $variableContext = & $helpers.GetVariableContext @getVariableContextParams
 
         $transport = & $helpers.ResolveTransport
-        $authContext = & $helpers.ResolveAuthContext `
-            -Token $Token `
-            -TokenEnvironmentVariableName $TokenEnvironmentVariableName `
-            -RequireToken:($transport.Name -ne 'GhCli')
+        $resolveAuthContextParams = @{
+            Token = $Token
+            TokenEnvironmentVariableName = $TokenEnvironmentVariableName
+            RequireToken = ($transport.Name -ne 'GhCli')
+        }
+        $authContext = & $helpers.ResolveAuthContext @resolveAuthContextParams
 
         $variablePath = & $helpers.GetSingleItemPath -CollectionPath $variableContext.CollectionPath -Name $Name
-        $existingVariable = & $helpers.TryGetGitHubResource `
-            -Path $variablePath `
-            -BaseUri $variableContext.ApiBaseUri `
-            -Transport $transport `
-            -AuthContext $authContext `
-            -MaxRetryCount $maxRetryCount `
-            -InitialRetryDelaySeconds $initialRetryDelaySeconds `
-            -Activity "Get GitHub variable $Name"
+        $tryGetGitHubResourceParams = @{
+            Path = $variablePath
+            BaseUri = $variableContext.ApiBaseUri
+            Transport = $transport
+            AuthContext = $authContext
+            MaxRetryCount = $maxRetryCount
+            InitialRetryDelaySeconds = $initialRetryDelaySeconds
+            Activity = "Get GitHub variable $Name"
+        }
+        $existingVariable = & $helpers.TryGetGitHubResource @tryGetGitHubResourceParams
     }
 
     process
@@ -493,30 +501,34 @@ function Set-GitHubVariable
 
                 if ($SelectedRepository)
                 {
-                    $body['selected_repository_ids'] = & $helpers.ResolveSelectedRepositoryIds `
-                        -Repositories $SelectedRepository `
-                        -Organization $Organization `
-                        -Transport $transport `
-                        -AuthContext $authContext `
-                        -MaxRetryCount $maxRetryCount `
-                        -InitialRetryDelaySeconds $initialRetryDelaySeconds
+                    $resolveSelectedRepositoryIdsParams = @{
+                        Repositories = $SelectedRepository
+                        Organization = $Organization
+                        Transport = $transport
+                        AuthContext = $authContext
+                        MaxRetryCount = $maxRetryCount
+                        InitialRetryDelaySeconds = $initialRetryDelaySeconds
+                    }
+                    $body['selected_repository_ids'] = & $helpers.ResolveSelectedRepositoryIds @resolveSelectedRepositoryIdsParams
                 }
             }
 
             $method = if ($existingVariable.Found) { 'PATCH' } else { 'POST' }
             $path = if ($existingVariable.Found) { $variablePath } else { $variableContext.CollectionPath }
 
-            $null = & $helpers.InvokeGitHubRequest `
-                -Method $method `
-                -BaseUri $variableContext.ApiBaseUri `
-                -Path $path `
-                -Transport $transport `
-                -AuthContext $authContext `
-                -Body $body `
-                -MaxRetryCount $maxRetryCount `
-                -InitialRetryDelaySeconds $initialRetryDelaySeconds `
-                -Activity "$action $Name" `
-                -SensitiveValues @()
+            $invokeGitHubRequestParams = @{
+                Method = $method
+                BaseUri = $variableContext.ApiBaseUri
+                Path = $path
+                Transport = $transport
+                AuthContext = $authContext
+                Body = $body
+                MaxRetryCount = $maxRetryCount
+                InitialRetryDelaySeconds = $initialRetryDelaySeconds
+                Activity = "$action $Name"
+                SensitiveValues = @()
+            }
+            $null = & $helpers.InvokeGitHubRequest @invokeGitHubRequestParams
 
             return & $helpers.NewOperationResult -TypeName 'GitHub.VariableSetResult' -Properties @{
                 Name = $Name
@@ -533,11 +545,13 @@ function Set-GitHubVariable
         }
         catch
         {
-            $friendlyMessage = & $helpers.GetFriendlyErrorMessage `
-                -Operation 'set variable' `
-                -Name $Name `
-                -Target $variableContext.DisplayTarget `
-                -Exception $_.Exception
+            $getFriendlyErrorMessageParams = @{
+                Operation = 'set variable'
+                Name = $Name
+                Target = $variableContext.DisplayTarget
+                Exception = $_.Exception
+            }
+            $friendlyMessage = & $helpers.GetFriendlyErrorMessage @getFriendlyErrorMessageParams
 
             throw $friendlyMessage
         }

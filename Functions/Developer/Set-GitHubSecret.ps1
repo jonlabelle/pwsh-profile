@@ -488,18 +488,22 @@ function Set-GitHubSecret
 
         if ($PSBoundParameters.ContainsKey('SelectedRepository'))
         {
-            $SelectedRepository = & $helpers.NormalizeSelectedRepositories `
-                -Repositories $SelectedRepository `
-                -Organization $Organization `
-                -RequireOwnerRepoFormat:($resolvedScope -eq 'User')
+            $normalizeSelectedRepositoriesParams = @{
+                Repositories = $SelectedRepository
+                Organization = $Organization
+                RequireOwnerRepoFormat = ($resolvedScope -eq 'User')
+            }
+            $SelectedRepository = & $helpers.NormalizeSelectedRepositories @normalizeSelectedRepositoriesParams
         }
 
-        $secretContext = & $helpers.GetSecretContext `
-            -Scope $resolvedScope `
-            -Repository $Repository `
-            -Environment $Environment `
-            -Organization $Organization `
-            -Application $Application
+        $getSecretContextParams = @{
+            Scope = $resolvedScope
+            Repository = $Repository
+            Environment = $Environment
+            Organization = $Organization
+            Application = $Application
+        }
+        $secretContext = & $helpers.GetSecretContext @getSecretContextParams
 
         $transport = & $helpers.ResolveTransport
         if ($transport.Name -ne 'GhCli')
@@ -517,20 +521,24 @@ function Set-GitHubSecret
             $plainTextValueForValidation = $null
         }
 
-        $authContext = & $helpers.ResolveAuthContext `
-            -Token $Token `
-            -TokenEnvironmentVariableName $TokenEnvironmentVariableName `
-            -RequireToken:$false
+        $resolveAuthContextParams = @{
+            Token = $Token
+            TokenEnvironmentVariableName = $TokenEnvironmentVariableName
+            RequireToken = $false
+        }
+        $authContext = & $helpers.ResolveAuthContext @resolveAuthContextParams
 
         $secretPath = & $helpers.GetSingleItemPath -CollectionPath $secretContext.MetadataCollectionPath -Name $Name
-        $existingSecret = & $helpers.TryGetGitHubResource `
-            -Path $secretPath `
-            -BaseUri $secretContext.ApiBaseUri `
-            -Transport $transport `
-            -AuthContext $authContext `
-            -MaxRetryCount $maxRetryCount `
-            -InitialRetryDelaySeconds $initialRetryDelaySeconds `
-            -Activity "Get GitHub secret $Name"
+        $tryGetGitHubResourceParams = @{
+            Path = $secretPath
+            BaseUri = $secretContext.ApiBaseUri
+            Transport = $transport
+            AuthContext = $authContext
+            MaxRetryCount = $maxRetryCount
+            InitialRetryDelaySeconds = $initialRetryDelaySeconds
+            Activity = "Get GitHub secret $Name"
+        }
+        $existingSecret = & $helpers.TryGetGitHubResource @tryGetGitHubResourceParams
     }
 
     process
@@ -590,14 +598,16 @@ function Set-GitHubSecret
                 $ghArguments += '--no-repos-selected'
             }
 
-            $null = & $helpers.InvokeGhCommandWithStandardInput `
-                -Arguments $ghArguments `
-                -StandardInputText $plainTextValue `
-                -AuthContext $authContext `
-                -MaxRetryCount $maxRetryCount `
-                -InitialRetryDelaySeconds $initialRetryDelaySeconds `
-                -Activity "$action $Name" `
-                -SensitiveValues @($plainTextValue)
+            $invokeGhCommandWithStandardInputParams = @{
+                Arguments = $ghArguments
+                StandardInputText = $plainTextValue
+                AuthContext = $authContext
+                MaxRetryCount = $maxRetryCount
+                InitialRetryDelaySeconds = $initialRetryDelaySeconds
+                Activity = "$action $Name"
+                SensitiveValues = @($plainTextValue)
+            }
+            $null = & $helpers.InvokeGhCommandWithStandardInput @invokeGhCommandWithStandardInputParams
 
             return & $helpers.NewOperationResult -TypeName 'GitHub.SecretSetResult' -Properties @{
                 Name = $Name
@@ -615,11 +625,13 @@ function Set-GitHubSecret
         }
         catch
         {
-            $friendlyMessage = & $helpers.GetFriendlyErrorMessage `
-                -Operation 'set secret' `
-                -Name $Name `
-                -Target $secretContext.DisplayTarget `
-                -Exception $_.Exception
+            $getFriendlyErrorMessageParams = @{
+                Operation = 'set secret'
+                Name = $Name
+                Target = $secretContext.DisplayTarget
+                Exception = $_.Exception
+            }
+            $friendlyMessage = & $helpers.GetFriendlyErrorMessage @getFriendlyErrorMessageParams
 
             throw $friendlyMessage
         }

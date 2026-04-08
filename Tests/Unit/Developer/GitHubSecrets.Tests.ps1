@@ -151,11 +151,13 @@ Describe 'GitHub secret functions' {
                 }
             }
 
-            $result = Set-GitHubSecret `
-                -Name 'DEVCONTAINER_PAT' `
-                -Value $script:SecretValue `
-                -Scope User `
-                -SelectedRepository @(' octo-org/service-api ', 'octo-org/service-api ')
+            $setGitHubSecretParams = @{
+                Name = 'DEVCONTAINER_PAT'
+                Value = $script:SecretValue
+                Scope = 'User'
+                SelectedRepository = @(' octo-org/service-api ', 'octo-org/service-api ')
+            }
+            $result = Set-GitHubSecret @setGitHubSecretParams
 
             $reposIndex = [Array]::IndexOf($script:CapturedSecretSetArguments, '--repos')
 
@@ -168,35 +170,44 @@ Describe 'GitHub secret functions' {
             @{ Visibility = 'all' }
             @{ Visibility = 'private' }
         ) {
+            $setGitHubSecretParams = @{
+                Name = 'ORG_SECRET'
+                Value = $script:SecretValue
+                Scope = 'Organization'
+                Organization = 'octo-org'
+                SelectedRepository = 'app1'
+                Visibility = $Visibility
+            }
+
             {
-                Set-GitHubSecret `
-                    -Name 'ORG_SECRET' `
-                    -Value $script:SecretValue `
-                    -Scope Organization `
-                    -Organization 'octo-org' `
-                    -SelectedRepository 'app1' `
-                    -Visibility $Visibility
+                Set-GitHubSecret @setGitHubSecretParams
             } | Should -Throw "*'-Visibility selected'*"
         }
 
         It 'rejects whitespace-only entries in -SelectedRepository for organization scope' {
+            $setGitHubSecretParams = @{
+                Name = 'ORG_SECRET'
+                Value = $script:SecretValue
+                Scope = 'Organization'
+                Organization = 'octo-org'
+                SelectedRepository = @('   ', '')
+            }
+
             {
-                Set-GitHubSecret `
-                    -Name 'ORG_SECRET' `
-                    -Value $script:SecretValue `
-                    -Scope Organization `
-                    -Organization 'octo-org' `
-                    -SelectedRepository @('   ', '')
+                Set-GitHubSecret @setGitHubSecretParams
             } | Should -Throw '*empty or whitespace*'
         }
 
         It 'rejects bare selected repository names for -Scope User' {
+            $setGitHubSecretParams = @{
+                Name = 'DEVCONTAINER_PAT'
+                Value = $script:SecretValue
+                Scope = 'User'
+                SelectedRepository = 'service-api'
+            }
+
             {
-                Set-GitHubSecret `
-                    -Name 'DEVCONTAINER_PAT' `
-                    -Value $script:SecretValue `
-                    -Scope User `
-                    -SelectedRepository 'service-api'
+                Set-GitHubSecret @setGitHubSecretParams
             } | Should -Throw '*must use OWNER/REPO format*'
         }
 
@@ -211,13 +222,15 @@ Describe 'GitHub secret functions' {
                 throw "Unexpected gh arguments: $($args -join ' ')"
             }
 
-            $result = Set-GitHubSecret `
-                -Name 'DEPLOY_TOKEN' `
-                -Value $script:SecretValue `
-                -Scope Environment `
-                -Repository 'octo-org/service-api' `
-                -Environment 'Production' `
-                -WhatIf
+            $setGitHubSecretParams = @{
+                Name = 'DEPLOY_TOKEN'
+                Value = $script:SecretValue
+                Scope = 'Environment'
+                Repository = 'octo-org/service-api'
+                Environment = 'Production'
+                WhatIf = $true
+            }
+            $result = Set-GitHubSecret @setGitHubSecretParams
 
             $result.Status | Should -Be 'WhatIf'
             $result.Scope | Should -Be 'Environment'
@@ -235,12 +248,14 @@ Describe 'GitHub secret functions' {
                 throw "Unexpected gh arguments: $($args -join ' ')"
             }
 
-            $result = Set-GitHubSecret `
-                -Name 'ORG_SECRET' `
-                -Value $script:SecretValue `
-                -Scope Organization `
-                -Organization 'octo-org' `
-                -WhatIf
+            $setGitHubSecretParams = @{
+                Name = 'ORG_SECRET'
+                Value = $script:SecretValue
+                Scope = 'Organization'
+                Organization = 'octo-org'
+                WhatIf = $true
+            }
+            $result = Set-GitHubSecret @setGitHubSecretParams
 
             $result.Status | Should -Be 'WhatIf'
             $result.Scope | Should -Be 'Organization'
@@ -248,12 +263,15 @@ Describe 'GitHub secret functions' {
         }
 
         It 'rejects non-codespaces applications for -Scope User' {
+            $setGitHubSecretParams = @{
+                Name = 'DEVCONTAINER_PAT'
+                Value = $script:SecretValue
+                Scope = 'User'
+                Application = 'actions'
+            }
+
             {
-                Set-GitHubSecret `
-                    -Name 'DEVCONTAINER_PAT' `
-                    -Value $script:SecretValue `
-                    -Scope User `
-                    -Application actions
+                Set-GitHubSecret @setGitHubSecretParams
             } | Should -Throw '*User secrets support only the codespaces application*'
         }
 
@@ -273,22 +291,26 @@ Describe 'GitHub secret functions' {
 
         It 'rejects environment names longer than 255 characters' {
             $tooLongEnvironmentName = 'a' * 256
+            $setGitHubSecretParams = @{
+                Name = 'DEPLOY_TOKEN'
+                Value = $script:SecretValue
+                Scope = 'Environment'
+                Repository = 'octo-org/service-api'
+                Environment = $tooLongEnvironmentName
+            }
+            $removeGitHubSecretParams = @{
+                Name = 'DEPLOY_TOKEN'
+                Scope = 'Environment'
+                Repository = 'octo-org/service-api'
+                Environment = $tooLongEnvironmentName
+            }
 
             {
-                Set-GitHubSecret `
-                    -Name 'DEPLOY_TOKEN' `
-                    -Value $script:SecretValue `
-                    -Scope Environment `
-                    -Repository 'octo-org/service-api' `
-                    -Environment $tooLongEnvironmentName
+                Set-GitHubSecret @setGitHubSecretParams
             } | Should -Throw '*may not exceed 255 characters*'
 
             {
-                Remove-GitHubSecret `
-                    -Name 'DEPLOY_TOKEN' `
-                    -Scope Environment `
-                    -Repository 'octo-org/service-api' `
-                    -Environment $tooLongEnvironmentName
+                Remove-GitHubSecret @removeGitHubSecretParams
             } | Should -Throw '*may not exceed 255 characters*'
         }
 
@@ -303,13 +325,15 @@ Describe 'GitHub secret functions' {
                 throw "Unexpected gh arguments: $($args -join ' ')"
             }
 
-            $result = Set-GitHubSecret `
-                -Name 'DEPLOY_TOKEN' `
-                -Value $script:SecretValue `
-                -Scope Environment `
-                -Repository 'octo-org/service-api' `
-                -Environment 'Production/Blue' `
-                -WhatIf
+            $setGitHubSecretParams = @{
+                Name = 'DEPLOY_TOKEN'
+                Value = $script:SecretValue
+                Scope = 'Environment'
+                Repository = 'octo-org/service-api'
+                Environment = 'Production/Blue'
+                WhatIf = $true
+            }
+            $result = Set-GitHubSecret @setGitHubSecretParams
 
             $result.Status | Should -Be 'WhatIf'
         }
@@ -457,12 +481,14 @@ Describe 'GitHub secret functions' {
     Context 'Helper behaviors' {
         It 'resolves auth safely when a process token is absent on non-Windows platforms' {
             $helpers = Import-GitHubHelperForTest
+            $resolveAuthContextParams = @{
+                Token = $null
+                TokenEnvironmentVariableName = 'PWSH_PROFILE_MISSING_GH_TOKEN'
+                RequireToken = $false
+            }
 
             {
-                & $helpers.ResolveAuthContext `
-                    -Token $null `
-                    -TokenEnvironmentVariableName 'PWSH_PROFILE_MISSING_GH_TOKEN' `
-                    -RequireToken:$false
+                & $helpers.ResolveAuthContext @resolveAuthContextParams
             } | Should -Not -Throw
         }
 
@@ -493,21 +519,23 @@ Describe 'GitHub secret functions' {
             }
 
             $transport = & $helpers.ResolveTransport
-            $result = & $helpers.InvokeGitHubRequest `
-                -Method 'GET' `
-                -BaseUri 'https://api.github.com' `
-                -Path '/repos/octo-org/service-api/actions/variables/REGION' `
-                -Transport $transport `
-                -AuthContext ([PSCustomObject]@{
+            $invokeGitHubRequestParams = @{
+                Method = 'GET'
+                BaseUri = 'https://api.github.com'
+                Path = '/repos/octo-org/service-api/actions/variables/REGION'
+                Transport = $transport
+                AuthContext = ([PSCustomObject]@{
                     Token = $null
                     Source = 'ExistingGhAuth'
                     TokenEnvironmentVariableName = 'GH_TOKEN'
-                }) `
-                -Body $null `
-                -MaxRetryCount 0 `
-                -InitialRetryDelaySeconds 1 `
-                -Activity 'Get GitHub variable REGION' `
-                -SensitiveValues @()
+                })
+                Body = $null
+                MaxRetryCount = 0
+                InitialRetryDelaySeconds = 1
+                Activity = 'Get GitHub variable REGION'
+                SensitiveValues = @()
+            }
+            $result = & $helpers.InvokeGitHubRequest @invokeGitHubRequestParams
 
             $result.name | Should -Be 'REGION'
         }
@@ -519,11 +547,13 @@ Describe 'GitHub secret functions' {
                 "No GitHub token is available. Provide -Token or set the 'GH_TOKEN' environment variable."
             )
 
-            $message = & $helpers.GetFriendlyErrorMessage `
-                -Operation 'get secret' `
-                -Name 'REGION' `
-                -Target 'organization octo-org' `
-                -Exception $noTokenException
+            $getFriendlyErrorMessageParams = @{
+                Operation = 'get secret'
+                Name = 'REGION'
+                Target = 'organization octo-org'
+                Exception = $noTokenException
+            }
+            $message = & $helpers.GetFriendlyErrorMessage @getFriendlyErrorMessageParams
 
             $message | Should -Match 'GH_TOKEN'
             $message | Should -Not -Match 'authentication failed'
@@ -608,21 +638,23 @@ Describe 'GitHub secret functions' {
             try
             {
                 $transport = & $helpers.ResolveTransport
-                $null = & $helpers.InvokeGitHubRequest `
-                    -Method 'GET' `
-                    -BaseUri 'https://git.example.com/api/v3' `
-                    -Path '/user' `
-                    -Transport $transport `
-                    -AuthContext ([PSCustomObject]@{
+                $invokeGitHubRequestParams = @{
+                    Method = 'GET'
+                    BaseUri = 'https://git.example.com/api/v3'
+                    Path = '/user'
+                    Transport = $transport
+                    AuthContext = ([PSCustomObject]@{
                         Token = 'enterprise-token'
                         Source = 'Parameter'
                         TokenEnvironmentVariableName = 'GH_TOKEN'
-                    }) `
-                    -Body $null `
-                    -MaxRetryCount 0 `
-                    -InitialRetryDelaySeconds 1 `
-                    -Activity 'Get enterprise user' `
-                    -SensitiveValues @()
+                    })
+                    Body = $null
+                    MaxRetryCount = 0
+                    InitialRetryDelaySeconds = 1
+                    Activity = 'Get enterprise user'
+                    SensitiveValues = @()
+                }
+                $null = & $helpers.InvokeGitHubRequest @invokeGitHubRequestParams
             }
             finally
             {

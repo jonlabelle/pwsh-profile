@@ -154,19 +154,23 @@ function Get-GitHubRepositoryTopic
             $requestedTopicDisplay = $requestedTopics -join ', '
         }
 
-        $authContext = & $helpers.ResolveAuthContext `
-            -Token $Token `
-            -TokenEnvironmentVariableName $TokenEnvironmentVariableName `
-            -RequireToken:($transport.Name -ne 'GhCli')
+        $resolveAuthContextParams = @{
+            Token = $Token
+            TokenEnvironmentVariableName = $TokenEnvironmentVariableName
+            RequireToken = ($transport.Name -ne 'GhCli')
+        }
+        $authContext = & $helpers.ResolveAuthContext @resolveAuthContextParams
 
-        $resource = & $helpers.TryGetGitHubResource `
-            -Path $topicContext.CollectionPath `
-            -BaseUri $topicContext.ApiBaseUri `
-            -Transport $transport `
-            -AuthContext $authContext `
-            -MaxRetryCount $maxRetryCount `
-            -InitialRetryDelaySeconds $initialRetryDelaySeconds `
-            -Activity "Get repository topics for $($topicContext.RepositoryContext.NameWithOwner)"
+        $tryGetGitHubResourceParams = @{
+            Path = $topicContext.CollectionPath
+            BaseUri = $topicContext.ApiBaseUri
+            Transport = $transport
+            AuthContext = $authContext
+            MaxRetryCount = $maxRetryCount
+            InitialRetryDelaySeconds = $initialRetryDelaySeconds
+            Activity = "Get repository topics for $($topicContext.RepositoryContext.NameWithOwner)"
+        }
+        $resource = & $helpers.TryGetGitHubResource @tryGetGitHubResourceParams
 
         if (-not $resource.Found)
         {
@@ -207,11 +211,13 @@ function Get-GitHubRepositoryTopic
     }
     catch
     {
-        $friendlyMessage = & $helpers.GetFriendlyErrorMessage `
-            -Operation 'get repository topics' `
-            -Name $requestedTopicDisplay `
-            -Target $topicContext.DisplayTarget `
-            -Exception $_.Exception
+        $getFriendlyErrorMessageParams = @{
+            Operation = 'get repository topics'
+            Name = $requestedTopicDisplay
+            Target = $topicContext.DisplayTarget
+            Exception = $_.Exception
+        }
+        $friendlyMessage = & $helpers.GetFriendlyErrorMessage @getFriendlyErrorMessageParams
 
         throw $friendlyMessage
     }

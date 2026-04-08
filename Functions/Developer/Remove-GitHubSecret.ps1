@@ -338,12 +338,14 @@ function Remove-GitHubSecret
             }
         }
 
-        $secretContext = & $helpers.GetSecretContext `
-            -Scope $resolvedScope `
-            -Repository $Repository `
-            -Environment $Environment `
-            -Organization $Organization `
-            -Application $Application
+        $getSecretContextParams = @{
+            Scope = $resolvedScope
+            Repository = $Repository
+            Environment = $Environment
+            Organization = $Organization
+            Application = $Application
+        }
+        $secretContext = & $helpers.GetSecretContext @getSecretContextParams
 
         $transport = & $helpers.ResolveTransport
         if ($transport.Name -ne 'GhCli')
@@ -351,20 +353,24 @@ function Remove-GitHubSecret
             throw 'GitHub secret operations require the GitHub CLI (gh) to be installed and available in PATH.'
         }
 
-        $authContext = & $helpers.ResolveAuthContext `
-            -Token $Token `
-            -TokenEnvironmentVariableName $TokenEnvironmentVariableName `
-            -RequireToken:$false
+        $resolveAuthContextParams = @{
+            Token = $Token
+            TokenEnvironmentVariableName = $TokenEnvironmentVariableName
+            RequireToken = $false
+        }
+        $authContext = & $helpers.ResolveAuthContext @resolveAuthContextParams
 
         $secretPath = & $helpers.GetSingleItemPath -CollectionPath $secretContext.MetadataCollectionPath -Name $Name
-        $existingSecret = & $helpers.TryGetGitHubResource `
-            -Path $secretPath `
-            -BaseUri $secretContext.ApiBaseUri `
-            -Transport $transport `
-            -AuthContext $authContext `
-            -MaxRetryCount $maxRetryCount `
-            -InitialRetryDelaySeconds $initialRetryDelaySeconds `
-            -Activity "Get GitHub secret $Name"
+        $tryGetGitHubResourceParams = @{
+            Path = $secretPath
+            BaseUri = $secretContext.ApiBaseUri
+            Transport = $transport
+            AuthContext = $authContext
+            MaxRetryCount = $maxRetryCount
+            InitialRetryDelaySeconds = $initialRetryDelaySeconds
+            Activity = "Get GitHub secret $Name"
+        }
+        $existingSecret = & $helpers.TryGetGitHubResource @tryGetGitHubResourceParams
     }
 
     process
@@ -402,12 +408,14 @@ function Remove-GitHubSecret
         try
         {
             $ghArguments = @('secret', 'delete', $Name) + $secretContext.GhTargetArguments
-            $null = & $helpers.InvokeGhCommand `
-                -Arguments $ghArguments `
-                -AuthContext $authContext `
-                -MaxRetryCount $maxRetryCount `
-                -InitialRetryDelaySeconds $initialRetryDelaySeconds `
-                -Activity "Remove GitHub secret $Name"
+            $invokeGhCommandParams = @{
+                Arguments = $ghArguments
+                AuthContext = $authContext
+                MaxRetryCount = $maxRetryCount
+                InitialRetryDelaySeconds = $initialRetryDelaySeconds
+                Activity = "Remove GitHub secret $Name"
+            }
+            $null = & $helpers.InvokeGhCommand @invokeGhCommandParams
 
             return & $helpers.NewOperationResult -TypeName 'GitHub.SecretRemoveResult' -Properties @{
                 Name = $Name
@@ -423,11 +431,13 @@ function Remove-GitHubSecret
         }
         catch
         {
-            $friendlyMessage = & $helpers.GetFriendlyErrorMessage `
-                -Operation 'remove secret' `
-                -Name $Name `
-                -Target $secretContext.DisplayTarget `
-                -Exception $_.Exception
+            $getFriendlyErrorMessageParams = @{
+                Operation = 'remove secret'
+                Name = $Name
+                Target = $secretContext.DisplayTarget
+                Exception = $_.Exception
+            }
+            $friendlyMessage = & $helpers.GetFriendlyErrorMessage @getFriendlyErrorMessageParams
 
             throw $friendlyMessage
         }

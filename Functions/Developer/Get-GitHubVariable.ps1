@@ -269,29 +269,35 @@ function Get-GitHubVariable
         }
     }
 
-    $variableContext = & $helpers.GetVariableContext `
-        -Scope $resolvedScope `
-        -Repository $Repository `
-        -Environment $Environment `
-        -Organization $Organization
+    $getVariableContextParams = @{
+        Scope = $resolvedScope
+        Repository = $Repository
+        Environment = $Environment
+        Organization = $Organization
+    }
+    $variableContext = & $helpers.GetVariableContext @getVariableContextParams
 
     $transport = & $helpers.ResolveTransport
     try
     {
-        $authContext = & $helpers.ResolveAuthContext `
-            -Token $Token `
-            -TokenEnvironmentVariableName $TokenEnvironmentVariableName `
-            -RequireToken:($transport.Name -ne 'GhCli')
+        $resolveAuthContextParams = @{
+            Token = $Token
+            TokenEnvironmentVariableName = $TokenEnvironmentVariableName
+            RequireToken = ($transport.Name -ne 'GhCli')
+        }
+        $authContext = & $helpers.ResolveAuthContext @resolveAuthContextParams
 
         $variablePath = & $helpers.GetSingleItemPath -CollectionPath $variableContext.CollectionPath -Name $Name
-        $resource = & $helpers.TryGetGitHubResource `
-            -Path $variablePath `
-            -BaseUri $variableContext.ApiBaseUri `
-            -Transport $transport `
-            -AuthContext $authContext `
-            -MaxRetryCount $maxRetryCount `
-            -InitialRetryDelaySeconds $initialRetryDelaySeconds `
-            -Activity "Get GitHub variable $Name"
+        $tryGetGitHubResourceParams = @{
+            Path = $variablePath
+            BaseUri = $variableContext.ApiBaseUri
+            Transport = $transport
+            AuthContext = $authContext
+            MaxRetryCount = $maxRetryCount
+            InitialRetryDelaySeconds = $initialRetryDelaySeconds
+            Activity = "Get GitHub variable $Name"
+        }
+        $resource = & $helpers.TryGetGitHubResource @tryGetGitHubResourceParams
 
         if (-not $resource.Found)
         {
@@ -320,11 +326,13 @@ function Get-GitHubVariable
     }
     catch
     {
-        $friendlyMessage = & $helpers.GetFriendlyErrorMessage `
-            -Operation 'get variable' `
-            -Name $Name `
-            -Target $variableContext.DisplayTarget `
-            -Exception $_.Exception
+        $getFriendlyErrorMessageParams = @{
+            Operation = 'get variable'
+            Name = $Name
+            Target = $variableContext.DisplayTarget
+            Exception = $_.Exception
+        }
+        $friendlyMessage = & $helpers.GetFriendlyErrorMessage @getFriendlyErrorMessageParams
 
         throw $friendlyMessage
     }

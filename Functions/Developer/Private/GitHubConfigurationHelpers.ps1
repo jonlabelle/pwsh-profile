@@ -407,12 +407,15 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
 
         if ($ghCommand)
         {
+            $getResolvedCommandPathParams = @{
+                CommandInfo = $ghCommand
+                FallbackName = 'gh'
+            }
+
             return [PSCustomObject]@{
                 Name = 'GhCli'
                 Command = $ghCommand
-                CommandPath = & $script:PwshProfileGitHubConfigurationHelpers.GetResolvedCommandPath `
-                    -CommandInfo $ghCommand `
-                    -FallbackName 'gh'
+                CommandPath = & $script:PwshProfileGitHubConfigurationHelpers.GetResolvedCommandPath @getResolvedCommandPathParams
             }
         }
 
@@ -622,9 +625,11 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             return $null
         }
 
-        $gitCommandPath = & $script:PwshProfileGitHubConfigurationHelpers.GetResolvedCommandPath `
-            -CommandInfo $gitCommand `
-            -FallbackName 'git'
+        $getResolvedCommandPathParams = @{
+            CommandInfo = $gitCommand
+            FallbackName = 'git'
+        }
+        $gitCommandPath = & $script:PwshProfileGitHubConfigurationHelpers.GetResolvedCommandPath @getResolvedCommandPathParams
 
         $output = & $gitCommandPath remote get-url origin 2>&1
         if ($LASTEXITCODE -ne 0)
@@ -876,12 +881,16 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
         $ghAuthContext = $AuthContext
         $ghSensitiveValues = @($SensitiveValues)
         $ghCommand = & $script:PwshProfileGitHubConfigurationHelpers.GetGhCommand
-        $ghCommandPath = & $script:PwshProfileGitHubConfigurationHelpers.GetResolvedCommandPath `
-            -CommandInfo $ghCommand `
-            -FallbackName 'gh'
+        $getResolvedCommandPathParams = @{
+            CommandInfo = $ghCommand
+            FallbackName = 'gh'
+        }
+        $ghCommandPath = & $script:PwshProfileGitHubConfigurationHelpers.GetResolvedCommandPath @getResolvedCommandPathParams
         $ghTargetHost = & $script:PwshProfileGitHubConfigurationHelpers.GetGhTargetHost -Arguments $ghArguments
-        $ghTokenEnvironmentVariableName = & $script:PwshProfileGitHubConfigurationHelpers.GetGhTokenEnvironmentVariableName `
-            -TargetHost $ghTargetHost
+        $getGhTokenEnvironmentVariableNameParams = @{
+            TargetHost = $ghTargetHost
+        }
+        $ghTokenEnvironmentVariableName = & $script:PwshProfileGitHubConfigurationHelpers.GetGhTokenEnvironmentVariableName @getGhTokenEnvironmentVariableNameParams
         $inactiveGhTokenEnvironmentVariableName = if ($ghTokenEnvironmentVariableName -eq 'GH_ENTERPRISE_TOKEN')
         {
             'GH_TOKEN'
@@ -924,9 +933,11 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             if ($exitCode -ne 0)
             {
                 $rawOutputText = ($output | Out-String).Trim()
-                $safeOutputText = & $script:PwshProfileGitHubConfigurationHelpers.RedactSensitiveText `
-                    -Message (& $script:PwshProfileGitHubConfigurationHelpers.TrimErrorMessage $rawOutputText) `
-                    -SensitiveValues (@($ghAuthContext.Token) + @($ghSensitiveValues))
+                $redactSensitiveTextParams = @{
+                    Message = (& $script:PwshProfileGitHubConfigurationHelpers.TrimErrorMessage $rawOutputText)
+                    SensitiveValues = (@($ghAuthContext.Token) + @($ghSensitiveValues))
+                }
+                $safeOutputText = & $script:PwshProfileGitHubConfigurationHelpers.RedactSensitiveText @redactSensitiveTextParams
 
                 $exception = [System.InvalidOperationException]::new($safeOutputText)
                 if ($rawOutputText -match 'HTTP (\d{3})')
@@ -940,11 +951,13 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             return @($output)
         }
 
-        return & $script:PwshProfileGitHubConfigurationHelpers.InvokeWithRetry `
-            -Operation $operation `
-            -MaxRetryCount $MaxRetryCount `
-            -InitialRetryDelaySeconds $InitialRetryDelaySeconds `
-            -Activity $Activity
+        $invokeWithRetryParams = @{
+            Operation = $operation
+            MaxRetryCount = $MaxRetryCount
+            InitialRetryDelaySeconds = $InitialRetryDelaySeconds
+            Activity = $Activity
+        }
+        return & $script:PwshProfileGitHubConfigurationHelpers.InvokeWithRetry @invokeWithRetryParams
     }
 
     $script:PwshProfileGitHubConfigurationHelpers.StartGhCommandWithStandardInput = {
@@ -954,9 +967,11 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
         )
 
         $ghCommand = & $script:PwshProfileGitHubConfigurationHelpers.GetGhCommand
-        $ghCommandPath = & $script:PwshProfileGitHubConfigurationHelpers.GetResolvedCommandPath `
-            -CommandInfo $ghCommand `
-            -FallbackName 'gh'
+        $getResolvedCommandPathParams = @{
+            CommandInfo = $ghCommand
+            FallbackName = 'gh'
+        }
+        $ghCommandPath = & $script:PwshProfileGitHubConfigurationHelpers.GetResolvedCommandPath @getResolvedCommandPathParams
 
         $process = [System.Diagnostics.Process]::new()
         try
@@ -972,8 +987,10 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             {
                 $escapedArguments = foreach ($argument in @($Arguments))
                 {
-                    & $script:PwshProfileGitHubConfigurationHelpers.QuoteNativeProcessArgument `
-                        -Argument ([string]$argument)
+                    $quoteNativeProcessArgumentParams = @{
+                        Argument = [string]$argument
+                    }
+                    & $script:PwshProfileGitHubConfigurationHelpers.QuoteNativeProcessArgument @quoteNativeProcessArgumentParams
                 }
 
                 $startInfo.Arguments = ($escapedArguments -join ' ')
@@ -1082,8 +1099,10 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
         $ghAuthContext = $AuthContext
         $ghSensitiveValues = @($SensitiveValues)
         $ghTargetHost = & $script:PwshProfileGitHubConfigurationHelpers.GetGhTargetHost -Arguments $ghArguments
-        $ghTokenEnvironmentVariableName = & $script:PwshProfileGitHubConfigurationHelpers.GetGhTokenEnvironmentVariableName `
-            -TargetHost $ghTargetHost
+        $getGhTokenEnvironmentVariableNameParams = @{
+            TargetHost = $ghTargetHost
+        }
+        $ghTokenEnvironmentVariableName = & $script:PwshProfileGitHubConfigurationHelpers.GetGhTokenEnvironmentVariableName @getGhTokenEnvironmentVariableNameParams
         $inactiveGhTokenEnvironmentVariableName = if ($ghTokenEnvironmentVariableName -eq 'GH_ENTERPRISE_TOKEN')
         {
             'GH_TOKEN'
@@ -1109,9 +1128,11 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
 
             try
             {
-                $result = & $script:PwshProfileGitHubConfigurationHelpers.StartGhCommandWithStandardInput `
-                    -Arguments $ghArguments `
-                    -StandardInputText $ghStandardInputText
+                $startGhCommandWithStandardInputParams = @{
+                    Arguments = $ghArguments
+                    StandardInputText = $ghStandardInputText
+                }
+                $result = & $script:PwshProfileGitHubConfigurationHelpers.StartGhCommandWithStandardInput @startGhCommandWithStandardInputParams
             }
             finally
             {
@@ -1127,9 +1148,11 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             if ($result.ExitCode -ne 0)
             {
                 $rawOutputText = @($result.StandardError, $result.StandardOutput) -join [Environment]::NewLine
-                $safeOutputText = & $script:PwshProfileGitHubConfigurationHelpers.RedactSensitiveText `
-                    -Message (& $script:PwshProfileGitHubConfigurationHelpers.TrimErrorMessage $rawOutputText) `
-                    -SensitiveValues (@($ghAuthContext.Token) + @($ghStandardInputText) + @($ghSensitiveValues))
+                $redactSensitiveTextParams = @{
+                    Message = (& $script:PwshProfileGitHubConfigurationHelpers.TrimErrorMessage $rawOutputText)
+                    SensitiveValues = (@($ghAuthContext.Token) + @($ghStandardInputText) + @($ghSensitiveValues))
+                }
+                $safeOutputText = & $script:PwshProfileGitHubConfigurationHelpers.RedactSensitiveText @redactSensitiveTextParams
 
                 $exception = [System.InvalidOperationException]::new($safeOutputText)
                 if ($rawOutputText -match 'HTTP (\d{3})')
@@ -1148,11 +1171,13 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             return @($result.StandardOutput)
         }
 
-        return & $script:PwshProfileGitHubConfigurationHelpers.InvokeWithRetry `
-            -Operation $operation `
-            -MaxRetryCount $MaxRetryCount `
-            -InitialRetryDelaySeconds $InitialRetryDelaySeconds `
-            -Activity $Activity
+        $invokeWithRetryParams = @{
+            Operation = $operation
+            MaxRetryCount = $MaxRetryCount
+            InitialRetryDelaySeconds = $InitialRetryDelaySeconds
+            Activity = $Activity
+        }
+        return & $script:PwshProfileGitHubConfigurationHelpers.InvokeWithRetry @invokeWithRetryParams
     }
 
     $script:PwshProfileGitHubConfigurationHelpers.InvokeGitHubRequest = {
@@ -1196,13 +1221,15 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
                 }
                 $arguments += $Path
 
-                $output = & $script:PwshProfileGitHubConfigurationHelpers.InvokeGhCommand `
-                    -Arguments $arguments `
-                    -AuthContext $AuthContext `
-                    -MaxRetryCount $MaxRetryCount `
-                    -InitialRetryDelaySeconds $InitialRetryDelaySeconds `
-                    -Activity $Activity `
-                    -SensitiveValues $SensitiveValues
+                $invokeGhCommandParams = @{
+                    Arguments = $arguments
+                    AuthContext = $AuthContext
+                    MaxRetryCount = $MaxRetryCount
+                    InitialRetryDelaySeconds = $InitialRetryDelaySeconds
+                    Activity = $Activity
+                    SensitiveValues = $SensitiveValues
+                }
+                $output = & $script:PwshProfileGitHubConfigurationHelpers.InvokeGhCommand @invokeGhCommandParams
 
                 $text = ($output | Out-String).Trim()
                 if ([string]::IsNullOrWhiteSpace($text))
@@ -1264,10 +1291,14 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             catch
             {
                 $statusCode = & $script:PwshProfileGitHubConfigurationHelpers.GetExceptionStatusCode $_.Exception
-                $safeMessage = & $script:PwshProfileGitHubConfigurationHelpers.RedactSensitiveText `
-                    -Message (& $script:PwshProfileGitHubConfigurationHelpers.TrimErrorMessage `
-                    (& $script:PwshProfileGitHubConfigurationHelpers.GetExceptionMessage $_.Exception)) `
-                    -SensitiveValues (@($AuthContext.Token) + @($SensitiveValues))
+                $trimErrorMessageParams = @{
+                    Message = (& $script:PwshProfileGitHubConfigurationHelpers.GetExceptionMessage $_.Exception)
+                }
+                $redactSensitiveTextParams = @{
+                    Message = (& $script:PwshProfileGitHubConfigurationHelpers.TrimErrorMessage @trimErrorMessageParams)
+                    SensitiveValues = (@($AuthContext.Token) + @($SensitiveValues))
+                }
+                $safeMessage = & $script:PwshProfileGitHubConfigurationHelpers.RedactSensitiveText @redactSensitiveTextParams
 
                 $sanitizedException = [System.InvalidOperationException]::new($safeMessage)
                 if ($null -ne $statusCode)
@@ -1279,11 +1310,13 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             }
         }
 
-        return & $script:PwshProfileGitHubConfigurationHelpers.InvokeWithRetry `
-            -Operation $operation `
-            -MaxRetryCount $MaxRetryCount `
-            -InitialRetryDelaySeconds $InitialRetryDelaySeconds `
-            -Activity $Activity
+        $invokeWithRetryParams = @{
+            Operation = $operation
+            MaxRetryCount = $MaxRetryCount
+            InitialRetryDelaySeconds = $InitialRetryDelaySeconds
+            Activity = $Activity
+        }
+        return & $script:PwshProfileGitHubConfigurationHelpers.InvokeWithRetry @invokeWithRetryParams
     }
 
     $script:PwshProfileGitHubConfigurationHelpers.TryGetGitHubResource = {
@@ -1299,18 +1332,21 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
 
         try
         {
+            $invokeGitHubRequestParams = @{
+                Method = 'GET'
+                BaseUri = $BaseUri
+                Path = $Path
+                Transport = $Transport
+                AuthContext = $AuthContext
+                Body = $null
+                MaxRetryCount = $MaxRetryCount
+                InitialRetryDelaySeconds = $InitialRetryDelaySeconds
+                Activity = $Activity
+            }
+
             return [PSCustomObject]@{
                 Found = $true
-                Resource = & $script:PwshProfileGitHubConfigurationHelpers.InvokeGitHubRequest `
-                    -Method 'GET' `
-                    -BaseUri $BaseUri `
-                    -Path $Path `
-                    -Transport $Transport `
-                    -AuthContext $AuthContext `
-                    -Body $null `
-                    -MaxRetryCount $MaxRetryCount `
-                    -InitialRetryDelaySeconds $InitialRetryDelaySeconds `
-                    -Activity $Activity
+                Resource = & $script:PwshProfileGitHubConfigurationHelpers.InvokeGitHubRequest @invokeGitHubRequestParams
             }
         }
         catch
@@ -1370,16 +1406,18 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
             }
 
             $seenRepositoryKeys[$dedupeKey] = $true
-            $lookup = & $script:PwshProfileGitHubConfigurationHelpers.InvokeGitHubRequest `
-                -Method 'GET' `
-                -BaseUri $repositoryContext.ApiBaseUri `
-                -Path "/repos/$($repositoryContext.Owner)/$($repositoryContext.Repo)" `
-                -Transport $Transport `
-                -AuthContext $AuthContext `
-                -Body $null `
-                -MaxRetryCount $MaxRetryCount `
-                -InitialRetryDelaySeconds $InitialRetryDelaySeconds `
-                -Activity "Resolve repository id for $repositoryValue"
+            $invokeGitHubRequestParams = @{
+                Method = 'GET'
+                BaseUri = $repositoryContext.ApiBaseUri
+                Path = "/repos/$($repositoryContext.Owner)/$($repositoryContext.Repo)"
+                Transport = $Transport
+                AuthContext = $AuthContext
+                Body = $null
+                MaxRetryCount = $MaxRetryCount
+                InitialRetryDelaySeconds = $InitialRetryDelaySeconds
+                Activity = "Resolve repository id for $repositoryValue"
+            }
+            $lookup = & $script:PwshProfileGitHubConfigurationHelpers.InvokeGitHubRequest @invokeGitHubRequestParams
 
             $repositoryIds.Add([int64]$lookup.id) | Out-Null
         }
@@ -1396,8 +1434,10 @@ if (-not (Get-Variable -Name $helperVariableName -Scope Script -ErrorAction Sile
         )
 
         $statusCode = & $script:PwshProfileGitHubConfigurationHelpers.GetExceptionStatusCode $Exception
-        $message = & $script:PwshProfileGitHubConfigurationHelpers.TrimErrorMessage `
-        (& $script:PwshProfileGitHubConfigurationHelpers.GetExceptionMessage $Exception)
+        $trimErrorMessageParams = @{
+            Message = (& $script:PwshProfileGitHubConfigurationHelpers.GetExceptionMessage $Exception)
+        }
+        $message = & $script:PwshProfileGitHubConfigurationHelpers.TrimErrorMessage @trimErrorMessageParams
 
         if ($statusCode -eq 401 -or $message -match 'authentication|unauthorized')
         {

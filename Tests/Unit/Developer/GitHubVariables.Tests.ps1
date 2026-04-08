@@ -80,30 +80,36 @@ Describe 'GitHub variable functions' {
 
         It 'rejects environment names longer than 255 characters' {
             $tooLongEnvironmentName = 'a' * 256
+            $setGitHubVariableParams = @{
+                Name = 'DEPLOY_RING'
+                Value = 'production'
+                Scope = 'Environment'
+                Repository = 'octo-org/service-api'
+                Environment = $tooLongEnvironmentName
+            }
+            $getGitHubVariableParams = @{
+                Name = 'DEPLOY_RING'
+                Scope = 'Environment'
+                Repository = 'octo-org/service-api'
+                Environment = $tooLongEnvironmentName
+            }
+            $removeGitHubVariableParams = @{
+                Name = 'DEPLOY_RING'
+                Scope = 'Environment'
+                Repository = 'octo-org/service-api'
+                Environment = $tooLongEnvironmentName
+            }
 
             {
-                Set-GitHubVariable `
-                    -Name 'DEPLOY_RING' `
-                    -Value 'production' `
-                    -Scope Environment `
-                    -Repository 'octo-org/service-api' `
-                    -Environment $tooLongEnvironmentName
+                Set-GitHubVariable @setGitHubVariableParams
             } | Should -Throw '*may not exceed 255 characters*'
 
             {
-                Get-GitHubVariable `
-                    -Name 'DEPLOY_RING' `
-                    -Scope Environment `
-                    -Repository 'octo-org/service-api' `
-                    -Environment $tooLongEnvironmentName
+                Get-GitHubVariable @getGitHubVariableParams
             } | Should -Throw '*may not exceed 255 characters*'
 
             {
-                Remove-GitHubVariable `
-                    -Name 'DEPLOY_RING' `
-                    -Scope Environment `
-                    -Repository 'octo-org/service-api' `
-                    -Environment $tooLongEnvironmentName
+                Remove-GitHubVariable @removeGitHubVariableParams
             } | Should -Throw '*may not exceed 255 characters*'
         }
 
@@ -118,11 +124,13 @@ Describe 'GitHub variable functions' {
                 throw "Unexpected gh arguments: $($args -join ' ')"
             }
 
-            $result = Get-GitHubVariable `
-                -Name 'DEPLOY_RING' `
-                -Scope Environment `
-                -Repository 'octo-org/service-api' `
-                -Environment 'Production/Blue'
+            $getGitHubVariableParams = @{
+                Name = 'DEPLOY_RING'
+                Scope = 'Environment'
+                Repository = 'octo-org/service-api'
+                Environment = 'Production/Blue'
+            }
+            $result = Get-GitHubVariable @getGitHubVariableParams
 
             $result.Name | Should -Be 'DEPLOY_RING'
             $result.Target | Should -Be "environment 'Production/Blue' in octo-org/service-api"
@@ -232,13 +240,15 @@ Describe 'GitHub variable functions' {
                 throw "Unexpected REST request: $Method $Uri"
             }
 
-            $result = Set-GitHubVariable `
-                -Name 'REGION' `
-                -Value 'us-east-1' `
-                -Scope Organization `
-                -Organization 'octo-org' `
-                -SelectedRepository @(' app1 ', 'app1', 'app2 ') `
-                -Token $script:TokenValue
+            $setGitHubVariableParams = @{
+                Name = 'REGION'
+                Value = 'us-east-1'
+                Scope = 'Organization'
+                Organization = 'octo-org'
+                SelectedRepository = @(' app1 ', 'app1', 'app2 ')
+                Token = $script:TokenValue
+            }
+            $result = Set-GitHubVariable @setGitHubVariableParams
 
             $result.Status | Should -Be 'Created'
             $result.Transport | Should -Be 'RestApi'
@@ -283,28 +293,33 @@ Describe 'GitHub variable functions' {
             @{ Visibility = 'all' }
             @{ Visibility = 'private' }
         ) {
+            $setGitHubVariableParams = @{
+                Name = 'REGION'
+                Value = 'us-east-1'
+                Scope = 'Organization'
+                Organization = 'octo-org'
+                SelectedRepository = 'app1'
+                Visibility = $Visibility
+            }
+
             {
-                Set-GitHubVariable `
-                    -Name 'REGION' `
-                    -Value 'us-east-1' `
-                    -Scope Organization `
-                    -Organization 'octo-org' `
-                    -SelectedRepository 'app1' `
-                    -Visibility $Visibility
+                Set-GitHubVariable @setGitHubVariableParams
             } | Should -Throw "*'-Visibility selected'*"
         }
 
         It 'rejects whitespace-only entries in -SelectedRepository' {
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'gh' } -MockWith { $null }
+            $setGitHubVariableParams = @{
+                Name = 'REGION'
+                Value = 'us-east-1'
+                Scope = 'Organization'
+                Organization = 'octo-org'
+                SelectedRepository = @('   ', '')
+                Token = $script:TokenValue
+            }
 
             {
-                Set-GitHubVariable `
-                    -Name 'REGION' `
-                    -Value 'us-east-1' `
-                    -Scope Organization `
-                    -Organization 'octo-org' `
-                    -SelectedRepository @('   ', '') `
-                    -Token $script:TokenValue
+                Set-GitHubVariable @setGitHubVariableParams
             } | Should -Throw '*empty or whitespace*'
         }
     }
@@ -366,18 +381,20 @@ Describe 'GitHub variable functions' {
     Context 'Helper behaviors' {
         It 'defaults missing REST auth guidance to GH_TOKEN when no auth context exists' {
             $helpers = Import-GitHubHelperForTest
+            $invokeGitHubRequestParams = @{
+                Method = 'GET'
+                BaseUri = 'https://api.github.com'
+                Path = '/user'
+                Transport = ([PSCustomObject]@{ Name = 'RestApi'; Command = $null })
+                AuthContext = $null
+                Body = $null
+                MaxRetryCount = 0
+                InitialRetryDelaySeconds = 1
+                Activity = 'Get GitHub user'
+            }
 
             {
-                & $helpers.InvokeGitHubRequest `
-                    -Method 'GET' `
-                    -BaseUri 'https://api.github.com' `
-                    -Path '/user' `
-                    -Transport ([PSCustomObject]@{ Name = 'RestApi'; Command = $null }) `
-                    -AuthContext $null `
-                    -Body $null `
-                    -MaxRetryCount 0 `
-                    -InitialRetryDelaySeconds 1 `
-                    -Activity 'Get GitHub user'
+                & $helpers.InvokeGitHubRequest @invokeGitHubRequestParams
             } | Should -Throw "*'GH_TOKEN'*"
         }
     }
