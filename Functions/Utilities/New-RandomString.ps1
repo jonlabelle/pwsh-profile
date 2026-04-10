@@ -495,3 +495,17 @@ function New-RandomString
 
     return $result.ToString()
 }
+
+# Create 'New-Password' alias only if it doesn't already exist
+if (-not (Get-Command -Name 'New-Password' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Write-Verbose "Creating 'New-Password' alias for New-RandomString"
+        Set-Alias -Name 'New-Password' -Value 'New-RandomString' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "New-RandomString: Could not create 'New-Password' alias: $($_.Exception.Message)"
+    }
+}
