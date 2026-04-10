@@ -10,7 +10,8 @@ function Get-CertificateInfo
         (with configurable timeout and port settings) and local certificate files (.cer/.crt/.der/.pem).
         Values passed through ComputerName (or positional input) are automatically interpreted as host/URL targets
         or local certificate paths.
-        The function is cross-platform compatible and works with PowerShell 5.1+ on Windows, macOS, and Linux.
+
+        This function is cross-platform compatible and works with PowerShell 5.1+ on Windows, macOS, and Linux.
 
     .PARAMETER ComputerName
         The hostname, IP address, URL, or certificate path to retrieve SSL certificate details from.
@@ -44,11 +45,11 @@ function Get-CertificateInfo
         Port                : 443
         Subject             : CN=jonlabelle.com
         Issuer              : CN=E7, O=Let's Encrypt, C=US
-        NotBefore           : 10/18/2025 11:04:17 PM
-        NotAfter            : 1/16/2026 10:04:16 PM
-        Thumbprint          : FF17282B73B22DF319B705F3197948CCABF6C5D7
-        SerialNumber        : 05366C8540C1118373AE7974C87C6B0DD64C
-        DaysUntilExpiration : 64
+        NotBefore           : 3/19/2026 9:17:32 PM
+        NotAfter            : 6/17/2026 9:17:31 PM
+        Thumbprint          : 1AB091654479B20DA39D03E537CBA120BD73BA7E
+        SerialNumber        : 059134EEBEF88F66C68BC4A33AEAA753F104
+        DaysUntilExpiration : 68
         IsExpired           : False
         SignatureAlgorithm  : sha384ECDSA
         PublicKeyAlgorithm  : ECC
@@ -78,26 +79,26 @@ function Get-CertificateInfo
     .EXAMPLE
         PS > Get-CertificateInfo -ComputerName 'bing.com' -IncludeExtensions
 
-        ComputerName        : jonlabelle.com
+        ComputerName        : bing.com
         Port                : 443
-        Subject             : CN=jonlabelle.com
-        Issuer              : CN=E7, O=Let's Encrypt, C=US
-        NotBefore           : 10/18/2025 11:04:17 PM
-        NotAfter            : 1/16/2026 10:04:16 PM
-        Thumbprint          : FF17282B73B22DF319B705F3197948CCABF6C5D7
-        SerialNumber        : 05366C8540C1118373AE7974C87C6B0DD64C
-        DaysUntilExpiration : 64
+        Subject             : CN=www.bing.com, O=Microsoft Corporation, L=Redmond, S=WA, C=US
+        Issuer              : CN=Microsoft TLS G2 RSA CA OCSP 04, O=Microsoft Corporation, C=US
+        NotBefore           : 2/2/2026 2:13:44 PM
+        NotAfter            : 8/1/2026 3:13:44 PM
+        Thumbprint          : 08636F879638B7D5CFDA6B800A7298FB6301E777
+        SerialNumber        : 430003A5985B1D66D63B2B202700000003A598
+        DaysUntilExpiration : 113
         IsExpired           : False
-        SignatureAlgorithm  : sha384ECDSA
-        PublicKeyAlgorithm  : ECC
-        KeySize             :
+        SignatureAlgorithm  : sha384RSA
+        PublicKeyAlgorithm  : RSA
+        KeySize             : 2048
         Version             : 3
         HasPrivateKey       : False
         FriendlyName        :
         Archived            : False
         Extensions          : {[X509v3 Basic Constraints, 3000], [X509v3 Subject Key Identifier,
                             04146C3FD1BB47BA89B36B6807950DFDDB952C12CBF8], [2.5.29.32, 300A3008060667810C010201], [Authority
-                            Information Access, 3024302206082B060105050730028616687474703A2F2F65372E692E6C656E63722E6F72672F]…}
+                            Information Access, 3024302206082B060105050730028616687474703A2F2F65372E692E6C656E63722E6F72672F]...}
 
         Gets certificate details including X.509 extensions like Subject Alternative Names.
 
@@ -258,16 +259,16 @@ function Get-CertificateInfo
             }
 
             $looksLikePath = $trimmedValue -match '^[a-zA-Z]:[\\/]' -or
-                $trimmedValue -match '^[\\/]{2}' -or
-                $trimmedValue.StartsWith('./') -or
-                $trimmedValue.StartsWith('.\\') -or
-                $trimmedValue.StartsWith('../') -or
-                $trimmedValue.StartsWith('..\\') -or
-                $trimmedValue.StartsWith('~/') -or
-                $trimmedValue.StartsWith('~\\') -or
-                $trimmedValue -match '[\\/]' -or
-                $trimmedValue -like '*`**' -or
-                $trimmedValue -match '\.(cer|crt|der|pem|p7b|pfx|p12)$'
+            $trimmedValue -match '^[\\/]{2}' -or
+            $trimmedValue.StartsWith('./') -or
+            $trimmedValue.StartsWith('.\\') -or
+            $trimmedValue.StartsWith('../') -or
+            $trimmedValue.StartsWith('..\\') -or
+            $trimmedValue.StartsWith('~/') -or
+            $trimmedValue.StartsWith('~\\') -or
+            $trimmedValue -match '[\\/]' -or
+            $trimmedValue -like '*`**' -or
+            $trimmedValue -match '\.(cer|crt|der|pem|p7b|pfx|p12)$'
 
             if ($looksLikePath)
             {
