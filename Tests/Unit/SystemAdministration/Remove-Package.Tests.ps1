@@ -118,6 +118,89 @@ Describe 'Remove-Package' {
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew uninstall git output' } -Times 1
         }
 
+        It 'reports streamed command failures with command context when captured output is unavailable' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0')
+                'brew list --cask --versions' = Get-TestCommandResponse -Output @()
+                'brew uninstall git' = Get-TestCommandResponse -ExitCode 41 -Output @()
+            }
+
+            $result = Remove-Package -PackageManager brew -IncludePackage git -All -CommandRunner $runner -Confirm:$false -WarningAction SilentlyContinue
+
+            $result.Removed | Should -Be 0
+            $result.Failed | Should -Be 1
+            $result.Skipped | Should -Be 0
+            $result.Results[0].Message | Should -Match 'brew uninstall git failed with exit code 41'
+            $result.Results[0].Message | Should -Match 'streamed directly to the console'
+        }
+
+        It 'does not read stale LASTEXITCODE for unstructured command runner output' {
+            $lastExitCode = Get-Variable -Name LASTEXITCODE -Scope Global -ErrorAction SilentlyContinue
+
+            try
+            {
+                $global:LASTEXITCODE = 41
+
+                $runner = {
+                    param(
+                        [Parameter(Mandatory)]
+                        [String]$Command,
+
+                        [Parameter()]
+                        [String[]]$Arguments = @(),
+
+                        [Parameter()]
+                        [Switch]$StreamOutput
+                    )
+
+                    $key = "$Command $($Arguments -join ' ')".Trim()
+
+                    if ($key -eq 'brew list --formula --versions')
+                    {
+                        return [PSCustomObject]@{
+                            ExitCode = 0
+                            Output = @('git 2.44.0')
+                        }
+                    }
+
+                    if ($key -eq 'brew list --cask --versions')
+                    {
+                        return [PSCustomObject]@{
+                            ExitCode = 0
+                            Output = @()
+                        }
+                    }
+
+                    if ($key -eq 'brew uninstall git')
+                    {
+                        return 'brew uninstall git output'
+                    }
+
+                    return [PSCustomObject]@{
+                        ExitCode = 127
+                        Output = @("Unexpected command: $key")
+                    }
+                }.GetNewClosure()
+
+                $result = Remove-Package -PackageManager brew -IncludePackage git -All -CommandRunner $runner -Confirm:$false
+
+                $result.Removed | Should -Be 1
+                $result.Failed | Should -Be 0
+                $result.Results[0].ExitCode | Should -Be 0
+            }
+            finally
+            {
+                if ($lastExitCode)
+                {
+                    $global:LASTEXITCODE = $lastExitCode.Value
+                }
+                else
+                {
+                    Remove-Variable -Name LASTEXITCODE -Scope Global -ErrorAction SilentlyContinue
+                }
+            }
+        }
+
         It 'does not remove every installed package with -All unless an include filter is supplied' {
             $runner = & $script:NewPackageCommandRunner @{
                 'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0')
@@ -187,6 +270,29 @@ Describe 'Remove-Package' {
             $result.NotSelected | Should -Be 1
             $result.Removed | Should -Be 0
             @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should -Be 0
+        }
+
+        It 'renders only the current viewport for long package lists' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = Get-TestCommandResponse -Output @(
+                    'pkg-01 1.0.0'
+                    'pkg-02 1.0.0'
+                    'pkg-03 1.0.0'
+                    'pkg-04 1.0.0'
+                )
+                'brew list --cask --versions' = Get-TestCommandResponse -Output @()
+            }
+
+            $keyReader = {
+                [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            }
+
+            $null = Remove-Package -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PickerPageSize 2 -Confirm:$false
+
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-01*' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-02*' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-03*' } -Times 0
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-04*' } -Times 0
         }
     }
 

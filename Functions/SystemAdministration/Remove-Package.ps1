@@ -129,7 +129,11 @@ function Remove-Package
         [ScriptBlock]$CommandRunner,
 
         [Parameter(DontShow = $true)]
-        [ScriptBlock]$KeyReader
+        [ScriptBlock]$KeyReader,
+
+        [Parameter(DontShow = $true)]
+        [ValidateRange(0, 500)]
+        [Int32]$PickerPageSize = 0
     )
 
     begin
@@ -955,9 +959,12 @@ function Remove-Package
                 if ($trimmedLine -match '^(?<Name>[^/\s]+)/(?<Repository>\S+)\s+(?<Version>\S+)\s+(?<Architecture>\S+)\s+\[(?<State>[^\]]+)\]')
                 {
                     $name = $Matches.Name
+                    $repository = $Matches.Repository
+                    $version = $Matches.Version
+                    $architecture = $Matches.Architecture
                     $state = $Matches.State
                     $notes = if ($state -match 'automatic') { 'Automatic' } else { '' }
-                    $packages += Get-PackageInstallObject -Manager $Manager -Name $name -Id $name -Type $Matches.Architecture -InstalledVersion $Matches.Version -Source $Matches.Repository -Notes $notes
+                    $packages += Get-PackageInstallObject -Manager $Manager -Name $name -Id $name -Type $architecture -InstalledVersion $version -Source $repository -Notes $notes
                 }
             }
 
@@ -1084,7 +1091,10 @@ function Remove-Package
                 [PSCustomObject[]]$InstalledPackages = @(),
 
                 [Parameter()]
-                [ScriptBlock]$KeyReader
+                [ScriptBlock]$KeyReader,
+
+                [Parameter()]
+                [Int32]$PageSize = 0
             )
 
             if ($InstalledPackages.Count -eq 0)
@@ -1143,13 +1153,60 @@ function Remove-Package
                 return $KeyInfo.Key -in @([ConsoleKey]::Escape, [ConsoleKey]::Q) -or $isControlC
             }
 
+            function Get-PackagePickerPageSize
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [Int32]$RequestedPageSize,
+
+                    [Parameter(Mandatory)]
+                    [Int32]$ItemCount
+                )
+
+                if ($RequestedPageSize -gt 0)
+                {
+                    return [Math]::Min($RequestedPageSize, [Math]::Max(1, $ItemCount))
+                }
+
+                $fallbackPageSize = [Math]::Min(15, [Math]::Max(1, $ItemCount))
+
+                try
+                {
+                    $windowHeight = 0
+
+                    if ($Host -and $Host.UI -and $Host.UI.RawUI)
+                    {
+                        $windowHeight = [Int32]$Host.UI.RawUI.WindowSize.Height
+                    }
+
+                    if ($windowHeight -le 0 -and -not [Console]::IsOutputRedirected)
+                    {
+                        $windowHeight = [Console]::WindowHeight
+                    }
+
+                    if ($windowHeight -gt 0)
+                    {
+                        $reservedRows = 8
+                        return [Math]::Min([Math]::Max(1, $windowHeight - $reservedRows), [Math]::Max(1, $ItemCount))
+                    }
+                }
+                catch
+                {
+                    Write-Verbose "Unable to determine console height for package picker: $($_.Exception.Message)"
+                }
+
+                return $fallbackPageSize
+            }
+
             $nameWidth = [Math]::Min(36, [Math]::Max(4, (($InstalledPackages | ForEach-Object { $_.Name.Length } | Measure-Object -Maximum).Maximum)))
             $versionWidth = [Math]::Min(20, [Math]::Max(7, (($InstalledPackages | ForEach-Object { $_.InstalledVersion.Length } | Measure-Object -Maximum).Maximum)))
             $typeWidth = [Math]::Min(12, [Math]::Max(4, (($InstalledPackages | ForEach-Object { $_.Type.Length } | Measure-Object -Maximum).Maximum)))
             $sourceWidth = [Math]::Min(18, [Math]::Max(6, (($InstalledPackages | ForEach-Object { $_.Source.Length } | Measure-Object -Maximum).Maximum)))
+            $pageSize = Get-PackagePickerPageSize -RequestedPageSize $PageSize -ItemCount $InstalledPackages.Count
 
             $selected = New-Object 'System.Boolean[]' $InstalledPackages.Count
             $cursor = 0
+            $topIndex = 0
             $restoreTreatControlCAsInput = $false
             $previousTreatControlCAsInput = $false
 
@@ -1164,14 +1221,36 @@ function Remove-Package
 
                 while ($true)
                 {
+                    if ($cursor -lt $topIndex)
+                    {
+                        $topIndex = $cursor
+                    }
+                    elseif ($cursor -ge ($topIndex + $pageSize))
+                    {
+                        $topIndex = $cursor - $pageSize + 1
+                    }
+
+                    if ($topIndex -lt 0)
+                    {
+                        $topIndex = 0
+                    }
+
+                    $maxTopIndex = [Math]::Max(0, $InstalledPackages.Count - $pageSize)
+                    if ($topIndex -gt $maxTopIndex)
+                    {
+                        $topIndex = $maxTopIndex
+                    }
+
+                    $bottomIndex = [Math]::Min($InstalledPackages.Count - 1, $topIndex + $pageSize - 1)
+
                     Clear-Host
                     Write-Host "Remove-Package - $($InstalledPackages[0].PackageManagerDisplayName)"
-                    Write-Host 'Space: select  Enter: remove selected  A: toggle all  Ctrl+C/Q/Esc: cancel'
+                    Write-Host 'Space: select  Enter: remove selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
                     Write-Host ''
                     Write-Host ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth))
                     Write-Host ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth))
 
-                    for ($i = 0; $i -lt $InstalledPackages.Count; $i++)
+                    for ($i = $topIndex; $i -le $bottomIndex; $i++)
                     {
                         $package = $InstalledPackages[$i]
                         $cursorMarker = if ($i -eq $cursor) { '>' } else { ' ' }
@@ -1204,6 +1283,22 @@ function Remove-Package
                             {
                                 $cursor++
                             }
+                        }
+                        'PageUp'
+                        {
+                            $cursor = [Math]::Max(0, $cursor - $pageSize)
+                        }
+                        'PageDown'
+                        {
+                            $cursor = [Math]::Min($InstalledPackages.Count - 1, $cursor + $pageSize)
+                        }
+                        'Home'
+                        {
+                            $cursor = 0
+                        }
+                        'End'
+                        {
+                            $cursor = $InstalledPackages.Count - 1
                         }
                         'Spacebar'
                         {
@@ -1342,7 +1437,7 @@ function Remove-Package
             }
             else
             {
-                Select-PackageInstallRecords -InstalledPackages $installedPackages -KeyReader $KeyReader
+                Select-PackageInstallRecords -InstalledPackages $installedPackages -KeyReader $KeyReader -PageSize $PickerPageSize
             }
         )
 

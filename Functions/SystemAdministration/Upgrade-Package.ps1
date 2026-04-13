@@ -120,7 +120,11 @@ function Upgrade-Package
         [ScriptBlock]$CommandRunner,
 
         [Parameter(DontShow = $true)]
-        [ScriptBlock]$KeyReader
+        [ScriptBlock]$KeyReader,
+
+        [Parameter(DontShow = $true)]
+        [ValidateRange(0, 500)]
+        [Int32]$PickerPageSize = 0
     )
 
     begin
@@ -1065,7 +1069,10 @@ function Upgrade-Package
                 [PSCustomObject[]]$PackageUpdates = @(),
 
                 [Parameter()]
-                [ScriptBlock]$KeyReader
+                [ScriptBlock]$KeyReader,
+
+                [Parameter()]
+                [Int32]$PageSize = 0
             )
 
             if ($PackageUpdates.Count -eq 0)
@@ -1124,13 +1131,60 @@ function Upgrade-Package
                 return $KeyInfo.Key -in @([ConsoleKey]::Escape, [ConsoleKey]::Q) -or $isControlC
             }
 
+            function Get-PackagePickerPageSize
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [Int32]$RequestedPageSize,
+
+                    [Parameter(Mandatory)]
+                    [Int32]$ItemCount
+                )
+
+                if ($RequestedPageSize -gt 0)
+                {
+                    return [Math]::Min($RequestedPageSize, [Math]::Max(1, $ItemCount))
+                }
+
+                $fallbackPageSize = [Math]::Min(15, [Math]::Max(1, $ItemCount))
+
+                try
+                {
+                    $windowHeight = 0
+
+                    if ($Host -and $Host.UI -and $Host.UI.RawUI)
+                    {
+                        $windowHeight = [Int32]$Host.UI.RawUI.WindowSize.Height
+                    }
+
+                    if ($windowHeight -le 0 -and -not [Console]::IsOutputRedirected)
+                    {
+                        $windowHeight = [Console]::WindowHeight
+                    }
+
+                    if ($windowHeight -gt 0)
+                    {
+                        $reservedRows = 8
+                        return [Math]::Min([Math]::Max(1, $windowHeight - $reservedRows), [Math]::Max(1, $ItemCount))
+                    }
+                }
+                catch
+                {
+                    Write-Verbose "Unable to determine console height for package picker: $($_.Exception.Message)"
+                }
+
+                return $fallbackPageSize
+            }
+
             $nameWidth = [Math]::Min(36, [Math]::Max(4, (($PackageUpdates | ForEach-Object { $_.Name.Length } | Measure-Object -Maximum).Maximum)))
             $installedWidth = [Math]::Min(20, [Math]::Max(9, (($PackageUpdates | ForEach-Object { $_.InstalledVersion.Length } | Measure-Object -Maximum).Maximum)))
             $latestWidth = [Math]::Min(20, [Math]::Max(6, (($PackageUpdates | ForEach-Object { $_.LatestVersion.Length } | Measure-Object -Maximum).Maximum)))
             $typeWidth = [Math]::Min(12, [Math]::Max(4, (($PackageUpdates | ForEach-Object { $_.Type.Length } | Measure-Object -Maximum).Maximum)))
+            $pageSize = Get-PackagePickerPageSize -RequestedPageSize $PageSize -ItemCount $PackageUpdates.Count
 
             $selected = New-Object 'System.Boolean[]' $PackageUpdates.Count
             $cursor = 0
+            $topIndex = 0
             $restoreTreatControlCAsInput = $false
             $previousTreatControlCAsInput = $false
 
@@ -1145,14 +1199,36 @@ function Upgrade-Package
 
                 while ($true)
                 {
+                    if ($cursor -lt $topIndex)
+                    {
+                        $topIndex = $cursor
+                    }
+                    elseif ($cursor -ge ($topIndex + $pageSize))
+                    {
+                        $topIndex = $cursor - $pageSize + 1
+                    }
+
+                    if ($topIndex -lt 0)
+                    {
+                        $topIndex = 0
+                    }
+
+                    $maxTopIndex = [Math]::Max(0, $PackageUpdates.Count - $pageSize)
+                    if ($topIndex -gt $maxTopIndex)
+                    {
+                        $topIndex = $maxTopIndex
+                    }
+
+                    $bottomIndex = [Math]::Min($PackageUpdates.Count - 1, $topIndex + $pageSize - 1)
+
                     Clear-Host
                     Write-Host "Upgrade-Package - $($PackageUpdates[0].PackageManagerDisplayName)"
-                    Write-Host 'Space: select  Enter: upgrade selected  A: toggle all  Ctrl+C/Q/Esc: cancel'
+                    Write-Host 'Space: select  Enter: upgrade selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
                     Write-Host ''
                     Write-Host ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth))
                     Write-Host ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth))
 
-                    for ($i = 0; $i -lt $PackageUpdates.Count; $i++)
+                    for ($i = $topIndex; $i -le $bottomIndex; $i++)
                     {
                         $package = $PackageUpdates[$i]
                         $cursorMarker = if ($i -eq $cursor) { '>' } else { ' ' }
@@ -1185,6 +1261,22 @@ function Upgrade-Package
                             {
                                 $cursor++
                             }
+                        }
+                        'PageUp'
+                        {
+                            $cursor = [Math]::Max(0, $cursor - $pageSize)
+                        }
+                        'PageDown'
+                        {
+                            $cursor = [Math]::Min($PackageUpdates.Count - 1, $cursor + $pageSize)
+                        }
+                        'Home'
+                        {
+                            $cursor = 0
+                        }
+                        'End'
+                        {
+                            $cursor = $PackageUpdates.Count - 1
                         }
                         'Spacebar'
                         {
@@ -1325,7 +1417,7 @@ function Upgrade-Package
             }
             else
             {
-                Select-PackageUpdateRecords -PackageUpdates $packageUpdates -KeyReader $KeyReader
+                Select-PackageUpdateRecords -PackageUpdates $packageUpdates -KeyReader $KeyReader -PageSize $PickerPageSize
             }
         )
 
