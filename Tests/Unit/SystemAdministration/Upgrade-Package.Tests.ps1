@@ -165,6 +165,77 @@ Describe 'Upgrade-Package' {
             $result.Results[0].Message | Should -Match 'brew upgrade git failed with exit code 42'
             $result.Results[0].Message | Should -Match 'streamed directly to the console'
         }
+
+        It 'does not read stale LASTEXITCODE for unstructured command runner output' {
+            $brewJson = @{
+                formulae = @(
+                    @{
+                        name = 'git'
+                        installed_versions = @('2.43.0')
+                        current_version = '2.44.0'
+                        pinned = $false
+                    }
+                )
+                casks = @()
+            } | ConvertTo-Json -Depth 6 -Compress
+
+            $lastExitCode = Get-Variable -Name LASTEXITCODE -Scope Global -ErrorAction SilentlyContinue
+
+            try
+            {
+                $global:LASTEXITCODE = 42
+
+                $runner = {
+                    param(
+                        [Parameter(Mandatory)]
+                        [String]$Command,
+
+                        [Parameter()]
+                        [String[]]$Arguments = @(),
+
+                        [Parameter()]
+                        [Switch]$StreamOutput
+                    )
+
+                    $key = "$Command $($Arguments -join ' ')".Trim()
+
+                    if ($key -eq 'brew outdated --json=v2')
+                    {
+                        return [PSCustomObject]@{
+                            ExitCode = 0
+                            Output = @($brewJson)
+                        }
+                    }
+
+                    if ($key -eq 'brew upgrade git')
+                    {
+                        return 'brew upgrade git output'
+                    }
+
+                    return [PSCustomObject]@{
+                        ExitCode = 127
+                        Output = @("Unexpected command: $key")
+                    }
+                }.GetNewClosure()
+
+                $result = Upgrade-Package -PackageManager brew -SkipRefresh -All -CommandRunner $runner -Confirm:$false
+
+                $result.Upgraded | Should -Be 1
+                $result.Failed | Should -Be 0
+                $result.Results[0].ExitCode | Should -Be 0
+            }
+            finally
+            {
+                if ($lastExitCode)
+                {
+                    $global:LASTEXITCODE = $lastExitCode.Value
+                }
+                else
+                {
+                    Remove-Variable -Name LASTEXITCODE -Scope Global -ErrorAction SilentlyContinue
+                }
+            }
+        }
     }
 
     Context 'Linux package discovery' {

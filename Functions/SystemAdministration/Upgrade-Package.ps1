@@ -448,7 +448,7 @@ function Upgrade-Package
                 }
 
                 return [PSCustomObject]@{
-                    ExitCode = if ($null -ne $global:LASTEXITCODE) { [Int32]$global:LASTEXITCODE } else { 0 }
+                    ExitCode = 0
                     Output = @($runnerOutputItems)
                 }
             }
