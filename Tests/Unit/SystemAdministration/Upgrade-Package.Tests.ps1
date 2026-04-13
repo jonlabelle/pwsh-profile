@@ -311,6 +311,33 @@ Describe 'Upgrade-Package' {
             $result.Upgraded | Should -Be 0
             @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should -Be 0
         }
+
+        It 'renders only the current viewport for long upgrade lists' {
+            $brewJson = @{
+                formulae = @(
+                    @{ name = 'pkg-01'; installed_versions = @('1.0.0'); current_version = '1.1.0' }
+                    @{ name = 'pkg-02'; installed_versions = @('1.0.0'); current_version = '1.1.0' }
+                    @{ name = 'pkg-03'; installed_versions = @('1.0.0'); current_version = '1.1.0' }
+                    @{ name = 'pkg-04'; installed_versions = @('1.0.0'); current_version = '1.1.0' }
+                )
+                casks = @()
+            } | ConvertTo-Json -Depth 6 -Compress
+
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
+            }
+
+            $keyReader = {
+                [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            }
+
+            $null = Upgrade-Package -PackageManager brew -SkipRefresh -CommandRunner $runner -KeyReader $keyReader -PickerPageSize 2 -Confirm:$false
+
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-01*' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-02*' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-03*' } -Times 0
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-04*' } -Times 0
+        }
     }
 
     Context 'winget package discovery' {

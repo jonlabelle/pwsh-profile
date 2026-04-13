@@ -527,6 +527,7 @@ The profile includes utility functions organized by category:
 - **[`Test-PendingReboot`](Functions/SystemAdministration/Test-PendingReboot.ps1)** — Checks if the system has pending reboot requirements
 - **[`Get-SystemInfo`](Functions/SystemAdministration/Get-SystemInfo.ps1)** — Gets system information from local or remote computers
 - **[`Upgrade-Package`](Functions/SystemAdministration/Upgrade-Package.ps1)** — Upgrades outdated platform packages with winget, brew, apt, or apk
+- **[`Remove-Package`](Functions/SystemAdministration/Remove-Package.ps1)** — Removes installed platform packages with winget, brew, apt, or apk
 
 ### Developer
 
