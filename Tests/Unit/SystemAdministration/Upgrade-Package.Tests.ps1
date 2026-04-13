@@ -289,6 +289,7 @@ Describe 'Upgrade-Package' {
                     '-----------------------------------------------------------------------'
                     'PowerShell         Microsoft.PowerShell        7.4.1   7.4.2     winget'
                     'Git                Git.Git                     2.43.0  2.44.0    winget'
+                    '27 package(s) have version numbers that cannot be determined. Use --include-unknown to see all results.'
                 )
             }
 

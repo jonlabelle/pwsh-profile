@@ -769,7 +769,7 @@ function Upgrade-Package
             for ($i = $headerIndex + 1; $i -lt $lines.Count; $i++)
             {
                 $line = $lines[$i]
-                if ([String]::IsNullOrWhiteSpace($line) -or $line -match '^-{3,}' -or $line -match '^\d+\s+upgrades?\s+available')
+                if ([String]::IsNullOrWhiteSpace($line) -or $line -match '^-{3,}' -or $line -match '^\d+\s+upgrades?\s+available' -or $line -match '^\d+\s+package\(s\)\s+have version numbers that cannot be determined\.')
                 {
                     continue
                 }
