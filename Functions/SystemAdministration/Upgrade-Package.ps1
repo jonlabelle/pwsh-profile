@@ -135,8 +135,8 @@ function Upgrade-Package
             }
 
             $items = @($Value) |
-                Where-Object { $null -ne $_ -and -not [String]::IsNullOrWhiteSpace("$($_)") } |
-                ForEach-Object { "$($_)".Trim() }
+            Where-Object { $null -ne $_ -and -not [String]::IsNullOrWhiteSpace("$($_)") } |
+            ForEach-Object { "$($_)".Trim() }
 
             return ($items -join ', ')
         }
@@ -496,7 +496,7 @@ function Upgrade-Package
             }
 
             $idCommand = Get-Command -Name 'id' -CommandType Application -ErrorAction SilentlyContinue |
-                Select-Object -First 1
+            Select-Object -First 1
 
             if (-not $idCommand)
             {
@@ -1076,7 +1076,7 @@ function Upgrade-Package
             }
             catch
             {
-                throw 'Interactive package selection requires an attached console. Use -All, -AsObject, or -IncludePackage with -All in noninteractive sessions.'
+                throw 'Interactive package selection requires an attached console. Use -All, -AsObject, or -IncludePackage with -All in non-interactive sessions.'
             }
 
             function Format-PickerCell
@@ -1112,15 +1112,15 @@ function Upgrade-Package
                 Write-Host "Upgrade-Package - $($PackageUpdates[0].PackageManagerDisplayName)"
                 Write-Host 'Space: select  Enter: upgrade selected  A: toggle all  Q/Esc: cancel'
                 Write-Host ''
-                Write-Host ("  {0} {1} {2} {3} {4}" -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth))
-                Write-Host ("  {0} {1} {2} {3} {4}" -f '---', ('-' * $nameWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth))
+                Write-Host ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth))
+                Write-Host ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth))
 
                 for ($i = 0; $i -lt $PackageUpdates.Count; $i++)
                 {
                     $package = $PackageUpdates[$i]
                     $cursorMarker = if ($i -eq $cursor) { '>' } else { ' ' }
                     $selectedMarker = if ($selected[$i]) { '[x]' } else { '[ ]' }
-                    Write-Host ("{0} {1} {2} {3} {4} {5}" -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
+                    Write-Host ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
                 }
 
                 Write-Host ''
