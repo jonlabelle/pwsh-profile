@@ -64,6 +64,7 @@ Describe 'Upgrade-Package' {
     BeforeEach {
         $script:Invocations = New-Object 'System.Collections.Generic.List[Object]'
         Mock -CommandName Write-Host -MockWith {}
+        Mock -CommandName Clear-Host -MockWith {}
     }
 
     Context 'Homebrew package discovery' {
@@ -277,6 +278,38 @@ Describe 'Upgrade-Package' {
             $requests = $result | Where-Object { $_.Name -eq 'py3-requests' }
             $requests.InstalledVersion | Should -Be '2.31.0-r0'
             $requests.LatestVersion | Should -Be '2.32.0-r0'
+        }
+    }
+
+    Context 'Interactive package selection' {
+        It 'treats Ctrl+C as a cancel command' {
+            $brewJson = @{
+                formulae = @(
+                    @{
+                        name = 'git'
+                        installed_versions = @('2.43.0')
+                        current_version = '2.44.0'
+                        pinned = $false
+                    }
+                )
+                casks = @()
+            } | ConvertTo-Json -Depth 6 -Compress
+
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
+                'brew upgrade git' = Get-TestCommandResponse -Output @('brew upgrade git output')
+            }
+
+            $keyReader = {
+                [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            }
+
+            $result = Upgrade-Package -PackageManager brew -SkipRefresh -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+
+            $result.Selected | Should -Be 0
+            $result.NotSelected | Should -Be 1
+            $result.Upgraded | Should -Be 0
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should -Be 0
         }
     }
 

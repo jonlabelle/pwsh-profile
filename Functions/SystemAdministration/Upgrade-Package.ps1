@@ -117,7 +117,10 @@ function Upgrade-Package
         [String]$PackageManager = 'Auto',
 
         [Parameter(DontShow = $true)]
-        [ScriptBlock]$CommandRunner
+        [ScriptBlock]$CommandRunner,
+
+        [Parameter(DontShow = $true)]
+        [ScriptBlock]$KeyReader
     )
 
     begin
@@ -1059,7 +1062,10 @@ function Upgrade-Package
         {
             param(
                 [Parameter()]
-                [PSCustomObject[]]$PackageUpdates = @()
+                [PSCustomObject[]]$PackageUpdates = @(),
+
+                [Parameter()]
+                [ScriptBlock]$KeyReader
             )
 
             if ($PackageUpdates.Count -eq 0)
@@ -1067,16 +1073,23 @@ function Upgrade-Package
                 return @()
             }
 
-            try
+            $usingConsoleKeyReader = $false
+            if ($null -eq $KeyReader)
             {
-                if ([Console]::IsInputRedirected)
+                try
                 {
-                    throw 'Console input is redirected.'
+                    if ([Console]::IsInputRedirected)
+                    {
+                        throw 'Console input is redirected.'
+                    }
                 }
-            }
-            catch
-            {
-                throw 'Interactive package selection requires an attached console. Use -All, -AsObject, or -IncludePackage with -All in non-interactive sessions.'
+                catch
+                {
+                    throw 'Interactive package selection requires an attached console. Use -All, -AsObject, or -IncludePackage with -All in non-interactive sessions.'
+                }
+
+                $KeyReader = { [Console]::ReadKey($true) }
+                $usingConsoleKeyReader = $true
             }
 
             function Format-PickerCell
@@ -1098,6 +1111,19 @@ function Upgrade-Package
                 return $value.PadRight($Width)
             }
 
+            function Test-PackagePickerCancelKey
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [ConsoleKeyInfo]$KeyInfo
+                )
+
+                $isControlC = $KeyInfo.Key -eq [ConsoleKey]::C -and (($KeyInfo.Modifiers -band [ConsoleModifiers]::Control) -eq [ConsoleModifiers]::Control)
+                $isControlC = $isControlC -or ([Int32][Char]$KeyInfo.KeyChar -eq 3)
+
+                return $KeyInfo.Key -in @([ConsoleKey]::Escape, [ConsoleKey]::Q) -or $isControlC
+            }
+
             $nameWidth = [Math]::Min(36, [Math]::Max(4, (($PackageUpdates | ForEach-Object { $_.Name.Length } | Measure-Object -Maximum).Maximum)))
             $installedWidth = [Math]::Min(20, [Math]::Max(9, (($PackageUpdates | ForEach-Object { $_.InstalledVersion.Length } | Measure-Object -Maximum).Maximum)))
             $latestWidth = [Math]::Min(20, [Math]::Max(6, (($PackageUpdates | ForEach-Object { $_.LatestVersion.Length } | Measure-Object -Maximum).Maximum)))
@@ -1105,75 +1131,95 @@ function Upgrade-Package
 
             $selected = New-Object 'System.Boolean[]' $PackageUpdates.Count
             $cursor = 0
+            $restoreTreatControlCAsInput = $false
+            $previousTreatControlCAsInput = $false
 
-            while ($true)
+            try
             {
-                Clear-Host
-                Write-Host "Upgrade-Package - $($PackageUpdates[0].PackageManagerDisplayName)"
-                Write-Host 'Space: select  Enter: upgrade selected  A: toggle all  Q/Esc: cancel'
-                Write-Host ''
-                Write-Host ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth))
-                Write-Host ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth))
-
-                for ($i = 0; $i -lt $PackageUpdates.Count; $i++)
+                if ($usingConsoleKeyReader)
                 {
-                    $package = $PackageUpdates[$i]
-                    $cursorMarker = if ($i -eq $cursor) { '>' } else { ' ' }
-                    $selectedMarker = if ($selected[$i]) { '[x]' } else { '[ ]' }
-                    Write-Host ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
+                    $previousTreatControlCAsInput = [Console]::TreatControlCAsInput
+                    [Console]::TreatControlCAsInput = $true
+                    $restoreTreatControlCAsInput = $true
                 }
 
-                Write-Host ''
-                Write-Host "$(@($selected | Where-Object { $_ }).Count) of $($PackageUpdates.Count) package(s) selected."
-
-                $key = [Console]::ReadKey($true)
-                switch ($key.Key)
+                while ($true)
                 {
-                    'UpArrow'
-                    {
-                        if ($cursor -gt 0)
-                        {
-                            $cursor--
-                        }
-                    }
-                    'DownArrow'
-                    {
-                        if ($cursor -lt ($PackageUpdates.Count - 1))
-                        {
-                            $cursor++
-                        }
-                    }
-                    'Spacebar'
-                    {
-                        $selected[$cursor] = -not $selected[$cursor]
-                    }
-                    'A'
-                    {
-                        $selectAll = @($selected | Where-Object { -not $_ }).Count -gt 0
-                        for ($i = 0; $i -lt $selected.Count; $i++)
-                        {
-                            $selected[$i] = $selectAll
-                        }
-                    }
-                    'Enter'
-                    {
-                        $selectedPackages = @()
-                        for ($i = 0; $i -lt $PackageUpdates.Count; $i++)
-                        {
-                            if ($selected[$i])
-                            {
-                                $selectedPackages += $PackageUpdates[$i]
-                            }
-                        }
+                    Clear-Host
+                    Write-Host "Upgrade-Package - $($PackageUpdates[0].PackageManagerDisplayName)"
+                    Write-Host 'Space: select  Enter: upgrade selected  A: toggle all  Ctrl+C/Q/Esc: cancel'
+                    Write-Host ''
+                    Write-Host ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth))
+                    Write-Host ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth))
 
-                        Clear-Host
-                        return $selectedPackages
+                    for ($i = 0; $i -lt $PackageUpdates.Count; $i++)
+                    {
+                        $package = $PackageUpdates[$i]
+                        $cursorMarker = if ($i -eq $cursor) { '>' } else { ' ' }
+                        $selectedMarker = if ($selected[$i]) { '[x]' } else { '[ ]' }
+                        Write-Host ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
                     }
-                    { $_ -in @('Escape', 'Q') }
+
+                    Write-Host ''
+                    Write-Host "$(@($selected | Where-Object { $_ }).Count) of $($PackageUpdates.Count) package(s) selected."
+
+                    $key = & $KeyReader
+                    if (Test-PackagePickerCancelKey -KeyInfo $key)
                     {
                         Clear-Host
                         return @()
                     }
+
+                    switch ($key.Key)
+                    {
+                        'UpArrow'
+                        {
+                            if ($cursor -gt 0)
+                            {
+                                $cursor--
+                            }
+                        }
+                        'DownArrow'
+                        {
+                            if ($cursor -lt ($PackageUpdates.Count - 1))
+                            {
+                                $cursor++
+                            }
+                        }
+                        'Spacebar'
+                        {
+                            $selected[$cursor] = -not $selected[$cursor]
+                        }
+                        'A'
+                        {
+                            $selectAll = @($selected | Where-Object { -not $_ }).Count -gt 0
+                            for ($i = 0; $i -lt $selected.Count; $i++)
+                            {
+                                $selected[$i] = $selectAll
+                            }
+                        }
+                        'Enter'
+                        {
+                            $selectedPackages = @()
+                            for ($i = 0; $i -lt $PackageUpdates.Count; $i++)
+                            {
+                                if ($selected[$i])
+                                {
+                                    $selectedPackages += $PackageUpdates[$i]
+                                }
+                            }
+
+                            Clear-Host
+                            return $selectedPackages
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                if ($restoreTreatControlCAsInput)
+                {
+                    [Console]::TreatControlCAsInput = $previousTreatControlCAsInput
                 }
             }
         }
@@ -1279,7 +1325,7 @@ function Upgrade-Package
             }
             else
             {
-                Select-PackageUpdateRecords -PackageUpdates $packageUpdates
+                Select-PackageUpdateRecords -PackageUpdates $packageUpdates -KeyReader $KeyReader
             }
         )
 
