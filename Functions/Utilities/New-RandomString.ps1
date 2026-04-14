@@ -169,6 +169,7 @@ function New-RandomString
         [int] $Length = 32,
 
         [Parameter()]
+        [Alias('NoAmbiguous')]
         [switch] $ExcludeAmbiguous,
 
         [Parameter()]
