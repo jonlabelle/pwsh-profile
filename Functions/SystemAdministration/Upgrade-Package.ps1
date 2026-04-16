@@ -35,6 +35,12 @@ function Upgrade-Package
     .PARAMETER AsObject
         Returns the discovered outdated package records without upgrading anything.
 
+    .PARAMETER UninstallPrevious
+        When upgrading with winget, passes --uninstall-previous to remove the previously
+        installed version before installing the new one. Has no effect on other package
+        managers (brew, apt, apk), which replace packages atomically as part of their
+        normal upgrade process.
+
     .PARAMETER NoSudo
         On Linux package managers that normally require elevated privileges, do not
         automatically prefix refresh and upgrade commands with sudo.
@@ -108,6 +114,9 @@ function Upgrade-Package
 
         [Parameter()]
         [Switch]$AsObject,
+
+        [Parameter()]
+        [Switch]$UninstallPrevious,
 
         [Parameter()]
         [Switch]$NoSudo,
@@ -1072,7 +1081,10 @@ function Upgrade-Package
                 [ScriptBlock]$KeyReader,
 
                 [Parameter()]
-                [Int32]$PageSize = 0
+                [Int32]$PageSize = 0,
+
+                [Parameter()]
+                [String]$PackageManagerName = ''
             )
 
             if ($PackageUpdates.Count -eq 0)
@@ -1183,6 +1195,8 @@ function Upgrade-Package
             $pageSize = Get-PackagePickerPageSize -RequestedPageSize $PageSize -ItemCount $PackageUpdates.Count
 
             $selected = New-Object 'System.Boolean[]' $PackageUpdates.Count
+            $uninstallPreviousFlags = New-Object 'System.Boolean[]' $PackageUpdates.Count
+            $showUninstallPrevious = $PackageManagerName -eq 'winget'
             $cursor = 0
             $topIndex = 0
             $restoreTreatControlCAsInput = $false
@@ -1223,17 +1237,36 @@ function Upgrade-Package
 
                     Clear-Host
                     Write-Host "Upgrade-Package - $($PackageUpdates[0].PackageManagerDisplayName)"
-                    Write-Host 'Space: select  Enter: upgrade selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
+                    $pickerHintPrefix = 'Space: select'
+                    $pickerHintActions = 'Enter: upgrade selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
+                    $pickerHint = if ($showUninstallPrevious) { "$pickerHintPrefix  U: uninstall previous  $pickerHintActions" } else { "$pickerHintPrefix  $pickerHintActions" }
+                    Write-Host $pickerHint
                     Write-Host ''
-                    Write-Host ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth))
-                    Write-Host ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth))
+                    if ($showUninstallPrevious)
+                    {
+                        Write-Host ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', 'Unp', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth))
+                        Write-Host ('  {0} {1} {2} {3} {4} {5}' -f '---', '---', ('-' * $nameWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth))
+                    }
+                    else
+                    {
+                        Write-Host ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth))
+                        Write-Host ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth))
+                    }
 
                     for ($i = $topIndex; $i -le $bottomIndex; $i++)
                     {
                         $package = $PackageUpdates[$i]
                         $cursorMarker = if ($i -eq $cursor) { '>' } else { ' ' }
                         $selectedMarker = if ($selected[$i]) { '[x]' } else { '[ ]' }
-                        Write-Host ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
+                        if ($showUninstallPrevious)
+                        {
+                            $uninstallMarker = if ($uninstallPreviousFlags[$i]) { '[u]' } else { '[ ]' }
+                            Write-Host ('{0} {1} {2} {3} {4} {5} {6}' -f $cursorMarker, $selectedMarker, $uninstallMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
+                        }
+                        else
+                        {
+                            Write-Host ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
+                        }
                     }
 
                     Write-Host ''
@@ -1290,6 +1323,13 @@ function Upgrade-Package
                                 $selected[$i] = $selectAll
                             }
                         }
+                        'U'
+                        {
+                            if ($showUninstallPrevious)
+                            {
+                                $uninstallPreviousFlags[$cursor] = -not $uninstallPreviousFlags[$cursor]
+                            }
+                        }
                         'Enter'
                         {
                             $selectedPackages = @()
@@ -1297,7 +1337,9 @@ function Upgrade-Package
                             {
                                 if ($selected[$i])
                                 {
-                                    $selectedPackages += $PackageUpdates[$i]
+                                    $pkg = $PackageUpdates[$i]
+                                    $pkg | Add-Member -NotePropertyName 'UninstallPrevious' -NotePropertyValue $uninstallPreviousFlags[$i] -Force
+                                    $selectedPackages += $pkg
                                 }
                             }
 
@@ -1331,7 +1373,14 @@ function Upgrade-Package
             Write-Host ''
             Write-Host "Upgrading $($Package.Name) ($versionText) with $($Manager.DisplayName)..."
 
-            $invocation = Resolve-PackageManagerInvocation -Manager $Manager -Arguments $Package.UpgradeArguments
+            $upgradeArguments = $Package.UpgradeArguments
+            $perPackageUninstall = $Package.PSObject.Properties['UninstallPrevious'] -and [Boolean]$Package.UninstallPrevious
+            if (($UninstallPrevious -or $perPackageUninstall) -and $Manager.Name -eq 'winget')
+            {
+                $upgradeArguments = @($upgradeArguments) + @('--uninstall-previous')
+            }
+
+            $invocation = Resolve-PackageManagerInvocation -Manager $Manager -Arguments $upgradeArguments
             $result = Invoke-PackageManagerCommand -Command $invocation.Command -Arguments $invocation.Arguments -StreamOutput
 
             if ($result.ExitCode -eq 0)
@@ -1417,7 +1466,7 @@ function Upgrade-Package
             }
             else
             {
-                Select-PackageUpdateRecords -PackageUpdates $packageUpdates -KeyReader $KeyReader -PageSize $PickerPageSize
+                Select-PackageUpdateRecords -PackageUpdates $packageUpdates -KeyReader $KeyReader -PageSize $PickerPageSize -PackageManagerName $manager.Name
             }
         )
 
