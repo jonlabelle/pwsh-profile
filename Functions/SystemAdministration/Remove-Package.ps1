@@ -1498,3 +1498,17 @@ function Remove-Package
         }
     }
 }
+
+# Create 'Uninstall-Package' alias only if it doesn't already exist
+if (-not (Get-Alias -Name 'Uninstall-Package' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Write-Verbose "Creating 'Uninstall-Package' alias for Remove-Package"
+        Set-Alias -Name 'Uninstall-Package' -Value 'Remove-Package' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Remove-Package: Could not create 'Uninstall-Package' alias: $($_.Exception.Message)"
+    }
+}

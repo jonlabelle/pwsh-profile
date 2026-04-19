@@ -1528,3 +1528,17 @@ function Upgrade-Package
         }
     }
 }
+
+# Create 'Update-Package' alias only if it doesn't already exist
+if (-not (Get-Alias -Name 'Update-Package' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Write-Verbose "Creating 'Update-Package' alias for Upgrade-Package"
+        Set-Alias -Name 'Update-Package' -Value 'Upgrade-Package' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Upgrade-Package: Could not create 'Update-Package' alias: $($_.Exception.Message)"
+    }
+}
