@@ -1542,3 +1542,31 @@ if (-not (Get-Alias -Name 'Update-Package' -ErrorAction SilentlyContinue))
         Write-Warning "Upgrade-Package: Could not create 'Update-Package' alias: $($_.Exception.Message)"
     }
 }
+
+# Create 'upgrade' alias only if it doesn't already exist
+if (-not (Get-Alias -Name 'upgrade' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Write-Verbose "Creating 'upgrade' alias for Upgrade-Package"
+        Set-Alias -Name 'upgrade' -Value 'Upgrade-Package' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Upgrade-Package: Could not create 'upgrade' alias: $($_.Exception.Message)"
+    }
+}
+
+# Create 'update' alias only if it doesn't already exist
+if (-not (Get-Alias -Name 'update' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Write-Verbose "Creating 'update' alias for Upgrade-Package"
+        Set-Alias -Name 'update' -Value 'Upgrade-Package' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Upgrade-Package: Could not create 'update' alias: $($_.Exception.Message)"
+    }
+}
