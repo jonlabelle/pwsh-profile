@@ -1,10 +1,11 @@
 <#
     .SYNOPSIS
-        Installs or restores the pwsh-profile configuration with automatic backups and optional directory preservation.
+        Installs or restores the pwsh-profile configuration with automatic backups and optional preservation of local profile content.
 
     .DESCRIPTION
         `install.ps1` detects the active PowerShell profile directory (Windows PowerShell 5.1 or PowerShell Core on macOS, Linux, and Windows),
-        backs up the existing contents, preserves the `Functions/Local`, `Help`, `Modules`, `PSReadLine`, and `Scripts` folders by default, and then deploys the
+        backs up the existing contents, preserves the `Functions/Local`, `Help`, `Modules`, `PSReadLine`, and `Scripts` paths plus the root-level
+        `powershell.config.json` file by default, and then deploys the
         latest profile files from this repository (via `git clone`) or from a local path. You can also point the script at a previous backup to restore it.
 
         When installing from a remote repository, the script will use `git clone` if Git is available. If Git is not installed, it will
@@ -33,10 +34,10 @@
         unless you explicitly provide -BackupPath to force a backup during restore.
 
     .PARAMETER SkipPreserveDirectories
-        Skips saving and restoring the `Functions/Local`, `Help`, `Modules`, `PSReadLine`, and `Scripts` directories during installation.
+        Skips saving and restoring the default local profile paths during installation.
 
     .PARAMETER PreserveDirectories
-        Overrides the list of directories to preserve/restore (defaults to `Functions/Local`, `Help`, `Modules`, `PSReadLine`, `Scripts`).
+        Overrides the list of relative profile paths to preserve/restore (defaults to `Functions/Local`, `Help`, `Modules`, `PSReadLine`, `Scripts`, `powershell.config.json`).
 
     .PARAMETER RestorePath
         When supplied, skips installation and restores the profile from the provided backup directory.
@@ -75,7 +76,7 @@
         Restores a previously backed-up profile directory.
 
     .EXAMPLE
-        PS > pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -SkipBackup -SkipPreserveDirectories -PreserveDirectories @('Modules')
+        PS > pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -SkipBackup -PreserveDirectories @('Modules')
 
         Installs without creating a backup while only preserving the `Modules` directory.
 
@@ -97,7 +98,7 @@
     .EXAMPLE
         PS > pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -LocalSourcePath (Get-Location) -WhatIf -Verbose
 
-        Performs a dry run that shows which directories would be removed, backed up, preserved, or copied without actually changing anything.
+        Performs a dry run that shows which profile paths would be removed, backed up, preserved, or copied without actually changing anything.
 
     .EXAMPLE
         PS > pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -FullCloneHistory -Verbose
@@ -106,7 +107,7 @@
 
     .NOTES
         The script will use `git` when available for cloning, otherwise it downloads the repository as a zip file.
-        Run with `-Verbose` to see detailed progress, especially when preserving directories or restoring backups.
+        Run with `-Verbose` to see detailed progress, especially when preserving local profile paths or restoring backups.
 
         Execution Policy (Windows only):
         On Windows, you may need to set the execution policy to load profile scripts. macOS and Linux do not enforce
@@ -161,7 +162,7 @@ param(
 
     [Parameter()]
     [ValidateNotNullOrEmpty()]
-    [string[]]$PreserveDirectories = @('Functions/Local', 'Help', 'Modules', 'PSReadLine', 'Scripts'),
+    [string[]]$PreserveDirectories = @('Functions/Local', 'Help', 'Modules', 'PSReadLine', 'Scripts', 'powershell.config.json'),
 
     [Parameter()]
     [string]$RestorePath,
@@ -297,30 +298,37 @@ function New-ProfileBackup
     return $resolvedDestination
 }
 
-function Save-PreservedDirectories
+function Save-PreservedPaths
 {
     param(
         [Parameter(Mandatory)]
         [string]$SourceRoot,
 
         [Parameter(Mandatory)]
-        [string[]]$DirectoriesToPreserve
+        [string[]]$PathsToPreserve
     )
 
     $tempRootName = 'pwsh-profile-preserve-{0}' -f ([guid]::NewGuid().ToString())
     $tempRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath $tempRootName
     $preservedItems = @()
 
-    foreach ($directory in $DirectoriesToPreserve)
+    foreach ($relativePath in $PathsToPreserve)
     {
-        $sourceDirectory = Join-Path -Path $SourceRoot -ChildPath $directory
-        if (Test-Path -Path $sourceDirectory -PathType Container)
+        $sourcePath = Join-Path -Path $SourceRoot -ChildPath $relativePath
+        if (Test-Path -Path $sourcePath)
         {
-            $destinationDirectory = Join-Path -Path $tempRoot -ChildPath $directory
-            Copy-Item -Path $sourceDirectory -Destination $destinationDirectory -Recurse -Force
+            $destinationPath = Join-Path -Path $tempRoot -ChildPath $relativePath
+            $destinationParent = Split-Path -Parent $destinationPath
+            if ($destinationParent -and -not (Test-Path -Path $destinationParent))
+            {
+                New-Item -Path $destinationParent -ItemType Directory -Force | Out-Null
+            }
+
+            Copy-Item -Path $sourcePath -Destination $destinationPath -Recurse -Force
             $preservedItems += [PSCustomObject]@{
-                Name = $directory
-                TempPath = $destinationDirectory
+                Name = $relativePath
+                TempPath = $destinationPath
+                IsDirectory = Test-Path -Path $sourcePath -PathType Container
             }
         }
     }
@@ -341,7 +349,7 @@ function Save-PreservedDirectories
     }
 }
 
-function Restore-PreservedDirectories
+function Restore-PreservedPaths
 {
     param(
         [Parameter(Mandatory)]
@@ -353,14 +361,27 @@ function Restore-PreservedDirectories
 
     foreach ($item in $PreservationData.Items)
     {
-        $destinationDirectory = Join-Path -Path $DestinationRoot -ChildPath $item.Name
-        Write-Verbose "Restoring preserved directory '$($item.Name)'"
-        if (-not (Test-Path -Path $destinationDirectory))
+        $destinationPath = Join-Path -Path $DestinationRoot -ChildPath $item.Name
+        Write-Verbose "Restoring preserved path '$($item.Name)'"
+        if ($item.IsDirectory)
         {
-            New-Item -Path $destinationDirectory -ItemType Directory -Force | Out-Null
-        }
+            if (-not (Test-Path -Path $destinationPath))
+            {
+                New-Item -Path $destinationPath -ItemType Directory -Force | Out-Null
+            }
 
-        Copy-Item -Path (Join-Path -Path $item.TempPath -ChildPath '*') -Destination $destinationDirectory -Recurse -Force
+            Copy-Item -Path (Join-Path -Path $item.TempPath -ChildPath '*') -Destination $destinationPath -Recurse -Force
+        }
+        else
+        {
+            $destinationParent = Split-Path -Parent $destinationPath
+            if ($destinationParent -and -not (Test-Path -Path $destinationParent))
+            {
+                New-Item -Path $destinationParent -ItemType Directory -Force | Out-Null
+            }
+
+            Copy-Item -Path $item.TempPath -Destination $destinationPath -Force
+        }
     }
 
     if (Test-Path -Path $PreservationData.TempRoot)
@@ -825,10 +846,10 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
         $preservationData = $null
         if (-not $SkipPreserveDirectories -and (Test-Path -Path $resolvedProfileRoot))
         {
-            $preservationData = Save-PreservedDirectories -SourceRoot $resolvedProfileRoot -DirectoriesToPreserve $PreserveDirectories
+            $preservationData = Save-PreservedPaths -SourceRoot $resolvedProfileRoot -PathsToPreserve $PreserveDirectories
             if ($preservationData)
             {
-                Write-Host "Preserved directories: $($preservationData.Items.Name -join ', ')"
+                Write-Host "Preserved profile paths: $($preservationData.Items.Name -join ', ')"
             }
         }
 
@@ -883,7 +904,7 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
 
         if ($preservationData)
         {
-            Restore-PreservedDirectories -PreservationData $preservationData -DestinationRoot $resolvedProfileRoot
+            Restore-PreservedPaths -PreservationData $preservationData -DestinationRoot $resolvedProfileRoot
         }
 
         Write-Host ''

@@ -38,12 +38,13 @@ node_modules/
 .env*
 
 # ================================
-# PowerShell-Specific Directories
+# PowerShell-Specific Directories/Files
 # ================================
 /[Hh]elp/
 /[Mm]odules/
 /[Pp][Ss][Rr]ead[Ll]ine/
 /[Ss]cripts/
+/powershell.config.json
 
 # Local user functions (not committed to repository)
 /Functions/Local/**/*

@@ -84,7 +84,7 @@ PS > Show-ProfileFunctions
 
 ## Install
 
-Use the provided [install.ps1](install.ps1) script to automate backups (during install), preserve your existing `Functions/Local`, `Help`, `Modules`, `PSReadLine`, and `Scripts` directories, and deploy the latest profile files. The script works on PowerShell Desktop 5.1 and PowerShell Core 6+.
+Use the provided [install.ps1](install.ps1) script to automate backups (during install), preserve your existing `Functions/Local`, `Help`, `Modules`, `PSReadLine`, and `Scripts` directories plus your root-level `powershell.config.json`, and deploy the latest profile files. The script works on PowerShell Desktop 5.1 and PowerShell Core 6+.
 
 > [!Note]
 > **Git is optional:** If Git is available, the script clones the repository. Otherwise, it automatically downloads and extracts the repository as a zip file from GitHub.
@@ -131,8 +131,8 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1
 
 - `-SkipBackup` — Install without creating a backup of your current profile directory. Only applies to install, not restore.
 - `-BackupPath <path>` — When restoring, save a backup of your current profile before restoring from the backup. By default, restore does not create a backup.
-- `-SkipPreserveDirectories` — Do not restore the `Functions/Local`, `Help`, `Modules`, `PSReadLine`, and `Scripts` directories after installation.
-- `-PreserveDirectories @('Dir1','Dir2')` — Only restore the directories you specify.
+- `-SkipPreserveDirectories` — Do not restore the default local profile paths after installation.
+- `-PreserveDirectories @('Dir1','Dir2')` — Only restore the relative profile paths you specify. The default list includes `Functions/Local`, `Help`, `Modules`, `PSReadLine`, `Scripts`, and `powershell.config.json`.
 - `-LocalSourcePath <path>` — Copy profile files from a local directory instead of cloning from Git.
 - `-ProfileRoot <path>` — Use a custom profile directory instead of the default.
 
@@ -172,7 +172,7 @@ irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1'
 
 #### Manual Install (fallback)
 
-> **Strongly Recommended:** Use [install.ps1](install.ps1) instead of manually cloning the repository. The install script provides automatic backups, preserves your local directories (`Help`, `Modules`, `PSReadLine`, `Scripts`), and includes easy restoration capabilities that manual installation does not.
+> **Strongly Recommended:** Use [install.ps1](install.ps1) instead of manually cloning the repository. The install script provides automatic backups, preserves your local profile paths (`Help`, `Modules`, `PSReadLine`, `Scripts`, and `powershell.config.json`), and includes easy restoration capabilities that manual installation does not.
 
 If you still prefer to install manually, you can clone this repository directly into your profile directory:
 

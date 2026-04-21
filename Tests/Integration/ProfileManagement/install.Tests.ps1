@@ -57,7 +57,7 @@ Describe 'install.ps1 integration tests' {
     }
 
     Context 'Local install with default preservation' {
-        It 'installs from a local source, preserves default directories, and creates a backup' {
+        It 'installs from a local source, preserves default paths including powershell.config.json, and creates a backup' {
             $testRoot = Join-Path -Path $TestDrive -ChildPath ('InstallProfile_{0}' -f ([guid]::NewGuid().ToString('N')))
             $profileRoot = Join-Path -Path $testRoot -ChildPath 'ProfileRoot'
             New-Item -ItemType Directory -Path $profileRoot -Force | Out-Null
@@ -70,6 +70,7 @@ Describe 'install.ps1 integration tests' {
             }
 
             Set-Content -Path (Join-Path -Path $profileRoot -ChildPath 'legacy-profile.ps1') -Value '# legacy profile'
+            Set-Content -Path (Join-Path -Path $profileRoot -ChildPath 'powershell.config.json') -Value '{ "experimentalFeatures": [] }'
 
             try
             {
@@ -84,6 +85,10 @@ Describe 'install.ps1 integration tests' {
                     Test-Path $preservedFile | Should -BeTrue
                     (Get-Content $preservedFile) | Should -Be "original-$name"
                 }
+
+                $configFile = Join-Path -Path $profileRoot -ChildPath 'powershell.config.json'
+                Test-Path $configFile | Should -BeTrue
+                (Get-Content $configFile -Raw).Trim() | Should -Be '{ "experimentalFeatures": [] }'
 
                 $profileParent = Split-Path -Parent $profileRoot
                 $profileLeaf = Split-Path -Leaf $profileRoot
@@ -290,6 +295,7 @@ Describe 'install.ps1 integration tests' {
 
             # Backup payload
             Set-Content -Path (Join-Path -Path $backupRoot -ChildPath 'profile.ps1') -Value 'restored profile'
+            Set-Content -Path (Join-Path -Path $backupRoot -ChildPath 'powershell.config.json') -Value '{ "restored": true }'
             $backupModules = Join-Path -Path $backupRoot -ChildPath 'Modules'
             New-Item -ItemType Directory -Path $backupModules -Force | Out-Null
             Set-Content -Path (Join-Path -Path $backupModules -ChildPath 'module.psm1') -Value 'module content'
@@ -305,6 +311,7 @@ Describe 'install.ps1 integration tests' {
 
                 $modulesFile = Join-Path -Path (Join-Path -Path $profileRoot -ChildPath 'Modules') -ChildPath 'module.psm1'
                 Test-Path $modulesFile | Should -BeTrue
+                (Get-Content (Join-Path -Path $profileRoot -ChildPath 'powershell.config.json') -Raw).Trim() | Should -Be '{ "restored": true }'
                 Test-Path (Join-Path -Path $profileRoot -ChildPath 'stale.ps1') | Should -BeFalse
 
                 # Verify no backup was created
