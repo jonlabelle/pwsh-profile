@@ -592,6 +592,7 @@ The profile includes utility functions organized by category:
 - **[`ConvertTo-Base64`](Functions/Utilities/ConvertTo-Base64.ps1)** — Encodes strings or files to Base64 with URL-safe support
 - **[`ConvertTo-Markdown`](Functions/Utilities/ConvertTo-Markdown.ps1)** — Converts URLs or local files to Markdown with Pandoc
 - **[`ConvertTo-MarkdownObject`](Functions/Utilities/ConvertTo-MarkdownObject.ps1)** — Converts PowerShell objects and optional JSON strings to Markdown
+- **[`ConvertTo-USDateTime`](Functions/Utilities/ConvertTo-USDateTime.ps1)** — Converts local, UTC, or offset-aware timestamps into US time zones
 - **[`ConvertTo-UrlSlug`](Functions/Utilities/ConvertTo-UrlSlug.ps1)** — Creates URL-friendly slugs from text or filenames
 - **[`Copy-Directory`](Functions/Utilities/Copy-Directory.ps1)** — Copies directories recursively while excluding specific directories
 - **[`Extract-Archives`](Functions/Utilities/Extract-Archives.ps1)** — Finds all archives (zip, tar, 7z, rar) and extracts them
