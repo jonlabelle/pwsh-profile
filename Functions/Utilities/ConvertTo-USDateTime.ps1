@@ -84,7 +84,7 @@ function ConvertTo-USDateTime
 
     .EXAMPLE
         PS > ConvertTo-USDateTime -InputObject '2026-07-04T12:00:00Z' |
-        >>     Select-Object TimeZone, TimeZoneName, Abbreviation, UtcOffsetString, IsDaylightSavingTime
+        >>     Select-Object TimeZone, DateTime24, TimeZoneName, Abbreviation, UtcOffsetString, IsDaylightSavingTime
 
         Shows a compact summary of the most useful timezone metadata fields.
 
@@ -724,6 +724,7 @@ function ConvertTo-USDateTime
             [PSCustomObject][ordered]@{
                 TimeZone = $targetTimeZone.Label
                 DateTime = $convertedDateTime
+                DateTime24 = $convertedDateTime.ToString('HH:mm:ss')
                 TimeZoneId = $timeZoneInfo.Id
                 TimeZoneName = $timeZoneName
                 Abbreviation = $abbreviation
@@ -732,6 +733,7 @@ function ConvertTo-USDateTime
                 IsDaylightSavingTime = $isDaylightSavingTime
                 ObservesDaylightSavingTime = $observesDaylightSavingTime
                 SourceDateTime = $sourceInfo.SourceDateTime
+                SourceDateTime24 = $sourceInfo.SourceDateTime.ToString('HH:mm:ss')
                 SourceKind = $sourceInfo.SourceKind
                 SourceOffset = $sourceInfo.SourceOffset
                 SourceInputType = $sourceInfo.InputType

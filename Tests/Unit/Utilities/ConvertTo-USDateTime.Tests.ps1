@@ -29,13 +29,13 @@ Describe 'ConvertTo-USDateTime' -Tag 'Unit' {
             $results.Count | Should -Be 11
             (($results | Select-Object -ExpandProperty TimeZone) -join ',') | Should -Be 'Atlantic,Eastern,Central,Mountain,Arizona,Pacific,Alaska,Aleutian,Hawaii,Samoa,Chamorro'
 
-            $atlantic = $results | Where-Object TimeZone -eq 'Atlantic'
-            $eastern = $results | Where-Object TimeZone -eq 'Eastern'
-            $arizona = $results | Where-Object TimeZone -eq 'Arizona'
-            $aleutian = $results | Where-Object TimeZone -eq 'Aleutian'
-            $hawaii = $results | Where-Object TimeZone -eq 'Hawaii'
-            $samoa = $results | Where-Object TimeZone -eq 'Samoa'
-            $chamorro = $results | Where-Object TimeZone -eq 'Chamorro'
+            $atlantic = $results | Where-Object TimeZone -EQ 'Atlantic'
+            $eastern = $results | Where-Object TimeZone -EQ 'Eastern'
+            $arizona = $results | Where-Object TimeZone -EQ 'Arizona'
+            $aleutian = $results | Where-Object TimeZone -EQ 'Aleutian'
+            $hawaii = $results | Where-Object TimeZone -EQ 'Hawaii'
+            $samoa = $results | Where-Object TimeZone -EQ 'Samoa'
+            $chamorro = $results | Where-Object TimeZone -EQ 'Chamorro'
 
             $atlantic.UtcOffsetString | Should -Be 'UTC-04:00'
             $atlantic.IsDaylightSavingTime | Should -BeFalse
@@ -81,8 +81,8 @@ Describe 'ConvertTo-USDateTime' -Tag 'Unit' {
             $results.Count | Should -Be 2
             (($results | Select-Object -ExpandProperty TimeZone) -join ',') | Should -Be 'Eastern,Pacific'
 
-            ($results | Where-Object TimeZone -eq 'Eastern').UtcOffsetString | Should -Be 'UTC-05:00'
-            ($results | Where-Object TimeZone -eq 'Pacific').UtcOffsetString | Should -Be 'UTC-08:00'
+            ($results | Where-Object TimeZone -EQ 'Eastern').UtcOffsetString | Should -Be 'UTC-05:00'
+            ($results | Where-Object TimeZone -EQ 'Pacific').UtcOffsetString | Should -Be 'UTC-08:00'
         }
 
         It 'Returns properties in the expected display order' {
@@ -92,6 +92,7 @@ Describe 'ConvertTo-USDateTime' -Tag 'Unit' {
             $propertyNames | Should -Be @(
                 'TimeZone',
                 'DateTime',
+                'DateTime24',
                 'TimeZoneId',
                 'TimeZoneName',
                 'Abbreviation',
@@ -100,6 +101,7 @@ Describe 'ConvertTo-USDateTime' -Tag 'Unit' {
                 'IsDaylightSavingTime',
                 'ObservesDaylightSavingTime',
                 'SourceDateTime',
+                'SourceDateTime24',
                 'SourceKind',
                 'SourceOffset',
                 'SourceInputType'
