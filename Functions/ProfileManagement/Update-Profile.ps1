@@ -37,6 +37,175 @@ function Update-Profile
     begin
     {
         Write-Verbose 'Starting Update-Profile'
+
+        $defaultProfilePreservePaths = @('Functions/Local', 'Help', 'Modules', 'PSReadLine', 'Scripts', 'powershell.config.json')
+
+        function Save-ProfilePreservedPaths
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$SourceRoot,
+
+                [Parameter(Mandatory)]
+                [String[]]$PathsToPreserve
+            )
+
+            $tempRootName = 'pwsh-profile-preserve-{0}' -f ([Guid]::NewGuid().ToString())
+            $tempRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath $tempRootName
+            $preservedItems = @()
+
+            foreach ($relativePath in $PathsToPreserve)
+            {
+                $sourcePath = Join-Path -Path $SourceRoot -ChildPath $relativePath
+                if (Test-Path -Path $sourcePath)
+                {
+                    $destinationPath = Join-Path -Path $tempRoot -ChildPath $relativePath
+                    $destinationParent = Split-Path -Parent $destinationPath
+                    if ($destinationParent -and -not (Test-Path -Path $destinationParent))
+                    {
+                        New-Item -Path $destinationParent -ItemType Directory -Force | Out-Null
+                    }
+
+                    Copy-Item -Path $sourcePath -Destination $destinationPath -Recurse -Force
+                    $preservedItems += [PSCustomObject]@{
+                        Name = $relativePath
+                        TempPath = $destinationPath
+                        IsDirectory = Test-Path -Path $sourcePath -PathType Container
+                    }
+                }
+            }
+
+            if ($preservedItems.Count -eq 0)
+            {
+                if (Test-Path -Path $tempRoot)
+                {
+                    Remove-Item -Path $tempRoot -Recurse -Force
+                }
+
+                return $null
+            }
+
+            return [PSCustomObject]@{
+                TempRoot = $tempRoot
+                Items = $preservedItems
+            }
+        }
+
+        function Restore-ProfilePreservedPaths
+        {
+            param(
+                [Parameter(Mandatory)]
+                [PSCustomObject]$PreservationData,
+
+                [Parameter(Mandatory)]
+                [String]$DestinationRoot
+            )
+
+            foreach ($item in $PreservationData.Items)
+            {
+                $destinationPath = Join-Path -Path $DestinationRoot -ChildPath $item.Name
+                Write-Verbose "Restoring preserved profile path '$($item.Name)'"
+                if ($item.IsDirectory)
+                {
+                    if (-not (Test-Path -Path $destinationPath))
+                    {
+                        New-Item -Path $destinationPath -ItemType Directory -Force | Out-Null
+                    }
+
+                    $preservedChildren = Get-ChildItem -Path $item.TempPath -Force
+                    if ($preservedChildren)
+                    {
+                        Copy-Item -Path $preservedChildren.FullName -Destination $destinationPath -Recurse -Force
+                    }
+                }
+                else
+                {
+                    $destinationParent = Split-Path -Parent $destinationPath
+                    if ($destinationParent -and -not (Test-Path -Path $destinationParent))
+                    {
+                        New-Item -Path $destinationParent -ItemType Directory -Force | Out-Null
+                    }
+
+                    Copy-Item -Path $item.TempPath -Destination $destinationPath -Force
+                }
+            }
+
+            if (Test-Path -Path $PreservationData.TempRoot)
+            {
+                Remove-Item -Path $PreservationData.TempRoot -Recurse -Force
+            }
+        }
+
+        function Invoke-ProfileGit
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$GitPath,
+
+                [Parameter(Mandatory)]
+                [String]$RepositoryRoot,
+
+                [Parameter(Mandatory)]
+                [String[]]$ArgumentList
+            )
+
+            $output = & $GitPath -C $RepositoryRoot @ArgumentList 2>&1
+            return [PSCustomObject]@{
+                ExitCode = $LASTEXITCODE
+                Output = @($output)
+            }
+        }
+
+        function Remove-ProfilePreservedWorkingTreePaths
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$RepositoryRoot,
+
+                [Parameter(Mandatory)]
+                [String]$GitPath,
+
+                [Parameter(Mandatory)]
+                [PSCustomObject]$PreservationData
+            )
+
+            foreach ($item in $PreservationData.Items)
+            {
+                $relativePath = $item.Name
+                $destinationPath = Join-Path -Path $RepositoryRoot -ChildPath $relativePath
+                if (-not (Test-Path -Path $destinationPath))
+                {
+                    continue
+                }
+
+                $trackedResult = Invoke-ProfileGit -GitPath $GitPath -RepositoryRoot $RepositoryRoot -ArgumentList @('ls-files', '--', $relativePath)
+                $trackedPaths = @($trackedResult.Output | Where-Object { $_ })
+
+                if ($trackedPaths.Count -eq 0)
+                {
+                    Write-Verbose "Temporarily removing preserved untracked profile path '$relativePath'"
+                    Remove-Item -Path $destinationPath -Recurse -Force
+                    continue
+                }
+
+                $untrackedResult = Invoke-ProfileGit -GitPath $GitPath -RepositoryRoot $RepositoryRoot -ArgumentList @('ls-files', '--others', '--exclude-standard', '--', $relativePath)
+                $ignoredResult = Invoke-ProfileGit -GitPath $GitPath -RepositoryRoot $RepositoryRoot -ArgumentList @('ls-files', '--others', '--ignored', '--exclude-standard', '--', $relativePath)
+                $pathsToRemove = @($untrackedResult.Output + $ignoredResult.Output |
+                        Where-Object { $_ } |
+                        Sort-Object -Unique |
+                        Sort-Object Length -Descending)
+
+                foreach ($pathToRemove in $pathsToRemove)
+                {
+                    $fullPathToRemove = Join-Path -Path $RepositoryRoot -ChildPath $pathToRemove
+                    if (Test-Path -Path $fullPathToRemove)
+                    {
+                        Write-Verbose "Temporarily removing preserved local profile item '$pathToRemove'"
+                        Remove-Item -Path $fullPathToRemove -Recurse -Force
+                    }
+                }
+            }
+        }
     }
 
     process
@@ -59,6 +228,7 @@ function Update-Profile
             Write-Host 'This will download and install the latest profile version.' -ForegroundColor Gray
             return
         }
+        $gitPath = $gitCommand.Definition
 
         # Get the profile directory (parent of the Functions folder)
         $profilePath = $PROFILE
@@ -69,12 +239,30 @@ function Update-Profile
 
         $profileDirectory = Split-Path $profilePath -Parent
 
+        $preservationData = Save-ProfilePreservedPaths -SourceRoot $profileDirectory -PathsToPreserve $defaultProfilePreservePaths
+        if ($preservationData)
+        {
+            Write-Verbose "Preserved profile paths before update: $($preservationData.Items.Name -join ', ')"
+            Remove-ProfilePreservedWorkingTreePaths -RepositoryRoot $profileDirectory -GitPath $gitPath -PreservationData $preservationData
+        }
+
         # CD to profile directory and update
         Push-Location -Path $profileDirectory -ErrorAction 'Stop'
 
         try
         {
-            $null = Start-Process -FilePath 'git' -ArgumentList 'pull', '--rebase', '--quiet' -WorkingDirectory $profileDirectory -Wait -NoNewWindow -PassThru
+            $gitPull = Invoke-ProfileGit -GitPath $gitPath -RepositoryRoot $profileDirectory -ArgumentList @('pull', '--rebase', '--quiet')
+            if ($gitPull.ExitCode -ne 0)
+            {
+                $gitOutput = ($gitPull.Output | Out-String).Trim()
+                if (-not $gitOutput)
+                {
+                    $gitOutput = "git pull exited with code $($gitPull.ExitCode)."
+                }
+
+                Write-Error "Unable to update the profile: $gitOutput"
+                return
+            }
         }
         catch
         {
@@ -84,6 +272,10 @@ function Update-Profile
         finally
         {
             Pop-Location
+            if ($preservationData)
+            {
+                Restore-ProfilePreservedPaths -PreservationData $preservationData -DestinationRoot $profileDirectory
+            }
         }
 
         Write-Host 'Profile updated successfully! Restart your PowerShell session to reload your profile.' -ForegroundColor Green
