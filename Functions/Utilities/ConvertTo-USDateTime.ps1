@@ -688,8 +688,7 @@ function ConvertTo-USDateTime
         {
             $timeZoneInfo = $targetTimeZone.TimeZoneInfo
             $convertedDateTime = [System.TimeZoneInfo]::ConvertTime($sourceInfo.SourceDateTime, $timeZoneInfo)
-            $localClockTime = [DateTime]::SpecifyKind($convertedDateTime.DateTime, [DateTimeKind]::Unspecified)
-            $isDaylightSavingTime = $timeZoneInfo.IsDaylightSavingTime($localClockTime)
+            $isDaylightSavingTime = $timeZoneInfo.IsDaylightSavingTime($convertedDateTime)
             $observesDaylightSavingTime = Test-TimeZoneObservesDaylightSavingTime -TimeZoneInfo $timeZoneInfo -ReferenceDateTime $convertedDateTime
 
             $timeZoneName = if ($isDaylightSavingTime -and -not [String]::IsNullOrWhiteSpace($timeZoneInfo.DaylightName))

@@ -148,6 +148,53 @@ Describe 'ConvertTo-USDateTime' -Tag 'Unit' {
         }
     }
 
+    Context 'US daylight saving time transitions' {
+        It 'Reports Eastern standard time immediately before spring-forward and daylight time immediately after' {
+            $before = ConvertTo-USDateTime -InputObject '2026-03-08T06:59:59Z' -TimeZone Eastern
+            $after = ConvertTo-USDateTime -InputObject '2026-03-08T07:00:00Z' -TimeZone Eastern
+
+            $before.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should -Be '2026-03-08 01:59:59 -05:00'
+            $before.UtcOffsetString | Should -Be 'UTC-05:00'
+            $before.IsDaylightSavingTime | Should -BeFalse
+            $before.Abbreviation | Should -Be 'EST'
+
+            $after.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should -Be '2026-03-08 03:00:00 -04:00'
+            $after.UtcOffsetString | Should -Be 'UTC-04:00'
+            $after.IsDaylightSavingTime | Should -BeTrue
+            $after.Abbreviation | Should -Be 'EDT'
+        }
+
+        It 'Keeps offset-aware timestamps that land in the spring-forward gap on the correct Eastern side' {
+            $invalidStandardSide = ConvertTo-USDateTime -InputObject '2026-03-08T02:30:00-05:00' -TimeZone Eastern
+            $invalidDaylightSide = ConvertTo-USDateTime -InputObject '2026-03-08T02:30:00-04:00' -TimeZone Eastern
+
+            $invalidStandardSide.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should -Be '2026-03-08 03:30:00 -04:00'
+            $invalidStandardSide.UtcOffsetString | Should -Be 'UTC-04:00'
+            $invalidStandardSide.IsDaylightSavingTime | Should -BeTrue
+            $invalidStandardSide.Abbreviation | Should -Be 'EDT'
+
+            $invalidDaylightSide.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should -Be '2026-03-08 01:30:00 -05:00'
+            $invalidDaylightSide.UtcOffsetString | Should -Be 'UTC-05:00'
+            $invalidDaylightSide.IsDaylightSavingTime | Should -BeFalse
+            $invalidDaylightSide.Abbreviation | Should -Be 'EST'
+        }
+
+        It 'Disambiguates the repeated Eastern fall-back hour by converted offset' {
+            $daylightOccurrence = ConvertTo-USDateTime -InputObject '2026-11-01T05:30:00Z' -TimeZone Eastern
+            $standardOccurrence = ConvertTo-USDateTime -InputObject '2026-11-01T06:30:00Z' -TimeZone Eastern
+
+            $daylightOccurrence.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should -Be '2026-11-01 01:30:00 -04:00'
+            $daylightOccurrence.UtcOffsetString | Should -Be 'UTC-04:00'
+            $daylightOccurrence.IsDaylightSavingTime | Should -BeTrue
+            $daylightOccurrence.Abbreviation | Should -Be 'EDT'
+
+            $standardOccurrence.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should -Be '2026-11-01 01:30:00 -05:00'
+            $standardOccurrence.UtcOffsetString | Should -Be 'UTC-05:00'
+            $standardOccurrence.IsDaylightSavingTime | Should -BeFalse
+            $standardOccurrence.Abbreviation | Should -Be 'EST'
+        }
+    }
+
     Context 'Pipeline support' {
         It 'Returns one output object per input when a single timezone is requested' {
             $results = @(
