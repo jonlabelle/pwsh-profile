@@ -7,7 +7,10 @@ function Remove-Package
     .DESCRIPTION
         Detects the supported package manager for the current platform, lists installed
         packages, and opens an interactive console picker where packages can be selected
-        with the spacebar before removal.
+        with the spacebar before removal. In the picker, selecting a package controls
+        whether it will be removed when Enter is pressed. The purge/zap option is a
+        separate per-package toggle that requests deeper cleanup for selected packages
+        on package managers that support it.
 
         Supported package managers:
         - Windows: winget
@@ -31,9 +34,14 @@ function Remove-Package
         To avoid accidental full-system package removal, -All requires -IncludePackage.
 
     .PARAMETER Purge
-        Uses package-manager-specific purge or zap behavior when supported. This uses
-        apt purge, apk del --purge, and brew uninstall --zap for casks. It has no effect
-        for winget or Homebrew formulae.
+        Uses package-manager-specific purge or zap behavior for every package selected
+        for removal. This requests deeper cleanup than a normal removal when supported:
+        apt uses purge, apk uses del --purge, and Homebrew casks use uninstall --zap.
+        It has no effect for winget or Homebrew formulae.
+
+        In the interactive picker, Space marks a package for removal and P toggles this
+        purge/zap behavior for the highlighted package. Pressing Enter removes the
+        selected packages, using purge/zap only for packages where it was requested.
 
     .PARAMETER AsObject
         Returns the discovered installed package records without removing anything.
@@ -45,8 +53,9 @@ function Remove-Package
     .EXAMPLE
         PS > Remove-Package
 
-        Lists installed packages, opens the interactive picker, and removes the packages
-        selected with the spacebar.
+        Lists installed packages and opens the interactive picker. Press Space to select
+        packages for removal, optionally press P to request purge/zap cleanup for a
+        selected package, then press Enter to remove the selected packages.
 
     .EXAMPLE
         PS > Remove-Package -IncludePackage 'git*' -All
@@ -64,6 +73,13 @@ function Remove-Package
 
         Removes the matching package and requests package-manager-specific purge behavior
         where supported.
+
+    .EXAMPLE
+        PS > Remove-Package -IncludePackage 'visual-studio-code'
+
+        Opens the picker for matching packages. Selecting the Homebrew cask with Space
+        removes it normally; pressing P before Enter changes that selected package to use
+        brew uninstall --cask --zap instead.
 
     .EXAMPLE
         PS > Remove-Package -AsObject | Format-Table
@@ -202,7 +218,10 @@ function Remove-Package
                 [String]$Id,
 
                 [Parameter()]
-                [String]$Type
+                [String]$Type,
+
+                [Parameter()]
+                [Switch]$UsePurge
             )
 
             switch ($Manager.Name)
@@ -220,7 +239,7 @@ function Remove-Package
                 {
                     if ($Type -eq 'Cask')
                     {
-                        if ($Purge)
+                        if ($UsePurge)
                         {
                             return @('uninstall', '--cask', '--zap', $Name)
                         }
@@ -232,7 +251,7 @@ function Remove-Package
                 }
                 'apt'
                 {
-                    if ($Purge)
+                    if ($UsePurge)
                     {
                         return @('purge', '-y', $Name)
                     }
@@ -241,7 +260,7 @@ function Remove-Package
                 }
                 'apk'
                 {
-                    if ($Purge)
+                    if ($UsePurge)
                     {
                         return @('del', '--purge', $Name)
                     }
@@ -291,7 +310,7 @@ function Remove-Package
                 Source = $Source
                 Notes = $Notes
                 Command = $Manager.Command
-                RemoveArguments = @(Get-PackageRemoveArguments -Manager $Manager -Name $Name -Id $Id -Type $Type)
+                RemoveArguments = @(Get-PackageRemoveArguments -Manager $Manager -Name $Name -Id $Id -Type $Type -UsePurge:$Purge.IsPresent)
             }
         }
 
@@ -1094,7 +1113,10 @@ function Remove-Package
                 [ScriptBlock]$KeyReader,
 
                 [Parameter()]
-                [Int32]$PageSize = 0
+                [Int32]$PageSize = 0,
+
+                [Parameter()]
+                [String]$PackageManagerName = ''
             )
 
             if ($InstalledPackages.Count -eq 0)
@@ -1205,6 +1227,8 @@ function Remove-Package
             $pageSize = Get-PackagePickerPageSize -RequestedPageSize $PageSize -ItemCount $InstalledPackages.Count
 
             $selected = New-Object 'System.Boolean[]' $InstalledPackages.Count
+            $purgeFlags = New-Object 'System.Boolean[]' $InstalledPackages.Count
+            $showPurge = $PackageManagerName -in @('brew', 'apt', 'apk')
             $cursor = 0
             $topIndex = 0
             $restoreTreatControlCAsInput = $false
@@ -1245,17 +1269,36 @@ function Remove-Package
 
                     Clear-Host
                     Write-Host "Remove-Package - $($InstalledPackages[0].PackageManagerDisplayName)"
-                    Write-Host 'Space: select  Enter: remove selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
+                    $pickerHintPrefix = 'Space: select'
+                    $pickerHintActions = 'Enter: remove selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
+                    $pickerHint = if ($showPurge) { "$pickerHintPrefix  P: purge/zap  $pickerHintActions" } else { "$pickerHintPrefix  $pickerHintActions" }
+                    Write-Host $pickerHint
                     Write-Host ''
-                    Write-Host ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth))
-                    Write-Host ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth))
+                    if ($showPurge)
+                    {
+                        Write-Host ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', 'Pge', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth))
+                        Write-Host ('  {0} {1} {2} {3} {4} {5}' -f '---', '---', ('-' * $nameWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth))
+                    }
+                    else
+                    {
+                        Write-Host ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth))
+                        Write-Host ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth))
+                    }
 
                     for ($i = $topIndex; $i -le $bottomIndex; $i++)
                     {
                         $package = $InstalledPackages[$i]
                         $cursorMarker = if ($i -eq $cursor) { '>' } else { ' ' }
                         $selectedMarker = if ($selected[$i]) { '[x]' } else { '[ ]' }
-                        Write-Host ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $versionWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
+                        if ($showPurge)
+                        {
+                            $purgeMarker = if ($purgeFlags[$i]) { '[p]' } else { '[ ]' }
+                            Write-Host ('{0} {1} {2} {3} {4} {5} {6}' -f $cursorMarker, $selectedMarker, $purgeMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $versionWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
+                        }
+                        else
+                        {
+                            Write-Host ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $versionWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
+                        }
                     }
 
                     Write-Host ''
@@ -1312,6 +1355,13 @@ function Remove-Package
                                 $selected[$i] = $selectAll
                             }
                         }
+                        'P'
+                        {
+                            if ($showPurge)
+                            {
+                                $purgeFlags[$cursor] = -not $purgeFlags[$cursor]
+                            }
+                        }
                         'Enter'
                         {
                             $selectedPackages = @()
@@ -1319,7 +1369,9 @@ function Remove-Package
                             {
                                 if ($selected[$i])
                                 {
-                                    $selectedPackages += $InstalledPackages[$i]
+                                    $pkg = $InstalledPackages[$i]
+                                    $pkg | Add-Member -NotePropertyName 'Purge' -NotePropertyValue $purgeFlags[$i] -Force
+                                    $selectedPackages += $pkg
                                 }
                             }
 
@@ -1353,7 +1405,14 @@ function Remove-Package
             Write-Host ''
             Write-Host "Removing $($Package.Name)$versionText with $($Manager.DisplayName)..."
 
-            $invocation = Resolve-PackageManagerInvocation -Manager $Manager -Arguments $Package.RemoveArguments
+            $removeArguments = $Package.RemoveArguments
+            $perPackagePurge = $Package.PSObject.Properties['Purge'] -and [Boolean]$Package.Purge
+            if ($perPackagePurge -and -not $Purge)
+            {
+                $removeArguments = Get-PackageRemoveArguments -Manager $Manager -Name $Package.Name -Id $Package.Id -Type $Package.Type -UsePurge
+            }
+
+            $invocation = Resolve-PackageManagerInvocation -Manager $Manager -Arguments $removeArguments
             $result = Invoke-PackageManagerCommand -Command $invocation.Command -Arguments $invocation.Arguments -StreamOutput
 
             if ($result.ExitCode -eq 0)
@@ -1437,7 +1496,7 @@ function Remove-Package
             }
             else
             {
-                Select-PackageInstallRecords -InstalledPackages $installedPackages -KeyReader $KeyReader -PageSize $PickerPageSize
+                Select-PackageInstallRecords -InstalledPackages $installedPackages -KeyReader $KeyReader -PageSize $PickerPageSize -PackageManagerName $manager.Name
             }
         )
 
