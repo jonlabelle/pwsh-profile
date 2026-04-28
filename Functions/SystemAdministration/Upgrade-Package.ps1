@@ -1237,7 +1237,7 @@ function Upgrade-Package
 
                     Clear-Host
                     Write-Host "Upgrade-Package - $($PackageUpdates[0].PackageManagerDisplayName)"
-                    $pickerHintPrefix = 'Space: select'
+                    $pickerHintPrefix = 'Spacebar: select'
                     $pickerHintActions = 'Enter: upgrade selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
                     $pickerHint = if ($showUninstallPrevious) { "$pickerHintPrefix  U: uninstall previous  $pickerHintActions" } else { "$pickerHintPrefix  $pickerHintActions" }
                     Write-Host $pickerHint

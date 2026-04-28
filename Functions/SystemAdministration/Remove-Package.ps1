@@ -39,7 +39,7 @@ function Remove-Package
         apt uses purge, apk uses del --purge, and Homebrew casks use uninstall --zap.
         It has no effect for winget or Homebrew formulae.
 
-        In the interactive picker, Space marks a package for removal and P toggles this
+        In the interactive picker, Spacebar marks a package for removal and P toggles this
         purge/zap behavior for the highlighted package. Pressing Enter removes the
         selected packages, using purge/zap only for packages where it was requested.
 
@@ -53,7 +53,7 @@ function Remove-Package
     .EXAMPLE
         PS > Remove-Package
 
-        Lists installed packages and opens the interactive picker. Press Space to select
+        Lists installed packages and opens the interactive picker. Press Spacebar to select
         packages for removal, optionally press P to request purge/zap cleanup for a
         selected package, then press Enter to remove the selected packages.
 
@@ -77,7 +77,7 @@ function Remove-Package
     .EXAMPLE
         PS > Remove-Package -IncludePackage 'visual-studio-code'
 
-        Opens the picker for matching packages. Selecting the Homebrew cask with Space
+        Opens the picker for matching packages. Selecting the Homebrew cask with Spacebar
         removes it normally; pressing P before Enter changes that selected package to use
         brew uninstall --cask --zap instead.
 
@@ -1269,7 +1269,7 @@ function Remove-Package
 
                     Clear-Host
                     Write-Host "Remove-Package - $($InstalledPackages[0].PackageManagerDisplayName)"
-                    $pickerHintPrefix = 'Space: select'
+                    $pickerHintPrefix = 'Spacebar: select'
                     $pickerHintActions = 'Enter: remove selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
                     $pickerHint = if ($showPurge) { "$pickerHintPrefix  P: purge/zap  $pickerHintActions" } else { "$pickerHintPrefix  $pickerHintActions" }
                     Write-Host $pickerHint
