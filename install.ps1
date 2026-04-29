@@ -293,7 +293,11 @@ function New-ProfileBackup
     Write-Verbose "Creating backup at $resolvedDestination"
     if ($PSCmdlet.ShouldProcess($resolvedDestination, "Backup profile from '$SourcePath'"))
     {
+        Write-Host ''
+        Write-Host "Backing up existing profile to: $resolvedDestination ..." -ForegroundColor Cyan
         Copy-Item -Path $SourcePath -Destination $resolvedDestination -Recurse -Force
+        Write-Host 'Backup complete.' -ForegroundColor Gray
+        Write-Host ''
     }
     return $resolvedDestination
 }
@@ -324,6 +328,7 @@ function Save-PreservedPaths
                 New-Item -Path $destinationParent -ItemType Directory -Force | Out-Null
             }
 
+            Write-Host "  Preserving: $relativePath ..." -ForegroundColor Gray
             Copy-Item -Path $sourcePath -Destination $destinationPath -Recurse -Force
             $preservedItems += [PSCustomObject]@{
                 Name = $relativePath
@@ -362,7 +367,7 @@ function Restore-PreservedPaths
     foreach ($item in $PreservationData.Items)
     {
         $destinationPath = Join-Path -Path $DestinationRoot -ChildPath $item.Name
-        Write-Verbose "Restoring preserved path '$($item.Name)'"
+        Write-Host "  Restoring: $($item.Name) ..." -ForegroundColor Gray
         if ($item.IsDirectory)
         {
             if (-not (Test-Path -Path $destinationPath))
@@ -478,6 +483,8 @@ function Invoke-RepositoryDownload
     if ($gitCommand)
     {
         $cloneMode = if ($FullHistory) { 'full history' } else { 'shallow (--depth 1)' }
+        Write-Host ''
+        Write-Host "Cloning repository ($cloneMode) from: $Repository ..." -ForegroundColor Cyan
         Write-Verbose "Git found, cloning $Repository into $Destination using $cloneMode"
         $gitExecutable = $gitCommand.Definition
         # Temporarily suppress error action to prevent Git's stderr from terminating in PS Desktop 5.1
@@ -504,10 +511,14 @@ function Invoke-RepositoryDownload
             throw $errorMsg
         }
         $gitOutput | ForEach-Object { Write-Verbose $_ }
+        Write-Host 'Clone complete.' -ForegroundColor Gray
+        Write-Host ''
     }
     else
     {
         Write-Verbose 'Git not found, downloading repository as zip archive'
+        Write-Host ''
+        Write-Host 'Git not found, downloading repository as archive ...' -ForegroundColor Cyan
         Invoke-ZipDownload -Repository $Repository -Destination $Destination
     }
 }
@@ -530,6 +541,8 @@ function Invoke-ZipDownload
 
     try
     {
+        Write-Host ''
+        Write-Host "Downloading repository from: $zipUrl ..." -ForegroundColor Cyan
         Write-Verbose "Downloading from $zipUrl"
         try
         {
@@ -540,6 +553,8 @@ function Invoke-ZipDownload
             throw "Failed to download repository from $zipUrl : $($_.Exception.Message)"
         }
 
+        Write-Host ''
+        Write-Host 'Extracting repository archive ...' -ForegroundColor Cyan
         Write-Verbose 'Extracting to temporary location'
         $tempExtract = Join-Path ([System.IO.Path]::GetTempPath()) "pwsh-profile-extract-$([guid]::NewGuid().ToString('N'))"
         try
@@ -625,6 +640,8 @@ function Invoke-ZipDownload
 
         try
         {
+            Write-Host ''
+            Write-Host 'Copying profile files ...' -ForegroundColor Cyan
             # Copy all items from extracted directory into destination
             Write-Verbose "Source directory: $($extractedDir.FullName)"
             Write-Verbose "Destination directory: $Destination"
@@ -694,6 +711,8 @@ function Copy-LocalSource
         throw "Local source path not found: $SourcePath"
     }
 
+    Write-Host ''
+    Write-Host "Copying profile files from: $SourcePath ..." -ForegroundColor Cyan
     Write-Verbose "Copying local source from $SourcePath to $DestinationPath"
 
     # Ensure parent directory exists first
@@ -765,10 +784,14 @@ function Restore-FromBackup
 
     Assert-DirectoryExists -Path $Destination
 
-    Write-Verbose "Restoring profile from $BackupSource"
+    Write-Host ''
+    Write-Host "Restoring profile from backup: $BackupSource ..." -ForegroundColor Cyan
     Get-ChildItem -Path $BackupSource -Force | ForEach-Object {
+        Write-Host "  Copying: $($_.Name) ..." -ForegroundColor Gray
         Copy-Item -Path $_.FullName -Destination $Destination -Recurse -Force
     }
+    Write-Host 'Restore complete.' -ForegroundColor Gray
+    Write-Host ''
 }
 
 # Only execute installation if the script is being run directly (not dot-sourced).
@@ -846,6 +869,8 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
         $preservationData = $null
         if (-not $SkipPreserveDirectories -and (Test-Path -Path $resolvedProfileRoot))
         {
+            Write-Host ''
+            Write-Host 'Preserving local profile paths ...' -ForegroundColor Cyan
             $preservationData = Save-PreservedPaths -SourceRoot $resolvedProfileRoot -PathsToPreserve $PreserveDirectories
             if ($preservationData)
             {
@@ -859,12 +884,14 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
             $backupLocation = New-ProfileBackup -SourcePath $resolvedProfileRoot -DestinationPath $BackupPath
             if ($backupLocation)
             {
-                Write-Host "Profile backup created at $backupLocation"
+                Write-Host "Profile backed up to: $backupLocation"
             }
         }
 
         if (Test-Path -Path $resolvedProfileRoot)
         {
+            Write-Host ''
+            Write-Host "Removing existing profile directory: $resolvedProfileRoot ..." -ForegroundColor Cyan
             Write-Verbose "Removing existing profile directory $resolvedProfileRoot"
             try
             {
@@ -904,6 +931,8 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
 
         if ($preservationData)
         {
+            Write-Host ''
+            Write-Host 'Restoring preserved paths ...' -ForegroundColor Cyan
             Restore-PreservedPaths -PreservationData $preservationData -DestinationRoot $resolvedProfileRoot
         }
 
