@@ -56,8 +56,7 @@ jobs:
           path: |
             ~/.local/share/powershell/Modules
             ~/Documents/PowerShell/Modules
-          key: psmodules-pwsh-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml')
-            }}
+          key: psmodules-pwsh-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}
           restore-keys: |
             psmodules-pwsh-${{ runner.os }}-
 
