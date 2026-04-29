@@ -1,7 +1,7 @@
 ---
 description: "Use when creating a new PowerShell profile function. Trigger phrases: new function, add function, create function, write function, new cmdlet, scaffold function, PowerShell function template."
-name: "New PowerShell Function"
-tools: [ execute/testFailure, execute/getTerminalOutput, execute/sendToTerminal, execute/runTask, execute/runInTerminal, read, edit, search, todo ]
+name: "Create PowerShell Function"
+tools: [ execute/getTerminalOutput, execute/sendToTerminal, execute/runTask, execute/runInTerminal, read, edit, search, todo ]
 argument-hint: "Describe the function you want to create (e.g., 'Get disk usage by folder')"
 ---
 
