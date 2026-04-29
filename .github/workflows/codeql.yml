@@ -1,0 +1,42 @@
+name: codeql
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/**"
+  schedule:
+    - cron: "0 0 * * 1"  # Weekly on Monday at midnight UTC
+  workflow_dispatch:
+
+# Cancel any in-progress runs when a new commit is pushed
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze Actions workflows
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@main
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@main
+        with:
+          languages: actions
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@main
+        with:
+          category: "/language:actions"
