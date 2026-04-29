@@ -49,13 +49,22 @@ jobs:
       - name: Checkout Git repository
         uses: actions/checkout@main
 
+      - name: Get PowerShell module path
+        id: psmodpath
+        shell: pwsh
+        run: |
+          $modulePath = if ($IsWindows) {
+            Join-Path -Path ([System.Environment]::GetFolderPath('MyDocuments')) -ChildPath 'PowerShell\Modules'
+          } else {
+            Join-Path -Path $HOME -ChildPath '.local/share/powershell/Modules'
+          }
+          "path=$modulePath" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
       - name: Cache PowerShell modules
         uses: actions/cache@main
         id: cache-psmodules
         with:
-          path: |
-            ~/.local/share/powershell/Modules
-            ~/Documents/PowerShell/Modules
+          path: ${{ steps.psmodpath.outputs.path }}
           key: psmodules-pwsh-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}
           restore-keys: |
             psmodules-pwsh-${{ runner.os }}-
@@ -109,11 +118,18 @@ jobs:
       - name: Checkout Git repository
         uses: actions/checkout@main
 
+      - name: Get PowerShell module path
+        id: psmodpath
+        shell: powershell
+        run: |
+          $modulePath = Join-Path -Path ([System.Environment]::GetFolderPath('MyDocuments')) -ChildPath 'WindowsPowerShell\Modules'
+          "path=$modulePath" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
       - name: Cache PowerShell modules
         uses: actions/cache@main
         id: cache-psmodules
         with:
-          path: ~/Documents/WindowsPowerShell/Modules
+          path: ${{ steps.psmodpath.outputs.path }}
           key: psmodules-desktop-windows-${{ hashFiles('.github/workflows/ci.yml') }}
           restore-keys: |
             psmodules-desktop-windows-
