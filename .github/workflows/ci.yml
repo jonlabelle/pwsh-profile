@@ -2,14 +2,14 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
     paths-ignore:
       - "**.md"
       - ".vscode/**"
       - "resources/**"
   pull_request:
-    branches: [main]
-    types: [opened, reopened, synchronize]
+    branches: [ main ]
+    types: [ opened, reopened, synchronize ]
     paths-ignore:
       - "**.md"
       - ".vscode/**"
@@ -32,6 +32,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   powershell-core:
     name: Build on ${{ matrix.platform }} (pwsh)
@@ -40,17 +43,35 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos-latest, ubuntu-latest, windows-latest]
+        platform: [ macos-latest, ubuntu-latest, windows-latest ]
 
     steps:
       - name: Checkout Git repository
         uses: actions/checkout@main
 
+      - name: Cache PowerShell modules
+        uses: actions/cache@main
+        id: cache-psmodules
+        with:
+          path: |
+            ~/.local/share/powershell/Modules
+            ~/Documents/PowerShell/Modules
+          key: psmodules-pwsh-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml')
+            }}
+          restore-keys: |
+            psmodules-pwsh-${{ runner.os }}-
+
       - name: Install PSScriptAnalyzer module
+        if: steps.cache-psmodules.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           Set-PSRepository PSGallery -InstallationPolicy Trusted
           Install-Module PSScriptAnalyzer -ErrorAction Stop
+
+      - name: Install Pester module
+        if: steps.cache-psmodules.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: Install-Module Pester -Force -SkipPublisherCheck -ErrorAction Stop
 
       - name: Run PSScriptAnalyzer
         shell: pwsh
@@ -64,10 +85,6 @@ jobs:
           else {
               Write-Output "There were $($errors.Count) errors and $($warnings.Count) warnings total."
           }
-
-      - name: Install Pester module
-        shell: pwsh
-        run: Install-Module Pester -Force -SkipPublisherCheck -ErrorAction Stop
 
       - name: Run Pester tests
         shell: pwsh
@@ -81,7 +98,7 @@ jobs:
         uses: actions/upload-artifact@main
         if: always()
         with:
-          name: test-results-${{ matrix.platform }}
+          name: test-results-${{ matrix.platform }}-core
           path: testresults.xml
 
   powershell-desktop:
@@ -93,11 +110,26 @@ jobs:
       - name: Checkout Git repository
         uses: actions/checkout@main
 
+      - name: Cache PowerShell modules
+        uses: actions/cache@main
+        id: cache-psmodules
+        with:
+          path: ~/Documents/WindowsPowerShell/Modules
+          key: psmodules-desktop-windows-${{ hashFiles('.github/workflows/ci.yml') }}
+          restore-keys: |
+            psmodules-desktop-windows-
+
       - name: Install PSScriptAnalyzer module
+        if: steps.cache-psmodules.outputs.cache-hit != 'true'
         shell: powershell
         run: |
           Set-PSRepository PSGallery -InstallationPolicy Trusted
           Install-Module PSScriptAnalyzer -ErrorAction Stop
+
+      - name: Install Pester module
+        if: steps.cache-psmodules.outputs.cache-hit != 'true'
+        shell: powershell
+        run: Install-Module Pester -Force -SkipPublisherCheck -ErrorAction Stop
 
       - name: Run PSScriptAnalyzer
         shell: powershell
@@ -112,10 +144,6 @@ jobs:
               Write-Output "There were $($errors.Count) errors and $($warnings.Count) warnings total."
           }
 
-      - name: Install Pester module
-        shell: powershell
-        run: Install-Module Pester -Force -SkipPublisherCheck -ErrorAction Stop
-
       - name: Run Pester tests
         shell: powershell
         run: |
@@ -128,5 +156,5 @@ jobs:
         uses: actions/upload-artifact@main
         if: always()
         with:
-          name: test-results-windows-desktop
+          name: test-results-windows-latest-desktop
           path: testresults.xml
