@@ -1,6 +1,7 @@
 # PowerShell Profile
 
 [![ci](https://github.com/jonlabelle/pwsh-profile/actions/workflows/ci.yml/badge.svg)](https://github.com/jonlabelle/pwsh-profile/actions/workflows/ci.yml)
+[![codeql](https://github.com/jonlabelle/pwsh-profile/actions/workflows/codeql.yml/badge.svg)](https://github.com/jonlabelle/pwsh-profile/actions/workflows/codeql.yml)
 
 > A modern, cross-platform PowerShell profile with auto-loading utility functions for network testing, system administration, and developer workflows.
 
