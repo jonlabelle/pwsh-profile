@@ -498,6 +498,7 @@ The profile includes utility functions organized by category:
 - **[`Get-IPAddress`](Functions/NetworkAndDns/Get-IPAddress.ps1)** — Gets local network interface IPs or public IP address with geolocation data
 - **[`Get-IPSubnet`](Functions/NetworkAndDns/Get-IPSubnet.ps1)** — Calculates IP subnet information including network/broadcast addresses
 - **[`Get-NetworkMetrics`](Functions/NetworkAndDns/Get-NetworkMetrics.ps1)** — Collects comprehensive network performance metrics
+- **[`Get-NetworkProcess`](Functions/NetworkAndDns/Get-NetworkProcess.ps1)** — Shows local network ports and the processes using them
 - **[`Get-NetworkRoute`](Functions/NetworkAndDns/Get-NetworkRoute.ps1)** — Displays the local routing table as structured PowerShell objects
 - **[`Get-PublicDnsServers`](Functions/NetworkAndDns/Get-PublicDnsServers.ps1)** — Returns well-known public DNS servers with addresses and DoH URLs
 - **[`Get-ReverseDns`](Functions/NetworkAndDns/Get-ReverseDns.ps1)** — Performs reverse DNS (PTR) lookups for IP addresses

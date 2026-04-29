@@ -145,6 +145,7 @@ After creating both files, verify:
 - [ ] No Windows-only cmdlets unless inside an `$IsWindows` guard
 - [ ] Test file exists at the matching path under `Tests/Unit/`
 - [ ] No aliases conflict with native commands
+- [ ] Add at least 10 examples in the function's comment-based help
 - [ ] Add the function to the appropriate category in the `README.md` file with a succinct description
 
 ## Output Format
