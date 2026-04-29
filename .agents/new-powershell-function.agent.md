@@ -61,7 +61,8 @@ function Verb-Noun {
     param(
         [Parameter(Mandatory, ValueFromPipeline)]
         [ValidateNotNullOrEmpty()]
-        [String]$ParamName
+        [String]
+        $ParamName
     )
 
     begin

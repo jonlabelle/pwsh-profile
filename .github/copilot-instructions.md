@@ -166,7 +166,8 @@ function Verb-Noun {
     param(
         [Parameter(Mandatory, ValueFromPipeline)]
         [ValidateNotNullOrEmpty()]
-        [String]$Name
+        [String]
+        $Name
     )
 
     begin
@@ -216,10 +217,12 @@ function Your-Function
         {
             param(
                 [Parameter(Mandatory)]
-                [String]$FunctionName,
+                [String]
+                $FunctionName,
 
                 [Parameter(Mandatory)]
-                [String]$RelativePath
+                [String]
+                $RelativePath
             )
 
             if (-not (Get-Command -Name $FunctionName -ErrorAction SilentlyContinue))
