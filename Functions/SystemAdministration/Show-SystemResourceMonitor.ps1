@@ -570,14 +570,19 @@
                 [Nullable[Double]]$DiskPercent,
 
                 [Parameter()]
-                [Nullable[Double]]$OverallLoadPercent
+                [Nullable[Double]]$OverallLoadPercent,
+
+                [Parameter()]
+                [Switch]$SkipDisk
             )
 
-            $knownValues = @(
-                $CpuPercent,
-                $MemoryPercent,
-                $DiskPercent
-            ) | Where-Object { $null -ne $_ }
+            $healthMetrics = @(
+                @{ Name = 'CPU'; Percent = $CpuPercent; Expected = $true },
+                @{ Name = 'Memory'; Percent = $MemoryPercent; Expected = $true },
+                @{ Name = 'Disk'; Percent = $DiskPercent; Expected = -not $SkipDisk }
+            ) | Where-Object { [Boolean]$_.Expected }
+
+            $knownValues = @($healthMetrics | Where-Object { $null -ne $_.Percent })
 
             if ($knownValues.Count -eq 0)
             {
@@ -585,15 +590,15 @@
             }
 
             $score = 100
-            foreach ($metric in @($CpuPercent, $MemoryPercent, $DiskPercent))
+            foreach ($metric in $healthMetrics)
             {
-                if ($null -eq $metric)
+                if ($null -eq $metric.Percent)
                 {
                     $score -= 8
                     continue
                 }
 
-                $value = [Double]$metric
+                $value = [Double]$metric.Percent
                 if ($value -ge 95) { $score -= 35; continue }
                 if ($value -ge 85) { $score -= 20; continue }
                 if ($value -ge 70) { $score -= 8; continue }
@@ -676,7 +681,10 @@
                 [Nullable[Double]]$MemoryPercent,
 
                 [Parameter()]
-                [Nullable[Double]]$DiskPercent
+                [Nullable[Double]]$DiskPercent,
+
+                [Parameter()]
+                [Switch]$SkipDisk
             )
 
             $findings = New-Object 'System.Collections.Generic.List[string]'
@@ -713,7 +721,10 @@
 
             & $addFinding -Name 'CPU' -Percent $CpuPercent
             & $addFinding -Name 'Memory' -Percent $MemoryPercent
-            & $addFinding -Name 'Disk' -Percent $DiskPercent
+            if (-not $SkipDisk)
+            {
+                & $addFinding -Name 'Disk' -Percent $DiskPercent
+            }
 
             return @($findings.ToArray())
         }
@@ -1959,8 +1970,8 @@
             }
 
             $overallLoad = Get-OverallLoadPercent -CpuPercent $cpuPercent -MemoryPercent $memory.Percent -DiskPercent $disk.Percent
-            $healthGrade = Get-ResourceHealthGrade -CpuPercent $cpuPercent -MemoryPercent $memory.Percent -DiskPercent $disk.Percent -OverallLoadPercent $overallLoad
-            $findings = @(Get-ResourceFindings -CpuPercent $cpuPercent -MemoryPercent $memory.Percent -DiskPercent $disk.Percent)
+            $healthGrade = Get-ResourceHealthGrade -CpuPercent $cpuPercent -MemoryPercent $memory.Percent -DiskPercent $disk.Percent -OverallLoadPercent $overallLoad -SkipDisk:$isProcessScoped
+            $findings = @(Get-ResourceFindings -CpuPercent $cpuPercent -MemoryPercent $memory.Percent -DiskPercent $disk.Percent -SkipDisk:$isProcessScoped)
 
             $collectStopwatch.Stop()
 
@@ -2194,6 +2205,7 @@
             $memoryLine = & $formatMetricLine -Name 'Memory' -Percent $Sample.MemoryUsagePercent -History $memoryHistoryValues -Details $memoryDetails
             $diskLine = & $formatMetricLine -Name 'Disk' -Percent $Sample.DiskUsagePercent -History $diskHistoryValues -Details $diskDetails -UseZeroFillWhenUnavailable -RenderUnavailableAsSubtle
             $networkLine = & $formatMetricLine -Name 'Network' -Percent $networkActivityPercent -History $networkRelativeHistoryValues -Details $networkDetails -StatusResolver { param([Nullable[Double]]$Percent) Get-NetworkActivityStatus -RelativePercent $Percent } -UseZeroFillWhenUnavailable -RenderUnavailableAsSubtle
+            $isSampleProcessScoped = $Sample.PSObject.Properties.Name -contains 'MonitorProcessName'
 
             $overallLoad = $null
             if ($Sample.PSObject.Properties.Name -contains 'OverallLoadPercent' -and $null -ne $Sample.OverallLoadPercent)
@@ -2220,7 +2232,7 @@
             }
             else
             {
-                Get-ResourceHealthGrade -CpuPercent $Sample.CpuUsagePercent -MemoryPercent $Sample.MemoryUsagePercent -DiskPercent $Sample.DiskUsagePercent -OverallLoadPercent $overallLoad
+                Get-ResourceHealthGrade -CpuPercent $Sample.CpuUsagePercent -MemoryPercent $Sample.MemoryUsagePercent -DiskPercent $Sample.DiskUsagePercent -OverallLoadPercent $overallLoad -SkipDisk:$isSampleProcessScoped
             }
 
             $statusIcon = if ($Sample.PSObject.Properties.Name -contains 'HealthIcon' -and -not [String]::IsNullOrWhiteSpace([String]$Sample.HealthIcon))

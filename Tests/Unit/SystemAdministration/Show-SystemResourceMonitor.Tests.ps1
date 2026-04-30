@@ -179,6 +179,17 @@ Describe 'Show-SystemResourceMonitor' {
         $result.MemoryUsedGiB | Should -Be 0
     }
 
+    It 'does not report intentionally omitted disk as a process-scoped issue' {
+        $filter = '__definitely_not_a_real_process_name_*'
+        $sample = Show-SystemResourceMonitor -AsObject -NoContinuous -MonitorProcessName $filter
+        $dashboard = Show-SystemResourceMonitor -NoContinuous -NoColor -NoTopProcesses -BarWidth 12 -HistoryLength 8 -MonitorProcessName $filter
+
+        $sample | Should -Not -BeNullOrEmpty
+        @($sample.Findings) | Should -Not -Contain 'Disk unavailable'
+        $dashboard | Should -Match '(?m)^Findings +\[Issues\] +none\r?$'
+        $dashboard | Should -Not -Match 'Disk unavailable'
+    }
+
     It 'shows process scope metadata in dashboard output' {
         $result = Show-SystemResourceMonitor -NoContinuous -NoColor -BarWidth 12 -HistoryLength 8 -MonitorProcessName '__definitely_not_a_real_process_name_*'
         $lines = @($result -split '\r?\n')
