@@ -38,13 +38,13 @@ Describe 'Show-SystemResourceMonitor' {
         $result | Should -Match '(?m)^System Resource Monitor.+\[[ABCDF]\]'
         $result | Should -Match '(?m)^Status +\[Platform\].+\[Updated\].+\[Collect\]'
         $result | Should -Match '(?m)^History +\[Window\] +\d+ samples .+ \[Order\] +oldest (?:→|->) newest\r?$'
-        $result | Should -Match '(?m)^ +\[Trend\] +(?:↗ up \| → steady \| ↘ down|\^ up \| = steady \| v down)\r?$'
+        $result | Should -Match '(?m)^ +[│|] +\[Trend\] +(?:↗ up \| → steady \| ↘ down|\^ up \| = steady \| v down)\r?$'
         $result | Should -Not -Match '(?m)^Health +Overall:'
 
         $lines = @($result -split '\r?\n')
         $statusLine = @($lines | Where-Object { $_ -match '^Status +\[Platform\].+\[Updated\].+\[Collect\]' }) | Select-Object -First 1
         $historyLine = @($lines | Where-Object { $_ -match '^History +\[Window\] +\d+ samples .+ \[Order\] +oldest (?:→|->) newest$' }) | Select-Object -First 1
-        $historyTrendLine = @($lines | Where-Object { $_ -match '^ +\[Trend\] +(?:↗ up \| → steady \| ↘ down|\^ up \| = steady \| v down)$' }) | Select-Object -First 1
+        $historyTrendLine = @($lines | Where-Object { $_ -match '^ +[│|] +\[Trend\] +(?:↗ up \| → steady \| ↘ down|\^ up \| = steady \| v down)$' }) | Select-Object -First 1
         $dividerIndices = @(
             for ($index = 0; $index -lt $lines.Count; $index++)
             {
@@ -186,7 +186,7 @@ Describe 'Show-SystemResourceMonitor' {
         $networkLine = @($lines | Where-Object { $_ -match '^Network' }) | Select-Object -First 1
 
         $result | Should -BeOfType 'System.String'
-        $result | Should -Match '(?m)^Scope +Process filter: __definitely_not_a_real_process_name_\* \| matches: 0\r?$'
+        $result | Should -Match '(?m)^Scope +\[Filter\] +__definitely_not_a_real_process_name_\*.+\[Matches\] +0\r?$'
         $result | Should -Match '(?m)^CPU.+0\.0%'
         $result | Should -Match '(?m)^Disk.+n/a.+on n/a\r?$'
         $result | Should -Match '(?m)^Network.+n/a'
@@ -264,7 +264,27 @@ Describe 'Show-SystemResourceMonitor' {
         $output | Should -Match '(?m)^System Resource Monitor.+\[[ABCDF]\]'
         $output | Should -Not -Match 'Refresh #'
         $output | Should -Not -Match '(?m)^Health +Overall:'
-        $output | Should -Match 'Press Ctrl\+C to stop monitor\.'
+        $output | Should -Match 'Press (?:Q or Ctrl\+C|Ctrl\+C or q) to stop monitor\.'
+    }
+
+    It 'keeps top processes visible in height-constrained continuous output' {
+        $output = Show-SystemResourceMonitor -NoColor -IntervalSeconds 1 -MaxIterations 1 -MaxDashboardLines 16 -TopProcessCount 5 *>&1 | Out-String
+        $lines = [System.Collections.Generic.List[string]]::new()
+        foreach ($line in @($output -split '\r?\n'))
+        {
+            [void]$lines.Add($line)
+        }
+
+        while ($lines.Count -gt 0 -and [String]::IsNullOrWhiteSpace($lines[$lines.Count - 1]))
+        {
+            $lines.RemoveAt($lines.Count - 1)
+        }
+
+        $lines.Count | Should -BeLessOrEqual 16
+        $output | Should -Match '(?m)^System Resource Monitor.+\[[ABCDF]\]'
+        $output | Should -Match '(?m)^Top Processes \(limit: 5\) \| showing: 1\r?$'
+        $output | Should -Match '(?m)^  .+ PID +[0-9]+'
+        $output | Should -Not -Match 'Press Q or Ctrl\+C to stop monitor\.'
     }
 
     It 'omits top process sections when -NoTopProcesses is used' {

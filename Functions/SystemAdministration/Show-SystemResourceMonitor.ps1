@@ -11,7 +11,7 @@
         macOS, and Linux with platform-specific collection logic and safe fallbacks.
 
         By default, the function refreshes continuously until interrupted with
-        Ctrl+C. Use -NoContinuous to render a single dashboard snapshot.
+        Q or Ctrl+C. Use -NoContinuous to render a single dashboard snapshot.
         Continuous mode includes refresh timestamps for better visibility.
         Use -AsObject for structured output suitable for scripts and automation.
         Dashboard status includes an overall health grade (A-F), status icon, findings
@@ -73,9 +73,10 @@
         Network [█░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░]    3.0% IDLE  ↘ ▂▂▄▁▁▁▁▁▁▁▁▁▁▂▃▁▂▁▁▂▁█▁▁  In 886 B/s | Out 0 B/s | Total 886 B/s
         ───────────────────────────────────────────────────────────────────────────────────────────
 
-        Status   [Platform] macOS │ [Updated] 2026-02-23 09:38:41 │ [Collect] 294.1ms
-        History  [Window] 24 samples │ [Order] oldest → newest
-                 [Trend] ↗ up | → steady | ↘ down
+        Status   [Platform]  macOS          │  [Updated]  2026-04-30 12:55:08  │  [Collect]  319.1ms
+        History  [Window]    24 samples     │  [Order]    oldest → newest
+                                            │  [Trend]    ↗ up | → steady | ↘ down
+        Findings [Issues]    none
 
         ───────────────────────────────────────────────────────────────────────────────────────────
         Top Processes (limit: 5)
@@ -86,7 +87,7 @@
         fileproviderd      PID    635  CPU    679.0s  MEM     18.8 MiB
 
         ───────────────────────────────────────────────────────────────────────────────────────────
-        Press Ctrl+C to stop monitor.
+        Press Q or Ctrl+C to stop monitor.
 
     .EXAMPLE
         PS > Show-SystemResourceMonitor -NoContinuous
@@ -182,7 +183,11 @@
 
         [Parameter(DontShow = $true)]
         [ValidateRange(0, [Int32]::MaxValue)]
-        [Int32]$MaxIterations = 0
+        [Int32]$MaxIterations = 0,
+
+        [Parameter(DontShow = $true)]
+        [ValidateRange(0, [Int32]::MaxValue)]
+        [Int32]$MaxDashboardLines = 0
     )
 
     begin
@@ -251,12 +256,71 @@
         $isContinuousMode = -not $NoContinuous
         $includeTopProcesses = -not $NoTopProcesses
 
+        # Detect whether the host supports non-blocking key reads. Used to poll for 'q' during interval sleeps.
+        $rawUiAvailable = $false
+        try
+        {
+            # [Console]::KeyAvailable throws InvalidOperationException when stdin is redirected,
+            # which is the correct signal to fall back to plain sleep.
+            $null = [Console]::KeyAvailable
+            $rawUiAvailable = $true
+        }
+        catch
+        {
+            $rawUiAvailable = $false
+        }
+
+        $outputIsRedirected = $true
+        try
+        {
+            $outputIsRedirected = [Console]::IsOutputRedirected
+        }
+        catch
+        {
+            $outputIsRedirected = $true
+        }
+
+        $canClearHost = $false
+        try
+        {
+            $canClearHost = [Environment]::UserInteractive -and -not $outputIsRedirected
+        }
+        catch
+        {
+            $canClearHost = $false
+        }
+
+        $hostSupportsVirtualTerminal = $false
+        $hasUsableAnsiTerm = $false
+        $supportsAnsiControl = $false
+        if ($PSVersionTable.PSVersion.Major -ge 6 -and -not $outputIsRedirected)
+        {
+            try
+            {
+                $termName = [Environment]::GetEnvironmentVariable('TERM')
+                $hasTerm = -not [String]::IsNullOrWhiteSpace($termName)
+                $hasUsableAnsiTerm = $hasTerm -and $termName -ne 'dumb'
+                $hasValidBuffer = $false
+                if ($Host.UI -and $Host.UI.RawUI)
+                {
+                    $hasValidBuffer = [Int32]$Host.UI.RawUI.BufferSize.Width -gt 0
+                }
+
+                $hostSupportsVirtualTerminal = [Boolean]($Host.UI -and $Host.UI.SupportsVirtualTerminal)
+                $supportsAnsiControl = [Boolean]($hostSupportsVirtualTerminal -or ((-not $isWindowsPlatform) -and ($hasUsableAnsiTerm -or $hasValidBuffer)))
+            }
+            catch
+            {
+                $supportsAnsiControl = $false
+            }
+        }
+
         $supportsAnsi = $false
         if (-not $NoColor)
         {
             try
             {
-                if ($PSVersionTable.PSVersion.Major -ge 7 -and $Host.UI -and $Host.UI.SupportsVirtualTerminal)
+                if ($PSVersionTable.PSVersion.Major -ge 7 -and ($hostSupportsVirtualTerminal -or ((-not $isWindowsPlatform) -and $hasUsableAnsiTerm)))
                 {
                     $supportsAnsi = $true
                 }
@@ -738,6 +802,53 @@
             }
 
             return [Math]::Max(10, $resolvedWidth)
+        }
+
+        function Get-ResolvedDashboardWidth
+        {
+            try
+            {
+                if ($Host.UI -and $Host.UI.RawUI)
+                {
+                    $windowWidth = [Int32]$Host.UI.RawUI.WindowSize.Width
+                    if ($windowWidth -gt 0)
+                    {
+                        return $windowWidth
+                    }
+                }
+            }
+            catch
+            {
+                Write-Verbose "Unable to read host window width. Dashboard width will not be constrained: $($_.Exception.Message)"
+            }
+
+            return $null
+        }
+
+        function Get-ResolvedDashboardHeight
+        {
+            if ($MaxDashboardLines -gt 0)
+            {
+                return [Int32]$MaxDashboardLines
+            }
+
+            try
+            {
+                if ($Host.UI -and $Host.UI.RawUI)
+                {
+                    $windowHeight = [Int32]$Host.UI.RawUI.WindowSize.Height
+                    if ($windowHeight -gt 0)
+                    {
+                        return $windowHeight
+                    }
+                }
+            }
+            catch
+            {
+                Write-Verbose "Unable to read host window height. Dashboard height will not be constrained: $($_.Exception.Message)"
+            }
+
+            return $null
         }
 
         function Format-Percent
@@ -1690,48 +1801,62 @@
                     ForEach-Object { $_.Trim() }
                 )
 
-                $processes = @(
-                    Get-Process -ErrorAction SilentlyContinue |
-                    Where-Object {
-                        Test-ProcessNameFilterMatch -ProcessName $_.ProcessName -NameFilters $effectiveNameFilters
-                    } |
-                    ForEach-Object {
+                $processRows = New-Object 'System.Collections.Generic.List[PSCustomObject]'
+
+                foreach ($process in @(Get-Process -ErrorAction SilentlyContinue))
+                {
+                    try
+                    {
+                        $processName = if ([String]::IsNullOrWhiteSpace($process.ProcessName)) { '<unknown>' } else { [String]$process.ProcessName }
+                        if (-not (Test-ProcessNameFilterMatch -ProcessName $processName -NameFilters $effectiveNameFilters))
+                        {
+                            continue
+                        }
+
                         $cpuSeconds = $null
                         $workingSetBytes = $null
 
                         try
                         {
-                            if ($null -ne $_.CPU)
+                            if ($null -ne $process.CPU)
                             {
-                                $cpuSeconds = [Double]$_.CPU
+                                $cpuSeconds = [Double]$process.CPU
                             }
                         }
                         catch
                         {
-                            Write-Verbose "Unable to read CPU time for process $($_.Id): $($_.Exception.Message)"
+                            Write-Verbose "Unable to read CPU time for process $($process.Id): $($_.Exception.Message)"
                         }
 
                         try
                         {
-                            if ($null -ne $_.WorkingSet64)
+                            if ($null -ne $process.WorkingSet64)
                             {
-                                $workingSetBytes = [Double]$_.WorkingSet64
+                                $workingSetBytes = [Double]$process.WorkingSet64
                             }
                         }
                         catch
                         {
-                            Write-Verbose "Unable to read memory usage for process $($_.Id): $($_.Exception.Message)"
+                            Write-Verbose "Unable to read memory usage for process $($process.Id): $($_.Exception.Message)"
                         }
 
-                        [PSCustomObject]@{
-                            Name = if ([String]::IsNullOrWhiteSpace($_.ProcessName)) { '<unknown>' } else { $_.ProcessName }
-                            Id = [Int32]$_.Id
-                            CpuSeconds = if ($null -eq $cpuSeconds) { $null } else { [Math]::Round([Math]::Max(0, $cpuSeconds), 1) }
-                            WorkingSetMiB = if ($null -eq $workingSetBytes) { $null } else { [Math]::Round([Math]::Max(0, $workingSetBytes) / 1MB, 1) }
-                            _SortCpu = if ($null -eq $cpuSeconds) { -1.0 } else { $cpuSeconds }
-                            _SortMemory = if ($null -eq $workingSetBytes) { -1.0 } else { $workingSetBytes }
-                        }
-                    } |
+                        [void]$processRows.Add([PSCustomObject]@{
+                                Name = $processName
+                                Id = [Int32]$process.Id
+                                CpuSeconds = if ($null -eq $cpuSeconds) { $null } else { [Math]::Round([Math]::Max(0, $cpuSeconds), 1) }
+                                WorkingSetMiB = if ($null -eq $workingSetBytes) { $null } else { [Math]::Round([Math]::Max(0, $workingSetBytes) / 1MB, 1) }
+                                _SortCpu = if ($null -eq $cpuSeconds) { -1.0 } else { $cpuSeconds }
+                                _SortMemory = if ($null -eq $workingSetBytes) { -1.0 } else { $workingSetBytes }
+                            })
+                    }
+                    catch
+                    {
+                        Write-Verbose "Skipping top process row due to metadata access error: $($_.Exception.Message)"
+                    }
+                }
+
+                $processes = @(
+                    $processRows |
                     Sort-Object -Property @{ Expression = '_SortCpu'; Descending = $true }, @{ Expression = '_SortMemory'; Descending = $true }, @{ Expression = 'Name'; Descending = $false } |
                     Select-Object -First $Count
                 )
@@ -1771,7 +1896,9 @@
                 $cpuPercent = $scopedUsage.CpuPercent
                 if ($null -eq $cpuPercent)
                 {
+                    $collectStopwatch.Stop()
                     Start-Sleep -Milliseconds 200
+                    $collectStopwatch.Start()
                     $scopedUsage = Get-ProcessScopeUsageInfo -NameFilters $monitorProcessNameMatchFilters -CpuState $processScopeCpuState
                     $cpuPercent = $scopedUsage.CpuPercent
                 }
@@ -1807,7 +1934,9 @@
                 $cpuPercent = Get-CpuUsagePercent -FallbackState $cpuFallbackState
                 if ($null -eq $cpuPercent)
                 {
+                    $collectStopwatch.Stop()
                     Start-Sleep -Milliseconds 200
+                    $collectStopwatch.Start()
                     $cpuPercent = Get-CpuUsagePercent -FallbackState $cpuFallbackState
                 }
 
@@ -1816,7 +1945,9 @@
                 $network = Get-NetworkActivityInfo -State $networkActivityState
                 if ($null -eq $network.TotalBytesPerSecond)
                 {
+                    $collectStopwatch.Stop()
                     Start-Sleep -Milliseconds 200
+                    $collectStopwatch.Start()
                     $network = Get-NetworkActivityInfo -State $networkActivityState
                 }
             }
@@ -1877,7 +2008,10 @@
                 [PSCustomObject]$Sample,
 
                 [Parameter()]
-                [Switch]$IncludeContinuousHint
+                [Switch]$IncludeContinuousHint,
+
+                [Parameter()]
+                [Nullable[Int32]]$MaxRenderedLines
             )
 
             $maxHistoryPoints = [Math]::Min(40, [Math]::Max(8, $HistoryLength))
@@ -1908,6 +2042,52 @@
             $networkRelativeHistoryValues = @(ConvertTo-RelativePercentHistory -Values $networkThroughputHistoryValues)
 
             $renderedBarWidth = Get-ResolvedBarWidth -RequestedWidth $BarWidth -RenderedHistoryLength $maxHistoryPoints
+            $renderedMaxWidth = if ($IncludeContinuousHint -or $null -ne $MaxRenderedLines)
+            {
+                $dashboardWidth = Get-ResolvedDashboardWidth
+                if ($null -ne $dashboardWidth)
+                {
+                    # macOS Terminal can autowrap/scroll when a repaint writes into the final column.
+                    # Keep one column free so the next cursor-home sequence starts from the same viewport.
+                    [Math]::Max(20, [Int32]$dashboardWidth - 1)
+                }
+                else
+                {
+                    $null
+                }
+            }
+            else
+            {
+                $null
+            }
+
+            $limitText = {
+                param(
+                    [Parameter()]
+                    [String]$Text,
+
+                    [Parameter()]
+                    [Nullable[Int32]]$MaxWidth
+                )
+
+                if ([String]::IsNullOrEmpty($Text) -or $null -eq $MaxWidth -or [Int32]$MaxWidth -le 0)
+                {
+                    return $Text
+                }
+
+                $width = [Int32]$MaxWidth
+                if ($Text.Length -le $width)
+                {
+                    return $Text
+                }
+
+                if ($width -le 3)
+                {
+                    return $Text.Substring(0, $width)
+                }
+
+                return $Text.Substring(0, $width - 3) + '...'
+            }
 
             $formatMetricLine = {
                 param(
@@ -1948,9 +2128,22 @@
                 $line = '{0,-7} {1} {2} {3} {4} {5}' -f $Name, $barText, $percentText, $statusText, $trendText, $sparkText
                 if (-not [String]::IsNullOrWhiteSpace($Details))
                 {
-                    $line = $line + '  ' + $Details
+                    $lineWithDetails = $line + '  ' + $Details
+                    if ($null -ne $renderedMaxWidth -and $lineWithDetails.Length -gt [Int32]$renderedMaxWidth)
+                    {
+                        $availableDetailWidth = [Int32]$renderedMaxWidth - $line.Length - 2
+                        if ($availableDetailWidth -ge 8)
+                        {
+                            $line = $line + '  ' + (& $limitText $Details $availableDetailWidth)
+                        }
+                    }
+                    else
+                    {
+                        $line = $lineWithDetails
+                    }
                 }
 
+                $line = & $limitText $line $renderedMaxWidth
                 $coloredLine = Add-Color -Text $line -Percent $Percent
                 if ($RenderUnavailableAsSubtle -and $null -eq $Percent)
                 {
@@ -2056,7 +2249,13 @@
                 $statusSeparator = '|'
             }
 
-            $divider = $dividerChar * [Math]::Max(70, $renderedBarWidth + $maxHistoryPoints + 35)
+            $dividerLength = [Math]::Max(70, $renderedBarWidth + $maxHistoryPoints + 35)
+            if ($null -ne $renderedMaxWidth -and [Int32]$renderedMaxWidth -gt 0)
+            {
+                $dividerLength = [Math]::Min($dividerLength, [Int32]$renderedMaxWidth)
+            }
+
+            $divider = $dividerChar * $dividerLength
             $gradeText = Format-HealthGrade -Grade $healthGrade
             $overallSummaryPlain = ('{0} {1} [{2}] {3}' -f (Format-Percent -Percent $overallLoad).Trim(), $overallStatus, $healthGrade, $statusIcon)
             $overallSummaryDisplay = ('{0} {1} [{2}] {3}' -f (Format-Percent -Percent $overallLoad).Trim(), $overallStatus, $gradeText, $statusIcon)
@@ -2073,11 +2272,21 @@
                 $titleLine = $titleText + '  ' + $overallSummaryDisplay
             }
 
+            $titleLine = & $limitText $titleLine $renderedMaxWidth
             $historyOrderText = if ($supportsUnicode) { 'oldest → newest' } else { 'oldest -> newest' }
             $trendLegendText = if ($supportsUnicode) { '↗ up | → steady | ↘ down' } else { '^ up | = steady | v down' }
-            $statusLine = ('Status   [Platform] {0} {1} [Updated] {2} {1} [Collect] {3}' -f $Sample.Platform, $statusSeparator, $Sample.Timestamp.ToString('yyyy-MM-dd HH:mm:ss'), $collectText)
-            $historyLine = Add-SubtleText -Text ("History  [Window] $maxHistoryPoints samples $statusSeparator [Order] $historyOrderText")
-            $historyLegendLine = Add-SubtleText -Text ("         [Trend] $trendLegendText")
+            $statusLine = & $limitText ('Status   {0,-10} {1,-12}  {2}  {3,-9} {4,-19}  {2}  {5,-9} {6}' -f '[Platform]', $Sample.Platform, $statusSeparator, '[Updated]', $Sample.Timestamp.ToString('yyyy-MM-dd HH:mm:ss'), '[Collect]', $collectText) $renderedMaxWidth
+            $historyLine = Add-SubtleText -Text (& $limitText ('History  {0,-10} {1,-12}  {2}  {3,-9} {4}' -f '[Window]', "$maxHistoryPoints samples", $statusSeparator, '[Order]', $historyOrderText) $renderedMaxWidth)
+            $historyTrendLine = Add-SubtleText -Text (& $limitText ((' ' * 34) + $statusSeparator + ('  {0,-9} {1}' -f '[Trend]', $trendLegendText)) $renderedMaxWidth)
+
+            $sampleFindings = @()
+            if ($Sample.PSObject.Properties.Name -contains 'Findings')
+            {
+                $sampleFindings = @($Sample.Findings | Where-Object { -not [String]::IsNullOrWhiteSpace($_) })
+            }
+            $findingsText = if ($sampleFindings.Count -eq 0) { 'none' } else { $sampleFindings -join "  $statusSeparator  " }
+            $findingsLine = Add-SubtleText -Text (& $limitText ('Findings {0,-10} {1}' -f '[Issues]', $findingsText) $renderedMaxWidth)
+
             $subtleDivider = Add-SubtleText -Text $divider
             $scopeLine = $null
 
@@ -2093,57 +2302,44 @@
 
             if ($scopedFilters.Count -gt 0)
             {
-                $scopeText = 'Scope    Process filter: ' + ($scopedFilters -join ', ')
-                if ($Sample.PSObject.Properties.Name -contains 'MonitorProcessMatchCount' -and $null -ne $Sample.MonitorProcessMatchCount)
+                $matchCountText = if ($Sample.PSObject.Properties.Name -contains 'MonitorProcessMatchCount' -and $null -ne $Sample.MonitorProcessMatchCount)
                 {
-                    $scopeText += (' | matches: {0}' -f [Int32]$Sample.MonitorProcessMatchCount)
+                    [String][Int32]$Sample.MonitorProcessMatchCount
+                }
+                else
+                {
+                    'n/a'
                 }
 
-                $scopeLine = Add-SubtleText -Text $scopeText
+                $scopeLine = Add-SubtleText -Text (& $limitText ('Scope    {0,-10} {1}  {2}  {3,-9} {4}' -f '[Filter]', ($scopedFilters -join ', '), $statusSeparator, '[Matches]', $matchCountText) $renderedMaxWidth)
             }
 
-            $lines = @(
-                $titleLine,
-                $divider,
-                $cpuLine,
-                $memoryLine,
-                $diskLine,
-                $networkLine,
-                $subtleDivider,
-                '',
-                (Add-SubtleText -Text $statusLine),
-                $historyLine,
-                $historyLegendLine
-            )
-
-            if (-not [String]::IsNullOrWhiteSpace($scopeLine))
+            $showStatusLine = $true
+            $showHistoryLine = $true
+            $showHistoryTrendLine = $true
+            $showFindingsLine = $true
+            $showContinuousHint = [Boolean]$IncludeContinuousHint
+            $maxRenderedLineCount = if ($null -ne $MaxRenderedLines -and [Int32]$MaxRenderedLines -gt 0)
             {
-                $lines += $scopeLine
+                [Int32]$MaxRenderedLines
+            }
+            else
+            {
+                $null
             }
 
+            $topProcesses = @()
+            if ($includeTopProcesses -and $Sample.PSObject.Properties.Name -contains 'TopProcesses')
+            {
+                $topProcesses = @($Sample.TopProcesses | Where-Object { $null -ne $_ })
+            }
+
+            $topProcessRows = New-Object 'System.Collections.Generic.List[string]'
             if ($includeTopProcesses)
             {
-                $topProcessHeader = "Top Processes (limit: $TopProcessCount)"
-                if ($effectiveTopProcessNameFilters.Count -gt 0)
-                {
-                    $topProcessHeader += ' | filter: ' + ($effectiveTopProcessNameFilters -join ', ')
-                }
-
-                $lines += @(
-                    '',
-                    $subtleDivider,
-                    (Add-SubtleText -Text $topProcessHeader)
-                )
-
-                $topProcesses = @()
-                if ($Sample.PSObject.Properties.Name -contains 'TopProcesses')
-                {
-                    $topProcesses = @($Sample.TopProcesses | Where-Object { $null -ne $_ })
-                }
-
                 if ($topProcesses.Count -eq 0)
                 {
-                    $lines += (Add-SubtleText -Text '  n/a')
+                    [void]$topProcessRows.Add((Add-SubtleText -Text (& $limitText '  n/a' $renderedMaxWidth)))
                 }
                 else
                 {
@@ -2164,17 +2360,204 @@
                         $processCpu = Format-CpuSeconds -Value $processInfo.CpuSeconds
                         $processMemory = '{0} MiB' -f (Format-MiB -Value $processInfo.WorkingSetMiB)
 
-                        $lines += ('  {0,-18} PID {1,6}  CPU {2,9}  MEM {3,12}' -f $processName, $processId, $processCpu, $processMemory)
+                        [void]$topProcessRows.Add((& $limitText ('  {0,-18} PID {1,6}  CPU {2,9}  MEM {3,12}' -f $processName, $processId, $processCpu, $processMemory) $renderedMaxWidth))
                     }
                 }
             }
 
-            if ($IncludeContinuousHint)
+            $buildBaseLines = {
+                param(
+                    [Parameter(Mandatory)]
+                    [Boolean]$ShowStatusLine,
+
+                    [Parameter(Mandatory)]
+                    [Boolean]$ShowHistoryLine,
+
+                    [Parameter(Mandatory)]
+                    [Boolean]$ShowHistoryTrendLine,
+
+                    [Parameter(Mandatory)]
+                    [Boolean]$ShowFindingsLine
+                )
+
+                $baseLines = @(
+                    $titleLine,
+                    $divider,
+                    $cpuLine,
+                    $memoryLine,
+                    $diskLine,
+                    $networkLine,
+                    $subtleDivider
+                )
+
+                $hasMetadataLines = $ShowStatusLine -or $ShowHistoryLine -or $ShowHistoryTrendLine -or $ShowFindingsLine -or -not [String]::IsNullOrWhiteSpace($scopeLine)
+                if ($hasMetadataLines)
+                {
+                    $baseLines += ''
+                }
+
+                if ($ShowStatusLine)
+                {
+                    $baseLines += (Add-SubtleText -Text $statusLine)
+                }
+
+                if ($ShowHistoryLine)
+                {
+                    $baseLines += $historyLine
+                }
+
+                if ($ShowHistoryTrendLine)
+                {
+                    $baseLines += $historyTrendLine
+                }
+
+                if ($ShowFindingsLine)
+                {
+                    $baseLines += $findingsLine
+                }
+
+                if (-not [String]::IsNullOrWhiteSpace($scopeLine))
+                {
+                    $baseLines += $scopeLine
+                }
+
+                return @($baseLines)
+            }
+
+            $getLineCount = {
+                param(
+                    [Parameter(Mandatory)]
+                    [Int32]$BaseLineCount,
+
+                    [Parameter(Mandatory)]
+                    [Boolean]$ShowTopSection,
+
+                    [Parameter(Mandatory)]
+                    [Int32]$TopRowCount,
+
+                    [Parameter(Mandatory)]
+                    [Boolean]$ShowHint
+                )
+
+                $lineCount = $BaseLineCount
+                if ($ShowTopSection)
+                {
+                    $lineCount += 3 + $TopRowCount
+                }
+
+                if ($ShowHint)
+                {
+                    $lineCount += 3
+                }
+
+                return $lineCount
+            }
+
+            $lines = @(& $buildBaseLines $showStatusLine $showHistoryLine $showHistoryTrendLine $showFindingsLine)
+            $showTopSection = $includeTopProcesses
+            $topRowsToRender = if ($showTopSection) { $topProcessRows.Count } else { 0 }
+
+            if ($null -ne $maxRenderedLineCount)
+            {
+                $lineCount = & $getLineCount $lines.Count $showTopSection $topRowsToRender $showContinuousHint
+                if ($showContinuousHint -and $lineCount -gt $maxRenderedLineCount)
+                {
+                    $showContinuousHint = $false
+                    $lineCount = & $getLineCount $lines.Count $showTopSection $topRowsToRender $showContinuousHint
+                }
+
+                $metadataCompactionOrder = @(
+                    'HistoryTrend',
+                    'History',
+                    'Findings',
+                    'Status'
+                )
+
+                foreach ($metadataLine in $metadataCompactionOrder)
+                {
+                    if ($showTopSection)
+                    {
+                        $availableTopRows = $maxRenderedLineCount - $lines.Count - 3
+                        if ($availableTopRows -ge 1)
+                        {
+                            break
+                        }
+                    }
+                    else
+                    {
+                        $lineCount = & $getLineCount $lines.Count $showTopSection $topRowsToRender $showContinuousHint
+                        if ($lineCount -le $maxRenderedLineCount)
+                        {
+                            break
+                        }
+                    }
+
+                    switch ($metadataLine)
+                    {
+                        'HistoryTrend' { $showHistoryTrendLine = $false }
+                        'History' { $showHistoryLine = $false }
+                        'Findings' { $showFindingsLine = $false }
+                        'Status' { $showStatusLine = $false }
+                    }
+
+                    $lines = @(& $buildBaseLines $showStatusLine $showHistoryLine $showHistoryTrendLine $showFindingsLine)
+                }
+
+                if ($showTopSection)
+                {
+                    $availableTopRows = $maxRenderedLineCount - $lines.Count - 3
+                    if ($availableTopRows -lt 1)
+                    {
+                        $showTopSection = $false
+                        $topRowsToRender = 0
+                    }
+                    else
+                    {
+                        $topRowsToRender = [Math]::Min($topRowsToRender, [Int32]$availableTopRows)
+                    }
+                }
+
+                $lineCount = & $getLineCount $lines.Count $showTopSection $topRowsToRender $showContinuousHint
+                if ($showContinuousHint -and $lineCount -gt $maxRenderedLineCount)
+                {
+                    $showContinuousHint = $false
+                }
+            }
+
+            if ($showTopSection)
+            {
+                $topProcessHeader = "Top Processes (limit: $TopProcessCount)"
+                if ($topRowsToRender -lt $topProcessRows.Count)
+                {
+                    $topProcessHeader += " | showing: $topRowsToRender"
+                }
+
+                if ($effectiveTopProcessNameFilters.Count -gt 0)
+                {
+                    $topProcessHeader += ' | filter: ' + ($effectiveTopProcessNameFilters -join ', ')
+                }
+
+                $lines += @(
+                    '',
+                    $subtleDivider,
+                    (Add-SubtleText -Text (& $limitText $topProcessHeader $renderedMaxWidth))
+                )
+
+                if ($topRowsToRender -gt 0)
+                {
+                    for ($index = 0; $index -lt $topRowsToRender; $index++)
+                    {
+                        $lines += $topProcessRows[$index]
+                    }
+                }
+            }
+
+            if ($showContinuousHint)
             {
                 $lines += @(
                     '',
                     $subtleDivider,
-                    (Add-SubtleText -Text 'Press Ctrl+C to stop monitor.')
+                    (Add-SubtleText -Text (& $limitText 'Press Q or Ctrl+C to stop monitor.' $renderedMaxWidth))
                 )
             }
 
@@ -2185,52 +2568,130 @@
     process
     {
         $iterations = 0
+        $wroteContinuousDashboardWithoutTrailingNewLine = $false
+        $altScreenActive = $false
 
-        while ($true)
+        try
         {
-            $iterations++
-            $sample = Get-SystemResourceSample
-
-            Add-HistoryValue -History $cpuHistory -Value $sample.CpuUsagePercent -MaxLength $HistoryLength
-            Add-HistoryValue -History $memoryHistory -Value $sample.MemoryUsagePercent -MaxLength $HistoryLength
-            Add-HistoryValue -History $diskHistory -Value $sample.DiskUsagePercent -MaxLength $HistoryLength
-            Add-HistoryValue -History $networkThroughputHistory -Value $sample.NetworkTotalBytesPerSecond -MaxLength $HistoryLength
-
-            if ($AsObject)
+            if ($isContinuousMode -and $supportsAnsiControl -and -not $AsObject)
             {
-                $sample
+                # Use an alternate screen canvas for interactive terminals. Normal-screen cursor-home
+                # repainting is fragile in macOS Terminal once scrollback or autowrap is involved.
+                [Console]::Write("$([char]27)[?1049h$([char]27)[?25l$([char]27)[H$([char]27)[2J")
+                $altScreenActive = $true
             }
-            else
+
+            while ($true)
             {
-                $dashboard = Format-DashboardText -Sample $sample -IncludeContinuousHint:$isContinuousMode
+                $iterations++
+                $sample = Get-SystemResourceSample
 
-                if ($isContinuousMode)
+                Add-HistoryValue -History $cpuHistory -Value $sample.CpuUsagePercent -MaxLength $HistoryLength
+                Add-HistoryValue -History $memoryHistory -Value $sample.MemoryUsagePercent -MaxLength $HistoryLength
+                Add-HistoryValue -History $diskHistory -Value $sample.DiskUsagePercent -MaxLength $HistoryLength
+                Add-HistoryValue -History $networkThroughputHistory -Value $sample.NetworkTotalBytesPerSecond -MaxLength $HistoryLength
+
+                if ($AsObject)
                 {
-                    try
-                    {
-                        Clear-Host
-                    }
-                    catch
-                    {
-                        Write-Verbose "Clear-Host is not supported in this host: $($_.Exception.Message)"
-                    }
-
-                    Write-Host $dashboard
+                    $sample
                 }
                 else
                 {
-                    $dashboard
+                    $maxRenderedLines = if ($isContinuousMode) { Get-ResolvedDashboardHeight } else { $null }
+                    $dashboard = Format-DashboardText -Sample $sample -IncludeContinuousHint:$isContinuousMode -MaxRenderedLines $maxRenderedLines
+
+                    if ($isContinuousMode)
+                    {
+                        if ($supportsAnsiControl)
+                        {
+                            # Cursor-home + full-screen erase redraws in place without relying on Clear-Host.
+                            [Console]::Write("$([char]27)[H$([char]27)[2J")
+                            [Console]::Write(($dashboard -replace "`r?`n", "`r`n"))
+                            $wroteContinuousDashboardWithoutTrailingNewLine = $true
+                        }
+                        elseif ($canClearHost)
+                        {
+                            try
+                            {
+                                Clear-Host
+                            }
+                            catch
+                            {
+                                Write-Verbose "Clear-Host is not supported in this host: $($_.Exception.Message)"
+                            }
+
+                            Write-Host $dashboard -NoNewline
+                            $wroteContinuousDashboardWithoutTrailingNewLine = $true
+                        }
+                        else
+                        {
+                            Write-Host $dashboard
+                            $wroteContinuousDashboardWithoutTrailingNewLine = $false
+                        }
+                    }
+                    else
+                    {
+                        $dashboard
+                    }
+                }
+
+                $isMaxed = ($MaxIterations -gt 0 -and $iterations -ge $MaxIterations)
+
+                if (-not $isContinuousMode -or $isMaxed)
+                {
+                    break
+                }
+
+                # Sleep for the configured interval while polling for a 'q' keypress.
+                $quitRequested = $false
+                $sleepStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+                $intervalMs = $IntervalSeconds * 1000
+
+                while ($sleepStopwatch.ElapsedMilliseconds -lt $intervalMs)
+                {
+                    if ($rawUiAvailable)
+                    {
+                        try
+                        {
+                            # [Console]::KeyAvailable only returns true for real keyboard events, unlike
+                            # $Host.UI.RawUI.KeyAvailable which includes mouse/focus/resize events on Windows
+                            # and would cause ReadKey to block when one of those non-keyboard events is pending.
+                            if ([Console]::KeyAvailable)
+                            {
+                                $consoleKey = [Console]::ReadKey($true)
+                                if ($consoleKey.KeyChar -eq 'q' -or $consoleKey.KeyChar -eq 'Q')
+                                {
+                                    $quitRequested = $true
+                                    break
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            Write-Verbose "Key read failed, disabling keyboard polling: $($_.Exception.Message)"
+                            $rawUiAvailable = $false
+                        }
+                    }
+
+                    Start-Sleep -Milliseconds 100
+                }
+
+                if ($quitRequested)
+                {
+                    break
                 }
             }
-
-            $isMaxed = ($MaxIterations -gt 0 -and $iterations -ge $MaxIterations)
-
-            if (-not $isContinuousMode -or $isMaxed)
+        }
+        finally
+        {
+            if ($altScreenActive)
             {
-                break
+                [Console]::Write("$([char]27)[?25h$([char]27)[?1049l")
             }
-
-            Start-Sleep -Seconds $IntervalSeconds
+            elseif ($wroteContinuousDashboardWithoutTrailingNewLine)
+            {
+                Write-Host
+            }
         }
     }
 }
