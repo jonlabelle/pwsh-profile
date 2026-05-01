@@ -4,14 +4,20 @@
 *.png   binary
 
 # Exclude these directories from being exported:
+.agents/   export-ignore
 .github/   export-ignore
 .vscode/   export-ignore
 resources/ export-ignore
 scripts/   export-ignore
-test/      export-ignore
+Scripts/   export-ignore
+Tests/     export-ignore
 
 # Exclude these files from being exported:
+.dockerignore                   export-ignore
 .editorconfig                   export-ignore
 .gitattributes                  export-ignore
 .gitignore                      export-ignore
+.markdownlint-cli2.jsonc        export-ignore
+dev-requirements.ps1            export-ignore
+Invoke-Tests.ps1                export-ignore
 PSScriptAnalyzerSettings.psd1   export-ignore
