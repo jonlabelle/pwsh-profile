@@ -4,6 +4,7 @@ BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Find-SystemPackage.ps1"
+    . "$PSScriptRoot/../../../Functions/SystemAdministration/Install-SystemPackage.ps1"
 
     function Get-TestCommandResponse
     {
@@ -36,7 +37,10 @@ BeforeAll {
                 [String]$Command,
 
                 [Parameter()]
-                [String[]]$Arguments = @()
+                [String[]]$Arguments = @(),
+
+                [Parameter()]
+                [Switch]$StreamOutput
             )
 
             $key = "$Command $($Arguments -join ' ')".Trim()
@@ -44,6 +48,7 @@ BeforeAll {
                 Command = $Command
                 Arguments = @($Arguments)
                 Key = $key
+                StreamOutput = $StreamOutput.IsPresent
             })
 
             if ($localResponses.ContainsKey($key))
@@ -59,6 +64,8 @@ BeforeAll {
 Describe 'Find-SystemPackage' {
     BeforeEach {
         $script:Invocations = New-Object 'System.Collections.Generic.List[Object]'
+        Mock -CommandName Write-Host -MockWith {}
+        Mock -CommandName Clear-Host -MockWith {}
     }
 
     Context 'winget search' {
@@ -157,6 +164,113 @@ Describe 'Find-SystemPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
+        }
+    }
+
+    Context 'interactive remote search UI' {
+        It 'prompts for a query and renders remote registry results in interactive mode' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew search --formulae git' = Get-TestCommandResponse -Output @('git', 'git-lfs')
+                'brew search --casks git' = Get-TestCommandResponse -Output @('git-credential-manager')
+            }
+
+            $queryReader = {
+                'git'
+            }
+            $keyReader = {
+                [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            }
+
+            $result = @(Find-SystemPackage -PackageManager brew -Interactive -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
+
+            $result.Count | Should -Be 0
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: git' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Spacebar: select  I: install current/selected*' } -Times 1
+        }
+
+        It 'allows a new query to be entered from the interactive browser' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew search --formulae git' = Get-TestCommandResponse -Output @('git', 'git-lfs')
+                'brew search --casks git' = Get-TestCommandResponse -Output @()
+                'brew search --formulae code' = Get-TestCommandResponse -Output @()
+                'brew search --casks code' = Get-TestCommandResponse -Output @('visual-studio-code')
+            }
+
+            $queries = [System.Collections.Generic.Queue[String]]::new()
+            @('git', 'code') | ForEach-Object { $queries.Enqueue($_) }
+            $queryReader = {
+                return $queries.Dequeue()
+            }.GetNewClosure()
+
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new('s', [ConsoleKey]::S, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = @(Find-SystemPackage -PackageManager brew -Interactive -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
+
+            $result.Count | Should -Be 0
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew search --formulae git' }).Count | Should -Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew search --casks code' }).Count | Should -Be 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: code' } -Times 1
+        }
+
+        It 'returns selected packages when PassThru is used' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew search --formulae git' = Get-TestCommandResponse -Output @('git', 'git-lfs')
+                'brew search --casks git' = Get-TestCommandResponse -Output @()
+            }
+
+            $queryReader = {
+                'git'
+            }
+
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new(' ', [ConsoleKey]::Spacebar, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = @(Find-SystemPackage -PackageManager brew -PassThru -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
+
+            $result.Count | Should -Be 1
+            $result[0].Name | Should -Be 'git'
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Spacebar: select  Enter: return selected  I: install current/selected*' } -Times 1
+        }
+
+        It 'installs the selected package from the interactive browser' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew search --formulae git' = Get-TestCommandResponse -Output @('git')
+                'brew search --casks git' = Get-TestCommandResponse -Output @()
+                'brew install git' = Get-TestCommandResponse -Output @('brew install git output')
+            }
+
+            $queryReader = {
+                'git'
+            }
+
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new(' ', [ConsoleKey]::Spacebar, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new('i', [ConsoleKey]::I, $false, $false, $false)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = Find-SystemPackage -PackageManager brew -Interactive -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader
+
+            $result.Selected | Should -Be 1
+            $result.Installed | Should -Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'brew install git' }).StreamOutput | Should -BeTrue
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew install git output' } -Times 1
         }
     }
 }

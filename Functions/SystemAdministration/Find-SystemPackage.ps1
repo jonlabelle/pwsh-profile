@@ -13,8 +13,21 @@ function Find-SystemPackage
         or piped into Install-SystemPackage. Use -Top to cap broad searches and
         -ExcludePackage to remove unwanted matches from the normalized results.
 
+        Use -Interactive, or omit -Query, to open an interactive remote-search UI with a
+        prompt-based search box and a neatly formatted results browser. From the browser,
+        press I to install the current package or the selected packages. Use -PassThru to
+        return the selected records instead of installing them.
+
     .PARAMETER Query
         Search text sent to the selected package manager.
+
+    .PARAMETER Interactive
+        Opens the interactive remote package search UI. If -Query is omitted, the UI prompts
+        for a query before searching the selected package registry.
+
+    .PARAMETER PassThru
+        Allows packages to be selected in the interactive UI and returns the selected package
+        records when Enter is pressed.
 
     .PARAMETER ExcludePackage
         Optional package names or wildcard patterns to exclude from the normalized results.
@@ -74,6 +87,23 @@ function Find-SystemPackage
 
         Searches for nodejs and writes the detected package manager to verbose output.
 
+    .EXAMPLE
+        PS > Find-SystemPackage
+
+        Opens the interactive remote package search UI and prompts for a query.
+
+    .EXAMPLE
+        PS > Find-SystemPackage -Interactive -Query git
+
+        Opens the interactive remote package search UI seeded with the git query. Press I
+        to install the current package or the selected packages.
+
+    .EXAMPLE
+        PS > Find-SystemPackage -PassThru
+
+        Opens the interactive UI, lets you select packages with the spacebar, and returns
+        the selected package records when Enter is pressed.
+
     .OUTPUTS
         System.Management.Automation.PSCustomObject
 
@@ -88,10 +118,15 @@ function Find-SystemPackage
     [CmdletBinding()]
     [OutputType([PSCustomObject], [PSCustomObject[]], [Object[]])]
     param(
-        [Parameter(Mandatory, Position = 0)]
+        [Parameter(Position = 0)]
         [Alias('Name', 'PackageName', 'Search')]
-        [ValidateNotNullOrEmpty()]
         [String]$Query,
+
+        [Parameter()]
+        [Switch]$Interactive,
+
+        [Parameter()]
+        [Switch]$PassThru,
 
         [Parameter()]
         [Alias('Exclude')]
@@ -106,11 +141,50 @@ function Find-SystemPackage
         [String]$PackageManager = 'Auto',
 
         [Parameter(DontShow = $true)]
-        [ScriptBlock]$CommandRunner
+        [ScriptBlock]$CommandRunner,
+
+        [Parameter(DontShow = $true)]
+        [ScriptBlock]$KeyReader,
+
+        [Parameter(DontShow = $true)]
+        [ScriptBlock]$QueryReader,
+
+        [Parameter(DontShow = $true)]
+        [ValidateRange(0, 500)]
+        [Int32]$PickerPageSize = 0
     )
 
     begin
     {
+        function Get-DependencyPathIfNeeded
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$FunctionName,
+
+                [Parameter(Mandatory)]
+                [String]$RelativePath
+            )
+
+            if (-not (Get-Command -Name $FunctionName -ErrorAction SilentlyContinue))
+            {
+                Write-Verbose "$FunctionName is required - attempting to load it"
+
+                $dependencyPath = Join-Path -Path $PSScriptRoot -ChildPath $RelativePath
+                $dependencyPath = [System.IO.Path]::GetFullPath($dependencyPath)
+
+                if (Test-Path -Path $dependencyPath -PathType Leaf)
+                {
+                    return $dependencyPath
+                }
+
+                throw "Required function '$FunctionName' could not be found. Expected location: $dependencyPath"
+            }
+
+            Write-Verbose "$FunctionName is already loaded"
+            return $null
+        }
+
         function ConvertTo-PackageText
         {
             param(
@@ -887,18 +961,500 @@ function Find-SystemPackage
                 default { throw "Unsupported package manager '$($Manager.Name)'." }
             }
         }
+
+        function Get-InteractiveSearchQuery
+        {
+            param(
+                [Parameter()]
+                [String]$CurrentQuery = ''
+            )
+
+            if ($QueryReader)
+            {
+                return ConvertTo-PackageText -Value (& $QueryReader -CurrentQuery $CurrentQuery)
+            }
+
+            try
+            {
+                if ([Console]::IsInputRedirected)
+                {
+                    throw 'Console input is redirected.'
+                }
+            }
+            catch
+            {
+                throw 'Interactive package search requires an attached console. Provide -Query for object output in non-interactive sessions.'
+            }
+
+            return ConvertTo-PackageText -Value (Read-Host -Prompt 'Search registry query (blank to exit)')
+        }
+
+        function Invoke-SelectedPackageInstallation
+        {
+            param(
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Manager,
+
+                [Parameter()]
+                [Object[]]$SelectedPackages = @()
+            )
+
+            if ($SelectedPackages.Count -eq 0)
+            {
+                return @()
+            }
+
+            $installSystemPackageDependencyPath = Get-DependencyPathIfNeeded -FunctionName 'Install-SystemPackage' -RelativePath 'Install-SystemPackage.ps1'
+            if (-not [String]::IsNullOrWhiteSpace($installSystemPackageDependencyPath))
+            {
+                try
+                {
+                    . $installSystemPackageDependencyPath
+                    Write-Verbose "Loaded Install-SystemPackage from: $installSystemPackageDependencyPath"
+                }
+                catch
+                {
+                    throw "Failed to load required dependency 'Install-SystemPackage' from '$installSystemPackageDependencyPath': $($_.Exception.Message)"
+                }
+            }
+
+            return @($SelectedPackages | Install-SystemPackage -PackageManager $Manager.Name -CommandRunner $CommandRunner)
+        }
+
+        function Show-AvailablePackageResults
+        {
+            param(
+                [Parameter()]
+                [PSCustomObject[]]$AvailablePackages = @(),
+
+                [Parameter(Mandatory)]
+                [String]$QueryText,
+
+                [Parameter()]
+                [ScriptBlock]$KeyReader,
+
+                [Parameter()]
+                [Int32]$PageSize = 0,
+
+                [Parameter()]
+                [Switch]$EnableSelection,
+
+                [Parameter()]
+                [Switch]$EnableReturnSelection
+            )
+
+            if ($AvailablePackages.Count -eq 0)
+            {
+                return [PSCustomObject]@{
+                    Action = 'Empty'
+                    SelectedPackages = @()
+                }
+            }
+
+            $usingConsoleKeyReader = $false
+            if ($null -eq $KeyReader)
+            {
+                try
+                {
+                    if ([Console]::IsInputRedirected)
+                    {
+                        throw 'Console input is redirected.'
+                    }
+                }
+                catch
+                {
+                    throw 'Interactive package search requires an attached console. Provide -Query for object output in non-interactive sessions.'
+                }
+
+                $KeyReader = { [Console]::ReadKey($true) }
+                $usingConsoleKeyReader = $true
+            }
+
+            function Format-PickerCell
+            {
+                param(
+                    [Parameter()]
+                    [String]$Text,
+
+                    [Parameter(Mandatory)]
+                    [Int32]$Width
+                )
+
+                $value = if ($null -eq $Text) { '' } else { $Text }
+                if ($value.Length -gt $Width)
+                {
+                    return $value.Substring(0, [Math]::Max(1, $Width - 1)) + '~'
+                }
+
+                return $value.PadRight($Width)
+            }
+
+            function Test-PackagePickerCancelKey
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [ConsoleKeyInfo]$KeyInfo
+                )
+
+                $isControlC = $KeyInfo.Key -eq [ConsoleKey]::C -and (($KeyInfo.Modifiers -band [ConsoleModifiers]::Control) -eq [ConsoleModifiers]::Control)
+                $isControlC = $isControlC -or ([Int32][Char]$KeyInfo.KeyChar -eq 3)
+
+                return $KeyInfo.Key -in @([ConsoleKey]::Escape, [ConsoleKey]::Q) -or $isControlC
+            }
+
+            function Get-PackagePickerPageSize
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [Int32]$RequestedPageSize,
+
+                    [Parameter(Mandatory)]
+                    [Int32]$ItemCount
+                )
+
+                if ($RequestedPageSize -gt 0)
+                {
+                    return [Math]::Min($RequestedPageSize, [Math]::Max(1, $ItemCount))
+                }
+
+                $fallbackPageSize = [Math]::Min(15, [Math]::Max(1, $ItemCount))
+
+                try
+                {
+                    $windowHeight = 0
+
+                    if ($Host -and $Host.UI -and $Host.UI.RawUI)
+                    {
+                        $windowHeight = [Int32]$Host.UI.RawUI.WindowSize.Height
+                    }
+
+                    if ($windowHeight -le 0 -and -not [Console]::IsOutputRedirected)
+                    {
+                        $windowHeight = [Console]::WindowHeight
+                    }
+
+                    if ($windowHeight -gt 0)
+                    {
+                        $reservedRows = 11
+                        return [Math]::Min([Math]::Max(1, $windowHeight - $reservedRows), [Math]::Max(1, $ItemCount))
+                    }
+                }
+                catch
+                {
+                    Write-Verbose "Unable to determine console height for package search browser: $($_.Exception.Message)"
+                }
+
+                return $fallbackPageSize
+            }
+
+            function Get-SelectedPackages
+            {
+                $selectedPackages = @()
+                for ($selectionIndex = 0; $selectionIndex -lt $AvailablePackages.Count; $selectionIndex++)
+                {
+                    if ($selected[$selectionIndex])
+                    {
+                        $selectedPackages += $AvailablePackages[$selectionIndex]
+                    }
+                }
+
+                return @($selectedPackages)
+            }
+
+            $nameWidth = [Math]::Min(36, [Math]::Max(4, (($AvailablePackages | ForEach-Object { $_.Name.Length } | Measure-Object -Maximum).Maximum)))
+            $versionWidth = [Math]::Min(20, [Math]::Max(7, (($AvailablePackages | ForEach-Object { $_.Version.Length } | Measure-Object -Maximum).Maximum)))
+            $typeWidth = [Math]::Min(12, [Math]::Max(4, (($AvailablePackages | ForEach-Object { $_.Type.Length } | Measure-Object -Maximum).Maximum)))
+            $sourceWidth = [Math]::Min(18, [Math]::Max(6, (($AvailablePackages | ForEach-Object { $_.Source.Length } | Measure-Object -Maximum).Maximum)))
+            $pageSize = Get-PackagePickerPageSize -RequestedPageSize $PageSize -ItemCount $AvailablePackages.Count
+
+            $selected = New-Object 'System.Boolean[]' $AvailablePackages.Count
+            $cursor = 0
+            $topIndex = 0
+            $restoreTreatControlCAsInput = $false
+            $previousTreatControlCAsInput = $false
+
+            try
+            {
+                if ($usingConsoleKeyReader)
+                {
+                    $previousTreatControlCAsInput = [Console]::TreatControlCAsInput
+                    [Console]::TreatControlCAsInput = $true
+                    $restoreTreatControlCAsInput = $true
+                }
+
+                while ($true)
+                {
+                    if ($cursor -lt $topIndex)
+                    {
+                        $topIndex = $cursor
+                    }
+                    elseif ($cursor -ge ($topIndex + $pageSize))
+                    {
+                        $topIndex = $cursor - $pageSize + 1
+                    }
+
+                    if ($topIndex -lt 0)
+                    {
+                        $topIndex = 0
+                    }
+
+                    $maxTopIndex = [Math]::Max(0, $AvailablePackages.Count - $pageSize)
+                    if ($topIndex -gt $maxTopIndex)
+                    {
+                        $topIndex = $maxTopIndex
+                    }
+
+                    $bottomIndex = [Math]::Min($AvailablePackages.Count - 1, $topIndex + $pageSize - 1)
+                    $currentPackage = $AvailablePackages[$cursor]
+                    $currentDescription = if ([String]::IsNullOrWhiteSpace($currentPackage.Description)) { 'n/a' } else { $currentPackage.Description }
+                    $installedStatus = if ($currentPackage.Installed) { 'yes' } else { 'no' }
+
+                    Clear-Host
+                    Write-Host "Find-SystemPackage - $($AvailablePackages[0].PackageManagerDisplayName)"
+                    Write-Host ("Search: {0}" -f $QueryText)
+                    if ($EnableSelection -and $EnableReturnSelection)
+                    {
+                        Write-Host 'Spacebar: select  Enter: return selected  I: install current/selected  S: new search  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit'
+                    }
+                    elseif ($EnableSelection)
+                    {
+                        Write-Host 'Spacebar: select  I: install current/selected  S: new search  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit'
+                    }
+                    else
+                    {
+                        Write-Host 'I: install current  S: new search  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit'
+                    }
+                    Write-Host ''
+
+                    if ($EnableSelection)
+                    {
+                        Write-Host ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth), 'Inst')
+                        Write-Host ('  {0} {1} {2} {3} {4} {5}' -f '---', ('-' * $nameWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth), '----')
+                    }
+                    else
+                    {
+                        Write-Host ('  {0} {1} {2} {3} {4}' -f (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth), 'Inst')
+                        Write-Host ('  {0} {1} {2} {3} {4}' -f ('-' * $nameWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth), '----')
+                    }
+
+                    for ($i = $topIndex; $i -le $bottomIndex; $i++)
+                    {
+                        $package = $AvailablePackages[$i]
+                        $cursorMarker = if ($i -eq $cursor) { '>' } else { ' ' }
+                        $installedCell = if ($package.Installed) { 'yes ' } else { 'no  ' }
+
+                        if ($EnableSelection)
+                        {
+                            $selectedMarker = if ($selected[$i]) { '[x]' } else { '[ ]' }
+                            Write-Host ('{0} {1} {2} {3} {4} {5} {6}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Version -Width $versionWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth), $installedCell)
+                        }
+                        else
+                        {
+                            Write-Host ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Version -Width $versionWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth), $installedCell)
+                        }
+                    }
+
+                    Write-Host ''
+                    Write-Host ("Current: {0} | Id: {1} | Installed: {2}" -f $currentPackage.Name, $currentPackage.Id, $installedStatus)
+                    Write-Host ("Description: {0}" -f $currentDescription)
+                    if ($EnableSelection)
+                    {
+                        Write-Host "$(@($selected | Where-Object { $_ }).Count) of $($AvailablePackages.Count) package(s) selected."
+                    }
+
+                    $key = & $KeyReader
+                    if (Test-PackagePickerCancelKey -KeyInfo $key)
+                    {
+                        Clear-Host
+                        return [PSCustomObject]@{
+                            Action = 'Cancel'
+                            SelectedPackages = @()
+                        }
+                    }
+
+                    switch ($key.Key)
+                    {
+                        'UpArrow'
+                        {
+                            if ($cursor -gt 0)
+                            {
+                                $cursor--
+                            }
+                        }
+                        'DownArrow'
+                        {
+                            if ($cursor -lt ($AvailablePackages.Count - 1))
+                            {
+                                $cursor++
+                            }
+                        }
+                        'PageUp'
+                        {
+                            $cursor = [Math]::Max(0, $cursor - $pageSize)
+                        }
+                        'PageDown'
+                        {
+                            $cursor = [Math]::Min($AvailablePackages.Count - 1, $cursor + $pageSize)
+                        }
+                        'Home'
+                        {
+                            $cursor = 0
+                        }
+                        'End'
+                        {
+                            $cursor = $AvailablePackages.Count - 1
+                        }
+                        'S'
+                        {
+                            Clear-Host
+                            return [PSCustomObject]@{
+                                Action = 'SearchAgain'
+                                SelectedPackages = @()
+                            }
+                        }
+                        'Oem2'
+                        {
+                            if ($key.KeyChar -eq '/')
+                            {
+                                Clear-Host
+                                return [PSCustomObject]@{
+                                    Action = 'SearchAgain'
+                                    SelectedPackages = @()
+                                }
+                            }
+                        }
+                        'Spacebar'
+                        {
+                            if ($EnableSelection)
+                            {
+                                $selected[$cursor] = -not $selected[$cursor]
+                            }
+                        }
+                        'A'
+                        {
+                            if ($EnableSelection)
+                            {
+                                $selectAll = @($selected | Where-Object { -not $_ }).Count -gt 0
+                                for ($i = 0; $i -lt $selected.Count; $i++)
+                                {
+                                    $selected[$i] = $selectAll
+                                }
+                            }
+                        }
+                        'Enter'
+                        {
+                            if (-not $EnableReturnSelection)
+                            {
+                                break
+                            }
+
+                            Clear-Host
+                            return [PSCustomObject]@{
+                                Action = 'Return'
+                                SelectedPackages = @(Get-SelectedPackages)
+                            }
+                        }
+                        'I'
+                        {
+                            Clear-Host
+                            $selectedPackages = @()
+
+                            if ($EnableSelection)
+                            {
+                                $selectedPackages = @(Get-SelectedPackages)
+                            }
+
+                            if ($selectedPackages.Count -eq 0)
+                            {
+                                $selectedPackages = @($AvailablePackages[$cursor])
+                            }
+
+                            return [PSCustomObject]@{
+                                Action = 'Install'
+                                SelectedPackages = @($selectedPackages)
+                            }
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                if ($restoreTreatControlCAsInput)
+                {
+                    [Console]::TreatControlCAsInput = $previousTreatControlCAsInput
+                }
+            }
+        }
     }
 
     process
     {
+        $manager = Resolve-PackageManager
+        Write-Verbose "Using package manager: $($manager.DisplayName) ($($manager.Command))"
+
+        $useInteractive = $Interactive.IsPresent -or $PassThru.IsPresent -or [String]::IsNullOrWhiteSpace($Query)
+        if ($useInteractive)
+        {
+            $queryText = ConvertTo-PackageText -Value $Query
+            while ($true)
+            {
+                if ([String]::IsNullOrWhiteSpace($queryText))
+                {
+                    $queryText = Get-InteractiveSearchQuery -CurrentQuery $queryText
+                }
+
+                if ([String]::IsNullOrWhiteSpace($queryText))
+                {
+                    return @()
+                }
+
+                $packages = @(Find-RegistryPackages -Manager $manager -QueryText $queryText)
+
+                if ($ExcludePackage -and $ExcludePackage.Count -gt 0)
+                {
+                    $packages = @($packages | Where-Object { -not (Test-PackagePatternMatch -Package $_ -Pattern $ExcludePackage) })
+                }
+
+                $packages = @($packages | Sort-Object -Property Name, Id)
+
+                if ($Top -gt 0)
+                {
+                    $packages = @($packages | Select-Object -First $Top)
+                }
+
+                if ($packages.Count -eq 0)
+                {
+                    Write-Host ("No remote packages matched '{0}'." -f $queryText)
+                    $queryText = Get-InteractiveSearchQuery -CurrentQuery $queryText
+                    continue
+                }
+
+                $browserResult = Show-AvailablePackageResults -AvailablePackages $packages -QueryText $queryText -KeyReader $KeyReader -PageSize $PickerPageSize -EnableSelection -EnableReturnSelection:$PassThru.IsPresent
+                if ($browserResult.Action -eq 'Return')
+                {
+                    return @($browserResult.SelectedPackages)
+                }
+
+                if ($browserResult.Action -eq 'Install')
+                {
+                    return @(Invoke-SelectedPackageInstallation -Manager $manager -SelectedPackages $browserResult.SelectedPackages)
+                }
+
+                if ($browserResult.Action -eq 'SearchAgain')
+                {
+                    $queryText = Get-InteractiveSearchQuery -CurrentQuery $queryText
+                    continue
+                }
+
+                return @()
+            }
+        }
+
         $queryText = $Query.Trim()
         if ([String]::IsNullOrWhiteSpace($queryText))
         {
             throw 'Query cannot be empty.'
         }
-
-        $manager = Resolve-PackageManager
-        Write-Verbose "Using package manager: $($manager.DisplayName) ($($manager.Command))"
 
         $packages = @(Find-RegistryPackages -Manager $manager -QueryText $queryText)
 
