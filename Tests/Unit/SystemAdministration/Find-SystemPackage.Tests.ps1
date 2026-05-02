@@ -113,6 +113,32 @@ Describe 'Find-SystemPackage' {
             ($result | Where-Object { $_.Name -eq 'git' }).Type | Should -Be 'Formula'
             ($result | Where-Object { $_.Name -eq 'git-credential-manager' }).Type | Should -Be 'Cask'
         }
+
+        It 'keeps formula results when cask search reports no Homebrew matches' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew search --formulae 7zip' = Get-TestCommandResponse -Output @('7zip')
+                'brew search --casks 7zip' = Get-TestCommandResponse -ExitCode 1 -Output @('Error: No formulae or casks found for "7zip".')
+            }
+
+            $result = @(Find-SystemPackage -PackageManager brew -Query 7zip -CommandRunner $runner -Top 0)
+
+            $result.Count | Should -Be 1
+            $result[0].Name | Should -Be '7zip'
+            $result[0].Type | Should -Be 'Formula'
+        }
+
+        It 'keeps cask results when formula search reports no Homebrew matches' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew search --formulae code' = Get-TestCommandResponse -ExitCode 1 -Output @('Error: No formulae found for "code".')
+                'brew search --casks code' = Get-TestCommandResponse -Output @('visual-studio-code')
+            }
+
+            $result = @(Find-SystemPackage -PackageManager brew -Query code -CommandRunner $runner -Top 0)
+
+            $result.Count | Should -Be 1
+            $result[0].Name | Should -Be 'visual-studio-code'
+            $result[0].Type | Should -Be 'Cask'
+        }
     }
 
     Context 'APT search' {

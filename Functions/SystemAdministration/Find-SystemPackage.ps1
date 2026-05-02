@@ -809,6 +809,17 @@ function Find-SystemPackage
             return $packages
         }
 
+        function Test-BrewSearchNoResults
+        {
+            param(
+                [Parameter()]
+                [Object[]]$Output = @()
+            )
+
+            $message = (@($Output | Where-Object { -not [String]::IsNullOrWhiteSpace("$($_)") }) -join ' ')
+            return $message -match '(?i)\bNo (?:formulae? or casks?|formulae?|casks?) found for\b'
+        }
+
         function Find-BrewPackages
         {
             param(
@@ -825,19 +836,29 @@ function Find-SystemPackage
             if ($formulaResult.ExitCode -ne 0)
             {
                 $message = ($formulaResult.Output | Where-Object { -not [String]::IsNullOrWhiteSpace("$($_)") }) -join ' '
-                throw "Failed to search Homebrew formulae: $message"
+                if (-not (Test-BrewSearchNoResults -Output $formulaResult.Output))
+                {
+                    throw "Failed to search Homebrew formulae: $message"
+                }
             }
-
-            $packages += ConvertFrom-BrewSearchOutput -Manager $Manager -Type 'Formula' -Output $formulaResult.Output
+            else
+            {
+                $packages += ConvertFrom-BrewSearchOutput -Manager $Manager -Type 'Formula' -Output $formulaResult.Output
+            }
 
             $caskResult = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments @('search', '--casks', $QueryText)
             if ($caskResult.ExitCode -ne 0)
             {
                 $message = ($caskResult.Output | Where-Object { -not [String]::IsNullOrWhiteSpace("$($_)") }) -join ' '
-                throw "Failed to search Homebrew casks: $message"
+                if (-not (Test-BrewSearchNoResults -Output $caskResult.Output))
+                {
+                    throw "Failed to search Homebrew casks: $message"
+                }
             }
-
-            $packages += ConvertFrom-BrewSearchOutput -Manager $Manager -Type 'Cask' -Output $caskResult.Output
+            else
+            {
+                $packages += ConvertFrom-BrewSearchOutput -Manager $Manager -Type 'Cask' -Output $caskResult.Output
+            }
 
             return $packages
         }
