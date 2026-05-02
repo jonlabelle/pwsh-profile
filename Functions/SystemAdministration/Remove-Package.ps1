@@ -154,6 +154,53 @@ function Remove-Package
 
     begin
     {
+        function Get-DependencyPathIfNeeded
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$FunctionName,
+
+                [Parameter(Mandatory)]
+                [String]$RelativePath
+            )
+
+            if (-not (Get-Command -Name $FunctionName -ErrorAction SilentlyContinue))
+            {
+                Write-Verbose "$FunctionName is required - attempting to load it"
+
+                $dependencyPath = Join-Path -Path $PSScriptRoot -ChildPath $RelativePath
+                $dependencyPath = [System.IO.Path]::GetFullPath($dependencyPath)
+
+                if (Test-Path -Path $dependencyPath -PathType Leaf)
+                {
+                    return $dependencyPath
+                }
+                else
+                {
+                    throw "Required function '$FunctionName' could not be found. Expected location: $dependencyPath"
+                }
+            }
+            else
+            {
+                Write-Verbose "$FunctionName is already loaded"
+                return $null
+            }
+        }
+
+        $getInstalledPackageDependencyPath = Get-DependencyPathIfNeeded -FunctionName 'Get-InstalledPackage' -RelativePath 'Get-InstalledPackage.ps1'
+        if (-not [String]::IsNullOrWhiteSpace($getInstalledPackageDependencyPath))
+        {
+            try
+            {
+                . $getInstalledPackageDependencyPath
+                Write-Verbose "Loaded Get-InstalledPackage from: $getInstalledPackageDependencyPath"
+            }
+            catch
+            {
+                throw "Failed to load required dependency 'Get-InstalledPackage' from '$getInstalledPackageDependencyPath': $($_.Exception.Message)"
+            }
+        }
+
         function ConvertTo-PackageText
         {
             param(
@@ -1449,19 +1496,15 @@ function Remove-Package
         Write-Verbose "Using package manager: $($manager.DisplayName) ($($manager.Command))"
 
         Write-Host "Checking installed packages with $($manager.DisplayName)..."
-        $installedPackages = @(Get-InstalledPackages -Manager $manager)
+        $installedPackages = @(
+            Get-InstalledPackage -PackageManager $manager.Name -Name $IncludePackage -ExcludePackage $ExcludePackage -CommandRunner $CommandRunner
+        )
 
-        if ($IncludePackage -and $IncludePackage.Count -gt 0)
+        foreach ($installedPackage in $installedPackages)
         {
-            $installedPackages = @($installedPackages | Where-Object { Test-PackagePatternMatch -Package $_ -Pattern $IncludePackage })
+            $removeArguments = Get-PackageRemoveArguments -Manager $manager -Name $installedPackage.Name -Id $installedPackage.Id -Type $installedPackage.Type -UsePurge:$Purge.IsPresent
+            $installedPackage | Add-Member -NotePropertyName 'RemoveArguments' -NotePropertyValue @($removeArguments) -Force
         }
-
-        if ($ExcludePackage -and $ExcludePackage.Count -gt 0)
-        {
-            $installedPackages = @($installedPackages | Where-Object { -not (Test-PackagePatternMatch -Package $_ -Pattern $ExcludePackage) })
-        }
-
-        $installedPackages = @($installedPackages | Sort-Object -Property Name, Id)
 
         if ($AsObject)
         {
