@@ -1190,6 +1190,40 @@ function Upgrade-SystemPackage
                 return $fallbackPageSize
             }
 
+            function Get-PickerConsoleBufferWidth
+            {
+                $bufferWidth = 0
+
+                try
+                {
+                    if (-not [Console]::IsOutputRedirected)
+                    {
+                        $bufferWidth = [Int32][Console]::BufferWidth
+                    }
+                }
+                catch
+                {
+                    $bufferWidth = 0
+                }
+
+                if ($bufferWidth -le 0)
+                {
+                    try
+                    {
+                        if ($Host -and $Host.UI -and $Host.UI.RawUI)
+                        {
+                            $bufferWidth = [Int32]$Host.UI.RawUI.BufferSize.Width
+                        }
+                    }
+                    catch
+                    {
+                        $bufferWidth = 0
+                    }
+                }
+
+                return [Math]::Max(0, $bufferWidth)
+            }
+
             $nameWidth = [Math]::Min(36, [Math]::Max(4, (($PackageUpdates | ForEach-Object { $_.Name.Length } | Measure-Object -Maximum).Maximum)))
             $installedWidth = [Math]::Min(20, [Math]::Max(9, (($PackageUpdates | ForEach-Object { $_.InstalledVersion.Length } | Measure-Object -Maximum).Maximum)))
             $latestWidth = [Math]::Min(20, [Math]::Max(6, (($PackageUpdates | ForEach-Object { $_.LatestVersion.Length } | Measure-Object -Maximum).Maximum)))
@@ -1203,6 +1237,108 @@ function Upgrade-SystemPackage
             $topIndex = 0
             $restoreTreatControlCAsInput = $false
             $previousTreatControlCAsInput = $false
+            $pickerRenderState = @{
+                UseInPlaceRedraw = $false
+                ConsoleBufferWidth = 0
+                RenderedLineCount = 0
+            }
+
+            function Write-PickerFrame
+            {
+                param(
+                    [Parameter()]
+                    [String[]]$Lines = @()
+                )
+
+                if (-not $pickerRenderState.UseInPlaceRedraw)
+                {
+                    Clear-Host
+                    foreach ($line in $Lines)
+                    {
+                        Write-Host $line
+                    }
+
+                    return
+                }
+
+                $frameWidth = [Math]::Max(1, [Int32]$pickerRenderState.ConsoleBufferWidth)
+                $blankLine = ''.PadRight($frameWidth)
+                $frameLines = @(
+                    foreach ($line in $Lines)
+                    {
+                        $text = if ($null -eq $line) { '' } else { "$line" }
+                        if ($text.Length -ge $frameWidth)
+                        {
+                            if ($frameWidth -eq 1)
+                            {
+                                $text.Substring(0, 1)
+                            }
+                            else
+                            {
+                                $text.Substring(0, $frameWidth - 1) + '~'
+                            }
+                        }
+                        else
+                        {
+                            $text.PadRight($frameWidth)
+                        }
+                    }
+                )
+
+                while ($frameLines.Count -lt $pickerRenderState.RenderedLineCount)
+                {
+                    $frameLines += $blankLine
+                }
+
+                try
+                {
+                    [Console]::SetCursorPosition(0, 0)
+                    [Console]::Write(($frameLines -join "`r`n"))
+                    $pickerRenderState.RenderedLineCount = $frameLines.Count
+                }
+                catch
+                {
+                    $pickerRenderState.UseInPlaceRedraw = $false
+                    Clear-Host
+                    foreach ($fallbackLine in $Lines)
+                    {
+                        Write-Host $fallbackLine
+                    }
+                }
+            }
+
+            function Clear-PickerFrame
+            {
+                if (-not $pickerRenderState.UseInPlaceRedraw)
+                {
+                    Clear-Host
+                    return
+                }
+
+                try
+                {
+                    if ($pickerRenderState.RenderedLineCount -gt 0)
+                    {
+                        $frameWidth = [Math]::Max(1, [Int32]$pickerRenderState.ConsoleBufferWidth)
+                        $blankLine = ''.PadRight($frameWidth)
+                        $clearLines = for ($lineIndex = 0; $lineIndex -lt $pickerRenderState.RenderedLineCount; $lineIndex++)
+                        {
+                            $blankLine
+                        }
+
+                        [Console]::SetCursorPosition(0, 0)
+                        [Console]::Write(($clearLines -join "`r`n"))
+                        [Console]::SetCursorPosition(0, 0)
+                    }
+
+                    $pickerRenderState.RenderedLineCount = 0
+                }
+                catch
+                {
+                    $pickerRenderState.UseInPlaceRedraw = $false
+                    Clear-Host
+                }
+            }
 
             try
             {
@@ -1211,6 +1347,20 @@ function Upgrade-SystemPackage
                     $previousTreatControlCAsInput = [Console]::TreatControlCAsInput
                     [Console]::TreatControlCAsInput = $true
                     $restoreTreatControlCAsInput = $true
+
+                    $pickerRenderState.ConsoleBufferWidth = Get-PickerConsoleBufferWidth
+                    if ($pickerRenderState.ConsoleBufferWidth -gt 0)
+                    {
+                        try
+                        {
+                            Clear-Host
+                            $pickerRenderState.UseInPlaceRedraw = $true
+                        }
+                        catch
+                        {
+                            $pickerRenderState.UseInPlaceRedraw = $false
+                        }
+                    }
                 }
 
                 while ($true)
@@ -1237,22 +1387,23 @@ function Upgrade-SystemPackage
 
                     $bottomIndex = [Math]::Min($PackageUpdates.Count - 1, $topIndex + $pageSize - 1)
 
-                    Clear-Host
-                    Write-Host "Upgrade-SystemPackage - $($PackageUpdates[0].PackageManagerDisplayName)"
                     $pickerHintPrefix = 'Spacebar: select'
                     $pickerHintActions = 'Enter: upgrade selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
                     $pickerHint = if ($showUninstallPrevious) { "$pickerHintPrefix  U: uninstall previous  $pickerHintActions" } else { "$pickerHintPrefix  $pickerHintActions" }
-                    Write-Host $pickerHint
-                    Write-Host ''
+                    $frameLines = @(
+                        "Upgrade-SystemPackage - $($PackageUpdates[0].PackageManagerDisplayName)"
+                        $pickerHint
+                        ''
+                    )
                     if ($showUninstallPrevious)
                     {
-                        Write-Host ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', 'Unp', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth))
-                        Write-Host ('  {0} {1} {2} {3} {4} {5}' -f '---', '---', ('-' * $nameWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth))
+                        $frameLines += ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', 'Unp', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth))
+                        $frameLines += ('  {0} {1} {2} {3} {4} {5}' -f '---', '---', ('-' * $nameWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth))
                     }
                     else
                     {
-                        Write-Host ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth))
-                        Write-Host ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth))
+                        $frameLines += ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth))
+                        $frameLines += ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth))
                     }
 
                     for ($i = $topIndex; $i -le $bottomIndex; $i++)
@@ -1263,21 +1414,23 @@ function Upgrade-SystemPackage
                         if ($showUninstallPrevious)
                         {
                             $uninstallMarker = if ($uninstallPreviousFlags[$i]) { '[u]' } else { '[ ]' }
-                            Write-Host ('{0} {1} {2} {3} {4} {5} {6}' -f $cursorMarker, $selectedMarker, $uninstallMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
+                            $frameLines += ('{0} {1} {2} {3} {4} {5} {6}' -f $cursorMarker, $selectedMarker, $uninstallMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
                         }
                         else
                         {
-                            Write-Host ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
+                            $frameLines += ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
                         }
                     }
 
-                    Write-Host ''
-                    Write-Host "$(@($selected | Where-Object { $_ }).Count) of $($PackageUpdates.Count) package(s) selected."
+                    $frameLines += ''
+                    $frameLines += "$(@($selected | Where-Object { $_ }).Count) of $($PackageUpdates.Count) package(s) selected."
+
+                    Write-PickerFrame -Lines $frameLines
 
                     $key = & $KeyReader
                     if (Test-PackagePickerCancelKey -KeyInfo $key)
                     {
-                        Clear-Host
+                        Clear-PickerFrame
                         return @()
                     }
 
@@ -1345,7 +1498,7 @@ function Upgrade-SystemPackage
                                 }
                             }
 
-                            Clear-Host
+                            Clear-PickerFrame
                             return $selectedPackages
                         }
                     }
