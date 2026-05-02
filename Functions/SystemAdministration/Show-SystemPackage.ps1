@@ -519,7 +519,7 @@ function Show-SystemPackage
                     $currentSource = if ([String]::IsNullOrWhiteSpace($currentPackage.Source)) { 'n/a' } else { $currentPackage.Source }
 
                     $frameLines += ''
-                    $frameLines += ("Current: {0} | Id: {1} | Version: {2} | Source: {3}" -f $currentPackage.Name, $currentPackage.Id, $currentVersion, $currentSource)
+                    $frameLines += ('Current: {0} | Id: {1} | Version: {2} | Source: {3}' -f $currentPackage.Name, $currentPackage.Id, $currentVersion, $currentSource)
                     if ($EnableSelection)
                     {
                         $frameLines += "$(@($selected | Where-Object { $_ }).Count) of $($InstalledPackages.Count) package(s) selected."

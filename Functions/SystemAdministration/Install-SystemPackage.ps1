@@ -1048,8 +1048,8 @@ function Install-SystemPackage
                     }
 
                     $frameLines += ''
-                    $frameLines += ("Current: {0} | Id: {1} | Installed: {2}" -f $currentPackage.Name, $currentPackage.Id, ($(if ($currentPackage.Installed) { 'yes' } else { 'no' })))
-                    $frameLines += ("Description: {0}" -f $currentDescription)
+                    $frameLines += ('Current: {0} | Id: {1} | Installed: {2}' -f $currentPackage.Name, $currentPackage.Id, ($(if ($currentPackage.Installed) { 'yes' } else { 'no' })))
+                    $frameLines += ('Description: {0}' -f $currentDescription)
                     $frameLines += "$(@($selected | Where-Object { $_ }).Count) of $($AvailablePackages.Count) package(s) selected."
 
                     Write-PickerFrame -Lines $frameLines

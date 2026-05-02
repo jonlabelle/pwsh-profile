@@ -44,11 +44,11 @@ BeforeAll {
 
             $key = "$Command $($Arguments -join ' ')".Trim()
             $localInvocations.Add([PSCustomObject]@{
-                Command = $Command
-                Arguments = @($Arguments)
-                Key = $key
-                StreamOutput = $StreamOutput.IsPresent
-            })
+                    Command = $Command
+                    Arguments = @($Arguments)
+                    Key = $key
+                    StreamOutput = $StreamOutput.IsPresent
+                })
 
             if ($localResponses.ContainsKey($key))
             {

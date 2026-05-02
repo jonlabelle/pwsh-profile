@@ -1378,7 +1378,7 @@ function Find-SystemPackage
 
                     $frameLines = @(
                         "Find-SystemPackage - $($AvailablePackages[0].PackageManagerDisplayName)"
-                        ("Search: {0}" -f $QueryText)
+                        ('Search: {0}' -f $QueryText)
                     )
                     if ($EnableSelection -and $EnableReturnSelection)
                     {
@@ -1423,8 +1423,8 @@ function Find-SystemPackage
                     }
 
                     $frameLines += ''
-                    $frameLines += ("Current: {0} | Id: {1} | Installed: {2}" -f $currentPackage.Name, $currentPackage.Id, $installedStatus)
-                    $frameLines += ("Description: {0}" -f $currentDescription)
+                    $frameLines += ('Current: {0} | Id: {1} | Installed: {2}' -f $currentPackage.Name, $currentPackage.Id, $installedStatus)
+                    $frameLines += ('Description: {0}' -f $currentDescription)
                     if ($EnableSelection)
                     {
                         $frameLines += "$(@($selected | Where-Object { $_ }).Count) of $($AvailablePackages.Count) package(s) selected."

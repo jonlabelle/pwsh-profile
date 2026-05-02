@@ -263,15 +263,15 @@ function Get-TlsSecurityProtocol
             )
 
             $result = [ordered]@{
-                CurrentProtocol        = $currentProtocol
+                CurrentProtocol = $currentProtocol
                 CurrentProtocolDisplay = $currentDisplay
-                EnabledProtocols       = [String[]]@(Get-EnabledProtocolNames -Value $currentProtocol)
-                AvailableProtocols     = [String[]]$availableProtocolNames
-                ConfigurationMode      = if ($isCurrentSystemDefault) { 'SystemDefault' } else { 'Explicit' }
-                SupportsSystemDefault  = [Boolean]$systemDefaultInfo
-                IsSystemDefault        = $isCurrentSystemDefault
+                EnabledProtocols = [String[]]@(Get-EnabledProtocolNames -Value $currentProtocol)
+                AvailableProtocols = [String[]]$availableProtocolNames
+                ConfigurationMode = if ($isCurrentSystemDefault) { 'SystemDefault' } else { 'Explicit' }
+                SupportsSystemDefault = [Boolean]$systemDefaultInfo
+                IsSystemDefault = $isCurrentSystemDefault
                 EffectiveProtocolKnown = -not $isCurrentSystemDefault
-                EffectiveProtocolNote  = if ($isCurrentSystemDefault)
+                EffectiveProtocolNote = if ($isCurrentSystemDefault)
                 {
                     'SystemDefault is OS-managed. The actual TLS version is negotiated per connection and cannot be read from ServicePointManager.'
                 }

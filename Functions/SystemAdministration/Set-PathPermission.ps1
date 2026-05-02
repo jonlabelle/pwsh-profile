@@ -519,7 +519,7 @@ function Set-PathPermission
             if ($UseLiteralPath)
             {
                 return [PSCustomObject]@{
-                    Paths       = @($InputPath)
+                    Paths = @($InputPath)
                     ErrorRecord = $null
                 }
             }
@@ -528,7 +528,7 @@ function Set-PathPermission
             if ($resolvedPaths.Count -gt 0)
             {
                 return [PSCustomObject]@{
-                    Paths       = $resolvedPaths
+                    Paths = $resolvedPaths
                     ErrorRecord = $null
                 }
             }
@@ -542,7 +542,7 @@ function Set-PathPermission
                 $InputPath
             )
             return [PSCustomObject]@{
-                Paths       = @()
+                Paths = @()
                 ErrorRecord = $errorRecord
             }
         }

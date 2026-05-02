@@ -1111,7 +1111,7 @@ function Get-SystemInfo
                                 }
 
                                 # Get thread count using ps -M (macOS-specific)
-                                $threadCountOutput = ps -M -A 2>$null | wc -l 2>$null
+                                $threadCountOutput = Get-Process -M -A 2>$null | wc -l 2>$null
                                 if ($threadCountOutput)
                                 {
                                     $threadCount = [int]$threadCountOutput.Trim()
@@ -1938,7 +1938,7 @@ function Get-SystemInfo
 
                                 # Get thread count using ps with nlwp (number of light-weight processes/threads)
                                 # This is more efficient than parsing /proc filesystem
-                                $threadCountOutput = ps -A -o pid, nlwp 2>$null | awk 'NR>1 {sum+=$2} END {print sum}' 2>$null
+                                $threadCountOutput = Get-Process -A -o pid, nlwp 2>$null | awk 'NR>1 {sum+=$2} END {print sum}' 2>$null
                                 if ($threadCountOutput)
                                 {
                                     $threadCount = [int]$threadCountOutput.Trim()

@@ -41,10 +41,10 @@ BeforeAll {
 
             $key = "$Command $($Arguments -join ' ')".Trim()
             $localInvocations.Add([PSCustomObject]@{
-                Command = $Command
-                Arguments = @($Arguments)
-                Key = $key
-            })
+                    Command = $Command
+                    Arguments = @($Arguments)
+                    Key = $key
+                })
 
             if ($localResponses.ContainsKey($key))
             {
