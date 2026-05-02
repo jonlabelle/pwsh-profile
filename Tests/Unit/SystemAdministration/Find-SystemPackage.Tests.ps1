@@ -90,7 +90,7 @@ Describe 'Find-SystemPackage' {
                 'winget search git --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetJson)
             }
 
-            $result = @(Find-SystemPackage -PackageManager winget -Query git -CommandRunner $runner)
+            $result = @(Find-SystemPackage -PackageManager winget -NonInteractive -Query git -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'Git'
@@ -107,7 +107,7 @@ Describe 'Find-SystemPackage' {
                 'brew search --casks git' = Get-TestCommandResponse -Output @('git-credential-manager')
             }
 
-            $result = @(Find-SystemPackage -PackageManager brew -Query git -CommandRunner $runner -Top 0)
+            $result = @(Find-SystemPackage -PackageManager brew -NonInteractive -Query git -CommandRunner $runner -Top 0)
 
             $result.Count | Should -Be 3
             ($result | Where-Object { $_.Name -eq 'git' }).Type | Should -Be 'Formula'
@@ -120,7 +120,7 @@ Describe 'Find-SystemPackage' {
                 'brew search --casks 7zip' = Get-TestCommandResponse -ExitCode 1 -Output @('Error: No formulae or casks found for "7zip".')
             }
 
-            $result = @(Find-SystemPackage -PackageManager brew -Query 7zip -CommandRunner $runner -Top 0)
+            $result = @(Find-SystemPackage -PackageManager brew -NonInteractive -Query 7zip -CommandRunner $runner -Top 0)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be '7zip'
@@ -133,7 +133,7 @@ Describe 'Find-SystemPackage' {
                 'brew search --casks code' = Get-TestCommandResponse -Output @('visual-studio-code')
             }
 
-            $result = @(Find-SystemPackage -PackageManager brew -Query code -CommandRunner $runner -Top 0)
+            $result = @(Find-SystemPackage -PackageManager brew -NonInteractive -Query code -CommandRunner $runner -Top 0)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'visual-studio-code'
@@ -152,7 +152,7 @@ Describe 'Find-SystemPackage' {
                 )
             }
 
-            $result = @(Find-SystemPackage -PackageManager apt -Query openssl -CommandRunner $runner)
+            $result = @(Find-SystemPackage -PackageManager apt -NonInteractive -Query openssl -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'openssl'
@@ -171,7 +171,7 @@ Describe 'Find-SystemPackage' {
                 )
             }
 
-            $result = @(Find-SystemPackage -PackageManager apk -Query bash -CommandRunner $runner -Top 0)
+            $result = @(Find-SystemPackage -PackageManager apk -NonInteractive -Query bash -CommandRunner $runner -Top 0)
 
             $result.Count | Should -Be 2
             ($result | Where-Object { $_.Name -eq 'bash' }).Installed | Should -BeTrue
@@ -186,7 +186,7 @@ Describe 'Find-SystemPackage' {
                 'brew search --casks git' = Get-TestCommandResponse -Output @('git-credential-manager')
             }
 
-            $result = @(Find-SystemPackage -PackageManager brew -Query git -ExcludePackage 'git-lfs' -Top 1 -CommandRunner $runner)
+            $result = @(Find-SystemPackage -PackageManager brew -NonInteractive -Query git -ExcludePackage 'git-lfs' -Top 1 -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
@@ -194,7 +194,7 @@ Describe 'Find-SystemPackage' {
     }
 
     Context 'interactive remote search UI' {
-        It 'prompts for a query and renders remote registry results in interactive mode' {
+        It 'prompts for a query and renders remote registry results by default' {
             $runner = & $script:NewPackageCommandRunner @{
                 'brew search --formulae git' = Get-TestCommandResponse -Output @('git', 'git-lfs')
                 'brew search --casks git' = Get-TestCommandResponse -Output @('git-credential-manager')
@@ -207,7 +207,7 @@ Describe 'Find-SystemPackage' {
                 [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
             }
 
-            $result = @(Find-SystemPackage -PackageManager brew -Interactive -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
+            $result = @(Find-SystemPackage -PackageManager brew -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: git' } -Times 1
@@ -237,7 +237,7 @@ Describe 'Find-SystemPackage' {
                 return $keys.Dequeue()
             }.GetNewClosure()
 
-            $result = @(Find-SystemPackage -PackageManager brew -Interactive -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
+            $result = @(Find-SystemPackage -PackageManager brew -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
             @($script:Invocations | Where-Object { $_.Key -eq 'brew search --formulae git' }).Count | Should -Be 1
@@ -291,7 +291,7 @@ Describe 'Find-SystemPackage' {
                 return $keys.Dequeue()
             }.GetNewClosure()
 
-            $result = Find-SystemPackage -PackageManager brew -Interactive -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader
+            $result = Find-SystemPackage -PackageManager brew -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader
 
             $result.Selected | Should -Be 1
             $result.Installed | Should -Be 1

@@ -64,13 +64,13 @@ Describe 'Show-SystemPackage' {
     }
 
     Context 'Object output' {
-        It 'returns installed packages as objects when AsObject is used' {
+        It 'returns installed packages as objects when NonInteractive is used' {
             $runner = & $script:NewPackageCommandRunner @{
                 'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0')
                 'brew list --cask --versions' = Get-TestCommandResponse -Output @('visual-studio-code 1.89.0')
             }
 
-            $result = @(Show-SystemPackage -PackageManager brew -AsObject -CommandRunner $runner)
+            $result = @(Show-SystemPackage -PackageManager brew -NonInteractive -CommandRunner $runner)
 
             $result.Count | Should -Be 2
             ($result | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should -Be '2.44.0'

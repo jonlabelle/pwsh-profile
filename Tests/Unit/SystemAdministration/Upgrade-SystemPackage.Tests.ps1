@@ -92,7 +92,7 @@ Describe 'Upgrade-SystemPackage' {
                 'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
             }
 
-            $result = @(Upgrade-SystemPackage -PackageManager brew -SkipRefresh -AsObject -CommandRunner $runner)
+            $result = @(Upgrade-SystemPackage -PackageManager brew -SkipRefresh -NonInteractive -CommandRunner $runner)
 
             $result.Count | Should -Be 2
 
@@ -248,7 +248,7 @@ Describe 'Upgrade-SystemPackage' {
                 )
             }
 
-            $result = @(Upgrade-SystemPackage -PackageManager apt -SkipRefresh -AsObject -CommandRunner $runner)
+            $result = @(Upgrade-SystemPackage -PackageManager apt -SkipRefresh -NonInteractive -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'openssl'
@@ -266,7 +266,7 @@ Describe 'Upgrade-SystemPackage' {
                 )
             }
 
-            $result = @(Upgrade-SystemPackage -PackageManager apk -SkipRefresh -AsObject -CommandRunner $runner)
+            $result = @(Upgrade-SystemPackage -PackageManager apk -SkipRefresh -NonInteractive -CommandRunner $runner)
 
             $result.Count | Should -Be 2
 
@@ -353,7 +353,7 @@ Describe 'Upgrade-SystemPackage' {
                 )
             }
 
-            $result = @(Upgrade-SystemPackage -PackageManager winget -SkipRefresh -AsObject -CommandRunner $runner)
+            $result = @(Upgrade-SystemPackage -PackageManager winget -SkipRefresh -NonInteractive -CommandRunner $runner)
 
             $result.Count | Should -Be 2
 
@@ -392,7 +392,7 @@ Describe 'Upgrade-SystemPackage' {
                 'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
             }
 
-            $result = @(Upgrade-SystemPackage -PackageManager brew -SkipRefresh -AsObject -IncludePackage 'git*' -ExcludePackage 'git-lfs' -CommandRunner $runner)
+            $result = @(Upgrade-SystemPackage -PackageManager brew -SkipRefresh -NonInteractive -IncludePackage 'git*' -ExcludePackage 'git-lfs' -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'

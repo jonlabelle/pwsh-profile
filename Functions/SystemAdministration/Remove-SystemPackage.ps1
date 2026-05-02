@@ -19,7 +19,7 @@ function Remove-SystemPackage
         - Alpine Linux: apk
 
         Removal command output is streamed directly to the console so the operation can
-        be followed while it runs. Use -AsObject to return the discovered installed
+        be followed while it runs. Use -NonInteractive to return the discovered installed
         package list without starting the interactive picker, or -All to remove every
         matching package without prompting.
 
@@ -43,8 +43,9 @@ function Remove-SystemPackage
         purge/zap behavior for the highlighted package. Pressing Enter removes the
         selected packages, using purge/zap only for packages where it was requested.
 
-    .PARAMETER AsObject
-        Returns the discovered installed package records without removing anything.
+    .PARAMETER NonInteractive
+        Returns the discovered installed package records without removing anything. The
+        previous -AsObject spelling is retained as an alias.
 
     .PARAMETER NoSudo
         On Linux package managers that normally require elevated privileges, do not
@@ -82,7 +83,7 @@ function Remove-SystemPackage
         brew uninstall --cask --zap instead.
 
     .EXAMPLE
-        PS > Remove-SystemPackage -AsObject | Format-Table
+        PS > Remove-SystemPackage -NonInteractive | Format-Table
 
         Lists installed packages for the detected package manager without removing anything.
 
@@ -93,9 +94,9 @@ function Remove-SystemPackage
 
     .OUTPUTS
         System.Management.Automation.PSCustomObject
-        Returns package records when -AsObject is used. Otherwise returns a removal summary
-        object with package manager, selection counts, NotSelected, selected-package
-        skip/failure counts, and per-package results.
+        Returns package records when -NonInteractive is used. Otherwise returns a removal
+        summary object with package manager, selection counts, NotSelected,
+        selected-package skip/failure counts, and per-package results.
 
     .NOTES
         - winget is used on Windows.
@@ -132,7 +133,8 @@ function Remove-SystemPackage
         [Switch]$Purge,
 
         [Parameter()]
-        [Switch]$AsObject,
+        [Alias('AsObject')]
+        [Switch]$NonInteractive,
 
         [Parameter()]
         [Switch]$NoSudo,
@@ -1183,7 +1185,7 @@ function Remove-SystemPackage
                 }
                 catch
                 {
-                    throw 'Interactive package selection requires an attached console. Use -All, -AsObject, or -IncludePackage with -All in non-interactive sessions.'
+                    throw 'Interactive package selection requires an attached console. Use -All, -NonInteractive, or -IncludePackage with -All in non-interactive sessions.'
                 }
 
                 $KeyReader = { [Console]::ReadKey($true) }
@@ -1506,7 +1508,7 @@ function Remove-SystemPackage
             $installedPackage | Add-Member -NotePropertyName 'RemoveArguments' -NotePropertyValue @($removeArguments) -Force
         }
 
-        if ($AsObject)
+        if ($NonInteractive)
         {
             return $installedPackages
         }

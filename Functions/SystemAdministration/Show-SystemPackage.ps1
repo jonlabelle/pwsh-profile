@@ -9,9 +9,9 @@ function Show-SystemPackage
         read-only interactive browser when a console is available. The browser supports
         paging and navigation across installed packages on winget, Homebrew, apt, and apk.
 
-        Use -AsObject to bypass the interactive browser and return package objects directly.
-        Use -PassThru to select one or more packages in the browser and return them when
-        Enter is pressed.
+        Use -NonInteractive to bypass the interactive browser and return package objects
+        directly. Use -PassThru to select one or more packages in the browser and return
+        them when Enter is pressed.
 
     .PARAMETER Name
         Optional package names or wildcard patterns to include. Matches package Name or Id.
@@ -19,8 +19,9 @@ function Show-SystemPackage
     .PARAMETER ExcludePackage
         Optional package names or wildcard patterns to exclude. Matches package Name or Id.
 
-    .PARAMETER AsObject
-        Returns installed package records without opening the interactive browser.
+    .PARAMETER NonInteractive
+        Returns installed package records without opening the interactive browser. The
+        previous -AsObject spelling is retained as an alias.
 
     .PARAMETER PassThru
         Allows packages to be selected in the interactive browser and returns the selected
@@ -42,12 +43,12 @@ function Show-SystemPackage
         Opens the browser excluding packages whose name or id matches *preview*.
 
     .EXAMPLE
-        PS > Show-SystemPackage -AsObject
+        PS > Show-SystemPackage -NonInteractive
 
         Returns installed packages as objects without opening the browser.
 
     .EXAMPLE
-        PS > Show-SystemPackage -AsObject | Format-Table Name, InstalledVersion, Source
+        PS > Show-SystemPackage -NonInteractive | Format-Table Name, InstalledVersion, Source
 
         Returns installed packages and formats them as a table.
 
@@ -100,7 +101,8 @@ function Show-SystemPackage
         [String[]]$ExcludePackage = @(),
 
         [Parameter()]
-        [Switch]$AsObject,
+        [Alias('AsObject')]
+        [Switch]$NonInteractive,
 
         [Parameter()]
         [Switch]$PassThru,
@@ -198,7 +200,7 @@ function Show-SystemPackage
                 }
                 catch
                 {
-                    throw 'Interactive package browsing requires an attached console. Use Get-SystemPackage or Show-SystemPackage -AsObject in non-interactive sessions.'
+                    throw 'Interactive package browsing requires an attached console. Use Get-SystemPackage or Show-SystemPackage -NonInteractive in non-interactive sessions.'
                 }
 
                 $KeyReader = { [Console]::ReadKey($true) }
@@ -468,7 +470,7 @@ function Show-SystemPackage
             Get-SystemPackage -PackageManager $PackageManager -Name $Name -ExcludePackage $ExcludePackage -CommandRunner $CommandRunner
         )
 
-        if ($AsObject)
+        if ($NonInteractive)
         {
             return $installedPackages
         }

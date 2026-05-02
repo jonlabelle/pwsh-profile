@@ -63,12 +63,12 @@ function Install-SystemPackage
         Installs a package by winget identifier.
 
     .EXAMPLE
-        PS > Find-SystemPackage -Query code | Install-SystemPackage
+        PS > Find-SystemPackage -NonInteractive -Query code | Install-SystemPackage
 
         Pipes search results into Install-SystemPackage and installs the piped records.
 
     .EXAMPLE
-        PS > Find-SystemPackage -Query code -Top 5 | Where-Object Type -eq 'Cask' | Install-SystemPackage
+        PS > Find-SystemPackage -NonInteractive -Query code -Top 5 | Where-Object Type -eq 'Cask' | Install-SystemPackage
 
         Filters search results before installing the selected pipeline records.
 
@@ -750,7 +750,7 @@ function Install-SystemPackage
                 }
                 catch
                 {
-                    throw 'Interactive package installation requires an attached console. Use Find-SystemPackage for object output or install explicit package names or ids in non-interactive sessions.'
+                    throw 'Interactive package installation requires an attached console. Use Find-SystemPackage -NonInteractive for object output or install explicit package names or ids in non-interactive sessions.'
                 }
 
                 $KeyReader = { [Console]::ReadKey($true) }
@@ -1071,7 +1071,7 @@ function Install-SystemPackage
             {
                 $manager = Resolve-PackageManager
                 $candidatePackages = @(
-                    Find-SystemPackage -Query $Query -ExcludePackage $ExcludePackage -Top $Top -PackageManager $manager.Name -CommandRunner $CommandRunner
+                    Find-SystemPackage -NonInteractive -Query $Query -ExcludePackage $ExcludePackage -Top $Top -PackageManager $manager.Name -CommandRunner $CommandRunner
                 )
                 $totalMatched = $candidatePackages.Count
 

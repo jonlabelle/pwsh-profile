@@ -74,7 +74,7 @@ Describe 'Remove-SystemPackage' {
                 'brew list --cask --versions' = Get-TestCommandResponse -Output @('visual-studio-code 1.89.0')
             }
 
-            $result = @(Remove-SystemPackage -PackageManager brew -AsObject -CommandRunner $runner)
+            $result = @(Remove-SystemPackage -PackageManager brew -NonInteractive -CommandRunner $runner)
 
             $result.Count | Should -Be 2
 
@@ -95,7 +95,7 @@ Describe 'Remove-SystemPackage' {
                 'brew list --cask --versions' = Get-TestCommandResponse -Output @('visual-studio-code 1.89.0')
             }
 
-            $result = @(Remove-SystemPackage -PackageManager brew -AsObject -Purge -CommandRunner $runner)
+            $result = @(Remove-SystemPackage -PackageManager brew -NonInteractive -Purge -CommandRunner $runner)
 
             (@($result[0].RemoveArguments) -join '|') | Should -Be 'uninstall|--cask|--zap|visual-studio-code'
         }
@@ -221,7 +221,7 @@ Describe 'Remove-SystemPackage' {
                 )
             }
 
-            $result = @(Remove-SystemPackage -PackageManager apt -AsObject -Purge -CommandRunner $runner)
+            $result = @(Remove-SystemPackage -PackageManager apt -NonInteractive -Purge -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'openssl'
@@ -239,7 +239,7 @@ Describe 'Remove-SystemPackage' {
                 )
             }
 
-            $result = @(Remove-SystemPackage -PackageManager apk -AsObject -Purge -CommandRunner $runner)
+            $result = @(Remove-SystemPackage -PackageManager apk -NonInteractive -Purge -CommandRunner $runner)
 
             $result.Count | Should -Be 2
 
@@ -333,7 +333,7 @@ Describe 'Remove-SystemPackage' {
                 )
             }
 
-            $result = @(Remove-SystemPackage -PackageManager winget -AsObject -CommandRunner $runner)
+            $result = @(Remove-SystemPackage -PackageManager winget -NonInteractive -CommandRunner $runner)
 
             $result.Count | Should -Be 2
 
@@ -355,7 +355,7 @@ Describe 'Remove-SystemPackage' {
                 'brew list --cask --versions' = Get-TestCommandResponse -Output @()
             }
 
-            $result = @(Remove-SystemPackage -PackageManager brew -AsObject -IncludePackage 'git*' -ExcludePackage 'git-lfs' -CommandRunner $runner)
+            $result = @(Remove-SystemPackage -PackageManager brew -NonInteractive -IncludePackage 'git*' -ExcludePackage 'git-lfs' -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'

@@ -9,21 +9,21 @@ function Find-SystemPackage
         normalized package records. Supported package managers are winget on Windows,
         Homebrew on macOS, and apt or apk on Linux.
 
-        Search results are returned as PowerShell objects so they can be filtered, formatted,
-        or piped into Install-SystemPackage. Use -Top to cap broad searches and
-        -ExcludePackage to remove unwanted matches from the normalized results.
+        By default, searches open an interactive remote-search UI with a prompt-based search
+        box and a neatly formatted results browser. From the browser, press I to install the
+        current package or the selected packages. Use -PassThru to return the selected records
+        instead of installing them.
 
-        Use -Interactive, or omit -Query, to open an interactive remote-search UI with a
-        prompt-based search box and a neatly formatted results browser. From the browser,
-        press I to install the current package or the selected packages. Use -PassThru to
-        return the selected records instead of installing them.
+        Use -NonInteractive to return search results as PowerShell objects so they can be
+        filtered, formatted, or piped into Install-SystemPackage. Use -Top to cap broad
+        searches and -ExcludePackage to remove unwanted matches from the normalized results.
 
     .PARAMETER Query
         Search text sent to the selected package manager.
 
-    .PARAMETER Interactive
-        Opens the interactive remote package search UI. If -Query is omitted, the UI prompts
-        for a query before searching the selected package registry.
+    .PARAMETER NonInteractive
+        Returns normalized package records without opening the interactive remote package
+        search UI. Query is required in non-interactive mode.
 
     .PARAMETER PassThru
         Allows packages to be selected in the interactive UI and returns the selected package
@@ -40,63 +40,59 @@ function Find-SystemPackage
     .EXAMPLE
         PS > Find-SystemPackage -Query git
 
-        Searches the detected native package registry for git.
+        Opens the interactive remote package search UI seeded with the git query. Press I
+        to install the current package or the selected packages.
 
     .EXAMPLE
-        PS > Find-SystemPackage -Query 'visual studio code'
+        PS > Find-SystemPackage -NonInteractive -Query 'visual studio code'
 
-        Searches for packages matching the provided query text.
+        Searches for packages matching the provided query text and returns objects.
 
     .EXAMPLE
-        PS > Find-SystemPackage -Query git -ExcludePackage 'git-lfs'
+        PS > Find-SystemPackage -NonInteractive -Query git -ExcludePackage 'git-lfs'
 
         Searches for git packages and excludes git-lfs from the returned results.
 
     .EXAMPLE
-        PS > Find-SystemPackage -Query git -Top 10
+        PS > Find-SystemPackage -NonInteractive -Query git -Top 10
 
         Returns at most 10 normalized results.
 
     .EXAMPLE
-        PS > Find-SystemPackage -Query docker | Format-Table Name, Version, Source
+        PS > Find-SystemPackage -NonInteractive -Query docker | Format-Table Name, Version, Source
 
         Searches for docker packages and formats the results.
 
     .EXAMPLE
         PS > Find-SystemPackage -Query git -PackageManager winget
 
-        Searches for packages using winget.
+        Opens the interactive search UI using winget.
 
     .EXAMPLE
         PS > Find-SystemPackage -Query git -PackageManager brew
 
-        Searches for packages using Homebrew.
+        Opens the interactive search UI using Homebrew.
 
     .EXAMPLE
         PS > Find-SystemPackage -Query openssl -PackageManager apt
 
-        Searches for packages using apt.
+        Opens the interactive search UI using apt.
 
     .EXAMPLE
         PS > Find-SystemPackage -Query bash -PackageManager apk
 
-        Searches for packages using apk.
+        Opens the interactive search UI using apk.
 
     .EXAMPLE
         PS > Find-SystemPackage -Query nodejs -Verbose
 
-        Searches for nodejs and writes the detected package manager to verbose output.
+        Opens the interactive search UI for nodejs and writes the detected package manager
+        to verbose output.
 
     .EXAMPLE
         PS > Find-SystemPackage
 
         Opens the interactive remote package search UI and prompts for a query.
-
-    .EXAMPLE
-        PS > Find-SystemPackage -Interactive -Query git
-
-        Opens the interactive remote package search UI seeded with the git query. Press I
-        to install the current package or the selected packages.
 
     .EXAMPLE
         PS > Find-SystemPackage -PassThru
@@ -123,7 +119,7 @@ function Find-SystemPackage
         [String]$Query,
 
         [Parameter()]
-        [Switch]$Interactive,
+        [Switch]$NonInteractive,
 
         [Parameter()]
         [Switch]$PassThru,
@@ -1004,7 +1000,7 @@ function Find-SystemPackage
             }
             catch
             {
-                throw 'Interactive package search requires an attached console. Provide -Query for object output in non-interactive sessions.'
+                throw 'Interactive package search requires an attached console. Use -NonInteractive with -Query for object output in non-interactive sessions.'
             }
 
             return ConvertTo-PackageText -Value (Read-Host -Prompt 'Search registry query (blank to exit)')
@@ -1084,7 +1080,7 @@ function Find-SystemPackage
                 }
                 catch
                 {
-                    throw 'Interactive package search requires an attached console. Provide -Query for object output in non-interactive sessions.'
+                    throw 'Interactive package search requires an attached console. Use -NonInteractive with -Query for object output in non-interactive sessions.'
                 }
 
                 $KeyReader = { [Console]::ReadKey($true) }
@@ -1413,7 +1409,12 @@ function Find-SystemPackage
         $manager = Resolve-PackageManager
         Write-Verbose "Using package manager: $($manager.DisplayName) ($($manager.Command))"
 
-        $useInteractive = $Interactive.IsPresent -or $PassThru.IsPresent -or [String]::IsNullOrWhiteSpace($Query)
+        if ($NonInteractive -and $PassThru)
+        {
+            throw 'PassThru requires interactive package search. Omit -NonInteractive to select packages interactively.'
+        }
+
+        $useInteractive = -not $NonInteractive.IsPresent
         if ($useInteractive)
         {
             $queryText = ConvertTo-PackageText -Value $Query
@@ -1469,6 +1470,11 @@ function Find-SystemPackage
 
                 return @()
             }
+        }
+
+        if ([String]::IsNullOrWhiteSpace($Query))
+        {
+            throw 'Query is required when -NonInteractive is used.'
         }
 
         $queryText = $Query.Trim()

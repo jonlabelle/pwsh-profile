@@ -16,9 +16,9 @@ function Upgrade-SystemPackage
         - Alpine Linux: apk
 
         Refresh and upgrade command output is streamed directly to the console so the
-        operation can be followed while it runs. Use -AsObject to return the discovered
-        package update list without starting the interactive picker, or -All to upgrade
-        every discovered package without prompting.
+        operation can be followed while it runs. Use -NonInteractive to return the
+        discovered package update list without starting the interactive picker, or -All to
+        upgrade every discovered package without prompting.
 
     .PARAMETER IncludePackage
         Optional package names or wildcard patterns to include. Matches package Name or Id.
@@ -32,8 +32,9 @@ function Upgrade-SystemPackage
     .PARAMETER SkipRefresh
         Skips refreshing package registry metadata before checking for upgrades.
 
-    .PARAMETER AsObject
-        Returns the discovered outdated package records without upgrading anything.
+    .PARAMETER NonInteractive
+        Returns the discovered outdated package records without upgrading anything. The
+        previous -AsObject spelling is retained as an alias.
 
     .PARAMETER UninstallPrevious
         When upgrading with winget, passes --uninstall-previous to remove the previously
@@ -63,7 +64,7 @@ function Upgrade-SystemPackage
         matches '*preview*'.
 
     .EXAMPLE
-        PS > Upgrade-SystemPackage -AsObject -SkipRefresh | Format-Table
+        PS > Upgrade-SystemPackage -NonInteractive -SkipRefresh | Format-Table
 
         Lists outdated packages from the current package cache without running upgrades.
 
@@ -74,9 +75,9 @@ function Upgrade-SystemPackage
 
     .OUTPUTS
         System.Management.Automation.PSCustomObject
-        Returns package records when -AsObject is used. Otherwise returns an upgrade summary
-        object with package manager, selection counts, NotSelected, selected-package
-        skip/failure counts, and per-package results.
+        Returns package records when -NonInteractive is used. Otherwise returns an upgrade
+        summary object with package manager, selection counts, NotSelected,
+        selected-package skip/failure counts, and per-package results.
 
     .NOTES
         - winget is used on Windows.
@@ -113,7 +114,8 @@ function Upgrade-SystemPackage
         [Switch]$SkipRefresh,
 
         [Parameter()]
-        [Switch]$AsObject,
+        [Alias('AsObject')]
+        [Switch]$NonInteractive,
 
         [Parameter()]
         [Switch]$UninstallPrevious,
@@ -1104,7 +1106,7 @@ function Upgrade-SystemPackage
                 }
                 catch
                 {
-                    throw 'Interactive package selection requires an attached console. Use -All, -AsObject, or -IncludePackage with -All in non-interactive sessions.'
+                    throw 'Interactive package selection requires an attached console. Use -All, -NonInteractive, or -IncludePackage with -All in non-interactive sessions.'
                 }
 
                 $KeyReader = { [Console]::ReadKey($true) }
@@ -1438,7 +1440,7 @@ function Upgrade-SystemPackage
 
         $packageUpdates = @($packageUpdates | Sort-Object -Property Name, Id)
 
-        if ($AsObject)
+        if ($NonInteractive)
         {
             return $packageUpdates
         }
