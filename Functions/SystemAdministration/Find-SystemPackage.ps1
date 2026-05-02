@@ -1,4 +1,4 @@
-function Find-PlatformPackage
+function Find-SystemPackage
 {
     <#
     .SYNOPSIS
@@ -10,7 +10,7 @@ function Find-PlatformPackage
         Homebrew on macOS, and apt or apk on Linux.
 
         Search results are returned as PowerShell objects so they can be filtered, formatted,
-        or piped into Install-PlatformPackage. Use -Top to cap broad searches and
+        or piped into Install-SystemPackage. Use -Top to cap broad searches and
         -ExcludePackage to remove unwanted matches from the normalized results.
 
     .PARAMETER Query
@@ -25,52 +25,52 @@ function Find-PlatformPackage
         to return all matching results.
 
     .EXAMPLE
-        PS > Find-PlatformPackage -Query git
+        PS > Find-SystemPackage -Query git
 
         Searches the detected native package registry for git.
 
     .EXAMPLE
-        PS > Find-PlatformPackage -Query 'visual studio code'
+        PS > Find-SystemPackage -Query 'visual studio code'
 
         Searches for packages matching the provided query text.
 
     .EXAMPLE
-        PS > Find-PlatformPackage -Query git -ExcludePackage 'git-lfs'
+        PS > Find-SystemPackage -Query git -ExcludePackage 'git-lfs'
 
         Searches for git packages and excludes git-lfs from the returned results.
 
     .EXAMPLE
-        PS > Find-PlatformPackage -Query git -Top 10
+        PS > Find-SystemPackage -Query git -Top 10
 
         Returns at most 10 normalized results.
 
     .EXAMPLE
-        PS > Find-PlatformPackage -Query docker | Format-Table Name, Version, Source
+        PS > Find-SystemPackage -Query docker | Format-Table Name, Version, Source
 
         Searches for docker packages and formats the results.
 
     .EXAMPLE
-        PS > Find-PlatformPackage -Query git -PackageManager winget
+        PS > Find-SystemPackage -Query git -PackageManager winget
 
         Searches for packages using winget.
 
     .EXAMPLE
-        PS > Find-PlatformPackage -Query git -PackageManager brew
+        PS > Find-SystemPackage -Query git -PackageManager brew
 
         Searches for packages using Homebrew.
 
     .EXAMPLE
-        PS > Find-PlatformPackage -Query openssl -PackageManager apt
+        PS > Find-SystemPackage -Query openssl -PackageManager apt
 
         Searches for packages using apt.
 
     .EXAMPLE
-        PS > Find-PlatformPackage -Query bash -PackageManager apk
+        PS > Find-SystemPackage -Query bash -PackageManager apk
 
         Searches for packages using apk.
 
     .EXAMPLE
-        PS > Find-PlatformPackage -Query nodejs -Verbose
+        PS > Find-SystemPackage -Query nodejs -Verbose
 
         Searches for nodejs and writes the detected package manager to verbose output.
 
@@ -80,10 +80,10 @@ function Find-PlatformPackage
     .NOTES
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Find-PlatformPackage.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Find-SystemPackage.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Find-PlatformPackage.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Find-SystemPackage.ps1
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject], [PSCustomObject[]], [Object[]])]

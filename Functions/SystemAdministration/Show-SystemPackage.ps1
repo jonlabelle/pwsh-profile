@@ -1,11 +1,11 @@
-function Show-InstalledPackage
+function Show-SystemPackage
 {
     <#
     .SYNOPSIS
         Displays installed packages from the native platform package manager.
 
     .DESCRIPTION
-        Gets installed packages by calling Get-InstalledPackage and renders them in a
+        Gets installed packages by calling Get-SystemPackage and renders them in a
         read-only interactive browser when a console is available. The browser supports
         paging and navigation across installed packages on winget, Homebrew, apt, and apk.
 
@@ -27,53 +27,53 @@ function Show-InstalledPackage
         package records when Enter is pressed.
 
     .EXAMPLE
-        PS > Show-InstalledPackage
+        PS > Show-SystemPackage
 
         Opens the interactive installed package browser for the detected package manager.
 
     .EXAMPLE
-        PS > Show-InstalledPackage -Name 'git*'
+        PS > Show-SystemPackage -Name 'git*'
 
         Opens the browser filtered to packages whose name or id matches git*.
 
     .EXAMPLE
-        PS > Show-InstalledPackage -ExcludePackage '*preview*'
+        PS > Show-SystemPackage -ExcludePackage '*preview*'
 
         Opens the browser excluding packages whose name or id matches *preview*.
 
     .EXAMPLE
-        PS > Show-InstalledPackage -AsObject
+        PS > Show-SystemPackage -AsObject
 
         Returns installed packages as objects without opening the browser.
 
     .EXAMPLE
-        PS > Show-InstalledPackage -AsObject | Format-Table Name, InstalledVersion, Source
+        PS > Show-SystemPackage -AsObject | Format-Table Name, InstalledVersion, Source
 
         Returns installed packages and formats them as a table.
 
     .EXAMPLE
-        PS > Show-InstalledPackage -PassThru
+        PS > Show-SystemPackage -PassThru
 
         Opens the browser, lets you select packages with the spacebar, and returns the
         selected records when Enter is pressed.
 
     .EXAMPLE
-        PS > Show-InstalledPackage -PassThru -Name 'node*' | Format-Table
+        PS > Show-SystemPackage -PassThru -Name 'node*' | Format-Table
 
         Opens the browser for matching node packages and formats the selected results.
 
     .EXAMPLE
-        PS > Show-InstalledPackage -PackageManager winget
+        PS > Show-SystemPackage -PackageManager winget
 
         Opens the browser using winget.
 
     .EXAMPLE
-        PS > Show-InstalledPackage -PackageManager brew
+        PS > Show-SystemPackage -PackageManager brew
 
         Opens the browser using Homebrew.
 
     .EXAMPLE
-        PS > Show-InstalledPackage -Verbose
+        PS > Show-SystemPackage -Verbose
 
         Opens the browser and writes dependency-loading details to verbose output.
 
@@ -83,10 +83,10 @@ function Show-InstalledPackage
     .NOTES
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Show-InstalledPackage.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Show-SystemPackage.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Show-InstalledPackage.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Show-SystemPackage.ps1
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject], [PSCustomObject[]], [Object[]])]
@@ -151,17 +151,17 @@ function Show-InstalledPackage
             return $null
         }
 
-        $getInstalledPackageDependencyPath = Get-DependencyPathIfNeeded -FunctionName 'Get-InstalledPackage' -RelativePath 'Get-InstalledPackage.ps1'
-        if (-not [String]::IsNullOrWhiteSpace($getInstalledPackageDependencyPath))
+        $getSystemPackageDependencyPath = Get-DependencyPathIfNeeded -FunctionName 'Get-SystemPackage' -RelativePath 'Get-SystemPackage.ps1'
+        if (-not [String]::IsNullOrWhiteSpace($getSystemPackageDependencyPath))
         {
             try
             {
-                . $getInstalledPackageDependencyPath
-                Write-Verbose "Loaded Get-InstalledPackage from: $getInstalledPackageDependencyPath"
+                . $getSystemPackageDependencyPath
+                Write-Verbose "Loaded Get-SystemPackage from: $getSystemPackageDependencyPath"
             }
             catch
             {
-                throw "Failed to load required dependency 'Get-InstalledPackage' from '$getInstalledPackageDependencyPath': $($_.Exception.Message)"
+                throw "Failed to load required dependency 'Get-SystemPackage' from '$getSystemPackageDependencyPath': $($_.Exception.Message)"
             }
         }
 
@@ -198,7 +198,7 @@ function Show-InstalledPackage
                 }
                 catch
                 {
-                    throw 'Interactive package browsing requires an attached console. Use Get-InstalledPackage or Show-InstalledPackage -AsObject in non-interactive sessions.'
+                    throw 'Interactive package browsing requires an attached console. Use Get-SystemPackage or Show-SystemPackage -AsObject in non-interactive sessions.'
                 }
 
                 $KeyReader = { [Console]::ReadKey($true) }
@@ -329,7 +329,7 @@ function Show-InstalledPackage
                     $currentPackage = $InstalledPackages[$cursor]
 
                     Clear-Host
-                    Write-Host "Show-InstalledPackage - $($InstalledPackages[0].PackageManagerDisplayName)"
+                    Write-Host "Show-SystemPackage - $($InstalledPackages[0].PackageManagerDisplayName)"
 
                     if ($EnableSelection)
                     {
@@ -340,7 +340,7 @@ function Show-InstalledPackage
                     }
                     else
                     {
-                        Write-Host 'Enter: exit  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit'
+                        Write-Host 'Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit'
                         Write-Host ''
                         Write-Host ('  {0} {1} {2} {3}' -f (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth))
                         Write-Host ('  {0} {1} {2} {3}' -f ('-' * $nameWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth))
@@ -431,11 +431,12 @@ function Show-InstalledPackage
                         }
                         'Enter'
                         {
-                            Clear-Host
                             if (-not $EnableSelection)
                             {
-                                return @()
+                                break
                             }
+
+                            Clear-Host
 
                             $selectedPackages = @()
                             for ($i = 0; $i -lt $InstalledPackages.Count; $i++)
@@ -464,7 +465,7 @@ function Show-InstalledPackage
     process
     {
         $installedPackages = @(
-            Get-InstalledPackage -PackageManager $PackageManager -Name $Name -ExcludePackage $ExcludePackage -CommandRunner $CommandRunner
+            Get-SystemPackage -PackageManager $PackageManager -Name $Name -ExcludePackage $ExcludePackage -CommandRunner $CommandRunner
         )
 
         if ($AsObject)

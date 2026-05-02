@@ -1,4 +1,4 @@
-function Get-InstalledPackage
+function Get-SystemPackage
 {
     <#
     .SYNOPSIS
@@ -20,52 +20,52 @@ function Get-InstalledPackage
         Optional package names or wildcard patterns to exclude. Matches package Name or Id.
 
     .EXAMPLE
-        PS > Get-InstalledPackage
+        PS > Get-SystemPackage
 
         Returns installed packages for the detected platform package manager.
 
     .EXAMPLE
-        PS > Get-InstalledPackage -Name 'git*'
+        PS > Get-SystemPackage -Name 'git*'
 
         Returns installed packages whose name or id matches git*.
 
     .EXAMPLE
-        PS > Get-InstalledPackage -ExcludePackage '*preview*'
+        PS > Get-SystemPackage -ExcludePackage '*preview*'
 
         Returns installed packages except those whose name or id matches *preview*.
 
     .EXAMPLE
-        PS > Get-InstalledPackage | Format-Table Name, InstalledVersion, Source
+        PS > Get-SystemPackage | Format-Table Name, InstalledVersion, Source
 
         Formats installed package records as a table.
 
     .EXAMPLE
-        PS > Get-InstalledPackage -Name 'node*' | Sort-Object -Property InstalledVersion
+        PS > Get-SystemPackage -Name 'node*' | Sort-Object -Property InstalledVersion
 
         Returns matching node packages sorted by installed version.
 
     .EXAMPLE
-        PS > Get-InstalledPackage -PackageManager winget
+        PS > Get-SystemPackage -PackageManager winget
 
         Returns installed packages using winget.
 
     .EXAMPLE
-        PS > Get-InstalledPackage -PackageManager brew
+        PS > Get-SystemPackage -PackageManager brew
 
         Returns installed packages using Homebrew.
 
     .EXAMPLE
-        PS > Get-InstalledPackage -PackageManager apt
+        PS > Get-SystemPackage -PackageManager apt
 
         Returns installed packages using apt.
 
     .EXAMPLE
-        PS > Get-InstalledPackage -PackageManager apk
+        PS > Get-SystemPackage -PackageManager apk
 
         Returns installed packages using apk.
 
     .EXAMPLE
-        PS > Get-InstalledPackage -Verbose
+        PS > Get-SystemPackage -Verbose
 
         Returns installed packages and writes the detected package manager to verbose output.
 
@@ -80,10 +80,10 @@ function Get-InstalledPackage
 
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Get-InstalledPackage.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Get-SystemPackage.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Get-InstalledPackage.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Get-SystemPackage.ps1
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject], [PSCustomObject[]], [Object[]])]
@@ -156,7 +156,7 @@ function Get-InstalledPackage
             return $null
         }
 
-        function Get-InstalledPackageObject
+        function Get-SystemPackageObject
         {
             param(
                 [Parameter(Mandatory)]
@@ -503,7 +503,7 @@ function Get-InstalledPackage
                     continue
                 }
 
-                $packages += Get-InstalledPackageObject -Manager $Manager -Name $packageName -Id $id -Type 'Package' -InstalledVersion $installedVersion -Source $source
+                $packages += Get-SystemPackageObject -Manager $Manager -Name $packageName -Id $id -Type 'Package' -InstalledVersion $installedVersion -Source $source
             }
 
             return $packages
@@ -595,7 +595,7 @@ function Get-InstalledPackage
                     continue
                 }
 
-                $packages += Get-InstalledPackageObject -Manager $Manager -Name $packageName -Id $id -Type 'Package' -InstalledVersion $installedVersion -Source $source
+                $packages += Get-SystemPackageObject -Manager $Manager -Name $packageName -Id $id -Type 'Package' -InstalledVersion $installedVersion -Source $source
             }
 
             return $packages
@@ -666,7 +666,7 @@ function Get-InstalledPackage
                 $version = if ($parts.Count -gt 1) { ($parts[1..($parts.Count - 1)] -join ', ') } else { '' }
                 $source = if ($Type -eq 'Cask') { 'homebrew/cask' } else { 'homebrew/core' }
 
-                $packages += Get-InstalledPackageObject -Manager $Manager -Name $packageName -Id $packageName -Type $Type -InstalledVersion $version -Source $source
+                $packages += Get-SystemPackageObject -Manager $Manager -Name $packageName -Id $packageName -Type $Type -InstalledVersion $version -Source $source
             }
 
             return $packages
@@ -732,7 +732,7 @@ function Get-InstalledPackage
                     $architecture = $Matches.Architecture
                     $state = $Matches.State
                     $notes = if ($state -match 'automatic') { 'Automatic' } else { '' }
-                    $packages += Get-InstalledPackageObject -Manager $Manager -Name $packageName -Id $packageName -Type $architecture -InstalledVersion $version -Source $repository -Notes $notes
+                    $packages += Get-SystemPackageObject -Manager $Manager -Name $packageName -Id $packageName -Type $architecture -InstalledVersion $version -Source $repository -Notes $notes
                 }
             }
 
@@ -803,13 +803,13 @@ function Get-InstalledPackage
                     continue
                 }
 
-                $packages += Get-InstalledPackageObject -Manager $Manager -Name $packageInfo.Name -Id $packageInfo.Name -Type 'Package' -InstalledVersion $packageInfo.Version -Source 'apk'
+                $packages += Get-SystemPackageObject -Manager $Manager -Name $packageInfo.Name -Id $packageInfo.Name -Type 'Package' -InstalledVersion $packageInfo.Version -Source 'apk'
             }
 
             return $packages
         }
 
-        function Get-InstalledPackages
+        function Get-SystemPackages
         {
             param(
                 [Parameter(Mandatory)]
@@ -858,7 +858,7 @@ function Get-InstalledPackage
         $manager = Resolve-PackageManager
         Write-Verbose "Using package manager: $($manager.DisplayName) ($($manager.Command))"
 
-        $installedPackages = @(Get-InstalledPackages -Manager $manager)
+        $installedPackages = @(Get-SystemPackages -Manager $manager)
 
         if ($Name -and $Name.Count -gt 0)
         {

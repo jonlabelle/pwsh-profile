@@ -3,7 +3,7 @@
 BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
-    . "$PSScriptRoot/../../../Functions/SystemAdministration/Upgrade-Package.ps1"
+    . "$PSScriptRoot/../../../Functions/SystemAdministration/Upgrade-SystemPackage.ps1"
 
     function Get-TestCommandResponse
     {
@@ -60,7 +60,7 @@ BeforeAll {
     }
 }
 
-Describe 'Upgrade-Package' {
+Describe 'Upgrade-SystemPackage' {
     BeforeEach {
         $script:Invocations = New-Object 'System.Collections.Generic.List[Object]'
         Mock -CommandName Write-Host -MockWith {}
@@ -92,7 +92,7 @@ Describe 'Upgrade-Package' {
                 'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
             }
 
-            $result = @(Upgrade-Package -PackageManager brew -SkipRefresh -AsObject -CommandRunner $runner)
+            $result = @(Upgrade-SystemPackage -PackageManager brew -SkipRefresh -AsObject -CommandRunner $runner)
 
             $result.Count | Should -Be 2
 
@@ -127,7 +127,7 @@ Describe 'Upgrade-Package' {
                 'brew upgrade git' = Get-TestCommandResponse -Output @('brew upgrade git output')
             }
 
-            $result = Upgrade-Package -PackageManager brew -All -CommandRunner $runner -Confirm:$false
+            $result = Upgrade-SystemPackage -PackageManager brew -All -CommandRunner $runner -Confirm:$false
 
             $result.Upgraded | Should -Be 1
             $result.Failed | Should -Be 0
@@ -158,7 +158,7 @@ Describe 'Upgrade-Package' {
                 'brew upgrade git' = Get-TestCommandResponse -ExitCode 42 -Output @()
             }
 
-            $result = Upgrade-Package -PackageManager brew -SkipRefresh -All -CommandRunner $runner -Confirm:$false -WarningAction SilentlyContinue
+            $result = Upgrade-SystemPackage -PackageManager brew -SkipRefresh -All -CommandRunner $runner -Confirm:$false -WarningAction SilentlyContinue
 
             $result.Failed | Should -Be 1
             $result.Skipped | Should -Be 0
@@ -219,7 +219,7 @@ Describe 'Upgrade-Package' {
                     }
                 }.GetNewClosure()
 
-                $result = Upgrade-Package -PackageManager brew -SkipRefresh -All -CommandRunner $runner -Confirm:$false
+                $result = Upgrade-SystemPackage -PackageManager brew -SkipRefresh -All -CommandRunner $runner -Confirm:$false
 
                 $result.Upgraded | Should -Be 1
                 $result.Failed | Should -Be 0
@@ -248,7 +248,7 @@ Describe 'Upgrade-Package' {
                 )
             }
 
-            $result = @(Upgrade-Package -PackageManager apt -SkipRefresh -AsObject -CommandRunner $runner)
+            $result = @(Upgrade-SystemPackage -PackageManager apt -SkipRefresh -AsObject -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'openssl'
@@ -266,7 +266,7 @@ Describe 'Upgrade-Package' {
                 )
             }
 
-            $result = @(Upgrade-Package -PackageManager apk -SkipRefresh -AsObject -CommandRunner $runner)
+            $result = @(Upgrade-SystemPackage -PackageManager apk -SkipRefresh -AsObject -CommandRunner $runner)
 
             $result.Count | Should -Be 2
 
@@ -304,7 +304,7 @@ Describe 'Upgrade-Package' {
                 [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
             }
 
-            $result = Upgrade-Package -PackageManager brew -SkipRefresh -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+            $result = Upgrade-SystemPackage -PackageManager brew -SkipRefresh -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
             $result.Selected | Should -Be 0
             $result.NotSelected | Should -Be 1
@@ -331,7 +331,7 @@ Describe 'Upgrade-Package' {
                 [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
             }
 
-            $null = Upgrade-Package -PackageManager brew -SkipRefresh -CommandRunner $runner -KeyReader $keyReader -PickerPageSize 2 -Confirm:$false
+            $null = Upgrade-SystemPackage -PackageManager brew -SkipRefresh -CommandRunner $runner -KeyReader $keyReader -PickerPageSize 2 -Confirm:$false
 
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-01*' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-02*' } -Times 1
@@ -353,7 +353,7 @@ Describe 'Upgrade-Package' {
                 )
             }
 
-            $result = @(Upgrade-Package -PackageManager winget -SkipRefresh -AsObject -CommandRunner $runner)
+            $result = @(Upgrade-SystemPackage -PackageManager winget -SkipRefresh -AsObject -CommandRunner $runner)
 
             $result.Count | Should -Be 2
 
@@ -392,7 +392,7 @@ Describe 'Upgrade-Package' {
                 'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
             }
 
-            $result = @(Upgrade-Package -PackageManager brew -SkipRefresh -AsObject -IncludePackage 'git*' -ExcludePackage 'git-lfs' -CommandRunner $runner)
+            $result = @(Upgrade-SystemPackage -PackageManager brew -SkipRefresh -AsObject -IncludePackage 'git*' -ExcludePackage 'git-lfs' -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
@@ -414,7 +414,7 @@ Describe 'Upgrade-Package' {
                 'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
             }
 
-            $result = Upgrade-Package -PackageManager brew -All -WhatIf -CommandRunner $runner
+            $result = Upgrade-SystemPackage -PackageManager brew -All -WhatIf -CommandRunner $runner
 
             $result | Should -Not -BeNullOrEmpty
             $result.Selected | Should -Be 1

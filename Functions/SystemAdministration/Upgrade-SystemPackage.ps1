@@ -1,16 +1,13 @@
-function Remove-Package
+function Upgrade-SystemPackage
 {
     <#
     .SYNOPSIS
-        Removes installed packages with the native platform package manager.
+        Upgrades outdated packages with the native platform package manager.
 
     .DESCRIPTION
-        Detects the supported package manager for the current platform, lists installed
-        packages, and opens an interactive console picker where packages can be selected
-        with the spacebar before removal. In the picker, selecting a package controls
-        whether it will be removed when Enter is pressed. The purge/zap option is a
-        separate per-package toggle that requests deeper cleanup for selected packages
-        on package managers that support it.
+        Detects the supported package manager for the current platform, refreshes package
+        registry metadata, lists packages with available upgrades, and opens an interactive
+        console picker where packages can be selected with the spacebar.
 
         Supported package managers:
         - Windows: winget
@@ -18,10 +15,10 @@ function Remove-Package
         - Debian/Ubuntu Linux: apt
         - Alpine Linux: apk
 
-        Removal command output is streamed directly to the console so the operation can
-        be followed while it runs. Use -AsObject to return the discovered installed
-        package list without starting the interactive picker, or -All to remove every
-        matching package without prompting.
+        Refresh and upgrade command output is streamed directly to the console so the
+        operation can be followed while it runs. Use -AsObject to return the discovered
+        package update list without starting the interactive picker, or -All to upgrade
+        every discovered package without prompting.
 
     .PARAMETER IncludePackage
         Optional package names or wildcard patterns to include. Matches package Name or Id.
@@ -30,70 +27,54 @@ function Remove-Package
         Optional package names or wildcard patterns to exclude. Matches package Name or Id.
 
     .PARAMETER All
-        Removes all matching installed packages without opening the interactive picker.
-        To avoid accidental full-system package removal, -All requires -IncludePackage.
+        Upgrades all matching outdated packages without opening the interactive picker.
 
-    .PARAMETER Purge
-        Uses package-manager-specific purge or zap behavior for every package selected
-        for removal. This requests deeper cleanup than a normal removal when supported:
-        apt uses purge, apk uses del --purge, and Homebrew casks use uninstall --zap.
-        It has no effect for winget or Homebrew formulae.
-
-        In the interactive picker, Spacebar marks a package for removal and P toggles this
-        purge/zap behavior for the highlighted package. Pressing Enter removes the
-        selected packages, using purge/zap only for packages where it was requested.
+    .PARAMETER SkipRefresh
+        Skips refreshing package registry metadata before checking for upgrades.
 
     .PARAMETER AsObject
-        Returns the discovered installed package records without removing anything.
+        Returns the discovered outdated package records without upgrading anything.
+
+    .PARAMETER UninstallPrevious
+        When upgrading with winget, passes --uninstall-previous to remove the previously
+        installed version before installing the new one. Has no effect on other package
+        managers (brew, apt, apk), which replace packages atomically as part of their
+        normal upgrade process.
 
     .PARAMETER NoSudo
         On Linux package managers that normally require elevated privileges, do not
-        automatically prefix remove commands with sudo.
+        automatically prefix refresh and upgrade commands with sudo.
 
     .EXAMPLE
-        PS > Remove-Package
+        PS > Upgrade-SystemPackage
 
-        Lists installed packages and opens the interactive picker. Press Spacebar to select
-        packages for removal, optionally press P to request purge/zap cleanup for a
-        selected package, then press Enter to remove the selected packages.
-
-    .EXAMPLE
-        PS > Remove-Package -IncludePackage 'git*' -All
-
-        Removes every installed package whose name or id matches 'git*' without prompting.
+        Refreshes package registry metadata, opens the interactive picker, and upgrades
+        the packages selected with the spacebar.
 
     .EXAMPLE
-        PS > Remove-Package -IncludePackage 'node*' -ExcludePackage 'node@18'
+        PS > Upgrade-SystemPackage -All
 
-        Opens the picker for matching node packages except packages whose name or id
-        matches 'node@18'.
-
-    .EXAMPLE
-        PS > Remove-Package -IncludePackage 'openssl' -Purge -All
-
-        Removes the matching package and requests package-manager-specific purge behavior
-        where supported.
+        Refreshes package registry metadata and upgrades all discovered outdated packages.
 
     .EXAMPLE
-        PS > Remove-Package -IncludePackage 'visual-studio-code'
+        PS > Upgrade-SystemPackage -IncludePackage 'git*','curl' -ExcludePackage '*preview*'
 
-        Opens the picker for matching packages. Selecting the Homebrew cask with Spacebar
-        removes it normally; pressing P before Enter changes that selected package to use
-        brew uninstall --cask --zap instead.
-
-    .EXAMPLE
-        PS > Remove-Package -AsObject | Format-Table
-
-        Lists installed packages for the detected package manager without removing anything.
+        Opens the picker for matching git and curl packages except packages whose name or id
+        matches '*preview*'.
 
     .EXAMPLE
-        PS > Remove-Package -IncludePackage 'git' -All -WhatIf
+        PS > Upgrade-SystemPackage -AsObject -SkipRefresh | Format-Table
 
-        Shows the package removal that would run without invoking the package manager.
+        Lists outdated packages from the current package cache without running upgrades.
+
+    .EXAMPLE
+        PS > Upgrade-SystemPackage -All -WhatIf
+
+        Shows the package upgrades that would run without invoking the package manager.
 
     .OUTPUTS
         System.Management.Automation.PSCustomObject
-        Returns package records when -AsObject is used. Otherwise returns a removal summary
+        Returns package records when -AsObject is used. Otherwise returns an upgrade summary
         object with package manager, selection counts, NotSelected, selected-package
         skip/failure counts, and per-package results.
 
@@ -102,22 +83,22 @@ function Remove-Package
         - brew is used on macOS.
         - apt is used on Debian/Ubuntu-style Linux distributions.
         - apk is used on Alpine Linux.
-        - apt and apk remove operations are prefixed with sudo when needed and available.
-        - Query commands are parsed to build the picker; remove commands stream their
-          native output to the console.
+        - apt and apk operations are prefixed with sudo when needed and available.
+        - Query commands are parsed to build the picker; refresh and upgrade commands stream
+          their native output to the console.
 
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Remove-Package.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Upgrade-SystemPackage.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Remove-Package.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Upgrade-SystemPackage.ps1
     #>
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidOverwritingBuiltInCmdlets', '', Justification = 'Function name requested by the profile owner.')]
-    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '', Justification = 'Function name requested by the profile owner.')]
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     [OutputType([PSCustomObject], [PSCustomObject[]], [Object[]])]
     param(
-        [Parameter(Position = 0)]
+        [Parameter()]
         [Alias('Name', 'PackageName', 'Include')]
         [String[]]$IncludePackage = @(),
 
@@ -129,10 +110,13 @@ function Remove-Package
         [Switch]$All,
 
         [Parameter()]
-        [Switch]$Purge,
+        [Switch]$SkipRefresh,
 
         [Parameter()]
         [Switch]$AsObject,
+
+        [Parameter()]
+        [Switch]$UninstallPrevious,
 
         [Parameter()]
         [Switch]$NoSudo,
@@ -154,53 +138,6 @@ function Remove-Package
 
     begin
     {
-        function Get-DependencyPathIfNeeded
-        {
-            param(
-                [Parameter(Mandatory)]
-                [String]$FunctionName,
-
-                [Parameter(Mandatory)]
-                [String]$RelativePath
-            )
-
-            if (-not (Get-Command -Name $FunctionName -ErrorAction SilentlyContinue))
-            {
-                Write-Verbose "$FunctionName is required - attempting to load it"
-
-                $dependencyPath = Join-Path -Path $PSScriptRoot -ChildPath $RelativePath
-                $dependencyPath = [System.IO.Path]::GetFullPath($dependencyPath)
-
-                if (Test-Path -Path $dependencyPath -PathType Leaf)
-                {
-                    return $dependencyPath
-                }
-                else
-                {
-                    throw "Required function '$FunctionName' could not be found. Expected location: $dependencyPath"
-                }
-            }
-            else
-            {
-                Write-Verbose "$FunctionName is already loaded"
-                return $null
-            }
-        }
-
-        $getInstalledPackageDependencyPath = Get-DependencyPathIfNeeded -FunctionName 'Get-InstalledPackage' -RelativePath 'Get-InstalledPackage.ps1'
-        if (-not [String]::IsNullOrWhiteSpace($getInstalledPackageDependencyPath))
-        {
-            try
-            {
-                . $getInstalledPackageDependencyPath
-                Write-Verbose "Loaded Get-InstalledPackage from: $getInstalledPackageDependencyPath"
-            }
-            catch
-            {
-                throw "Failed to load required dependency 'Get-InstalledPackage' from '$getInstalledPackageDependencyPath': $($_.Exception.Message)"
-            }
-        }
-
         function ConvertTo-PackageText
         {
             param(
@@ -251,77 +188,7 @@ function Remove-Package
             return $null
         }
 
-        function Get-PackageRemoveArguments
-        {
-            param(
-                [Parameter(Mandatory)]
-                [PSCustomObject]$Manager,
-
-                [Parameter(Mandatory)]
-                [ValidateNotNullOrEmpty()]
-                [String]$Name,
-
-                [Parameter()]
-                [String]$Id,
-
-                [Parameter()]
-                [String]$Type,
-
-                [Parameter()]
-                [Switch]$UsePurge
-            )
-
-            switch ($Manager.Name)
-            {
-                'winget'
-                {
-                    if (-not [String]::IsNullOrWhiteSpace($Id))
-                    {
-                        return @('uninstall', '--id', $Id, '--exact', '--accept-source-agreements')
-                    }
-
-                    return @('uninstall', $Name, '--accept-source-agreements')
-                }
-                'brew'
-                {
-                    if ($Type -eq 'Cask')
-                    {
-                        if ($UsePurge)
-                        {
-                            return @('uninstall', '--cask', '--zap', $Name)
-                        }
-
-                        return @('uninstall', '--cask', $Name)
-                    }
-
-                    return @('uninstall', $Name)
-                }
-                'apt'
-                {
-                    if ($UsePurge)
-                    {
-                        return @('purge', '-y', $Name)
-                    }
-
-                    return @('remove', '-y', $Name)
-                }
-                'apk'
-                {
-                    if ($UsePurge)
-                    {
-                        return @('del', '--purge', $Name)
-                    }
-
-                    return @('del', $Name)
-                }
-                default
-                {
-                    throw "Unsupported package manager '$($Manager.Name)'."
-                }
-            }
-        }
-
-        function Get-PackageInstallObject
+        function Get-PackageUpdateObject
         {
             param(
                 [Parameter(Mandatory)]
@@ -341,10 +208,16 @@ function Remove-Package
                 [String]$InstalledVersion,
 
                 [Parameter()]
+                [String]$LatestVersion,
+
+                [Parameter()]
                 [String]$Source,
 
                 [Parameter()]
-                [String]$Notes
+                [String]$Notes,
+
+                [Parameter(Mandatory)]
+                [String[]]$UpgradeArguments
             )
 
             [PSCustomObject]@{
@@ -354,10 +227,11 @@ function Remove-Package
                 PackageManagerDisplayName = $Manager.DisplayName
                 Type = $Type
                 InstalledVersion = $InstalledVersion
+                LatestVersion = $LatestVersion
                 Source = $Source
                 Notes = $Notes
                 Command = $Manager.Command
-                RemoveArguments = @(Get-PackageRemoveArguments -Manager $Manager -Name $Name -Id $Id -Type $Type -UsePurge:$Purge.IsPresent)
+                UpgradeArguments = @($UpgradeArguments)
             }
         }
 
@@ -426,6 +300,7 @@ function Remove-Package
                         DisplayName = 'Windows Package Manager'
                         Command = 'winget'
                         Platform = 'Windows'
+                        RefreshArguments = @('source', 'update')
                         NeedsSudo = $false
                     }
                 }
@@ -436,6 +311,7 @@ function Remove-Package
                         DisplayName = 'Homebrew'
                         Command = 'brew'
                         Platform = 'macOS'
+                        RefreshArguments = @('update')
                         NeedsSudo = $false
                     }
                 }
@@ -446,6 +322,7 @@ function Remove-Package
                         DisplayName = 'APT'
                         Command = 'apt'
                         Platform = 'Debian/Ubuntu Linux'
+                        RefreshArguments = @('update')
                         NeedsSudo = $true
                     }
                 }
@@ -456,6 +333,7 @@ function Remove-Package
                         DisplayName = 'Alpine Package Keeper'
                         Command = 'apk'
                         Platform = 'Alpine Linux'
+                        RefreshArguments = @('update')
                         NeedsSudo = $true
                     }
                 }
@@ -689,6 +567,31 @@ function Remove-Package
             }
         }
 
+        function Invoke-PackageRegistryRefresh
+        {
+            param(
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Manager
+            )
+
+            if (-not $Manager.RefreshArguments -or $Manager.RefreshArguments.Count -eq 0)
+            {
+                return
+            }
+
+            Write-Host "Refreshing $($Manager.DisplayName) package metadata..."
+
+            $invocation = Resolve-PackageManagerInvocation -Manager $Manager -Arguments $Manager.RefreshArguments
+            $result = Invoke-PackageManagerCommand -Command $invocation.Command -Arguments $invocation.Arguments -StreamOutput
+
+            if ($result.ExitCode -ne 0)
+            {
+                $message = Get-PackageCommandFailureMessage -Command $invocation.Command -Arguments $invocation.Arguments -ExitCode $result.ExitCode -Output $result.Output
+
+                throw "Failed to refresh $($Manager.DisplayName) package metadata: $message"
+            }
+        }
+
         function Get-PackageCommandFailureMessage
         {
             param(
@@ -783,7 +686,7 @@ function Remove-Package
                 $candidatePackages += @($json.Data)
             }
 
-            $packages = @()
+            $updates = @()
             foreach ($package in $candidatePackages)
             {
                 if ($null -eq $package)
@@ -794,17 +697,27 @@ function Remove-Package
                 $name = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $package -PropertyName @('Name', 'PackageName'))
                 $id = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $package -PropertyName @('Id', 'PackageIdentifier', 'Identifier'))
                 $installedVersion = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $package -PropertyName @('InstalledVersion', 'Version', 'CurrentVersion'))
+                $latestVersion = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $package -PropertyName @('AvailableVersion', 'Available', 'LatestVersion', 'NewVersion'))
                 $source = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $package -PropertyName @('Source', 'SourceName'))
 
-                if ([String]::IsNullOrWhiteSpace($name))
+                if ([String]::IsNullOrWhiteSpace($name) -or [String]::IsNullOrWhiteSpace($latestVersion))
                 {
                     continue
                 }
 
-                $packages += Get-PackageInstallObject -Manager $Manager -Name $name -Id $id -Type 'Package' -InstalledVersion $installedVersion -Source $source
+                $upgradeArguments = if (-not [String]::IsNullOrWhiteSpace($id))
+                {
+                    @('upgrade', '--id', $id, '--exact', '--accept-package-agreements', '--accept-source-agreements')
+                }
+                else
+                {
+                    @('upgrade', $name, '--accept-package-agreements', '--accept-source-agreements')
+                }
+
+                $updates += Get-PackageUpdateObject -Manager $Manager -Name $name -Id $id -Type 'Package' -InstalledVersion $installedVersion -LatestVersion $latestVersion -Source $source -UpgradeArguments $upgradeArguments
             }
 
-            return $packages
+            return $updates
         }
 
         function ConvertFrom-WingetTableOutput
@@ -822,7 +735,7 @@ function Remove-Package
             $header = $null
             for ($i = 0; $i -lt $lines.Count; $i++)
             {
-                if ($lines[$i] -match 'Name\s+Id\s+Version')
+                if ($lines[$i] -match 'Name\s+Id\s+Version\s+Available')
                 {
                     $headerIndex = $i
                     $header = $lines[$i]
@@ -838,6 +751,7 @@ function Remove-Package
             $nameStart = $header.IndexOf('Name')
             $idStart = $header.IndexOf('Id')
             $versionStart = $header.IndexOf('Version')
+            $availableStart = $header.IndexOf('Available')
             $sourceStart = $header.IndexOf('Source')
 
             function Get-WingetTableCell
@@ -867,153 +781,162 @@ function Remove-Package
                 return $Line.Substring($Start, $actualEnd - $Start).Trim()
             }
 
-            $packages = @()
+            $updates = @()
             for ($i = $headerIndex + 1; $i -lt $lines.Count; $i++)
             {
                 $line = $lines[$i]
-                if ([String]::IsNullOrWhiteSpace($line) -or $line -match '^-{3,}' -or $line -match '^No installed package found' -or $line -match '^\d+\s+package\(s\)')
+                if ([String]::IsNullOrWhiteSpace($line) -or $line -match '^-{3,}' -or $line -match '^\d+\s+upgrades?\s+available' -or $line -match '^\d+\s+package\(s\)\s+have version numbers that cannot be determined\.')
                 {
                     continue
                 }
 
                 $name = Get-WingetTableCell -Line $line -Start $nameStart -End $idStart
                 $id = Get-WingetTableCell -Line $line -Start $idStart -End $versionStart
-                $installedVersion = if ($sourceStart -ge 0)
+                $installedVersion = Get-WingetTableCell -Line $line -Start $versionStart -End $availableStart
+                $latestVersion = if ($sourceStart -ge 0)
                 {
-                    Get-WingetTableCell -Line $line -Start $versionStart -End $sourceStart
+                    Get-WingetTableCell -Line $line -Start $availableStart -End $sourceStart
                 }
                 else
                 {
-                    Get-WingetTableCell -Line $line -Start $versionStart
+                    Get-WingetTableCell -Line $line -Start $availableStart
                 }
                 $source = if ($sourceStart -ge 0) { Get-WingetTableCell -Line $line -Start $sourceStart } else { '' }
 
-                if ([String]::IsNullOrWhiteSpace($name))
+                if ([String]::IsNullOrWhiteSpace($name) -or [String]::IsNullOrWhiteSpace($latestVersion))
                 {
                     continue
                 }
 
-                $packages += Get-PackageInstallObject -Manager $Manager -Name $name -Id $id -Type 'Package' -InstalledVersion $installedVersion -Source $source
+                $upgradeArguments = if (-not [String]::IsNullOrWhiteSpace($id))
+                {
+                    @('upgrade', '--id', $id, '--exact', '--accept-package-agreements', '--accept-source-agreements')
+                }
+                else
+                {
+                    @('upgrade', $name, '--accept-package-agreements', '--accept-source-agreements')
+                }
+
+                $updates += Get-PackageUpdateObject -Manager $Manager -Name $name -Id $id -Type 'Package' -InstalledVersion $installedVersion -LatestVersion $latestVersion -Source $source -UpgradeArguments $upgradeArguments
             }
 
-            return $packages
+            return $updates
         }
 
-        function Get-WingetInstalledPackages
+        function Get-WingetPackageUpdates
         {
             param(
                 [Parameter(Mandatory)]
                 [PSCustomObject]$Manager
             )
 
-            $jsonResult = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments @('list', '--accept-source-agreements', '--output', 'json')
+            $jsonResult = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments @('upgrade', '--accept-source-agreements', '--output', 'json')
             if ($jsonResult.ExitCode -eq 0)
             {
-                $jsonPackages = @(ConvertFrom-WingetJsonOutput -Manager $Manager -Output $jsonResult.Output)
-                if ($jsonPackages.Count -gt 0)
+                $jsonUpdates = @(ConvertFrom-WingetJsonOutput -Manager $Manager -Output $jsonResult.Output)
+                if ($jsonUpdates.Count -gt 0)
                 {
-                    return $jsonPackages
+                    return $jsonUpdates
                 }
 
-                if (-not (($jsonResult.Output -join "`n") -match 'Name\s+Id\s+Version'))
+                if (-not (($jsonResult.Output -join "`n") -match 'Name\s+Id\s+Version\s+Available'))
                 {
                     return @()
                 }
             }
 
-            $tableResult = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments @('list', '--accept-source-agreements')
+            $tableResult = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments @('upgrade', '--accept-source-agreements')
             if ($tableResult.ExitCode -ne 0)
             {
                 $message = ($tableResult.Output | Where-Object { -not [String]::IsNullOrWhiteSpace("$($_)") }) -join ' '
-                throw "Failed to query winget packages: $message"
+                throw "Failed to query winget upgrades: $message"
             }
 
             ConvertFrom-WingetTableOutput -Manager $Manager -Output $tableResult.Output
         }
 
-        function ConvertFrom-BrewListOutput
-        {
-            param(
-                [Parameter(Mandatory)]
-                [PSCustomObject]$Manager,
-
-                [Parameter(Mandatory)]
-                [ValidateSet('Formula', 'Cask')]
-                [String]$Type,
-
-                [Parameter()]
-                [Object[]]$Output = @()
-            )
-
-            $packages = @()
-            foreach ($line in @($Output | ForEach-Object { "$_" }))
-            {
-                $trimmedLine = $line.Trim()
-                if ([String]::IsNullOrWhiteSpace($trimmedLine))
-                {
-                    continue
-                }
-
-                $parts = $trimmedLine -split '\s+'
-                if ($parts.Count -lt 1 -or [String]::IsNullOrWhiteSpace($parts[0]))
-                {
-                    continue
-                }
-
-                $name = $parts[0]
-                $version = if ($parts.Count -gt 1) { ($parts[1..($parts.Count - 1)] -join ', ') } else { '' }
-                $source = if ($Type -eq 'Cask') { 'homebrew/cask' } else { 'homebrew/core' }
-
-                $packages += Get-PackageInstallObject -Manager $Manager -Name $name -Id $name -Type $Type -InstalledVersion $version -Source $source
-            }
-
-            return $packages
-        }
-
-        function Get-BrewInstalledPackages
+        function Get-BrewPackageUpdates
         {
             param(
                 [Parameter(Mandatory)]
                 [PSCustomObject]$Manager
             )
 
-            $packages = @()
-            $formulaResult = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments @('list', '--formula', '--versions')
-            if ($formulaResult.ExitCode -ne 0)
-            {
-                $message = ($formulaResult.Output | Where-Object { -not [String]::IsNullOrWhiteSpace("$($_)") }) -join ' '
-                throw "Failed to query Homebrew formulae: $message"
-            }
-
-            $packages += ConvertFrom-BrewListOutput -Manager $Manager -Type 'Formula' -Output $formulaResult.Output
-
-            $caskResult = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments @('list', '--cask', '--versions')
-            if ($caskResult.ExitCode -ne 0)
-            {
-                $message = ($caskResult.Output | Where-Object { -not [String]::IsNullOrWhiteSpace("$($_)") }) -join ' '
-                throw "Failed to query Homebrew casks: $message"
-            }
-
-            $packages += ConvertFrom-BrewListOutput -Manager $Manager -Type 'Cask' -Output $caskResult.Output
-
-            return $packages
-        }
-
-        function Get-AptInstalledPackages
-        {
-            param(
-                [Parameter(Mandatory)]
-                [PSCustomObject]$Manager
-            )
-
-            $result = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments @('list', '--installed')
+            $result = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments @('outdated', '--json=v2')
             if ($result.ExitCode -ne 0)
             {
                 $message = ($result.Output | Where-Object { -not [String]::IsNullOrWhiteSpace("$($_)") }) -join ' '
-                throw "Failed to query APT packages: $message"
+                throw "Failed to query Homebrew upgrades: $message"
             }
 
-            $packages = @()
+            $jsonText = ($result.Output | ForEach-Object { "$_" }) -join "`n"
+            if ([String]::IsNullOrWhiteSpace($jsonText))
+            {
+                return @()
+            }
+
+            try
+            {
+                $data = $jsonText | ConvertFrom-Json
+            }
+            catch
+            {
+                throw "Failed to parse Homebrew outdated JSON output: $($_.Exception.Message)"
+            }
+
+            $updates = @()
+            foreach ($formula in @($data.formulae))
+            {
+                if ($null -eq $formula)
+                {
+                    continue
+                }
+
+                $name = ConvertTo-PackageText -Value $formula.name
+                if ([String]::IsNullOrWhiteSpace($name))
+                {
+                    continue
+                }
+
+                $notes = if ($formula.PSObject.Properties['pinned'] -and $formula.pinned) { 'Pinned' } else { '' }
+                $updates += Get-PackageUpdateObject -Manager $Manager -Name $name -Id $name -Type 'Formula' -InstalledVersion (ConvertTo-PackageText -Value $formula.installed_versions) -LatestVersion (ConvertTo-PackageText -Value $formula.current_version) -Source 'homebrew/core' -Notes $notes -UpgradeArguments @('upgrade', $name)
+            }
+
+            foreach ($cask in @($data.casks))
+            {
+                if ($null -eq $cask)
+                {
+                    continue
+                }
+
+                $name = ConvertTo-PackageText -Value $cask.name
+                if ([String]::IsNullOrWhiteSpace($name))
+                {
+                    continue
+                }
+
+                $notes = if ($cask.PSObject.Properties['auto_updates'] -and $cask.auto_updates) { 'Auto-updates' } else { '' }
+                $updates += Get-PackageUpdateObject -Manager $Manager -Name $name -Id $name -Type 'Cask' -InstalledVersion (ConvertTo-PackageText -Value $cask.installed_versions) -LatestVersion (ConvertTo-PackageText -Value $cask.current_version) -Source 'homebrew/cask' -Notes $notes -UpgradeArguments @('upgrade', '--cask', $name)
+            }
+
+            return $updates
+        }
+
+        function Get-AptPackageUpdates
+        {
+            param(
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Manager
+            )
+
+            $result = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments @('list', '--upgradable')
+            if ($result.ExitCode -ne 0)
+            {
+                $message = ($result.Output | Where-Object { -not [String]::IsNullOrWhiteSpace("$($_)") }) -join ' '
+                throw "Failed to query APT upgrades: $message"
+            }
+
+            $updates = @()
             foreach ($line in @($result.Output | ForEach-Object { "$_" }))
             {
                 $trimmedLine = $line.Trim()
@@ -1022,19 +945,14 @@ function Remove-Package
                     continue
                 }
 
-                if ($trimmedLine -match '^(?<Name>[^/\s]+)/(?<Repository>\S+)\s+(?<Version>\S+)\s+(?<Architecture>\S+)\s+\[(?<State>[^\]]+)\]')
+                if ($trimmedLine -match '^(?<Name>[^/\s]+)/(?<Repository>\S+)\s+(?<Latest>\S+)\s+(?<Architecture>\S+)\s+\[upgradable from:\s+(?<Installed>[^\]]+)\]')
                 {
                     $name = $Matches.Name
-                    $repository = $Matches.Repository
-                    $version = $Matches.Version
-                    $architecture = $Matches.Architecture
-                    $state = $Matches.State
-                    $notes = if ($state -match 'automatic') { 'Automatic' } else { '' }
-                    $packages += Get-PackageInstallObject -Manager $Manager -Name $name -Id $name -Type $architecture -InstalledVersion $version -Source $repository -Notes $notes
+                    $updates += Get-PackageUpdateObject -Manager $Manager -Name $name -Id $name -Type $Matches.Architecture -InstalledVersion $Matches.Installed -LatestVersion $Matches.Latest -Source $Matches.Repository -UpgradeArguments @('install', '--only-upgrade', '-y', $name)
                 }
             }
 
-            return $packages
+            return $updates
         }
 
         function Split-ApkPackageVersion
@@ -1072,21 +990,21 @@ function Remove-Package
             }
         }
 
-        function Get-ApkInstalledPackages
+        function Get-ApkPackageUpdates
         {
             param(
                 [Parameter(Mandatory)]
                 [PSCustomObject]$Manager
             )
 
-            $result = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments @('info', '-v')
+            $result = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments @('version', '-l', '<')
             if ($result.ExitCode -ne 0)
             {
                 $message = ($result.Output | Where-Object { -not [String]::IsNullOrWhiteSpace("$($_)") }) -join ' '
-                throw "Failed to query apk packages: $message"
+                throw "Failed to query apk upgrades: $message"
             }
 
-            $packages = @()
+            $updates = @()
             foreach ($line in @($result.Output | ForEach-Object { "$_" }))
             {
                 $trimmedLine = $line.Trim()
@@ -1095,19 +1013,22 @@ function Remove-Package
                     continue
                 }
 
-                $packageInfo = Split-ApkPackageVersion -InstalledToken $trimmedLine
-                if ([String]::IsNullOrWhiteSpace($packageInfo.Name))
+                if ($trimmedLine -match '^(?<InstalledToken>\S+)\s+<\s+(?<Latest>\S+)')
                 {
-                    continue
-                }
+                    $packageInfo = Split-ApkPackageVersion -InstalledToken $Matches.InstalledToken
+                    if ([String]::IsNullOrWhiteSpace($packageInfo.Name))
+                    {
+                        continue
+                    }
 
-                $packages += Get-PackageInstallObject -Manager $Manager -Name $packageInfo.Name -Id $packageInfo.Name -Type 'Package' -InstalledVersion $packageInfo.Version -Source 'apk'
+                    $updates += Get-PackageUpdateObject -Manager $Manager -Name $packageInfo.Name -Id $packageInfo.Name -Type 'Package' -InstalledVersion $packageInfo.Version -LatestVersion $Matches.Latest -Source 'apk' -UpgradeArguments @('add', '--upgrade', $packageInfo.Name)
+                }
             }
 
-            return $packages
+            return $updates
         }
 
-        function Get-InstalledPackages
+        function Get-PackageUpdates
         {
             param(
                 [Parameter(Mandatory)]
@@ -1116,10 +1037,10 @@ function Remove-Package
 
             switch ($Manager.Name)
             {
-                'winget' { Get-WingetInstalledPackages -Manager $Manager }
-                'brew' { Get-BrewInstalledPackages -Manager $Manager }
-                'apt' { Get-AptInstalledPackages -Manager $Manager }
-                'apk' { Get-ApkInstalledPackages -Manager $Manager }
+                'winget' { Get-WingetPackageUpdates -Manager $Manager }
+                'brew' { Get-BrewPackageUpdates -Manager $Manager }
+                'apt' { Get-AptPackageUpdates -Manager $Manager }
+                'apk' { Get-ApkPackageUpdates -Manager $Manager }
                 default { throw "Unsupported package manager '$($Manager.Name)'." }
             }
         }
@@ -1150,11 +1071,11 @@ function Remove-Package
             return $false
         }
 
-        function Select-PackageInstallRecords
+        function Select-PackageUpdateRecords
         {
             param(
                 [Parameter()]
-                [PSCustomObject[]]$InstalledPackages = @(),
+                [PSCustomObject[]]$PackageUpdates = @(),
 
                 [Parameter()]
                 [ScriptBlock]$KeyReader,
@@ -1166,7 +1087,7 @@ function Remove-Package
                 [String]$PackageManagerName = ''
             )
 
-            if ($InstalledPackages.Count -eq 0)
+            if ($PackageUpdates.Count -eq 0)
             {
                 return @()
             }
@@ -1267,15 +1188,15 @@ function Remove-Package
                 return $fallbackPageSize
             }
 
-            $nameWidth = [Math]::Min(36, [Math]::Max(4, (($InstalledPackages | ForEach-Object { $_.Name.Length } | Measure-Object -Maximum).Maximum)))
-            $versionWidth = [Math]::Min(20, [Math]::Max(7, (($InstalledPackages | ForEach-Object { $_.InstalledVersion.Length } | Measure-Object -Maximum).Maximum)))
-            $typeWidth = [Math]::Min(12, [Math]::Max(4, (($InstalledPackages | ForEach-Object { $_.Type.Length } | Measure-Object -Maximum).Maximum)))
-            $sourceWidth = [Math]::Min(18, [Math]::Max(6, (($InstalledPackages | ForEach-Object { $_.Source.Length } | Measure-Object -Maximum).Maximum)))
-            $pageSize = Get-PackagePickerPageSize -RequestedPageSize $PageSize -ItemCount $InstalledPackages.Count
+            $nameWidth = [Math]::Min(36, [Math]::Max(4, (($PackageUpdates | ForEach-Object { $_.Name.Length } | Measure-Object -Maximum).Maximum)))
+            $installedWidth = [Math]::Min(20, [Math]::Max(9, (($PackageUpdates | ForEach-Object { $_.InstalledVersion.Length } | Measure-Object -Maximum).Maximum)))
+            $latestWidth = [Math]::Min(20, [Math]::Max(6, (($PackageUpdates | ForEach-Object { $_.LatestVersion.Length } | Measure-Object -Maximum).Maximum)))
+            $typeWidth = [Math]::Min(12, [Math]::Max(4, (($PackageUpdates | ForEach-Object { $_.Type.Length } | Measure-Object -Maximum).Maximum)))
+            $pageSize = Get-PackagePickerPageSize -RequestedPageSize $PageSize -ItemCount $PackageUpdates.Count
 
-            $selected = New-Object 'System.Boolean[]' $InstalledPackages.Count
-            $purgeFlags = New-Object 'System.Boolean[]' $InstalledPackages.Count
-            $showPurge = $PackageManagerName -in @('brew', 'apt', 'apk')
+            $selected = New-Object 'System.Boolean[]' $PackageUpdates.Count
+            $uninstallPreviousFlags = New-Object 'System.Boolean[]' $PackageUpdates.Count
+            $showUninstallPrevious = $PackageManagerName -eq 'winget'
             $cursor = 0
             $topIndex = 0
             $restoreTreatControlCAsInput = $false
@@ -1306,50 +1227,50 @@ function Remove-Package
                         $topIndex = 0
                     }
 
-                    $maxTopIndex = [Math]::Max(0, $InstalledPackages.Count - $pageSize)
+                    $maxTopIndex = [Math]::Max(0, $PackageUpdates.Count - $pageSize)
                     if ($topIndex -gt $maxTopIndex)
                     {
                         $topIndex = $maxTopIndex
                     }
 
-                    $bottomIndex = [Math]::Min($InstalledPackages.Count - 1, $topIndex + $pageSize - 1)
+                    $bottomIndex = [Math]::Min($PackageUpdates.Count - 1, $topIndex + $pageSize - 1)
 
                     Clear-Host
-                    Write-Host "Remove-Package - $($InstalledPackages[0].PackageManagerDisplayName)"
+                    Write-Host "Upgrade-SystemPackage - $($PackageUpdates[0].PackageManagerDisplayName)"
                     $pickerHintPrefix = 'Spacebar: select'
-                    $pickerHintActions = 'Enter: remove selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
-                    $pickerHint = if ($showPurge) { "$pickerHintPrefix  P: purge/zap  $pickerHintActions" } else { "$pickerHintPrefix  $pickerHintActions" }
+                    $pickerHintActions = 'Enter: upgrade selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
+                    $pickerHint = if ($showUninstallPrevious) { "$pickerHintPrefix  U: uninstall previous  $pickerHintActions" } else { "$pickerHintPrefix  $pickerHintActions" }
                     Write-Host $pickerHint
                     Write-Host ''
-                    if ($showPurge)
+                    if ($showUninstallPrevious)
                     {
-                        Write-Host ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', 'Pge', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth))
-                        Write-Host ('  {0} {1} {2} {3} {4} {5}' -f '---', '---', ('-' * $nameWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth))
+                        Write-Host ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', 'Unp', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth))
+                        Write-Host ('  {0} {1} {2} {3} {4} {5}' -f '---', '---', ('-' * $nameWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth))
                     }
                     else
                     {
-                        Write-Host ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth))
-                        Write-Host ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth))
+                        Write-Host ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth))
+                        Write-Host ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth))
                     }
 
                     for ($i = $topIndex; $i -le $bottomIndex; $i++)
                     {
-                        $package = $InstalledPackages[$i]
+                        $package = $PackageUpdates[$i]
                         $cursorMarker = if ($i -eq $cursor) { '>' } else { ' ' }
                         $selectedMarker = if ($selected[$i]) { '[x]' } else { '[ ]' }
-                        if ($showPurge)
+                        if ($showUninstallPrevious)
                         {
-                            $purgeMarker = if ($purgeFlags[$i]) { '[p]' } else { '[ ]' }
-                            Write-Host ('{0} {1} {2} {3} {4} {5} {6}' -f $cursorMarker, $selectedMarker, $purgeMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $versionWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
+                            $uninstallMarker = if ($uninstallPreviousFlags[$i]) { '[u]' } else { '[ ]' }
+                            Write-Host ('{0} {1} {2} {3} {4} {5} {6}' -f $cursorMarker, $selectedMarker, $uninstallMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
                         }
                         else
                         {
-                            Write-Host ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $versionWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
+                            Write-Host ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
                         }
                     }
 
                     Write-Host ''
-                    Write-Host "$(@($selected | Where-Object { $_ }).Count) of $($InstalledPackages.Count) package(s) selected."
+                    Write-Host "$(@($selected | Where-Object { $_ }).Count) of $($PackageUpdates.Count) package(s) selected."
 
                     $key = & $KeyReader
                     if (Test-PackagePickerCancelKey -KeyInfo $key)
@@ -1369,7 +1290,7 @@ function Remove-Package
                         }
                         'DownArrow'
                         {
-                            if ($cursor -lt ($InstalledPackages.Count - 1))
+                            if ($cursor -lt ($PackageUpdates.Count - 1))
                             {
                                 $cursor++
                             }
@@ -1380,7 +1301,7 @@ function Remove-Package
                         }
                         'PageDown'
                         {
-                            $cursor = [Math]::Min($InstalledPackages.Count - 1, $cursor + $pageSize)
+                            $cursor = [Math]::Min($PackageUpdates.Count - 1, $cursor + $pageSize)
                         }
                         'Home'
                         {
@@ -1388,7 +1309,7 @@ function Remove-Package
                         }
                         'End'
                         {
-                            $cursor = $InstalledPackages.Count - 1
+                            $cursor = $PackageUpdates.Count - 1
                         }
                         'Spacebar'
                         {
@@ -1402,22 +1323,22 @@ function Remove-Package
                                 $selected[$i] = $selectAll
                             }
                         }
-                        'P'
+                        'U'
                         {
-                            if ($showPurge)
+                            if ($showUninstallPrevious)
                             {
-                                $purgeFlags[$cursor] = -not $purgeFlags[$cursor]
+                                $uninstallPreviousFlags[$cursor] = -not $uninstallPreviousFlags[$cursor]
                             }
                         }
                         'Enter'
                         {
                             $selectedPackages = @()
-                            for ($i = 0; $i -lt $InstalledPackages.Count; $i++)
+                            for ($i = 0; $i -lt $PackageUpdates.Count; $i++)
                             {
                                 if ($selected[$i])
                                 {
-                                    $pkg = $InstalledPackages[$i]
-                                    $pkg | Add-Member -NotePropertyName 'Purge' -NotePropertyValue $purgeFlags[$i] -Force
+                                    $pkg = $PackageUpdates[$i]
+                                    $pkg | Add-Member -NotePropertyName 'UninstallPrevious' -NotePropertyValue $uninstallPreviousFlags[$i] -Force
                                     $selectedPackages += $pkg
                                 }
                             }
@@ -1437,7 +1358,7 @@ function Remove-Package
             }
         }
 
-        function Invoke-PackageRemoval
+        function Invoke-PackageUpgrade
         {
             param(
                 [Parameter(Mandatory)]
@@ -1447,19 +1368,19 @@ function Remove-Package
                 [PSCustomObject]$Package
             )
 
-            $versionText = if (-not [String]::IsNullOrWhiteSpace($Package.InstalledVersion)) { " $($Package.InstalledVersion)" } else { '' }
+            $versionText = "$($Package.InstalledVersion) -> $($Package.LatestVersion)"
 
             Write-Host ''
-            Write-Host "Removing $($Package.Name)$versionText with $($Manager.DisplayName)..."
+            Write-Host "Upgrading $($Package.Name) ($versionText) with $($Manager.DisplayName)..."
 
-            $removeArguments = $Package.RemoveArguments
-            $perPackagePurge = $Package.PSObject.Properties['Purge'] -and [Boolean]$Package.Purge
-            if ($perPackagePurge -and -not $Purge)
+            $upgradeArguments = $Package.UpgradeArguments
+            $perPackageUninstall = $Package.PSObject.Properties['UninstallPrevious'] -and [Boolean]$Package.UninstallPrevious
+            if (($UninstallPrevious -or $perPackageUninstall) -and $Manager.Name -eq 'winget')
             {
-                $removeArguments = Get-PackageRemoveArguments -Manager $Manager -Name $Package.Name -Id $Package.Id -Type $Package.Type -UsePurge
+                $upgradeArguments = @($upgradeArguments) + @('--uninstall-previous')
             }
 
-            $invocation = Resolve-PackageManagerInvocation -Manager $Manager -Arguments $removeArguments
+            $invocation = Resolve-PackageManagerInvocation -Manager $Manager -Arguments $upgradeArguments
             $result = Invoke-PackageManagerCommand -Command $invocation.Command -Arguments $invocation.Arguments -StreamOutput
 
             if ($result.ExitCode -eq 0)
@@ -1468,20 +1389,22 @@ function Remove-Package
                     Name = $Package.Name
                     Id = $Package.Id
                     InstalledVersion = $Package.InstalledVersion
-                    Status = 'Removed'
+                    LatestVersion = $Package.LatestVersion
+                    Status = 'Upgraded'
                     ExitCode = $result.ExitCode
-                    Message = 'Removal completed'
+                    Message = 'Upgrade completed'
                 }
             }
             else
             {
                 $message = Get-PackageCommandFailureMessage -Command $invocation.Command -Arguments $invocation.Arguments -ExitCode $result.ExitCode -Output $result.Output
 
-                Write-Warning "Failed to remove $($Package.Name): $message"
+                Write-Warning "Failed to upgrade $($Package.Name): $message"
                 [PSCustomObject]@{
                     Name = $Package.Name
                     Id = $Package.Id
                     InstalledVersion = $Package.InstalledVersion
+                    LatestVersion = $Package.LatestVersion
                     Status = 'Failed'
                     ExitCode = $result.ExitCode
                     Message = $message
@@ -1495,64 +1418,68 @@ function Remove-Package
         $manager = Resolve-PackageManager
         Write-Verbose "Using package manager: $($manager.DisplayName) ($($manager.Command))"
 
-        Write-Host "Checking installed packages with $($manager.DisplayName)..."
-        $installedPackages = @(
-            Get-InstalledPackage -PackageManager $manager.Name -Name $IncludePackage -ExcludePackage $ExcludePackage -CommandRunner $CommandRunner
-        )
-
-        foreach ($installedPackage in $installedPackages)
+        if (-not $SkipRefresh -and $PSCmdlet.ShouldProcess($manager.DisplayName, 'Refresh package metadata'))
         {
-            $removeArguments = Get-PackageRemoveArguments -Manager $manager -Name $installedPackage.Name -Id $installedPackage.Id -Type $installedPackage.Type -UsePurge:$Purge.IsPresent
-            $installedPackage | Add-Member -NotePropertyName 'RemoveArguments' -NotePropertyValue @($removeArguments) -Force
+            Invoke-PackageRegistryRefresh -Manager $manager
         }
+
+        Write-Host "Checking for available upgrades with $($manager.DisplayName)..."
+        $packageUpdates = @(Get-PackageUpdates -Manager $manager)
+
+        if ($IncludePackage -and $IncludePackage.Count -gt 0)
+        {
+            $packageUpdates = @($packageUpdates | Where-Object { Test-PackagePatternMatch -Package $_ -Pattern $IncludePackage })
+        }
+
+        if ($ExcludePackage -and $ExcludePackage.Count -gt 0)
+        {
+            $packageUpdates = @($packageUpdates | Where-Object { -not (Test-PackagePatternMatch -Package $_ -Pattern $ExcludePackage) })
+        }
+
+        $packageUpdates = @($packageUpdates | Sort-Object -Property Name, Id)
 
         if ($AsObject)
         {
-            return $installedPackages
+            return $packageUpdates
         }
 
-        if ($installedPackages.Count -eq 0)
+        if ($packageUpdates.Count -eq 0)
         {
-            Write-Host 'No installed packages matched the requested filters.'
+            Write-Host 'No package upgrades are available.'
             return [PSCustomObject]@{
                 PackageManager = $manager.Name
                 PackageManagerDisplayName = $manager.DisplayName
-                TotalMatched = 0
+                TotalAvailable = 0
                 Selected = 0
                 NotSelected = 0
-                Removed = 0
+                Upgraded = 0
                 Failed = 0
                 Skipped = 0
                 Results = @()
             }
         }
 
-        if ($All -and (-not $IncludePackage -or $IncludePackage.Count -eq 0))
-        {
-            throw 'Refusing to remove every installed package without an include filter. Use -IncludePackage with -All, or omit -All and select packages interactively.'
-        }
-
         $selectedPackages = @(
             if ($All)
             {
-                $installedPackages
+                $packageUpdates
             }
             else
             {
-                Select-PackageInstallRecords -InstalledPackages $installedPackages -KeyReader $KeyReader -PageSize $PickerPageSize -PackageManagerName $manager.Name
+                Select-PackageUpdateRecords -PackageUpdates $packageUpdates -KeyReader $KeyReader -PageSize $PickerPageSize -PackageManagerName $manager.Name
             }
         )
 
         if ($selectedPackages.Count -eq 0)
         {
-            Write-Host 'No packages selected for removal.'
+            Write-Host 'No packages selected for upgrade.'
             return [PSCustomObject]@{
                 PackageManager = $manager.Name
                 PackageManagerDisplayName = $manager.DisplayName
-                TotalMatched = $installedPackages.Count
+                TotalAvailable = $packageUpdates.Count
                 Selected = 0
-                NotSelected = $installedPackages.Count
-                Removed = 0
+                NotSelected = $packageUpdates.Count
+                Upgraded = 0
                 Failed = 0
                 Skipped = 0
                 Results = @()
@@ -1563,11 +1490,11 @@ function Remove-Package
         foreach ($package in $selectedPackages)
         {
             $displayTarget = if (-not [String]::IsNullOrWhiteSpace($package.Id)) { $package.Id } else { $package.Name }
-            $versionText = if (-not [String]::IsNullOrWhiteSpace($package.InstalledVersion)) { " $($package.InstalledVersion)" } else { '' }
+            $versionText = "$($package.InstalledVersion) -> $($package.LatestVersion)"
 
-            if ($PSCmdlet.ShouldProcess("$displayTarget$versionText", "Remove with $($manager.DisplayName)"))
+            if ($PSCmdlet.ShouldProcess("$displayTarget ($versionText)", "Upgrade with $($manager.DisplayName)"))
             {
-                $results += Invoke-PackageRemoval -Manager $manager -Package $package
+                $results += Invoke-PackageUpgrade -Manager $manager -Package $package
             }
             else
             {
@@ -1575,6 +1502,7 @@ function Remove-Package
                     Name = $package.Name
                     Id = $package.Id
                     InstalledVersion = $package.InstalledVersion
+                    LatestVersion = $package.LatestVersion
                     Status = 'Skipped'
                     ExitCode = $null
                     Message = 'Skipped by ShouldProcess'
@@ -1582,18 +1510,18 @@ function Remove-Package
             }
         }
 
-        $removedCount = @($results | Where-Object { $_.Status -eq 'Removed' }).Count
+        $upgradedCount = @($results | Where-Object { $_.Status -eq 'Upgraded' }).Count
         $failedCount = @($results | Where-Object { $_.Status -eq 'Failed' }).Count
         $skippedCount = @($results | Where-Object { $_.Status -eq 'Skipped' }).Count
-        $notSelectedCount = $installedPackages.Count - $selectedPackages.Count
+        $notSelectedCount = $packageUpdates.Count - $selectedPackages.Count
 
         [PSCustomObject]@{
             PackageManager = $manager.Name
             PackageManagerDisplayName = $manager.DisplayName
-            TotalMatched = $installedPackages.Count
+            TotalAvailable = $packageUpdates.Count
             Selected = $selectedPackages.Count
             NotSelected = $notSelectedCount
-            Removed = $removedCount
+            Upgraded = $upgradedCount
             Failed = $failedCount
             Skipped = $skippedCount
             Results = $results
@@ -1601,16 +1529,44 @@ function Remove-Package
     }
 }
 
-# Create 'Uninstall-Package' alias only if it doesn't already exist
-if (-not (Get-Alias -Name 'Uninstall-Package' -ErrorAction SilentlyContinue))
+# Create 'Update-SystemPackage' alias only if it doesn't already exist
+if (-not (Get-Alias -Name 'Update-SystemPackage' -ErrorAction SilentlyContinue))
 {
     try
     {
-        Write-Verbose "Creating 'Uninstall-Package' alias for Remove-Package"
-        Set-Alias -Name 'Uninstall-Package' -Value 'Remove-Package' -Force -ErrorAction Stop
+        Write-Verbose "Creating 'Update-SystemPackage' alias for Upgrade-SystemPackage"
+        Set-Alias -Name 'Update-SystemPackage' -Value 'Upgrade-SystemPackage' -Force -ErrorAction Stop
     }
     catch
     {
-        Write-Warning "Remove-Package: Could not create 'Uninstall-Package' alias: $($_.Exception.Message)"
+        Write-Warning "Upgrade-SystemPackage: Could not create 'Update-SystemPackage' alias: $($_.Exception.Message)"
+    }
+}
+
+# Create 'upgrade' alias only if it doesn't already exist
+if (-not (Get-Alias -Name 'upgrade' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Write-Verbose "Creating 'upgrade' alias for Upgrade-SystemPackage"
+        Set-Alias -Name 'upgrade' -Value 'Upgrade-SystemPackage' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Upgrade-SystemPackage: Could not create 'upgrade' alias: $($_.Exception.Message)"
+    }
+}
+
+# Create 'update' alias only if it doesn't already exist
+if (-not (Get-Alias -Name 'update' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Write-Verbose "Creating 'update' alias for Upgrade-SystemPackage"
+        Set-Alias -Name 'update' -Value 'Upgrade-SystemPackage' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Upgrade-SystemPackage: Could not create 'update' alias: $($_.Exception.Message)"
     }
 }

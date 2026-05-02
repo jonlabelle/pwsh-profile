@@ -528,12 +528,12 @@ The profile includes utility functions organized by category:
 - **[`Test-Admin`](Functions/SystemAdministration/Test-Admin.ps1)** — Checks if the current PowerShell session is running as administrator or root
 - **[`Test-PendingReboot`](Functions/SystemAdministration/Test-PendingReboot.ps1)** — Checks if the system has pending reboot requirements
 - **[`Get-SystemInfo`](Functions/SystemAdministration/Get-SystemInfo.ps1)** — Gets system information from local or remote computers
-- **[`Get-InstalledPackage`](Functions/SystemAdministration/Get-InstalledPackage.ps1)** — Gets installed platform packages from winget, brew, apt, or apk
-- **[`Show-InstalledPackage`](Functions/SystemAdministration/Show-InstalledPackage.ps1)** — Displays installed platform packages in an interactive browser
-- **[`Find-PlatformPackage`](Functions/SystemAdministration/Find-PlatformPackage.ps1)** — Searches native platform package registries with winget, brew, apt, or apk
-- **[`Install-PlatformPackage`](Functions/SystemAdministration/Install-PlatformPackage.ps1)** — Installs platform packages by query, name, id, or piped search result
-- **[`Upgrade-Package`](Functions/SystemAdministration/Upgrade-Package.ps1)** — Upgrades outdated platform packages with winget, brew, apt, or apk
-- **[`Remove-Package`](Functions/SystemAdministration/Remove-Package.ps1)** — Removes installed platform packages with winget, brew, apt, or apk
+- **[`Get-SystemPackage`](Functions/SystemAdministration/Get-SystemPackage.ps1)** — Gets installed platform packages from winget, brew, apt, or apk
+- **[`Show-SystemPackage`](Functions/SystemAdministration/Show-SystemPackage.ps1)** — Displays installed platform packages in an interactive browser
+- **[`Find-SystemPackage`](Functions/SystemAdministration/Find-SystemPackage.ps1)** — Searches native platform package registries with winget, brew, apt, or apk
+- **[`Install-SystemPackage`](Functions/SystemAdministration/Install-SystemPackage.ps1)** — Installs platform packages by query, name, id, or piped search result
+- **[`Upgrade-SystemPackage`](Functions/SystemAdministration/Upgrade-SystemPackage.ps1)** — Upgrades outdated platform packages with winget, brew, apt, or apk
+- **[`Remove-SystemPackage`](Functions/SystemAdministration/Remove-SystemPackage.ps1)** — Removes installed platform packages with winget, brew, apt, or apk
 
 ### Developer
 

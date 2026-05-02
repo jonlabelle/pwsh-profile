@@ -3,7 +3,7 @@
 BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
-    . "$PSScriptRoot/../../../Functions/SystemAdministration/Find-PlatformPackage.ps1"
+    . "$PSScriptRoot/../../../Functions/SystemAdministration/Find-SystemPackage.ps1"
 
     function Get-TestCommandResponse
     {
@@ -56,7 +56,7 @@ BeforeAll {
     }
 }
 
-Describe 'Find-PlatformPackage' {
+Describe 'Find-SystemPackage' {
     BeforeEach {
         $script:Invocations = New-Object 'System.Collections.Generic.List[Object]'
     }
@@ -83,7 +83,7 @@ Describe 'Find-PlatformPackage' {
                 'winget search git --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetJson)
             }
 
-            $result = @(Find-PlatformPackage -PackageManager winget -Query git -CommandRunner $runner)
+            $result = @(Find-SystemPackage -PackageManager winget -Query git -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'Git'
@@ -100,7 +100,7 @@ Describe 'Find-PlatformPackage' {
                 'brew search --casks git' = Get-TestCommandResponse -Output @('git-credential-manager')
             }
 
-            $result = @(Find-PlatformPackage -PackageManager brew -Query git -CommandRunner $runner -Top 0)
+            $result = @(Find-SystemPackage -PackageManager brew -Query git -CommandRunner $runner -Top 0)
 
             $result.Count | Should -Be 3
             ($result | Where-Object { $_.Name -eq 'git' }).Type | Should -Be 'Formula'
@@ -119,7 +119,7 @@ Describe 'Find-PlatformPackage' {
                 )
             }
 
-            $result = @(Find-PlatformPackage -PackageManager apt -Query openssl -CommandRunner $runner)
+            $result = @(Find-SystemPackage -PackageManager apt -Query openssl -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'openssl'
@@ -138,7 +138,7 @@ Describe 'Find-PlatformPackage' {
                 )
             }
 
-            $result = @(Find-PlatformPackage -PackageManager apk -Query bash -CommandRunner $runner -Top 0)
+            $result = @(Find-SystemPackage -PackageManager apk -Query bash -CommandRunner $runner -Top 0)
 
             $result.Count | Should -Be 2
             ($result | Where-Object { $_.Name -eq 'bash' }).Installed | Should -BeTrue
@@ -153,7 +153,7 @@ Describe 'Find-PlatformPackage' {
                 'brew search --casks git' = Get-TestCommandResponse -Output @('git-credential-manager')
             }
 
-            $result = @(Find-PlatformPackage -PackageManager brew -Query git -ExcludePackage 'git-lfs' -Top 1 -CommandRunner $runner)
+            $result = @(Find-SystemPackage -PackageManager brew -Query git -ExcludePackage 'git-lfs' -Top 1 -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'

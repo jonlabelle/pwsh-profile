@@ -3,7 +3,7 @@
 BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
-    . "$PSScriptRoot/../../../Functions/SystemAdministration/Show-InstalledPackage.ps1"
+    . "$PSScriptRoot/../../../Functions/SystemAdministration/Show-SystemPackage.ps1"
 
     function Get-TestCommandResponse
     {
@@ -56,7 +56,7 @@ BeforeAll {
     }
 }
 
-Describe 'Show-InstalledPackage' {
+Describe 'Show-SystemPackage' {
     BeforeEach {
         $script:Invocations = New-Object 'System.Collections.Generic.List[Object]'
         Mock -CommandName Write-Host -MockWith {}
@@ -70,7 +70,7 @@ Describe 'Show-InstalledPackage' {
                 'brew list --cask --versions' = Get-TestCommandResponse -Output @('visual-studio-code 1.89.0')
             }
 
-            $result = @(Show-InstalledPackage -PackageManager brew -AsObject -CommandRunner $runner)
+            $result = @(Show-SystemPackage -PackageManager brew -AsObject -CommandRunner $runner)
 
             $result.Count | Should -Be 2
             ($result | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should -Be '2.44.0'
@@ -88,10 +88,31 @@ Describe 'Show-InstalledPackage' {
                 [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
             }
 
-            $result = @(Show-InstalledPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
+            $result = @(Show-SystemPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Enter: exit*' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit' } -Times 1
+        }
+
+        It 'does not exit when Enter is pressed in browse mode' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0')
+                'brew list --cask --versions' = Get-TestCommandResponse -Output @()
+            }
+
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = @(Show-SystemPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
+
+            $result.Count | Should -Be 0
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit' } -Times 2
         }
 
         It 'renders only the current viewport for long package lists' {
@@ -109,7 +130,7 @@ Describe 'Show-InstalledPackage' {
                 [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
             }
 
-            $null = Show-InstalledPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PickerPageSize 2
+            $null = Show-SystemPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PickerPageSize 2
 
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-01*' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-02*' } -Times 1
@@ -132,7 +153,7 @@ Describe 'Show-InstalledPackage' {
                 return $keys.Dequeue()
             }.GetNewClosure()
 
-            $result = @(Show-InstalledPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PassThru)
+            $result = @(Show-SystemPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PassThru)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'

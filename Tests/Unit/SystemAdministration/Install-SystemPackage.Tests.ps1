@@ -3,7 +3,7 @@
 BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
-    . "$PSScriptRoot/../../../Functions/SystemAdministration/Install-PlatformPackage.ps1"
+    . "$PSScriptRoot/../../../Functions/SystemAdministration/Install-SystemPackage.ps1"
 
     function Get-TestCommandResponse
     {
@@ -60,7 +60,7 @@ BeforeAll {
     }
 }
 
-Describe 'Install-PlatformPackage' {
+Describe 'Install-SystemPackage' {
     BeforeEach {
         $script:Invocations = New-Object 'System.Collections.Generic.List[Object]'
         Mock -CommandName Write-Host -MockWith {}
@@ -73,7 +73,7 @@ Describe 'Install-PlatformPackage' {
                 'winget install --id Git.Git --exact --accept-source-agreements --accept-package-agreements' = Get-TestCommandResponse -Output @('winget install output')
             }
 
-            $result = Install-PlatformPackage -PackageManager winget -Id Git.Git -CommandRunner $runner -Confirm:$false
+            $result = Install-SystemPackage -PackageManager winget -Id Git.Git -CommandRunner $runner -Confirm:$false
 
             $result.Installed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --accept-source-agreements --accept-package-agreements' }).StreamOutput | Should -BeTrue
@@ -85,7 +85,7 @@ Describe 'Install-PlatformPackage' {
                 'brew install git' = Get-TestCommandResponse -Output @('brew install git output')
             }
 
-            $result = Install-PlatformPackage -PackageManager brew -Name git -CommandRunner $runner -WhatIf
+            $result = Install-SystemPackage -PackageManager brew -Name git -CommandRunner $runner -WhatIf
 
             $result.Installed | Should -Be 0
             $result.Skipped | Should -Be 1
@@ -110,7 +110,7 @@ Describe 'Install-PlatformPackage' {
                 return $keys.Dequeue()
             }.GetNewClosure()
 
-            $result = Install-PlatformPackage -PackageManager brew -Query code -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+            $result = Install-SystemPackage -PackageManager brew -Query code -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
             $result.Selected | Should -Be 1
             $result.Installed | Should -Be 1
@@ -128,7 +128,7 @@ Describe 'Install-PlatformPackage' {
                 [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
             }
 
-            $result = Install-PlatformPackage -PackageManager brew -Query git -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+            $result = Install-SystemPackage -PackageManager brew -Query git -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
             $result.Selected | Should -Be 0
             $result.NotSelected | Should -Be 1
@@ -148,7 +148,7 @@ Describe 'Install-PlatformPackage' {
                 Installed = $true
             }
 
-            $result = $package | Install-PlatformPackage -CommandRunner (& $script:NewPackageCommandRunner @{}) -Confirm:$false
+            $result = $package | Install-SystemPackage -CommandRunner (& $script:NewPackageCommandRunner @{}) -Confirm:$false
 
             $result.Selected | Should -Be 1
             $result.Skipped | Should -Be 1

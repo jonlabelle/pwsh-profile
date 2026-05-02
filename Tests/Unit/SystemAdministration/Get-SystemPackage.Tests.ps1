@@ -3,7 +3,7 @@
 BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
-    . "$PSScriptRoot/../../../Functions/SystemAdministration/Get-InstalledPackage.ps1"
+    . "$PSScriptRoot/../../../Functions/SystemAdministration/Get-SystemPackage.ps1"
 
     function Get-TestCommandResponse
     {
@@ -56,7 +56,7 @@ BeforeAll {
     }
 }
 
-Describe 'Get-InstalledPackage' {
+Describe 'Get-SystemPackage' {
     BeforeEach {
         $script:Invocations = New-Object 'System.Collections.Generic.List[Object]'
     }
@@ -68,7 +68,7 @@ Describe 'Get-InstalledPackage' {
                 'brew list --cask --versions' = Get-TestCommandResponse -Output @('visual-studio-code 1.89.0')
             }
 
-            $result = @(Get-InstalledPackage -PackageManager brew -CommandRunner $runner)
+            $result = @(Get-SystemPackage -PackageManager brew -CommandRunner $runner)
 
             $result.Count | Should -Be 2
 
@@ -105,7 +105,7 @@ Describe 'Get-InstalledPackage' {
                 'winget list --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetJson)
             }
 
-            $result = @(Get-InstalledPackage -PackageManager winget -CommandRunner $runner)
+            $result = @(Get-SystemPackage -PackageManager winget -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'Git'
@@ -124,7 +124,7 @@ Describe 'Get-InstalledPackage' {
                 )
             }
 
-            $result = @(Get-InstalledPackage -PackageManager apt -CommandRunner $runner)
+            $result = @(Get-SystemPackage -PackageManager apt -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'openssl'
@@ -141,7 +141,7 @@ Describe 'Get-InstalledPackage' {
                 )
             }
 
-            $result = @(Get-InstalledPackage -PackageManager apk -CommandRunner $runner)
+            $result = @(Get-SystemPackage -PackageManager apk -CommandRunner $runner)
 
             $result.Count | Should -Be 2
 
@@ -160,7 +160,7 @@ Describe 'Get-InstalledPackage' {
                 'brew list --cask --versions' = Get-TestCommandResponse -Output @('visual-studio-code 1.89.0')
             }
 
-            $result = @(Get-InstalledPackage -PackageManager brew -Name 'g*' -ExcludePackage 'gh' -CommandRunner $runner)
+            $result = @(Get-SystemPackage -PackageManager brew -Name 'g*' -ExcludePackage 'gh' -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
