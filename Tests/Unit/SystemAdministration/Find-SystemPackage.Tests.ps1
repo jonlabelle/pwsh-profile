@@ -56,7 +56,10 @@ BeforeAll {
                 return $localResponses[$key]
             }
 
-            return Get-TestCommandResponse -ExitCode 127 -Output @("Unexpected command: $key")
+            return [PSCustomObject]@{
+                ExitCode = 127
+                Output = @("Unexpected command: $key")
+            }
         }.GetNewClosure()
     }
 }
@@ -98,6 +101,48 @@ Describe 'Find-SystemPackage' {
             $result[0].Version | Should -Be '2.45.1'
             $result[0].Description | Should -Be 'Distributed version control system'
         }
+
+        It 'marks search results as installed from winget list output' {
+            $wingetSearchJson = @{
+                Sources = @(
+                    @{
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.45.1'
+                                CatalogName = 'winget'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+
+            $wingetListJson = @{
+                Sources = @(
+                    @{
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.44.0'
+                                Source = 'winget'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget search git --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetSearchJson)
+                'winget list --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetListJson)
+            }
+
+            $result = @(Find-SystemPackage -PackageManager winget -NonInteractive -Query git -CommandRunner $runner)
+
+            $result.Count | Should -Be 1
+            $result[0].Installed | Should -BeTrue
+        }
     }
 
     Context 'Homebrew search' {
@@ -112,6 +157,21 @@ Describe 'Find-SystemPackage' {
             $result.Count | Should -Be 3
             ($result | Where-Object { $_.Name -eq 'git' }).Type | Should -Be 'Formula'
             ($result | Where-Object { $_.Name -eq 'git-credential-manager' }).Type | Should -Be 'Cask'
+        }
+
+        It 'marks formula search results as installed from Homebrew list output' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew search --formulae jq' = Get-TestCommandResponse -Output @('gojq', 'jq', 'jq-lsp')
+                'brew search --casks jq' = Get-TestCommandResponse -Output @('jquake')
+                'brew list --formula --versions' = Get-TestCommandResponse -Output @('jq 1.7.1')
+                'brew list --cask --versions' = Get-TestCommandResponse -Output @()
+            }
+
+            $result = @(Find-SystemPackage -PackageManager brew -NonInteractive -Query jq -CommandRunner $runner -Top 0)
+
+            ($result | Where-Object { $_.Name -eq 'jq' }).Installed | Should -BeTrue
+            ($result | Where-Object { $_.Name -eq 'gojq' }).Installed | Should -BeFalse
+            ($result | Where-Object { $_.Name -eq 'jquake' }).Installed | Should -BeFalse
         }
 
         It 'keeps formula results when cask search reports no Homebrew matches' {

@@ -555,6 +555,175 @@ function Find-SystemPackage
             }
         }
 
+        function Get-PackageLookupKey
+        {
+            param(
+                [Parameter()]
+                [String]$Type,
+
+                [Parameter()]
+                [String]$Value
+            )
+
+            if ([String]::IsNullOrWhiteSpace($Value))
+            {
+                return ''
+            }
+
+            $typeKey = if ([String]::IsNullOrWhiteSpace($Type)) { '' } else { $Type.Trim().ToLowerInvariant() }
+            $valueKey = $Value.Trim().ToLowerInvariant()
+
+            return "$typeKey|$valueKey"
+        }
+
+        function Add-PackageToInstalledLookup
+        {
+            param(
+                [Parameter(Mandatory)]
+                [Hashtable]$Lookup,
+
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Package
+            )
+
+            $values = @($Package.Id, $Package.Name) |
+            Where-Object { -not [String]::IsNullOrWhiteSpace("$_") } |
+            ForEach-Object { "$_".Trim() } |
+            Select-Object -Unique
+
+            foreach ($value in $values)
+            {
+                $key = Get-PackageLookupKey -Type $Package.Type -Value $value
+                if (-not [String]::IsNullOrWhiteSpace($key) -and -not $Lookup.ContainsKey($key))
+                {
+                    $Lookup[$key] = $Package
+                }
+            }
+        }
+
+        function Get-PackageFromInstalledLookup
+        {
+            param(
+                [Parameter(Mandatory)]
+                [Hashtable]$Lookup,
+
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Package
+            )
+
+            $values = @($Package.Id, $Package.Name) |
+            Where-Object { -not [String]::IsNullOrWhiteSpace("$_") } |
+            ForEach-Object { "$_".Trim() } |
+            Select-Object -Unique
+
+            foreach ($value in $values)
+            {
+                $key = Get-PackageLookupKey -Type $Package.Type -Value $value
+                if (-not [String]::IsNullOrWhiteSpace($key) -and $Lookup.ContainsKey($key))
+                {
+                    return $Lookup[$key]
+                }
+
+                if (-not ([String]::IsNullOrWhiteSpace($Package.Type) -or $Package.Type -eq 'Package'))
+                {
+                    continue
+                }
+
+                $fallbackKey = Get-PackageLookupKey -Value $value
+                if (-not [String]::IsNullOrWhiteSpace($fallbackKey) -and $Lookup.ContainsKey($fallbackKey))
+                {
+                    return $Lookup[$fallbackKey]
+                }
+            }
+
+            return $null
+        }
+
+        function Set-InstalledPackageState
+        {
+            param(
+                [Parameter()]
+                [PSCustomObject[]]$AvailablePackages = @(),
+
+                [Parameter()]
+                [PSCustomObject[]]$InstalledPackages = @()
+            )
+
+            if ($AvailablePackages.Count -eq 0 -or $InstalledPackages.Count -eq 0)
+            {
+                return @($AvailablePackages)
+            }
+
+            $installedLookup = @{}
+            foreach ($installedPackage in $InstalledPackages)
+            {
+                if ($null -ne $installedPackage)
+                {
+                    Add-PackageToInstalledLookup -Lookup $installedLookup -Package $installedPackage
+                }
+            }
+
+            foreach ($package in $AvailablePackages)
+            {
+                $installedPackage = Get-PackageFromInstalledLookup -Lookup $installedLookup -Package $package
+                if ($null -eq $installedPackage)
+                {
+                    continue
+                }
+
+                $package.Installed = $true
+
+                if ([String]::IsNullOrWhiteSpace($package.Notes) -and -not [String]::IsNullOrWhiteSpace($installedPackage.Notes))
+                {
+                    $package.Notes = $installedPackage.Notes
+                }
+            }
+
+            return @($AvailablePackages)
+        }
+
+        function Get-InstalledPackagesForSearch
+        {
+            param(
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Manager
+            )
+
+            try
+            {
+                $getSystemPackageDependencyPath = Get-DependencyPathIfNeeded -FunctionName 'Get-SystemPackage' -RelativePath 'Get-SystemPackage.ps1'
+            }
+            catch
+            {
+                Write-Verbose "Unable to resolve Get-SystemPackage for installed-state detection: $($_.Exception.Message)"
+                return @()
+            }
+
+            if (-not [String]::IsNullOrWhiteSpace($getSystemPackageDependencyPath))
+            {
+                try
+                {
+                    . $getSystemPackageDependencyPath
+                    Write-Verbose "Loaded Get-SystemPackage from: $getSystemPackageDependencyPath"
+                }
+                catch
+                {
+                    Write-Verbose "Unable to load Get-SystemPackage for installed-state detection: $($_.Exception.Message)"
+                    return @()
+                }
+            }
+
+            try
+            {
+                return @(Get-SystemPackage -PackageManager $Manager.Name -CommandRunner $CommandRunner)
+            }
+            catch
+            {
+                Write-Verbose "Unable to query installed packages for $($Manager.DisplayName): $($_.Exception.Message)"
+                return @()
+            }
+        }
+
         function ConvertFrom-WingetJsonSearchOutput
         {
             param(
@@ -749,29 +918,39 @@ function Find-SystemPackage
                 [String]$QueryText
             )
 
+            $packages = @()
             $jsonResult = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments @('search', $QueryText, '--accept-source-agreements', '--output', 'json')
             if ($jsonResult.ExitCode -eq 0)
             {
                 $jsonPackages = @(ConvertFrom-WingetJsonSearchOutput -Manager $Manager -Output $jsonResult.Output)
                 if ($jsonPackages.Count -gt 0)
                 {
-                    return $jsonPackages
+                    $packages = @($jsonPackages)
                 }
-
-                if (-not (($jsonResult.Output -join "`n") -match 'Name\s+Id\s+Version'))
+                elseif (-not (($jsonResult.Output -join "`n") -match 'Name\s+Id\s+Version'))
                 {
                     return @()
                 }
             }
 
-            $tableResult = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments @('search', $QueryText, '--accept-source-agreements')
-            if ($tableResult.ExitCode -ne 0)
+            if ($packages.Count -eq 0)
             {
-                $message = ($tableResult.Output | Where-Object { -not [String]::IsNullOrWhiteSpace("$($_)") }) -join ' '
-                throw "Failed to search winget packages: $message"
+                $tableResult = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments @('search', $QueryText, '--accept-source-agreements')
+                if ($tableResult.ExitCode -ne 0)
+                {
+                    $message = ($tableResult.Output | Where-Object { -not [String]::IsNullOrWhiteSpace("$($_)") }) -join ' '
+                    throw "Failed to search winget packages: $message"
+                }
+
+                $packages = @(ConvertFrom-WingetTableSearchOutput -Manager $Manager -Output $tableResult.Output)
             }
 
-            return ConvertFrom-WingetTableSearchOutput -Manager $Manager -Output $tableResult.Output
+            if ($packages.Count -eq 0)
+            {
+                return @()
+            }
+
+            return Set-InstalledPackageState -AvailablePackages $packages -InstalledPackages @(Get-InstalledPackagesForSearch -Manager $Manager)
         }
 
         function ConvertFrom-BrewSearchOutput
@@ -856,7 +1035,12 @@ function Find-SystemPackage
                 $packages += ConvertFrom-BrewSearchOutput -Manager $Manager -Type 'Cask' -Output $caskResult.Output
             }
 
-            return $packages
+            if ($packages.Count -eq 0)
+            {
+                return @()
+            }
+
+            return Set-InstalledPackageState -AvailablePackages $packages -InstalledPackages @(Get-InstalledPackagesForSearch -Manager $Manager)
         }
 
         function Find-AptPackages

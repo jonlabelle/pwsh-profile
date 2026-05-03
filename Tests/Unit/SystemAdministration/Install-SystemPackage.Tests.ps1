@@ -55,7 +55,10 @@ BeforeAll {
                 return $localResponses[$key]
             }
 
-            return Get-TestCommandResponse -ExitCode 127 -Output @("Unexpected command: $key")
+            return [PSCustomObject]@{
+                ExitCode = 127
+                Output = @("Unexpected command: $key")
+            }
         }.GetNewClosure()
     }
 }
@@ -116,6 +119,33 @@ Describe 'Install-SystemPackage' {
             $result.Installed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew install --cask visual-studio-code' }).StreamOutput | Should -BeTrue
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Spacebar: select*' } -Times 1
+        }
+
+        It 'shows and skips an installed Homebrew search result' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew search --formulae jq' = Get-TestCommandResponse -Output @('jq')
+                'brew search --casks jq' = Get-TestCommandResponse -Output @()
+                'brew list --formula --versions' = Get-TestCommandResponse -Output @('jq 1.7.1')
+                'brew list --cask --versions' = Get-TestCommandResponse -Output @()
+            }
+
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new(' ', [ConsoleKey]::Spacebar, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = Install-SystemPackage -PackageManager brew -Query jq -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+
+            $result.Selected | Should -Be 1
+            $result.Installed | Should -Be 0
+            $result.Skipped | Should -Be 1
+            $result.Results[0].Message | Should -Be 'Package is already installed'
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew install jq' }).Count | Should -Be 0
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Current: jq | Id: jq | Installed: yes' } -Times 1
         }
 
         It 'returns a no-selection summary when the picker is cancelled' {
