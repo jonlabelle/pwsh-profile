@@ -59,7 +59,8 @@ BeforeAll {
 Describe 'Show-SystemPackage' {
     BeforeEach {
         $script:Invocations = New-Object 'System.Collections.Generic.List[Object]'
-        Mock -CommandName Write-Host -MockWith {}
+        $script:HostOutput = New-Object 'System.Collections.Generic.List[Object]'
+        Mock -CommandName Write-Host -MockWith { $script:HostOutput.Add($Object) }
         Mock -CommandName Clear-Host -MockWith {}
     }
 
@@ -92,6 +93,7 @@ Describe 'Show-SystemPackage' {
 
             $result.Count | Should -Be 0
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit' } -Times 1
+            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 3
         }
 
         It 'does not exit when Enter is pressed in browse mode' {

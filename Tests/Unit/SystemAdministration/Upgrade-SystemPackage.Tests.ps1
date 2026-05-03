@@ -63,7 +63,8 @@ BeforeAll {
 Describe 'Upgrade-SystemPackage' {
     BeforeEach {
         $script:Invocations = New-Object 'System.Collections.Generic.List[Object]'
-        Mock -CommandName Write-Host -MockWith {}
+        $script:HostOutput = New-Object 'System.Collections.Generic.List[Object]'
+        Mock -CommandName Write-Host -MockWith { $script:HostOutput.Add($Object) }
         Mock -CommandName Clear-Host -MockWith {}
     }
 
@@ -310,6 +311,7 @@ Describe 'Upgrade-SystemPackage' {
             $result.NotSelected | Should -Be 1
             $result.Upgraded | Should -Be 0
             @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should -Be 0
+            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 3
         }
 
         It 'renders only the current viewport for long upgrade lists' {

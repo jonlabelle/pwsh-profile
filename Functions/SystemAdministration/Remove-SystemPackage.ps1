@@ -1471,6 +1471,7 @@ function Remove-SystemPackage
                     $pickerHint = if ($showPurge) { "$pickerHintPrefix  P: purge/zap  $pickerHintActions" } else { "$pickerHintPrefix  $pickerHintActions" }
                     $frameLines = @(
                         "Remove-SystemPackage - $($InstalledPackages[0].PackageManagerDisplayName)"
+                        ''
                         $pickerHint
                         ''
                     )

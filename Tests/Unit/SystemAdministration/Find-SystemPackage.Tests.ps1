@@ -67,7 +67,8 @@ BeforeAll {
 Describe 'Find-SystemPackage' {
     BeforeEach {
         $script:Invocations = New-Object 'System.Collections.Generic.List[Object]'
-        Mock -CommandName Write-Host -MockWith {}
+        $script:HostOutput = New-Object 'System.Collections.Generic.List[Object]'
+        Mock -CommandName Write-Host -MockWith { $script:HostOutput.Add($Object) }
         Mock -CommandName Clear-Host -MockWith {}
     }
 
@@ -272,6 +273,7 @@ Describe 'Find-SystemPackage' {
             $result.Count | Should -Be 0
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: git' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Spacebar: select  I: install current/selected*' } -Times 1
+            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 5
         }
 
         It 'allows a new query to be entered from the interactive browser' {

@@ -1392,6 +1392,7 @@ function Upgrade-SystemPackage
                     $pickerHint = if ($showUninstallPrevious) { "$pickerHintPrefix  U: uninstall previous  $pickerHintActions" } else { "$pickerHintPrefix  $pickerHintActions" }
                     $frameLines = @(
                         "Upgrade-SystemPackage - $($PackageUpdates[0].PackageManagerDisplayName)"
+                        ''
                         $pickerHint
                         ''
                     )

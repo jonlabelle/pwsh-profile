@@ -1033,6 +1033,7 @@ function Install-SystemPackage
 
                     $frameLines = @(
                         "Install-SystemPackage - $($AvailablePackages[0].PackageManagerDisplayName)"
+                        ''
                         'Spacebar: select  Enter: install selected  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
                         ''
                         ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth))
@@ -1050,6 +1051,7 @@ function Install-SystemPackage
                     $frameLines += ''
                     $frameLines += ('Current: {0} | Id: {1} | Installed: {2}' -f $currentPackage.Name, $currentPackage.Id, ($(if ($currentPackage.Installed) { 'yes' } else { 'no' })))
                     $frameLines += ('Description: {0}' -f $currentDescription)
+                    $frameLines += ''
                     $frameLines += "$(@($selected | Where-Object { $_ }).Count) of $($AvailablePackages.Count) package(s) selected."
 
                     Write-PickerFrame -Lines $frameLines

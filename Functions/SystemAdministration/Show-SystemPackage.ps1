@@ -482,6 +482,7 @@ function Show-SystemPackage
 
                     $frameLines = @(
                         "Show-SystemPackage - $($InstalledPackages[0].PackageManagerDisplayName)"
+                        ''
                     )
 
                     if ($EnableSelection)
@@ -522,6 +523,7 @@ function Show-SystemPackage
                     $frameLines += ('Current: {0} | Id: {1} | Version: {2} | Source: {3}' -f $currentPackage.Name, $currentPackage.Id, $currentVersion, $currentSource)
                     if ($EnableSelection)
                     {
+                        $frameLines += ''
                         $frameLines += "$(@($selected | Where-Object { $_ }).Count) of $($InstalledPackages.Count) package(s) selected."
                     }
 
