@@ -3,7 +3,7 @@
 BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
-    . "$PSScriptRoot/../../../Functions/SystemAdministration/Get-SystemPackageDependency.ps1"
+    . "$PSScriptRoot/../../../Functions/SystemAdministration/Get-PlatformPackageDependency.ps1"
 
     function Get-TestCommandResponse
     {
@@ -56,7 +56,7 @@ BeforeAll {
     }
 }
 
-Describe 'Get-SystemPackageDependency' {
+Describe 'Get-PlatformPackageDependency' {
     BeforeEach {
         $script:Invocations = New-Object 'System.Collections.Generic.List[Object]'
     }
@@ -73,7 +73,7 @@ Describe 'Get-SystemPackageDependency' {
                 )
             }
 
-            $result = @(Get-SystemPackageDependency -PackageManager brew -Package git -CommandRunner $runner)
+            $result = @(Get-PlatformPackageDependency -PackageManager brew -Package git -CommandRunner $runner)
 
             $result.Count | Should -Be 2
             $result[0].Package | Should -Be 'git'
@@ -88,7 +88,7 @@ Describe 'Get-SystemPackageDependency' {
                 'brew uses --installed openssl' = Get-TestCommandResponse -Output @('curl')
             }
 
-            $result = @(Get-SystemPackageDependency -PackageManager brew -Package openssl -Direction RequiredBy -InstalledOnly -CommandRunner $runner)
+            $result = @(Get-PlatformPackageDependency -PackageManager brew -Package openssl -Direction RequiredBy -InstalledOnly -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].Package | Should -Be 'openssl'
@@ -103,7 +103,7 @@ Describe 'Get-SystemPackageDependency' {
                 'brew uses --eval-all jq' = Get-TestCommandResponse -Output @('gojq')
             }
 
-            $result = @(Get-SystemPackageDependency -PackageManager brew -Package jq -Direction RequiredBy -CommandRunner $runner)
+            $result = @(Get-PlatformPackageDependency -PackageManager brew -Package jq -Direction RequiredBy -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].Package | Should -Be 'jq'
@@ -124,7 +124,7 @@ Describe 'Get-SystemPackageDependency' {
                 )
             }
 
-            $result = @(Get-SystemPackageDependency -PackageManager apt -Package curl -CommandRunner $runner)
+            $result = @(Get-PlatformPackageDependency -PackageManager apt -Package curl -CommandRunner $runner)
 
             $result.Count | Should -Be 3
             $result.RelatedPackage | Should -Contain 'libc6'
@@ -148,7 +148,7 @@ Describe 'Get-SystemPackageDependency' {
                 )
             }
 
-            $result = @(Get-SystemPackageDependency -PackageManager apt -Package openssl -Direction RequiredBy -InstalledOnly -CommandRunner $runner)
+            $result = @(Get-PlatformPackageDependency -PackageManager apt -Package openssl -Direction RequiredBy -InstalledOnly -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].RelatedPackage | Should -Be 'curl'
@@ -170,7 +170,7 @@ Describe 'Get-SystemPackageDependency' {
                 )
             }
 
-            $result = @(Get-SystemPackageDependency -PackageManager apk -Package pipewire -Direction Both -CommandRunner $runner)
+            $result = @(Get-PlatformPackageDependency -PackageManager apk -Package pipewire -Direction Both -CommandRunner $runner)
 
             $result.Count | Should -Be 3
             ($result | Where-Object { $_.Direction -eq 'DependsOn' }).RelatedPackage | Should -Contain '/bin/sh'
@@ -193,7 +193,7 @@ Describe 'Get-SystemPackageDependency' {
                 )
             }
 
-            $result = @(Get-SystemPackageDependency -PackageManager winget -Package Git.Git -CommandRunner $runner)
+            $result = @(Get-PlatformPackageDependency -PackageManager winget -Package Git.Git -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].Package | Should -Be 'Git.Git'
@@ -204,7 +204,7 @@ Describe 'Get-SystemPackageDependency' {
         It 'returns no reverse dependencies for winget' {
             $runner = & $script:NewPackageCommandRunner @{}
 
-            $result = @(Get-SystemPackageDependency -PackageManager winget -Package Git.Git -Direction RequiredBy -CommandRunner $runner)
+            $result = @(Get-PlatformPackageDependency -PackageManager winget -Package Git.Git -Direction RequiredBy -CommandRunner $runner)
 
             $result.Count | Should -Be 0
             $script:Invocations.Count | Should -Be 0
@@ -223,7 +223,7 @@ Describe 'Get-SystemPackageDependency' {
                 Type = 'Formula'
             }
 
-            $result = @($package | Get-SystemPackageDependency -PackageManager brew -CommandRunner $runner)
+            $result = @($package | Get-PlatformPackageDependency -PackageManager brew -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].Package | Should -Be 'git'

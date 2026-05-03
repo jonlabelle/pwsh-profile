@@ -1,4 +1,4 @@
-function Remove-SystemPackage
+function Remove-PlatformPackage
 {
     <#
     .SYNOPSIS
@@ -52,43 +52,43 @@ function Remove-SystemPackage
         automatically prefix remove commands with sudo.
 
     .EXAMPLE
-        PS > Remove-SystemPackage
+        PS > Remove-PlatformPackage
 
         Lists installed packages and opens the interactive picker. Press Spacebar to select
         packages for removal, optionally press P to request purge/zap cleanup for a
         selected package, then press Enter to remove the selected packages.
 
     .EXAMPLE
-        PS > Remove-SystemPackage -IncludePackage 'git*' -All
+        PS > Remove-PlatformPackage -IncludePackage 'git*' -All
 
         Removes every installed package whose name or id matches 'git*' without prompting.
 
     .EXAMPLE
-        PS > Remove-SystemPackage -IncludePackage 'node*' -ExcludePackage 'node@18'
+        PS > Remove-PlatformPackage -IncludePackage 'node*' -ExcludePackage 'node@18'
 
         Opens the picker for matching node packages except packages whose name or id
         matches 'node@18'.
 
     .EXAMPLE
-        PS > Remove-SystemPackage -IncludePackage 'openssl' -Purge -All
+        PS > Remove-PlatformPackage -IncludePackage 'openssl' -Purge -All
 
         Removes the matching package and requests package-manager-specific purge behavior
         where supported.
 
     .EXAMPLE
-        PS > Remove-SystemPackage -IncludePackage 'visual-studio-code'
+        PS > Remove-PlatformPackage -IncludePackage 'visual-studio-code'
 
         Opens the picker for matching packages. Selecting the Homebrew cask with Spacebar
         removes it normally; pressing P before Enter changes that selected package to use
         brew uninstall --cask --zap instead.
 
     .EXAMPLE
-        PS > Remove-SystemPackage -NonInteractive | Format-Table
+        PS > Remove-PlatformPackage -NonInteractive | Format-Table
 
         Lists installed packages for the detected package manager without removing anything.
 
     .EXAMPLE
-        PS > Remove-SystemPackage -IncludePackage 'git' -All -WhatIf
+        PS > Remove-PlatformPackage -IncludePackage 'git' -All -WhatIf
 
         Shows the package removal that would run without invoking the package manager.
 
@@ -109,10 +109,10 @@ function Remove-SystemPackage
 
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Remove-SystemPackage.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Remove-PlatformPackage.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Remove-SystemPackage.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Remove-PlatformPackage.ps1
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidOverwritingBuiltInCmdlets', '', Justification = 'Function name requested by the profile owner.')]
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]
@@ -189,17 +189,17 @@ function Remove-SystemPackage
             }
         }
 
-        $getSystemPackageDependencyPath = Get-DependencyPathIfNeeded -FunctionName 'Get-SystemPackage' -RelativePath 'Get-SystemPackage.ps1'
-        if (-not [String]::IsNullOrWhiteSpace($getSystemPackageDependencyPath))
+        $getPlatformPackageDependencyPath = Get-DependencyPathIfNeeded -FunctionName 'Get-PlatformPackage' -RelativePath 'Get-PlatformPackage.ps1'
+        if (-not [String]::IsNullOrWhiteSpace($getPlatformPackageDependencyPath))
         {
             try
             {
-                . $getSystemPackageDependencyPath
-                Write-Verbose "Loaded Get-SystemPackage from: $getSystemPackageDependencyPath"
+                . $getPlatformPackageDependencyPath
+                Write-Verbose "Loaded Get-PlatformPackage from: $getPlatformPackageDependencyPath"
             }
             catch
             {
-                throw "Failed to load required dependency 'Get-SystemPackage' from '$getSystemPackageDependencyPath': $($_.Exception.Message)"
+                throw "Failed to load required dependency 'Get-PlatformPackage' from '$getPlatformPackageDependencyPath': $($_.Exception.Message)"
             }
         }
 
@@ -1109,7 +1109,7 @@ function Remove-SystemPackage
             return $packages
         }
 
-        function Get-SystemPackages
+        function Get-PlatformPackages
         {
             param(
                 [Parameter(Mandatory)]
@@ -1470,7 +1470,7 @@ function Remove-SystemPackage
                     $pickerHintActions = 'Enter: remove selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
                     $pickerHint = if ($showPurge) { "$pickerHintPrefix  P: purge/zap  $pickerHintActions" } else { "$pickerHintPrefix  $pickerHintActions" }
                     $frameLines = @(
-                        "Remove-SystemPackage - $($InstalledPackages[0].PackageManagerDisplayName)"
+                        "Remove-PlatformPackage - $($InstalledPackages[0].PackageManagerDisplayName)"
                         ''
                         $pickerHint
                         ''
@@ -1653,7 +1653,7 @@ function Remove-SystemPackage
 
         Write-Host "Checking installed packages with $($manager.DisplayName)..."
         $installedPackages = @(
-            Get-SystemPackage -PackageManager $manager.Name -Name $IncludePackage -ExcludePackage $ExcludePackage -CommandRunner $CommandRunner
+            Get-PlatformPackage -PackageManager $manager.Name -Name $IncludePackage -ExcludePackage $ExcludePackage -CommandRunner $CommandRunner
         )
 
         foreach ($installedPackage in $installedPackages)
@@ -1762,11 +1762,11 @@ if (-not (Get-Alias -Name 'Uninstall-Package' -ErrorAction SilentlyContinue))
 {
     try
     {
-        Write-Verbose "Creating 'Uninstall-Package' alias for Remove-SystemPackage"
-        Set-Alias -Name 'Uninstall-Package' -Value 'Remove-SystemPackage' -Force -ErrorAction Stop
+        Write-Verbose "Creating 'Uninstall-Package' alias for Remove-PlatformPackage"
+        Set-Alias -Name 'Uninstall-Package' -Value 'Remove-PlatformPackage' -Force -ErrorAction Stop
     }
     catch
     {
-        Write-Warning "Remove-SystemPackage: Could not create 'Uninstall-Package' alias: $($_.Exception.Message)"
+        Write-Warning "Remove-PlatformPackage: Could not create 'Uninstall-Package' alias: $($_.Exception.Message)"
     }
 }

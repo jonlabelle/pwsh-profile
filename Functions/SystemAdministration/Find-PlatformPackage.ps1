@@ -1,4 +1,4 @@
-function Find-SystemPackage
+function Find-PlatformPackage
 {
     <#
     .SYNOPSIS
@@ -15,7 +15,7 @@ function Find-SystemPackage
         instead of installing them.
 
         Use -NonInteractive to return search results as PowerShell objects so they can be
-        filtered, formatted, or piped into Install-SystemPackage. Use -Top to cap broad
+        filtered, formatted, or piped into Install-PlatformPackage. Use -Top to cap broad
         searches and -ExcludePackage to remove unwanted matches from the normalized results.
 
     .PARAMETER Query
@@ -38,64 +38,64 @@ function Find-SystemPackage
         to return all matching results.
 
     .EXAMPLE
-        PS > Find-SystemPackage -Query git
+        PS > Find-PlatformPackage -Query git
 
         Opens the interactive remote package search UI seeded with the git query. Press I
         to install the current package or the selected packages.
 
     .EXAMPLE
-        PS > Find-SystemPackage -NonInteractive -Query 'visual studio code'
+        PS > Find-PlatformPackage -NonInteractive -Query 'visual studio code'
 
         Searches for packages matching the provided query text and returns objects.
 
     .EXAMPLE
-        PS > Find-SystemPackage -NonInteractive -Query git -ExcludePackage 'git-lfs'
+        PS > Find-PlatformPackage -NonInteractive -Query git -ExcludePackage 'git-lfs'
 
         Searches for git packages and excludes git-lfs from the returned results.
 
     .EXAMPLE
-        PS > Find-SystemPackage -NonInteractive -Query git -Top 10
+        PS > Find-PlatformPackage -NonInteractive -Query git -Top 10
 
         Returns at most 10 normalized results.
 
     .EXAMPLE
-        PS > Find-SystemPackage -NonInteractive -Query docker | Format-Table Name, Version, Source
+        PS > Find-PlatformPackage -NonInteractive -Query docker | Format-Table Name, Version, Source
 
         Searches for docker packages and formats the results.
 
     .EXAMPLE
-        PS > Find-SystemPackage -Query git -PackageManager winget
+        PS > Find-PlatformPackage -Query git -PackageManager winget
 
         Opens the interactive search UI using winget.
 
     .EXAMPLE
-        PS > Find-SystemPackage -Query git -PackageManager brew
+        PS > Find-PlatformPackage -Query git -PackageManager brew
 
         Opens the interactive search UI using Homebrew.
 
     .EXAMPLE
-        PS > Find-SystemPackage -Query openssl -PackageManager apt
+        PS > Find-PlatformPackage -Query openssl -PackageManager apt
 
         Opens the interactive search UI using apt.
 
     .EXAMPLE
-        PS > Find-SystemPackage -Query bash -PackageManager apk
+        PS > Find-PlatformPackage -Query bash -PackageManager apk
 
         Opens the interactive search UI using apk.
 
     .EXAMPLE
-        PS > Find-SystemPackage -Query nodejs -Verbose
+        PS > Find-PlatformPackage -Query nodejs -Verbose
 
         Opens the interactive search UI for nodejs and writes the detected package manager
         to verbose output.
 
     .EXAMPLE
-        PS > Find-SystemPackage
+        PS > Find-PlatformPackage
 
         Opens the interactive remote package search UI and prompts for a query.
 
     .EXAMPLE
-        PS > Find-SystemPackage -PassThru
+        PS > Find-PlatformPackage -PassThru
 
         Opens the interactive UI, lets you select packages with the spacebar, and returns
         the selected package records when Enter is pressed.
@@ -106,10 +106,10 @@ function Find-SystemPackage
     .NOTES
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Find-SystemPackage.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Find-PlatformPackage.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Find-SystemPackage.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Find-PlatformPackage.ps1
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject], [PSCustomObject[]], [Object[]])]
@@ -691,31 +691,31 @@ function Find-SystemPackage
 
             try
             {
-                $getSystemPackageDependencyPath = Get-DependencyPathIfNeeded -FunctionName 'Get-SystemPackage' -RelativePath 'Get-SystemPackage.ps1'
+                $getPlatformPackageDependencyPath = Get-DependencyPathIfNeeded -FunctionName 'Get-PlatformPackage' -RelativePath 'Get-PlatformPackage.ps1'
             }
             catch
             {
-                Write-Verbose "Unable to resolve Get-SystemPackage for installed-state detection: $($_.Exception.Message)"
+                Write-Verbose "Unable to resolve Get-PlatformPackage for installed-state detection: $($_.Exception.Message)"
                 return @()
             }
 
-            if (-not [String]::IsNullOrWhiteSpace($getSystemPackageDependencyPath))
+            if (-not [String]::IsNullOrWhiteSpace($getPlatformPackageDependencyPath))
             {
                 try
                 {
-                    . $getSystemPackageDependencyPath
-                    Write-Verbose "Loaded Get-SystemPackage from: $getSystemPackageDependencyPath"
+                    . $getPlatformPackageDependencyPath
+                    Write-Verbose "Loaded Get-PlatformPackage from: $getPlatformPackageDependencyPath"
                 }
                 catch
                 {
-                    Write-Verbose "Unable to load Get-SystemPackage for installed-state detection: $($_.Exception.Message)"
+                    Write-Verbose "Unable to load Get-PlatformPackage for installed-state detection: $($_.Exception.Message)"
                     return @()
                 }
             }
 
             try
             {
-                return @(Get-SystemPackage -PackageManager $Manager.Name -CommandRunner $CommandRunner)
+                return @(Get-PlatformPackage -PackageManager $Manager.Name -CommandRunner $CommandRunner)
             }
             catch
             {
@@ -1205,21 +1205,21 @@ function Find-SystemPackage
                 return @()
             }
 
-            $installSystemPackageDependencyPath = Get-DependencyPathIfNeeded -FunctionName 'Install-SystemPackage' -RelativePath 'Install-SystemPackage.ps1'
-            if (-not [String]::IsNullOrWhiteSpace($installSystemPackageDependencyPath))
+            $installPlatformPackageDependencyPath = Get-DependencyPathIfNeeded -FunctionName 'Install-PlatformPackage' -RelativePath 'Install-PlatformPackage.ps1'
+            if (-not [String]::IsNullOrWhiteSpace($installPlatformPackageDependencyPath))
             {
                 try
                 {
-                    . $installSystemPackageDependencyPath
-                    Write-Verbose "Loaded Install-SystemPackage from: $installSystemPackageDependencyPath"
+                    . $installPlatformPackageDependencyPath
+                    Write-Verbose "Loaded Install-PlatformPackage from: $installPlatformPackageDependencyPath"
                 }
                 catch
                 {
-                    throw "Failed to load required dependency 'Install-SystemPackage' from '$installSystemPackageDependencyPath': $($_.Exception.Message)"
+                    throw "Failed to load required dependency 'Install-PlatformPackage' from '$installPlatformPackageDependencyPath': $($_.Exception.Message)"
                 }
             }
 
-            return @($SelectedPackages | Install-SystemPackage -PackageManager $Manager.Name -CommandRunner $CommandRunner)
+            return @($SelectedPackages | Install-PlatformPackage -PackageManager $Manager.Name -CommandRunner $CommandRunner)
         }
 
         function Show-AvailablePackageResults
@@ -1665,7 +1665,7 @@ function Find-SystemPackage
                     $installedStatus = if ($currentPackage.Installed) { 'yes' } else { 'no' }
 
                     $frameLines = @(
-                        "Find-SystemPackage - $($AvailablePackages[0].PackageManagerDisplayName)"
+                        "Find-PlatformPackage - $($AvailablePackages[0].PackageManagerDisplayName)"
                         ''
                         ('Search: {0}' -f $QueryText)
                         ''

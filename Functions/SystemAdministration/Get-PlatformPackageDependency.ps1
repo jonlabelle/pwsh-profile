@@ -1,4 +1,4 @@
-function Get-SystemPackageDependency
+function Get-PlatformPackageDependency
 {
     <#
     .SYNOPSIS
@@ -15,7 +15,7 @@ function Get-SystemPackageDependency
 
         Use -InstalledOnly to limit related packages to installed packages where the
         selected package manager supports that directly or where installed package
-        metadata can be queried through Get-SystemPackage.
+        metadata can be queried through Get-PlatformPackage.
 
         winget can report installer dependencies only when package manifest metadata
         includes them. winget does not expose reverse dependency metadata, so
@@ -23,7 +23,7 @@ function Get-SystemPackageDependency
 
     .PARAMETER Package
         Package names, ids, or normalized package records to query. Objects returned by
-        Get-SystemPackage can be piped directly into this function.
+        Get-PlatformPackage can be piped directly into this function.
 
     .PARAMETER Direction
         Dependency direction to query. DependsOn returns packages the requested package
@@ -34,17 +34,17 @@ function Get-SystemPackageDependency
         Limits related packages to installed packages when possible.
 
     .EXAMPLE
-        PS > Get-SystemPackageDependency git
+        PS > Get-PlatformPackageDependency git
 
         Returns direct dependency records for git using the detected package manager.
 
     .EXAMPLE
-        PS > Get-SystemPackageDependency openssl -Direction RequiredBy -InstalledOnly
+        PS > Get-PlatformPackageDependency openssl -Direction RequiredBy -InstalledOnly
 
         Returns installed packages that depend on openssl.
 
     .EXAMPLE
-        PS > Get-SystemPackageDependency jq -Direction Both | Format-Table -AutoSize
+        PS > Get-PlatformPackageDependency jq -Direction Both | Format-Table -AutoSize
 
         Package Id PackageManager PackageManagerDisplayName Direction  Relationship    RelatedPackage DependencyType Installed Notes
         ------- -- -------------- ------------------------- ---------  ------------    -------------- -------------- --------- -----
@@ -53,13 +53,13 @@ function Get-SystemPackageDependency
         jq         brew           Homebrew                  RequiredBy zsv -> jq       zsv            Dependent
 
     .EXAMPLE
-        PS > Get-SystemPackage -Name 'git' | Get-SystemPackageDependency -Direction Both
+        PS > Get-PlatformPackage -Name 'git' | Get-PlatformPackageDependency -Direction Both
 
         Pipes an installed package record into the dependency query and returns both
         dependency directions.
 
     .EXAMPLE
-        PS > Get-SystemPackageDependency pipewire -PackageManager apk -Direction Both
+        PS > Get-PlatformPackageDependency pipewire -PackageManager apk -Direction Both
 
         Returns apk dependency and reverse-dependency records for pipewire.
 
@@ -74,10 +74,10 @@ function Get-SystemPackageDependency
 
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Get-SystemPackageDependency.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Get-PlatformPackageDependency.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Get-SystemPackageDependency.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Get-PlatformPackageDependency.ps1
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject], [PSCustomObject[]], [Object[]])]
@@ -514,7 +514,7 @@ function Get-SystemPackageDependency
             "Failed to query package dependencies with '$commandText': $message"
         }
 
-        function Get-SystemPackageDependencyObject
+        function Get-PlatformPackageDependencyObject
         {
             param(
                 [Parameter(Mandatory)]
@@ -628,22 +628,22 @@ function Get-SystemPackageDependency
                 [PSCustomObject]$Manager
             )
 
-            $getSystemPackageDependencyPath = Get-DependencyPathIfNeeded -FunctionName 'Get-SystemPackage' -RelativePath 'Get-SystemPackage.ps1'
-            if (-not [String]::IsNullOrWhiteSpace($getSystemPackageDependencyPath))
+            $getPlatformPackageDependencyPath = Get-DependencyPathIfNeeded -FunctionName 'Get-PlatformPackage' -RelativePath 'Get-PlatformPackage.ps1'
+            if (-not [String]::IsNullOrWhiteSpace($getPlatformPackageDependencyPath))
             {
                 try
                 {
-                    . $getSystemPackageDependencyPath
-                    Write-Verbose "Loaded Get-SystemPackage from: $getSystemPackageDependencyPath"
+                    . $getPlatformPackageDependencyPath
+                    Write-Verbose "Loaded Get-PlatformPackage from: $getPlatformPackageDependencyPath"
                 }
                 catch
                 {
-                    throw "Failed to load required dependency 'Get-SystemPackage' from '$getSystemPackageDependencyPath': $($_.Exception.Message)"
+                    throw "Failed to load required dependency 'Get-PlatformPackage' from '$getPlatformPackageDependencyPath': $($_.Exception.Message)"
                 }
             }
 
             $lookup = @{}
-            foreach ($installedPackage in @(Get-SystemPackage -PackageManager $Manager.Name -CommandRunner $CommandRunner))
+            foreach ($installedPackage in @(Get-PlatformPackage -PackageManager $Manager.Name -CommandRunner $CommandRunner))
             {
                 foreach ($value in @($installedPackage.Name, $installedPackage.Id))
                 {
@@ -852,7 +852,7 @@ function Get-SystemPackageDependency
                 }
 
                 $dependencyType = if ($RelationshipDirection -eq 'DependsOn') { 'Dependency' } else { 'Dependent' }
-                $records += Get-SystemPackageDependencyObject -Manager $Manager -PackageReference $PackageReference -RelationshipDirection $RelationshipDirection -RelatedPackage $relatedPackage -DependencyType $dependencyType
+                $records += Get-PlatformPackageDependencyObject -Manager $Manager -PackageReference $PackageReference -RelationshipDirection $RelationshipDirection -RelatedPackage $relatedPackage -DependencyType $dependencyType
             }
 
             return $records
@@ -905,7 +905,7 @@ function Get-SystemPackageDependency
                         $relatedPackage = Get-CleanRelatedPackageName -Value $Matches.Package
                         if (-not [String]::IsNullOrWhiteSpace($relatedPackage))
                         {
-                            $records += Get-SystemPackageDependencyObject -Manager $Manager -PackageReference $PackageReference -RelationshipDirection $RelationshipDirection -RelatedPackage $relatedPackage -DependencyType $Matches.Type
+                            $records += Get-PlatformPackageDependencyObject -Manager $Manager -PackageReference $PackageReference -RelationshipDirection $RelationshipDirection -RelatedPackage $relatedPackage -DependencyType $Matches.Type
                         }
                     }
 
@@ -929,7 +929,7 @@ function Get-SystemPackageDependency
                     continue
                 }
 
-                $records += Get-SystemPackageDependencyObject -Manager $Manager -PackageReference $PackageReference -RelationshipDirection $RelationshipDirection -RelatedPackage $relatedPackage -DependencyType 'Dependent'
+                $records += Get-PlatformPackageDependencyObject -Manager $Manager -PackageReference $PackageReference -RelationshipDirection $RelationshipDirection -RelatedPackage $relatedPackage -DependencyType 'Dependent'
             }
 
             return $records
@@ -990,7 +990,7 @@ function Get-SystemPackageDependency
                 }
 
                 $dependencyType = if ($RelationshipDirection -eq 'DependsOn') { 'Dependency' } else { 'Dependent' }
-                $records += Get-SystemPackageDependencyObject -Manager $Manager -PackageReference $PackageReference -RelationshipDirection $RelationshipDirection -RelatedPackage $relatedPackage -DependencyType $dependencyType
+                $records += Get-PlatformPackageDependencyObject -Manager $Manager -PackageReference $PackageReference -RelationshipDirection $RelationshipDirection -RelatedPackage $relatedPackage -DependencyType $dependencyType
             }
 
             return $records
@@ -1057,7 +1057,7 @@ function Get-SystemPackageDependency
                     $relatedPackage = Get-CleanRelatedPackageName -Value $Matches.Package
                     if (-not [String]::IsNullOrWhiteSpace($relatedPackage) -and $relatedPackage -notmatch '^(?:none|n/a)$')
                     {
-                        $records += Get-SystemPackageDependencyObject -Manager $Manager -PackageReference $PackageReference -RelationshipDirection $RelationshipDirection -RelatedPackage $relatedPackage -DependencyType $dependencyType
+                        $records += Get-PlatformPackageDependencyObject -Manager $Manager -PackageReference $PackageReference -RelationshipDirection $RelationshipDirection -RelatedPackage $relatedPackage -DependencyType $dependencyType
                     }
 
                     continue
@@ -1091,7 +1091,7 @@ function Get-SystemPackageDependency
                     continue
                 }
 
-                $records += Get-SystemPackageDependencyObject -Manager $Manager -PackageReference $PackageReference -RelationshipDirection $RelationshipDirection -RelatedPackage $relatedPackage -DependencyType $dependencyType
+                $records += Get-PlatformPackageDependencyObject -Manager $Manager -PackageReference $PackageReference -RelationshipDirection $RelationshipDirection -RelatedPackage $relatedPackage -DependencyType $dependencyType
             }
 
             return $records

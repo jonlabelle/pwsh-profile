@@ -1,4 +1,4 @@
-function Get-SystemPackage
+function Get-PlatformPackage
 {
     <#
     .SYNOPSIS
@@ -20,52 +20,52 @@ function Get-SystemPackage
         Optional package names or wildcard patterns to exclude. Matches package Name or Id.
 
     .EXAMPLE
-        PS > Get-SystemPackage
+        PS > Get-PlatformPackage
 
         Returns installed packages for the detected platform package manager.
 
     .EXAMPLE
-        PS > Get-SystemPackage -Name 'git*'
+        PS > Get-PlatformPackage -Name 'git*'
 
         Returns installed packages whose name or id matches git*.
 
     .EXAMPLE
-        PS > Get-SystemPackage -ExcludePackage '*preview*'
+        PS > Get-PlatformPackage -ExcludePackage '*preview*'
 
         Returns installed packages except those whose name or id matches *preview*.
 
     .EXAMPLE
-        PS > Get-SystemPackage | Format-Table Name, InstalledVersion, Source
+        PS > Get-PlatformPackage | Format-Table Name, InstalledVersion, Source
 
         Formats installed package records as a table.
 
     .EXAMPLE
-        PS > Get-SystemPackage -Name 'node*' | Sort-Object -Property InstalledVersion
+        PS > Get-PlatformPackage -Name 'node*' | Sort-Object -Property InstalledVersion
 
         Returns matching node packages sorted by installed version.
 
     .EXAMPLE
-        PS > Get-SystemPackage -PackageManager winget
+        PS > Get-PlatformPackage -PackageManager winget
 
         Returns installed packages using winget.
 
     .EXAMPLE
-        PS > Get-SystemPackage -PackageManager brew
+        PS > Get-PlatformPackage -PackageManager brew
 
         Returns installed packages using Homebrew.
 
     .EXAMPLE
-        PS > Get-SystemPackage -PackageManager apt
+        PS > Get-PlatformPackage -PackageManager apt
 
         Returns installed packages using apt.
 
     .EXAMPLE
-        PS > Get-SystemPackage -PackageManager apk
+        PS > Get-PlatformPackage -PackageManager apk
 
         Returns installed packages using apk.
 
     .EXAMPLE
-        PS > Get-SystemPackage -Verbose
+        PS > Get-PlatformPackage -Verbose
 
         Returns installed packages and writes the detected package manager to verbose output.
 
@@ -80,10 +80,10 @@ function Get-SystemPackage
 
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Get-SystemPackage.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Get-PlatformPackage.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Get-SystemPackage.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Get-PlatformPackage.ps1
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject], [PSCustomObject[]], [Object[]])]
@@ -156,7 +156,7 @@ function Get-SystemPackage
             return $null
         }
 
-        function Get-SystemPackageObject
+        function Get-PlatformPackageObject
         {
             param(
                 [Parameter(Mandatory)]
@@ -503,7 +503,7 @@ function Get-SystemPackage
                     continue
                 }
 
-                $packages += Get-SystemPackageObject -Manager $Manager -Name $packageName -Id $id -Type 'Package' -InstalledVersion $installedVersion -Source $source
+                $packages += Get-PlatformPackageObject -Manager $Manager -Name $packageName -Id $id -Type 'Package' -InstalledVersion $installedVersion -Source $source
             }
 
             return $packages
@@ -595,7 +595,7 @@ function Get-SystemPackage
                     continue
                 }
 
-                $packages += Get-SystemPackageObject -Manager $Manager -Name $packageName -Id $id -Type 'Package' -InstalledVersion $installedVersion -Source $source
+                $packages += Get-PlatformPackageObject -Manager $Manager -Name $packageName -Id $id -Type 'Package' -InstalledVersion $installedVersion -Source $source
             }
 
             return $packages
@@ -666,7 +666,7 @@ function Get-SystemPackage
                 $version = if ($parts.Count -gt 1) { ($parts[1..($parts.Count - 1)] -join ', ') } else { '' }
                 $source = if ($Type -eq 'Cask') { 'homebrew/cask' } else { 'homebrew/core' }
 
-                $packages += Get-SystemPackageObject -Manager $Manager -Name $packageName -Id $packageName -Type $Type -InstalledVersion $version -Source $source
+                $packages += Get-PlatformPackageObject -Manager $Manager -Name $packageName -Id $packageName -Type $Type -InstalledVersion $version -Source $source
             }
 
             return $packages
@@ -732,7 +732,7 @@ function Get-SystemPackage
                     $architecture = $Matches.Architecture
                     $state = $Matches.State
                     $notes = if ($state -match 'automatic') { 'Automatic' } else { '' }
-                    $packages += Get-SystemPackageObject -Manager $Manager -Name $packageName -Id $packageName -Type $architecture -InstalledVersion $version -Source $repository -Notes $notes
+                    $packages += Get-PlatformPackageObject -Manager $Manager -Name $packageName -Id $packageName -Type $architecture -InstalledVersion $version -Source $repository -Notes $notes
                 }
             }
 
@@ -803,13 +803,13 @@ function Get-SystemPackage
                     continue
                 }
 
-                $packages += Get-SystemPackageObject -Manager $Manager -Name $packageInfo.Name -Id $packageInfo.Name -Type 'Package' -InstalledVersion $packageInfo.Version -Source 'apk'
+                $packages += Get-PlatformPackageObject -Manager $Manager -Name $packageInfo.Name -Id $packageInfo.Name -Type 'Package' -InstalledVersion $packageInfo.Version -Source 'apk'
             }
 
             return $packages
         }
 
-        function Get-SystemPackages
+        function Get-PlatformPackages
         {
             param(
                 [Parameter(Mandatory)]
@@ -858,7 +858,7 @@ function Get-SystemPackage
         $manager = Resolve-PackageManager
         Write-Verbose "Using package manager: $($manager.DisplayName) ($($manager.Command))"
 
-        $installedPackages = @(Get-SystemPackages -Manager $manager)
+        $installedPackages = @(Get-PlatformPackages -Manager $manager)
 
         if ($Name -and $Name.Count -gt 0)
         {

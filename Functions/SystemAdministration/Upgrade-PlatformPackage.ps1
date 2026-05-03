@@ -1,4 +1,4 @@
-function Upgrade-SystemPackage
+function Upgrade-PlatformPackage
 {
     <#
     .SYNOPSIS
@@ -47,29 +47,29 @@ function Upgrade-SystemPackage
         automatically prefix refresh and upgrade commands with sudo.
 
     .EXAMPLE
-        PS > Upgrade-SystemPackage
+        PS > Upgrade-PlatformPackage
 
         Refreshes package registry metadata, opens the interactive picker, and upgrades
         the packages selected with the spacebar.
 
     .EXAMPLE
-        PS > Upgrade-SystemPackage -All
+        PS > Upgrade-PlatformPackage -All
 
         Refreshes package registry metadata and upgrades all discovered outdated packages.
 
     .EXAMPLE
-        PS > Upgrade-SystemPackage -IncludePackage 'git*','curl' -ExcludePackage '*preview*'
+        PS > Upgrade-PlatformPackage -IncludePackage 'git*','curl' -ExcludePackage '*preview*'
 
         Opens the picker for matching git and curl packages except packages whose name or id
         matches '*preview*'.
 
     .EXAMPLE
-        PS > Upgrade-SystemPackage -NonInteractive -SkipRefresh | Format-Table
+        PS > Upgrade-PlatformPackage -NonInteractive -SkipRefresh | Format-Table
 
         Lists outdated packages from the current package cache without running upgrades.
 
     .EXAMPLE
-        PS > Upgrade-SystemPackage -All -WhatIf
+        PS > Upgrade-PlatformPackage -All -WhatIf
 
         Shows the package upgrades that would run without invoking the package manager.
 
@@ -90,10 +90,10 @@ function Upgrade-SystemPackage
 
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Upgrade-SystemPackage.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Upgrade-PlatformPackage.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Upgrade-SystemPackage.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Upgrade-PlatformPackage.ps1
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '', Justification = 'Function name requested by the profile owner.')]
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
@@ -1391,7 +1391,7 @@ function Upgrade-SystemPackage
                     $pickerHintActions = 'Enter: upgrade selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
                     $pickerHint = if ($showUninstallPrevious) { "$pickerHintPrefix  U: uninstall previous  $pickerHintActions" } else { "$pickerHintPrefix  $pickerHintActions" }
                     $frameLines = @(
-                        "Upgrade-SystemPackage - $($PackageUpdates[0].PackageManagerDisplayName)"
+                        "Upgrade-PlatformPackage - $($PackageUpdates[0].PackageManagerDisplayName)"
                         ''
                         $pickerHint
                         ''
@@ -1685,17 +1685,17 @@ function Upgrade-SystemPackage
     }
 }
 
-# Create 'Update-SystemPackage' alias only if it doesn't already exist
-if (-not (Get-Alias -Name 'Update-SystemPackage' -ErrorAction SilentlyContinue))
+# Create 'Update-PlatformPackage' alias only if it doesn't already exist
+if (-not (Get-Alias -Name 'Update-PlatformPackage' -ErrorAction SilentlyContinue))
 {
     try
     {
-        Write-Verbose "Creating 'Update-SystemPackage' alias for Upgrade-SystemPackage"
-        Set-Alias -Name 'Update-SystemPackage' -Value 'Upgrade-SystemPackage' -Force -ErrorAction Stop
+        Write-Verbose "Creating 'Update-PlatformPackage' alias for Upgrade-PlatformPackage"
+        Set-Alias -Name 'Update-PlatformPackage' -Value 'Upgrade-PlatformPackage' -Force -ErrorAction Stop
     }
     catch
     {
-        Write-Warning "Upgrade-SystemPackage: Could not create 'Update-SystemPackage' alias: $($_.Exception.Message)"
+        Write-Warning "Upgrade-PlatformPackage: Could not create 'Update-PlatformPackage' alias: $($_.Exception.Message)"
     }
 }
 
@@ -1704,12 +1704,12 @@ if (-not (Get-Alias -Name 'upgrade' -ErrorAction SilentlyContinue))
 {
     try
     {
-        Write-Verbose "Creating 'upgrade' alias for Upgrade-SystemPackage"
-        Set-Alias -Name 'upgrade' -Value 'Upgrade-SystemPackage' -Force -ErrorAction Stop
+        Write-Verbose "Creating 'upgrade' alias for Upgrade-PlatformPackage"
+        Set-Alias -Name 'upgrade' -Value 'Upgrade-PlatformPackage' -Force -ErrorAction Stop
     }
     catch
     {
-        Write-Warning "Upgrade-SystemPackage: Could not create 'upgrade' alias: $($_.Exception.Message)"
+        Write-Warning "Upgrade-PlatformPackage: Could not create 'upgrade' alias: $($_.Exception.Message)"
     }
 }
 
@@ -1718,11 +1718,11 @@ if (-not (Get-Alias -Name 'update' -ErrorAction SilentlyContinue))
 {
     try
     {
-        Write-Verbose "Creating 'update' alias for Upgrade-SystemPackage"
-        Set-Alias -Name 'update' -Value 'Upgrade-SystemPackage' -Force -ErrorAction Stop
+        Write-Verbose "Creating 'update' alias for Upgrade-PlatformPackage"
+        Set-Alias -Name 'update' -Value 'Upgrade-PlatformPackage' -Force -ErrorAction Stop
     }
     catch
     {
-        Write-Warning "Upgrade-SystemPackage: Could not create 'update' alias: $($_.Exception.Message)"
+        Write-Warning "Upgrade-PlatformPackage: Could not create 'update' alias: $($_.Exception.Message)"
     }
 }

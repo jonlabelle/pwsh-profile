@@ -1,4 +1,4 @@
-function Install-SystemPackage
+function Install-PlatformPackage
 {
     <#
     .SYNOPSIS
@@ -7,7 +7,7 @@ function Install-SystemPackage
     .DESCRIPTION
         Installs packages using the supported native package manager for the current platform.
         You can install packages directly by name or id, pipe normalized results from
-        Find-SystemPackage, or start from a search query and select packages in an
+        Find-PlatformPackage, or start from a search query and select packages in an
         interactive console picker.
 
         Supported package managers:
@@ -32,7 +32,7 @@ function Install-SystemPackage
 
     .PARAMETER InputObject
         One or more normalized package records, such as objects returned by
-        Find-SystemPackage.
+        Find-PlatformPackage.
 
     .PARAMETER ExcludePackage
         Optional package names or wildcard patterns to exclude from query results before
@@ -47,53 +47,53 @@ function Install-SystemPackage
         automatically prefix install commands with sudo.
 
     .EXAMPLE
-        PS > Install-SystemPackage -Query git
+        PS > Install-PlatformPackage -Query git
 
         Searches the detected registry for git, opens the interactive picker, and installs
         the selected package or packages.
 
     .EXAMPLE
-        PS > Install-SystemPackage -Name git
+        PS > Install-PlatformPackage -Name git
 
         Installs git by name using the detected package manager.
 
     .EXAMPLE
-        PS > Install-SystemPackage -Id Git.Git -PackageManager winget
+        PS > Install-PlatformPackage -Id Git.Git -PackageManager winget
 
         Installs a package by winget identifier.
 
     .EXAMPLE
-        PS > Find-SystemPackage -NonInteractive -Query code | Install-SystemPackage
+        PS > Find-PlatformPackage -NonInteractive -Query code | Install-PlatformPackage
 
-        Pipes search results into Install-SystemPackage and installs the piped records.
+        Pipes search results into Install-PlatformPackage and installs the piped records.
 
     .EXAMPLE
-        PS > Find-SystemPackage -NonInteractive -Query code -Top 5 | Where-Object Type -eq 'Cask' | Install-SystemPackage
+        PS > Find-PlatformPackage -NonInteractive -Query code -Top 5 | Where-Object Type -eq 'Cask' | Install-PlatformPackage
 
         Filters search results before installing the selected pipeline records.
 
     .EXAMPLE
-        PS > Install-SystemPackage -Query docker -ExcludePackage '*desktop*'
+        PS > Install-PlatformPackage -Query docker -ExcludePackage '*desktop*'
 
         Searches for docker packages and excludes Docker Desktop from the interactive list.
 
     .EXAMPLE
-        PS > Install-SystemPackage -Query git -Top 10
+        PS > Install-PlatformPackage -Query git -Top 10
 
         Searches for git and limits the interactive list to 10 normalized results.
 
     .EXAMPLE
-        PS > Install-SystemPackage -Name openssl -NoSudo
+        PS > Install-PlatformPackage -Name openssl -NoSudo
 
         Installs openssl without automatically prefixing the package manager command with sudo.
 
     .EXAMPLE
-        PS > Install-SystemPackage -Name git -WhatIf
+        PS > Install-PlatformPackage -Name git -WhatIf
 
         Shows which install commands would run without invoking the package manager.
 
     .EXAMPLE
-        PS > Install-SystemPackage -Query 'visual studio code' -Verbose
+        PS > Install-PlatformPackage -Query 'visual studio code' -Verbose
 
         Searches for packages, opens the picker, and writes dependency-loading details to verbose output.
 
@@ -103,10 +103,10 @@ function Install-SystemPackage
     .NOTES
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Install-SystemPackage.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Install-PlatformPackage.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Install-SystemPackage.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Install-PlatformPackage.ps1
     #>
     [CmdletBinding(DefaultParameterSetName = 'Query', SupportsShouldProcess, ConfirmImpact = 'Medium')]
     [OutputType([PSCustomObject])]
@@ -184,17 +184,17 @@ function Install-SystemPackage
             return $null
         }
 
-        $findSystemPackageDependencyPath = Get-DependencyPathIfNeeded -FunctionName 'Find-SystemPackage' -RelativePath 'Find-SystemPackage.ps1'
-        if (-not [String]::IsNullOrWhiteSpace($findSystemPackageDependencyPath))
+        $findPlatformPackageDependencyPath = Get-DependencyPathIfNeeded -FunctionName 'Find-PlatformPackage' -RelativePath 'Find-PlatformPackage.ps1'
+        if (-not [String]::IsNullOrWhiteSpace($findPlatformPackageDependencyPath))
         {
             try
             {
-                . $findSystemPackageDependencyPath
-                Write-Verbose "Loaded Find-SystemPackage from: $findSystemPackageDependencyPath"
+                . $findPlatformPackageDependencyPath
+                Write-Verbose "Loaded Find-PlatformPackage from: $findPlatformPackageDependencyPath"
             }
             catch
             {
-                throw "Failed to load required dependency 'Find-SystemPackage' from '$findSystemPackageDependencyPath': $($_.Exception.Message)"
+                throw "Failed to load required dependency 'Find-PlatformPackage' from '$findPlatformPackageDependencyPath': $($_.Exception.Message)"
             }
         }
 
@@ -430,7 +430,7 @@ function Install-SystemPackage
 
             if ($packageManagers.Count -gt 1)
             {
-                throw 'Install-SystemPackage does not support installing mixed package manager records in a single call.'
+                throw 'Install-PlatformPackage does not support installing mixed package manager records in a single call.'
             }
 
             if ($packageManagers.Count -eq 1)
@@ -750,7 +750,7 @@ function Install-SystemPackage
                 }
                 catch
                 {
-                    throw 'Interactive package installation requires an attached console. Use Find-SystemPackage -NonInteractive for object output or install explicit package names or ids in non-interactive sessions.'
+                    throw 'Interactive package installation requires an attached console. Use Find-PlatformPackage -NonInteractive for object output or install explicit package names or ids in non-interactive sessions.'
                 }
 
                 $KeyReader = { [Console]::ReadKey($true) }
@@ -1136,7 +1136,7 @@ function Install-SystemPackage
                     $currentDescription = if ([String]::IsNullOrWhiteSpace($currentPackage.Description)) { 'n/a' } else { $currentPackage.Description }
 
                     $frameLines = @(
-                        "Install-SystemPackage - $($AvailablePackages[0].PackageManagerDisplayName)"
+                        "Install-PlatformPackage - $($AvailablePackages[0].PackageManagerDisplayName)"
                         ''
                         'Spacebar: select  Enter: install selected  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
                         ''
@@ -1338,7 +1338,7 @@ function Install-SystemPackage
             {
                 $manager = Resolve-PackageManager
                 $candidatePackages = @(
-                    Find-SystemPackage -NonInteractive -Query $Query -ExcludePackage $ExcludePackage -Top $Top -PackageManager $manager.Name -CommandRunner $CommandRunner
+                    Find-PlatformPackage -NonInteractive -Query $Query -ExcludePackage $ExcludePackage -Top $Top -PackageManager $manager.Name -CommandRunner $CommandRunner
                 )
                 $totalMatched = $candidatePackages.Count
 

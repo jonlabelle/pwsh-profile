@@ -3,7 +3,7 @@
 BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
-    . "$PSScriptRoot/../../../Functions/SystemAdministration/Remove-SystemPackage.ps1"
+    . "$PSScriptRoot/../../../Functions/SystemAdministration/Remove-PlatformPackage.ps1"
 
     function Get-TestCommandResponse
     {
@@ -60,7 +60,7 @@ BeforeAll {
     }
 }
 
-Describe 'Remove-SystemPackage' {
+Describe 'Remove-PlatformPackage' {
     BeforeEach {
         $script:Invocations = New-Object 'System.Collections.Generic.List[Object]'
         $script:HostOutput = New-Object 'System.Collections.Generic.List[Object]'
@@ -75,7 +75,7 @@ Describe 'Remove-SystemPackage' {
                 'brew list --cask --versions' = Get-TestCommandResponse -Output @('visual-studio-code 1.89.0')
             }
 
-            $result = @(Remove-SystemPackage -PackageManager brew -NonInteractive -CommandRunner $runner)
+            $result = @(Remove-PlatformPackage -PackageManager brew -NonInteractive -CommandRunner $runner)
 
             $result.Count | Should -Be 2
 
@@ -96,7 +96,7 @@ Describe 'Remove-SystemPackage' {
                 'brew list --cask --versions' = Get-TestCommandResponse -Output @('visual-studio-code 1.89.0')
             }
 
-            $result = @(Remove-SystemPackage -PackageManager brew -NonInteractive -Purge -CommandRunner $runner)
+            $result = @(Remove-PlatformPackage -PackageManager brew -NonInteractive -Purge -CommandRunner $runner)
 
             (@($result[0].RemoveArguments) -join '|') | Should -Be 'uninstall|--cask|--zap|visual-studio-code'
         }
@@ -108,7 +108,7 @@ Describe 'Remove-SystemPackage' {
                 'brew uninstall git' = Get-TestCommandResponse -Output @('brew uninstall git output')
             }
 
-            $result = Remove-SystemPackage -PackageManager brew -IncludePackage git -All -CommandRunner $runner -Confirm:$false
+            $result = Remove-PlatformPackage -PackageManager brew -IncludePackage git -All -CommandRunner $runner -Confirm:$false
 
             $result.Removed | Should -Be 1
             $result.Failed | Should -Be 0
@@ -126,7 +126,7 @@ Describe 'Remove-SystemPackage' {
                 'brew uninstall git' = Get-TestCommandResponse -ExitCode 41 -Output @()
             }
 
-            $result = Remove-SystemPackage -PackageManager brew -IncludePackage git -All -CommandRunner $runner -Confirm:$false -WarningAction SilentlyContinue
+            $result = Remove-PlatformPackage -PackageManager brew -IncludePackage git -All -CommandRunner $runner -Confirm:$false -WarningAction SilentlyContinue
 
             $result.Removed | Should -Be 0
             $result.Failed | Should -Be 1
@@ -183,7 +183,7 @@ Describe 'Remove-SystemPackage' {
                     }
                 }.GetNewClosure()
 
-                $result = Remove-SystemPackage -PackageManager brew -IncludePackage git -All -CommandRunner $runner -Confirm:$false
+                $result = Remove-PlatformPackage -PackageManager brew -IncludePackage git -All -CommandRunner $runner -Confirm:$false
 
                 $result.Removed | Should -Be 1
                 $result.Failed | Should -Be 0
@@ -208,7 +208,7 @@ Describe 'Remove-SystemPackage' {
                 'brew list --cask --versions' = Get-TestCommandResponse -Output @()
             }
 
-            { Remove-SystemPackage -PackageManager brew -All -CommandRunner $runner -Confirm:$false } |
+            { Remove-PlatformPackage -PackageManager brew -All -CommandRunner $runner -Confirm:$false } |
             Should -Throw -ExpectedMessage '*without an include filter*'
         }
     }
@@ -222,7 +222,7 @@ Describe 'Remove-SystemPackage' {
                 )
             }
 
-            $result = @(Remove-SystemPackage -PackageManager apt -NonInteractive -Purge -CommandRunner $runner)
+            $result = @(Remove-PlatformPackage -PackageManager apt -NonInteractive -Purge -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'openssl'
@@ -240,7 +240,7 @@ Describe 'Remove-SystemPackage' {
                 )
             }
 
-            $result = @(Remove-SystemPackage -PackageManager apk -NonInteractive -Purge -CommandRunner $runner)
+            $result = @(Remove-PlatformPackage -PackageManager apk -NonInteractive -Purge -CommandRunner $runner)
 
             $result.Count | Should -Be 2
 
@@ -265,7 +265,7 @@ Describe 'Remove-SystemPackage' {
                 [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
             }
 
-            $result = Remove-SystemPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+            $result = Remove-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
             $result.Selected | Should -Be 0
             $result.NotSelected | Should -Be 1
@@ -289,7 +289,7 @@ Describe 'Remove-SystemPackage' {
                 [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
             }
 
-            $null = Remove-SystemPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PickerPageSize 2 -Confirm:$false
+            $null = Remove-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PickerPageSize 2 -Confirm:$false
 
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-01*' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-02*' } -Times 1
@@ -314,7 +314,7 @@ Describe 'Remove-SystemPackage' {
                 return $keys.Dequeue()
             }.GetNewClosure()
 
-            $result = Remove-SystemPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+            $result = Remove-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
             $result.Removed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall --cask --zap visual-studio-code' }).StreamOutput | Should -BeTrue
@@ -335,7 +335,7 @@ Describe 'Remove-SystemPackage' {
                 )
             }
 
-            $result = @(Remove-SystemPackage -PackageManager winget -NonInteractive -CommandRunner $runner)
+            $result = @(Remove-PlatformPackage -PackageManager winget -NonInteractive -CommandRunner $runner)
 
             $result.Count | Should -Be 2
 
@@ -357,7 +357,7 @@ Describe 'Remove-SystemPackage' {
                 'brew list --cask --versions' = Get-TestCommandResponse -Output @()
             }
 
-            $result = @(Remove-SystemPackage -PackageManager brew -NonInteractive -IncludePackage 'git*' -ExcludePackage 'git-lfs' -CommandRunner $runner)
+            $result = @(Remove-PlatformPackage -PackageManager brew -NonInteractive -IncludePackage 'git*' -ExcludePackage 'git-lfs' -CommandRunner $runner)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
@@ -369,7 +369,7 @@ Describe 'Remove-SystemPackage' {
                 'brew list --cask --versions' = Get-TestCommandResponse -Output @()
             }
 
-            $result = Remove-SystemPackage -PackageManager brew -IncludePackage git -All -WhatIf -CommandRunner $runner
+            $result = Remove-PlatformPackage -PackageManager brew -IncludePackage git -All -WhatIf -CommandRunner $runner
 
             $result | Should -Not -BeNullOrEmpty
             $result.Selected | Should -Be 1

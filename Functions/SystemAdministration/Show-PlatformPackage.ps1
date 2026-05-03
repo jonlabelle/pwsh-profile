@@ -1,11 +1,11 @@
-function Show-SystemPackage
+function Show-PlatformPackage
 {
     <#
     .SYNOPSIS
         Displays installed packages from the native platform package manager.
 
     .DESCRIPTION
-        Gets installed packages by calling Get-SystemPackage and renders them in a
+        Gets installed packages by calling Get-PlatformPackage and renders them in a
         read-only interactive browser when a console is available. The browser supports
         paging and navigation across installed packages on winget, Homebrew, apt, and apk.
 
@@ -28,53 +28,53 @@ function Show-SystemPackage
         package records when Enter is pressed.
 
     .EXAMPLE
-        PS > Show-SystemPackage
+        PS > Show-PlatformPackage
 
         Opens the interactive installed package browser for the detected package manager.
 
     .EXAMPLE
-        PS > Show-SystemPackage -Name 'git*'
+        PS > Show-PlatformPackage -Name 'git*'
 
         Opens the browser filtered to packages whose name or id matches git*.
 
     .EXAMPLE
-        PS > Show-SystemPackage -ExcludePackage '*preview*'
+        PS > Show-PlatformPackage -ExcludePackage '*preview*'
 
         Opens the browser excluding packages whose name or id matches *preview*.
 
     .EXAMPLE
-        PS > Show-SystemPackage -NonInteractive
+        PS > Show-PlatformPackage -NonInteractive
 
         Returns installed packages as objects without opening the browser.
 
     .EXAMPLE
-        PS > Show-SystemPackage -NonInteractive | Format-Table Name, InstalledVersion, Source
+        PS > Show-PlatformPackage -NonInteractive | Format-Table Name, InstalledVersion, Source
 
         Returns installed packages and formats them as a table.
 
     .EXAMPLE
-        PS > Show-SystemPackage -PassThru
+        PS > Show-PlatformPackage -PassThru
 
         Opens the browser, lets you select packages with the spacebar, and returns the
         selected records when Enter is pressed.
 
     .EXAMPLE
-        PS > Show-SystemPackage -PassThru -Name 'node*' | Format-Table
+        PS > Show-PlatformPackage -PassThru -Name 'node*' | Format-Table
 
         Opens the browser for matching node packages and formats the selected results.
 
     .EXAMPLE
-        PS > Show-SystemPackage -PackageManager winget
+        PS > Show-PlatformPackage -PackageManager winget
 
         Opens the browser using winget.
 
     .EXAMPLE
-        PS > Show-SystemPackage -PackageManager brew
+        PS > Show-PlatformPackage -PackageManager brew
 
         Opens the browser using Homebrew.
 
     .EXAMPLE
-        PS > Show-SystemPackage -Verbose
+        PS > Show-PlatformPackage -Verbose
 
         Opens the browser and writes dependency-loading details to verbose output.
 
@@ -84,10 +84,10 @@ function Show-SystemPackage
     .NOTES
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Show-SystemPackage.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Show-PlatformPackage.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Show-SystemPackage.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Show-PlatformPackage.ps1
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject], [PSCustomObject[]], [Object[]])]
@@ -153,17 +153,17 @@ function Show-SystemPackage
             return $null
         }
 
-        $getSystemPackageDependencyPath = Get-DependencyPathIfNeeded -FunctionName 'Get-SystemPackage' -RelativePath 'Get-SystemPackage.ps1'
-        if (-not [String]::IsNullOrWhiteSpace($getSystemPackageDependencyPath))
+        $getPlatformPackageDependencyPath = Get-DependencyPathIfNeeded -FunctionName 'Get-PlatformPackage' -RelativePath 'Get-PlatformPackage.ps1'
+        if (-not [String]::IsNullOrWhiteSpace($getPlatformPackageDependencyPath))
         {
             try
             {
-                . $getSystemPackageDependencyPath
-                Write-Verbose "Loaded Get-SystemPackage from: $getSystemPackageDependencyPath"
+                . $getPlatformPackageDependencyPath
+                Write-Verbose "Loaded Get-PlatformPackage from: $getPlatformPackageDependencyPath"
             }
             catch
             {
-                throw "Failed to load required dependency 'Get-SystemPackage' from '$getSystemPackageDependencyPath': $($_.Exception.Message)"
+                throw "Failed to load required dependency 'Get-PlatformPackage' from '$getPlatformPackageDependencyPath': $($_.Exception.Message)"
             }
         }
 
@@ -200,7 +200,7 @@ function Show-SystemPackage
                 }
                 catch
                 {
-                    throw 'Interactive package browsing requires an attached console. Use Get-SystemPackage or Show-SystemPackage -NonInteractive in non-interactive sessions.'
+                    throw 'Interactive package browsing requires an attached console. Use Get-PlatformPackage or Show-PlatformPackage -NonInteractive in non-interactive sessions.'
                 }
 
                 $KeyReader = { [Console]::ReadKey($true) }
@@ -481,7 +481,7 @@ function Show-SystemPackage
                     $currentPackage = $InstalledPackages[$cursor]
 
                     $frameLines = @(
-                        "Show-SystemPackage - $($InstalledPackages[0].PackageManagerDisplayName)"
+                        "Show-PlatformPackage - $($InstalledPackages[0].PackageManagerDisplayName)"
                         ''
                     )
 
@@ -622,7 +622,7 @@ function Show-SystemPackage
     process
     {
         $installedPackages = @(
-            Get-SystemPackage -PackageManager $PackageManager -Name $Name -ExcludePackage $ExcludePackage -CommandRunner $CommandRunner
+            Get-PlatformPackage -PackageManager $PackageManager -Name $Name -ExcludePackage $ExcludePackage -CommandRunner $CommandRunner
         )
 
         if ($NonInteractive)

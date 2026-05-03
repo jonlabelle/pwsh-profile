@@ -3,7 +3,7 @@
 BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
-    . "$PSScriptRoot/../../../Functions/SystemAdministration/Show-SystemPackage.ps1"
+    . "$PSScriptRoot/../../../Functions/SystemAdministration/Show-PlatformPackage.ps1"
 
     function Get-TestCommandResponse
     {
@@ -56,7 +56,7 @@ BeforeAll {
     }
 }
 
-Describe 'Show-SystemPackage' {
+Describe 'Show-PlatformPackage' {
     BeforeEach {
         $script:Invocations = New-Object 'System.Collections.Generic.List[Object]'
         $script:HostOutput = New-Object 'System.Collections.Generic.List[Object]'
@@ -71,7 +71,7 @@ Describe 'Show-SystemPackage' {
                 'brew list --cask --versions' = Get-TestCommandResponse -Output @('visual-studio-code 1.89.0')
             }
 
-            $result = @(Show-SystemPackage -PackageManager brew -NonInteractive -CommandRunner $runner)
+            $result = @(Show-PlatformPackage -PackageManager brew -NonInteractive -CommandRunner $runner)
 
             $result.Count | Should -Be 2
             ($result | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should -Be '2.44.0'
@@ -89,7 +89,7 @@ Describe 'Show-SystemPackage' {
                 [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
             }
 
-            $result = @(Show-SystemPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
+            $result = @(Show-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit' } -Times 1
@@ -111,7 +111,7 @@ Describe 'Show-SystemPackage' {
                 return $keys.Dequeue()
             }.GetNewClosure()
 
-            $result = @(Show-SystemPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
+            $result = @(Show-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit' } -Times 2
@@ -132,7 +132,7 @@ Describe 'Show-SystemPackage' {
                 [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
             }
 
-            $null = Show-SystemPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PickerPageSize 2
+            $null = Show-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PickerPageSize 2
 
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-01*' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-02*' } -Times 1
@@ -155,7 +155,7 @@ Describe 'Show-SystemPackage' {
                 return $keys.Dequeue()
             }.GetNewClosure()
 
-            $result = @(Show-SystemPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PassThru)
+            $result = @(Show-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PassThru)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
