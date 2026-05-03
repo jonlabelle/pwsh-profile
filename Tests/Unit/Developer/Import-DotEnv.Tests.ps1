@@ -23,11 +23,16 @@ BeforeAll {
     # Helper function to create test .env files
     function New-TestEnvFile
     {
+        [CmdletBinding(SupportsShouldProcess)]
         param(
             [String]$Path,
             [String]$Content
         )
-        [System.IO.File]::WriteAllText($Path, $Content, [System.Text.Encoding]::UTF8)
+
+        if ($PSCmdlet.ShouldProcess($Path, 'Create test .env file'))
+        {
+            [System.IO.File]::WriteAllText($Path, $Content, [System.Text.Encoding]::UTF8)
+        }
     }
 
     # Helper to clean up environment variables

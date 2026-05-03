@@ -967,7 +967,7 @@ function Upgrade-PlatformPackage
             return (($descriptionLines | Where-Object { -not [String]::IsNullOrWhiteSpace($_) }) -join ' ').Trim()
         }
 
-        function Set-WingetPackageDescriptions
+        function Resolve-WingetPackageDescriptions
         {
             param(
                 [Parameter(Mandatory)]
@@ -1040,7 +1040,7 @@ function Upgrade-PlatformPackage
                 $jsonUpdates = @(ConvertFrom-WingetJsonOutput -Manager $Manager -Output $jsonResult.Output)
                 if ($jsonUpdates.Count -gt 0)
                 {
-                    return @(Set-WingetPackageDescriptions -Manager $Manager -Packages $jsonUpdates)
+                    return @(Resolve-WingetPackageDescriptions -Manager $Manager -Packages $jsonUpdates)
                 }
 
                 if (-not (($jsonResult.Output -join "`n") -match 'Name\s+Id\s+Version\s+Available'))
@@ -1057,7 +1057,7 @@ function Upgrade-PlatformPackage
             }
 
             $tableUpdates = @(ConvertFrom-WingetTableOutput -Manager $Manager -Output $tableResult.Output)
-            return @(Set-WingetPackageDescriptions -Manager $Manager -Packages $tableUpdates)
+            return @(Resolve-WingetPackageDescriptions -Manager $Manager -Packages $tableUpdates)
         }
 
         function Get-BrewPackageUpdates

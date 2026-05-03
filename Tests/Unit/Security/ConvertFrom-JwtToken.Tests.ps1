@@ -20,7 +20,7 @@ BeforeAll {
     # Load the function
     . "$PSScriptRoot/../../../Functions/Security/ConvertFrom-JwtToken.ps1"
 
-    function New-TestJwtToken {
+    function Get-TestJwtToken {
         param(
             [Parameter(Mandatory)]
             [Object]$Header,
@@ -56,7 +56,7 @@ BeforeAll {
     # Payload: {"sub":"user123","name":"Jane Smith","email":"jane@example.com","exp":1735689600,"iat":1704067200,"iss":"https://example.com","aud":"api://default"}
     $script:ComplexToken = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMTIzIiwibmFtZSI6IkphbmUgU21pdGgiLCJlbWFpbCI6ImphbmVAZXhhbXBsZS5jb20iLCJleHAiOjE3MzU2ODk2MDAsImlhdCI6MTcwNDA2NzIwMCwiaXNzIjoiaHR0cHM6Ly9leGFtcGxlLmNvbSIsImF1ZCI6ImFwaTovL2RlZmF1bHQifQ.signature'
 
-    $script:NestedClaimsToken = New-TestJwtToken `
+    $script:NestedClaimsToken = Get-TestJwtToken `
         -Header ([ordered]@{ alg = 'HS256'; typ = 'JWT'; kid = 'test-key' }) `
         -Payload ([ordered]@{
             sub = 'user456'

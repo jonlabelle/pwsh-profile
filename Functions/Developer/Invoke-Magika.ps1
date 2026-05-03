@@ -145,7 +145,7 @@ function Invoke-Magika
         https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Invoke-Magika.ps1
     #>
     [CmdletBinding(DefaultParameterSetName = 'Path')]
-    [OutputType([System.Int32])]
+    [OutputType([System.Object[]], [System.Int32])]
     param(
         [Parameter(ParameterSetName = 'Path', Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [ValidateNotNullOrEmpty()]

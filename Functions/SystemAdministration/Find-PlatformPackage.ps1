@@ -640,7 +640,7 @@ function Find-PlatformPackage
             return $null
         }
 
-        function Set-InstalledPackageState
+        function Resolve-InstalledPackageState
         {
             param(
                 [Parameter()]
@@ -1046,7 +1046,7 @@ function Find-PlatformPackage
             return (($descriptionLines | Where-Object { -not [String]::IsNullOrWhiteSpace($_) }) -join ' ').Trim()
         }
 
-        function Set-WingetPackageDescriptions
+        function Resolve-WingetPackageDescriptions
         {
             param(
                 [Parameter(Mandatory)]
@@ -1148,7 +1148,7 @@ function Find-PlatformPackage
                 return @()
             }
 
-            return Set-InstalledPackageState -AvailablePackages $packages -InstalledPackages @(Get-InstalledPackagesForSearch -Manager $Manager)
+            return Resolve-InstalledPackageState -AvailablePackages $packages -InstalledPackages @(Get-InstalledPackagesForSearch -Manager $Manager)
         }
 
         function ConvertFrom-BrewSearchOutput
@@ -1182,7 +1182,7 @@ function Find-PlatformPackage
             return $packages
         }
 
-        function Set-BrewPackageDescriptions
+        function Resolve-BrewPackageDescriptions
         {
             param(
                 [Parameter(Mandatory)]
@@ -1350,9 +1350,9 @@ function Find-PlatformPackage
                 return @()
             }
 
-            $packages = @(Set-BrewPackageDescriptions -Manager $Manager -Packages $packages)
+            $packages = @(Resolve-BrewPackageDescriptions -Manager $Manager -Packages $packages)
 
-            return Set-InstalledPackageState -AvailablePackages $packages -InstalledPackages @(Get-InstalledPackagesForSearch -Manager $Manager)
+            return Resolve-InstalledPackageState -AvailablePackages $packages -InstalledPackages @(Get-InstalledPackagesForSearch -Manager $Manager)
         }
 
         function Find-AptPackages
@@ -2300,7 +2300,7 @@ function Find-PlatformPackage
 
         if ($manager.Name -eq 'winget')
         {
-            $packages = @(Set-WingetPackageDescriptions -Manager $manager -Packages $packages)
+            $packages = @(Resolve-WingetPackageDescriptions -Manager $manager -Packages $packages)
         }
 
         if ($ExcludePackage -and $ExcludePackage.Count -gt 0)

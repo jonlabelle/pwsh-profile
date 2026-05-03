@@ -121,7 +121,7 @@ Describe 'Rename-VideoSeasonFile' -Tag 'Unit' {
 
         It 'Should validate file extension for individual files' {
             # Should warn when file extension doesn't match supported filters
-            $output = Rename-VideoSeasonFile -Path $script:testNonVideoFile -WhatIf -WarningVariable warnings 2>&1
+            $null = Rename-VideoSeasonFile -Path $script:testNonVideoFile -WhatIf -WarningVariable warnings 2>&1
             $warnings | Should -Not -BeNullOrEmpty
         }
 
@@ -135,7 +135,7 @@ Describe 'Rename-VideoSeasonFile' -Tag 'Unit' {
 
             # Should handle gracefully by producing appropriate error message
             $ErrorActionPreference = 'SilentlyContinue'
-            $result = Rename-VideoSeasonFile -Path $nonExistentFile -WhatIf -ErrorVariable errors 2>&1
+            $null = Rename-VideoSeasonFile -Path $nonExistentFile -WhatIf -ErrorVariable errors 2>&1
             $errors.Count | Should -BeGreaterThan 0
             $errors[0].Exception.Message | Should -BeLike '*not found*'
         }

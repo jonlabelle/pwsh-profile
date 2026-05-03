@@ -185,7 +185,7 @@ function ConvertTo-CidrNotation
             return ($binaryString.ToCharArray() | Where-Object { $_ -eq $bitToCount } | Measure-Object).Count
         }
 
-        function New-CidrNotationResult
+        function Get-CidrNotationResult
         {
             param
             (
@@ -256,7 +256,7 @@ function ConvertTo-CidrNotation
             }
         }
 
-        New-CidrNotationResult -ResolvedPrefix $resolvedPrefix
+        Get-CidrNotationResult -ResolvedPrefix $resolvedPrefix
     }
 
     end

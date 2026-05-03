@@ -89,7 +89,7 @@ Describe 'Trace-Route' {
 
     Context 'Error handling' {
         It 'Should handle unresolvable hostnames gracefully' {
-            $results = Trace-Route -ComputerName 'this-host-definitely-does-not-exist-12345.invalid' -MaxHops 2 -Timeout 1000 -ErrorAction SilentlyContinue 2>$null
+            $null = Trace-Route -ComputerName 'this-host-definitely-does-not-exist-12345.invalid' -MaxHops 2 -Timeout 1000 -ErrorAction SilentlyContinue 2>$null
             # Should either return no results or produce an error (not throw)
         }
     }

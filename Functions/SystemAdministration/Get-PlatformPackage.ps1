@@ -746,7 +746,7 @@ function Get-PlatformPackage
             return (($descriptionLines | Where-Object { -not [String]::IsNullOrWhiteSpace($_) }) -join ' ').Trim()
         }
 
-        function Set-WingetPackageDescriptions
+        function Resolve-WingetPackageDescriptions
         {
             param(
                 [Parameter(Mandatory)]
@@ -824,7 +824,7 @@ function Get-PlatformPackage
                         return $jsonPackages
                     }
 
-                    return @(Set-WingetPackageDescriptions -Manager $Manager -Packages $jsonPackages)
+                    return @(Resolve-WingetPackageDescriptions -Manager $Manager -Packages $jsonPackages)
                 }
 
                 if (-not (($jsonResult.Output -join "`n") -match 'Name\s+Id\s+Version'))
@@ -846,7 +846,7 @@ function Get-PlatformPackage
                 return $tablePackages
             }
 
-            return @(Set-WingetPackageDescriptions -Manager $Manager -Packages $tablePackages)
+            return @(Resolve-WingetPackageDescriptions -Manager $Manager -Packages $tablePackages)
         }
 
         function ConvertFrom-BrewListOutput
@@ -888,7 +888,7 @@ function Get-PlatformPackage
             return $packages
         }
 
-        function Set-BrewPackageDescriptions
+        function Resolve-BrewPackageDescriptions
         {
             param(
                 [Parameter(Mandatory)]
@@ -1028,7 +1028,7 @@ function Get-PlatformPackage
 
             if (-not $SkipDescriptionEnrichment)
             {
-                $packages = @(Set-BrewPackageDescriptions -Manager $Manager -Packages $packages)
+                $packages = @(Resolve-BrewPackageDescriptions -Manager $Manager -Packages $packages)
             }
 
             return $packages

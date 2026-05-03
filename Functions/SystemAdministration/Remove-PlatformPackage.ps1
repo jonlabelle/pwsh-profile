@@ -1045,7 +1045,7 @@ function Remove-PlatformPackage
             return (($descriptionLines | Where-Object { -not [String]::IsNullOrWhiteSpace($_) }) -join ' ').Trim()
         }
 
-        function Set-WingetPackageDescriptions
+        function Resolve-WingetPackageDescriptions
         {
             param(
                 [Parameter(Mandatory)]
@@ -1118,7 +1118,7 @@ function Remove-PlatformPackage
                 $jsonPackages = @(ConvertFrom-WingetJsonOutput -Manager $Manager -Output $jsonResult.Output)
                 if ($jsonPackages.Count -gt 0)
                 {
-                    return @(Set-WingetPackageDescriptions -Manager $Manager -Packages $jsonPackages)
+                    return @(Resolve-WingetPackageDescriptions -Manager $Manager -Packages $jsonPackages)
                 }
 
                 if (-not (($jsonResult.Output -join "`n") -match 'Name\s+Id\s+Version'))
@@ -1135,7 +1135,7 @@ function Remove-PlatformPackage
             }
 
             $tablePackages = @(ConvertFrom-WingetTableOutput -Manager $Manager -Output $tableResult.Output)
-            return @(Set-WingetPackageDescriptions -Manager $Manager -Packages $tablePackages)
+            return @(Resolve-WingetPackageDescriptions -Manager $Manager -Packages $tablePackages)
         }
 
         function ConvertFrom-BrewListOutput
@@ -1177,7 +1177,7 @@ function Remove-PlatformPackage
             return $packages
         }
 
-        function Set-BrewPackageDescriptions
+        function Resolve-BrewPackageDescriptions
         {
             param(
                 [Parameter(Mandatory)]
@@ -1315,7 +1315,7 @@ function Remove-PlatformPackage
 
             $packages += ConvertFrom-BrewListOutput -Manager $Manager -Type 'Cask' -Output $caskResult.Output
 
-            $packages = @(Set-BrewPackageDescriptions -Manager $Manager -Packages $packages)
+            $packages = @(Resolve-BrewPackageDescriptions -Manager $Manager -Packages $packages)
 
             return $packages
         }
