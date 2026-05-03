@@ -68,7 +68,19 @@ Describe 'Find-SystemPackage' {
     BeforeEach {
         $script:Invocations = New-Object 'System.Collections.Generic.List[Object]'
         $script:HostOutput = New-Object 'System.Collections.Generic.List[Object]'
-        Mock -CommandName Write-Host -MockWith { $script:HostOutput.Add($Object) }
+        $script:HostOutputRecords = New-Object 'System.Collections.Generic.List[Object]'
+        Mock -CommandName Write-Host -MockWith {
+            param(
+                [Object]$Object,
+                [ConsoleColor]$ForegroundColor
+            )
+
+            $script:HostOutput.Add($Object)
+            $script:HostOutputRecords.Add([PSCustomObject]@{
+                    Object = $Object
+                    ForegroundColor = $ForegroundColor
+                })
+        }
         Mock -CommandName Clear-Host -MockWith {}
     }
 
@@ -259,6 +271,8 @@ Describe 'Find-SystemPackage' {
             $runner = & $script:NewPackageCommandRunner @{
                 'brew search --formulae git' = Get-TestCommandResponse -Output @('git', 'git-lfs')
                 'brew search --casks git' = Get-TestCommandResponse -Output @('git-credential-manager')
+                'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0')
+                'brew list --cask --versions' = Get-TestCommandResponse -Output @()
             }
 
             $queryReader = {
@@ -273,6 +287,7 @@ Describe 'Find-SystemPackage' {
             $result.Count | Should -Be 0
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: git' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Spacebar: select  I: install current/selected*' } -Times 1
+            @($script:HostOutputRecords | Where-Object { $_.ForegroundColor -eq [ConsoleColor]::DarkGray -and $_.Object -like '*git*' }).Count | Should -Be 1
             @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 5
         }
 

@@ -147,6 +147,7 @@ Describe 'Install-SystemPackage' {
             $result.Results[0].Message | Should -Be 'Package is already installed'
             @($script:Invocations | Where-Object { $_.Key -eq 'brew install jq' }).Count | Should -Be 0
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Current: jq | Id: jq | Installed: yes' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $ForegroundColor -eq 'DarkGray' -and $Object -like '*jq*' } -Times 2
         }
 
         It 'returns a no-selection summary when the picker is cancelled' {

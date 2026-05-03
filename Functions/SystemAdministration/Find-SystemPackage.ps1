@@ -1413,11 +1413,69 @@ function Find-SystemPackage
                 RenderedLineCount = 0
             }
 
+            function Format-PickerFrameLine
+            {
+                param(
+                    [Parameter()]
+                    [String]$Text = '',
+
+                    [Parameter()]
+                    [Nullable[ConsoleColor]]$ForegroundColor
+                )
+
+                [PSCustomObject]@{
+                    Text = $Text
+                    ForegroundColor = $ForegroundColor
+                }
+            }
+
+            function Get-PickerFrameLineText
+            {
+                param(
+                    [Parameter()]
+                    [Object]$Line
+                )
+
+                if ($null -eq $Line)
+                {
+                    return ''
+                }
+
+                $textProperty = @($Line.PSObject.Properties.Match('Text'))[0]
+                if ($null -ne $textProperty)
+                {
+                    return "$($textProperty.Value)"
+                }
+
+                return "$Line"
+            }
+
+            function Get-PickerFrameLineColor
+            {
+                param(
+                    [Parameter()]
+                    [Object]$Line
+                )
+
+                if ($null -eq $Line)
+                {
+                    return $null
+                }
+
+                $colorProperty = @($Line.PSObject.Properties.Match('ForegroundColor'))[0]
+                if ($null -eq $colorProperty -or $null -eq $colorProperty.Value)
+                {
+                    return $null
+                }
+
+                return [ConsoleColor]$colorProperty.Value
+            }
+
             function Write-PickerFrame
             {
                 param(
                     [Parameter()]
-                    [String[]]$Lines = @()
+                    [Object[]]$Lines = @()
                 )
 
                 if (-not $pickerRenderState.UseInPlaceRedraw)
@@ -1425,7 +1483,16 @@ function Find-SystemPackage
                     Clear-Host
                     foreach ($line in $Lines)
                     {
-                        Write-Host $line
+                        $lineText = Get-PickerFrameLineText -Line $line
+                        $lineColor = Get-PickerFrameLineColor -Line $line
+                        if ($null -eq $lineColor)
+                        {
+                            Write-Host $lineText
+                        }
+                        else
+                        {
+                            Write-Host $lineText -ForegroundColor $lineColor
+                        }
                     }
 
                     return
@@ -1436,34 +1503,62 @@ function Find-SystemPackage
                 $frameLines = @(
                     foreach ($line in $Lines)
                     {
-                        $text = if ($null -eq $line) { '' } else { "$line" }
+                        $text = Get-PickerFrameLineText -Line $line
                         if ($text.Length -ge $frameWidth)
                         {
                             if ($frameWidth -eq 1)
                             {
-                                $text.Substring(0, 1)
+                                $text = $text.Substring(0, 1)
                             }
                             else
                             {
-                                $text.Substring(0, $frameWidth - 1) + '~'
+                                $text = $text.Substring(0, $frameWidth - 1) + '~'
                             }
                         }
                         else
                         {
-                            $text.PadRight($frameWidth)
+                            $text = $text.PadRight($frameWidth)
                         }
+
+                        Format-PickerFrameLine -Text $text -ForegroundColor (Get-PickerFrameLineColor -Line $line)
                     }
                 )
 
                 while ($frameLines.Count -lt $pickerRenderState.RenderedLineCount)
                 {
-                    $frameLines += $blankLine
+                    $frameLines += Format-PickerFrameLine -Text $blankLine
                 }
 
                 try
                 {
                     [Console]::SetCursorPosition(0, 0)
-                    [Console]::Write(($frameLines -join "`r`n"))
+                    $originalForegroundColor = [Console]::ForegroundColor
+                    try
+                    {
+                        for ($lineIndex = 0; $lineIndex -lt $frameLines.Count; $lineIndex++)
+                        {
+                            if ($lineIndex -gt 0)
+                            {
+                                [Console]::Write("`r`n")
+                            }
+
+                            $line = $frameLines[$lineIndex]
+                            if ($null -eq $line.ForegroundColor)
+                            {
+                                [Console]::ForegroundColor = $originalForegroundColor
+                            }
+                            else
+                            {
+                                [Console]::ForegroundColor = $line.ForegroundColor
+                            }
+
+                            [Console]::Write($line.Text)
+                        }
+                    }
+                    finally
+                    {
+                        [Console]::ForegroundColor = $originalForegroundColor
+                    }
                     $pickerRenderState.RenderedLineCount = $frameLines.Count
                 }
                 catch
@@ -1472,7 +1567,16 @@ function Find-SystemPackage
                     Clear-Host
                     foreach ($fallbackLine in $Lines)
                     {
-                        Write-Host $fallbackLine
+                        $fallbackLineText = Get-PickerFrameLineText -Line $fallbackLine
+                        $fallbackLineColor = Get-PickerFrameLineColor -Line $fallbackLine
+                        if ($null -eq $fallbackLineColor)
+                        {
+                            Write-Host $fallbackLineText
+                        }
+                        else
+                        {
+                            Write-Host $fallbackLineText -ForegroundColor $fallbackLineColor
+                        }
                     }
                 }
             }
@@ -1600,11 +1704,20 @@ function Find-SystemPackage
                         if ($EnableSelection)
                         {
                             $selectedMarker = if ($selected[$i]) { '[x]' } else { '[ ]' }
-                            $frameLines += ('{0} {1} {2} {3} {4} {5} {6}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Version -Width $versionWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth), $installedCell)
+                            $packageLine = ('{0} {1} {2} {3} {4} {5} {6}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Version -Width $versionWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth), $installedCell)
                         }
                         else
                         {
-                            $frameLines += ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Version -Width $versionWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth), $installedCell)
+                            $packageLine = ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Version -Width $versionWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth), $installedCell)
+                        }
+
+                        if ($package.Installed)
+                        {
+                            $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor DarkGray
+                        }
+                        else
+                        {
+                            $frameLines += $packageLine
                         }
                     }
 
