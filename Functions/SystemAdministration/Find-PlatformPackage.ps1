@@ -1061,6 +1061,11 @@ function Find-PlatformPackage
                 return @()
             }
 
+            if ($CommandRunner)
+            {
+                return @($Packages)
+            }
+
             $descriptionLookup = @{}
             foreach ($package in $Packages)
             {
@@ -1190,6 +1195,11 @@ function Find-PlatformPackage
             if ($Packages.Count -eq 0)
             {
                 return @()
+            }
+
+            if ($CommandRunner)
+            {
+                return @($Packages)
             }
 
             $formulaNames = @($Packages |

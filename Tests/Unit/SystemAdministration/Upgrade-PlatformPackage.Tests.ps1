@@ -311,7 +311,7 @@ Describe 'Upgrade-PlatformPackage' {
             $result.NotSelected | Should -Be 1
             $result.Upgraded | Should -Be 0
             @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should -Be 0
-            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 3
+            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 4
         }
 
         It 'renders only the current viewport for long upgrade lists' {

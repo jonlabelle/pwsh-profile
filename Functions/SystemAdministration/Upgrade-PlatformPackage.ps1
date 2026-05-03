@@ -982,6 +982,11 @@ function Upgrade-PlatformPackage
                 return @()
             }
 
+            if ($CommandRunner)
+            {
+                return @($Packages)
+            }
+
             $descriptionLookup = @{}
             foreach ($package in $Packages)
             {
@@ -1136,6 +1141,11 @@ function Upgrade-PlatformPackage
                 $notes = if ($cask.PSObject.Properties['auto_updates'] -and $cask.auto_updates) { 'Auto-updates' } else { '' }
                 $description = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $cask -PropertyName @('desc', 'description', 'summary'))
                 $updates += Get-PackageUpdateObject -Manager $Manager -Name $name -Id $name -Type 'Cask' -InstalledVersion (ConvertTo-PackageText -Value $cask.installed_versions) -LatestVersion (ConvertTo-PackageText -Value $cask.current_version) -Source 'homebrew/cask' -Description $description -Notes $notes -UpgradeArguments @('upgrade', '--cask', $name)
+            }
+
+            if ($CommandRunner)
+            {
+                return $updates
             }
 
             $formulaNames = @($updates |
