@@ -529,6 +529,7 @@ The profile includes utility functions organized by category:
 - **[`Test-PendingReboot`](Functions/SystemAdministration/Test-PendingReboot.ps1)** — Checks if the system has pending reboot requirements
 - **[`Get-SystemInfo`](Functions/SystemAdministration/Get-SystemInfo.ps1)** — Gets system information from local or remote computers
 - **[`Get-SystemPackage`](Functions/SystemAdministration/Get-SystemPackage.ps1)** — Gets installed platform packages from winget, brew, apt, or apk
+- **[`Get-SystemPackageDependency`](Functions/SystemAdministration/Get-SystemPackageDependency.ps1)** — Shows platform package dependency relationships with winget, brew, apt, or apk
 - **[`Show-SystemPackage`](Functions/SystemAdministration/Show-SystemPackage.ps1)** — Displays installed platform packages in an interactive browser
 - **[`Find-SystemPackage`](Functions/SystemAdministration/Find-SystemPackage.ps1)** — Searches native platform package registries with winget, brew, apt, or apk
 - **[`Install-SystemPackage`](Functions/SystemAdministration/Install-SystemPackage.ps1)** — Installs platform packages by query, name, id, or piped search result
