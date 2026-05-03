@@ -254,6 +254,26 @@ Describe 'Remove-PlatformPackage' {
     }
 
     Context 'Interactive package selection' {
+        It 'removes the current package when Enter is pressed without a selection' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0')
+                'brew list --cask --versions' = Get-TestCommandResponse -Output @()
+                'brew uninstall git' = Get-TestCommandResponse -Output @('brew uninstall git output')
+            }
+
+            $keyReader = {
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            }
+
+            $result = Remove-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+
+            $result.Selected | Should -Be 1
+            $result.NotSelected | Should -Be 0
+            $result.Removed | Should -Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).StreamOutput | Should -BeTrue
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Spacebar: select  Enter: remove current/selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel' } -Times 1
+        }
+
         It 'treats Ctrl+C as a cancel command' {
             $runner = & $script:NewPackageCommandRunner @{
                 'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0')

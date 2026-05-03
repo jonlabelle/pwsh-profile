@@ -21,7 +21,8 @@ function Install-PlatformPackage
 
     .PARAMETER Query
         Searches the package registry, opens an interactive picker, and installs the
-        packages selected with the spacebar.
+        packages selected with the spacebar. If no package is selected, pressing Enter
+        installs the current package.
 
     .PARAMETER Name
         Installs one or more packages by name using the detected package manager.
@@ -1138,7 +1139,7 @@ function Install-PlatformPackage
                     $frameLines = @(
                         "Install-PlatformPackage - $($AvailablePackages[0].PackageManagerDisplayName)"
                         ''
-                        'Spacebar: select  Enter: install selected  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
+                        'Spacebar: select  Enter: install current/selected  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
                         ''
                         ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth))
                         ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth))
@@ -1230,6 +1231,11 @@ function Install-PlatformPackage
                                 {
                                     $selectedPackages += $AvailablePackages[$i]
                                 }
+                            }
+
+                            if ($selectedPackages.Count -eq 0)
+                            {
+                                $selectedPackages = @($AvailablePackages[$cursor])
                             }
 
                             return $selectedPackages

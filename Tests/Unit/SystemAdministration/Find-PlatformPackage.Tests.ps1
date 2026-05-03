@@ -345,7 +345,28 @@ Describe 'Find-PlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Spacebar: select  Enter: return selected  I: install current/selected*' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Spacebar: select  Enter: return current/selected  I: install current/selected*' } -Times 1
+        }
+
+        It 'returns the current package when PassThru is used without a selection' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew search --formulae git' = Get-TestCommandResponse -Output @('git', 'git-lfs')
+                'brew search --casks git' = Get-TestCommandResponse -Output @()
+            }
+
+            $queryReader = {
+                'git'
+            }
+
+            $keyReader = {
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            }
+
+            $result = @(Find-PlatformPackage -PackageManager brew -PassThru -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
+
+            $result.Count | Should -Be 1
+            $result[0].Name | Should -Be 'git'
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Spacebar: select  Enter: return current/selected  I: install current/selected*' } -Times 1
         }
 
         It 'installs the selected package from the interactive browser' {

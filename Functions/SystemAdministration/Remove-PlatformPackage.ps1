@@ -8,9 +8,10 @@ function Remove-PlatformPackage
         Detects the supported package manager for the current platform, lists installed
         packages, and opens an interactive console picker where packages can be selected
         with the spacebar before removal. In the picker, selecting a package controls
-        whether it will be removed when Enter is pressed. The purge/zap option is a
-        separate per-package toggle that requests deeper cleanup for selected packages
-        on package managers that support it.
+        whether it will be removed when Enter is pressed. If no package is selected,
+        pressing Enter removes the current package. The purge/zap option is a separate
+        per-package toggle that requests deeper cleanup for selected packages on package
+        managers that support it.
 
         Supported package managers:
         - Windows: winget
@@ -41,7 +42,8 @@ function Remove-PlatformPackage
 
         In the interactive picker, Spacebar marks a package for removal and P toggles this
         purge/zap behavior for the highlighted package. Pressing Enter removes the
-        selected packages, using purge/zap only for packages where it was requested.
+        selected packages, or the current package when nothing is selected, using
+        purge/zap only for packages where it was requested.
 
     .PARAMETER NonInteractive
         Returns the discovered installed package records without removing anything. The
@@ -1775,7 +1777,7 @@ function Remove-PlatformPackage
                     $currentPackage = $InstalledPackages[$cursor]
 
                     $pickerHintPrefix = 'Spacebar: select'
-                    $pickerHintActions = 'Enter: remove selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
+                    $pickerHintActions = 'Enter: remove current/selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
                     $pickerHint = if ($showPurge) { "$pickerHintPrefix  P: purge/zap  $pickerHintActions" } else { "$pickerHintPrefix  $pickerHintActions" }
                     $frameLines = @(
                         "Remove-PlatformPackage - $($InstalledPackages[0].PackageManagerDisplayName)"
@@ -1902,6 +1904,13 @@ function Remove-PlatformPackage
                                     $pkg | Add-Member -NotePropertyName 'Purge' -NotePropertyValue $purgeFlags[$i] -Force
                                     $selectedPackages += $pkg
                                 }
+                            }
+
+                            if ($selectedPackages.Count -eq 0)
+                            {
+                                $pkg = $InstalledPackages[$cursor]
+                                $pkg | Add-Member -NotePropertyName 'Purge' -NotePropertyValue $purgeFlags[$cursor] -Force
+                                $selectedPackages = @($pkg)
                             }
 
                             Clear-PickerFrame

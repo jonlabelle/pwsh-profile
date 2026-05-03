@@ -11,8 +11,8 @@ function Find-PlatformPackage
 
         By default, searches open an interactive remote-search UI with a prompt-based search
         box and a neatly formatted results browser. From the browser, press I to install the
-        current package or the selected packages. Use -PassThru to return the selected records
-        instead of installing them.
+        current package or the selected packages. Use -PassThru to return the selected records,
+        or the current package if nothing is selected, instead of installing them.
 
         Use -NonInteractive to return search results as PowerShell objects so they can be
         filtered, formatted, or piped into Install-PlatformPackage. Use -Top to cap broad
@@ -27,7 +27,8 @@ function Find-PlatformPackage
 
     .PARAMETER PassThru
         Allows packages to be selected in the interactive UI and returns the selected package
-        records when Enter is pressed.
+        records when Enter is pressed. If nothing is selected, Enter returns the current
+        package record.
 
     .PARAMETER ExcludePackage
         Optional package names or wildcard patterns to exclude from the normalized results.
@@ -1998,7 +1999,7 @@ function Find-PlatformPackage
                     )
                     if ($EnableSelection -and $EnableReturnSelection)
                     {
-                        $frameLines += 'Spacebar: select  Enter: return selected  I: install current/selected  S: new search  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit'
+                        $frameLines += 'Spacebar: select  Enter: return current/selected  I: install current/selected  S: new search  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit'
                     }
                     elseif ($EnableSelection)
                     {
@@ -2161,10 +2162,16 @@ function Find-PlatformPackage
                                 break
                             }
 
+                            $selectedPackages = @(Get-SelectedPackages)
+                            if ($selectedPackages.Count -eq 0)
+                            {
+                                $selectedPackages = @($AvailablePackages[$cursor])
+                            }
+
                             Clear-PickerFrame
                             return [PSCustomObject]@{
                                 Action = 'Return'
-                                SelectedPackages = @(Get-SelectedPackages)
+                                SelectedPackages = @($selectedPackages)
                             }
                         }
                         'I'

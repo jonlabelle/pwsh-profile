@@ -161,5 +161,22 @@ Describe 'Show-PlatformPackage' {
             $result[0].Name | Should -Be 'git'
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Spacebar: select*' } -Times 1
         }
+
+        It 'returns the current package when PassThru is used without a selection' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0')
+                'brew list --cask --versions' = Get-TestCommandResponse -Output @('visual-studio-code 1.89.0')
+            }
+
+            $keyReader = {
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            }
+
+            $result = @(Show-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PassThru)
+
+            $result.Count | Should -Be 1
+            $result[0].Name | Should -Be 'git'
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Spacebar: select  Enter: return current/selected  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit' } -Times 1
+        }
     }
 }

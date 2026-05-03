@@ -122,6 +122,26 @@ Describe 'Install-PlatformPackage' {
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Spacebar: select*' } -Times 1
         }
 
+        It 'installs the current search result when Enter is pressed without a selection' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew search --formulae git' = Get-TestCommandResponse -Output @('git')
+                'brew search --casks git' = Get-TestCommandResponse -Output @()
+                'brew install git' = Get-TestCommandResponse -Output @('brew install git output')
+            }
+
+            $keyReader = {
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            }
+
+            $result = Install-PlatformPackage -PackageManager brew -Query git -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+
+            $result.Selected | Should -Be 1
+            $result.NotSelected | Should -Be 0
+            $result.Installed | Should -Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'brew install git' }).StreamOutput | Should -BeTrue
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Spacebar: select  Enter: install current/selected  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel' } -Times 1
+        }
+
         It 'shows and skips an installed Homebrew search result' {
             $runner = & $script:NewPackageCommandRunner @{
                 'brew search --formulae jq' = Get-TestCommandResponse -Output @('jq')

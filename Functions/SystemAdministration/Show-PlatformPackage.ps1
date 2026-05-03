@@ -11,7 +11,8 @@ function Show-PlatformPackage
 
         Use -NonInteractive to bypass the interactive browser and return package objects
         directly. Use -PassThru to select one or more packages in the browser and return
-        them when Enter is pressed.
+        them when Enter is pressed. If nothing is selected, Enter returns the current
+        package.
 
     .PARAMETER Name
         Optional package names or wildcard patterns to include. Matches package Name or Id.
@@ -25,7 +26,8 @@ function Show-PlatformPackage
 
     .PARAMETER PassThru
         Allows packages to be selected in the interactive browser and returns the selected
-        package records when Enter is pressed.
+        package records when Enter is pressed. If nothing is selected, returns the current
+        package record.
 
     .EXAMPLE
         PS > Show-PlatformPackage
@@ -56,7 +58,8 @@ function Show-PlatformPackage
         PS > Show-PlatformPackage -PassThru
 
         Opens the browser, lets you select packages with the spacebar, and returns the
-        selected records when Enter is pressed.
+        selected records when Enter is pressed. If nothing is selected, Enter returns the
+        current package.
 
     .EXAMPLE
         PS > Show-PlatformPackage -PassThru -Name 'node*' | Format-Table
@@ -487,7 +490,7 @@ function Show-PlatformPackage
 
                     if ($EnableSelection)
                     {
-                        $frameLines += 'Spacebar: select  Enter: return selected  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit'
+                        $frameLines += 'Spacebar: select  Enter: return current/selected  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit'
                         $frameLines += ''
                         $frameLines += ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth))
                         $frameLines += ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth))
@@ -615,6 +618,11 @@ function Show-PlatformPackage
                                 {
                                     $selectedPackages += $InstalledPackages[$i]
                                 }
+                            }
+
+                            if ($selectedPackages.Count -eq 0)
+                            {
+                                $selectedPackages = @($InstalledPackages[$cursor])
                             }
 
                             return $selectedPackages
