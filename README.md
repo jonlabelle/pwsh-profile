@@ -530,7 +530,7 @@ The profile includes utility functions organized by category:
 - **[`Get-SystemInfo`](Functions/SystemAdministration/Get-SystemInfo.ps1)** — Gets system information from local or remote computers
 - **[`Get-PlatformPackage`](Functions/SystemAdministration/Get-PlatformPackage.ps1)** — Gets installed platform packages from winget, brew, apt, or apk
 - **[`Get-PlatformPackageDependency`](Functions/SystemAdministration/Get-PlatformPackageDependency.ps1)** — Shows package deps relationships with winget, brew, apt, or apk
-- **[`Show-PlatformPackage`](Functions/SystemAdministration/Show-PlatformPackage.ps1)** — Displays installed platform packages in an interactive browser
+- **[`Show-InstalledPlatformPackage`](Functions/SystemAdministration/Show-InstalledPlatformPackage.ps1)** — Displays installed platform packages in an interactive browser
 - **[`Find-PlatformPackage`](Functions/SystemAdministration/Find-PlatformPackage.ps1)** — Searches native platform package registries with winget, brew, apt, or apk
 - **[`Install-PlatformPackage`](Functions/SystemAdministration/Install-PlatformPackage.ps1)** — Installs platform packages by query, name, id, or piped search result
 - **[`Upgrade-PlatformPackage`](Functions/SystemAdministration/Upgrade-PlatformPackage.ps1)** — Upgrades outdated platform packages with winget, brew, apt, or apk

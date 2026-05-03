@@ -1,4 +1,4 @@
-function Show-PlatformPackage
+function Show-InstalledPlatformPackage
 {
     <#
     .SYNOPSIS
@@ -30,54 +30,54 @@ function Show-PlatformPackage
         package record.
 
     .EXAMPLE
-        PS > Show-PlatformPackage
+        PS > Show-InstalledPlatformPackage
 
         Opens the interactive installed package browser for the detected package manager.
 
     .EXAMPLE
-        PS > Show-PlatformPackage -Name 'git*'
+        PS > Show-InstalledPlatformPackage -Name 'git*'
 
         Opens the browser filtered to packages whose name or id matches git*.
 
     .EXAMPLE
-        PS > Show-PlatformPackage -ExcludePackage '*preview*'
+        PS > Show-InstalledPlatformPackage -ExcludePackage '*preview*'
 
         Opens the browser excluding packages whose name or id matches *preview*.
 
     .EXAMPLE
-        PS > Show-PlatformPackage -NonInteractive
+        PS > Show-InstalledPlatformPackage -NonInteractive
 
         Returns installed packages as objects without opening the browser.
 
     .EXAMPLE
-        PS > Show-PlatformPackage -NonInteractive | Format-Table Name, InstalledVersion, Source
+        PS > Show-InstalledPlatformPackage -NonInteractive | Format-Table Name, InstalledVersion, Source
 
         Returns installed packages and formats them as a table.
 
     .EXAMPLE
-        PS > Show-PlatformPackage -PassThru
+        PS > Show-InstalledPlatformPackage -PassThru
 
         Opens the browser, lets you select packages with the spacebar, and returns the
         selected records when Enter is pressed. If nothing is selected, Enter returns the
         current package.
 
     .EXAMPLE
-        PS > Show-PlatformPackage -PassThru -Name 'node*' | Format-Table
+        PS > Show-InstalledPlatformPackage -PassThru -Name 'node*' | Format-Table
 
         Opens the browser for matching node packages and formats the selected results.
 
     .EXAMPLE
-        PS > Show-PlatformPackage -PackageManager winget
+        PS > Show-InstalledPlatformPackage -PackageManager winget
 
         Opens the browser using winget.
 
     .EXAMPLE
-        PS > Show-PlatformPackage -PackageManager brew
+        PS > Show-InstalledPlatformPackage -PackageManager brew
 
         Opens the browser using Homebrew.
 
     .EXAMPLE
-        PS > Show-PlatformPackage -Verbose
+        PS > Show-InstalledPlatformPackage -Verbose
 
         Opens the browser and writes dependency-loading details to verbose output.
 
@@ -87,10 +87,10 @@ function Show-PlatformPackage
     .NOTES
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Show-PlatformPackage.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Show-InstalledPlatformPackage.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Show-PlatformPackage.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Show-InstalledPlatformPackage.ps1
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject], [PSCustomObject[]], [Object[]])]
@@ -203,7 +203,7 @@ function Show-PlatformPackage
                 }
                 catch
                 {
-                    throw 'Interactive package browsing requires an attached console. Use Get-PlatformPackage or Show-PlatformPackage -NonInteractive in non-interactive sessions.'
+                    throw 'Interactive package browsing requires an attached console. Use Get-PlatformPackage or Show-InstalledPlatformPackage -NonInteractive in non-interactive sessions.'
                 }
 
                 $KeyReader = { [Console]::ReadKey($true) }
@@ -484,7 +484,7 @@ function Show-PlatformPackage
                     $currentPackage = $InstalledPackages[$cursor]
 
                     $frameLines = @(
-                        "Show-PlatformPackage - $($InstalledPackages[0].PackageManagerDisplayName)"
+                        "Show-InstalledPlatformPackage - $($InstalledPackages[0].PackageManagerDisplayName)"
                         ''
                     )
 

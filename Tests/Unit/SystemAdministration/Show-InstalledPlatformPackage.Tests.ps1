@@ -3,10 +3,9 @@
 BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
-    . "$PSScriptRoot/../../../Functions/SystemAdministration/Show-PlatformPackage.ps1"
+    . "$PSScriptRoot/../../../Functions/SystemAdministration/Show-InstalledPlatformPackage.ps1"
 
-    function Get-TestCommandResponse
-    {
+    $script:NewTestCommandResponse = {
         param(
             [Parameter()]
             [Int32]$ExitCode = 0,
@@ -29,6 +28,7 @@ BeforeAll {
 
         $localResponses = $Responses
         $localInvocations = $script:Invocations
+        $newTestCommandResponse = $script:NewTestCommandResponse
 
         return {
             param(
@@ -51,12 +51,12 @@ BeforeAll {
                 return $localResponses[$key]
             }
 
-            return Get-TestCommandResponse -ExitCode 127 -Output @("Unexpected command: $key")
+            return & $newTestCommandResponse -ExitCode 127 -Output @("Unexpected command: $key")
         }.GetNewClosure()
     }
 }
 
-Describe 'Show-PlatformPackage' {
+Describe 'Show-InstalledPlatformPackage' {
     BeforeEach {
         $script:Invocations = New-Object 'System.Collections.Generic.List[Object]'
         $script:HostOutput = New-Object 'System.Collections.Generic.List[Object]'
@@ -67,11 +67,11 @@ Describe 'Show-PlatformPackage' {
     Context 'Object output' {
         It 'returns installed packages as objects when NonInteractive is used' {
             $runner = & $script:NewPackageCommandRunner @{
-                'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0')
-                'brew list --cask --versions' = Get-TestCommandResponse -Output @('visual-studio-code 1.89.0')
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @('visual-studio-code 1.89.0'))
             }
 
-            $result = @(Show-PlatformPackage -PackageManager brew -NonInteractive -CommandRunner $runner)
+            $result = @(Show-InstalledPlatformPackage -PackageManager brew -NonInteractive -CommandRunner $runner)
 
             $result.Count | Should -Be 2
             ($result | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should -Be '2.44.0'
@@ -81,15 +81,15 @@ Describe 'Show-PlatformPackage' {
     Context 'Interactive browsing' {
         It 'returns no output when cancelled' {
             $runner = & $script:NewPackageCommandRunner @{
-                'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0')
-                'brew list --cask --versions' = Get-TestCommandResponse -Output @()
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @())
             }
 
             $keyReader = {
                 [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
             }
 
-            $result = @(Show-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
+            $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit' } -Times 1
@@ -98,8 +98,8 @@ Describe 'Show-PlatformPackage' {
 
         It 'does not exit when Enter is pressed in browse mode' {
             $runner = & $script:NewPackageCommandRunner @{
-                'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0')
-                'brew list --cask --versions' = Get-TestCommandResponse -Output @()
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @())
             }
 
             $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
@@ -111,7 +111,7 @@ Describe 'Show-PlatformPackage' {
                 return $keys.Dequeue()
             }.GetNewClosure()
 
-            $result = @(Show-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
+            $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit' } -Times 2
@@ -119,20 +119,20 @@ Describe 'Show-PlatformPackage' {
 
         It 'renders only the current viewport for long package lists' {
             $runner = & $script:NewPackageCommandRunner @{
-                'brew list --formula --versions' = Get-TestCommandResponse -Output @(
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @(
                     'pkg-01 1.0.0'
                     'pkg-02 1.0.0'
                     'pkg-03 1.0.0'
                     'pkg-04 1.0.0'
-                )
-                'brew list --cask --versions' = Get-TestCommandResponse -Output @()
+                ))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @())
             }
 
             $keyReader = {
                 [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
             }
 
-            $null = Show-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PickerPageSize 2
+            $null = Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PickerPageSize 2
 
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-01*' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-02*' } -Times 1
@@ -142,8 +142,8 @@ Describe 'Show-PlatformPackage' {
 
         It 'returns selected packages when PassThru is used' {
             $runner = & $script:NewPackageCommandRunner @{
-                'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0')
-                'brew list --cask --versions' = Get-TestCommandResponse -Output @('visual-studio-code 1.89.0')
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @('visual-studio-code 1.89.0'))
             }
 
             $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
@@ -155,7 +155,7 @@ Describe 'Show-PlatformPackage' {
                 return $keys.Dequeue()
             }.GetNewClosure()
 
-            $result = @(Show-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PassThru)
+            $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PassThru)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
@@ -164,15 +164,15 @@ Describe 'Show-PlatformPackage' {
 
         It 'returns the current package when PassThru is used without a selection' {
             $runner = & $script:NewPackageCommandRunner @{
-                'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0')
-                'brew list --cask --versions' = Get-TestCommandResponse -Output @('visual-studio-code 1.89.0')
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @('visual-studio-code 1.89.0'))
             }
 
             $keyReader = {
                 [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
             }
 
-            $result = @(Show-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PassThru)
+            $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PassThru)
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
