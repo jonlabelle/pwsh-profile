@@ -216,6 +216,9 @@ function Upgrade-PlatformPackage
                 [String]$Source,
 
                 [Parameter()]
+                [String]$Description,
+
+                [Parameter()]
                 [String]$Notes,
 
                 [Parameter(Mandatory)]
@@ -231,6 +234,7 @@ function Upgrade-PlatformPackage
                 InstalledVersion = $InstalledVersion
                 LatestVersion = $LatestVersion
                 Source = $Source
+                Description = if (-not [String]::IsNullOrWhiteSpace($Description)) { $Description } else { $Notes }
                 Notes = $Notes
                 Command = $Manager.Command
                 UpgradeArguments = @($UpgradeArguments)
@@ -701,6 +705,7 @@ function Upgrade-PlatformPackage
                 $installedVersion = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $package -PropertyName @('InstalledVersion', 'Version', 'CurrentVersion'))
                 $latestVersion = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $package -PropertyName @('AvailableVersion', 'Available', 'LatestVersion', 'NewVersion'))
                 $source = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $package -PropertyName @('Source', 'SourceName'))
+                $description = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $package -PropertyName @('Description', 'ShortDescription', 'Summary', 'PackageDescription'))
 
                 if ([String]::IsNullOrWhiteSpace($name) -or [String]::IsNullOrWhiteSpace($latestVersion))
                 {
@@ -716,7 +721,7 @@ function Upgrade-PlatformPackage
                     @('upgrade', $name, '--accept-package-agreements', '--accept-source-agreements')
                 }
 
-                $updates += Get-PackageUpdateObject -Manager $Manager -Name $name -Id $id -Type 'Package' -InstalledVersion $installedVersion -LatestVersion $latestVersion -Source $source -UpgradeArguments $upgradeArguments
+                $updates += Get-PackageUpdateObject -Manager $Manager -Name $name -Id $id -Type 'Package' -InstalledVersion $installedVersion -LatestVersion $latestVersion -Source $source -Description $description -UpgradeArguments $upgradeArguments
             }
 
             return $updates
@@ -825,6 +830,198 @@ function Upgrade-PlatformPackage
             return $updates
         }
 
+        function Get-WingetPackageDescription
+        {
+            param(
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Manager,
+
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Package
+            )
+
+            $arguments = @('show')
+            if (-not [String]::IsNullOrWhiteSpace($Package.Id))
+            {
+                $arguments += @('--id', $Package.Id, '--exact')
+            }
+            elseif (-not [String]::IsNullOrWhiteSpace($Package.Name))
+            {
+                $arguments += $Package.Name
+            }
+            else
+            {
+                return ''
+            }
+
+            $jsonResult = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments ($arguments + @('--accept-source-agreements', '--output', 'json'))
+            if ($jsonResult.ExitCode -eq 0)
+            {
+                $lines = @($jsonResult.Output | ForEach-Object { "$($_)" })
+                $startIndex = -1
+                for ($i = 0; $i -lt $lines.Count; $i++)
+                {
+                    $trimmedLine = $lines[$i].Trim()
+                    if ($trimmedLine.StartsWith('{') -or $trimmedLine.StartsWith('['))
+                    {
+                        $startIndex = $i
+                        break
+                    }
+                }
+
+                if ($startIndex -ge 0)
+                {
+                    $jsonText = ($lines[$startIndex..($lines.Count - 1)] -join "`n").Trim()
+                    if (-not [String]::IsNullOrWhiteSpace($jsonText))
+                    {
+                        try
+                        {
+                            $json = $jsonText | ConvertFrom-Json
+                            $candidatePackages = @()
+
+                            if ($json -is [Array])
+                            {
+                                $candidatePackages += @($json)
+                            }
+                            elseif ($json.PSObject.Properties['Data'])
+                            {
+                                $candidatePackages += @($json.Data)
+                            }
+                            elseif ($json.PSObject.Properties['Packages'])
+                            {
+                                $candidatePackages += @($json.Packages)
+                            }
+                            elseif ($json.PSObject.Properties['DefaultLocale'] -or $json.PSObject.Properties['Description'])
+                            {
+                                $candidatePackages += @($json)
+                            }
+
+                            foreach ($candidatePackage in $candidatePackages)
+                            {
+                                $description = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $candidatePackage -PropertyName @('Description', 'ShortDescription', 'Summary', 'PackageDescription'))
+                                if (-not [String]::IsNullOrWhiteSpace($description))
+                                {
+                                    return $description
+                                }
+
+                                $defaultLocale = Get-FirstPropertyValue -InputObject $candidatePackage -PropertyName @('DefaultLocale', 'Locale')
+                                if ($null -ne $defaultLocale)
+                                {
+                                    $description = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $defaultLocale -PropertyName @('Description', 'ShortDescription', 'Summary'))
+                                    if (-not [String]::IsNullOrWhiteSpace($description))
+                                    {
+                                        return $description
+                                    }
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            Write-Verbose "Unable to parse winget show JSON output: $($_.Exception.Message)"
+                        }
+                    }
+                }
+            }
+
+            $arguments += '--accept-source-agreements'
+            $result = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments $arguments
+            if ($result.ExitCode -ne 0)
+            {
+                return ''
+            }
+
+            $descriptionLines = New-Object 'System.Collections.Generic.List[String]'
+            $inDescription = $false
+
+            foreach ($line in @($result.Output | ForEach-Object { "$($_)" }))
+            {
+                if (-not $inDescription)
+                {
+                    if ($line -match '^\s*Description\s*:\s*(?<Value>.*)$')
+                    {
+                        $inDescription = $true
+                        $initialDescription = $Matches.Value.Trim()
+                        if (-not [String]::IsNullOrWhiteSpace($initialDescription))
+                        {
+                            $descriptionLines.Add($initialDescription)
+                        }
+                    }
+
+                    continue
+                }
+
+                if ($line -match '^[A-Za-z][A-Za-z\s]+\s*:')
+                {
+                    break
+                }
+
+                $trimmedLine = $line.Trim()
+                if ([String]::IsNullOrWhiteSpace($trimmedLine) -or $trimmedLine -match '^-{3,}$')
+                {
+                    continue
+                }
+
+                $descriptionLines.Add($trimmedLine)
+            }
+
+            return (($descriptionLines | Where-Object { -not [String]::IsNullOrWhiteSpace($_) }) -join ' ').Trim()
+        }
+
+        function Set-WingetPackageDescriptions
+        {
+            param(
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Manager,
+
+                [Parameter()]
+                [PSCustomObject[]]$Packages = @()
+            )
+
+            if ($Packages.Count -eq 0)
+            {
+                return @()
+            }
+
+            $descriptionLookup = @{}
+            foreach ($package in $Packages)
+            {
+                if (-not [String]::IsNullOrWhiteSpace($package.Description))
+                {
+                    continue
+                }
+
+                $key = if (-not [String]::IsNullOrWhiteSpace($package.Id))
+                {
+                    $package.Id.Trim().ToLowerInvariant()
+                }
+                elseif (-not [String]::IsNullOrWhiteSpace($package.Name))
+                {
+                    $package.Name.Trim().ToLowerInvariant()
+                }
+                else
+                {
+                    ''
+                }
+
+                if ([String]::IsNullOrWhiteSpace($key))
+                {
+                    continue
+                }
+
+                if (-not $descriptionLookup.ContainsKey($key))
+                {
+                    $descriptionLookup[$key] = Get-WingetPackageDescription -Manager $Manager -Package $package
+                }
+
+                if (-not [String]::IsNullOrWhiteSpace($descriptionLookup[$key]))
+                {
+                    $package.Description = $descriptionLookup[$key]
+                }
+            }
+
+            return @($Packages)
+        }
+
         function Get-WingetPackageUpdates
         {
             param(
@@ -838,7 +1035,7 @@ function Upgrade-PlatformPackage
                 $jsonUpdates = @(ConvertFrom-WingetJsonOutput -Manager $Manager -Output $jsonResult.Output)
                 if ($jsonUpdates.Count -gt 0)
                 {
-                    return $jsonUpdates
+                    return @(Set-WingetPackageDescriptions -Manager $Manager -Packages $jsonUpdates)
                 }
 
                 if (-not (($jsonResult.Output -join "`n") -match 'Name\s+Id\s+Version\s+Available'))
@@ -854,7 +1051,8 @@ function Upgrade-PlatformPackage
                 throw "Failed to query winget upgrades: $message"
             }
 
-            ConvertFrom-WingetTableOutput -Manager $Manager -Output $tableResult.Output
+            $tableUpdates = @(ConvertFrom-WingetTableOutput -Manager $Manager -Output $tableResult.Output)
+            return @(Set-WingetPackageDescriptions -Manager $Manager -Packages $tableUpdates)
         }
 
         function Get-BrewPackageUpdates
@@ -871,7 +1069,24 @@ function Upgrade-PlatformPackage
                 throw "Failed to query Homebrew upgrades: $message"
             }
 
-            $jsonText = ($result.Output | ForEach-Object { "$_" }) -join "`n"
+            $lines = @($result.Output | ForEach-Object { "$($_)" })
+            $startIndex = -1
+            for ($i = 0; $i -lt $lines.Count; $i++)
+            {
+                $trimmedLine = $lines[$i].Trim()
+                if ($trimmedLine.StartsWith('{') -or $trimmedLine.StartsWith('['))
+                {
+                    $startIndex = $i
+                    break
+                }
+            }
+
+            if ($startIndex -lt 0)
+            {
+                return @()
+            }
+
+            $jsonText = ($lines[$startIndex..($lines.Count - 1)] -join "`n").Trim()
             if ([String]::IsNullOrWhiteSpace($jsonText))
             {
                 return @()
@@ -901,7 +1116,8 @@ function Upgrade-PlatformPackage
                 }
 
                 $notes = if ($formula.PSObject.Properties['pinned'] -and $formula.pinned) { 'Pinned' } else { '' }
-                $updates += Get-PackageUpdateObject -Manager $Manager -Name $name -Id $name -Type 'Formula' -InstalledVersion (ConvertTo-PackageText -Value $formula.installed_versions) -LatestVersion (ConvertTo-PackageText -Value $formula.current_version) -Source 'homebrew/core' -Notes $notes -UpgradeArguments @('upgrade', $name)
+                $description = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $formula -PropertyName @('desc', 'description', 'summary'))
+                $updates += Get-PackageUpdateObject -Manager $Manager -Name $name -Id $name -Type 'Formula' -InstalledVersion (ConvertTo-PackageText -Value $formula.installed_versions) -LatestVersion (ConvertTo-PackageText -Value $formula.current_version) -Source 'homebrew/core' -Description $description -Notes $notes -UpgradeArguments @('upgrade', $name)
             }
 
             foreach ($cask in @($data.casks))
@@ -918,7 +1134,97 @@ function Upgrade-PlatformPackage
                 }
 
                 $notes = if ($cask.PSObject.Properties['auto_updates'] -and $cask.auto_updates) { 'Auto-updates' } else { '' }
-                $updates += Get-PackageUpdateObject -Manager $Manager -Name $name -Id $name -Type 'Cask' -InstalledVersion (ConvertTo-PackageText -Value $cask.installed_versions) -LatestVersion (ConvertTo-PackageText -Value $cask.current_version) -Source 'homebrew/cask' -Notes $notes -UpgradeArguments @('upgrade', '--cask', $name)
+                $description = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $cask -PropertyName @('desc', 'description', 'summary'))
+                $updates += Get-PackageUpdateObject -Manager $Manager -Name $name -Id $name -Type 'Cask' -InstalledVersion (ConvertTo-PackageText -Value $cask.installed_versions) -LatestVersion (ConvertTo-PackageText -Value $cask.current_version) -Source 'homebrew/cask' -Description $description -Notes $notes -UpgradeArguments @('upgrade', '--cask', $name)
+            }
+
+            $formulaNames = @($updates |
+                Where-Object {
+                    $_.Type -eq 'Formula' -and
+                    -not [String]::IsNullOrWhiteSpace($_.Name) -and
+                    [String]::IsNullOrWhiteSpace($_.Description)
+                } |
+                ForEach-Object { $_.Name } |
+                Select-Object -Unique)
+
+            $caskNames = @($updates |
+                Where-Object {
+                    $_.Type -eq 'Cask' -and
+                    -not [String]::IsNullOrWhiteSpace($_.Name) -and
+                    [String]::IsNullOrWhiteSpace($_.Description)
+                } |
+                ForEach-Object { $_.Name } |
+                Select-Object -Unique)
+
+            $descriptionLookup = @{}
+
+            if ($formulaNames.Count -gt 0)
+            {
+                $formulaInfoResult = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments (@('info', '--json=v2', '--formula') + $formulaNames)
+                if ($formulaInfoResult.ExitCode -eq 0)
+                {
+                    try
+                    {
+                        $formulaInfo = (($formulaInfoResult.Output | ForEach-Object { "$($_)" }) -join "`n") | ConvertFrom-Json
+                        foreach ($formula in @($formulaInfo.formulae))
+                        {
+                            $name = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $formula -PropertyName @('name', 'full_name'))
+                            $description = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $formula -PropertyName @('desc', 'description', 'summary'))
+                            if (-not [String]::IsNullOrWhiteSpace($name) -and -not [String]::IsNullOrWhiteSpace($description))
+                            {
+                                $descriptionLookup[$name.Trim().ToLowerInvariant()] = $description
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        Write-Verbose "Unable to parse Homebrew formula descriptions: $($_.Exception.Message)"
+                    }
+                }
+            }
+
+            if ($caskNames.Count -gt 0)
+            {
+                $caskInfoResult = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments (@('info', '--json=v2', '--cask') + $caskNames)
+                if ($caskInfoResult.ExitCode -eq 0)
+                {
+                    try
+                    {
+                        $caskInfo = (($caskInfoResult.Output | ForEach-Object { "$($_)" }) -join "`n") | ConvertFrom-Json
+                        foreach ($cask in @($caskInfo.casks))
+                        {
+                            $name = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $cask -PropertyName @('token', 'name'))
+                            $description = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $cask -PropertyName @('desc', 'description', 'summary'))
+                            if (-not [String]::IsNullOrWhiteSpace($name) -and -not [String]::IsNullOrWhiteSpace($description))
+                            {
+                                $descriptionLookup[$name.Trim().ToLowerInvariant()] = $description
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        Write-Verbose "Unable to parse Homebrew cask descriptions: $($_.Exception.Message)"
+                    }
+                }
+            }
+
+            foreach ($update in $updates)
+            {
+                if (-not [String]::IsNullOrWhiteSpace($update.Description))
+                {
+                    continue
+                }
+
+                if ([String]::IsNullOrWhiteSpace($update.Name))
+                {
+                    continue
+                }
+
+                $key = $update.Name.Trim().ToLowerInvariant()
+                if ($descriptionLookup.ContainsKey($key))
+                {
+                    $update.Description = $descriptionLookup[$key]
+                }
             }
 
             return $updates
@@ -1386,6 +1692,7 @@ function Upgrade-PlatformPackage
                     }
 
                     $bottomIndex = [Math]::Min($PackageUpdates.Count - 1, $topIndex + $pageSize - 1)
+                    $currentPackage = $PackageUpdates[$cursor]
 
                     $pickerHintPrefix = 'Spacebar: select'
                     $pickerHintActions = 'Enter: upgrade selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
@@ -1423,6 +1730,24 @@ function Upgrade-PlatformPackage
                         }
                     }
 
+                    $frameLines += ''
+                    $currentInstalledVersion = if ([String]::IsNullOrWhiteSpace($currentPackage.InstalledVersion)) { 'n/a' } else { $currentPackage.InstalledVersion }
+                    $currentLatestVersion = if ([String]::IsNullOrWhiteSpace($currentPackage.LatestVersion)) { 'n/a' } else { $currentPackage.LatestVersion }
+                    $currentDescription = if (-not [String]::IsNullOrWhiteSpace($currentPackage.Description))
+                    {
+                        $currentPackage.Description
+                    }
+                    elseif (-not [String]::IsNullOrWhiteSpace($currentPackage.Notes))
+                    {
+                        $currentPackage.Notes
+                    }
+                    else
+                    {
+                        'n/a'
+                    }
+
+                    $frameLines += ('Current: {0} | Id: {1} | Installed: {2} | Available: {3}' -f $currentPackage.Name, $currentPackage.Id, $currentInstalledVersion, $currentLatestVersion)
+                    $frameLines += ('Description: {0}' -f $currentDescription)
                     $frameLines += ''
                     $frameLines += "$(@($selected | Where-Object { $_ }).Count) of $($PackageUpdates.Count) package(s) selected."
 

@@ -518,9 +518,22 @@ function Show-PlatformPackage
 
                     $currentVersion = if ([String]::IsNullOrWhiteSpace($currentPackage.InstalledVersion)) { 'n/a' } else { $currentPackage.InstalledVersion }
                     $currentSource = if ([String]::IsNullOrWhiteSpace($currentPackage.Source)) { 'n/a' } else { $currentPackage.Source }
+                    $currentDescription = if (-not [String]::IsNullOrWhiteSpace($currentPackage.Description))
+                    {
+                        $currentPackage.Description
+                    }
+                    elseif (-not [String]::IsNullOrWhiteSpace($currentPackage.Notes))
+                    {
+                        $currentPackage.Notes
+                    }
+                    else
+                    {
+                        'n/a'
+                    }
 
                     $frameLines += ''
                     $frameLines += ('Current: {0} | Id: {1} | Version: {2} | Source: {3}' -f $currentPackage.Name, $currentPackage.Id, $currentVersion, $currentSource)
+                    $frameLines += ('Description: {0}' -f $currentDescription)
                     if ($EnableSelection)
                     {
                         $frameLines += ''

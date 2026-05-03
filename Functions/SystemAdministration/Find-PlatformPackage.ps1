@@ -715,7 +715,7 @@ function Find-PlatformPackage
 
             try
             {
-                return @(Get-PlatformPackage -PackageManager $Manager.Name -CommandRunner $CommandRunner)
+                return @(Get-PlatformPackage -PackageManager $Manager.Name -SkipDescriptionEnrichment -CommandRunner $CommandRunner)
             }
             catch
             {
@@ -807,7 +807,7 @@ function Find-PlatformPackage
                 $id = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $package -PropertyName @('Id', 'PackageIdentifier', 'Identifier'))
                 $version = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $package -PropertyName @('Version', 'LatestVersion', 'CurrentVersion'))
                 $source = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $package -PropertyName @('CatalogName', 'Source', 'SourceName'))
-                $description = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $package -PropertyName @('Description', 'Summary'))
+                $description = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $package -PropertyName @('Description', 'ShortDescription', 'Summary', 'PackageDescription'))
 
                 if ([String]::IsNullOrWhiteSpace($packageName))
                 {
@@ -908,6 +908,198 @@ function Find-PlatformPackage
             return $packages
         }
 
+        function Get-WingetPackageDescription
+        {
+            param(
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Manager,
+
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Package
+            )
+
+            $arguments = @('show')
+            if (-not [String]::IsNullOrWhiteSpace($Package.Id))
+            {
+                $arguments += @('--id', $Package.Id, '--exact')
+            }
+            elseif (-not [String]::IsNullOrWhiteSpace($Package.Name))
+            {
+                $arguments += $Package.Name
+            }
+            else
+            {
+                return ''
+            }
+
+            $jsonResult = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments ($arguments + @('--accept-source-agreements', '--output', 'json'))
+            if ($jsonResult.ExitCode -eq 0)
+            {
+                $lines = @($jsonResult.Output | ForEach-Object { "$($_)" })
+                $startIndex = -1
+                for ($i = 0; $i -lt $lines.Count; $i++)
+                {
+                    $trimmedLine = $lines[$i].Trim()
+                    if ($trimmedLine.StartsWith('{') -or $trimmedLine.StartsWith('['))
+                    {
+                        $startIndex = $i
+                        break
+                    }
+                }
+
+                if ($startIndex -ge 0)
+                {
+                    $jsonText = ($lines[$startIndex..($lines.Count - 1)] -join "`n").Trim()
+                    if (-not [String]::IsNullOrWhiteSpace($jsonText))
+                    {
+                        try
+                        {
+                            $json = $jsonText | ConvertFrom-Json
+                            $candidatePackages = @()
+
+                            if ($json -is [Array])
+                            {
+                                $candidatePackages += @($json)
+                            }
+                            elseif ($json.PSObject.Properties['Data'])
+                            {
+                                $candidatePackages += @($json.Data)
+                            }
+                            elseif ($json.PSObject.Properties['Packages'])
+                            {
+                                $candidatePackages += @($json.Packages)
+                            }
+                            elseif ($json.PSObject.Properties['DefaultLocale'] -or $json.PSObject.Properties['Description'])
+                            {
+                                $candidatePackages += @($json)
+                            }
+
+                            foreach ($candidatePackage in $candidatePackages)
+                            {
+                                $description = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $candidatePackage -PropertyName @('Description', 'ShortDescription', 'Summary', 'PackageDescription'))
+                                if (-not [String]::IsNullOrWhiteSpace($description))
+                                {
+                                    return $description
+                                }
+
+                                $defaultLocale = Get-FirstPropertyValue -InputObject $candidatePackage -PropertyName @('DefaultLocale', 'Locale')
+                                if ($null -ne $defaultLocale)
+                                {
+                                    $description = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $defaultLocale -PropertyName @('Description', 'ShortDescription', 'Summary'))
+                                    if (-not [String]::IsNullOrWhiteSpace($description))
+                                    {
+                                        return $description
+                                    }
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            Write-Verbose "Unable to parse winget show JSON output: $($_.Exception.Message)"
+                        }
+                    }
+                }
+            }
+
+            $arguments += '--accept-source-agreements'
+            $result = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments $arguments
+            if ($result.ExitCode -ne 0)
+            {
+                return ''
+            }
+
+            $descriptionLines = New-Object 'System.Collections.Generic.List[String]'
+            $inDescription = $false
+
+            foreach ($line in @($result.Output | ForEach-Object { "$($_)" }))
+            {
+                if (-not $inDescription)
+                {
+                    if ($line -match '^\s*Description\s*:\s*(?<Value>.*)$')
+                    {
+                        $inDescription = $true
+                        $initialDescription = $Matches.Value.Trim()
+                        if (-not [String]::IsNullOrWhiteSpace($initialDescription))
+                        {
+                            $descriptionLines.Add($initialDescription)
+                        }
+                    }
+
+                    continue
+                }
+
+                if ($line -match '^[A-Za-z][A-Za-z\s]+\s*:')
+                {
+                    break
+                }
+
+                $trimmedLine = $line.Trim()
+                if ([String]::IsNullOrWhiteSpace($trimmedLine) -or $trimmedLine -match '^-{3,}$')
+                {
+                    continue
+                }
+
+                $descriptionLines.Add($trimmedLine)
+            }
+
+            return (($descriptionLines | Where-Object { -not [String]::IsNullOrWhiteSpace($_) }) -join ' ').Trim()
+        }
+
+        function Set-WingetPackageDescriptions
+        {
+            param(
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Manager,
+
+                [Parameter()]
+                [PSCustomObject[]]$Packages = @()
+            )
+
+            if ($Packages.Count -eq 0)
+            {
+                return @()
+            }
+
+            $descriptionLookup = @{}
+            foreach ($package in $Packages)
+            {
+                if (-not [String]::IsNullOrWhiteSpace($package.Description))
+                {
+                    continue
+                }
+
+                $key = if (-not [String]::IsNullOrWhiteSpace($package.Id))
+                {
+                    $package.Id.Trim().ToLowerInvariant()
+                }
+                elseif (-not [String]::IsNullOrWhiteSpace($package.Name))
+                {
+                    $package.Name.Trim().ToLowerInvariant()
+                }
+                else
+                {
+                    ''
+                }
+
+                if ([String]::IsNullOrWhiteSpace($key))
+                {
+                    continue
+                }
+
+                if (-not $descriptionLookup.ContainsKey($key))
+                {
+                    $descriptionLookup[$key] = Get-WingetPackageDescription -Manager $Manager -Package $package
+                }
+
+                if (-not [String]::IsNullOrWhiteSpace($descriptionLookup[$key]))
+                {
+                    $package.Description = $descriptionLookup[$key]
+                }
+            }
+
+            return @($Packages)
+        }
+
         function Find-WingetPackages
         {
             param(
@@ -984,6 +1176,113 @@ function Find-PlatformPackage
             return $packages
         }
 
+        function Set-BrewPackageDescriptions
+        {
+            param(
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Manager,
+
+                [Parameter()]
+                [PSCustomObject[]]$Packages = @()
+            )
+
+            if ($Packages.Count -eq 0)
+            {
+                return @()
+            }
+
+            $formulaNames = @($Packages |
+                Where-Object {
+                    $_.Type -eq 'Formula' -and
+                    -not [String]::IsNullOrWhiteSpace($_.Name) -and
+                    [String]::IsNullOrWhiteSpace($_.Description)
+                } |
+                ForEach-Object { $_.Name } |
+                Select-Object -Unique)
+
+            $caskNames = @($Packages |
+                Where-Object {
+                    $_.Type -eq 'Cask' -and
+                    -not [String]::IsNullOrWhiteSpace($_.Name) -and
+                    [String]::IsNullOrWhiteSpace($_.Description)
+                } |
+                ForEach-Object { $_.Name } |
+                Select-Object -Unique)
+
+            $descriptionLookup = @{}
+
+            if ($formulaNames.Count -gt 0)
+            {
+                $formulaInfoResult = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments (@('info', '--json=v2', '--formula') + $formulaNames)
+                if ($formulaInfoResult.ExitCode -eq 0)
+                {
+                    try
+                    {
+                        $formulaInfo = (($formulaInfoResult.Output | ForEach-Object { "$($_)" }) -join "`n") | ConvertFrom-Json
+                        foreach ($formula in @($formulaInfo.formulae))
+                        {
+                            $name = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $formula -PropertyName @('name', 'full_name'))
+                            $description = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $formula -PropertyName @('desc', 'description', 'summary'))
+                            if (-not [String]::IsNullOrWhiteSpace($name) -and -not [String]::IsNullOrWhiteSpace($description))
+                            {
+                                $descriptionLookup[$name.Trim().ToLowerInvariant()] = $description
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        Write-Verbose "Unable to parse Homebrew formula descriptions: $($_.Exception.Message)"
+                    }
+                }
+            }
+
+            if ($caskNames.Count -gt 0)
+            {
+                $caskInfoResult = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments (@('info', '--json=v2', '--cask') + $caskNames)
+                if ($caskInfoResult.ExitCode -eq 0)
+                {
+                    try
+                    {
+                        $caskInfo = (($caskInfoResult.Output | ForEach-Object { "$($_)" }) -join "`n") | ConvertFrom-Json
+                        foreach ($cask in @($caskInfo.casks))
+                        {
+                            $name = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $cask -PropertyName @('token', 'name'))
+                            $description = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $cask -PropertyName @('desc', 'description', 'summary'))
+                            if (-not [String]::IsNullOrWhiteSpace($name) -and -not [String]::IsNullOrWhiteSpace($description))
+                            {
+                                $descriptionLookup[$name.Trim().ToLowerInvariant()] = $description
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        Write-Verbose "Unable to parse Homebrew cask descriptions: $($_.Exception.Message)"
+                    }
+                }
+            }
+
+            foreach ($package in $Packages)
+            {
+                if (-not [String]::IsNullOrWhiteSpace($package.Description))
+                {
+                    continue
+                }
+
+                if ([String]::IsNullOrWhiteSpace($package.Name))
+                {
+                    continue
+                }
+
+                $key = $package.Name.Trim().ToLowerInvariant()
+                if ($descriptionLookup.ContainsKey($key))
+                {
+                    $package.Description = $descriptionLookup[$key]
+                }
+            }
+
+            return @($Packages)
+        }
+
         function Test-BrewSearchNoResults
         {
             param(
@@ -1039,6 +1338,8 @@ function Find-PlatformPackage
             {
                 return @()
             }
+
+            $packages = @(Set-BrewPackageDescriptions -Manager $Manager -Packages $packages)
 
             return Set-InstalledPackageState -AvailablePackages $packages -InstalledPackages @(Get-InstalledPackagesForSearch -Manager $Manager)
         }
@@ -1403,6 +1704,7 @@ function Find-PlatformPackage
             $pageSize = Get-PackagePickerPageSize -RequestedPageSize $PageSize -ItemCount $AvailablePackages.Count
 
             $selected = New-Object 'System.Boolean[]' $AvailablePackages.Count
+            $wingetDescriptionAttempted = @{}
             $cursor = 0
             $topIndex = 0
             $restoreTreatControlCAsInput = $false
@@ -1661,7 +1963,31 @@ function Find-PlatformPackage
 
                     $bottomIndex = [Math]::Min($AvailablePackages.Count - 1, $topIndex + $pageSize - 1)
                     $currentPackage = $AvailablePackages[$cursor]
-                    $currentDescription = if ([String]::IsNullOrWhiteSpace($currentPackage.Description)) { 'n/a' } else { $currentPackage.Description }
+                    $currentPackageLookupKey = if (-not [String]::IsNullOrWhiteSpace($currentPackage.Id))
+                    {
+                        $currentPackage.Id.Trim().ToLowerInvariant()
+                    }
+                    elseif (-not [String]::IsNullOrWhiteSpace($currentPackage.Name))
+                    {
+                        $currentPackage.Name.Trim().ToLowerInvariant()
+                    }
+                    else
+                    {
+                        ''
+                    }
+                    $shouldResolveCurrentWingetDescription =
+                        $currentPackage.PackageManager -eq 'winget' -and
+                        [String]::IsNullOrWhiteSpace($currentPackage.Description) -and
+                        -not [String]::IsNullOrWhiteSpace($currentPackageLookupKey) -and
+                        -not $wingetDescriptionAttempted.ContainsKey($currentPackageLookupKey)
+                    $currentDescription = if ([String]::IsNullOrWhiteSpace($currentPackage.Description))
+                    {
+                        if ($shouldResolveCurrentWingetDescription) { 'loading...' } else { 'n/a' }
+                    }
+                    else
+                    {
+                        $currentPackage.Description
+                    }
                     $installedStatus = if ($currentPackage.Installed) { 'yes' } else { 'no' }
 
                     $frameLines = @(
@@ -1731,6 +2057,23 @@ function Find-PlatformPackage
                     }
 
                     Write-PickerFrame -Lines $frameLines
+
+                    if ($shouldResolveCurrentWingetDescription)
+                    {
+                        $wingetDescriptionAttempted[$currentPackageLookupKey] = $true
+                        $resolvedDescription = Get-WingetPackageDescription -Manager ([PSCustomObject]@{
+                            Name = $currentPackage.PackageManager
+                            DisplayName = $currentPackage.PackageManagerDisplayName
+                            Command = $currentPackage.PackageManager
+                        }) -Package $currentPackage
+
+                        if (-not [String]::IsNullOrWhiteSpace($resolvedDescription))
+                        {
+                            $currentPackage.Description = $resolvedDescription
+                        }
+
+                        continue
+                    }
 
                     $key = & $KeyReader
                     if (Test-PackagePickerCancelKey -KeyInfo $key)
@@ -1937,6 +2280,11 @@ function Find-PlatformPackage
         }
 
         $packages = @(Find-RegistryPackages -Manager $manager -QueryText $queryText)
+
+        if ($manager.Name -eq 'winget')
+        {
+            $packages = @(Set-WingetPackageDescriptions -Manager $manager -Packages $packages)
+        }
 
         if ($ExcludePackage -and $ExcludePackage.Count -gt 0)
         {
