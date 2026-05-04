@@ -11,8 +11,8 @@ function Show-PlatformPackageManager
         The manager delegates to the existing package functions so their object output and
         automation behavior remain available:
         - Show-InstalledPlatformPackage for installed package browsing.
-        - Find-PlatformPackage for remote registry search and search-driven installs.
-        - Install-PlatformPackage for direct name or id installs.
+        - Find-PlatformPackage for remote registry search.
+        - Install-PlatformPackage for search-driven and direct name or id installs.
         - Upgrade-PlatformPackage for package upgrades.
         - Remove-PlatformPackage for package removal.
         - Get-PlatformPackageDependency for dependency inspection.
@@ -458,7 +458,7 @@ function Show-PlatformPackageManager
             $query = (Read-PlatformPackageManagerInput -Prompt 'Search query').Trim()
             if ([String]::IsNullOrWhiteSpace($query))
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Search Packages' -Message 'Search cancelled; query is required.')
+                return (Get-PlatformPackageManagerActionResult -Title 'Search and Install Packages' -Message 'Search cancelled; query is required.')
             }
 
             $excludePackage = @(Read-PlatformPackageManagerList -Prompt 'Exclude search results (comma-separated, optional)')
@@ -469,13 +469,18 @@ function Show-PlatformPackageManager
             $parameters.Top = $Top
             Add-PlatformPackageManagerPickerParameters -Parameters $parameters
 
-            $result = @(Find-PlatformPackage @parameters)
-            if ($result.Count -eq 0)
+            if ($NoSudo)
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Search Packages' -Message 'Search completed with no result records.')
+                $parameters.NoSudo = $true
             }
 
-            return (Get-PlatformPackageManagerActionResult -Title 'Search Packages' -Records $result)
+            $result = @(Install-PlatformPackage @parameters)
+            if ($result.Count -eq 0)
+            {
+                return (Get-PlatformPackageManagerActionResult -Title 'Search and Install Packages' -Message 'Search completed with no result records.')
+            }
+
+            return (Get-PlatformPackageManagerActionResult -Title 'Search and Install Packages' -Records $result)
         }
 
         function Invoke-PlatformPackageManagerDirectInstall
@@ -611,18 +616,35 @@ function Show-PlatformPackageManager
             $direction = Read-PlatformPackageDependencyDirection
             $installedOnly = Read-PlatformPackageManagerYesNo -Prompt 'Limit related packages to installed packages?'
 
+            if ($PackageManager -eq 'winget' -and $direction -eq 'RequiredBy')
+            {
+                return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message 'winget does not expose reverse dependency metadata, so RequiredBy dependency lookup is unavailable.')
+            }
+
             $parameters = Get-PlatformPackageManagerCommonParameters
             $parameters.Package = $package
             $parameters.Direction = $direction
             $parameters.InstalledOnly = $installedOnly
 
             $records = @(Get-PlatformPackageDependency @parameters)
-            if ($records.Count -eq 0)
+            $wingetReverseDependencyNote = ''
+            if ($PackageManager -eq 'winget' -and $direction -eq 'Both')
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message 'No dependency relationships were found.')
+                $wingetReverseDependencyNote = 'winget does not expose reverse dependency metadata; RequiredBy results are unavailable.'
             }
 
-            return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Records $records)
+            if ($records.Count -eq 0)
+            {
+                $message = 'No dependency relationships were found.'
+                if (-not [String]::IsNullOrWhiteSpace($wingetReverseDependencyNote))
+                {
+                    $message = "$message $wingetReverseDependencyNote"
+                }
+
+                return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message $message)
+            }
+
+            return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message $wingetReverseDependencyNote -Records $records)
         }
 
         function Write-PlatformPackageManagerMenu

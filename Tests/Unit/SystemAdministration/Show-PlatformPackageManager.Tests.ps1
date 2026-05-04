@@ -4,6 +4,7 @@ BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Show-PlatformPackageManager.ps1"
+    . "$PSScriptRoot/../../../Functions/SystemAdministration/Install-PlatformPackage.ps1"
 
     function Get-TestCommandResponse
     {
@@ -61,7 +62,7 @@ BeforeAll {
 
     $script:NewPromptReader = {
         param(
-            [Parameter(Mandatory)]
+            [Parameter()]
             [String[]]$Values
         )
 
@@ -135,6 +136,74 @@ Describe 'Show-PlatformPackageManager' {
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Insta\s*lled' } -Times 1
     }
 
+    It 'routes search installs through Install-PlatformPackage with NoSudo forwarded' {
+        Mock -CommandName Install-PlatformPackage -MockWith {
+            [PSCustomObject]@{
+                PackageManager = 'apt'
+                PackageManagerDisplayName = 'APT'
+                TotalMatched = 1
+                Selected = 1
+                NotSelected = 0
+                Installed = 1
+                Skipped = 0
+                Failed = 0
+                Results = @()
+            }
+        }
+        $promptReader = & $script:NewPromptReader @('2', 'git', '', 'q')
+
+        $result = @(Show-PlatformPackageManager -PackageManager apt -NoSudo -PromptReader $promptReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Install-PlatformPackage -ParameterFilter {
+            $Query -eq 'git' -and
+            $PackageManager -eq 'apt' -and
+            $NoSudo -and
+            $Top -eq 50
+        } -Times 1
+    }
+
+    It 'routes upgrade options and forwards winget uninstall-previous' {
+        $runner = & $script:NewPackageCommandRunner @{
+            'winget upgrade --accept-source-agreements --output json' = Get-TestCommandResponse -ExitCode 1 -Output @('Unrecognized argument: --output')
+            'winget upgrade --accept-source-agreements' = Get-TestCommandResponse -Output @(
+                'Name               Id                          Version Available Source'
+                '-----------------------------------------------------------------------'
+                'Git                Git.Git                     2.43.0  2.44.0    winget'
+            )
+            'winget upgrade --id Git.Git --exact --accept-package-agreements --accept-source-agreements --uninstall-previous' = Get-TestCommandResponse -Output @('winget upgrade output')
+        }
+        $promptReader = & $script:NewPromptReader @('4', 'Git', '', 'y', 'q')
+
+        $result = @(Show-PlatformPackageManager -PackageManager winget -SkipRefresh -UninstallPrevious -CommandRunner $runner -PromptReader $promptReader)
+
+        $result.Count | Should -Be 0
+        ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --accept-package-agreements --accept-source-agreements --uninstall-previous' }).StreamOutput | Should -BeTrue
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'winget upgrade output' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Upgraded' } -Times 1
+    }
+
+    It 'routes remove options and forwards purge behavior' {
+        $runner = & $script:NewPackageCommandRunner @{
+            'brew list --formula --versions' = Get-TestCommandResponse -Output @()
+            'brew list --cask --versions' = Get-TestCommandResponse -Output @('visual-studio-code 1.89.0')
+            'brew uninstall --cask --zap visual-studio-code' = Get-TestCommandResponse -Output @('brew zap output')
+        }
+        $promptReader = & $script:NewPromptReader @('5', 'visual-studio-code', '', 'y', 'q')
+
+        $result = @(
+            & {
+                $ConfirmPreference = 'None'
+                Show-PlatformPackageManager -PackageManager brew -Purge -CommandRunner $runner -PromptReader $promptReader
+            }
+        )
+
+        $result.Count | Should -Be 0
+        ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall --cask --zap visual-studio-code' }).StreamOutput | Should -BeTrue
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew zap output' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Removed' } -Times 1
+    }
+
     It 'shows dependency records from the manager' {
         $runner = & $script:NewPackageCommandRunner @{
             'brew deps --direct git' = Get-TestCommandResponse -Output @('gettext')
@@ -146,6 +215,15 @@ Describe 'Show-PlatformPackageManager' {
         $result.Count | Should -Be 0
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Relationship*' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*git -> gettext*' } -Times 1
+    }
+
+    It 'explains that winget reverse dependency lookup is unavailable' {
+        $promptReader = & $script:NewPromptReader @('6', 'Git.Git', '2', 'n', 'q')
+
+        $result = @(Show-PlatformPackageManager -PackageManager winget -PromptReader $promptReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*winget does not expose reverse dependency metadata*' } -Times 1
     }
 
     It 'keeps action results on a dedicated screen until the next action is chosen' {
