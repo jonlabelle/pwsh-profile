@@ -99,8 +99,16 @@ Describe 'Show-PlatformPackageManager' {
 
         $result.Count | Should -Be 0
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Manager: Auto -> *' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Installed packages*' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Dependencies*' } -Times 1
+    }
+
+    It 'exposes ShouldProcess safety switches for delegated operations' {
+        $command = Get-Command -Name Show-PlatformPackageManager
+
+        $command.Parameters.Keys | Should -Contain 'WhatIf'
+        $command.Parameters.Keys | Should -Contain 'Confirm'
     }
 
     It 'routes installed package browsing through Show-InstalledPlatformPackage' {
@@ -134,6 +142,7 @@ Describe 'Show-PlatformPackageManager' {
         ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --accept-source-agreements --accept-package-agreements' }).StreamOutput | Should -BeTrue
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'winget install output' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Insta\s*lled' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Details' } -Times 1
     }
 
     It 'routes search installs through Install-PlatformPackage with NoSudo forwarded' {

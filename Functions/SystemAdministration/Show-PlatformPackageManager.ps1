@@ -36,6 +36,13 @@ function Show-PlatformPackageManager
         On Linux package managers that normally require elevated privileges, do not
         automatically prefix install, upgrade, or removal commands with sudo.
 
+    .PARAMETER WhatIf
+        Shows what install, upgrade, or removal commands would run without invoking the
+        platform package manager.
+
+    .PARAMETER Confirm
+        Prompts before delegated install, upgrade, or removal commands are invoked.
+
     .EXAMPLE
         PS > Show-PlatformPackageManager
 
@@ -63,7 +70,7 @@ function Show-PlatformPackageManager
     .LINK
         https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/SystemAdministration/Show-PlatformPackageManager.ps1
     #>
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
         [Parameter()]
         [ValidateSet('Auto', 'winget', 'brew', 'apt', 'apk')]
@@ -127,6 +134,41 @@ function Show-PlatformPackageManager
             }
 
             return $dependencyPath
+        }
+
+        function Invoke-PlatformPackageManagerFunction
+        {
+            param(
+                [Parameter(Mandatory)]
+                [ValidateNotNullOrEmpty()]
+                [String]$FunctionName,
+
+                [Parameter(Mandatory)]
+                [ValidateNotNullOrEmpty()]
+                [String]$FileName,
+
+                [Parameter(Mandatory)]
+                [ScriptBlock]$Invocation,
+
+                [Parameter()]
+                [Hashtable]$Parameters = @{}
+            )
+
+            $dependencyPath = Get-PlatformPackageManagerDependencyPath -FunctionName $FunctionName -FileName $FileName
+            if (-not [String]::IsNullOrWhiteSpace($dependencyPath))
+            {
+                try
+                {
+                    . $dependencyPath
+                    Write-Verbose "Loaded $FunctionName from: $dependencyPath"
+                }
+                catch
+                {
+                    throw "Failed to load required dependency '$FunctionName' from '$dependencyPath': $($_.Exception.Message)"
+                }
+            }
+
+            & $Invocation $Parameters
         }
 
         function Read-PlatformPackageManagerInput
@@ -301,8 +343,79 @@ function Show-PlatformPackageManager
                 $flags += 'Purge'
             }
 
+            $managerText = if ($PackageManager -eq 'Auto')
+            {
+                "Auto -> $(Get-PlatformPackageManagerDetectedName)"
+            }
+            else
+            {
+                $PackageManager
+            }
+
             $flagText = if ($flags.Count -gt 0) { $flags -join ', ' } else { 'none' }
-            return "Manager: $PackageManager | Search limit: $Top | Flags: $flagText"
+            return "Manager: $managerText | Search limit: $Top | Flags: $flagText"
+        }
+
+        function Test-PlatformPackageManagerCommandAvailable
+        {
+            param(
+                [Parameter(Mandatory)]
+                [ValidateNotNullOrEmpty()]
+                [String]$Name
+            )
+
+            if ($CommandRunner)
+            {
+                return $PackageManager -ne 'Auto' -and $PackageManager -eq $Name
+            }
+
+            return $null -ne (Get-Command -Name $Name -CommandType Application -ErrorAction SilentlyContinue |
+                Select-Object -First 1)
+        }
+
+        function Get-PlatformPackageManagerDetectedName
+        {
+            if ($PackageManager -ne 'Auto')
+            {
+                return $PackageManager
+            }
+
+            $isWindowsPlatform = if ($PSVersionTable.PSVersion.Major -lt 6) { $true } else { [Bool]$IsWindows }
+            $isMacOSPlatform = if ($PSVersionTable.PSVersion.Major -lt 6) { $false } else { [Bool]$IsMacOS }
+            $isLinuxPlatform = if ($PSVersionTable.PSVersion.Major -lt 6) { $false } else { [Bool]$IsLinux }
+
+            if ($isWindowsPlatform -and (Test-PlatformPackageManagerCommandAvailable -Name 'winget'))
+            {
+                return 'winget'
+            }
+
+            if ($isMacOSPlatform -and (Test-PlatformPackageManagerCommandAvailable -Name 'brew'))
+            {
+                return 'brew'
+            }
+
+            if ($isLinuxPlatform)
+            {
+                if (Test-PlatformPackageManagerCommandAvailable -Name 'apt')
+                {
+                    return 'apt'
+                }
+
+                if (Test-PlatformPackageManagerCommandAvailable -Name 'apk')
+                {
+                    return 'apk'
+                }
+            }
+
+            foreach ($fallbackManager in @('brew', 'winget', 'apt', 'apk'))
+            {
+                if (Test-PlatformPackageManagerCommandAvailable -Name $fallbackManager)
+                {
+                    return $fallbackManager
+                }
+            }
+
+            return 'unresolved'
         }
 
         function Write-PlatformPackageManagerHeader
@@ -342,7 +455,39 @@ function Show-PlatformPackageManager
                 return ''
             }
 
-            return ($records | Format-Table -AutoSize | Out-String -Width 4096).TrimEnd()
+            $displayRecords = @(
+                foreach ($record in $records)
+                {
+                    if ($record.PSObject.Properties['Results'])
+                    {
+                        $record | Select-Object -Property * -ExcludeProperty Results
+                    }
+                    else
+                    {
+                        $record
+                    }
+                }
+            )
+
+            return ($displayRecords | Format-Table -AutoSize | Out-String -Width 4096).TrimEnd()
+        }
+
+        function Get-PlatformPackageManagerNestedResults
+        {
+            param(
+                [Parameter()]
+                [Object[]]$InputObject = @()
+            )
+
+            @(
+                foreach ($record in @($InputObject | Where-Object { $null -ne $_ }))
+                {
+                    if ($record.PSObject.Properties['Results'] -and $null -ne $record.Results)
+                    {
+                        @($record.Results | Where-Object { $null -ne $_ })
+                    }
+                }
+            )
         }
 
         function Get-PlatformPackageManagerActionResult
@@ -428,6 +573,19 @@ function Show-PlatformPackageManager
                     Write-Host $table
                     Write-Host ''
                 }
+
+                $detailRecords = @(Get-PlatformPackageManagerNestedResults -InputObject $Result.Records)
+                if ($detailRecords.Count -gt 0)
+                {
+                    Write-Host 'Details'
+                    Write-Host ('-' * 78)
+                    $detailTable = Format-PlatformPackageManagerResultTable -InputObject $detailRecords
+                    if (-not [String]::IsNullOrWhiteSpace($detailTable))
+                    {
+                        Write-Host $detailTable
+                        Write-Host ''
+                    }
+                }
             }
 
             Write-Host 'Enter/M: menu  1-6: run another action  Q: quit'
@@ -444,7 +602,10 @@ function Show-PlatformPackageManager
             $parameters.ExcludePackage = $excludePackage
             Add-PlatformPackageManagerPickerParameters -Parameters $parameters
 
-            $result = @(Show-InstalledPlatformPackage @parameters)
+            $result = @(Invoke-PlatformPackageManagerFunction -FunctionName 'Show-InstalledPlatformPackage' -FileName 'Show-InstalledPlatformPackage.ps1' -Parameters $parameters -Invocation {
+                    param([Hashtable]$InvocationParameters)
+                    Show-InstalledPlatformPackage @InvocationParameters
+                })
             if ($result.Count -eq 0)
             {
                 return (Get-PlatformPackageManagerActionResult -Title 'Installed Packages' -Message 'Installed package browser closed.')
@@ -474,7 +635,10 @@ function Show-PlatformPackageManager
                 $parameters.NoSudo = $true
             }
 
-            $result = @(Install-PlatformPackage @parameters)
+            $result = @(Invoke-PlatformPackageManagerFunction -FunctionName 'Install-PlatformPackage' -FileName 'Install-PlatformPackage.ps1' -Parameters $parameters -Invocation {
+                    param([Hashtable]$InvocationParameters)
+                    Install-PlatformPackage @InvocationParameters
+                })
             if ($result.Count -eq 0)
             {
                 return (Get-PlatformPackageManagerActionResult -Title 'Search and Install Packages' -Message 'Search completed with no result records.')
@@ -525,7 +689,10 @@ function Show-PlatformPackageManager
                 $parameters.NoSudo = $true
             }
 
-            $result = @(Install-PlatformPackage @parameters)
+            $result = @(Invoke-PlatformPackageManagerFunction -FunctionName 'Install-PlatformPackage' -FileName 'Install-PlatformPackage.ps1' -Parameters $parameters -Invocation {
+                    param([Hashtable]$InvocationParameters)
+                    Install-PlatformPackage @InvocationParameters
+                })
             if ($result.Count -eq 0)
             {
                 return (Get-PlatformPackageManagerActionResult -Title 'Install Packages' -Message 'Install completed with no result records.')
@@ -561,7 +728,10 @@ function Show-PlatformPackageManager
                 $parameters.NoSudo = $true
             }
 
-            $result = @(Upgrade-PlatformPackage @parameters)
+            $result = @(Invoke-PlatformPackageManagerFunction -FunctionName 'Upgrade-PlatformPackage' -FileName 'Upgrade-PlatformPackage.ps1' -Parameters $parameters -Invocation {
+                    param([Hashtable]$InvocationParameters)
+                    Upgrade-PlatformPackage @InvocationParameters
+                })
             if ($result.Count -eq 0)
             {
                 return (Get-PlatformPackageManagerActionResult -Title 'Upgrade Packages' -Message 'Upgrade completed with no result records.')
@@ -596,7 +766,10 @@ function Show-PlatformPackageManager
                 $parameters.NoSudo = $true
             }
 
-            $result = @(Remove-PlatformPackage @parameters)
+            $result = @(Invoke-PlatformPackageManagerFunction -FunctionName 'Remove-PlatformPackage' -FileName 'Remove-PlatformPackage.ps1' -Parameters $parameters -Invocation {
+                    param([Hashtable]$InvocationParameters)
+                    Remove-PlatformPackage @InvocationParameters
+                })
             if ($result.Count -eq 0)
             {
                 return (Get-PlatformPackageManagerActionResult -Title 'Remove Packages' -Message 'Removal completed with no result records.')
@@ -626,7 +799,10 @@ function Show-PlatformPackageManager
             $parameters.Direction = $direction
             $parameters.InstalledOnly = $installedOnly
 
-            $records = @(Get-PlatformPackageDependency @parameters)
+            $records = @(Invoke-PlatformPackageManagerFunction -FunctionName 'Get-PlatformPackageDependency' -FileName 'Get-PlatformPackageDependency.ps1' -Parameters $parameters -Invocation {
+                    param([Hashtable]$InvocationParameters)
+                    Get-PlatformPackageDependency @InvocationParameters
+                })
             $wingetReverseDependencyNote = ''
             if ($PackageManager -eq 'winget' -and $direction -eq 'Both')
             {
@@ -683,34 +859,6 @@ function Show-PlatformPackageManager
             }
         }
 
-        $dependencyFiles = @(
-            @{ FunctionName = 'Get-PlatformPackage'; FileName = 'Get-PlatformPackage.ps1' }
-            @{ FunctionName = 'Find-PlatformPackage'; FileName = 'Find-PlatformPackage.ps1' }
-            @{ FunctionName = 'Install-PlatformPackage'; FileName = 'Install-PlatformPackage.ps1' }
-            @{ FunctionName = 'Upgrade-PlatformPackage'; FileName = 'Upgrade-PlatformPackage.ps1' }
-            @{ FunctionName = 'Remove-PlatformPackage'; FileName = 'Remove-PlatformPackage.ps1' }
-            @{ FunctionName = 'Get-PlatformPackageDependency'; FileName = 'Get-PlatformPackageDependency.ps1' }
-            @{ FunctionName = 'Show-InstalledPlatformPackage'; FileName = 'Show-InstalledPlatformPackage.ps1' }
-        )
-
-        foreach ($dependencyFile in $dependencyFiles)
-        {
-            $dependencyPath = Get-PlatformPackageManagerDependencyPath -FunctionName $dependencyFile.FunctionName -FileName $dependencyFile.FileName
-            if ([String]::IsNullOrWhiteSpace($dependencyPath))
-            {
-                continue
-            }
-
-            try
-            {
-                . $dependencyPath
-                Write-Verbose "Loaded $($dependencyFile.FunctionName) from: $dependencyPath"
-            }
-            catch
-            {
-                throw "Failed to load required dependency '$($dependencyFile.FunctionName)' from '$dependencyPath': $($_.Exception.Message)"
-            }
-        }
     }
 
     process
