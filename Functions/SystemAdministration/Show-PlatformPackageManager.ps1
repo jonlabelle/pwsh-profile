@@ -280,6 +280,22 @@ function Show-PlatformPackageManager
             }
         }
 
+        function Write-PlatformPackageManagerResultTable
+        {
+            param(
+                [Parameter()]
+                [Object[]]$InputObject = @()
+            )
+
+            $records = @($InputObject | Where-Object { $null -ne $_ })
+            if ($records.Count -eq 0)
+            {
+                return
+            }
+
+            $records | Format-Table -AutoSize | Out-String | Write-Host
+        }
+
         function Invoke-PlatformPackageManagerInstalledBrowser
         {
             $includePackage = @(Read-PlatformPackageManagerList -Prompt 'Installed package filter (comma-separated, optional)')
@@ -290,7 +306,8 @@ function Show-PlatformPackageManager
             $parameters.ExcludePackage = $excludePackage
             Add-PlatformPackageManagerPickerParameters -Parameters $parameters
 
-            Show-InstalledPlatformPackage @parameters
+            $result = @(Show-InstalledPlatformPackage @parameters)
+            Write-PlatformPackageManagerResultTable -InputObject $result
         }
 
         function Invoke-PlatformPackageManagerSearch
@@ -310,7 +327,8 @@ function Show-PlatformPackageManager
             $parameters.Top = $Top
             Add-PlatformPackageManagerPickerParameters -Parameters $parameters
 
-            Find-PlatformPackage @parameters
+            $result = @(Find-PlatformPackage @parameters)
+            Write-PlatformPackageManagerResultTable -InputObject $result
         }
 
         function Invoke-PlatformPackageManagerDirectInstall
@@ -356,7 +374,8 @@ function Show-PlatformPackageManager
                 $parameters.NoSudo = $true
             }
 
-            Install-PlatformPackage @parameters
+            $result = @(Install-PlatformPackage @parameters)
+            Write-PlatformPackageManagerResultTable -InputObject $result
         }
 
         function Invoke-PlatformPackageManagerUpgrade
@@ -386,7 +405,8 @@ function Show-PlatformPackageManager
                 $parameters.NoSudo = $true
             }
 
-            Upgrade-PlatformPackage @parameters
+            $result = @(Upgrade-PlatformPackage @parameters)
+            Write-PlatformPackageManagerResultTable -InputObject $result
         }
 
         function Invoke-PlatformPackageManagerRemoval
@@ -415,7 +435,8 @@ function Show-PlatformPackageManager
                 $parameters.NoSudo = $true
             }
 
-            Remove-PlatformPackage @parameters
+            $result = @(Remove-PlatformPackage @parameters)
+            Write-PlatformPackageManagerResultTable -InputObject $result
         }
 
         function Invoke-PlatformPackageManagerDependencyView
@@ -442,8 +463,7 @@ function Show-PlatformPackageManager
                 return @()
             }
 
-            $records | Format-Table Package, Direction, Relationship, RelatedPackage, DependencyType, Installed -AutoSize | Out-String | Write-Host
-            return $records
+            Write-PlatformPackageManagerResultTable -InputObject $records
         }
 
         function Write-PlatformPackageManagerMenu

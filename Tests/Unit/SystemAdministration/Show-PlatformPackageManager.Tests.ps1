@@ -130,10 +130,10 @@ Describe 'Show-PlatformPackageManager' {
 
         $result = @(Show-PlatformPackageManager -PackageManager winget -CommandRunner $runner -PromptReader $promptReader)
 
-        $result.Count | Should -Be 1
-        $result[0].Installed | Should -Be 1
+        $result.Count | Should -Be 0
         ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --accept-source-agreements --accept-package-agreements' }).StreamOutput | Should -BeTrue
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'winget install output' } -Times 1
+        ($script:HostOutput -join "`n") | Should -Match 'Insta\s*lled'
     }
 
     It 'shows dependency records from the manager' {
@@ -144,9 +144,8 @@ Describe 'Show-PlatformPackageManager' {
 
         $result = @(Show-PlatformPackageManager -PackageManager brew -CommandRunner $runner -PromptReader $promptReader)
 
-        $result.Count | Should -Be 1
-        $result[0].Package | Should -Be 'git'
-        $result[0].RelatedPackage | Should -Be 'gettext'
+        $result.Count | Should -Be 0
+        ($script:HostOutput -join "`n") | Should -BeLike '*Relationship*'
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*git -> gettext*' } -Times 1
     }
 }
