@@ -156,6 +156,54 @@ Describe 'Find-PlatformPackage' {
             $result.Count | Should -Be 1
             $result[0].Installed | Should -BeTrue
         }
+
+        It 'does not mark winget search results installed by display name when ids differ' {
+            $wingetSearchJson = @{
+                Sources = @(
+                    @{
+                        Packages = @(
+                            @{
+                                PackageName = 'Node.js'
+                                PackageIdentifier = 'OpenJS.NodeJS'
+                                Version = '25.9.0'
+                                CatalogName = 'winget'
+                            }
+                            @{
+                                PackageName = 'Node.js (LTS)'
+                                PackageIdentifier = 'OpenJS.NodeJS.LTS'
+                                Version = '24.15.0'
+                                CatalogName = 'winget'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+
+            $wingetListJson = @{
+                Sources = @(
+                    @{
+                        Packages = @(
+                            @{
+                                Name = 'Node.js'
+                                PackageIdentifier = 'OpenJS.NodeJS.LTS'
+                                Version = '24.15.0'
+                                Source = 'winget'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget search node --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetSearchJson)
+                'winget list --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetListJson)
+            }
+
+            $result = @(Find-PlatformPackage -PackageManager winget -NonInteractive -Query node -CommandRunner $runner)
+
+            ($result | Where-Object { $_.Id -eq 'OpenJS.NodeJS' }).Installed | Should -BeFalse
+            ($result | Where-Object { $_.Id -eq 'OpenJS.NodeJS.LTS' }).Installed | Should -BeTrue
+        }
     }
 
     Context 'Homebrew search' {

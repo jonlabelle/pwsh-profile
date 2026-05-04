@@ -209,6 +209,42 @@ Describe 'Get-PlatformPackageDependency' {
             $result.Count | Should -Be 0
             $script:Invocations.Count | Should -Be 0
         }
+
+        It 'filters winget installed dependencies by id instead of ambiguous display name' {
+            $wingetListJson = @{
+                Sources = @(
+                    @{
+                        Packages = @(
+                            @{
+                                Name = 'Node.js'
+                                PackageIdentifier = 'OpenJS.NodeJS.LTS'
+                                Version = '24.15.0'
+                                Source = 'winget'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget show Git.Git --accept-source-agreements' = Get-TestCommandResponse -Output @(
+                    'Found Git [Git.Git]'
+                    'Version: 2.45.1'
+                    'Dependencies:'
+                    '  Package Dependencies:'
+                    '    Node.js'
+                    '    OpenJS.NodeJS.LTS'
+                    'Installer:'
+                    '  Installer Type: exe'
+                )
+                'winget list --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetListJson)
+            }
+
+            $result = @(Get-PlatformPackageDependency -PackageManager winget -Package Git.Git -InstalledOnly -CommandRunner $runner)
+
+            $result.Count | Should -Be 1
+            $result[0].RelatedPackage | Should -Be 'OpenJS.NodeJS.LTS'
+        }
     }
 
     Context 'Pipeline input' {

@@ -615,14 +615,14 @@ function Find-PlatformPackage
                 [PSCustomObject]$Package
             )
 
-            $values = @($Package.Id, $Package.Name) |
-            Where-Object { -not [String]::IsNullOrWhiteSpace("$_") } |
-            ForEach-Object { "$_".Trim() } |
-            Select-Object -Unique
-
-            foreach ($value in $values)
+            function Get-PackageFromInstalledLookupValue
             {
-                $key = Get-PackageLookupKey -Type $Package.Type -Value $value
+                param(
+                    [Parameter()]
+                    [String]$Value
+                )
+
+                $key = Get-PackageLookupKey -Type $Package.Type -Value $Value
                 if (-not [String]::IsNullOrWhiteSpace($key) -and $Lookup.ContainsKey($key))
                 {
                     return $Lookup[$key]
@@ -630,13 +630,43 @@ function Find-PlatformPackage
 
                 if (-not ([String]::IsNullOrWhiteSpace($Package.Type) -or $Package.Type -eq 'Package'))
                 {
-                    continue
+                    return $null
                 }
 
-                $fallbackKey = Get-PackageLookupKey -Value $value
+                $fallbackKey = Get-PackageLookupKey -Value $Value
                 if (-not [String]::IsNullOrWhiteSpace($fallbackKey) -and $Lookup.ContainsKey($fallbackKey))
                 {
                     return $Lookup[$fallbackKey]
+                }
+
+                return $null
+            }
+
+            foreach ($idValue in @($Package.Id | Where-Object { -not [String]::IsNullOrWhiteSpace("$_") } | ForEach-Object { "$_".Trim() } | Select-Object -Unique))
+            {
+                $installedPackage = Get-PackageFromInstalledLookupValue -Value $idValue
+                if ($null -ne $installedPackage)
+                {
+                    return $installedPackage
+                }
+            }
+
+            foreach ($nameValue in @($Package.Name | Where-Object { -not [String]::IsNullOrWhiteSpace("$_") } | ForEach-Object { "$_".Trim() } | Select-Object -Unique))
+            {
+                $installedPackage = Get-PackageFromInstalledLookupValue -Value $nameValue
+                if ($null -ne $installedPackage)
+                {
+                    if (
+                        $Package.PackageManager -eq 'winget' -and
+                        -not [String]::IsNullOrWhiteSpace($Package.Id) -and
+                        -not [String]::IsNullOrWhiteSpace($installedPackage.Id) -and
+                        $Package.Id.Trim() -ne $installedPackage.Id.Trim()
+                    )
+                    {
+                        continue
+                    }
+
+                    return $installedPackage
                 }
             }
 

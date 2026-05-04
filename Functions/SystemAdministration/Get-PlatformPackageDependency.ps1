@@ -654,7 +654,16 @@ function Get-PlatformPackageDependency
             $lookup = @{}
             foreach ($installedPackage in @(Get-PlatformPackage @getPlatformPackageParameters))
             {
-                foreach ($value in @($installedPackage.Name, $installedPackage.Id))
+                $lookupValues = if ($Manager.Name -eq 'winget' -and -not [String]::IsNullOrWhiteSpace($installedPackage.Id))
+                {
+                    @($installedPackage.Id)
+                }
+                else
+                {
+                    @($installedPackage.Name, $installedPackage.Id)
+                }
+
+                foreach ($value in $lookupValues)
                 {
                     $text = ConvertTo-PackageText -Value $value
                     if ([String]::IsNullOrWhiteSpace($text))
