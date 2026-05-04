@@ -396,5 +396,60 @@ Describe 'Find-PlatformPackage' {
             ($script:Invocations | Where-Object { $_.Key -eq 'brew install git' }).StreamOutput | Should -BeTrue
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew install git output' } -Times 1
         }
+
+        It 'loads missing winget descriptions only when D is pressed' {
+            $wingetSearchJson = @{
+                Sources = @(
+                    @{
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.45.1'
+                                Source = 'winget'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $wingetListJson = @{
+                Sources = @(
+                    @{
+                        Packages = @()
+                    }
+                )
+            } | ConvertTo-Json -Depth 4 -Compress
+            $wingetShowJson = @{
+                DefaultLocale = @{
+                    Description = 'Distributed version control system'
+                }
+            } | ConvertTo-Json -Depth 4 -Compress
+
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget search git --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetSearchJson)
+                'winget list --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetListJson)
+                'winget show --id Git.Git --exact --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetShowJson)
+            }
+
+            $queryReader = {
+                'git'
+            }
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new('d', [ConsoleKey]::D, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = @(Find-PlatformPackage -PackageManager winget -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
+
+            $result.Count | Should -Be 0
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: <press D to load>' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: retrieving description...' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'winget show --id Git.Git --exact --accept-source-agreements --output json' }).Count | Should -Be 1
+        }
     }
 }

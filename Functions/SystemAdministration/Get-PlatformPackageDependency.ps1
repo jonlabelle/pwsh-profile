@@ -642,8 +642,17 @@ function Get-PlatformPackageDependency
                 }
             }
 
+            $getPlatformPackageParameters = @{
+                PackageManager = $Manager.Name
+                CommandRunner = $CommandRunner
+            }
+            if ($Manager.Name -eq 'winget')
+            {
+                $getPlatformPackageParameters.SkipDescriptionEnrichment = $true
+            }
+
             $lookup = @{}
-            foreach ($installedPackage in @(Get-PlatformPackage -PackageManager $Manager.Name -CommandRunner $CommandRunner))
+            foreach ($installedPackage in @(Get-PlatformPackage @getPlatformPackageParameters))
             {
                 foreach ($value in @($installedPackage.Name, $installedPackage.Id))
                 {

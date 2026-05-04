@@ -1031,7 +1031,10 @@ function Upgrade-PlatformPackage
         {
             param(
                 [Parameter(Mandatory)]
-                [PSCustomObject]$Manager
+                [PSCustomObject]$Manager,
+
+                [Parameter()]
+                [Switch]$SkipDescriptionEnrichment
             )
 
             $jsonResult = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments @('upgrade', '--accept-source-agreements', '--output', 'json')
@@ -1040,6 +1043,11 @@ function Upgrade-PlatformPackage
                 $jsonUpdates = @(ConvertFrom-WingetJsonOutput -Manager $Manager -Output $jsonResult.Output)
                 if ($jsonUpdates.Count -gt 0)
                 {
+                    if ($SkipDescriptionEnrichment)
+                    {
+                        return $jsonUpdates
+                    }
+
                     return @(Resolve-WingetPackageDescriptions -Manager $Manager -Packages $jsonUpdates)
                 }
 
@@ -1057,6 +1065,11 @@ function Upgrade-PlatformPackage
             }
 
             $tableUpdates = @(ConvertFrom-WingetTableOutput -Manager $Manager -Output $tableResult.Output)
+            if ($SkipDescriptionEnrichment)
+            {
+                return $tableUpdates
+            }
+
             return @(Resolve-WingetPackageDescriptions -Manager $Manager -Packages $tableUpdates)
         }
 
@@ -1350,12 +1363,15 @@ function Upgrade-PlatformPackage
         {
             param(
                 [Parameter(Mandatory)]
-                [PSCustomObject]$Manager
+                [PSCustomObject]$Manager,
+
+                [Parameter()]
+                [Switch]$SkipDescriptionEnrichment
             )
 
             switch ($Manager.Name)
             {
-                'winget' { Get-WingetPackageUpdates -Manager $Manager }
+                'winget' { Get-WingetPackageUpdates -Manager $Manager -SkipDescriptionEnrichment:$SkipDescriptionEnrichment.IsPresent }
                 'brew' { Get-BrewPackageUpdates -Manager $Manager }
                 'apt' { Get-AptPackageUpdates -Manager $Manager }
                 'apk' { Get-ApkPackageUpdates -Manager $Manager }
@@ -1549,6 +1565,8 @@ function Upgrade-PlatformPackage
             $selected = New-Object 'System.Boolean[]' $PackageUpdates.Count
             $uninstallPreviousFlags = New-Object 'System.Boolean[]' $PackageUpdates.Count
             $showUninstallPrevious = $PackageManagerName -eq 'winget'
+            $wingetDescriptionAttempted = @{}
+            $pendingWingetDescriptionLookupKey = ''
             $cursor = 0
             $topIndex = 0
             $restoreTreatControlCAsInput = $false
@@ -1703,6 +1721,26 @@ function Upgrade-PlatformPackage
 
                     $bottomIndex = [Math]::Min($PackageUpdates.Count - 1, $topIndex + $pageSize - 1)
                     $currentPackage = $PackageUpdates[$cursor]
+                    $currentPackageLookupKey = if (-not [String]::IsNullOrWhiteSpace($currentPackage.Id))
+                    {
+                        $currentPackage.Id.Trim().ToLowerInvariant()
+                    }
+                    elseif (-not [String]::IsNullOrWhiteSpace($currentPackage.Name))
+                    {
+                        $currentPackage.Name.Trim().ToLowerInvariant()
+                    }
+                    else
+                    {
+                        ''
+                    }
+                    $isCurrentWingetDescriptionPending =
+                        -not [String]::IsNullOrWhiteSpace($pendingWingetDescriptionLookupKey) -and
+                        $pendingWingetDescriptionLookupKey -eq $currentPackageLookupKey
+                    $canResolveCurrentWingetDescription =
+                        $currentPackage.PackageManager -eq 'winget' -and
+                        [String]::IsNullOrWhiteSpace($currentPackage.Description) -and
+                        -not [String]::IsNullOrWhiteSpace($currentPackageLookupKey) -and
+                        -not $wingetDescriptionAttempted.ContainsKey($currentPackageLookupKey)
 
                     $pickerHintPrefix = 'Spacebar: select'
                     $pickerHintActions = 'Enter: upgrade selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
@@ -1751,6 +1789,14 @@ function Upgrade-PlatformPackage
                     {
                         $currentPackage.Notes
                     }
+                    elseif ($isCurrentWingetDescriptionPending)
+                    {
+                        'retrieving description...'
+                    }
+                    elseif ($currentPackage.PackageManager -eq 'winget' -and -not [String]::IsNullOrWhiteSpace($currentPackageLookupKey))
+                    {
+                        if ($wingetDescriptionAttempted.ContainsKey($currentPackageLookupKey)) { 'description unavailable' } else { '<press D to load>' }
+                    }
                     else
                     {
                         'n/a'
@@ -1762,6 +1808,24 @@ function Upgrade-PlatformPackage
                     $frameLines += "$(@($selected | Where-Object { $_ }).Count) of $($PackageUpdates.Count) package(s) selected."
 
                     Write-PickerFrame -Lines $frameLines
+
+                    if ($isCurrentWingetDescriptionPending)
+                    {
+                        $wingetDescriptionAttempted[$currentPackageLookupKey] = $true
+                        $resolvedDescription = Get-WingetPackageDescription -Manager ([PSCustomObject]@{
+                            Name = $currentPackage.PackageManager
+                            DisplayName = $currentPackage.PackageManagerDisplayName
+                            Command = $currentPackage.PackageManager
+                        }) -Package $currentPackage
+
+                        if (-not [String]::IsNullOrWhiteSpace($resolvedDescription))
+                        {
+                            $currentPackage.Description = $resolvedDescription
+                        }
+
+                        $pendingWingetDescriptionLookupKey = ''
+                        continue
+                    }
 
                     $key = & $KeyReader
                     if (Test-PackagePickerCancelKey -KeyInfo $key)
@@ -1812,6 +1876,13 @@ function Upgrade-PlatformPackage
                             for ($i = 0; $i -lt $selected.Count; $i++)
                             {
                                 $selected[$i] = $selectAll
+                            }
+                        }
+                        'D'
+                        {
+                            if ($canResolveCurrentWingetDescription)
+                            {
+                                $pendingWingetDescriptionLookupKey = $currentPackageLookupKey
                             }
                         }
                         'U'
@@ -1915,7 +1986,7 @@ function Upgrade-PlatformPackage
         }
 
         Write-Host "Checking for available upgrades with $($manager.DisplayName)..."
-        $packageUpdates = @(Get-PackageUpdates -Manager $manager)
+        $packageUpdates = @(Get-PackageUpdates -Manager $manager -SkipDescriptionEnrichment:($manager.Name -eq 'winget' -and -not $NonInteractive))
 
         if ($IncludePackage -and $IncludePackage.Count -gt 0)
         {

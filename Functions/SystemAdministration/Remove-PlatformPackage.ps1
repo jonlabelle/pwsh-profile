@@ -1631,6 +1631,8 @@ function Remove-PlatformPackage
             $selected = New-Object 'System.Boolean[]' $InstalledPackages.Count
             $purgeFlags = New-Object 'System.Boolean[]' $InstalledPackages.Count
             $showPurge = $PackageManagerName -in @('brew', 'apt', 'apk')
+            $wingetDescriptionAttempted = @{}
+            $pendingWingetDescriptionLookupKey = ''
             $cursor = 0
             $topIndex = 0
             $restoreTreatControlCAsInput = $false
@@ -1785,6 +1787,26 @@ function Remove-PlatformPackage
 
                     $bottomIndex = [Math]::Min($InstalledPackages.Count - 1, $topIndex + $pageSize - 1)
                     $currentPackage = $InstalledPackages[$cursor]
+                    $currentPackageLookupKey = if (-not [String]::IsNullOrWhiteSpace($currentPackage.Id))
+                    {
+                        $currentPackage.Id.Trim().ToLowerInvariant()
+                    }
+                    elseif (-not [String]::IsNullOrWhiteSpace($currentPackage.Name))
+                    {
+                        $currentPackage.Name.Trim().ToLowerInvariant()
+                    }
+                    else
+                    {
+                        ''
+                    }
+                    $isCurrentWingetDescriptionPending =
+                        -not [String]::IsNullOrWhiteSpace($pendingWingetDescriptionLookupKey) -and
+                        $pendingWingetDescriptionLookupKey -eq $currentPackageLookupKey
+                    $canResolveCurrentWingetDescription =
+                        $currentPackage.PackageManager -eq 'winget' -and
+                        [String]::IsNullOrWhiteSpace($currentPackage.Description) -and
+                        -not [String]::IsNullOrWhiteSpace($currentPackageLookupKey) -and
+                        -not $wingetDescriptionAttempted.ContainsKey($currentPackageLookupKey)
 
                     $pickerHintPrefix = 'Spacebar: select'
                     $pickerHintActions = 'Enter: remove current/selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
@@ -1833,6 +1855,14 @@ function Remove-PlatformPackage
                     {
                         $currentPackage.Notes
                     }
+                    elseif ($isCurrentWingetDescriptionPending)
+                    {
+                        'retrieving description...'
+                    }
+                    elseif ($currentPackage.PackageManager -eq 'winget' -and -not [String]::IsNullOrWhiteSpace($currentPackageLookupKey))
+                    {
+                        if ($wingetDescriptionAttempted.ContainsKey($currentPackageLookupKey)) { 'description unavailable' } else { '<press D to load>' }
+                    }
                     else
                     {
                         'n/a'
@@ -1844,6 +1874,24 @@ function Remove-PlatformPackage
                     $frameLines += "$(@($selected | Where-Object { $_ }).Count) of $($InstalledPackages.Count) package(s) selected."
 
                     Write-PickerFrame -Lines $frameLines
+
+                    if ($isCurrentWingetDescriptionPending)
+                    {
+                        $wingetDescriptionAttempted[$currentPackageLookupKey] = $true
+                        $resolvedDescription = Get-WingetPackageDescription -Manager ([PSCustomObject]@{
+                            Name = $currentPackage.PackageManager
+                            DisplayName = $currentPackage.PackageManagerDisplayName
+                            Command = $currentPackage.PackageManager
+                        }) -Package $currentPackage
+
+                        if (-not [String]::IsNullOrWhiteSpace($resolvedDescription))
+                        {
+                            $currentPackage.Description = $resolvedDescription
+                        }
+
+                        $pendingWingetDescriptionLookupKey = ''
+                        continue
+                    }
 
                     $key = & $KeyReader
                     if (Test-PackagePickerCancelKey -KeyInfo $key)
@@ -1894,6 +1942,13 @@ function Remove-PlatformPackage
                             for ($i = 0; $i -lt $selected.Count; $i++)
                             {
                                 $selected[$i] = $selectAll
+                            }
+                        }
+                        'D'
+                        {
+                            if ($canResolveCurrentWingetDescription)
+                            {
+                                $pendingWingetDescriptionLookupKey = $currentPackageLookupKey
                             }
                         }
                         'P'
@@ -1997,9 +2052,18 @@ function Remove-PlatformPackage
         Write-Verbose "Using package manager: $($manager.DisplayName) ($($manager.Command))"
 
         Write-Host "Checking installed packages with $($manager.DisplayName)..."
-        $installedPackages = @(
-            Get-PlatformPackage -PackageManager $manager.Name -Name $IncludePackage -ExcludePackage $ExcludePackage -CommandRunner $CommandRunner
-        )
+        $getPlatformPackageParameters = @{
+            PackageManager = $manager.Name
+            Name = $IncludePackage
+            ExcludePackage = $ExcludePackage
+            CommandRunner = $CommandRunner
+        }
+        if ($manager.Name -eq 'winget' -and -not $NonInteractive)
+        {
+            $getPlatformPackageParameters.SkipDescriptionEnrichment = $true
+        }
+
+        $installedPackages = @(Get-PlatformPackage @getPlatformPackageParameters)
 
         foreach ($installedPackage in $installedPackages)
         {

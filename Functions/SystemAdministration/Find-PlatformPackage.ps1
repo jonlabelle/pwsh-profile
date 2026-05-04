@@ -138,6 +138,9 @@ function Find-PlatformPackage
         [String]$PackageManager = 'Auto',
 
         [Parameter(DontShow = $true)]
+        [Switch]$SkipDescriptionEnrichment,
+
+        [Parameter(DontShow = $true)]
         [ScriptBlock]$CommandRunner,
 
         [Parameter(DontShow = $true)]
@@ -1716,6 +1719,7 @@ function Find-PlatformPackage
 
             $selected = New-Object 'System.Boolean[]' $AvailablePackages.Count
             $wingetDescriptionAttempted = @{}
+            $pendingWingetDescriptionLookupKey = ''
             $cursor = 0
             $topIndex = 0
             $restoreTreatControlCAsInput = $false
@@ -1986,14 +1990,28 @@ function Find-PlatformPackage
                     {
                         ''
                     }
-                    $shouldResolveCurrentWingetDescription =
+                    $isCurrentWingetDescriptionPending =
+                        -not [String]::IsNullOrWhiteSpace($pendingWingetDescriptionLookupKey) -and
+                        $pendingWingetDescriptionLookupKey -eq $currentPackageLookupKey
+                    $canResolveCurrentWingetDescription =
                         $currentPackage.PackageManager -eq 'winget' -and
                         [String]::IsNullOrWhiteSpace($currentPackage.Description) -and
                         -not [String]::IsNullOrWhiteSpace($currentPackageLookupKey) -and
                         -not $wingetDescriptionAttempted.ContainsKey($currentPackageLookupKey)
                     $currentDescription = if ([String]::IsNullOrWhiteSpace($currentPackage.Description))
                     {
-                        if ($shouldResolveCurrentWingetDescription) { 'loading...' } else { 'n/a' }
+                        if ($isCurrentWingetDescriptionPending)
+                        {
+                            'retrieving description...'
+                        }
+                        elseif ($currentPackage.PackageManager -eq 'winget' -and -not [String]::IsNullOrWhiteSpace($currentPackageLookupKey))
+                        {
+                            if ($wingetDescriptionAttempted.ContainsKey($currentPackageLookupKey)) { 'description unavailable' } else { '<press D to load>' }
+                        }
+                        else
+                        {
+                            'n/a'
+                        }
                     }
                     else
                     {
@@ -2069,7 +2087,7 @@ function Find-PlatformPackage
 
                     Write-PickerFrame -Lines $frameLines
 
-                    if ($shouldResolveCurrentWingetDescription)
+                    if ($isCurrentWingetDescriptionPending)
                     {
                         $wingetDescriptionAttempted[$currentPackageLookupKey] = $true
                         $resolvedDescription = Get-WingetPackageDescription -Manager ([PSCustomObject]@{
@@ -2083,6 +2101,7 @@ function Find-PlatformPackage
                             $currentPackage.Description = $resolvedDescription
                         }
 
+                        $pendingWingetDescriptionLookupKey = ''
                         continue
                     }
 
@@ -2163,6 +2182,13 @@ function Find-PlatformPackage
                                 {
                                     $selected[$i] = $selectAll
                                 }
+                            }
+                        }
+                        'D'
+                        {
+                            if ($canResolveCurrentWingetDescription)
+                            {
+                                $pendingWingetDescriptionLookupKey = $currentPackageLookupKey
                             }
                         }
                         'Enter'
@@ -2298,7 +2324,7 @@ function Find-PlatformPackage
 
         $packages = @(Find-RegistryPackages -Manager $manager -QueryText $queryText)
 
-        if ($manager.Name -eq 'winget')
+        if ($manager.Name -eq 'winget' -and -not $SkipDescriptionEnrichment)
         {
             $packages = @(Resolve-WingetPackageDescriptions -Manager $manager -Packages $packages)
         }
