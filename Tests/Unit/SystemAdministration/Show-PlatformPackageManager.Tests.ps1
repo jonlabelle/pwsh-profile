@@ -87,8 +87,7 @@ BeforeAll {
 Describe 'Show-PlatformPackageManager' {
     BeforeEach {
         $script:Invocations = New-Object 'System.Collections.Generic.List[Object]'
-        $script:HostOutput = New-Object 'System.Collections.Generic.List[Object]'
-        Mock -CommandName Write-Host -MockWith { $script:HostOutput.Add($Object) }
+        Mock -CommandName Write-Host -MockWith {}
         Mock -CommandName Clear-Host -MockWith {}
     }
 
@@ -98,9 +97,9 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Show-PlatformPackageManager' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq '  1. Browse installed packages' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq '  6. Inspect package dependencies' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Installed packages*' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Dependencies*' } -Times 1
     }
 
     It 'routes installed package browsing through Show-InstalledPlatformPackage' {
@@ -133,7 +132,7 @@ Describe 'Show-PlatformPackageManager' {
         $result.Count | Should -Be 0
         ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --accept-source-agreements --accept-package-agreements' }).StreamOutput | Should -BeTrue
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'winget install output' } -Times 1
-        ($script:HostOutput -join "`n") | Should -Match 'Insta\s*lled'
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Insta\s*lled' } -Times 1
     }
 
     It 'shows dependency records from the manager' {
@@ -145,7 +144,21 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager brew -CommandRunner $runner -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        ($script:HostOutput -join "`n") | Should -BeLike '*Relationship*'
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Relationship*' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*git -> gettext*' } -Times 1
+    }
+
+    It 'keeps action results on a dedicated screen until the next action is chosen' {
+        $runner = & $script:NewPackageCommandRunner @{
+            'brew deps --direct git' = Get-TestCommandResponse -Output @('gettext')
+        }
+        $promptReader = & $script:NewPromptReader @('6', 'git', '1', 'n', 'q')
+
+        $result = @(Show-PlatformPackageManager -PackageManager brew -CommandRunner $runner -PromptReader $promptReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Package Dependencies' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Enter/M: menu  1-6: run another action  Q: quit' } -Times 1
     }
 }
