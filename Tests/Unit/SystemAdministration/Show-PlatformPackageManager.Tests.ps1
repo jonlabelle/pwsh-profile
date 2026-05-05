@@ -83,6 +83,25 @@ BeforeAll {
             return $queue.Dequeue()
         }.GetNewClosure()
     }
+
+    $script:NewKeyReader = {
+        param(
+            [Parameter()]
+            [System.ConsoleKeyInfo[]]$Values
+        )
+
+        $queue = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+        $Values | ForEach-Object { $queue.Enqueue($_) }
+
+        return {
+            if ($queue.Count -eq 0)
+            {
+                throw 'Unexpected key read'
+            }
+
+            return $queue.Dequeue()
+        }.GetNewClosure()
+    }
 }
 
 Describe 'Show-PlatformPackageManager' {
@@ -101,6 +120,7 @@ Describe 'Show-PlatformPackageManager' {
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Manager: Auto -> *' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Installed packages*' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Direct install*' } -Times 0
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Dependencies*' } -Times 1
     }
 
@@ -116,10 +136,11 @@ Describe 'Show-PlatformPackageManager' {
             'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0', 'gh 2.50.0')
             'brew list --cask --versions' = Get-TestCommandResponse -Output @()
         }
-        $promptReader = & $script:NewPromptReader @('1', 'g*', 'gh', 'q')
-        $keyReader = {
+        $promptReader = & $script:NewPromptReader @('g*', 'gh', 'q')
+        $keyReader = & $script:NewKeyReader @(
+            [System.ConsoleKeyInfo]::new('1', [ConsoleKey]::D1, $false, $false, $false)
             [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
-        }
+        )
 
         $result = @(Show-PlatformPackageManager -PackageManager brew -CommandRunner $runner -PromptReader $promptReader -KeyReader $keyReader)
 
@@ -130,19 +151,44 @@ Describe 'Show-PlatformPackageManager' {
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*gh*' } -Times 0
     }
 
-    It 'installs a direct package id from the manager' {
-        $runner = & $script:NewPackageCommandRunner @{
-            'winget install --id Git.Git --exact --accept-source-agreements --accept-package-agreements' = Get-TestCommandResponse -Output @('winget install output')
-        }
-        $promptReader = & $script:NewPromptReader @('3', 'id', 'Git.Git', 'q')
+    It 'does not expose direct install as a manager action' {
+        $promptReader = & $script:NewPromptReader @('3', 'q')
 
-        $result = @(Show-PlatformPackageManager -PackageManager winget -CommandRunner $runner -PromptReader $promptReader)
+        $result = @(Show-PlatformPackageManager -PackageManager winget -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --accept-source-agreements --accept-package-agreements' }).StreamOutput | Should -BeTrue
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'winget install output' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Insta\s*lled' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Details' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Direct install*' } -Times 0
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Choose 1, 2, 4-6 or Q.' } -Times 1
+    }
+
+    It 'supports arrow key navigation in the manager menu' {
+        Mock -CommandName Install-PlatformPackage -MockWith {
+            [PSCustomObject]@{
+                PackageManager = 'apt'
+                PackageManagerDisplayName = 'APT'
+                TotalMatched = 1
+                Selected = 1
+                NotSelected = 0
+                Installed = 1
+                Skipped = 0
+                Failed = 0
+                Results = @()
+            }
+        }
+        $promptReader = & $script:NewPromptReader @('git', '', 'q')
+        $keyReader = & $script:NewKeyReader @(
+            [System.ConsoleKeyInfo]::new([Char]0, [ConsoleKey]::DownArrow, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+        )
+
+        $result = @(Show-PlatformPackageManager -PackageManager apt -NoSudo -PromptReader $promptReader -KeyReader $keyReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Install-PlatformPackage -ParameterFilter {
+            $Query -eq 'git' -and
+            $PackageManager -eq 'apt' -and
+            $NoSudo
+        } -Times 1
     }
 
     It 'routes search installs through Install-PlatformPackage with NoSudo forwarded' {
@@ -182,9 +228,14 @@ Describe 'Show-PlatformPackageManager' {
             )
             'winget upgrade --id Git.Git --exact --accept-package-agreements --accept-source-agreements --uninstall-previous' = Get-TestCommandResponse -Output @('winget upgrade output')
         }
-        $promptReader = & $script:NewPromptReader @('4', 'Git', '', 'y', 'q')
+        $promptReader = & $script:NewPromptReader @('q')
+        $keyReader = & $script:NewKeyReader @(
+            [System.ConsoleKeyInfo]::new('4', [ConsoleKey]::D4, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new(' ', [ConsoleKey]::Spacebar, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+        )
 
-        $result = @(Show-PlatformPackageManager -PackageManager winget -SkipRefresh -UninstallPrevious -CommandRunner $runner -PromptReader $promptReader)
+        $result = @(Show-PlatformPackageManager -PackageManager winget -SkipRefresh -UninstallPrevious -CommandRunner $runner -PromptReader $promptReader -KeyReader $keyReader)
 
         $result.Count | Should -Be 0
         ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --accept-package-agreements --accept-source-agreements --uninstall-previous' }).StreamOutput | Should -BeTrue
@@ -199,12 +250,16 @@ Describe 'Show-PlatformPackageManager' {
             'brew uses --installed visual-studio-code' = Get-TestCommandResponse -Output @()
             'brew uninstall --cask --zap visual-studio-code' = Get-TestCommandResponse -Output @('brew zap output')
         }
-        $promptReader = & $script:NewPromptReader @('5', 'visual-studio-code', '', 'y', 'q')
+        $promptReader = & $script:NewPromptReader @('q')
+        $keyReader = & $script:NewKeyReader @(
+            [System.ConsoleKeyInfo]::new('5', [ConsoleKey]::D5, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+        )
 
         $result = @(
             & {
                 $ConfirmPreference = 'None'
-                Show-PlatformPackageManager -PackageManager brew -Purge -CommandRunner $runner -PromptReader $promptReader
+                Show-PlatformPackageManager -PackageManager brew -Purge -CommandRunner $runner -PromptReader $promptReader -KeyReader $keyReader
             }
         )
 
@@ -247,6 +302,6 @@ Describe 'Show-PlatformPackageManager' {
         $result.Count | Should -Be 0
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Package Dependencies' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Enter/M: menu  1-6: run another action  Q: quit' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Enter/M: menu  1,2,4-6: run another action  Q: quit' } -Times 1
     }
 }

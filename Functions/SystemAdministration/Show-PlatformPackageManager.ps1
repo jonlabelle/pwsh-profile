@@ -12,7 +12,7 @@ function Show-PlatformPackageManager
         automation behavior remain available:
         - Show-InstalledPlatformPackage for installed package browsing.
         - Find-PlatformPackage for remote registry search.
-        - Install-PlatformPackage for search-driven and direct name or id installs.
+        - Install-PlatformPackage for search-driven installs.
         - Upgrade-PlatformPackage for package upgrades.
         - Remove-PlatformPackage for package removal.
         - Get-PlatformPackageDependency for dependency inspection.
@@ -202,6 +202,48 @@ function Show-PlatformPackageManager
             }
 
             return (Read-Host -Prompt $Prompt)
+        }
+
+        function Read-PlatformPackageManagerKey
+        {
+            if ($KeyReader)
+            {
+                return (& $KeyReader)
+            }
+
+            try
+            {
+                if ([Console]::IsInputRedirected)
+                {
+                    throw 'Console input is redirected.'
+                }
+            }
+            catch
+            {
+                throw 'Interactive package management requires an attached console.'
+            }
+
+            $previousTreatControlCAsInput = [Console]::TreatControlCAsInput
+            [Console]::TreatControlCAsInput = $true
+            try
+            {
+                return [Console]::ReadKey($true)
+            }
+            finally
+            {
+                [Console]::TreatControlCAsInput = $previousTreatControlCAsInput
+            }
+        }
+
+        function Test-PlatformPackageManagerCancelKey
+        {
+            param(
+                [Parameter(Mandatory)]
+                [ConsoleKeyInfo]$KeyInfo
+            )
+
+            $isControlC = $KeyInfo.Key -eq [ConsoleKey]::C -and (($KeyInfo.Modifiers -band [ConsoleModifiers]::Control) -eq [ConsoleModifiers]::Control)
+            return $KeyInfo.Key -in @([ConsoleKey]::Escape, [ConsoleKey]::Q) -or $isControlC
         }
 
         function ConvertFrom-PlatformPackageManagerListInput
@@ -535,7 +577,7 @@ function Show-PlatformPackageManager
                     }
                 }
 
-                if ($value.ToLowerInvariant() -in @('1', '2', '3', '4', '5', '6', 'installed', 'browse', 'search', 'find', 'install', 'upgrade', 'update', 'remove', 'uninstall', 'deps', 'dependencies', 'dependency'))
+                if ($value.ToLowerInvariant() -in @('1', '2', '4', '5', '6', 'installed', 'browse', 'search', 'find', 'install', 'upgrade', 'update', 'remove', 'uninstall', 'deps', 'dependencies', 'dependency'))
                 {
                     return [PSCustomObject]@{
                         Command = 'Action'
@@ -543,7 +585,7 @@ function Show-PlatformPackageManager
                     }
                 }
 
-                Write-Host 'Choose Enter/M for menu, 1-6 for another action, or Q to quit.'
+                Write-Host 'Choose Enter/M for menu, 1, 2, 4-6 for another action, or Q to quit.'
             }
         }
 
@@ -588,7 +630,7 @@ function Show-PlatformPackageManager
                 }
             }
 
-            Write-Host 'Enter/M: menu  1-6: run another action  Q: quit'
+            Write-Host 'Enter/M: menu  1,2,4-6: run another action  Q: quit'
             return (Read-PlatformPackageManagerNextAction)
         }
 
@@ -647,70 +689,9 @@ function Show-PlatformPackageManager
             return (Get-PlatformPackageManagerActionResult -Title 'Search and Install Packages' -Records $result)
         }
 
-        function Invoke-PlatformPackageManagerDirectInstall
-        {
-            $installMode = ''
-            while ([String]::IsNullOrWhiteSpace($installMode))
-            {
-                $value = (Read-PlatformPackageManagerInput -Prompt 'Install by name or id? [name]').Trim()
-                if ([String]::IsNullOrWhiteSpace($value))
-                {
-                    $installMode = 'name'
-                    break
-                }
-
-                switch ($value.ToLowerInvariant())
-                {
-                    { $_ -in @('name', 'n') } { $installMode = 'name' }
-                    { $_ -in @('id', 'i') } { $installMode = 'id' }
-                    default { Write-Host 'Enter name or id.' }
-                }
-            }
-
-            $targetPrompt = if ($installMode -eq 'id') { 'Package id(s), comma-separated' } else { 'Package name(s), comma-separated' }
-            $targets = @(Read-PlatformPackageManagerList -Prompt $targetPrompt)
-            if ($targets.Count -eq 0)
-            {
-                return (Get-PlatformPackageManagerActionResult -Title 'Install Packages' -Message 'Install cancelled; at least one package is required.')
-            }
-
-            $parameters = Get-PlatformPackageManagerCommonParameters
-            if ($installMode -eq 'id')
-            {
-                $parameters.Id = $targets
-            }
-            else
-            {
-                $parameters.Name = $targets
-            }
-
-            if ($NoSudo)
-            {
-                $parameters.NoSudo = $true
-            }
-
-            $result = @(Invoke-PlatformPackageManagerFunction -FunctionName 'Install-PlatformPackage' -FileName 'Install-PlatformPackage.ps1' -Parameters $parameters -Invocation {
-                    param([Hashtable]$InvocationParameters)
-                    Install-PlatformPackage @InvocationParameters
-                })
-            if ($result.Count -eq 0)
-            {
-                return (Get-PlatformPackageManagerActionResult -Title 'Install Packages' -Message 'Install completed with no result records.')
-            }
-
-            return (Get-PlatformPackageManagerActionResult -Title 'Install Packages' -Records $result)
-        }
-
         function Invoke-PlatformPackageManagerUpgrade
         {
-            $includePackage = @(Read-PlatformPackageManagerList -Prompt 'Upgrade package filter (comma-separated, optional)')
-            $excludePackage = @(Read-PlatformPackageManagerList -Prompt 'Exclude upgrades (comma-separated, optional)')
-            $all = Read-PlatformPackageManagerYesNo -Prompt 'Upgrade all matching packages without the picker?'
-
             $parameters = Get-PlatformPackageManagerCommonParameters
-            $parameters.IncludePackage = $includePackage
-            $parameters.ExcludePackage = $excludePackage
-            $parameters.All = $all
             Add-PlatformPackageManagerPickerParameters -Parameters $parameters
 
             if ($SkipRefresh)
@@ -742,23 +723,8 @@ function Show-PlatformPackageManager
 
         function Invoke-PlatformPackageManagerRemoval
         {
-            $includePackage = @(Read-PlatformPackageManagerList -Prompt 'Remove package filter (comma-separated, optional)')
-            $excludePackage = @(Read-PlatformPackageManagerList -Prompt 'Exclude removals (comma-separated, optional)')
-            $all = Read-PlatformPackageManagerYesNo -Prompt 'Remove all matching packages without the picker?'
-
-            if ($all -and $includePackage.Count -eq 0)
-            {
-                Write-Host 'Remove all requires an include filter; opening the picker instead.'
-                $all = $false
-            }
-
-            $usePurge = $Purge -or (Read-PlatformPackageManagerYesNo -Prompt 'Request purge/zap cleanup?')
-
             $parameters = Get-PlatformPackageManagerCommonParameters
-            $parameters.IncludePackage = $includePackage
-            $parameters.ExcludePackage = $excludePackage
-            $parameters.All = $all
-            $parameters.Purge = $usePurge
+            $parameters.Purge = $Purge.IsPresent
             Add-PlatformPackageManagerPickerParameters -Parameters $parameters
 
             if ($NoSudo)
@@ -823,20 +789,151 @@ function Show-PlatformPackageManager
             return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message $wingetReverseDependencyNote -Records $records)
         }
 
+        function Get-PlatformPackageManagerMenuOptions
+        {
+            @(
+                [PSCustomObject]@{
+                    Choice = '1'
+                    Workflow = 'Installed packages'
+                    Purpose = 'Browse or filter installed package records'
+                }
+                [PSCustomObject]@{
+                    Choice = '2'
+                    Workflow = 'Search and install'
+                    Purpose = 'Search the registry and optionally install results'
+                }
+                [PSCustomObject]@{
+                    Choice = '4'
+                    Workflow = 'Upgrade packages'
+                    Purpose = 'Review or upgrade outdated packages'
+                }
+                [PSCustomObject]@{
+                    Choice = '5'
+                    Workflow = 'Remove packages'
+                    Purpose = 'Review or remove installed packages'
+                }
+                [PSCustomObject]@{
+                    Choice = '6'
+                    Workflow = 'Dependencies'
+                    Purpose = 'Inspect dependency relationships'
+                }
+                [PSCustomObject]@{
+                    Choice = 'Q'
+                    Workflow = 'Quit'
+                    Purpose = 'Exit the manager'
+                }
+            )
+        }
+
         function Write-PlatformPackageManagerMenu
         {
+            param(
+                [Parameter()]
+                [Object[]]$Options = @(Get-PlatformPackageManagerMenuOptions),
+
+                [Parameter()]
+                [Int32]$SelectedIndex = -1
+            )
+
             Clear-Host
             Write-PlatformPackageManagerHeader -Title 'Platform Package Manager' -Subtitle 'Unified native package management workflows'
-            Write-Host ('{0,-7} {1,-24} {2}' -f 'Action', 'Workflow', 'Purpose')
-            Write-Host ('{0,-7} {1,-24} {2}' -f '------', '--------', '-------')
-            Write-Host ('{0,-7} {1,-24} {2}' -f '[1]', 'Installed packages', 'Browse or filter installed package records')
-            Write-Host ('{0,-7} {1,-24} {2}' -f '[2]', 'Search and install', 'Search the registry and optionally install results')
-            Write-Host ('{0,-7} {1,-24} {2}' -f '[3]', 'Direct install', 'Install package names or ids directly')
-            Write-Host ('{0,-7} {1,-24} {2}' -f '[4]', 'Upgrade packages', 'Review or upgrade outdated packages')
-            Write-Host ('{0,-7} {1,-24} {2}' -f '[5]', 'Remove packages', 'Review or remove installed packages')
-            Write-Host ('{0,-7} {1,-24} {2}' -f '[6]', 'Dependencies', 'Inspect dependency relationships')
-            Write-Host ('{0,-7} {1,-24} {2}' -f '[Q]', 'Quit', 'Exit the manager')
+            Write-Host ('{0,-3} {1,-7} {2,-24} {3}' -f '', 'Action', 'Workflow', 'Purpose')
+            Write-Host ('{0,-3} {1,-7} {2,-24} {3}' -f '', '------', '--------', '-------')
+            for ($i = 0; $i -lt $Options.Count; $i++)
+            {
+                $marker = if ($i -eq $SelectedIndex) { '>' } else { ' ' }
+                Write-Host ('{0,-3} {1,-7} {2,-24} {3}' -f $marker, "[$($Options[$i].Choice)]", $Options[$i].Workflow, $Options[$i].Purpose)
+            }
+
             Write-Host ''
+            if ($SelectedIndex -ge 0)
+            {
+                Write-Host 'Up/Down: choose  Enter: run  Number/Q: jump'
+                Write-Host ''
+            }
+        }
+
+        function Read-PlatformPackageManagerMenuChoice
+        {
+            $options = @(Get-PlatformPackageManagerMenuOptions)
+            if ($PromptReader -and -not $KeyReader)
+            {
+                Write-PlatformPackageManagerMenu -Options $options
+                return ((Read-PlatformPackageManagerInput -Prompt 'Select an action').Trim())
+            }
+
+            $selectedIndex = 0
+            while ($true)
+            {
+                Write-PlatformPackageManagerMenu -Options $options -SelectedIndex $selectedIndex
+                $key = Read-PlatformPackageManagerKey
+                if (Test-PlatformPackageManagerCancelKey -KeyInfo $key)
+                {
+                    return 'q'
+                }
+
+                switch ($key.Key)
+                {
+                    'UpArrow'
+                    {
+                        if ($selectedIndex -le 0)
+                        {
+                            $selectedIndex = $options.Count - 1
+                        }
+                        else
+                        {
+                            $selectedIndex--
+                        }
+                    }
+                    'DownArrow'
+                    {
+                        if ($selectedIndex -ge ($options.Count - 1))
+                        {
+                            $selectedIndex = 0
+                        }
+                        else
+                        {
+                            $selectedIndex++
+                        }
+                    }
+                    'Home'
+                    {
+                        $selectedIndex = 0
+                    }
+                    'End'
+                    {
+                        $selectedIndex = $options.Count - 1
+                    }
+                    'Enter'
+                    {
+                        return $options[$selectedIndex].Choice
+                    }
+                    default
+                    {
+                        $keyChar = "$($key.KeyChar)".Trim()
+                        if ([String]::IsNullOrWhiteSpace($keyChar))
+                        {
+                            continue
+                        }
+
+                        $matchingOption = @($options | Where-Object { $_.Choice -eq $keyChar.ToUpperInvariant() } | Select-Object -First 1)
+                        if ($matchingOption.Count -gt 0)
+                        {
+                            return $matchingOption[0].Choice
+                        }
+
+                        switch ($keyChar.ToLowerInvariant())
+                        {
+                            'b' { return '1' }
+                            's' { return '2' }
+                            'i' { return '2' }
+                            'u' { return '4' }
+                            'r' { return '5' }
+                            'd' { return '6' }
+                        }
+                    }
+                }
+            }
         }
 
         function Invoke-PlatformPackageManagerAction
@@ -850,12 +947,11 @@ function Show-PlatformPackageManager
             switch ($Choice.Trim().ToLowerInvariant())
             {
                 { $_ -in @('1', 'installed', 'browse') } { Invoke-PlatformPackageManagerInstalledBrowser; break }
-                { $_ -in @('2', 'search', 'find') } { Invoke-PlatformPackageManagerSearch; break }
-                { $_ -in @('3', 'install') } { Invoke-PlatformPackageManagerDirectInstall; break }
+                { $_ -in @('2', 'search', 'find', 'install') } { Invoke-PlatformPackageManagerSearch; break }
                 { $_ -in @('4', 'upgrade', 'update') } { Invoke-PlatformPackageManagerUpgrade; break }
                 { $_ -in @('5', 'remove', 'uninstall') } { Invoke-PlatformPackageManagerRemoval; break }
                 { $_ -in @('6', 'deps', 'dependencies', 'dependency') } { Invoke-PlatformPackageManagerDependencyView; break }
-                default { Get-PlatformPackageManagerActionResult -Title 'Platform Package Manager' -Message 'Choose 1-6 or Q.' }
+                default { Get-PlatformPackageManagerActionResult -Title 'Platform Package Manager' -Message 'Choose 1, 2, 4-6 or Q.' }
             }
         }
 
@@ -869,8 +965,7 @@ function Show-PlatformPackageManager
         {
             if ([String]::IsNullOrWhiteSpace($pendingChoice))
             {
-                Write-PlatformPackageManagerMenu
-                $choice = (Read-PlatformPackageManagerInput -Prompt 'Select an action').Trim()
+                $choice = Read-PlatformPackageManagerMenuChoice
             }
             else
             {
