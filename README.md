@@ -7,7 +7,18 @@
 
 ## Screenshots
 
-### Invoke-NetworkDiagnostic
+### Show-PlatformPackageManager
+
+A simple, unified interface for managing platform packages across winget, brew, apt, and apk.
+
+```powershell
+PS > Show-PlatformPackageManager
+```
+
+![Show-PlatformPackageManager screenshot](resources/screenshots/Show-PlatformPackageManager.png "Show-PlatformPackageManager in action")
+
+<details>
+<summary><strong>Invoke-NetworkDiagnostic</strong> — Runs network diagnostics then renders live latency graphs.</summary>
 
 Runs network and DNS checks for multiple hosts, then renders live latency graphs.
 
@@ -18,9 +29,12 @@ PS > 'www.google.com', 'www.cloudflare.com' |
 
 ![Invoke-NetworkDiagnostic screenshot](resources/screenshots/Invoke-NetworkDiagnostic.png "Invoke-NetworkDiagnostic in action")
 
+</details>
+
 ---
 
-### Show-SystemResourceMonitor
+<details>
+<summary><strong>Show-SystemResourceMonitor</strong> — Displays live system stats</summary>
 
 Displays a live system monitor for CPU, memory, disk, and network activity plus top processes by resource consumption.
 
@@ -30,9 +44,12 @@ PS > Show-SystemResourceMonitor
 
 ![Show-SystemResourceMonitor screenshot](resources/screenshots/Show-SystemResourceMonitor.png "Show-SystemResourceMonitor in action")
 
+</details>
+
 ---
 
-### Show-ProfileFunctions
+<details>
+<summary><strong>Show-ProfileFunctions</strong> — Lists all functions available</summary>
 
 Lists all functions available in this profile, organized by category.
 
@@ -41,6 +58,8 @@ PS > Show-ProfileFunctions
 ```
 
 ![Show-ProfileFunctions screenshot](resources/screenshots/Show-ProfileFunctions.png "Show-ProfileFunctions in action")
+
+</details>
 
 ---
 
