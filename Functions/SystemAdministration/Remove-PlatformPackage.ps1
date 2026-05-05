@@ -37,8 +37,9 @@ function Remove-PlatformPackage
     .PARAMETER Purge
         Uses package-manager-specific purge or zap behavior for every package selected
         for removal. This requests deeper cleanup than a normal removal when supported:
-        apt uses purge, apk uses del --purge, and Homebrew casks use uninstall --zap.
-        It has no effect for winget or Homebrew formulae.
+        winget uses uninstall --purge for portable packages, apt uses purge,
+        apk uses del --purge, and Homebrew casks use uninstall --zap. It has no
+        effect for Homebrew formulae.
 
         In the interactive picker, Spacebar marks a package for removal and P toggles this
         purge/zap behavior for the highlighted package. Pressing Enter removes the
@@ -191,17 +192,31 @@ function Remove-PlatformPackage
             }
         }
 
-        $getPlatformPackageDependencyPath = Get-DependencyPathIfNeeded -FunctionName 'Get-PlatformPackage' -RelativePath 'Get-PlatformPackage.ps1'
+        $getPlatformPackagePath = Get-DependencyPathIfNeeded -FunctionName 'Get-PlatformPackage' -RelativePath 'Get-PlatformPackage.ps1'
+        if (-not [String]::IsNullOrWhiteSpace($getPlatformPackagePath))
+        {
+            try
+            {
+                . $getPlatformPackagePath
+                Write-Verbose "Loaded Get-PlatformPackage from: $getPlatformPackagePath"
+            }
+            catch
+            {
+                throw "Failed to load required dependency 'Get-PlatformPackage' from '$getPlatformPackagePath': $($_.Exception.Message)"
+            }
+        }
+
+        $getPlatformPackageDependencyPath = Get-DependencyPathIfNeeded -FunctionName 'Get-PlatformPackageDependency' -RelativePath 'Get-PlatformPackageDependency.ps1'
         if (-not [String]::IsNullOrWhiteSpace($getPlatformPackageDependencyPath))
         {
             try
             {
                 . $getPlatformPackageDependencyPath
-                Write-Verbose "Loaded Get-PlatformPackage from: $getPlatformPackageDependencyPath"
+                Write-Verbose "Loaded Get-PlatformPackageDependency from: $getPlatformPackageDependencyPath"
             }
             catch
             {
-                throw "Failed to load required dependency 'Get-PlatformPackage' from '$getPlatformPackageDependencyPath': $($_.Exception.Message)"
+                throw "Failed to load required dependency 'Get-PlatformPackageDependency' from '$getPlatformPackageDependencyPath': $($_.Exception.Message)"
             }
         }
 
@@ -279,12 +294,21 @@ function Remove-PlatformPackage
             {
                 'winget'
                 {
-                    if (-not [String]::IsNullOrWhiteSpace($Id))
+                    $arguments = if (-not [String]::IsNullOrWhiteSpace($Id))
                     {
-                        return @('uninstall', '--id', $Id, '--exact', '--accept-source-agreements')
+                        @('uninstall', '--id', $Id, '--exact', '--accept-source-agreements')
+                    }
+                    else
+                    {
+                        @('uninstall', $Name, '--accept-source-agreements')
                     }
 
-                    return @('uninstall', $Name, '--accept-source-agreements')
+                    if ($UsePurge)
+                    {
+                        $arguments += '--purge'
+                    }
+
+                    return $arguments
                 }
                 'brew'
                 {
@@ -366,6 +390,179 @@ function Remove-PlatformPackage
                 Notes = $Notes
                 Command = $Manager.Command
                 RemoveArguments = @(Get-PackageRemoveArguments -Manager $Manager -Name $Name -Id $Id -Type $Type -UsePurge:$Purge.IsPresent)
+            }
+        }
+
+        function Test-ReverseDependencyPreviewSupported
+        {
+            param(
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Manager
+            )
+
+            return $Manager.Name -in @('brew', 'apt', 'apk')
+        }
+
+        function Get-PackageIdentityKeys
+        {
+            param(
+                [Parameter()]
+                [Object]$Package
+            )
+
+            $keys = New-Object 'System.Collections.Generic.List[String]'
+            foreach ($value in @(
+                    (ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $Package -PropertyName @('Name', 'Package', 'PackageName')))
+                    (ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $Package -PropertyName @('Id', 'PackageIdentifier', 'Identifier')))
+                ))
+            {
+                if ([String]::IsNullOrWhiteSpace($value))
+                {
+                    continue
+                }
+
+                $key = $value.Trim().ToLowerInvariant()
+                if (-not $keys.Contains($key))
+                {
+                    $keys.Add($key)
+                }
+            }
+
+            return @($keys)
+        }
+
+        function Add-PackageRequiredByMetadata
+        {
+            param(
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Manager,
+
+                [Parameter()]
+                [PSCustomObject[]]$Packages = @()
+            )
+
+            if ($Packages.Count -eq 0 -or -not (Test-ReverseDependencyPreviewSupported -Manager $Manager))
+            {
+                return
+            }
+
+            $requiredByLookup = @{}
+            try
+            {
+                $dependencyRecords = @(Get-PlatformPackageDependency -Package $Packages -Direction RequiredBy -InstalledOnly -PackageManager $Manager.Name -CommandRunner $CommandRunner)
+            }
+            catch
+            {
+                Write-Verbose "Unable to check reverse dependencies before removal: $($_.Exception.Message)"
+                return
+            }
+
+            foreach ($record in @($dependencyRecords | Where-Object { $_.Direction -eq 'RequiredBy' }))
+            {
+                foreach ($key in @(Get-PackageIdentityKeys -Package $record))
+                {
+                    if (-not $requiredByLookup.ContainsKey($key))
+                    {
+                        $requiredByLookup[$key] = New-Object 'System.Collections.Generic.List[Object]'
+                    }
+
+                    $requiredByLookup[$key].Add($record)
+                }
+            }
+
+            foreach ($package in $Packages)
+            {
+                $records = New-Object 'System.Collections.Generic.List[Object]'
+                foreach ($key in @(Get-PackageIdentityKeys -Package $package))
+                {
+                    if ($requiredByLookup.ContainsKey($key))
+                    {
+                        foreach ($record in $requiredByLookup[$key])
+                        {
+                            $records.Add($record)
+                        }
+                    }
+                }
+
+                $relatedPackages = @(
+                    $records |
+                    Where-Object { -not [String]::IsNullOrWhiteSpace($_.RelatedPackage) } |
+                    ForEach-Object { $_.RelatedPackage } |
+                    Select-Object -Unique
+                )
+
+                $package | Add-Member -NotePropertyName 'RequiredByPackages' -NotePropertyValue @($relatedPackages) -Force
+                $package | Add-Member -NotePropertyName 'RequiredByCount' -NotePropertyValue $relatedPackages.Count -Force
+            }
+        }
+
+        function Format-PackageRequiredByPreview
+        {
+            param(
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Package,
+
+                [Parameter()]
+                [ValidateRange(1, 20)]
+                [Int32]$Limit = 5
+            )
+
+            $requiredByPackages = @()
+            if ($Package.PSObject.Properties['RequiredByPackages'])
+            {
+                $requiredByPackages = @($Package.RequiredByPackages | Where-Object { -not [String]::IsNullOrWhiteSpace($_) })
+            }
+
+            if ($requiredByPackages.Count -eq 0)
+            {
+                return ''
+            }
+
+            $preview = (@($requiredByPackages | Select-Object -First $Limit) -join ', ')
+            if ($requiredByPackages.Count -gt $Limit)
+            {
+                $preview = "$preview, +$($requiredByPackages.Count - $Limit) more"
+            }
+
+            return "$($Package.Name) is required by $($requiredByPackages.Count) installed package(s): $preview"
+        }
+
+        function Write-PackageRequiredByWarnings
+        {
+            param(
+                [Parameter()]
+                [PSCustomObject[]]$Packages = @()
+            )
+
+            foreach ($package in $Packages)
+            {
+                $preview = Format-PackageRequiredByPreview -Package $package
+                if (-not [String]::IsNullOrWhiteSpace($preview))
+                {
+                    Write-Warning "$preview. Removing it may break dependent packages."
+                }
+            }
+        }
+
+        function Get-PackageResultRequiredByProperties
+        {
+            param(
+                [Parameter()]
+                [PSCustomObject]$Package
+            )
+
+            $requiredByPackages = if ($Package -and $Package.PSObject.Properties['RequiredByPackages'])
+            {
+                @($Package.RequiredByPackages)
+            }
+            else
+            {
+                @()
+            }
+
+            [PSCustomObject]@{
+                RequiredByCount = $requiredByPackages.Count
+                RequiredByPackages = @($requiredByPackages)
             }
         }
 
@@ -1630,7 +1827,7 @@ function Remove-PlatformPackage
 
             $selected = New-Object 'System.Boolean[]' $InstalledPackages.Count
             $purgeFlags = New-Object 'System.Boolean[]' $InstalledPackages.Count
-            $showPurge = $PackageManagerName -in @('brew', 'apt', 'apk')
+            $showPurge = $PackageManagerName -in @('winget', 'brew', 'apt', 'apk')
             $wingetDescriptionAttempted = @{}
             $pendingWingetDescriptionLookupKey = ''
             $cursor = 0
@@ -2014,6 +2211,7 @@ function Remove-PlatformPackage
             {
                 $removeArguments = Get-PackageRemoveArguments -Manager $Manager -Name $Package.Name -Id $Package.Id -Type $Package.Type -UsePurge
             }
+            $requiredByProperties = Get-PackageResultRequiredByProperties -Package $Package
 
             $invocation = Resolve-PackageManagerInvocation -Manager $Manager -Arguments $removeArguments
             $result = Invoke-PackageManagerCommand -Command $invocation.Command -Arguments $invocation.Arguments -StreamOutput
@@ -2027,6 +2225,8 @@ function Remove-PlatformPackage
                     Status = 'Removed'
                     ExitCode = $result.ExitCode
                     Message = 'Removal completed'
+                    RequiredByCount = $requiredByProperties.RequiredByCount
+                    RequiredByPackages = @($requiredByProperties.RequiredByPackages)
                 }
             }
             else
@@ -2041,6 +2241,8 @@ function Remove-PlatformPackage
                     Status = 'Failed'
                     ExitCode = $result.ExitCode
                     Message = $message
+                    RequiredByCount = $requiredByProperties.RequiredByCount
+                    RequiredByPackages = @($requiredByProperties.RequiredByPackages)
                 }
             }
         }
@@ -2124,11 +2326,15 @@ function Remove-PlatformPackage
             }
         }
 
+        Add-PackageRequiredByMetadata -Manager $manager -Packages $selectedPackages
+        Write-PackageRequiredByWarnings -Packages $selectedPackages
+
         $results = @()
         foreach ($package in $selectedPackages)
         {
             $displayTarget = if (-not [String]::IsNullOrWhiteSpace($package.Id)) { $package.Id } else { $package.Name }
             $versionText = if (-not [String]::IsNullOrWhiteSpace($package.InstalledVersion)) { " $($package.InstalledVersion)" } else { '' }
+            $requiredByProperties = Get-PackageResultRequiredByProperties -Package $package
 
             if ($PSCmdlet.ShouldProcess("$displayTarget$versionText", "Remove with $($manager.DisplayName)"))
             {
@@ -2143,6 +2349,8 @@ function Remove-PlatformPackage
                     Status = 'Skipped'
                     ExitCode = $null
                     Message = 'Skipped by ShouldProcess'
+                    RequiredByCount = $requiredByProperties.RequiredByCount
+                    RequiredByPackages = @($requiredByProperties.RequiredByPackages)
                 }
             }
         }

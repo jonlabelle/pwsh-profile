@@ -64,7 +64,9 @@ Describe 'Remove-PlatformPackage' {
     BeforeEach {
         $script:Invocations = New-Object 'System.Collections.Generic.List[Object]'
         $script:HostOutput = New-Object 'System.Collections.Generic.List[Object]'
+        $script:Warnings = New-Object 'System.Collections.Generic.List[Object]'
         Mock -CommandName Write-Host -MockWith { $script:HostOutput.Add($Object) }
+        Mock -CommandName Write-Warning -MockWith { $script:Warnings.Add($Message) }
         Mock -CommandName Clear-Host -MockWith {}
     }
 
@@ -211,6 +213,25 @@ Describe 'Remove-PlatformPackage' {
             { Remove-PlatformPackage -PackageManager brew -All -CommandRunner $runner -Confirm:$false } |
             Should -Throw -ExpectedMessage '*without an include filter*'
         }
+
+        It 'warns about installed Homebrew dependents before removing with -All' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = Get-TestCommandResponse -Output @('openssl 3.3.0')
+                'brew list --cask --versions' = Get-TestCommandResponse -Output @()
+                'brew uses --installed openssl' = Get-TestCommandResponse -Output @('curl')
+                'brew uninstall openssl' = Get-TestCommandResponse -Output @('brew uninstall openssl output')
+            }
+
+            $result = Remove-PlatformPackage -PackageManager brew -IncludePackage openssl -All -CommandRunner $runner -Confirm:$false
+
+            $result.Removed | Should -Be 1
+            $result.Results[0].RequiredByCount | Should -Be 1
+            $result.Results[0].RequiredByPackages | Should -Contain 'curl'
+            $script:Warnings | Should -Contain 'openssl is required by 1 installed package(s): curl. Removing it may break dependent packages.'
+
+            $keys = @($script:Invocations | ForEach-Object { $_.Key })
+            [Array]::IndexOf($keys, 'brew uses --installed openssl') | Should -BeLessThan ([Array]::IndexOf($keys, 'brew uninstall openssl'))
+        }
     }
 
     Context 'Linux package discovery' {
@@ -250,6 +271,58 @@ Describe 'Remove-PlatformPackage' {
 
             $requests = $result | Where-Object { $_.Name -eq 'py3-requests' }
             $requests.InstalledVersion | Should -Be '2.31.0-r0'
+        }
+
+        It 'warns about installed APT dependents before removing the current interactive package' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'apt list --installed' = Get-TestCommandResponse -Output @(
+                    'Listing... Done'
+                    'openssl/jammy,now 3.0.2-0ubuntu1.15 amd64 [installed]'
+                    'curl/jammy,now 8.5.0 amd64 [installed]'
+                )
+                'apt-cache rdepends openssl' = Get-TestCommandResponse -Output @(
+                    'openssl'
+                    'Reverse Depends:'
+                    '  curl'
+                )
+                'apt remove -y openssl' = Get-TestCommandResponse -Output @('apt remove output')
+            }
+
+            $keyReader = {
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            }
+
+            $result = Remove-PlatformPackage -PackageManager apt -IncludePackage openssl -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+
+            $result.Removed | Should -Be 1
+            $result.Results[0].RequiredByPackages | Should -Contain 'curl'
+            $script:Warnings | Should -Contain 'openssl is required by 1 installed package(s): curl. Removing it may break dependent packages.'
+
+            $keys = @($script:Invocations | ForEach-Object { $_.Key })
+            [Array]::IndexOf($keys, 'apt-cache rdepends openssl') | Should -BeLessThan ([Array]::IndexOf($keys, 'apt remove -y openssl'))
+        }
+
+        It 'warns about installed apk dependents before removing with -All' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'apk info -v' = Get-TestCommandResponse -Output @(
+                    'pipewire-1.0.6-r1'
+                    'pipewire-pulse-1.0.6-r1'
+                )
+                'apk info --rdepends pipewire' = Get-TestCommandResponse -Output @(
+                    'pipewire-1.0.6-r1 is required by:'
+                    'pipewire-pulse-1.0.6-r1'
+                )
+                'apk del pipewire' = Get-TestCommandResponse -Output @('apk del output')
+            }
+
+            $result = Remove-PlatformPackage -PackageManager apk -IncludePackage pipewire -All -CommandRunner $runner -Confirm:$false
+
+            $result.Removed | Should -Be 1
+            $result.Results[0].RequiredByPackages | Should -Contain 'pipewire-pulse'
+            $script:Warnings | Should -Contain 'pipewire is required by 1 installed package(s): pipewire-pulse. Removing it may break dependent packages.'
+
+            $keys = @($script:Invocations | ForEach-Object { $_.Key })
+            [Array]::IndexOf($keys, 'apk info --rdepends pipewire') | Should -BeLessThan ([Array]::IndexOf($keys, 'apk del pipewire'))
         }
     }
 
@@ -363,6 +436,49 @@ Describe 'Remove-PlatformPackage' {
             $powershell.Id | Should -Be 'Microsoft.PowerShell'
             $powershell.InstalledVersion | Should -Be '7.4.2'
             (@($powershell.RemoveArguments) -join '|') | Should -Be 'uninstall|--id|Microsoft.PowerShell|--exact|--accept-source-agreements'
+        }
+
+        It 'uses winget purge when purge is requested' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget list --accept-source-agreements --output json' = Get-TestCommandResponse -ExitCode 1 -Output @('Unrecognized argument: --output')
+                'winget list --accept-source-agreements' = Get-TestCommandResponse -Output @(
+                    'Name               Id                          Version Source'
+                    '--------------------------------------------------------------'
+                    'PowerShell         Microsoft.PowerShell        7.4.2   winget'
+                )
+            }
+
+            $result = @(Remove-PlatformPackage -PackageManager winget -NonInteractive -Purge -CommandRunner $runner)
+
+            (@($result[0].RemoveArguments) -join '|') | Should -Be 'uninstall|--id|Microsoft.PowerShell|--exact|--accept-source-agreements|--purge'
+        }
+
+        It 'renders and applies the purge column for winget interactive removals' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget list --accept-source-agreements --output json' = Get-TestCommandResponse -ExitCode 1 -Output @('Unrecognized argument: --output')
+                'winget list --accept-source-agreements' = Get-TestCommandResponse -Output @(
+                    'Name               Id                          Version Source'
+                    '--------------------------------------------------------------'
+                    'PowerShell         Microsoft.PowerShell        7.4.2   winget'
+                )
+                'winget uninstall --id Microsoft.PowerShell --exact --accept-source-agreements --purge' = Get-TestCommandResponse -Output @('winget purge output')
+            }
+
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new('p', [ConsoleKey]::P, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = Remove-PlatformPackage -PackageManager winget -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+
+            $result.Removed | Should -Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget uninstall --id Microsoft.PowerShell --exact --accept-source-agreements --purge' }).StreamOutput | Should -BeTrue
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Pge*' } -Times 2
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'winget purge output' } -Times 1
         }
     }
 

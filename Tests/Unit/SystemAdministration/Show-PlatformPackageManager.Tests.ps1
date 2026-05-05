@@ -196,6 +196,7 @@ Describe 'Show-PlatformPackageManager' {
         $runner = & $script:NewPackageCommandRunner @{
             'brew list --formula --versions' = Get-TestCommandResponse -Output @()
             'brew list --cask --versions' = Get-TestCommandResponse -Output @('visual-studio-code 1.89.0')
+            'brew uses --installed visual-studio-code' = Get-TestCommandResponse -Output @()
             'brew uninstall --cask --zap visual-studio-code' = Get-TestCommandResponse -Output @('brew zap output')
         }
         $promptReader = & $script:NewPromptReader @('5', 'visual-studio-code', '', 'y', 'q')
