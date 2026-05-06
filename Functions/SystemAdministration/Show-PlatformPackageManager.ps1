@@ -1005,3 +1005,17 @@ function Show-PlatformPackageManager
         }
     }
 }
+
+# Create 'ppm' alias only if it doesn't already exist
+if (-not (Get-Alias -Name 'ppm' -ErrorAction SilentlyContinue))
+{
+    try
+    {
+        Write-Verbose "Creating 'ppm' alias for Show-PlatformPackageManager"
+        Set-Alias -Name 'ppm' -Value 'Show-PlatformPackageManager' -Force -ErrorAction Stop
+    }
+    catch
+    {
+        Write-Warning "Show-PlatformPackageManager: Could not create 'ppm' alias: $($_.Exception.Message)"
+    }
+}
