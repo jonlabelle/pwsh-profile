@@ -131,12 +131,12 @@ Describe 'Show-PlatformPackageManager' {
         $command.Parameters.Keys | Should -Contain 'Confirm'
     }
 
-    It 'routes installed package browsing through Show-InstalledPlatformPackage' {
+    It 'routes installed package browsing through Show-InstalledPlatformPackage without extra prompts' {
         $runner = & $script:NewPackageCommandRunner @{
             'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0', 'gh 2.50.0')
             'brew list --cask --versions' = Get-TestCommandResponse -Output @()
         }
-        $promptReader = & $script:NewPromptReader @('g*', 'gh', 'q')
+        $promptReader = & $script:NewPromptReader @('q')
         $keyReader = & $script:NewKeyReader @(
             [System.ConsoleKeyInfo]::new('1', [ConsoleKey]::D1, $false, $false, $false)
             [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
@@ -148,7 +148,7 @@ Describe 'Show-PlatformPackageManager' {
         @($script:Invocations | Where-Object { $_.Key -eq 'brew list --formula --versions' }).Count | Should -Be 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Show-InstalledPlatformPackage - Homebrew' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*git*' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*gh*' } -Times 0
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*gh*' } -Times 1
     }
 
     It 'does not expose direct install as a manager action' {
@@ -175,7 +175,7 @@ Describe 'Show-PlatformPackageManager' {
                 Results = @()
             }
         }
-        $promptReader = & $script:NewPromptReader @('git', '', 'q')
+        $promptReader = & $script:NewPromptReader @('git', 'q')
         $keyReader = & $script:NewKeyReader @(
             [System.ConsoleKeyInfo]::new([Char]0, [ConsoleKey]::DownArrow, $false, $false, $false)
             [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
@@ -205,7 +205,7 @@ Describe 'Show-PlatformPackageManager' {
                 Results = @()
             }
         }
-        $promptReader = & $script:NewPromptReader @('2', 'git', '', 'q')
+        $promptReader = & $script:NewPromptReader @('2', 'git', 'q')
 
         $result = @(Show-PlatformPackageManager -PackageManager apt -NoSudo -PromptReader $promptReader)
 

@@ -636,12 +636,7 @@ function Show-PlatformPackageManager
 
         function Invoke-PlatformPackageManagerInstalledBrowser
         {
-            $includePackage = @(Read-PlatformPackageManagerList -Prompt 'Installed package filter (comma-separated, optional)')
-            $excludePackage = @(Read-PlatformPackageManagerList -Prompt 'Exclude installed packages (comma-separated, optional)')
-
             $parameters = Get-PlatformPackageManagerCommonParameters
-            $parameters.Name = $includePackage
-            $parameters.ExcludePackage = $excludePackage
             Add-PlatformPackageManagerPickerParameters -Parameters $parameters
 
             $result = @(Invoke-PlatformPackageManagerFunction -FunctionName 'Show-InstalledPlatformPackage' -FileName 'Show-InstalledPlatformPackage.ps1' -Parameters $parameters -Invocation {
@@ -664,11 +659,8 @@ function Show-PlatformPackageManager
                 return (Get-PlatformPackageManagerActionResult -Title 'Search and Install Packages' -Message 'Search cancelled; query is required.')
             }
 
-            $excludePackage = @(Read-PlatformPackageManagerList -Prompt 'Exclude search results (comma-separated, optional)')
-
             $parameters = Get-PlatformPackageManagerCommonParameters
             $parameters.Query = $query
-            $parameters.ExcludePackage = $excludePackage
             $parameters.Top = $Top
             Add-PlatformPackageManagerPickerParameters -Parameters $parameters
 
