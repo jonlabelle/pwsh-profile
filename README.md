@@ -7,18 +7,7 @@
 
 ## Screenshots
 
-### Show-PlatformPackageManager
-
-A simple, unified interface for managing platform packages across winget, brew, apt, and apk.
-
-```powershell
-PS > Show-PlatformPackageManager
-```
-
-![Show-PlatformPackageManager screenshot](resources/screenshots/Show-PlatformPackageManager.png "Show-PlatformPackageManager in action")
-
-<details>
-<summary><strong>Invoke-NetworkDiagnostic</strong> — Runs network diagnostics then renders live latency graphs.</summary>
+### Invoke-NetworkDiagnostic
 
 Runs network and DNS checks for multiple hosts, then renders live latency graphs.
 
@@ -28,6 +17,17 @@ PS > 'www.google.com', 'www.cloudflare.com' |
 ```
 
 ![Invoke-NetworkDiagnostic screenshot](resources/screenshots/Invoke-NetworkDiagnostic.png "Invoke-NetworkDiagnostic in action")
+
+<details>
+<summary><strong>Show-PlatformPackageManager</strong> — A simple, unified interface for managing platform packages.</summary>
+
+A simple, unified interface for managing platform packages across winget, brew, apt, and apk.
+
+```powershell
+PS > Show-PlatformPackageManager
+```
+
+![Show-PlatformPackageManager screenshot](resources/screenshots/Show-PlatformPackageManager.png "Show-PlatformPackageManager in action")
 
 </details>
 
