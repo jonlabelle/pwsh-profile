@@ -1840,11 +1840,69 @@ function Remove-PlatformPackage
                 RenderedLineCount = 0
             }
 
+            function Format-PickerFrameLine
+            {
+                param(
+                    [Parameter()]
+                    [String]$Text = '',
+
+                    [Parameter()]
+                    [Nullable[ConsoleColor]]$ForegroundColor
+                )
+
+                [PSCustomObject]@{
+                    Text = $Text
+                    ForegroundColor = $ForegroundColor
+                }
+            }
+
+            function Get-PickerFrameLineText
+            {
+                param(
+                    [Parameter()]
+                    [Object]$Line
+                )
+
+                if ($null -eq $Line)
+                {
+                    return ''
+                }
+
+                $textProperty = @($Line.PSObject.Properties.Match('Text'))[0]
+                if ($null -ne $textProperty)
+                {
+                    return "$($textProperty.Value)"
+                }
+
+                return "$Line"
+            }
+
+            function Get-PickerFrameLineColor
+            {
+                param(
+                    [Parameter()]
+                    [Object]$Line
+                )
+
+                if ($null -eq $Line)
+                {
+                    return $null
+                }
+
+                $colorProperty = @($Line.PSObject.Properties.Match('ForegroundColor'))[0]
+                if ($null -eq $colorProperty -or $null -eq $colorProperty.Value)
+                {
+                    return $null
+                }
+
+                return [ConsoleColor]$colorProperty.Value
+            }
+
             function Write-PickerFrame
             {
                 param(
                     [Parameter()]
-                    [String[]]$Lines = @()
+                    [Object[]]$Lines = @()
                 )
 
                 if (-not $pickerRenderState.UseInPlaceRedraw)
@@ -1852,7 +1910,16 @@ function Remove-PlatformPackage
                     Clear-Host
                     foreach ($line in $Lines)
                     {
-                        Write-Host $line
+                        $lineText = Get-PickerFrameLineText -Line $line
+                        $lineColor = Get-PickerFrameLineColor -Line $line
+                        if ($null -eq $lineColor)
+                        {
+                            Write-Host $lineText
+                        }
+                        else
+                        {
+                            Write-Host $lineText -ForegroundColor $lineColor
+                        }
                     }
 
                     return
@@ -1863,34 +1930,63 @@ function Remove-PlatformPackage
                 $frameLines = @(
                     foreach ($line in $Lines)
                     {
-                        $text = if ($null -eq $line) { '' } else { "$line" }
+                        $text = Get-PickerFrameLineText -Line $line
                         if ($text.Length -ge $frameWidth)
                         {
                             if ($frameWidth -eq 1)
                             {
-                                $text.Substring(0, 1)
+                                $text = $text.Substring(0, 1)
                             }
                             else
                             {
-                                $text.Substring(0, $frameWidth - 1) + '~'
+                                $text = $text.Substring(0, $frameWidth - 1) + '~'
                             }
                         }
                         else
                         {
-                            $text.PadRight($frameWidth)
+                            $text = $text.PadRight($frameWidth)
                         }
+
+                        Format-PickerFrameLine -Text $text -ForegroundColor (Get-PickerFrameLineColor -Line $line)
                     }
                 )
 
                 while ($frameLines.Count -lt $pickerRenderState.RenderedLineCount)
                 {
-                    $frameLines += $blankLine
+                    $frameLines += Format-PickerFrameLine -Text $blankLine
                 }
 
                 try
                 {
                     [Console]::SetCursorPosition(0, 0)
-                    [Console]::Write(($frameLines -join "`r`n"))
+                    $originalForegroundColor = [Console]::ForegroundColor
+                    try
+                    {
+                        for ($lineIndex = 0; $lineIndex -lt $frameLines.Count; $lineIndex++)
+                        {
+                            if ($lineIndex -gt 0)
+                            {
+                                [Console]::Write("`r`n")
+                            }
+
+                            $line = $frameLines[$lineIndex]
+                            if ($null -eq $line.ForegroundColor)
+                            {
+                                [Console]::ForegroundColor = $originalForegroundColor
+                            }
+                            else
+                            {
+                                [Console]::ForegroundColor = $line.ForegroundColor
+                            }
+
+                            [Console]::Write($line.Text)
+                        }
+                    }
+                    finally
+                    {
+                        [Console]::ForegroundColor = $originalForegroundColor
+                    }
+
                     $pickerRenderState.RenderedLineCount = $frameLines.Count
                 }
                 catch
@@ -1899,7 +1995,16 @@ function Remove-PlatformPackage
                     Clear-Host
                     foreach ($fallbackLine in $Lines)
                     {
-                        Write-Host $fallbackLine
+                        $fallbackLineText = Get-PickerFrameLineText -Line $fallbackLine
+                        $fallbackLineColor = Get-PickerFrameLineColor -Line $fallbackLine
+                        if ($null -eq $fallbackLineColor)
+                        {
+                            Write-Host $fallbackLineText
+                        }
+                        else
+                        {
+                            Write-Host $fallbackLineText -ForegroundColor $fallbackLineColor
+                        }
                     }
                 }
             }
@@ -2009,20 +2114,20 @@ function Remove-PlatformPackage
                     $pickerHintActions = 'Enter: remove current/selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
                     $pickerHint = if ($showPurge) { "$pickerHintPrefix  P: purge/zap  $pickerHintActions" } else { "$pickerHintPrefix  $pickerHintActions" }
                     $frameLines = @(
-                        "Remove-PlatformPackage - $($InstalledPackages[0].PackageManagerDisplayName)"
+                        (Format-PickerFrameLine -Text "Remove-PlatformPackage - $($InstalledPackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
                         ''
-                        $pickerHint
+                        (Format-PickerFrameLine -Text $pickerHint -ForegroundColor DarkGray)
                         ''
                     )
                     if ($showPurge)
                     {
-                        $frameLines += ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', 'Pge', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth))
-                        $frameLines += ('  {0} {1} {2} {3} {4} {5}' -f '---', '---', ('-' * $nameWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth))
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', 'Pge', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth)) -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f '---', '---', ('-' * $nameWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
                     }
                     else
                     {
-                        $frameLines += ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth))
-                        $frameLines += ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth))
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth)) -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
                     }
 
                     for ($i = $topIndex; $i -le $bottomIndex; $i++)
@@ -2033,11 +2138,20 @@ function Remove-PlatformPackage
                         if ($showPurge)
                         {
                             $purgeMarker = if ($purgeFlags[$i]) { '[p]' } else { '[ ]' }
-                            $frameLines += ('{0} {1} {2} {3} {4} {5} {6}' -f $cursorMarker, $selectedMarker, $purgeMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $versionWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
+                            $packageLine = ('{0} {1} {2} {3} {4} {5} {6}' -f $cursorMarker, $selectedMarker, $purgeMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $versionWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
                         }
                         else
                         {
-                            $frameLines += ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $versionWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
+                            $packageLine = ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $versionWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
+                        }
+
+                        if ($i -eq $cursor)
+                        {
+                            $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Cyan
+                        }
+                        else
+                        {
+                            $frameLines += $packageLine
                         }
                     }
 
@@ -2203,7 +2317,7 @@ function Remove-PlatformPackage
             $versionText = if (-not [String]::IsNullOrWhiteSpace($Package.InstalledVersion)) { " $($Package.InstalledVersion)" } else { '' }
 
             Write-Host ''
-            Write-Host "Removing $($Package.Name)$versionText with $($Manager.DisplayName)..."
+            Write-Host "Removing $($Package.Name)$versionText with $($Manager.DisplayName)..." -ForegroundColor White
 
             $removeArguments = $Package.RemoveArguments
             $perPackagePurge = $Package.PSObject.Properties['Purge'] -and [Boolean]$Package.Purge
@@ -2253,7 +2367,7 @@ function Remove-PlatformPackage
         $manager = Resolve-PackageManager
         Write-Verbose "Using package manager: $($manager.DisplayName) ($($manager.Command))"
 
-        Write-Host "Checking installed packages with $($manager.DisplayName)..."
+        Write-Host "Checking installed packages with $($manager.DisplayName)..." -ForegroundColor White
         $getPlatformPackageParameters = @{
             PackageManager = $manager.Name
             Name = $IncludePackage
@@ -2280,7 +2394,7 @@ function Remove-PlatformPackage
 
         if ($installedPackages.Count -eq 0)
         {
-            Write-Host 'No installed packages matched the requested filters.'
+            Write-Host 'No installed packages matched the requested filters.' -ForegroundColor White
             return [PSCustomObject]@{
                 PackageManager = $manager.Name
                 PackageManagerDisplayName = $manager.DisplayName
@@ -2312,7 +2426,7 @@ function Remove-PlatformPackage
 
         if ($selectedPackages.Count -eq 0)
         {
-            Write-Host 'No packages selected for removal.'
+            Write-Host 'No packages selected for removal.' -ForegroundColor White
             return [PSCustomObject]@{
                 PackageManager = $manager.Name
                 PackageManagerDisplayName = $manager.DisplayName

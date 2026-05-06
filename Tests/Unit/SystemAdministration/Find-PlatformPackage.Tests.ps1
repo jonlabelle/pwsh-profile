@@ -335,7 +335,7 @@ Describe 'Find-PlatformPackage' {
             $result.Count | Should -Be 0
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: git' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Spacebar: select  I: install current/selected*' } -Times 1
-            @($script:HostOutputRecords | Where-Object { $_.ForegroundColor -eq [ConsoleColor]::DarkGray -and $_.Object -like '*git*' }).Count | Should -Be 1
+            @($script:HostOutputRecords | Where-Object { $_.ForegroundColor -eq [ConsoleColor]::DarkGray -and $_.Object -like '*git*' }).Count | Should -Be 2
             @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 5
         }
 

@@ -300,7 +300,7 @@ function Show-PlatformPackageManager
                 {
                     { $_ -in @('y', 'yes') } { return $true }
                     { $_ -in @('n', 'no') } { return $false }
-                    default { Write-Host 'Enter y or n.' }
+                    default { Write-Host 'Enter y or n.' -ForegroundColor DarkGray }
                 }
             }
         }
@@ -309,10 +309,10 @@ function Show-PlatformPackageManager
         {
             while ($true)
             {
-                Write-Host 'Dependency direction:'
-                Write-Host '  1. Depends on'
-                Write-Host '  2. Required by'
-                Write-Host '  3. Both'
+                Write-Host 'Dependency direction:' -ForegroundColor White
+                Write-Host '  1. Depends on' -ForegroundColor White
+                Write-Host '  2. Required by' -ForegroundColor White
+                Write-Host '  3. Both' -ForegroundColor White
 
                 $value = (Read-PlatformPackageManagerInput -Prompt 'Select direction [1]').Trim()
                 if ([String]::IsNullOrWhiteSpace($value))
@@ -325,7 +325,7 @@ function Show-PlatformPackageManager
                     { $_ -in @('1', 'depends', 'dependson', 'depends on') } { return 'DependsOn' }
                     { $_ -in @('2', 'requiredby', 'required by', 'uses') } { return 'RequiredBy' }
                     { $_ -in @('3', 'both', 'all') } { return 'Both' }
-                    default { Write-Host 'Choose 1, 2, or 3.' }
+                    default { Write-Host 'Choose 1, 2, or 3.' -ForegroundColor DarkGray }
                 }
             }
         }
@@ -472,15 +472,15 @@ function Show-PlatformPackageManager
             )
 
             $rule = '=' * 78
-            Write-Host $rule
-            Write-Host $Title
+            Write-Host $rule -ForegroundColor DarkGray
+            Write-Host $Title -ForegroundColor Cyan
             if (-not [String]::IsNullOrWhiteSpace($Subtitle))
             {
-                Write-Host $Subtitle
+                Write-Host $Subtitle -ForegroundColor White
             }
 
-            Write-Host (Get-PlatformPackageManagerStatusText)
-            Write-Host $rule
+            Write-Host (Get-PlatformPackageManagerStatusText) -ForegroundColor DarkGray
+            Write-Host $rule -ForegroundColor DarkGray
             Write-Host ''
         }
 
@@ -585,7 +585,7 @@ function Show-PlatformPackageManager
                     }
                 }
 
-                Write-Host 'Choose Enter/M for menu, 1, 2, 4-6 for another action, or Q to quit.'
+                Write-Host 'Choose Enter/M for menu, 1, 2, 4-6 for another action, or Q to quit.' -ForegroundColor DarkGray
             }
         }
 
@@ -603,7 +603,7 @@ function Show-PlatformPackageManager
 
             if (-not [String]::IsNullOrWhiteSpace($Result.Message))
             {
-                Write-Host $Result.Message
+                Write-Host $Result.Message -ForegroundColor White
                 Write-Host ''
             }
 
@@ -619,8 +619,8 @@ function Show-PlatformPackageManager
                 $detailRecords = @(Get-PlatformPackageManagerNestedResults -InputObject $Result.Records)
                 if ($detailRecords.Count -gt 0)
                 {
-                    Write-Host 'Details'
-                    Write-Host ('-' * 78)
+                    Write-Host 'Details' -ForegroundColor Cyan
+                    Write-Host ('-' * 78) -ForegroundColor DarkGray
                     $detailTable = Format-PlatformPackageManagerResultTable -InputObject $detailRecords
                     if (-not [String]::IsNullOrWhiteSpace($detailTable))
                     {
@@ -630,7 +630,7 @@ function Show-PlatformPackageManager
                 }
             }
 
-            Write-Host 'Enter/M: menu  1,2,4-6: run another action  Q: quit'
+            Write-Host 'Enter/M: menu  1,2,4-6: run another action  Q: quit' -ForegroundColor DarkGray
             return (Read-PlatformPackageManagerNextAction)
         }
 
@@ -829,18 +829,23 @@ function Show-PlatformPackageManager
 
             Clear-Host
             Write-PlatformPackageManagerHeader -Title 'Platform Package Manager' -Subtitle 'Unified native package management workflows'
-            Write-Host ('{0,-3} {1,-7} {2,-24} {3}' -f '', 'Action', 'Workflow', 'Purpose')
-            Write-Host ('{0,-3} {1,-7} {2,-24} {3}' -f '', '------', '--------', '-------')
+            Write-Host ('{0,-3} {1,-7} {2,-24} {3}' -f '', 'Action', 'Workflow', 'Purpose') -ForegroundColor DarkGray
+            Write-Host ('{0,-3} {1,-7} {2,-24} {3}' -f '', '------', '--------', '-------') -ForegroundColor DarkGray
             for ($i = 0; $i -lt $Options.Count; $i++)
             {
                 $marker = if ($i -eq $SelectedIndex) { '>' } else { ' ' }
-                Write-Host ('{0,-3} {1,-7} {2,-24} {3}' -f $marker, "[$($Options[$i].Choice)]", $Options[$i].Workflow, $Options[$i].Purpose)
+                $accentColor = if ($i -eq $SelectedIndex) { 'Cyan' } else { 'DarkGray' }
+                $workflowColor = if ($i -eq $SelectedIndex) { 'Cyan' } else { 'White' }
+                Write-Host ('{0,-3} ' -f $marker) -NoNewline -ForegroundColor $accentColor
+                Write-Host ('{0,-7} ' -f "[$($Options[$i].Choice)]") -NoNewline -ForegroundColor $accentColor
+                Write-Host ('{0,-24} ' -f $Options[$i].Workflow) -NoNewline -ForegroundColor $workflowColor
+                Write-Host $Options[$i].Purpose -ForegroundColor DarkGray
             }
 
             Write-Host ''
             if ($SelectedIndex -ge 0)
             {
-                Write-Host 'Up/Down: choose  Enter: run  Number/Q: jump'
+                Write-Host 'Up/Down: choose  Enter: run  Number/Q: jump' -ForegroundColor DarkGray
                 Write-Host ''
             }
         }

@@ -1314,12 +1314,12 @@ function Install-PlatformPackage
                     }
 
                     $frameLines = @(
-                        "Install-PlatformPackage - $($AvailablePackages[0].PackageManagerDisplayName)"
+                        (Format-PickerFrameLine -Text "Install-PlatformPackage - $($AvailablePackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
                         ''
-                        'Spacebar: select  Enter: install current/selected  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
+                        (Format-PickerFrameLine -Text 'Spacebar: select  Enter: install current/selected  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel' -ForegroundColor DarkGray)
                         ''
-                        ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth))
-                        ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth))
+                        (Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth)) -ForegroundColor DarkGray)
+                        (Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray)
                     )
 
                     for ($i = $topIndex; $i -le $bottomIndex; $i++)
@@ -1332,6 +1332,10 @@ function Install-PlatformPackage
                         {
                             $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor DarkGray
                         }
+                        elseif ($i -eq $cursor)
+                        {
+                            $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Cyan
+                        }
                         else
                         {
                             $frameLines += $packageLine
@@ -1339,10 +1343,10 @@ function Install-PlatformPackage
                     }
 
                     $frameLines += ''
-                    $frameLines += ('Current: {0} | Id: {1} | Installed: {2}' -f $currentPackage.Name, $currentPackage.Id, ($(if ($currentPackage.Installed) { 'yes' } else { 'no' })))
-                    $frameLines += ('Description: {0}' -f $currentDescription)
+                    $frameLines += Format-PickerFrameLine -Text ('Current: {0} | Id: {1} | Installed: {2}' -f $currentPackage.Name, $currentPackage.Id, ($(if ($currentPackage.Installed) { 'yes' } else { 'no' }))) -ForegroundColor White
+                    $frameLines += Format-PickerFrameLine -Text ('Description: {0}' -f $currentDescription) -ForegroundColor White
                     $frameLines += ''
-                    $frameLines += "$(@($selected | Where-Object { $_ }).Count) of $($AvailablePackages.Count) package(s) selected."
+                    $frameLines += Format-PickerFrameLine -Text "$(@($selected | Where-Object { $_ }).Count) of $($AvailablePackages.Count) package(s) selected." -ForegroundColor White
 
                     Write-PickerFrame -Lines $frameLines
 
@@ -1492,7 +1496,7 @@ function Install-PlatformPackage
             }
 
             Write-Host ''
-            Write-Host "Installing $targetDescription with $($Manager.DisplayName)..."
+            Write-Host "Installing $targetDescription with $($Manager.DisplayName)..." -ForegroundColor White
 
             $installArguments = Get-PackageInstallArguments -Manager $Manager -Package $Package
             $invocation = Resolve-PackageManagerInvocation -Manager $Manager -Arguments $installArguments
@@ -1552,7 +1556,7 @@ function Install-PlatformPackage
 
                 if ($candidatePackages.Count -eq 0)
                 {
-                    Write-Host 'No packages matched the requested query.'
+                    Write-Host 'No packages matched the requested query.' -ForegroundColor White
                 }
                 else
                 {
@@ -1560,7 +1564,7 @@ function Install-PlatformPackage
                     $notSelected = $candidatePackages.Count - $selectedPackages.Count
                     if ($selectedPackages.Count -eq 0)
                     {
-                        Write-Host 'No packages selected for installation.'
+                        Write-Host 'No packages selected for installation.' -ForegroundColor White
                     }
                 }
             }

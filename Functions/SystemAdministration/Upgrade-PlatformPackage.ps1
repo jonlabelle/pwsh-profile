@@ -585,7 +585,7 @@ function Upgrade-PlatformPackage
                 return
             }
 
-            Write-Host "Refreshing $($Manager.DisplayName) package metadata..."
+            Write-Host "Refreshing $($Manager.DisplayName) package metadata..." -ForegroundColor White
 
             $invocation = Resolve-PackageManagerInvocation -Manager $Manager -Arguments $Manager.RefreshArguments
             $result = Invoke-PackageManagerCommand -Command $invocation.Command -Arguments $invocation.Arguments -StreamOutput
@@ -1577,11 +1577,69 @@ function Upgrade-PlatformPackage
                 RenderedLineCount = 0
             }
 
+            function Format-PickerFrameLine
+            {
+                param(
+                    [Parameter()]
+                    [String]$Text = '',
+
+                    [Parameter()]
+                    [Nullable[ConsoleColor]]$ForegroundColor
+                )
+
+                [PSCustomObject]@{
+                    Text = $Text
+                    ForegroundColor = $ForegroundColor
+                }
+            }
+
+            function Get-PickerFrameLineText
+            {
+                param(
+                    [Parameter()]
+                    [Object]$Line
+                )
+
+                if ($null -eq $Line)
+                {
+                    return ''
+                }
+
+                $textProperty = @($Line.PSObject.Properties.Match('Text'))[0]
+                if ($null -ne $textProperty)
+                {
+                    return "$($textProperty.Value)"
+                }
+
+                return "$Line"
+            }
+
+            function Get-PickerFrameLineColor
+            {
+                param(
+                    [Parameter()]
+                    [Object]$Line
+                )
+
+                if ($null -eq $Line)
+                {
+                    return $null
+                }
+
+                $colorProperty = @($Line.PSObject.Properties.Match('ForegroundColor'))[0]
+                if ($null -eq $colorProperty -or $null -eq $colorProperty.Value)
+                {
+                    return $null
+                }
+
+                return [ConsoleColor]$colorProperty.Value
+            }
+
             function Write-PickerFrame
             {
                 param(
                     [Parameter()]
-                    [String[]]$Lines = @()
+                    [Object[]]$Lines = @()
                 )
 
                 if (-not $pickerRenderState.UseInPlaceRedraw)
@@ -1589,7 +1647,16 @@ function Upgrade-PlatformPackage
                     Clear-Host
                     foreach ($line in $Lines)
                     {
-                        Write-Host $line
+                        $lineText = Get-PickerFrameLineText -Line $line
+                        $lineColor = Get-PickerFrameLineColor -Line $line
+                        if ($null -eq $lineColor)
+                        {
+                            Write-Host $lineText
+                        }
+                        else
+                        {
+                            Write-Host $lineText -ForegroundColor $lineColor
+                        }
                     }
 
                     return
@@ -1600,34 +1667,63 @@ function Upgrade-PlatformPackage
                 $frameLines = @(
                     foreach ($line in $Lines)
                     {
-                        $text = if ($null -eq $line) { '' } else { "$line" }
+                        $text = Get-PickerFrameLineText -Line $line
                         if ($text.Length -ge $frameWidth)
                         {
                             if ($frameWidth -eq 1)
                             {
-                                $text.Substring(0, 1)
+                                $text = $text.Substring(0, 1)
                             }
                             else
                             {
-                                $text.Substring(0, $frameWidth - 1) + '~'
+                                $text = $text.Substring(0, $frameWidth - 1) + '~'
                             }
                         }
                         else
                         {
-                            $text.PadRight($frameWidth)
+                            $text = $text.PadRight($frameWidth)
                         }
+
+                        Format-PickerFrameLine -Text $text -ForegroundColor (Get-PickerFrameLineColor -Line $line)
                     }
                 )
 
                 while ($frameLines.Count -lt $pickerRenderState.RenderedLineCount)
                 {
-                    $frameLines += $blankLine
+                    $frameLines += Format-PickerFrameLine -Text $blankLine
                 }
 
                 try
                 {
                     [Console]::SetCursorPosition(0, 0)
-                    [Console]::Write(($frameLines -join "`r`n"))
+                    $originalForegroundColor = [Console]::ForegroundColor
+                    try
+                    {
+                        for ($lineIndex = 0; $lineIndex -lt $frameLines.Count; $lineIndex++)
+                        {
+                            if ($lineIndex -gt 0)
+                            {
+                                [Console]::Write("`r`n")
+                            }
+
+                            $line = $frameLines[$lineIndex]
+                            if ($null -eq $line.ForegroundColor)
+                            {
+                                [Console]::ForegroundColor = $originalForegroundColor
+                            }
+                            else
+                            {
+                                [Console]::ForegroundColor = $line.ForegroundColor
+                            }
+
+                            [Console]::Write($line.Text)
+                        }
+                    }
+                    finally
+                    {
+                        [Console]::ForegroundColor = $originalForegroundColor
+                    }
+
                     $pickerRenderState.RenderedLineCount = $frameLines.Count
                 }
                 catch
@@ -1636,7 +1732,16 @@ function Upgrade-PlatformPackage
                     Clear-Host
                     foreach ($fallbackLine in $Lines)
                     {
-                        Write-Host $fallbackLine
+                        $fallbackLineText = Get-PickerFrameLineText -Line $fallbackLine
+                        $fallbackLineColor = Get-PickerFrameLineColor -Line $fallbackLine
+                        if ($null -eq $fallbackLineColor)
+                        {
+                            Write-Host $fallbackLineText
+                        }
+                        else
+                        {
+                            Write-Host $fallbackLineText -ForegroundColor $fallbackLineColor
+                        }
                     }
                 }
             }
@@ -1746,20 +1851,20 @@ function Upgrade-PlatformPackage
                     $pickerHintActions = 'Enter: upgrade selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
                     $pickerHint = if ($showUninstallPrevious) { "$pickerHintPrefix  U: uninstall previous  $pickerHintActions" } else { "$pickerHintPrefix  $pickerHintActions" }
                     $frameLines = @(
-                        "Upgrade-PlatformPackage - $($PackageUpdates[0].PackageManagerDisplayName)"
+                        (Format-PickerFrameLine -Text "Upgrade-PlatformPackage - $($PackageUpdates[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
                         ''
-                        $pickerHint
+                        (Format-PickerFrameLine -Text $pickerHint -ForegroundColor DarkGray)
                         ''
                     )
                     if ($showUninstallPrevious)
                     {
-                        $frameLines += ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', 'Unp', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth))
-                        $frameLines += ('  {0} {1} {2} {3} {4} {5}' -f '---', '---', ('-' * $nameWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth))
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', 'Unp', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth)) -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f '---', '---', ('-' * $nameWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth)) -ForegroundColor DarkGray
                     }
                     else
                     {
-                        $frameLines += ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth))
-                        $frameLines += ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth))
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth)) -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth)) -ForegroundColor DarkGray
                     }
 
                     for ($i = $topIndex; $i -le $bottomIndex; $i++)
@@ -1770,11 +1875,20 @@ function Upgrade-PlatformPackage
                         if ($showUninstallPrevious)
                         {
                             $uninstallMarker = if ($uninstallPreviousFlags[$i]) { '[u]' } else { '[ ]' }
-                            $frameLines += ('{0} {1} {2} {3} {4} {5} {6}' -f $cursorMarker, $selectedMarker, $uninstallMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
+                            $packageLine = ('{0} {1} {2} {3} {4} {5} {6}' -f $cursorMarker, $selectedMarker, $uninstallMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
                         }
                         else
                         {
-                            $frameLines += ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
+                            $packageLine = ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
+                        }
+
+                        if ($i -eq $cursor)
+                        {
+                            $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Cyan
+                        }
+                        else
+                        {
+                            $frameLines += $packageLine
                         }
                     }
 
@@ -1933,7 +2047,7 @@ function Upgrade-PlatformPackage
             $versionText = "$($Package.InstalledVersion) -> $($Package.LatestVersion)"
 
             Write-Host ''
-            Write-Host "Upgrading $($Package.Name) ($versionText) with $($Manager.DisplayName)..."
+            Write-Host "Upgrading $($Package.Name) ($versionText) with $($Manager.DisplayName)..." -ForegroundColor White
 
             $upgradeArguments = $Package.UpgradeArguments
             $perPackageUninstall = $Package.PSObject.Properties['UninstallPrevious'] -and [Boolean]$Package.UninstallPrevious
@@ -1985,7 +2099,7 @@ function Upgrade-PlatformPackage
             Invoke-PackageRegistryRefresh -Manager $manager
         }
 
-        Write-Host "Checking for available upgrades with $($manager.DisplayName)..."
+        Write-Host "Checking for available upgrades with $($manager.DisplayName)..." -ForegroundColor White
         $packageUpdates = @(Get-PackageUpdates -Manager $manager -SkipDescriptionEnrichment:($manager.Name -eq 'winget' -and -not $NonInteractive))
 
         if ($IncludePackage -and $IncludePackage.Count -gt 0)
@@ -2007,7 +2121,7 @@ function Upgrade-PlatformPackage
 
         if ($packageUpdates.Count -eq 0)
         {
-            Write-Host 'No package upgrades are available.'
+            Write-Host 'No package upgrades are available.' -ForegroundColor White
             return [PSCustomObject]@{
                 PackageManager = $manager.Name
                 PackageManagerDisplayName = $manager.DisplayName
@@ -2034,7 +2148,7 @@ function Upgrade-PlatformPackage
 
         if ($selectedPackages.Count -eq 0)
         {
-            Write-Host 'No packages selected for upgrade.'
+            Write-Host 'No packages selected for upgrade.' -ForegroundColor White
             return [PSCustomObject]@{
                 PackageManager = $manager.Name
                 PackageManagerDisplayName = $manager.DisplayName

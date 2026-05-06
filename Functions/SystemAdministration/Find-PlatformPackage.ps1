@@ -2050,34 +2050,34 @@ function Find-PlatformPackage
                     $installedStatus = if ($currentPackage.Installed) { 'yes' } else { 'no' }
 
                     $frameLines = @(
-                        "Find-PlatformPackage - $($AvailablePackages[0].PackageManagerDisplayName)"
+                        (Format-PickerFrameLine -Text "Find-PlatformPackage - $($AvailablePackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
                         ''
-                        ('Search: {0}' -f $QueryText)
+                        (Format-PickerFrameLine -Text ('Search: {0}' -f $QueryText) -ForegroundColor DarkGray)
                         ''
                     )
                     if ($EnableSelection -and $EnableReturnSelection)
                     {
-                        $frameLines += 'Spacebar: select  Enter: return current/selected  I: install current/selected  S: new search  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit'
+                        $frameLines += Format-PickerFrameLine -Text 'Spacebar: select  Enter: return current/selected  I: install current/selected  S: new search  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit' -ForegroundColor DarkGray
                     }
                     elseif ($EnableSelection)
                     {
-                        $frameLines += 'Spacebar: select  I: install current/selected  S: new search  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit'
+                        $frameLines += Format-PickerFrameLine -Text 'Spacebar: select  I: install current/selected  S: new search  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit' -ForegroundColor DarkGray
                     }
                     else
                     {
-                        $frameLines += 'I: install current  S: new search  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit'
+                        $frameLines += Format-PickerFrameLine -Text 'I: install current  S: new search  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit' -ForegroundColor DarkGray
                     }
                     $frameLines += ''
 
                     if ($EnableSelection)
                     {
-                        $frameLines += ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth), 'Inst')
-                        $frameLines += ('  {0} {1} {2} {3} {4} {5}' -f '---', ('-' * $nameWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth), '----')
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth), 'Inst') -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f '---', ('-' * $nameWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth), '----') -ForegroundColor DarkGray
                     }
                     else
                     {
-                        $frameLines += ('  {0} {1} {2} {3} {4}' -f (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth), 'Inst')
-                        $frameLines += ('  {0} {1} {2} {3} {4}' -f ('-' * $nameWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth), '----')
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4}' -f (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth), 'Inst') -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4}' -f ('-' * $nameWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth), '----') -ForegroundColor DarkGray
                     }
 
                     for ($i = $topIndex; $i -le $bottomIndex; $i++)
@@ -2100,6 +2100,10 @@ function Find-PlatformPackage
                         {
                             $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor DarkGray
                         }
+                        elseif ($i -eq $cursor)
+                        {
+                            $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Cyan
+                        }
                         else
                         {
                             $frameLines += $packageLine
@@ -2107,12 +2111,12 @@ function Find-PlatformPackage
                     }
 
                     $frameLines += ''
-                    $frameLines += ('Current: {0} | Id: {1} | Installed: {2}' -f $currentPackage.Name, $currentPackage.Id, $installedStatus)
-                    $frameLines += ('Description: {0}' -f $currentDescription)
+                    $frameLines += Format-PickerFrameLine -Text ('Current: {0} | Id: {1} | Installed: {2}' -f $currentPackage.Name, $currentPackage.Id, $installedStatus) -ForegroundColor White
+                    $frameLines += Format-PickerFrameLine -Text ('Description: {0}' -f $currentDescription) -ForegroundColor White
                     if ($EnableSelection)
                     {
                         $frameLines += ''
-                        $frameLines += "$(@($selected | Where-Object { $_ }).Count) of $($AvailablePackages.Count) package(s) selected."
+                        $frameLines += Format-PickerFrameLine -Text "$(@($selected | Where-Object { $_ }).Count) of $($AvailablePackages.Count) package(s) selected." -ForegroundColor White
                     }
 
                     Write-PickerFrame -Lines $frameLines
@@ -2315,7 +2319,7 @@ function Find-PlatformPackage
 
                 if ($packages.Count -eq 0)
                 {
-                    Write-Host ("No remote packages matched '{0}'." -f $queryText)
+                    Write-Host ("No remote packages matched '{0}'." -f $queryText) -ForegroundColor White
                     $queryText = Get-InteractiveSearchQuery -CurrentQuery $queryText
                     continue
                 }
