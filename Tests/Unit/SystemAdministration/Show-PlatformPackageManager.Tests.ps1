@@ -5,6 +5,8 @@ BeforeAll {
 
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Show-PlatformPackageManager.ps1"
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Install-PlatformPackage.ps1"
+    . "$PSScriptRoot/../../../Functions/SystemAdministration/Upgrade-PlatformPackage.ps1"
+    . "$PSScriptRoot/../../../Functions/SystemAdministration/Remove-PlatformPackage.ps1"
 
     function Get-TestCommandResponse
     {
@@ -152,14 +154,14 @@ Describe 'Show-PlatformPackageManager' {
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*gh*' } -Times 1
     }
 
-    It 'does not expose direct install as a manager action' {
-        $promptReader = & $script:NewPromptReader @('3', 'q')
+    It 'does not expose numbers outside 1-5 as valid actions' {
+        $promptReader = & $script:NewPromptReader @('7', 'q')
 
         $result = @(Show-PlatformPackageManager -PackageManager winget -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Direct install*' } -Times 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Choose 1, 2, 4-6 or Q.' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Choose 1-5 or Q.' } -Times 1
     }
 
     It 'supports arrow key navigation in the manager menu' {
@@ -232,7 +234,7 @@ Describe 'Show-PlatformPackageManager' {
         }
         $promptReader = & $script:NewPromptReader @()
         $keyReader = & $script:NewKeyReader @(
-            [System.ConsoleKeyInfo]::new('4', [ConsoleKey]::D4, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new('3', [ConsoleKey]::D3, $false, $false, $false)
             [System.ConsoleKeyInfo]::new(' ', [ConsoleKey]::Spacebar, $false, $false, $false)
             [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
             [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
@@ -255,7 +257,7 @@ Describe 'Show-PlatformPackageManager' {
         }
         $promptReader = & $script:NewPromptReader @()
         $keyReader = & $script:NewKeyReader @(
-            [System.ConsoleKeyInfo]::new('5', [ConsoleKey]::D5, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new('4', [ConsoleKey]::D4, $false, $false, $false)
             [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
             [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
         )
@@ -285,7 +287,7 @@ Describe 'Show-PlatformPackageManager' {
         }
         $promptReader = & $script:NewPromptReader @()
         $keyReader = & $script:NewKeyReader @(
-            [System.ConsoleKeyInfo]::new('4', [ConsoleKey]::D4, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new('3', [ConsoleKey]::D3, $false, $false, $false)
             [System.ConsoleKeyInfo]::new(' ', [ConsoleKey]::Spacebar, $false, $false, $false)
             [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
             [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
@@ -370,7 +372,7 @@ Describe 'Show-PlatformPackageManager' {
         $runner = & $script:NewPackageCommandRunner @{
             'brew deps --direct git' = Get-TestCommandResponse -Output @('gettext')
         }
-        $promptReader = & $script:NewPromptReader @('6', 'git', '1', 'n', 'q')
+        $promptReader = & $script:NewPromptReader @('5', 'git', '1', 'n', 'q')
 
         $result = @(Show-PlatformPackageManager -PackageManager brew -CommandRunner $runner -PromptReader $promptReader)
 
@@ -410,11 +412,84 @@ Describe 'Show-PlatformPackageManager' {
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Search and Install Packages' } -Times 0
     }
 
+    It 'shows a notification in the menu when no packages are available for upgrade' {
+        Mock -CommandName Upgrade-PlatformPackage -MockWith {
+            [PSCustomObject]@{
+                PackageManager = 'brew'
+                PackageManagerDisplayName = 'Homebrew'
+                TotalAvailable = 0
+                Selected = 0
+                NotSelected = 0
+                Upgraded = 0
+                Failed = 0
+                Skipped = 0
+                Results = @()
+            }
+        }
+        $promptReader = & $script:NewPromptReader @('3', 'q')
+
+        $result = @(Show-PlatformPackageManager -PackageManager brew -SkipRefresh -PromptReader $promptReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Upgrade-PlatformPackage -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*No packages are currently available for upgrade*' } -Times 1
+    }
+
+    It 'shows a notification in the menu when no installed packages matched for removal' {
+        Mock -CommandName Remove-PlatformPackage -MockWith {
+            [PSCustomObject]@{
+                PackageManager = 'brew'
+                PackageManagerDisplayName = 'Homebrew'
+                TotalMatched = 0
+                Selected = 0
+                NotSelected = 0
+                Removed = 0
+                Failed = 0
+                Skipped = 0
+                Results = @()
+            }
+        }
+        $promptReader = & $script:NewPromptReader @('4', 'q')
+
+        $result = @(
+            & {
+                $ConfirmPreference = 'None'
+                Show-PlatformPackageManager -PackageManager brew -PromptReader $promptReader
+            }
+        )
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Remove-PlatformPackage -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*No installed packages matched the requested filters*' } -Times 1
+    }
+
+    It 'does not show a notification when no packages are selected in the picker but packages are available' {
+        Mock -CommandName Upgrade-PlatformPackage -MockWith {
+            [PSCustomObject]@{
+                PackageManager = 'brew'
+                PackageManagerDisplayName = 'Homebrew'
+                TotalAvailable = 3
+                Selected = 0
+                NotSelected = 3
+                Upgraded = 0
+                Failed = 0
+                Skipped = 0
+                Results = @()
+            }
+        }
+        $promptReader = & $script:NewPromptReader @('3', 'q')
+
+        $result = @(Show-PlatformPackageManager -PackageManager brew -SkipRefresh -PromptReader $promptReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*No packages*' } -Times 0
+    }
+
     It 'shows dependency records from the manager' {
         $runner = & $script:NewPackageCommandRunner @{
             'brew deps --direct git' = Get-TestCommandResponse -Output @('gettext')
         }
-        $promptReader = & $script:NewPromptReader @('6', 'git', '1', 'n', 'q')
+        $promptReader = & $script:NewPromptReader @('5', 'git', '1', 'n', 'q')
 
         $result = @(Show-PlatformPackageManager -PackageManager brew -CommandRunner $runner -PromptReader $promptReader)
 
@@ -424,7 +499,7 @@ Describe 'Show-PlatformPackageManager' {
     }
 
     It 'explains that winget reverse dependency lookup is unavailable' {
-        $promptReader = & $script:NewPromptReader @('6', 'Git.Git', '2', 'n', 'q')
+        $promptReader = & $script:NewPromptReader @('5', 'Git.Git', '2', 'n', 'q')
 
         $result = @(Show-PlatformPackageManager -PackageManager winget -PromptReader $promptReader)
 
@@ -436,7 +511,7 @@ Describe 'Show-PlatformPackageManager' {
         $runner = & $script:NewPackageCommandRunner @{
             'brew deps --direct git' = Get-TestCommandResponse -Output @('gettext')
         }
-        $promptReader = & $script:NewPromptReader @('6', 'git', '1', 'n', 'q')
+        $promptReader = & $script:NewPromptReader @('5', 'git', '1', 'n', 'q')
 
         $result = @(Show-PlatformPackageManager -PackageManager brew -CommandRunner $runner -PromptReader $promptReader)
 

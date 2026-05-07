@@ -888,6 +888,45 @@ function Show-PlatformPackageManager
             return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message $wingetReverseDependencyNote -Records $records)
         }
 
+        function Get-PlatformPackageManagerAutoReturnNotification
+        {
+            param(
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Result
+            )
+
+            # Explicit cancels (empty query, browser closed, etc.) need no notification
+            if ($Result.AutoReturn)
+            {
+                return ''
+            }
+
+            $summaryRecord = @(
+                $Result.Records |
+                Where-Object { $null -ne $_ -and $_.PSObject.Properties['Selected'] }
+            ) | Select-Object -First 1
+
+            if ($null -eq $summaryRecord)
+            {
+                return ''
+            }
+
+            # Nothing available to upgrade
+            if ($summaryRecord.PSObject.Properties['TotalAvailable'] -and [Int32]$summaryRecord.TotalAvailable -eq 0)
+            {
+                return 'No packages are currently available for upgrade.'
+            }
+
+            # Nothing matched for removal
+            if ($summaryRecord.PSObject.Properties['TotalMatched'] -and [Int32]$summaryRecord.TotalMatched -eq 0 -and $summaryRecord.PSObject.Properties['Removed'])
+            {
+                return 'No installed packages matched the requested filters.'
+            }
+
+            # User dismissed the picker without selecting — intentional, no notification needed
+            return ''
+        }
+
         function Get-PlatformPackageManagerMenuOptions
         {
             @(
@@ -902,17 +941,17 @@ function Show-PlatformPackageManager
                     Purpose = 'Search the registry and optionally install results'
                 }
                 [PSCustomObject]@{
-                    Choice = '4'
+                    Choice = '3'
                     Workflow = 'Upgrade packages'
                     Purpose = 'Review or upgrade outdated packages'
                 }
                 [PSCustomObject]@{
-                    Choice = '5'
+                    Choice = '4'
                     Workflow = 'Remove packages'
                     Purpose = 'Review or remove installed packages'
                 }
                 [PSCustomObject]@{
-                    Choice = '6'
+                    Choice = '5'
                     Workflow = 'Dependencies'
                     Purpose = 'Inspect dependency relationships'
                 }
@@ -931,7 +970,10 @@ function Show-PlatformPackageManager
                 [Object[]]$Options = @(Get-PlatformPackageManagerMenuOptions),
 
                 [Parameter()]
-                [Int32]$SelectedIndex = -1
+                [Int32]$SelectedIndex = -1,
+
+                [Parameter()]
+                [String]$Notification = ''
             )
 
             Clear-Host
@@ -950,6 +992,12 @@ function Show-PlatformPackageManager
             }
 
             Write-Host ''
+            if (-not [String]::IsNullOrWhiteSpace($Notification))
+            {
+                Write-Host "  ! $Notification" -ForegroundColor DarkYellow
+                Write-Host ''
+            }
+
             if ($SelectedIndex -ge 0)
             {
                 Write-Host 'Up/Down: choose  Enter: run  Number/Q: jump' -ForegroundColor DarkGray
@@ -959,17 +1007,22 @@ function Show-PlatformPackageManager
 
         function Read-PlatformPackageManagerMenuChoice
         {
+            param(
+                [Parameter()]
+                [String]$Notification = ''
+            )
+
             $options = @(Get-PlatformPackageManagerMenuOptions)
             if ($PromptReader -and -not $KeyReader)
             {
-                Write-PlatformPackageManagerMenu -Options $options
+                Write-PlatformPackageManagerMenu -Options $options -Notification $Notification
                 return ((Read-PlatformPackageManagerInput -Prompt 'Select an action').Trim())
             }
 
             $selectedIndex = 0
             while ($true)
             {
-                Write-PlatformPackageManagerMenu -Options $options -SelectedIndex $selectedIndex
+                Write-PlatformPackageManagerMenu -Options $options -SelectedIndex $selectedIndex -Notification $Notification
                 $key = Read-PlatformPackageManagerKey
                 if (Test-PlatformPackageManagerCancelKey -KeyInfo $key)
                 {
@@ -1031,9 +1084,9 @@ function Show-PlatformPackageManager
                             'b' { return '1' }
                             's' { return '2' }
                             'i' { return '2' }
-                            'u' { return '4' }
-                            'r' { return '5' }
-                            'd' { return '6' }
+                            'u' { return '3' }
+                            'r' { return '4' }
+                            'd' { return '5' }
                         }
                     }
                 }
@@ -1052,10 +1105,10 @@ function Show-PlatformPackageManager
             {
                 { $_ -in @('1', 'installed', 'browse') } { Invoke-PlatformPackageManagerInstalledBrowser; break }
                 { $_ -in @('2', 'search', 'find', 'install') } { Invoke-PlatformPackageManagerSearch; break }
-                { $_ -in @('4', 'upgrade', 'update') } { Invoke-PlatformPackageManagerUpgrade; break }
-                { $_ -in @('5', 'remove', 'uninstall') } { Invoke-PlatformPackageManagerRemoval; break }
-                { $_ -in @('6', 'deps', 'dependencies', 'dependency') } { Invoke-PlatformPackageManagerDependencyView; break }
-                default { Get-PlatformPackageManagerActionResult -Title 'Platform Package Manager' -Message 'Choose 1, 2, 4-6 or Q.' }
+                { $_ -in @('3', 'upgrade', 'update') } { Invoke-PlatformPackageManagerUpgrade; break }
+                { $_ -in @('4', 'remove', 'uninstall') } { Invoke-PlatformPackageManagerRemoval; break }
+                { $_ -in @('5', 'deps', 'dependencies', 'dependency') } { Invoke-PlatformPackageManagerDependencyView; break }
+                default { Get-PlatformPackageManagerActionResult -Title 'Platform Package Manager' -Message 'Choose 1-5 or Q.' }
             }
         }
 
@@ -1063,9 +1116,12 @@ function Show-PlatformPackageManager
 
     process
     {
+        $notification = ''
+
         while ($true)
         {
-            $choice = Read-PlatformPackageManagerMenuChoice
+            $choice = Read-PlatformPackageManagerMenuChoice -Notification $notification
+            $notification = ''
 
             if ($choice.ToLowerInvariant() -in @('q', 'quit', 'exit'))
             {
@@ -1090,6 +1146,10 @@ function Show-PlatformPackageManager
                 {
                     return
                 }
+            }
+            else
+            {
+                $notification = Get-PlatformPackageManagerAutoReturnNotification -Result $actionResult
             }
         }
     }
