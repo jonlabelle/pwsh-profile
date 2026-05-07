@@ -5,6 +5,69 @@
 
 > A modern, cross-platform PowerShell profile with auto-loading utility functions for network testing, system administration, and developer workflows.
 
+This profile turns the PowerShell profile directory into a small, portable toolkit. Public functions under [`Functions`](./Functions/) are loaded automatically, machine-local helpers can live safely under [`Functions/Local`](./Functions/Local/), and the included prompt stays clean across Windows, macOS, and Linux.
+
+## Highlights
+
+- Works with Windows PowerShell Desktop 5.1+ and PowerShell 6+ (`pwsh`).
+- Auto-loads public functions from categorized folders under [`Functions`](./Functions/).
+- Preserves local-only profile content during install and update workflows.
+- Includes focused tools for DNS, networking, TLS, package management, GitHub, Docker, media files, encoding, and everyday shell utilities.
+- Keeps helper functions standalone-friendly, so individual `.ps1` files can be dot-sourced without loading the whole profile.
+
+## Install
+
+Prerequisites:
+
+- PowerShell Desktop 5.1+ or PowerShell 6+ (`pwsh`)
+- Internet access for the installer and update checks
+- `git`, optional but recommended for `Update-Profile` and `Test-ProfileUpdate`
+
+The installer backs up the current profile directory, preserves local paths such as `Functions/Local`, `Help`, `Modules`, `PSReadLine`, `Scripts`, and `powershell.config.json`, then deploys the latest profile files.
+
+Git is optional. When Git is unavailable, the installer downloads the repository zip from GitHub.
+
+### PowerShell Core (X-Platform)
+
+```powershell
+irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' |
+    pwsh -NoProfile -ExecutionPolicy Bypass -
+```
+
+### Windows PowerShell Desktop 5.1
+
+```powershell
+irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' |
+    powershell -NoProfile -ExecutionPolicy Bypass -
+```
+
+Need custom paths, restore options, `-WhatIf`, or full clone history? See the [installation guide](docs/installation.md).
+
+## Quick Start
+
+After installation, open a new PowerShell session and try:
+
+```powershell
+# Browse everything the profile loaded
+Show-ProfileFunctions
+
+# Search for the right command by keyword
+Find-ProfileFunction dns
+
+# Test network connectivity
+Test-Port bing.com -Port 443
+
+# Get public IP and geolocation details
+Get-IPAddress -Public
+
+# Check DNS and TLS
+Test-DnsNameResolution github.com
+Get-CertificateExpiration github.com
+
+# Run a one-shot network diagnostic
+Invoke-NetworkDiagnostic 'bing.com', 'microsoft.com' -MaxIterations 1
+```
+
 ## Screenshots
 
 ### Invoke-NetworkDiagnostic
@@ -19,9 +82,9 @@ PS > 'www.google.com', 'www.cloudflare.com' |
 ![Invoke-NetworkDiagnostic screenshot](resources/screenshots/Invoke-NetworkDiagnostic.png "Invoke-NetworkDiagnostic in action")
 
 <details>
-<summary><strong>Show-PlatformPackageManager</strong> — A simple, unified interface for managing platform packages.</summary>
+<summary><strong>Show-PlatformPackageManager</strong></summary>
 
-A simple, unified interface for managing platform packages across winget, brew, apt, and apk.
+Provides a unified interface for managing platform packages across winget, brew, apt, and apk.
 
 ```powershell
 PS > Show-PlatformPackageManager
@@ -31,12 +94,10 @@ PS > Show-PlatformPackageManager
 
 </details>
 
----
-
 <details>
-<summary><strong>Show-SystemResourceMonitor</strong> — Displays live system stats</summary>
+<summary><strong>Show-SystemResourceMonitor</strong></summary>
 
-Displays a live system monitor for CPU, memory, disk, and network activity plus top processes by resource consumption.
+Displays a live monitor for CPU, memory, disk, network activity, and top processes.
 
 ```powershell
 PS > Show-SystemResourceMonitor
@@ -46,10 +107,8 @@ PS > Show-SystemResourceMonitor
 
 </details>
 
----
-
 <details>
-<summary><strong>Show-ProfileFunctions</strong> — Lists all functions available</summary>
+<summary><strong>Show-ProfileFunctions</strong></summary>
 
 Lists all functions available in this profile, organized by category.
 
@@ -61,622 +120,71 @@ PS > Show-ProfileFunctions
 
 </details>
 
----
+## Documentation
 
-## Features
+Everything you need to know about installation, functions, troubleshooting, remoting, and contribution lives in the [docs](./docs/) folder:
 
-- **Cross-platform compatibility** - Works on Windows, macOS, and Linux
-- **Auto-loading functions** - All functions in the [`Functions`](./Functions/) directory are auto-loaded with your profile
-- **Local functions support** - Add your own functions to [`Functions/Local`](./Functions/Local/)
-- **Custom prompt** - Clean, colored PowerShell prompt
+- [Installation guide](docs/installation.md) - installer options, restore workflows, and manual fallback steps.
+- [Function catalog](docs/functions.md) - every public function grouped by category.
+- [Troubleshooting](docs/troubleshooting.md) - execution policy fixes and verbose profile loading.
+- [Remote sessions](docs/remote-sessions.md) - loading profile functions inside PowerShell remoting sessions.
+- [Local functions](Functions/Local/README.md) - local-only helper templates and conventions.
+- [Tests](Tests/README.md) - test layout and contribution guidance.
 
-## Table of Contents
+## Function Areas
 
-- [Screenshots](#screenshots)
-- [Features](#features)
-- [Prerequisites](#prerequisites)
-- [Install](#install)
-- [Troubleshooting](#troubleshooting)
-- [Update](#update)
-- [Quick Start](#quick-start)
-- [Local Functions](#local-functions)
-- [Remote Sessions](#remote-sessions)
-- [Functions](#functions)
-  - [Network and DNS](#network-and-dns)
-  - [System Administration](#system-administration)
-  - [Developer](#developer)
-  - [Security](#security)
-  - [Active Directory](#active-directory)
-  - [PowerShell Module Management](#powershell-module-management)
-  - [Profile Management](#profile-management)
-  - [Media Processing](#media-processing)
-  - [Utilities](#utilities)
-- [Using Functions Standalone](#using-functions-standalone)
-- [Contributing](#contributing)
-- [Author](#author)
-- [License](#license)
+| Area                  | Includes                                                                                      | Catalog                                                       |
+| --------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Network and DNS       | DNS, ports, TLS checks, ping, traceroute, WHOIS, GeoIP, latency graphs                        | [22 functions](docs/functions.md#network-and-dns)             |
+| System Administration | permissions, elevation, TLS session settings, system info, package managers, resource monitor | [18 functions](docs/functions.md#system-administration)       |
+| Developer             | .NET, dotenv, Git, GitHub secrets/variables/topics, Docker, SQLFluff, Magika                  | [20 functions](docs/functions.md#developer)                   |
+| Utilities             | Base64, Markdown, slugs, encodings, file search, symbolic links, sync, archive extraction     | [24 functions](docs/functions.md#utilities)                   |
+| Security              | JWT decoding, certificate inspection, password-based file protection                          | [5 functions](docs/functions.md#security)                     |
+| Active Directory      | credentials, account lockout checks, group policy update                                      | [3 functions](docs/functions.md#active-directory)             |
+| Module Management     | module update checks and cleanup                                                              | [3 functions](docs/functions.md#powershell-module-management) |
+| Profile Management    | function discovery and profile update checks                                                  | [4 functions](docs/functions.md#profile-management)           |
+| Media Processing      | ffprobe, FFmpeg conversion, season file renaming                                              | [3 functions](docs/functions.md#media-processing)             |
 
-## Prerequisites
+## Local Functions
 
-- PowerShell Desktop 5.1+ or PowerShell 6+ (`pwsh`)
-- Internet access for install/update checks and remote documentation links
-- `git` (optional, but recommended for `Update-Profile` and `Test-ProfileUpdate`)
+Place machine-specific helpers in [`Functions/Local`](./Functions/Local/). Files there load automatically with the rest of the profile, are ignored by Git, and are preserved by the installer and update workflow.
 
-## Install
+## Updating
 
-Use the provided [install.ps1](install.ps1) script to automate backups (during install), preserve your existing `Functions/Local`, `Help`, `Modules`, `PSReadLine`, and `Scripts` directories plus your root-level `powershell.config.json`, and deploy the latest profile files. The script works on PowerShell Desktop 5.1 and PowerShell Core 6+.
-
-> [!Note]
-> **Git is optional:** If Git is available, the script clones the repository. Otherwise, it automatically downloads and extracts the repository as a zip file from GitHub.
-
-### Quick Install (one-liner)
-
-> The script is downloaded and piped directly into PowerShell. Use this pipe form for the default install only; PowerShell does not pass named installer parameters after `pwsh -` or `powershell -`. If you need options such as `-FullCloneHistory`, `-SkipBackup`, `-RestorePath`, or `-WhatIf`, [download](https://raw.githubusercontent.com/jonlabelle/pwsh-profile/refs/heads/main/install.ps1) the script first and run it with `-File`.
-
-#### PowerShell Core (pwsh)
-
-```powershell
-irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' |
-    pwsh -NoProfile -ExecutionPolicy Bypass -
-```
-
-#### Windows PowerShell Desktop 5.1 (powershell)
-
-```powershell
-irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' |
-    powershell -NoProfile -ExecutionPolicy Bypass -
-```
-
-### Alternative Install Methods
-
-<details>
-<summary><strong>Run install.ps1 with Parameters</strong></summary>
-
-#### Run install.ps1 with Parameters
-
-If you already cloned [this repository](https://github.com/jonlabelle/pwsh-profile) (or downloaded [install.ps1](install.ps1)), run it from the repo root with `-File`:
-
-```bash
-pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1
-```
-
-To pass parameters while downloading the installer from GitHub, save it first and then run it with `-File`:
-
-```powershell
-$installScript = Join-Path ([System.IO.Path]::GetTempPath()) 'pwsh-profile-install.ps1'
-irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' -OutFile $installScript
-pwsh -NoProfile -ExecutionPolicy Bypass -File $installScript -FullCloneHistory -SkipBackup
-```
-
-Use `powershell` instead of `pwsh` in the final line when installing for Windows PowerShell Desktop 5.1.
-
----
-
-</details>
-
-<details>
-<summary><strong>Optional Install Parameters</strong></summary>
-
-#### Optional Parameters
-
-- `-SkipBackup` — Install without creating a backup of your current profile directory. Only applies to install, not restore.
-- `-BackupPath <path>` — When restoring, save a backup of your current profile before restoring from the backup. By default, restore does not create a backup.
-- `-SkipPreserveDirectories` — Do not restore the default local profile paths after installation.
-- `-PreserveDirectories @('Dir1','Dir2')` — Only restore the relative profile paths you specify. The default list includes `Functions/Local`, `Help`, `Modules`, `PSReadLine`, `Scripts`, and `powershell.config.json`.
-- `-LocalSourcePath <path>` — Copy profile files from a local directory instead of cloning from Git.
-- `-ProfileRoot <path>` — Use a custom profile directory instead of the default.
-- `-FullCloneHistory` — Clone the full Git history instead of the default shallow clone.
-- `-RestorePath <path>` — Restore profile files from a backup directory.
-- `-WhatIf` — Preview the install or restore without changing files.
-
-For more examples, see the [install.ps1](install.ps1) script documentation.
-
----
-
-</details>
-
-<details>
-<summary><strong>Restore from a Backup</strong></summary>
-
-#### Restore from a Backup
-
-You can restore your profile from a previous backup created by the install script. When you restore, the script does not create a new backup of your current profile unless you ask for one.
-
-**Restore from a backup (no new backup is made):**
-
-```powershell
-$installScript = Join-Path ([System.IO.Path]::GetTempPath()) 'pwsh-profile-install.ps1'
-irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' -OutFile $installScript
-pwsh -NoProfile -ExecutionPolicy Bypass -File $installScript -RestorePath 'C:\Users\you\Documents\WindowsPowerShell-backup-20251116-110000'
-```
-
-**Restore and save a backup of your current profile before restoring:**
-
-```powershell
-$installScript = Join-Path ([System.IO.Path]::GetTempPath()) 'pwsh-profile-install.ps1'
-irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' -OutFile $installScript
-pwsh -NoProfile -ExecutionPolicy Bypass -File $installScript -RestorePath 'C:\Users\you\Documents\WindowsPowerShell-backup-20251116-110000' -BackupPath 'C:\Users\you\Documents\WindowsPowerShell-backup-pre-restore'
-```
-
----
-
-</details>
-
-<details>
-<summary><strong>Manual Install (fallback)</strong></summary>
-
-#### Manual Install (fallback)
-
-> **Strongly Recommended:** Use [install.ps1](install.ps1) instead of manually cloning the repository. The install script provides automatic backups, preserves your local profile paths (`Help`, `Modules`, `PSReadLine`, `Scripts`, and `powershell.config.json`), and includes easy restoration capabilities that manual installation does not.
-
-If you still prefer to install manually, you can clone this repository directly into your profile directory:
-
-```powershell
-# Resolve profile directory
-$profileDir = Split-Path -Path $PROFILE -Parent
-
-# Backup existing profile directory
-if (Test-Path -Path $profileDir) {
-    $backupPath = "$profileDir-backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-    Move-Item -Path $profileDir -Destination $backupPath
-    Write-Host "Existing profile backed up to: $backupPath" -ForegroundColor Yellow
-}
-
-# Clone the repository into the profile directory
-git clone 'https://github.com/jonlabelle/pwsh-profile.git' --depth 1 $profileDir
-```
-
-**To restore from a manual backup:**
-
-```powershell
-# Remove the new installation
-Remove-Item -Path $profileDir -Recurse -Force
-
-# Restore from backup (replace the timestamp with your actual backup)
-Move-Item -Path "$profileDir-backup-20250118-120000" -Destination $profileDir
-```
-
-**Recommended:** Use [install.ps1](install.ps1) with the `-RestorePath` parameter for safe restoration. If you want to keep a copy of your current profile before restoring, add the `-BackupPath` option.
-
----
-
-</details>
-
-## Troubleshooting
-
-<details>
-<summary><strong>Execution Policy Error (Windows Only)</strong></summary>
-
-### Execution Policy Error (Windows Only)
-
-> **Note:** Execution policies are **only enforced on Windows**. macOS and Linux systems do not enforce execution policies and will not encounter this error.
-
-If you encounter an error like this when PowerShell starts on **Windows**:
-
-```console
-Microsoft.PowerShell_profile.ps1 cannot be loaded because running
-scripts is disabled on this system.
-
-For more information, see about_Execution_Policies at
-https:/go.microsoft.com/fwlink/?LinkID=135170.
-```
-
-This means your system's execution policy is preventing the profile from loading. To fix this, open a PowerShell window (no administrator privileges required) and execute:
-
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-
-This sets the execution policy for your user account only, allowing locally created scripts to run while still requiring downloaded scripts to be signed. **No administrator privileges are required** for the `CurrentUser` scope.
-
-**Alternative (requires administrator privileges):** To set the execution policy for all users on the computer, run PowerShell as Administrator and execute:
-
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope LocalMachine
-```
-
-Note: The `CurrentUser` scope takes precedence over `LocalMachine`, so setting it for your user is usually sufficient.
-
-**Verification:** After setting the execution policy, restart PowerShell. Your profile should load without errors.
-
-For more information about execution policies, see [about_Execution_Policies](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies).
-
----
-
-</details>
-
-<details>
-<summary><strong>Enable Verbose Logging for Troubleshooting</strong></summary>
-
-### Enable Verbose Logging for Troubleshooting
-
-If you're experiencing issues with the profile loading or want to see which functions are being loaded, you can enable verbose logging. Since the profile [immediately starts loading functions](https://github.com/jonlabelle/pwsh-profile/blob/main/Microsoft.PowerShell_profile.ps1#L3) when it runs, you need to set the verbose preference **before** PowerShell loads the profile.
-
-#### Option 1: Start PowerShell with Verbose Output
-
-Launch PowerShell with the `-Verbose` parameter (not available in all PowerShell hosts):
-
-```powershell
-# PowerShell Core (pwsh)
-pwsh -NoLogo -Command "`$VerbosePreference = 'Continue'; . `$PROFILE"
-
-# Windows PowerShell Desktop (powershell)
-powershell -NoLogo -Command "`$VerbosePreference = 'Continue'; . `$PROFILE"
-```
-
-#### Option 2: Temporarily Enable Verbose Preference
-
-Start PowerShell with `-NoProfile`, then manually set the verbose preference and load the profile:
-
-```powershell
-# Start without profile
-pwsh -NoProfile
-
-# Enable verbose output
-$VerbosePreference = 'Continue'
-
-# Manually load the profile
-. $PROFILE
-
-# Reset verbose preference when done (optional)
-$VerbosePreference = 'SilentlyContinue'
-```
-
-#### What You'll See
-
-When verbose logging is enabled, you'll see output like:
-
-```console
-VERBOSE: Loading function: /Users/username/.config/powershell/Functions/Developer/Get-DotNetVersion.ps1
-VERBOSE: Loading function: /Users/username/.config/powershell/Functions/Developer/Import-DotEnv.ps1
-VERBOSE: Creating 'dotenv' alias for Import-DotEnv
-VERBOSE: Loading function: /Users/username/.config/powershell/Functions/Developer/Remove-DotNetBuildArtifacts.ps1
-VERBOSE: Loading function: /Users/username/.config/powershell/Functions/Security/ConvertFrom-JwtToken.ps1
-...
-VERBOSE: User profile loaded:
-VERBOSE: /Users/username/.config/powershell/Microsoft.PowerShell_profile.ps1
-```
-
-This shows each function file being dot-sourced, which is helpful for:
-
-- Identifying which function file is causing errors
-- Verifying all functions are being loaded
-- Debugging function loading order issues
-- Confirming the profile path and location
-
-#### For Individual Functions
-
-All functions in this profile include their own verbose logging. After the profile loads, you can use the `-Verbose` parameter on individual functions:
-
-```powershell
-# See verbose output from a specific function
-Get-WhichCommand git -Verbose
-Test-Port localhost -Port 80 -Verbose
-```
-
----
-
-</details>
-
-## Update
-
-To pull in the latest updates from the repository (`git` required):
+Pull the latest profile changes with:
 
 ```powershell
 Update-Profile
 ```
 
-After updating, restart PowerShell to reload your profile.
-
-You can check for available updates without applying them (`git` required):
+Check for updates without applying them:
 
 ```powershell
 Test-ProfileUpdate
 ```
 
-If `git` is unavailable, rerun the install command from the [Install](#install) section to fetch the latest files.
+Both commands require Git. If Git is unavailable, rerun the install command to fetch the latest files.
 
-## Quick Start
+## Standalone Use
 
-After installation, try these commands to explore what the profile offers:
-
-```powershell
-# View all available functions
-Show-ProfileFunctions
-
-# Search for the right function by keyword
-Find-ProfileFunction dns
-
-# Test network connectivity to a host and port
-Test-Port bing.com -Port 443
-
-# Get your public IP with geolocation
-Get-IPAddress -Public
-
-# Check DNS resolution
-Test-DnsNameResolution github.com
-
-# Get SSL certificate expiration
-Get-CertificateExpiration github.com
-```
-
-Or dig deeper with a more complex example:
-
-```console
-# Perform comprehensive network diagnostics on multiple hosts (single refresh)
-PS > Invoke-NetworkDiagnostic 'bing.com', 'microsoft.com' -MaxIterations 1
-
-┌─ bing.com:443 (collect 2584.9ms)
-│  Latency: ▂▂▃▄▄▅▆▅▆▅▄▄▇▅▇▇█▅▅▁
-│  Stats  : min: 27.35ms | max: 36.26ms | avg: 32.1ms | jitter: 2ms | samples: 20
-│  Quality: 20/20 successful (100%) | Packet Loss: 0%
-│  Findings: Healthy
-└───────────────────────────────────────────────────────────────────────────────
-
-┌─ microsoft.com:443 (collect 2586ms)
-│  Latency: ▁▁▂▄▄▅▆▄▇▄▄▃▇▆███▅▆▁
-│  Stats  : min: 28.68ms | max: 35ms | avg: 32.08ms | jitter: 2ms | samples: 20
-│  Quality: 20/20 successful (100%) | Packet Loss: 0%
-│  Findings: Healthy
-└───────────────────────────────────────────────────────────────────────────────
-```
-
-Explore the full list of functions in the [Functions](#functions) section below.
-
-## Local Functions
-
-The [`Functions/Local`](./Functions/Local/) directory is available for your **machine-local functions** that you don't want to commit to the repository. This is perfect for:
-
-- Work-specific utilities
-- Personal helper functions
-- Experimental functions you're testing
-- Machine-specific automations
-
-Any PowerShell file placed in `Functions/Local` will be automatically loaded, just like the built-in functions. The entire directory is git-ignored, so your local functions are never accidentally committed and remain completely untouched when you run `Update-Profile` to pull the latest changes.
-
-> See the [local functions README](Functions/Local/README.md) for detailed instructions, templates, and examples.
-
-## Remote Sessions
-
-<details>
-<summary><strong>PowerShell profiles don't load automatically in remote sessions—click to see how to load them</strong></summary>
-
-### Loading Profiles in Remote Sessions
-
-PowerShell profiles don't load automatically in remote sessions (via `Enter-PSSession`, `New-PSSession`, or `Invoke-Command`). This behavior is consistent across all platforms—Windows, macOS, and Linux—whether you're using WinRM (Windows-only) or SSH-based remoting (cross-platform).
-
-> **Note:** SSH-based remoting requires PowerShell 6+ and SSH to be installed on both local and remote computers. For setup instructions, see [PowerShell remoting over SSH](https://learn.microsoft.com/en-us/powershell/scripting/security/remoting/ssh-remoting-in-powershell).
-
-To use profile functions in a remote session with this repository, prefer dot-sourcing the remote computer's own profile. `Invoke-Command -FilePath $PROFILE` sends only the local profile file content and does not copy sibling folders such as `Functions`.
-
-### Load the Remote Computer's Profile (Recommended)
-
-Dot-source the profile on the remote computer by probing common profile locations. This works when `$PROFILE` is unset in non-interactive remoting endpoints (common in Windows PowerShell 5.1):
+Functions can be used without loading the whole profile by dot-sourcing the function file directly:
 
 ```powershell
-$session = New-PSSession -HostName RemoteHost -UserName YourUser
-Invoke-Command -Session $session -ScriptBlock {
-    $profileCandidates = @()
-    $profileVar = $PROFILE
-
-    if (-not [string]::IsNullOrWhiteSpace($profileVar))
-    {
-        $profileCandidates += $profileVar
-    }
-
-    $documents = [Environment]::GetFolderPath('MyDocuments')
-    if (-not [string]::IsNullOrWhiteSpace($documents))
-    {
-        $profileCandidates += (Join-Path -Path $documents -ChildPath 'WindowsPowerShell/Microsoft.PowerShell_profile.ps1')
-        $profileCandidates += (Join-Path -Path $documents -ChildPath 'PowerShell/Microsoft.PowerShell_profile.ps1')
-    }
-
-    if (-not [string]::IsNullOrWhiteSpace($HOME))
-    {
-        $profileCandidates += (Join-Path -Path $HOME -ChildPath '.config/powershell/Microsoft.PowerShell_profile.ps1')
-    }
-
-    $profilePath = $profileCandidates |
-        Select-Object -Unique |
-        Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
-        Select-Object -First 1
-
-    if (-not $profilePath)
-    {
-        throw ('Remote profile not found. Tried: {0}' -f ($profileCandidates -join '; '))
-    }
-
-    . $profilePath
-}
-```
-
-### Run Your Local Profile File in the Remote Session (Advanced)
-
-Use `-FilePath` only when the remote endpoint is compatible with the profile logic and expected file layout:
-
-```powershell
-$session = New-PSSession -HostName RemoteHost -UserName YourUser
-Invoke-Command -Session $session -FilePath $PROFILE
-```
-
-After running either command, the profile's functions and aliases will be available in `$session`.
-
-For example, to use a profile function in the remote session:
-
-```powershell
-# Use a function from the loaded profile
-Invoke-Command -Session $session -ScriptBlock { Test-Port -ComputerName bing.com -Port 443 }
-
-# Or enter the session interactively
-Enter-PSSession $session
-# Now you can use profile functions directly
-Test-DnsNameResolution example.com
-Exit-PSSession
-```
-
-> **Note:** Some remoting endpoints leave `$PROFILE` unset in non-interactive commands. The snippet above handles this by trying the standard Windows PowerShell, PowerShell 7+, and Unix-style profile paths.
-
-For more information, see Microsoft's documentation on [Profiles and Remote Sessions](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_profiles#profiles-and-remote-sessions).
-
----
-
-</details>
-
-## Functions
-
-The profile includes utility functions organized by category:
-
-### Network and DNS
-
-- **[`ConvertTo-CidrNotation`](Functions/NetworkAndDns/ConvertTo-CidrNotation.ps1)** — Converts between subnet mask, CIDR prefix length, and wildcard mask formats
-- **[`Get-DnsRecord`](Functions/NetworkAndDns/Get-DnsRecord.ps1)** — Retrieves DNS records for any record type using DNS-over-HTTPS
-- **[`Get-IPAddress`](Functions/NetworkAndDns/Get-IPAddress.ps1)** — Gets local network interface IPs or public IP address with geolocation data
-- **[`Get-IPSubnet`](Functions/NetworkAndDns/Get-IPSubnet.ps1)** — Calculates IP subnet information including network/broadcast addresses
-- **[`Get-NetworkMetrics`](Functions/NetworkAndDns/Get-NetworkMetrics.ps1)** — Collects comprehensive network performance metrics
-- **[`Get-NetworkProcess`](Functions/NetworkAndDns/Get-NetworkProcess.ps1)** — Shows local network ports and the processes using them
-- **[`Get-NetworkRoute`](Functions/NetworkAndDns/Get-NetworkRoute.ps1)** — Displays the local routing table as structured PowerShell objects
-- **[`Get-PublicDnsServers`](Functions/NetworkAndDns/Get-PublicDnsServers.ps1)** — Returns well-known public DNS servers with addresses and DoH URLs
-- **[`Get-ReverseDns`](Functions/NetworkAndDns/Get-ReverseDns.ps1)** — Performs reverse DNS (PTR) lookups for IP addresses
-- **[`Get-Whois`](Functions/NetworkAndDns/Get-Whois.ps1)** — Performs WHOIS lookups for domain names with registration details and nameservers
-- **[`Invoke-NetworkDiagnostic`](Functions/NetworkAndDns/Invoke-NetworkDiagnostic.ps1)** — Performs network diagnostics with visual graphs
-- **[`Invoke-Ping`](Functions/NetworkAndDns/Invoke-Ping.ps1)** — Sends ICMP echo requests with detailed statistics (cross-platform ping alternative)
-- **[`Resolve-GeoIP`](Functions/NetworkAndDns/Resolve-GeoIP.ps1)** — Resolves IP addresses to geographic locations
-- **[`Send-TcpRequest`](Functions/NetworkAndDns/Send-TcpRequest.ps1)** — Sends TCP requests and retrieves responses for network testing
-- **[`Show-NetworkLatencyGraph`](Functions/NetworkAndDns/Show-NetworkLatencyGraph.ps1)** — Displays network latency visualization graphs
-- **[`Test-Bandwidth`](Functions/NetworkAndDns/Test-Bandwidth.ps1)** — Tests network bandwidth with download speed and latency measurements
-- **[`Test-DnsPropagation`](Functions/NetworkAndDns/Test-DnsPropagation.ps1)** — Checks DNS propagation across multiple public DNS servers
-- **[`Test-DnsNameResolution`](Functions/NetworkAndDns/Test-DnsNameResolution.ps1)** — Tests DNS name resolution using cross-platform .NET methods
-- **[`Test-HttpResponse`](Functions/NetworkAndDns/Test-HttpResponse.ps1)** — Tests HTTP/HTTPS endpoints and returns response details
-- **[`Test-Port`](Functions/NetworkAndDns/Test-Port.ps1)** — Tests TCP/UDP port connectivity with detailed connection information
-- **[`Test-TlsProtocol`](Functions/NetworkAndDns/Test-TlsProtocol.ps1)** — Tests which TLS protocols (1.0, 1.1, 1.2, 1.3) are supported by remote servers
-- **[`Trace-Route`](Functions/NetworkAndDns/Trace-Route.ps1)** — Performs cross-platform traceroute with per-hop latency and reverse DNS
-
-### System Administration
-
-- **[`Get-PathPermission`](Functions/SystemAdministration/Get-PathPermission.ps1)** — Shows permissions, octal modes, and ownership for files and directories
-- **[`Set-PathPermission`](Functions/SystemAdministration/Set-PathPermission.ps1)** — Sets portable file and directory owner/group/other permissions
-- **[`Invoke-ElevatedCommand`](Functions/SystemAdministration/Invoke-ElevatedCommand.ps1)** — Executes commands with elevated privileges (Run as Administrator)
-- **[`Set-TlsSecurityProtocol`](Functions/SystemAdministration/Set-TlsSecurityProtocol.ps1)** — Configures TLS security protocol settings for secure network connections
-- **[`Show-SystemResourceMonitor`](Functions/SystemAdministration/Show-SystemResourceMonitor.ps1)** — Displays a visual monitor for CPU, memory, disk, and network activity
-- **[`Start-KeepAlive`](Functions/SystemAdministration/Start-KeepAlive.ps1)** — Prevents the system and display from sleeping
-- **[`Test-Admin`](Functions/SystemAdministration/Test-Admin.ps1)** — Checks if the current PowerShell session is running as administrator or root
-- **[`Test-PendingReboot`](Functions/SystemAdministration/Test-PendingReboot.ps1)** — Checks if the system has pending reboot requirements
-- **[`Get-SystemInfo`](Functions/SystemAdministration/Get-SystemInfo.ps1)** — Gets system information from local or remote computers
-- **[`Get-PlatformPackage`](Functions/SystemAdministration/Get-PlatformPackage.ps1)** — Gets installed platform packages from winget, brew, apt, or apk
-- **[`Get-PlatformPackageDependency`](Functions/SystemAdministration/Get-PlatformPackageDependency.ps1)** — Shows package deps relationships with winget, brew, apt, or apk
-- **[`Show-PlatformPackageManager`](Functions/SystemAdministration/Show-PlatformPackageManager.ps1)** — Unified UI for platform package management workflows
-- **[`Show-InstalledPlatformPackage`](Functions/SystemAdministration/Show-InstalledPlatformPackage.ps1)** — Displays installed platform packages in an interactive browser
-- **[`Find-PlatformPackage`](Functions/SystemAdministration/Find-PlatformPackage.ps1)** — Searches native platform package registries with winget, brew, apt, or apk
-- **[`Install-PlatformPackage`](Functions/SystemAdministration/Install-PlatformPackage.ps1)** — Installs platform packages by query, name, id, or piped search result
-- **[`Upgrade-PlatformPackage`](Functions/SystemAdministration/Upgrade-PlatformPackage.ps1)** — Upgrades outdated platform packages with winget, brew, apt, or apk
-- **[`Remove-PlatformPackage`](Functions/SystemAdministration/Remove-PlatformPackage.ps1)** — Removes installed platform packages with winget, brew, apt, or apk
-
-### Developer
-
-- **[`Get-DotNetVersion`](Functions/Developer/Get-DotNetVersion.ps1)** — Retrieves installed .NET Framework and .NET Core versions
-- **[`Get-GitHubRepositoryTopic`](Functions/Developer/Get-GitHubRepositoryTopic.ps1)** — Gets GitHub repository topics
-- **[`Get-GitHubVariable`](Functions/Developer/Get-GitHubVariable.ps1)** — Gets a GitHub variable by scope
-- **[`Remove-DotNetBuildArtifacts`](Functions/Developer/Remove-DotNetBuildArtifacts.ps1)** — Cleans up .NET build artifacts from a project directory
-- **[`Import-DotEnv`](Functions/Developer/Import-DotEnv.ps1)** — Loads environment variables from dotenv (.env) files
-- **[`Invoke-GitPull`](Functions/Developer/Invoke-GitPull.ps1)** — Performs bulk `git pull` operations across multiple repositories
-- **[`Invoke-BfgRepoCleaner`](Functions/Developer/Invoke-BfgRepoCleaner.ps1)** — Cleans Git history with configurable runtime
-- **[`Invoke-Magika`](Functions/Developer/Invoke-Magika.ps1)** — Intelligent file type detection using Magika
-- **[`Invoke-SqlFluff`](Functions/Developer/Invoke-SqlFluff.ps1)** — Runs SQLFluff lint, fix, or format against SQL files
-- **[`Remove-GitHubRepositoryTopic`](Functions/Developer/Remove-GitHubRepositoryTopic.ps1)** — Removes GitHub repository topics idempotently
-- **[`Remove-GitHubSecret`](Functions/Developer/Remove-GitHubSecret.ps1)** — Removes a GitHub secret by scope
-- **[`Remove-GitHubVariable`](Functions/Developer/Remove-GitHubVariable.ps1)** — Removes a GitHub variable by scope
-- **[`Remove-GitIgnoredFiles`](Functions/Developer/Remove-GitIgnoredFiles.ps1)** — Removes ignored and optionally untracked files from Git repositories
-- **[`Remove-NodeModules`](Functions/Developer/Remove-NodeModules.ps1)** — Removes node_modules folders from Node.js project directories
-- **[`Set-GitHubRepositoryTopic`](Functions/Developer/Set-GitHubRepositoryTopic.ps1)** — Ensures GitHub repository topics are present
-- **[`Set-GitHubSecret`](Functions/Developer/Set-GitHubSecret.ps1)** — Creates or updates a GitHub secret by scope
-- **[`Set-GitHubVariable`](Functions/Developer/Set-GitHubVariable.ps1)** — Creates or updates a GitHub variable by scope
-- **[`Invoke-DockerAutoRun`](Functions/Developer/Invoke-DockerAutoRun.ps1)** — Auto-detects project type and builds/runs a Docker container
-- **[`Remove-DockerArtifacts`](Functions/Developer/Remove-DockerArtifacts.ps1)** — Prunes unused Docker images, networks, cache, containers, and build-history
-- **[`Update-DockerImages`](Functions/Developer/Update-DockerImages.ps1)** — Updates all Docker images by pulling the latest versions from their registries
-
-### Security
-
-- **[`ConvertFrom-JwtToken`](Functions/Security/ConvertFrom-JwtToken.ps1)** — Decodes a JWT (JSON Web Token) and returns its header and payload
-- **[`Get-CertificateInfo`](Functions/Security/Get-CertificateInfo.ps1)** — Retrieves detailed SSL/TLS certificate information from remote hosts or cert files
-- **[`Get-CertificateExpiration`](Functions/Security/Get-CertificateExpiration.ps1)** — Gets SSL/TLS certificate expiration dates from remote hosts or cert files
-- **[`Protect-PathWithPassword`](Functions/Security/Protect-PathWithPassword.ps1)** — Encrypts files or folders with AES-256 encryption using a password
-- **[`Unprotect-PathWithPassword`](Functions/Security/Unprotect-PathWithPassword.ps1)** — Decrypts files that were encrypted with Protect-PathWithPassword
-
-### Active Directory
-
-- **[`Invoke-GroupPolicyUpdate`](Functions/ActiveDirectory/Invoke-GroupPolicyUpdate.ps1)** — Forces an immediate Group Policy update on Windows systems
-- **[`Test-ADCredential`](Functions/ActiveDirectory/Test-ADCredential.ps1)** — Validates Active Directory user credentials
-- **[`Test-ADUserLocked`](Functions/ActiveDirectory/Test-ADUserLocked.ps1)** — Tests if an Active Directory user account is locked out
-
-### PowerShell Module Management
-
-- **[`Get-OutdatedModules`](Functions/ModuleManagement/Get-OutdatedModules.ps1)** — Checks if any installed PowerShell modules have newer versions available
-- **[`Remove-OldModules`](Functions/ModuleManagement/Remove-OldModules.ps1)** — Removes older versions of installed PowerShell modules
-- **[`Update-AllModules`](Functions/ModuleManagement/Update-AllModules.ps1)** — Updates all PowerShell modules to the latest versions
-
-### Profile Management
-
-- **[`Find-ProfileFunction`](Functions/ProfileManagement/Find-ProfileFunction.ps1)** — Searches profile functions by keyword and returns ranked matches
-- **[`Show-ProfileFunctions`](Functions/ProfileManagement/Show-ProfileFunctions.ps1)** — Shows all functions available in this PowerShell profile
-- **[`Test-ProfileUpdate`](Functions/ProfileManagement/Test-ProfileUpdate.ps1)** — Checks for available profile updates from the GitHub repository
-- **[`Update-Profile`](Functions/ProfileManagement/Update-Profile.ps1)** — Updates the profile to the latest version from the configured Git repository
-
-### Media Processing
-
-- **[`Get-MediaInfo`](Functions/MediaProcessing/Get-MediaInfo.ps1)** — Retrieves comprehensive media file metadata (video and audio) using ffprobe
-- **[`Invoke-FFmpeg`](Functions/MediaProcessing/Invoke-FFmpeg.ps1)** — Converts video files using Samsung TV-friendly H.264/H.265 encoding
-- **[`Rename-VideoSeasonFile`](Functions/MediaProcessing/Rename-VideoSeasonFile.ps1)** — Batch renames TV show episode files to a consistent format
-
-### Utilities
-
-- **[`Convert-LineEndings`](Functions/Utilities/Convert-LineEndings.ps1)** — Converts line endings between Unix and Windows
-- **[`ConvertFrom-Base64`](Functions/Utilities/ConvertFrom-Base64.ps1)** — Decodes Base64-encoded strings or files with URL-safe support
-- **[`ConvertTo-Base64`](Functions/Utilities/ConvertTo-Base64.ps1)** — Encodes strings or files to Base64 with URL-safe support
-- **[`ConvertTo-Markdown`](Functions/Utilities/ConvertTo-Markdown.ps1)** — Converts URLs or local files to Markdown with Pandoc
-- **[`ConvertTo-MarkdownObject`](Functions/Utilities/ConvertTo-MarkdownObject.ps1)** — Converts PowerShell objects and optional JSON strings to Markdown
-- **[`ConvertTo-USDateTime`](Functions/Utilities/ConvertTo-USDateTime.ps1)** — Converts local, UTC, or offset-aware timestamps into US time zones
-- **[`ConvertTo-UrlSlug`](Functions/Utilities/ConvertTo-UrlSlug.ps1)** — Creates URL-friendly slugs from text or filenames
-- **[`Copy-Directory`](Functions/Utilities/Copy-Directory.ps1)** — Copies directories recursively while excluding specific directories
-- **[`Extract-Archives`](Functions/Utilities/Extract-Archives.ps1)** — Finds all archives (zip, tar, 7z, rar) and extracts them
-- **[`Get-CommandAlias`](Functions/Utilities/Get-CommandAlias.ps1)** — Displays aliases for PowerShell cmdlets
-- **[`Get-EncodingFromName`](Functions/Utilities/Get-EncodingFromName.ps1)** — Resolves profile encoding names to .NET encoding instances
-- **[`Get-FileEncoding`](Functions/Utilities/Get-FileEncoding.ps1)** — Detects file text encoding using BOM and content sampling
-- **[`Get-StringHash`](Functions/Utilities/Get-StringHash.ps1)** — Computes hash values for strings (like `Get-FileHash` but for strings)
-- **[`Get-WhichCommand`](Functions/Utilities/Get-WhichCommand.ps1)** — Locates commands and displays their type or path (x-platform which alternative)
-- **[`New-SymbolicLink`](Functions/Utilities/New-SymbolicLink.ps1)** — Creates symbolic links (symlinks) for files and directories
-- **[`Remove-SymbolicLink`](Functions/Utilities/Remove-SymbolicLink.ps1)** — Removes symbolic links (symlinks) for files and directories
-- **[`New-RandomString`](Functions/Utilities/New-RandomString.ps1)** — Generates random strings for passwords, tokens, and other uses
-- **[`Remove-OldFiles`](Functions/Utilities/Remove-OldFiles.ps1)** — Removes files older than a specified time period
-- **[`Rename-File`](Functions/Utilities/Rename-File.ps1)** — Renames files with advanced transformations
-- **[`Replace-StringInFile`](Functions/Utilities/Replace-StringInFile.ps1)** — Finds and replaces text in files with support for regex and backups
-- **[`Search-FileContent`](Functions/Utilities/Search-FileContent.ps1)** — Searches files with regex, context, filtering, and colorized output
-- **[`Set-FileEncoding`](Functions/Utilities/Set-FileEncoding.ps1)** — Converts text files to a specified encoding
-- **[`Sync-Directory`](Functions/Utilities/Sync-Directory.ps1)** — Synchronizes directories using native platform tools (rsync/robocopy)
-- **[`Format-Bytes`](Functions/Utilities/Format-Bytes.ps1)** — Formats bytes/bits into human-friendly conversions
-
-## Using Functions Standalone
-
-Functions can be used without loading the profile by dot-sourcing them directly:
-
-```powershell
-# Load a specific function (any dependencies are auto-loaded)
 PS > . 'Functions/NetworkAndDns/Test-Port.ps1'
-
-# Use it
 PS > Test-Port bing.com -Port 443
 ```
 
-Functions with dependencies automatically load what they need, so you only need to dot-source the function you want to use.
+Function dependencies are lazy-loaded by the function file when needed.
 
 ## Contributing
 
-Contributions are welcome! Please follow these guidelines:
+Contributions are welcome. Please keep changes aligned with the existing structure:
 
-- One function per file in `Functions/{Category}` (named `Verb-Noun.ps1`) — auto-loaded by the main profile
-- Private helper scripts may live under paths such as `Functions/{Category}/Private`, but they should avoid the public `Verb-Noun.ps1` / `*-*.ps1` naming pattern so the profile loader ignores them; public functions should lazy-load those helpers on demand
-- Include Pester tests for new functions — both unit and integration tests where applicable (see [`Tests/README.md`](Tests/README.md) for test structure and examples)
-- Open a [pull request](https://github.com/jonlabelle/pwsh-profile/pulls) with a clear description and basic verification steps (linting + functional testing)
-- Maintain cross-platform compatibility following the project's conventions (see [`./Functions`](./Functions/) for examples)
+- One public function per `Functions/{Category}/Verb-Noun.ps1` file.
+- Private helpers may live under category-specific `Private` folders.
+- Include focused Pester coverage for new behavior.
+- Keep functions cross-platform unless they are clearly platform-specific.
+- Open a pull request with a short description and verification steps.
 
 ## Author
 
