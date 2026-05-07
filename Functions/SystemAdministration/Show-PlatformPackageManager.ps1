@@ -543,7 +543,10 @@ function Show-PlatformPackageManager
                 [String]$Message,
 
                 [Parameter()]
-                [Object[]]$Records = @()
+                [Object[]]$Records = @(),
+
+                [Parameter()]
+                [Switch]$AutoReturn
             )
 
             $recordList = @($Records | Where-Object { $null -ne $_ })
@@ -553,7 +556,49 @@ function Show-PlatformPackageManager
                 Message = $Message
                 Records = $recordList
                 RecordCount = $recordList.Count
+                AutoReturn = $AutoReturn.IsPresent
             }
+        }
+
+        function Test-PlatformPackageManagerShouldShowResultScreen
+        {
+            param(
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Result
+            )
+
+            # Explicitly flagged as a no-op / cancel: go straight back to the menu
+            if ($Result.AutoReturn)
+            {
+                return $false
+            }
+
+            # No records but has an informational message — show it
+            if ($Result.RecordCount -eq 0)
+            {
+                return $true
+            }
+
+            # Records that are not operation summaries (e.g. dependency rows) — always show
+            $hasNonSummaryRecords = @(
+                $Result.Records | Where-Object {
+                    $null -ne $_ -and -not $_.PSObject.Properties['Selected']
+                }
+            ).Count -gt 0
+
+            if ($hasNonSummaryRecords)
+            {
+                return $true
+            }
+
+            # All records are operation summaries: only show when something was actually selected
+            $maxSelected = @(
+                $Result.Records |
+                Where-Object { $null -ne $_ -and $_.PSObject.Properties['Selected'] } |
+                ForEach-Object { [Int32]$_.Selected }
+            ) | Measure-Object -Maximum
+
+            return ($null -ne $maxSelected.Maximum -and [Int32]$maxSelected.Maximum -gt 0)
         }
 
         function Get-PlatformPackageManagerOperationStatusIndicator
@@ -633,11 +678,18 @@ function Show-PlatformPackageManager
 
             if ($Result.RecordCount -gt 0)
             {
-                $table = Format-PlatformPackageManagerResultTable -InputObject $Result.Records
-                if (-not [String]::IsNullOrWhiteSpace($table))
+                $allSummaries = @(
+                    $Result.Records | Where-Object { $null -ne $_ -and -not $_.PSObject.Properties['Results'] }
+                ).Count -eq 0
+
+                if (-not $allSummaries)
                 {
-                    Write-Host $table
-                    Write-Host ''
+                    $table = Format-PlatformPackageManagerResultTable -InputObject $Result.Records
+                    if (-not [String]::IsNullOrWhiteSpace($table))
+                    {
+                        Write-Host $table
+                        Write-Host ''
+                    }
                 }
 
                 $detailRecords = @(Get-PlatformPackageManagerNestedResults -InputObject $Result.Records)
@@ -700,7 +752,7 @@ function Show-PlatformPackageManager
                 })
             if ($result.Count -eq 0)
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Installed Packages' -Message 'Installed package browser closed.')
+                return (Get-PlatformPackageManagerActionResult -Title 'Installed Packages' -Message 'Installed package browser closed.' -AutoReturn)
             }
 
             return (Get-PlatformPackageManagerActionResult -Title 'Installed Packages' -Records $result)
@@ -711,7 +763,7 @@ function Show-PlatformPackageManager
             $query = (Read-PlatformPackageManagerInput -Prompt 'Search query').Trim()
             if ([String]::IsNullOrWhiteSpace($query))
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Search and Install Packages' -Message 'Search cancelled; query is required.')
+                return (Get-PlatformPackageManagerActionResult -Title 'Search and Install Packages' -Message 'Search cancelled; query is required.' -AutoReturn)
             }
 
             $parameters = Get-PlatformPackageManagerCommonParameters
@@ -730,7 +782,7 @@ function Show-PlatformPackageManager
                 })
             if ($result.Count -eq 0)
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Search and Install Packages' -Message 'Search completed with no result records.')
+                return (Get-PlatformPackageManagerActionResult -Title 'Search and Install Packages' -Message 'Search completed with no result records.' -AutoReturn)
             }
 
             return (Get-PlatformPackageManagerActionResult -Title 'Search and Install Packages' -Records $result)
@@ -762,7 +814,7 @@ function Show-PlatformPackageManager
                 })
             if ($result.Count -eq 0)
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Upgrade Packages' -Message 'Upgrade completed with no result records.')
+                return (Get-PlatformPackageManagerActionResult -Title 'Upgrade Packages' -Message 'Upgrade completed with no result records.' -AutoReturn)
             }
 
             return (Get-PlatformPackageManagerActionResult -Title 'Upgrade Packages' -Records $result)
@@ -785,7 +837,7 @@ function Show-PlatformPackageManager
                 })
             if ($result.Count -eq 0)
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Remove Packages' -Message 'Removal completed with no result records.')
+                return (Get-PlatformPackageManagerActionResult -Title 'Remove Packages' -Message 'Removal completed with no result records.' -AutoReturn)
             }
 
             return (Get-PlatformPackageManagerActionResult -Title 'Remove Packages' -Records $result)
@@ -796,7 +848,7 @@ function Show-PlatformPackageManager
             $package = @(Read-PlatformPackageManagerList -Prompt 'Package name or id (comma-separated)')
             if ($package.Count -eq 0)
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message 'Dependency lookup cancelled; at least one package is required.')
+                return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message 'Dependency lookup cancelled; at least one package is required.' -AutoReturn)
             }
 
             $direction = Read-PlatformPackageDependencyDirection
@@ -1011,19 +1063,9 @@ function Show-PlatformPackageManager
 
     process
     {
-        $pendingChoice = ''
-
         while ($true)
         {
-            if ([String]::IsNullOrWhiteSpace($pendingChoice))
-            {
-                $choice = Read-PlatformPackageManagerMenuChoice
-            }
-            else
-            {
-                $choice = $pendingChoice
-                $pendingChoice = ''
-            }
+            $choice = Read-PlatformPackageManagerMenuChoice
 
             if ($choice.ToLowerInvariant() -in @('q', 'quit', 'exit'))
             {
@@ -1041,20 +1083,12 @@ function Show-PlatformPackageManager
                 continue
             }
 
-            $nextAction = Show-PlatformPackageManagerResultScreen -Result $actionResult
-            switch ($nextAction.Command)
+            if (Test-PlatformPackageManagerShouldShowResultScreen -Result $actionResult)
             {
-                'Quit'
+                $nextAction = Show-PlatformPackageManagerResultScreen -Result $actionResult
+                if ($nextAction.Command -eq 'Quit')
                 {
                     return
-                }
-                'Action'
-                {
-                    $pendingChoice = $nextAction.Choice
-                }
-                default
-                {
-                    $pendingChoice = ''
                 }
             }
         }

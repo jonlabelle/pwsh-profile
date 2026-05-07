@@ -378,6 +378,38 @@ Describe 'Show-PlatformPackageManager' {
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Installed:|Upgraded:|Removed:' } -Times 0
     }
 
+    It 'returns directly to the menu without a result screen when a search query is cancelled' {
+        $promptReader = & $script:NewPromptReader @('2', '', 'q')
+
+        $result = @(Show-PlatformPackageManager -PackageManager apt -PromptReader $promptReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Search and Install Packages' } -Times 0
+    }
+
+    It 'returns directly to the menu without a result screen when no packages are selected in the picker' {
+        Mock -CommandName Install-PlatformPackage -MockWith {
+            [PSCustomObject]@{
+                PackageManager = 'apt'
+                PackageManagerDisplayName = 'APT'
+                TotalMatched = 5
+                Selected = 0
+                NotSelected = 5
+                Installed = 0
+                Skipped = 0
+                Failed = 0
+                Results = @()
+            }
+        }
+        $promptReader = & $script:NewPromptReader @('2', 'git', 'q')
+
+        $result = @(Show-PlatformPackageManager -PackageManager apt -PromptReader $promptReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Install-PlatformPackage -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Search and Install Packages' } -Times 0
+    }
+
     It 'shows dependency records from the manager' {
         $runner = & $script:NewPackageCommandRunner @{
             'brew deps --direct git' = Get-TestCommandResponse -Output @('gettext')
