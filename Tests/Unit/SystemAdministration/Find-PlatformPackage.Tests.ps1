@@ -113,6 +113,7 @@ Describe 'Find-PlatformPackage' {
             $result[0].Id | Should -Be 'Git.Git'
             $result[0].Version | Should -Be '2.45.1'
             $result[0].Description | Should -Be 'Distributed version control system'
+            $result[0].Publisher | Should -Be 'winget'
         }
 
         It 'marks search results as installed from winget list output' {
@@ -335,6 +336,7 @@ Describe 'Find-PlatformPackage' {
             $result.Count | Should -Be 0
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: git' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Spacebar: select  I: install current/selected*' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Publisher*' } -Times 1
             @($script:HostOutputRecords | Where-Object { $_.ForegroundColor -eq [ConsoleColor]::DarkGray -and $_.Object -like '*git*' }).Count | Should -Be 2
             @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 5
         }

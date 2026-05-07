@@ -76,6 +76,7 @@ Describe 'Get-PlatformPackage' {
             $formula.PackageManager | Should -Be 'brew'
             $formula.Type | Should -Be 'Formula'
             $formula.InstalledVersion | Should -Be '2.44.0'
+            $formula.Publisher | Should -Be 'Homebrew'
             $formula.PSObject.Properties.Name | Should -Not -Contain 'RemoveArguments'
 
             $cask = $result | Where-Object { $_.Name -eq 'visual-studio-code' }
@@ -112,6 +113,7 @@ Describe 'Get-PlatformPackage' {
             $result[0].Id | Should -Be 'Git.Git'
             $result[0].InstalledVersion | Should -Be '2.45.1'
             $result[0].Source | Should -Be 'winget'
+            $result[0].Publisher | Should -Be 'winget'
         }
     }
 

@@ -311,6 +311,7 @@ Describe 'Upgrade-PlatformPackage' {
             $result.NotSelected | Should -Be 1
             $result.Upgraded | Should -Be 0
             @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should -Be 0
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Publisher*' } -Times 1
             @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 4
         }
 

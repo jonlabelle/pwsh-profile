@@ -182,6 +182,9 @@ function Get-PlatformPackage
                 [String]$Source,
 
                 [Parameter()]
+                [String]$Publisher,
+
+                [Parameter()]
                 [String]$Description,
 
                 [Parameter()]
@@ -196,6 +199,7 @@ function Get-PlatformPackage
                 Type = $Type
                 InstalledVersion = $InstalledVersion
                 Source = $Source
+                Publisher = if (-not [String]::IsNullOrWhiteSpace($Publisher)) { $Publisher } elseif ($Manager.Name -eq 'brew') { 'Homebrew' } elseif ($Manager.Name -eq 'apk') { 'Alpine' } elseif ($Manager.Name -eq 'apt' -and -not [String]::IsNullOrWhiteSpace($Source)) { $Source } elseif ($Manager.Name -eq 'apt') { 'APT' } elseif ($Manager.Name -eq 'winget' -and -not [String]::IsNullOrWhiteSpace($Source)) { $Source } else { '' }
                 Description = if (-not [String]::IsNullOrWhiteSpace($Description)) { $Description } else { $Notes }
                 Notes = $Notes
             }
@@ -504,6 +508,7 @@ function Get-PlatformPackage
                 $id = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $package -PropertyName @('Id', 'PackageIdentifier', 'Identifier'))
                 $installedVersion = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $package -PropertyName @('InstalledVersion', 'Version', 'CurrentVersion'))
                 $source = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $package -PropertyName @('Source', 'SourceName'))
+                $publisher = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $package -PropertyName @('Publisher', 'PublisherName', 'Author'))
                 $description = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $package -PropertyName @('Description', 'ShortDescription', 'Summary', 'PackageDescription'))
 
                 if ([String]::IsNullOrWhiteSpace($packageName))
@@ -511,7 +516,7 @@ function Get-PlatformPackage
                     continue
                 }
 
-                $packages += Get-PlatformPackageObject -Manager $Manager -Name $packageName -Id $id -Type 'Package' -InstalledVersion $installedVersion -Source $source -Description $description
+                $packages += Get-PlatformPackageObject -Manager $Manager -Name $packageName -Id $id -Type 'Package' -InstalledVersion $installedVersion -Source $source -Publisher $publisher -Description $description
             }
 
             return $packages

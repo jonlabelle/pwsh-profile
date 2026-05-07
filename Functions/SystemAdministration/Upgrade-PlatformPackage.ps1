@@ -216,6 +216,9 @@ function Upgrade-PlatformPackage
                 [String]$Source,
 
                 [Parameter()]
+                [String]$Publisher,
+
+                [Parameter()]
                 [String]$Description,
 
                 [Parameter()]
@@ -234,6 +237,7 @@ function Upgrade-PlatformPackage
                 InstalledVersion = $InstalledVersion
                 LatestVersion = $LatestVersion
                 Source = $Source
+                Publisher = if (-not [String]::IsNullOrWhiteSpace($Publisher)) { $Publisher } elseif ($Manager.Name -eq 'brew') { 'Homebrew' } elseif ($Manager.Name -eq 'apk') { 'Alpine' } elseif ($Manager.Name -eq 'apt' -and -not [String]::IsNullOrWhiteSpace($Source)) { $Source } elseif ($Manager.Name -eq 'apt') { 'APT' } elseif ($Manager.Name -eq 'winget' -and -not [String]::IsNullOrWhiteSpace($Source)) { $Source } else { '' }
                 Description = if (-not [String]::IsNullOrWhiteSpace($Description)) { $Description } else { $Notes }
                 Notes = $Notes
                 Command = $Manager.Command
@@ -1557,6 +1561,8 @@ function Upgrade-PlatformPackage
             }
 
             $nameWidth = [Math]::Min(36, [Math]::Max(4, (($PackageUpdates | ForEach-Object { $_.Name.Length } | Measure-Object -Maximum).Maximum)))
+            $idWidth = [Math]::Min(34, [Math]::Max(2, (($PackageUpdates | ForEach-Object { "$($_.Id)".Length } | Measure-Object -Maximum).Maximum)))
+            $publisherWidth = [Math]::Min(20, [Math]::Max(9, (($PackageUpdates | ForEach-Object { "$($_.Publisher)".Length } | Measure-Object -Maximum).Maximum)))
             $installedWidth = [Math]::Min(20, [Math]::Max(9, (($PackageUpdates | ForEach-Object { $_.InstalledVersion.Length } | Measure-Object -Maximum).Maximum)))
             $latestWidth = [Math]::Min(20, [Math]::Max(6, (($PackageUpdates | ForEach-Object { $_.LatestVersion.Length } | Measure-Object -Maximum).Maximum)))
             $typeWidth = [Math]::Min(12, [Math]::Max(4, (($PackageUpdates | ForEach-Object { $_.Type.Length } | Measure-Object -Maximum).Maximum)))
@@ -1858,13 +1864,13 @@ function Upgrade-PlatformPackage
                     )
                     if ($showUninstallPrevious)
                     {
-                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', 'Unp', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth)) -ForegroundColor DarkGray
-                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f '---', '---', ('-' * $nameWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth)) -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6} {7}' -f 'Sel', 'Unp', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Publisher' -Width $publisherWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth)) -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6} {7}' -f '---', '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $publisherWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth)) -ForegroundColor DarkGray
                     }
                     else
                     {
-                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth)) -ForegroundColor DarkGray
-                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4}' -f '---', ('-' * $nameWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth)) -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Publisher' -Width $publisherWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth)) -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6}' -f '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $publisherWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth)) -ForegroundColor DarkGray
                     }
 
                     for ($i = $topIndex; $i -le $bottomIndex; $i++)
@@ -1875,11 +1881,11 @@ function Upgrade-PlatformPackage
                         if ($showUninstallPrevious)
                         {
                             $uninstallMarker = if ($uninstallPreviousFlags[$i]) { '[u]' } else { '[ ]' }
-                            $packageLine = ('{0} {1} {2} {3} {4} {5} {6}' -f $cursorMarker, $selectedMarker, $uninstallMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
+                            $packageLine = ('{0} {1} {2} {3} {4} {5} {6} {7} {8}' -f $cursorMarker, $selectedMarker, $uninstallMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.Publisher -Width $publisherWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
                         }
                         else
                         {
-                            $packageLine = ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
+                            $packageLine = ('{0} {1} {2} {3} {4} {5} {6} {7}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.Publisher -Width $publisherWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
                         }
 
                         if ($i -eq $cursor)
@@ -1895,6 +1901,7 @@ function Upgrade-PlatformPackage
                     $frameLines += ''
                     $currentInstalledVersion = if ([String]::IsNullOrWhiteSpace($currentPackage.InstalledVersion)) { 'n/a' } else { $currentPackage.InstalledVersion }
                     $currentLatestVersion = if ([String]::IsNullOrWhiteSpace($currentPackage.LatestVersion)) { 'n/a' } else { $currentPackage.LatestVersion }
+                    $currentPublisher = if ([String]::IsNullOrWhiteSpace($currentPackage.Publisher)) { 'n/a' } else { $currentPackage.Publisher }
                     $currentDescription = if (-not [String]::IsNullOrWhiteSpace($currentPackage.Description))
                     {
                         $currentPackage.Description
@@ -1916,7 +1923,7 @@ function Upgrade-PlatformPackage
                         'n/a'
                     }
 
-                    $frameLines += ('Current: {0} | Id: {1} | Installed: {2} | Available: {3}' -f $currentPackage.Name, $currentPackage.Id, $currentInstalledVersion, $currentLatestVersion)
+                    $frameLines += ('Current: {0} | Id: {1} | Publisher: {2} | Installed: {3} | Available: {4}' -f $currentPackage.Name, $currentPackage.Id, $currentPublisher, $currentInstalledVersion, $currentLatestVersion)
                     $frameLines += ('Description: {0}' -f $currentDescription)
                     $frameLines += ''
                     $frameLines += "$(@($selected | Where-Object { $_ }).Count) of $($PackageUpdates.Count) package(s) selected."

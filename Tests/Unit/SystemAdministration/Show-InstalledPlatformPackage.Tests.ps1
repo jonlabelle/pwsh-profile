@@ -75,6 +75,7 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should -Be 2
             ($result | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should -Be '2.44.0'
+            ($result | Where-Object { $_.Name -eq 'git' }).Publisher | Should -Be 'Homebrew'
         }
     }
 
@@ -93,6 +94,7 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should -Be 0
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Publisher*' } -Times 1
             @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 3
         }
 
