@@ -1481,6 +1481,16 @@ function Upgrade-PlatformPackage
                 return $KeyInfo.Key -in @([ConsoleKey]::Escape, [ConsoleKey]::Q) -or $isControlC
             }
 
+            function Test-PackagePickerHelpKey
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [ConsoleKeyInfo]$KeyInfo
+                )
+
+                return $KeyInfo.KeyChar -eq '?'
+            }
+
             function Get-PackagePickerPageSize
             {
                 param(
@@ -1784,6 +1794,62 @@ function Upgrade-PlatformPackage
                 }
             }
 
+            function Show-PackagePickerHelp
+            {
+                function Write-PackagePickerHelpItem
+                {
+                    param(
+                        [Parameter(Mandatory)]
+                        [String]$Shortcut,
+
+                        [Parameter(Mandatory)]
+                        [String]$Description
+                    )
+
+                    Write-Host '  - ' -NoNewline -ForegroundColor White
+                    Write-Host "$Shortcut`: " -NoNewline -ForegroundColor White
+                    Write-Host $Description -ForegroundColor DarkGray
+                }
+
+                $restoreInPlaceRedraw = $pickerRenderState.UseInPlaceRedraw
+                $pickerRenderState.UseInPlaceRedraw = $false
+                $pickerRenderState.RenderedLineCount = 0
+
+                Clear-Host
+                Write-Host 'Upgrade-PlatformPackage Help' -ForegroundColor Cyan
+                Write-Host ''
+                Write-Host 'Navigation' -ForegroundColor White
+                Write-PackagePickerHelpItem -Shortcut 'Up/Down' -Description 'move one package'
+                Write-PackagePickerHelpItem -Shortcut 'PageUp/PageDown' -Description 'move one page'
+                Write-PackagePickerHelpItem -Shortcut 'Home/End' -Description 'move to the first or last package'
+
+                Write-Host ''
+                Write-Host 'Selection' -ForegroundColor White
+                Write-PackagePickerHelpItem -Shortcut 'Spacebar' -Description 'select or clear the current package'
+                Write-PackagePickerHelpItem -Shortcut 'A' -Description 'toggle all packages'
+                Write-PackagePickerHelpItem -Shortcut 'Enter' -Description 'upgrade selected packages'
+
+                if ($showUninstallPrevious)
+                {
+                    Write-PackagePickerHelpItem -Shortcut 'U' -Description 'toggle winget --uninstall-previous for the current package'
+                }
+
+                Write-Host ''
+                Write-Host 'Other Actions' -ForegroundColor White
+                Write-PackagePickerHelpItem -Shortcut 'D' -Description 'load a missing winget description when available'
+                Write-PackagePickerHelpItem -Shortcut 'Q, Esc, or Ctrl+C' -Description 'cancel upgrades'
+                Write-PackagePickerHelpItem -Shortcut '?' -Description 'show this help'
+
+                Write-Host ''
+                Write-Host 'Press any key to return to the picker. Q/Esc/Ctrl+C cancels.' -ForegroundColor DarkGray
+
+                $helpKey = & $KeyReader
+                Clear-Host
+                $pickerRenderState.UseInPlaceRedraw = $restoreInPlaceRedraw
+                $pickerRenderState.RenderedLineCount = 0
+                return (Test-PackagePickerCancelKey -KeyInfo $helpKey)
+            }
+
             try
             {
                 if ($usingConsoleKeyReader)
@@ -1853,7 +1919,7 @@ function Upgrade-PlatformPackage
                         -not $wingetDescriptionAttempted.ContainsKey($currentPackageLookupKey)
 
                     $pickerHintPrefix = 'Spacebar: select'
-                    $pickerHintActions = 'Enter: upgrade selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel'
+                    $pickerHintActions = 'Enter: upgrade selected  A: toggle all  Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: cancel'
                     $pickerHint = if ($showUninstallPrevious) { "$pickerHintPrefix  U: uninstall previous  $pickerHintActions" } else { "$pickerHintPrefix  $pickerHintActions" }
                     $frameLines = @(
                         (Format-PickerFrameLine -Text "Upgrade-PlatformPackage - $($PackageUpdates[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
@@ -1952,6 +2018,17 @@ function Upgrade-PlatformPackage
                     {
                         Clear-PickerFrame
                         return @()
+                    }
+
+                    if (Test-PackagePickerHelpKey -KeyInfo $key)
+                    {
+                        if (Show-PackagePickerHelp)
+                        {
+                            Clear-PickerFrame
+                            return @()
+                        }
+
+                        continue
                     }
 
                     switch ($key.Key)

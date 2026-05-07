@@ -290,6 +290,147 @@ function Show-PlatformPackageManager
             return $KeyInfo.Key -in @([ConsoleKey]::Escape, [ConsoleKey]::Q) -or $isControlC
         }
 
+        function Test-PlatformPackageManagerHelpKey
+        {
+            param(
+                [Parameter(Mandatory)]
+                [ConsoleKeyInfo]$KeyInfo
+            )
+
+            return $KeyInfo.KeyChar -eq '?'
+        }
+
+        function Show-PlatformPackageManagerHelp
+        {
+            param(
+                [Parameter()]
+                [ValidateSet('Menu', 'Result', 'SearchQuery', 'DependencyPackage', 'DependencyDirection', 'YesNo')]
+                [String]$Topic = 'Menu'
+            )
+
+            Clear-Host
+
+            $subtitle = switch ($Topic)
+            {
+                'Result' { 'Result screen shortcuts' }
+                'SearchQuery' { 'Search prompt help' }
+                'DependencyPackage' { 'Dependency package prompt help' }
+                'DependencyDirection' { 'Dependency direction help' }
+                'YesNo' { 'Confirmation prompt help' }
+                default { 'Keyboard shortcuts' }
+            }
+
+            Write-PlatformPackageManagerHeader -Title 'Platform Package Manager Help' -Subtitle $subtitle
+
+            function New-PlatformPackageManagerHelpItem
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [String]$Shortcut,
+
+                    [Parameter(Mandatory)]
+                    [String]$Description
+                )
+
+                [PSCustomObject]@{
+                    Shortcut = $Shortcut
+                    Description = $Description
+                }
+            }
+
+            function Write-PlatformPackageManagerHelpItem
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [PSCustomObject]$Item
+                )
+
+                Write-Host '  - ' -NoNewline -ForegroundColor White
+                Write-Host "$($Item.Shortcut): " -NoNewline -ForegroundColor White
+                Write-Host $Item.Description -ForegroundColor DarkGray
+            }
+
+            $helpItems = switch ($Topic)
+            {
+                'Result'
+                {
+                    @(
+                        New-PlatformPackageManagerHelpItem -Shortcut 'Any key or Enter' -Description 'return to the manager menu'
+                        New-PlatformPackageManagerHelpItem -Shortcut 'Q, Esc, or Ctrl+C' -Description 'quit the manager'
+                        New-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
+                    )
+                }
+                'SearchQuery'
+                {
+                    @(
+                        New-PlatformPackageManagerHelpItem -Shortcut 'Text' -Description 'enter a package name, package id, or registry search term'
+                        New-PlatformPackageManagerHelpItem -Shortcut 'Blank' -Description 'cancel the search workflow'
+                        New-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
+                    )
+                }
+                'DependencyPackage'
+                {
+                    @(
+                        New-PlatformPackageManagerHelpItem -Shortcut 'Text' -Description 'enter one or more package names or ids'
+                        New-PlatformPackageManagerHelpItem -Shortcut 'Comma' -Description 'separate multiple packages in one lookup'
+                        New-PlatformPackageManagerHelpItem -Shortcut 'Blank' -Description 'cancel the dependency workflow'
+                        New-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
+                    )
+                }
+                'DependencyDirection'
+                {
+                    @(
+                        New-PlatformPackageManagerHelpItem -Shortcut '1 or DependsOn' -Description 'show packages required by the requested package'
+                        New-PlatformPackageManagerHelpItem -Shortcut '2 or RequiredBy' -Description 'show packages that depend on the requested package'
+                        New-PlatformPackageManagerHelpItem -Shortcut '3 or Both' -Description 'show both relationship directions'
+                        New-PlatformPackageManagerHelpItem -Shortcut 'Blank' -Description 'use DependsOn'
+                        New-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
+                    )
+                }
+                'YesNo'
+                {
+                    @(
+                        New-PlatformPackageManagerHelpItem -Shortcut 'Y or Yes' -Description 'accept the prompt'
+                        New-PlatformPackageManagerHelpItem -Shortcut 'N or No' -Description 'decline the prompt'
+                        New-PlatformPackageManagerHelpItem -Shortcut 'Blank' -Description 'use the displayed default'
+                        New-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
+                    )
+                }
+                default
+                {
+                    @(
+                        New-PlatformPackageManagerHelpItem -Shortcut 'Up/Down' -Description 'choose an action'
+                        New-PlatformPackageManagerHelpItem -Shortcut 'Home/End' -Description 'move to the first or last action'
+                        New-PlatformPackageManagerHelpItem -Shortcut 'Enter' -Description 'run the selected action'
+                        New-PlatformPackageManagerHelpItem -Shortcut '1-5' -Description 'jump to a numbered workflow'
+                        New-PlatformPackageManagerHelpItem -Shortcut 'B' -Description 'browse installed packages'
+                        New-PlatformPackageManagerHelpItem -Shortcut 'S or I' -Description 'search and install packages'
+                        New-PlatformPackageManagerHelpItem -Shortcut 'U' -Description 'upgrade packages'
+                        New-PlatformPackageManagerHelpItem -Shortcut 'R' -Description 'remove packages'
+                        New-PlatformPackageManagerHelpItem -Shortcut 'D' -Description 'inspect dependencies'
+                        New-PlatformPackageManagerHelpItem -Shortcut 'Q, Esc, or Ctrl+C' -Description 'quit'
+                        New-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
+                    )
+                }
+            }
+
+            foreach ($item in $helpItems)
+            {
+                Write-PlatformPackageManagerHelpItem -Item $item
+            }
+
+            Write-Host ''
+            if ($KeyReader -or -not $PromptReader)
+            {
+                Write-Host 'Press any key to return.' -ForegroundColor DarkGray
+                $null = Read-PlatformPackageManagerKey
+            }
+            else
+            {
+                $null = Read-PlatformPackageManagerInput -Prompt 'Press Enter to return'
+            }
+        }
+
         function ConvertFrom-PlatformPackageManagerListInput
         {
             param(
@@ -313,11 +454,29 @@ function Show-PlatformPackageManager
         {
             param(
                 [Parameter(Mandatory)]
-                [String]$Prompt
+                [String]$Prompt,
+
+                [Parameter()]
+                [ValidateSet('DependencyPackage')]
+                [String]$HelpTopic = 'DependencyPackage'
             )
 
-            $value = Read-PlatformPackageManagerInput -Prompt $Prompt
-            return @(ConvertFrom-PlatformPackageManagerListInput -Value $value)
+            while ($true)
+            {
+                $value = Read-PlatformPackageManagerInput -Prompt "$Prompt (? for help)"
+                if ($null -eq $value)
+                {
+                    return @()
+                }
+
+                if ($value.Trim() -eq '?')
+                {
+                    Show-PlatformPackageManagerHelp -Topic $HelpTopic
+                    continue
+                }
+
+                return @(ConvertFrom-PlatformPackageManagerListInput -Value $value)
+            }
         }
 
         function Read-PlatformPackageManagerYesNo
@@ -334,7 +493,7 @@ function Show-PlatformPackageManager
 
             while ($true)
             {
-                $value = Read-PlatformPackageManagerInput -Prompt "$Prompt [$suffix]"
+                $value = Read-PlatformPackageManagerInput -Prompt "$Prompt [$suffix, ? for help]"
                 if ($null -eq $value)
                 {
                     return $null
@@ -350,6 +509,7 @@ function Show-PlatformPackageManager
                 {
                     { $_ -in @('y', 'yes') } { return $true }
                     { $_ -in @('n', 'no') } { return $false }
+                    '?' { Show-PlatformPackageManagerHelp -Topic YesNo }
                     default { Write-Host 'Enter y or n.' -ForegroundColor DarkGray }
                 }
             }
@@ -363,8 +523,9 @@ function Show-PlatformPackageManager
                 Write-Host '  1. Depends on' -ForegroundColor White
                 Write-Host '  2. Required by' -ForegroundColor White
                 Write-Host '  3. Both' -ForegroundColor White
+                Write-Host '  ?. Help' -ForegroundColor DarkGray
 
-                $value = Read-PlatformPackageManagerInput -Prompt 'Select direction [1]'
+                $value = Read-PlatformPackageManagerInput -Prompt 'Select direction [1, ? for help]'
                 if ($null -eq $value)
                 {
                     return $null
@@ -381,6 +542,7 @@ function Show-PlatformPackageManager
                     { $_ -in @('1', 'depends', 'dependson', 'depends on') } { return 'DependsOn' }
                     { $_ -in @('2', 'requiredby', 'required by', 'uses') } { return 'RequiredBy' }
                     { $_ -in @('3', 'both', 'all') } { return 'Both' }
+                    '?' { Show-PlatformPackageManagerHelp -Topic DependencyDirection }
                     default { Write-Host 'Choose 1, 2, or 3.' -ForegroundColor DarkGray }
                 }
             }
@@ -721,79 +883,94 @@ function Show-PlatformPackageManager
                 [PSCustomObject]$Result
             )
 
-            Clear-Host
-
-            $recordSummary = if ($Result.RecordCount -eq 1) { '1 record' } else { "$($Result.RecordCount) records" }
-            Write-PlatformPackageManagerHeader -Title $Result.Title -Subtitle "Result: $recordSummary"
-
-            if (-not [String]::IsNullOrWhiteSpace($Result.Message))
+            while ($true)
             {
-                Write-Host $Result.Message -ForegroundColor White
-                Write-Host ''
-            }
+                Clear-Host
 
-            if ($Result.RecordCount -gt 0)
-            {
-                $allSummaries = @(
-                    $Result.Records | Where-Object { $null -ne $_ -and -not $_.PSObject.Properties['Results'] }
-                ).Count -eq 0
+                $recordSummary = if ($Result.RecordCount -eq 1) { '1 record' } else { "$($Result.RecordCount) records" }
+                Write-PlatformPackageManagerHeader -Title $Result.Title -Subtitle "Result: $recordSummary"
 
-                if (-not $allSummaries)
+                if (-not [String]::IsNullOrWhiteSpace($Result.Message))
                 {
-                    $table = Format-PlatformPackageManagerResultTable -InputObject $Result.Records
-                    if (-not [String]::IsNullOrWhiteSpace($table))
+                    Write-Host $Result.Message -ForegroundColor White
+                    Write-Host ''
+                }
+
+                if ($Result.RecordCount -gt 0)
+                {
+                    $allSummaries = @(
+                        $Result.Records | Where-Object { $null -ne $_ -and -not $_.PSObject.Properties['Results'] }
+                    ).Count -eq 0
+
+                    if (-not $allSummaries)
                     {
-                        Write-Host $table
-                        Write-Host ''
+                        $table = Format-PlatformPackageManagerResultTable -InputObject $Result.Records
+                        if (-not [String]::IsNullOrWhiteSpace($table))
+                        {
+                            Write-Host $table
+                            Write-Host ''
+                        }
+                    }
+
+                    $detailRecords = @(Get-PlatformPackageManagerNestedResults -InputObject $Result.Records)
+                    if ($detailRecords.Count -gt 0)
+                    {
+                        Write-Host 'Details' -ForegroundColor Cyan
+                        Write-Host ('-' * 78) -ForegroundColor DarkGray
+                        $detailTable = Format-PlatformPackageManagerResultTable -InputObject $detailRecords
+                        if (-not [String]::IsNullOrWhiteSpace($detailTable))
+                        {
+                            Write-Host $detailTable
+                            Write-Host ''
+                        }
                     }
                 }
 
-                $detailRecords = @(Get-PlatformPackageManagerNestedResults -InputObject $Result.Records)
-                if ($detailRecords.Count -gt 0)
+                $statusIndicator = Get-PlatformPackageManagerOperationStatusIndicator -Records $Result.Records
+                if ($null -ne $statusIndicator)
                 {
-                    Write-Host 'Details' -ForegroundColor Cyan
-                    Write-Host ('-' * 78) -ForegroundColor DarkGray
-                    $detailTable = Format-PlatformPackageManagerResultTable -InputObject $detailRecords
-                    if (-not [String]::IsNullOrWhiteSpace($detailTable))
+                    Write-Host $statusIndicator.Text -ForegroundColor $statusIndicator.Color
+                    Write-Host ''
+                }
+
+                Write-Host 'Any key: return to menu  Q/Esc: quit  ?: help' -ForegroundColor DarkGray
+
+                $isQuit = $false
+                if ($KeyReader -or -not $PromptReader)
+                {
+                    $pauseKey = Read-PlatformPackageManagerKey
+                    if (Test-PlatformPackageManagerHelpKey -KeyInfo $pauseKey)
                     {
-                        Write-Host $detailTable
-                        Write-Host ''
+                        Show-PlatformPackageManagerHelp -Topic Result
+                        continue
+                    }
+
+                    $isQuit = Test-PlatformPackageManagerCancelKey -KeyInfo $pauseKey
+                }
+                else
+                {
+                    $rawValue = (Read-PlatformPackageManagerInput -Prompt 'Press Enter to return to menu (? for help)').Trim()
+                    if ($rawValue -eq '?')
+                    {
+                        Show-PlatformPackageManagerHelp -Topic Result
+                        continue
+                    }
+
+                    $isQuit = $rawValue.ToLowerInvariant() -in @('q', 'quit', 'exit')
+                }
+
+                if ($isQuit)
+                {
+                    return [PSCustomObject]@{
+                        Command = 'Quit'
+                        Choice = ''
                     }
                 }
-            }
 
-            $statusIndicator = Get-PlatformPackageManagerOperationStatusIndicator -Records $Result.Records
-            if ($null -ne $statusIndicator)
-            {
-                Write-Host $statusIndicator.Text -ForegroundColor $statusIndicator.Color
-                Write-Host ''
-            }
-
-            Write-Host 'Any key: return to menu  Q/Esc: quit' -ForegroundColor DarkGray
-
-            $isQuit = $false
-            if ($KeyReader -or -not $PromptReader)
-            {
-                $pauseKey = Read-PlatformPackageManagerKey
-                $isQuit = Test-PlatformPackageManagerCancelKey -KeyInfo $pauseKey
-            }
-            else
-            {
-                $rawValue = (Read-PlatformPackageManagerInput -Prompt 'Press Enter to return to menu').Trim()
-                $isQuit = $rawValue.ToLowerInvariant() -in @('q', 'quit', 'exit')
-            }
-
-            if ($isQuit)
-            {
                 return [PSCustomObject]@{
-                    Command = 'Quit'
+                    Command = 'Menu'
                     Choice = ''
                 }
-            }
-
-            return [PSCustomObject]@{
-                Command = 'Menu'
-                Choice = ''
             }
         }
 
@@ -816,12 +993,23 @@ function Show-PlatformPackageManager
 
         function Invoke-PlatformPackageManagerSearch
         {
-            $query = Read-PlatformPackageManagerInput -Prompt 'Search query'
-            if ($null -eq $query -or [String]::IsNullOrWhiteSpace($query))
+            while ($true)
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Search and Install Packages' -Message 'Search cancelled; query is required.' -AutoReturn)
+                $query = Read-PlatformPackageManagerInput -Prompt 'Search query (? for help)'
+                if ($null -eq $query -or [String]::IsNullOrWhiteSpace($query))
+                {
+                    return (Get-PlatformPackageManagerActionResult -Title 'Search and Install Packages' -Message 'Search cancelled; query is required.' -AutoReturn)
+                }
+
+                if ($query.Trim() -eq '?')
+                {
+                    Show-PlatformPackageManagerHelp -Topic SearchQuery
+                    continue
+                }
+
+                $query = $query.Trim()
+                break
             }
-            $query = $query.Trim()
 
             $parameters = Get-PlatformPackageManagerCommonParameters
             $parameters.Query = $query
@@ -1066,7 +1254,7 @@ function Show-PlatformPackageManager
 
             if ($SelectedIndex -ge 0)
             {
-                Write-Host 'Up/Down: choose  Enter: run  Number/Q: jump' -ForegroundColor DarkGray
+                Write-Host 'Up/Down: choose  Enter: run  1-5/Q: jump  ?: help' -ForegroundColor DarkGray
                 Write-Host ''
             }
         }
@@ -1081,8 +1269,18 @@ function Show-PlatformPackageManager
             $options = @(Get-PlatformPackageManagerMenuOptions)
             if ($PromptReader -and -not $KeyReader)
             {
-                Write-PlatformPackageManagerMenu -Options $options -Notification $Notification
-                return ((Read-PlatformPackageManagerInput -Prompt 'Select an action').Trim())
+                while ($true)
+                {
+                    Write-PlatformPackageManagerMenu -Options $options -Notification $Notification
+                    $promptChoice = (Read-PlatformPackageManagerInput -Prompt 'Select an action (? for help)').Trim()
+                    if ($promptChoice -eq '?')
+                    {
+                        Show-PlatformPackageManagerHelp -Topic Menu
+                        continue
+                    }
+
+                    return $promptChoice
+                }
             }
 
             $selectedIndex = 0
@@ -1093,6 +1291,12 @@ function Show-PlatformPackageManager
                 if (Test-PlatformPackageManagerCancelKey -KeyInfo $key)
                 {
                     return 'q'
+                }
+
+                if (Test-PlatformPackageManagerHelpKey -KeyInfo $key)
+                {
+                    Show-PlatformPackageManagerHelp -Topic Menu
+                    continue
                 }
 
                 switch ($key.Key)

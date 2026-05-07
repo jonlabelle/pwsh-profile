@@ -371,6 +371,34 @@ Describe 'Find-PlatformPackage' {
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: code' } -Times 1
         }
 
+        It 'shows keyboard help from the search result picker' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew search --formulae git' = Get-TestCommandResponse -Output @('git')
+                'brew search --casks git' = Get-TestCommandResponse -Output @()
+            }
+
+            $queryReader = {
+                'git'
+            }
+
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new('?', [ConsoleKey]::Oem2, $true, $false, $false)
+                [System.ConsoleKeyInfo]::new('x', [ConsoleKey]::X, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = @(Find-PlatformPackage -PackageManager brew -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
+
+            $result.Count | Should -Be 0
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Find-PlatformPackage Help' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'S or /: ' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'start a new search' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+        }
+
         It 'returns selected packages when PassThru is used' {
             $runner = & $script:NewPackageCommandRunner @{
                 'brew search --formulae git' = Get-TestCommandResponse -Output @('git', 'git-lfs')

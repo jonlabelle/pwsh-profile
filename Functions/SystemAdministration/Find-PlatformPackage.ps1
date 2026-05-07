@@ -1537,7 +1537,19 @@ function Find-PlatformPackage
                 throw 'Interactive package search requires an attached console. Use -NonInteractive with -Query for object output in non-interactive sessions.'
             }
 
-            return ConvertTo-PackageText -Value (Read-Host -Prompt 'Search registry query (blank to exit)')
+            while ($true)
+            {
+                $value = ConvertTo-PackageText -Value (Read-Host -Prompt 'Search registry query (blank to exit, ? for help)')
+                if ($value -eq '?')
+                {
+                    Write-Host 'Enter a package name, package id, or registry search term.' -ForegroundColor White
+                    Write-Host 'Blank input exits the search workflow.' -ForegroundColor White
+                    Write-Host 'Use S or / from the result picker to start another search.' -ForegroundColor White
+                    continue
+                }
+
+                return $value
+            }
         }
 
         function Invoke-SelectedPackageInstallation
@@ -1651,6 +1663,16 @@ function Find-PlatformPackage
                 $isControlC = $isControlC -or ([Int32][Char]$KeyInfo.KeyChar -eq 3)
 
                 return $KeyInfo.Key -in @([ConsoleKey]::Escape, [ConsoleKey]::Q) -or $isControlC
+            }
+
+            function Test-PackagePickerHelpKey
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [ConsoleKeyInfo]$KeyInfo
+                )
+
+                return $KeyInfo.KeyChar -eq '?'
             }
 
             function Get-PackagePickerPageSize
@@ -1967,6 +1989,66 @@ function Find-PlatformPackage
                 }
             }
 
+            function Show-PackagePickerHelp
+            {
+                function Write-PackagePickerHelpItem
+                {
+                    param(
+                        [Parameter(Mandatory)]
+                        [String]$Shortcut,
+
+                        [Parameter(Mandatory)]
+                        [String]$Description
+                    )
+
+                    Write-Host '  - ' -NoNewline -ForegroundColor White
+                    Write-Host "$Shortcut`: " -NoNewline -ForegroundColor White
+                    Write-Host $Description -ForegroundColor DarkGray
+                }
+
+                $restoreInPlaceRedraw = $pickerRenderState.UseInPlaceRedraw
+                $pickerRenderState.UseInPlaceRedraw = $false
+                $pickerRenderState.RenderedLineCount = 0
+
+                Clear-Host
+                Write-Host 'Find-PlatformPackage Help' -ForegroundColor Cyan
+                Write-Host ''
+                Write-Host 'Navigation' -ForegroundColor White
+                Write-PackagePickerHelpItem -Shortcut 'Up/Down' -Description 'move one package'
+                Write-PackagePickerHelpItem -Shortcut 'PageUp/PageDown' -Description 'move one page'
+                Write-PackagePickerHelpItem -Shortcut 'Home/End' -Description 'move to the first or last package'
+
+                Write-Host ''
+                Write-Host 'Search Actions' -ForegroundColor White
+                Write-PackagePickerHelpItem -Shortcut 'S or /' -Description 'start a new search'
+                Write-PackagePickerHelpItem -Shortcut 'I' -Description 'install selected packages, or the current package if none are selected'
+                Write-PackagePickerHelpItem -Shortcut 'D' -Description 'load a missing winget description when available'
+                Write-PackagePickerHelpItem -Shortcut 'Q, Esc, or Ctrl+C' -Description 'exit the search browser'
+                Write-PackagePickerHelpItem -Shortcut '?' -Description 'show this help'
+
+                if ($EnableSelection)
+                {
+                    Write-Host ''
+                    Write-Host 'Selection' -ForegroundColor White
+                    Write-PackagePickerHelpItem -Shortcut 'Spacebar' -Description 'select or clear the current package'
+                    Write-PackagePickerHelpItem -Shortcut 'A' -Description 'toggle all packages'
+                }
+
+                if ($EnableReturnSelection)
+                {
+                    Write-PackagePickerHelpItem -Shortcut 'Enter' -Description 'return selected packages, or the current package if none are selected'
+                }
+
+                Write-Host ''
+                Write-Host 'Press any key to return to the picker. Q/Esc/Ctrl+C exits.' -ForegroundColor DarkGray
+
+                $helpKey = & $KeyReader
+                Clear-Host
+                $pickerRenderState.UseInPlaceRedraw = $restoreInPlaceRedraw
+                $pickerRenderState.RenderedLineCount = 0
+                return (Test-PackagePickerCancelKey -KeyInfo $helpKey)
+            }
+
             try
             {
                 if ($usingConsoleKeyReader)
@@ -2063,15 +2145,15 @@ function Find-PlatformPackage
                     )
                     if ($EnableSelection -and $EnableReturnSelection)
                     {
-                        $frameLines += Format-PickerFrameLine -Text 'Spacebar: select  Enter: return current/selected  I: install current/selected  S: new search  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit' -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text 'Spacebar: select  Enter: return current/selected  I: install current/selected  S: new search  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit' -ForegroundColor DarkGray
                     }
                     elseif ($EnableSelection)
                     {
-                        $frameLines += Format-PickerFrameLine -Text 'Spacebar: select  I: install current/selected  S: new search  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit' -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text 'Spacebar: select  I: install current/selected  S: new search  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit' -ForegroundColor DarkGray
                     }
                     else
                     {
-                        $frameLines += Format-PickerFrameLine -Text 'I: install current  S: new search  Arrow keys/Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: exit' -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text 'I: install current  S: new search  Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit' -ForegroundColor DarkGray
                     }
                     $frameLines += ''
 
@@ -2154,6 +2236,20 @@ function Find-PlatformPackage
                             Action = 'Cancel'
                             SelectedPackages = @()
                         }
+                    }
+
+                    if (Test-PackagePickerHelpKey -KeyInfo $key)
+                    {
+                        if (Show-PackagePickerHelp)
+                        {
+                            Clear-PickerFrame
+                            return [PSCustomObject]@{
+                                Action = 'Cancel'
+                                SelectedPackages = @()
+                            }
+                        }
+
+                        continue
                     }
 
                     switch ($key.Key)

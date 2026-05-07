@@ -195,6 +195,52 @@ Describe 'Show-PlatformPackageManager' {
         } -Times 1
     }
 
+    It 'shows keyboard help from the manager menu' {
+        $promptReader = & $script:NewPromptReader @()
+        $keyReader = & $script:NewKeyReader @(
+            [System.ConsoleKeyInfo]::new('?', [ConsoleKey]::Oem2, $true, $false, $false)
+            [System.ConsoleKeyInfo]::new('x', [ConsoleKey]::X, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
+        )
+
+        $result = @(Show-PlatformPackageManager -PromptReader $promptReader -KeyReader $keyReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager Help' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'B: ' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'browse installed packages' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+    }
+
+    It 'shows keyboard help from a manager result screen' {
+        Mock -CommandName Upgrade-PlatformPackage -MockWith {
+            [PSCustomObject]@{
+                PackageManager = 'brew'
+                PackageManagerDisplayName = 'Homebrew'
+                TotalAvailable = 1
+                Selected = 1
+                NotSelected = 0
+                Upgraded = 1
+                Failed = 0
+                Skipped = 0
+                Results = @()
+            }
+        }
+        $promptReader = & $script:NewPromptReader @()
+        $keyReader = & $script:NewKeyReader @(
+            [System.ConsoleKeyInfo]::new('3', [ConsoleKey]::D3, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new('?', [ConsoleKey]::Oem2, $true, $false, $false)
+            [System.ConsoleKeyInfo]::new('x', [ConsoleKey]::X, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
+        )
+
+        $result = @(Show-PlatformPackageManager -PackageManager brew -PromptReader $promptReader -KeyReader $keyReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager Help' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Any key or Enter: ' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'return to the manager menu' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+    }
+
     It 'routes search installs through Install-PlatformPackage with NoSudo forwarded' {
         Mock -CommandName Install-PlatformPackage -MockWith {
             [PSCustomObject]@{
