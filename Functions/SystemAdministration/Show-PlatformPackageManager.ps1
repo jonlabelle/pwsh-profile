@@ -556,36 +556,60 @@ function Show-PlatformPackageManager
             }
         }
 
-        function Read-PlatformPackageManagerNextAction
+        function Get-PlatformPackageManagerOperationStatusIndicator
         {
-            while ($true)
+            param(
+                [Parameter()]
+                [Object[]]$Records = @()
+            )
+
+            $summaryRecord = @(
+                $Records |
+                Where-Object {
+                    $null -ne $_ -and
+                    $_.PSObject.Properties['Results'] -and
+                    (
+                        $_.PSObject.Properties['Installed'] -or
+                        $_.PSObject.Properties['Upgraded'] -or
+                        $_.PSObject.Properties['Removed']
+                    )
+                } |
+                Select-Object -First 1
+            )
+
+            if ($summaryRecord.Count -eq 0)
             {
-                $value = (Read-PlatformPackageManagerInput -Prompt 'Next action').Trim()
-                if ([String]::IsNullOrWhiteSpace($value) -or $value.ToLowerInvariant() -in @('m', 'menu'))
-                {
-                    return [PSCustomObject]@{
-                        Command = 'Menu'
-                        Choice = ''
-                    }
-                }
+                return $null
+            }
 
-                if ($value.ToLowerInvariant() -in @('q', 'quit', 'exit'))
-                {
-                    return [PSCustomObject]@{
-                        Command = 'Quit'
-                        Choice = ''
-                    }
-                }
+            $record = $summaryRecord[0]
+            $parts = [System.Collections.Generic.List[String]]::new()
+            $failedCount = if ($record.PSObject.Properties['Failed']) { [Int32]$record.Failed } else { 0 }
+            $skippedCount = if ($record.PSObject.Properties['Skipped']) { [Int32]$record.Skipped } else { 0 }
 
-                if ($value.ToLowerInvariant() -in @('1', '2', '4', '5', '6', 'installed', 'browse', 'search', 'find', 'install', 'upgrade', 'update', 'remove', 'uninstall', 'deps', 'dependencies', 'dependency'))
-                {
-                    return [PSCustomObject]@{
-                        Command = 'Action'
-                        Choice = $value
-                    }
-                }
+            if ($record.PSObject.Properties['Installed'])
+            {
+                $parts.Add("Installed: $([Int32]$record.Installed)")
+            }
 
-                Write-Host 'Choose Enter/M for menu, 1, 2, 4-6 for another action, or Q to quit.' -ForegroundColor DarkGray
+            if ($record.PSObject.Properties['Upgraded'])
+            {
+                $parts.Add("Upgraded: $([Int32]$record.Upgraded)")
+            }
+
+            if ($record.PSObject.Properties['Removed'])
+            {
+                $parts.Add("Removed: $([Int32]$record.Removed)")
+            }
+
+            $parts.Add("Failed: $failedCount")
+            $parts.Add("Skipped: $skippedCount")
+
+            $color = if ($failedCount -gt 0) { 'Red' } elseif ($skippedCount -gt 0) { 'Yellow' } else { 'Green' }
+
+            return [PSCustomObject]@{
+                Text = $parts -join '  |  '
+                Color = $color
             }
         }
 
@@ -630,8 +654,39 @@ function Show-PlatformPackageManager
                 }
             }
 
-            Write-Host 'Enter/M: menu  1,2,4-6: run another action  Q: quit' -ForegroundColor DarkGray
-            return (Read-PlatformPackageManagerNextAction)
+            $statusIndicator = Get-PlatformPackageManagerOperationStatusIndicator -Records $Result.Records
+            if ($null -ne $statusIndicator)
+            {
+                Write-Host $statusIndicator.Text -ForegroundColor $statusIndicator.Color
+                Write-Host ''
+            }
+
+            Write-Host 'Any key: return to menu  Q/Esc: quit' -ForegroundColor DarkGray
+
+            $isQuit = $false
+            if ($KeyReader -or -not $PromptReader)
+            {
+                $pauseKey = Read-PlatformPackageManagerKey
+                $isQuit = Test-PlatformPackageManagerCancelKey -KeyInfo $pauseKey
+            }
+            else
+            {
+                $rawValue = (Read-PlatformPackageManagerInput -Prompt 'Press Enter to return to menu').Trim()
+                $isQuit = $rawValue.ToLowerInvariant() -in @('q', 'quit', 'exit')
+            }
+
+            if ($isQuit)
+            {
+                return [PSCustomObject]@{
+                    Command = 'Quit'
+                    Choice = ''
+                }
+            }
+
+            return [PSCustomObject]@{
+                Command = 'Menu'
+                Choice = ''
+            }
         }
 
         function Invoke-PlatformPackageManagerInstalledBrowser

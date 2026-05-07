@@ -136,10 +136,11 @@ Describe 'Show-PlatformPackageManager' {
             'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0', 'gh 2.50.0')
             'brew list --cask --versions' = Get-TestCommandResponse -Output @()
         }
-        $promptReader = & $script:NewPromptReader @('q')
+        $promptReader = & $script:NewPromptReader @()
         $keyReader = & $script:NewKeyReader @(
             [System.ConsoleKeyInfo]::new('1', [ConsoleKey]::D1, $false, $false, $false)
             [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            [System.ConsoleKeyInfo]::new([Char]27, [ConsoleKey]::Escape, $false, $false, $false)
         )
 
         $result = @(Show-PlatformPackageManager -PackageManager brew -CommandRunner $runner -PromptReader $promptReader -KeyReader $keyReader)
@@ -175,10 +176,11 @@ Describe 'Show-PlatformPackageManager' {
                 Results = @()
             }
         }
-        $promptReader = & $script:NewPromptReader @('git', 'q')
+        $promptReader = & $script:NewPromptReader @('git')
         $keyReader = & $script:NewKeyReader @(
             [System.ConsoleKeyInfo]::new([Char]0, [ConsoleKey]::DownArrow, $false, $false, $false)
             [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
         )
 
         $result = @(Show-PlatformPackageManager -PackageManager apt -NoSudo -PromptReader $promptReader -KeyReader $keyReader)
@@ -228,11 +230,12 @@ Describe 'Show-PlatformPackageManager' {
             )
             'winget upgrade --id Git.Git --exact --accept-package-agreements --accept-source-agreements --uninstall-previous' = Get-TestCommandResponse -Output @('winget upgrade output')
         }
-        $promptReader = & $script:NewPromptReader @('q')
+        $promptReader = & $script:NewPromptReader @()
         $keyReader = & $script:NewKeyReader @(
             [System.ConsoleKeyInfo]::new('4', [ConsoleKey]::D4, $false, $false, $false)
             [System.ConsoleKeyInfo]::new(' ', [ConsoleKey]::Spacebar, $false, $false, $false)
             [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
         )
 
         $result = @(Show-PlatformPackageManager -PackageManager winget -SkipRefresh -UninstallPrevious -CommandRunner $runner -PromptReader $promptReader -KeyReader $keyReader)
@@ -250,10 +253,11 @@ Describe 'Show-PlatformPackageManager' {
             'brew uses --installed visual-studio-code' = Get-TestCommandResponse -Output @()
             'brew uninstall --cask --zap visual-studio-code' = Get-TestCommandResponse -Output @('brew zap output')
         }
-        $promptReader = & $script:NewPromptReader @('q')
+        $promptReader = & $script:NewPromptReader @()
         $keyReader = & $script:NewKeyReader @(
             [System.ConsoleKeyInfo]::new('5', [ConsoleKey]::D5, $false, $false, $false)
             [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
         )
 
         $result = @(
@@ -267,6 +271,111 @@ Describe 'Show-PlatformPackageManager' {
         ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall --cask --zap visual-studio-code' }).StreamOutput | Should -BeTrue
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew zap output' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Removed' } -Times 1
+    }
+
+    It 'shows a green status indicator after a successful upgrade' {
+        $runner = & $script:NewPackageCommandRunner @{
+            'winget upgrade --accept-source-agreements --output json' = Get-TestCommandResponse -ExitCode 1 -Output @('Unrecognized argument: --output')
+            'winget upgrade --accept-source-agreements' = Get-TestCommandResponse -Output @(
+                'Name               Id                          Version Available Source'
+                '-----------------------------------------------------------------------'
+                'Git                Git.Git                     2.43.0  2.44.0    winget'
+            )
+            'winget upgrade --id Git.Git --exact --accept-package-agreements --accept-source-agreements' = Get-TestCommandResponse -Output @('winget upgrade output')
+        }
+        $promptReader = & $script:NewPromptReader @()
+        $keyReader = & $script:NewKeyReader @(
+            [System.ConsoleKeyInfo]::new('4', [ConsoleKey]::D4, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new(' ', [ConsoleKey]::Spacebar, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
+        )
+
+        $result = @(Show-PlatformPackageManager -PackageManager winget -SkipRefresh -CommandRunner $runner -PromptReader $promptReader -KeyReader $keyReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Upgraded: 1' -and $ForegroundColor -eq 'Green' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Failed: 0' -and $ForegroundColor -eq 'Green' } -Times 1
+    }
+
+    It 'shows a green status indicator after a successful install' {
+        Mock -CommandName Install-PlatformPackage -MockWith {
+            [PSCustomObject]@{
+                PackageManager = 'apt'
+                PackageManagerDisplayName = 'APT'
+                TotalMatched = 1
+                Selected = 1
+                NotSelected = 0
+                Installed = 1
+                Skipped = 0
+                Failed = 0
+                Results = @()
+            }
+        }
+        $promptReader = & $script:NewPromptReader @('2', 'git', 'q')
+
+        $result = @(Show-PlatformPackageManager -PackageManager apt -NoSudo -PromptReader $promptReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Installed: 1' -and $ForegroundColor -eq 'Green' } -Times 1
+    }
+
+    It 'shows a red status indicator when an operation has failures' {
+        Mock -CommandName Install-PlatformPackage -MockWith {
+            [PSCustomObject]@{
+                PackageManager = 'apt'
+                PackageManagerDisplayName = 'APT'
+                TotalMatched = 2
+                Selected = 2
+                NotSelected = 0
+                Installed = 1
+                Skipped = 0
+                Failed = 1
+                Results = @()
+            }
+        }
+        $promptReader = & $script:NewPromptReader @('2', 'git', 'q')
+
+        $result = @(Show-PlatformPackageManager -PackageManager apt -NoSudo -PromptReader $promptReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Installed: 1' -and $ForegroundColor -eq 'Red' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Failed: 1' -and $ForegroundColor -eq 'Red' } -Times 1
+    }
+
+    It 'shows a yellow status indicator when packages were skipped but none failed' {
+        Mock -CommandName Install-PlatformPackage -MockWith {
+            [PSCustomObject]@{
+                PackageManager = 'apt'
+                PackageManagerDisplayName = 'APT'
+                TotalMatched = 3
+                Selected = 3
+                NotSelected = 0
+                Installed = 2
+                Skipped = 1
+                Failed = 0
+                Results = @()
+            }
+        }
+        $promptReader = & $script:NewPromptReader @('2', 'git', 'q')
+
+        $result = @(Show-PlatformPackageManager -PackageManager apt -NoSudo -PromptReader $promptReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Installed: 2' -and $ForegroundColor -eq 'Yellow' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Skipped: 1' -and $ForegroundColor -eq 'Yellow' } -Times 1
+    }
+
+    It 'does not show a status indicator for dependency lookups' {
+        $runner = & $script:NewPackageCommandRunner @{
+            'brew deps --direct git' = Get-TestCommandResponse -Output @('gettext')
+        }
+        $promptReader = & $script:NewPromptReader @('6', 'git', '1', 'n', 'q')
+
+        $result = @(Show-PlatformPackageManager -PackageManager brew -CommandRunner $runner -PromptReader $promptReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Installed:|Upgraded:|Removed:' } -Times 0
     }
 
     It 'shows dependency records from the manager' {
@@ -302,6 +411,5 @@ Describe 'Show-PlatformPackageManager' {
         $result.Count | Should -Be 0
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Package Dependencies' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Enter/M: menu  1,2,4-6: run another action  Q: quit' } -Times 1
     }
 }
