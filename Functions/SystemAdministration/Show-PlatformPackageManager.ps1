@@ -183,7 +183,7 @@ function Show-PlatformPackageManager
                 $value = & $PromptReader -Prompt $Prompt
                 if ($null -eq $value)
                 {
-                    return ''
+                    return $null
                 }
 
                 return "$value"
@@ -201,7 +201,51 @@ function Show-PlatformPackageManager
                 throw 'Interactive package management requires an attached console.'
             }
 
-            return (Read-Host -Prompt $Prompt)
+            return Read-PlatformPackageManagerLineInput -Prompt $Prompt
+        }
+
+        function Read-PlatformPackageManagerLineInput
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$Prompt
+            )
+
+            [Console]::Write("$Prompt`: ")
+            $buffer = [System.Text.StringBuilder]::new()
+
+            while ($true)
+            {
+                $key = [Console]::ReadKey($true)
+
+                if ($key.Key -eq [ConsoleKey]::Enter)
+                {
+                    [Console]::WriteLine()
+                    return $buffer.ToString()
+                }
+
+                if ($key.Key -eq [ConsoleKey]::Escape)
+                {
+                    [Console]::WriteLine()
+                    return $null
+                }
+
+                if ($key.Key -eq [ConsoleKey]::Backspace)
+                {
+                    if ($buffer.Length -gt 0)
+                    {
+                        $buffer.Length = $buffer.Length - 1
+                        [Console]::Write("`b `b")
+                    }
+                    continue
+                }
+
+                if ($key.KeyChar -ge [char]32)
+                {
+                    $buffer.Append($key.KeyChar) | Out-Null
+                    [Console]::Write($key.KeyChar)
+                }
+            }
         }
 
         function Read-PlatformPackageManagerKey
@@ -290,7 +334,13 @@ function Show-PlatformPackageManager
 
             while ($true)
             {
-                $value = (Read-PlatformPackageManagerInput -Prompt "$Prompt [$suffix]").Trim()
+                $value = Read-PlatformPackageManagerInput -Prompt "$Prompt [$suffix]"
+                if ($null -eq $value)
+                {
+                    return $null
+                }
+
+                $value = $value.Trim()
                 if ([String]::IsNullOrWhiteSpace($value))
                 {
                     return $DefaultYes.IsPresent
@@ -314,7 +364,13 @@ function Show-PlatformPackageManager
                 Write-Host '  2. Required by' -ForegroundColor White
                 Write-Host '  3. Both' -ForegroundColor White
 
-                $value = (Read-PlatformPackageManagerInput -Prompt 'Select direction [1]').Trim()
+                $value = Read-PlatformPackageManagerInput -Prompt 'Select direction [1]'
+                if ($null -eq $value)
+                {
+                    return $null
+                }
+
+                $value = $value.Trim()
                 if ([String]::IsNullOrWhiteSpace($value))
                 {
                     return 'DependsOn'
@@ -760,11 +816,12 @@ function Show-PlatformPackageManager
 
         function Invoke-PlatformPackageManagerSearch
         {
-            $query = (Read-PlatformPackageManagerInput -Prompt 'Search query').Trim()
-            if ([String]::IsNullOrWhiteSpace($query))
+            $query = Read-PlatformPackageManagerInput -Prompt 'Search query'
+            if ($null -eq $query -or [String]::IsNullOrWhiteSpace($query))
             {
                 return (Get-PlatformPackageManagerActionResult -Title 'Search and Install Packages' -Message 'Search cancelled; query is required.' -AutoReturn)
             }
+            $query = $query.Trim()
 
             $parameters = Get-PlatformPackageManagerCommonParameters
             $parameters.Query = $query
@@ -852,7 +909,16 @@ function Show-PlatformPackageManager
             }
 
             $direction = Read-PlatformPackageDependencyDirection
-            $installedOnly = Read-PlatformPackageManagerYesNo -Prompt 'Limit related packages to installed packages?'
+            if ($null -eq $direction)
+            {
+                return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message 'Dependency lookup cancelled.' -AutoReturn)
+            }
+
+            $installedOnly = Read-PlatformPackageManagerYesNo -Prompt 'Limit related packages to installed packages?' -DefaultYes
+            if ($null -eq $installedOnly)
+            {
+                return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message 'Dependency lookup cancelled.' -AutoReturn)
+            }
 
             if ($PackageManager -eq 'winget' -and $direction -eq 'RequiredBy')
             {
