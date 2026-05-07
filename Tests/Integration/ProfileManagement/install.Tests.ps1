@@ -480,6 +480,89 @@ Describe 'install.ps1 integration tests' {
         }
     }
 
+    Context 'WhatIf mode' {
+        It 'previews local installs without changing profile files or creating a backup' {
+            $testRoot = Join-Path -Path $TestDrive -ChildPath ('WhatIfInstall_{0}' -f ([guid]::NewGuid().ToString('N')))
+            $profileRoot = Join-Path -Path $testRoot -ChildPath 'ProfileRoot'
+            $sourceRoot = Join-Path -Path $testRoot -ChildPath 'SourceRoot'
+
+            try
+            {
+                New-Item -ItemType Directory -Path $profileRoot -Force | Out-Null
+                New-Item -ItemType Directory -Path $sourceRoot -Force | Out-Null
+                Set-Content -Path (Join-Path -Path $profileRoot -ChildPath 'current.ps1') -Value 'current profile'
+                Set-Content -Path (Join-Path -Path $sourceRoot -ChildPath 'installed.ps1') -Value 'installed profile'
+
+                & $script:installScript -ProfileRoot $profileRoot -LocalSourcePath $sourceRoot -WhatIf -Verbose:$false
+
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'current.ps1') | Should -BeTrue
+                (Get-Content (Join-Path -Path $profileRoot -ChildPath 'current.ps1')) | Should -Be 'current profile'
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'installed.ps1') | Should -BeFalse
+
+                $profileParent = Split-Path -Parent $profileRoot
+                $profileLeaf = Split-Path -Leaf $profileRoot
+                (Get-ChildItem -Path $profileParent -Directory -Filter "$profileLeaf-backup-*" -ErrorAction SilentlyContinue).Count | Should -Be 0
+            }
+            finally
+            {
+                if (Test-Path -Path $testRoot)
+                {
+                    Remove-TestDirectory -Path $testRoot
+                }
+            }
+        }
+
+        It 'previews repository installs without creating a missing profile root' {
+            $testRoot = Join-Path -Path $TestDrive -ChildPath ('WhatIfClone_{0}' -f ([guid]::NewGuid().ToString('N')))
+            $profileRoot = Join-Path -Path $testRoot -ChildPath 'ProfileRoot'
+
+            try
+            {
+                New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
+
+                & $script:installScript -ProfileRoot $profileRoot -RepositoryUrl $script:repoRoot -SkipBackup -SkipPreserveDirectories -WhatIf -Verbose:$false
+
+                Test-Path -Path $profileRoot | Should -BeFalse
+            }
+            finally
+            {
+                if (Test-Path -Path $testRoot)
+                {
+                    Remove-TestDirectory -Path $testRoot
+                }
+            }
+        }
+
+        It 'previews restores without replacing files or creating an explicit backup' {
+            $testRoot = Join-Path -Path $TestDrive -ChildPath ('WhatIfRestore_{0}' -f ([guid]::NewGuid().ToString('N')))
+            $profileRoot = Join-Path -Path $testRoot -ChildPath 'ProfileRoot'
+            $backupRoot = Join-Path -Path $testRoot -ChildPath 'BackupSource'
+            $explicitBackup = Join-Path -Path $testRoot -ChildPath 'ExplicitBackup'
+
+            try
+            {
+                New-Item -ItemType Directory -Path $profileRoot -Force | Out-Null
+                New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
+                Set-Content -Path (Join-Path -Path $profileRoot -ChildPath 'current.ps1') -Value 'current profile'
+                Set-Content -Path (Join-Path -Path $backupRoot -ChildPath 'restored.ps1') -Value 'restored profile'
+
+                & $script:installScript -ProfileRoot $profileRoot -RestorePath $backupRoot -BackupPath $explicitBackup -WhatIf -Verbose:$false
+
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'current.ps1') | Should -BeTrue
+                (Get-Content (Join-Path -Path $profileRoot -ChildPath 'current.ps1')) | Should -Be 'current profile'
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'restored.ps1') | Should -BeFalse
+                Test-Path -Path $explicitBackup | Should -BeFalse
+            }
+            finally
+            {
+                if (Test-Path -Path $testRoot)
+                {
+                    Remove-TestDirectory -Path $testRoot
+                }
+            }
+        }
+    }
+
     Context 'Zip download fallback' {
         It 'downloads and extracts repository as zip when git is not available' {
             $testRoot = Join-Path -Path $TestDrive -ChildPath ('ZipDownload_{0}' -f ([guid]::NewGuid().ToString('N')))

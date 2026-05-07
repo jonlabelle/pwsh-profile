@@ -111,7 +111,7 @@ Use the provided [install.ps1](install.ps1) script to automate backups (during i
 
 ### Quick Install (one-liner)
 
-> The script is downloaded and piped directly into PowerShell. If you prefer to [inspect](install.ps1) it first, [download](https://raw.githubusercontent.com/jonlabelle/pwsh-profile/refs/heads/main/install.ps1) it to disk and run it via `-File`.
+> The script is downloaded and piped directly into PowerShell. Use this pipe form for the default install only; PowerShell does not pass named installer parameters after `pwsh -` or `powershell -`. If you need options such as `-FullCloneHistory`, `-SkipBackup`, `-RestorePath`, or `-WhatIf`, [download](https://raw.githubusercontent.com/jonlabelle/pwsh-profile/refs/heads/main/install.ps1) the script first and run it with `-File`.
 
 #### PowerShell Core (pwsh)
 
@@ -130,15 +130,25 @@ irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1'
 ### Alternative Install Methods
 
 <details>
-<summary><strong>Run install.ps1 Locally</strong></summary>
+<summary><strong>Run install.ps1 with Parameters</strong></summary>
 
-#### Run install.ps1 Locally
+#### Run install.ps1 with Parameters
 
-If you already cloned [this repository](https://github.com/jonlabelle/pwsh-profile) (or downloaded [install.ps1](install.ps1)), run it from the repo root:
+If you already cloned [this repository](https://github.com/jonlabelle/pwsh-profile) (or downloaded [install.ps1](install.ps1)), run it from the repo root with `-File`:
 
 ```bash
 pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1
 ```
+
+To pass parameters while downloading the installer from GitHub, save it first and then run it with `-File`:
+
+```powershell
+$installScript = Join-Path ([System.IO.Path]::GetTempPath()) 'pwsh-profile-install.ps1'
+irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' -OutFile $installScript
+pwsh -NoProfile -ExecutionPolicy Bypass -File $installScript -FullCloneHistory -SkipBackup
+```
+
+Use `powershell` instead of `pwsh` in the final line when installing for Windows PowerShell Desktop 5.1.
 
 ---
 
@@ -155,6 +165,9 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1
 - `-PreserveDirectories @('Dir1','Dir2')` — Only restore the relative profile paths you specify. The default list includes `Functions/Local`, `Help`, `Modules`, `PSReadLine`, `Scripts`, and `powershell.config.json`.
 - `-LocalSourcePath <path>` — Copy profile files from a local directory instead of cloning from Git.
 - `-ProfileRoot <path>` — Use a custom profile directory instead of the default.
+- `-FullCloneHistory` — Clone the full Git history instead of the default shallow clone.
+- `-RestorePath <path>` — Restore profile files from a backup directory.
+- `-WhatIf` — Preview the install or restore without changing files.
 
 For more examples, see the [install.ps1](install.ps1) script documentation.
 
@@ -172,15 +185,17 @@ You can restore your profile from a previous backup created by the install scrip
 **Restore from a backup (no new backup is made):**
 
 ```powershell
-irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' |
-    pwsh -NoProfile -ExecutionPolicy Bypass - -RestorePath 'C:\Users\you\Documents\WindowsPowerShell-backup-20251116-110000'
+$installScript = Join-Path ([System.IO.Path]::GetTempPath()) 'pwsh-profile-install.ps1'
+irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' -OutFile $installScript
+pwsh -NoProfile -ExecutionPolicy Bypass -File $installScript -RestorePath 'C:\Users\you\Documents\WindowsPowerShell-backup-20251116-110000'
 ```
 
 **Restore and save a backup of your current profile before restoring:**
 
 ```powershell
-irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' |
-    pwsh -NoProfile -ExecutionPolicy Bypass - -RestorePath 'C:\Users\you\Documents\WindowsPowerShell-backup-20251116-110000' -BackupPath 'C:\Users\you\Documents\WindowsPowerShell-backup-pre-restore'
+$installScript = Join-Path ([System.IO.Path]::GetTempPath()) 'pwsh-profile-install.ps1'
+irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' -OutFile $installScript
+pwsh -NoProfile -ExecutionPolicy Bypass -File $installScript -RestorePath 'C:\Users\you\Documents\WindowsPowerShell-backup-20251116-110000' -BackupPath 'C:\Users\you\Documents\WindowsPowerShell-backup-pre-restore'
 ```
 
 ---

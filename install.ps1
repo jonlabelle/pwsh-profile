@@ -16,6 +16,10 @@
 
         To restore from a backup, use: `pwsh -NoProfile -File ./install.ps1 -RestorePath 'path\to\backup'`
 
+        When downloading the script and piping it to `pwsh -` or `powershell -`, PowerShell does not pass named installer
+        parameters to the downloaded script. Use the pipe form only for the default install. To pass parameters such as
+        `-FullCloneHistory`, `-SkipBackup`, `-RestorePath`, or `-WhatIf`, save the script first and run it with `-File`.
+
     .PARAMETER ProfileRoot
         Overrides the detected profile root directory (defaults to `Split-Path -Parent $PROFILE`).
 
@@ -45,20 +49,26 @@
     .PARAMETER FullCloneHistory
         Clones the full Git history when installing from a repository. By default, the script performs a shallow clone (`--depth 1`).
 
-    .EXAMPLE
-        PS > irm https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1 | pwsh -NoProfile -ExecutionPolicy Bypass - -Verbose
+    .PARAMETER WhatIf
+        Shows which profile paths would be backed up, preserved, removed, copied, cloned, or restored without changing files.
 
-        Downloads and runs the installer with PowerShell Core, producing verbose output.
+    .EXAMPLE
+        PS > irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' | pwsh -NoProfile -ExecutionPolicy Bypass -
+
+        Downloads and runs the default installer with PowerShell Core.
 
     .EXAMPLE
         PS > irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' | powershell -NoProfile -ExecutionPolicy Bypass -
 
-        Downloads and runs the installer for PowerShell Desktop.
+        Downloads and runs the default installer for PowerShell Desktop.
 
     .EXAMPLE
-        PS > irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' | pwsh -NoProfile -ExecutionPolicy Bypass - -FullCloneHistory -Verbose
+        PS > $installScript = Join-Path ([System.IO.Path]::GetTempPath()) 'pwsh-profile-install.ps1'
+        PS > irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1' -OutFile $installScript
+        PS > pwsh -NoProfile -ExecutionPolicy Bypass -File $installScript -FullCloneHistory -SkipBackup -Verbose
 
-        Downloads and runs the installer with PowerShell Core using full clone history (all commits) instead of a shallow clone.
+        Downloads the installer to a temporary file and runs it with parameters. Use `powershell` instead of `pwsh` when
+        installing for Windows PowerShell Desktop 5.1.
 
     .EXAMPLE
         PS > pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1 -Verbose
@@ -186,6 +196,10 @@ $psExecutable = if ($PSVersionTable.PSVersion.Major -lt 6) { 'powershell' } else
 # Used to restore the working directory after installation
 $originalLocation = $null
 
+# Preserve the script-level bound parameters for helper functions. Functions have
+# their own $PSBoundParameters dictionary, so they cannot read this value directly.
+$installerBoundParameters = @{} + $PSBoundParameters
+
 function Test-ParameterConflicts
 {
     <#
@@ -207,13 +221,13 @@ function Test-ParameterConflicts
         return $false
     }
 
-    if ($RestorePath -and $RepositoryUrl -and $PSBoundParameters.ContainsKey('RepositoryUrl'))
+    if ($RestorePath -and $RepositoryUrl -and $installerBoundParameters.ContainsKey('RepositoryUrl'))
     {
         Write-Error 'Cannot use both RestorePath and RepositoryUrl parameters together. Use RestorePath to restore from a backup, or RepositoryUrl to install from a Git repository.'
         return $false
     }
 
-    if ($LocalSourcePath -and $RepositoryUrl -and $PSBoundParameters.ContainsKey('RepositoryUrl'))
+    if ($LocalSourcePath -and $RepositoryUrl -and $installerBoundParameters.ContainsKey('RepositoryUrl'))
     {
         Write-Error 'Cannot use both LocalSourcePath and RepositoryUrl parameters together. Use LocalSourcePath to install from a local directory, or RepositoryUrl to clone from a Git repository.'
         return $false
@@ -225,7 +239,7 @@ function Test-ParameterConflicts
         return $false
     }
 
-    if ($RestorePath -and $PreserveDirectories -and $PSBoundParameters.ContainsKey('PreserveDirectories'))
+    if ($RestorePath -and $PreserveDirectories -and $installerBoundParameters.ContainsKey('PreserveDirectories'))
     {
         Write-Error 'Cannot use both RestorePath and PreserveDirectories parameters together. RestorePath restores the entire backup directory without selective preservation.'
         return $false
@@ -267,6 +281,25 @@ function Get-DefaultProfileRoot
     return Split-Path -Parent $PROFILE
 }
 
+function Get-BackupDestinationPath
+{
+    param(
+        [Parameter(Mandatory)]
+        [string]$SourcePath,
+
+        [Parameter()]
+        [string]$DestinationPath
+    )
+
+    if ($DestinationPath)
+    {
+        return Resolve-ProviderPath -PathToResolve $DestinationPath
+    }
+
+    $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    return '{0}-backup-{1}' -f $SourcePath, $timestamp
+}
+
 function New-ProfileBackup
 {
     [CmdletBinding(SupportsShouldProcess = $true)]
@@ -283,13 +316,7 @@ function New-ProfileBackup
         return $null
     }
 
-    if (-not $DestinationPath)
-    {
-        $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-        $DestinationPath = '{0}-backup-{1}' -f $SourcePath, $timestamp
-    }
-
-    $resolvedDestination = Resolve-ProviderPath -PathToResolve $DestinationPath
+    $resolvedDestination = Get-BackupDestinationPath -SourcePath $SourcePath -DestinationPath $DestinationPath
     Write-Verbose "Creating backup at $resolvedDestination"
     if ($PSCmdlet.ShouldProcess($resolvedDestination, "Backup profile from '$SourcePath'"))
     {
@@ -457,6 +484,129 @@ function Show-ExecutionPolicyGuidance
 
     Write-Host 'If you encounter an execution policy error when PowerShell starts, run:' -ForegroundColor Yellow
     Write-Host '  Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser' -ForegroundColor Gray
+    Write-Host ''
+}
+
+function Invoke-InstallWhatIfPreview
+{
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ResolvedProfileRoot,
+
+        [Parameter()]
+        [string]$ResolvedRestorePath,
+
+        [Parameter()]
+        [string]$ResolvedLocalSourcePath
+    )
+
+    Write-Host ''
+    Write-Host 'WhatIf: Previewing PowerShell profile changes. No files will be changed.' -ForegroundColor Yellow
+
+    $profileExists = Test-Path -Path $ResolvedProfileRoot
+
+    if ($ResolvedRestorePath)
+    {
+        if (-not (Test-Path -Path $ResolvedRestorePath -PathType Container))
+        {
+            throw "Backup path not found: $ResolvedRestorePath"
+        }
+
+        if ($installerBoundParameters.ContainsKey('BackupPath') -and $profileExists)
+        {
+            $backupDestination = Get-BackupDestinationPath -SourcePath $ResolvedProfileRoot -DestinationPath $BackupPath
+            $null = $PSCmdlet.ShouldProcess($backupDestination, "Backup profile from '$ResolvedProfileRoot'")
+        }
+
+        if ($profileExists)
+        {
+            $null = $PSCmdlet.ShouldProcess($ResolvedProfileRoot, 'Remove existing profile directory before restore')
+        }
+
+        $null = $PSCmdlet.ShouldProcess($ResolvedProfileRoot, "Restore profile from '$ResolvedRestorePath'")
+        Write-Host ''
+        Write-Host 'WhatIf: Profile restore preview complete. No changes were made.' -ForegroundColor Yellow
+        Write-Host ''
+        return
+    }
+
+    $pathsToPreserve = @()
+    if (-not $SkipPreserveDirectories -and $profileExists)
+    {
+        foreach ($relativePath in $PreserveDirectories)
+        {
+            $sourcePath = Join-Path -Path $ResolvedProfileRoot -ChildPath $relativePath
+            if (Test-Path -Path $sourcePath)
+            {
+                $pathsToPreserve += [PSCustomObject]@{
+                    Name = $relativePath
+                    Path = $sourcePath
+                }
+            }
+        }
+
+        if ($pathsToPreserve.Count -gt 0)
+        {
+            Write-Host ''
+            Write-Host 'Preserving local profile paths ...' -ForegroundColor Cyan
+            foreach ($item in $pathsToPreserve)
+            {
+                Write-Host "  Would preserve: $($item.Name)" -ForegroundColor Gray
+                $null = $PSCmdlet.ShouldProcess($item.Path, "Preserve local profile path '$($item.Name)'")
+            }
+        }
+    }
+
+    if (-not $SkipBackup -and $profileExists)
+    {
+        $backupDestination = Get-BackupDestinationPath -SourcePath $ResolvedProfileRoot -DestinationPath $BackupPath
+        $null = $PSCmdlet.ShouldProcess($backupDestination, "Backup profile from '$ResolvedProfileRoot'")
+    }
+
+    if ($profileExists)
+    {
+        $null = $PSCmdlet.ShouldProcess($ResolvedProfileRoot, 'Remove existing profile directory')
+    }
+
+    if ($ResolvedLocalSourcePath)
+    {
+        if (-not (Test-Path -Path $ResolvedLocalSourcePath -PathType Container))
+        {
+            throw "Local source path not found: $ResolvedLocalSourcePath"
+        }
+
+        $null = $PSCmdlet.ShouldProcess($ResolvedProfileRoot, "Copy profile files from '$ResolvedLocalSourcePath'")
+    }
+    else
+    {
+        $cloneMode = if ($FullCloneHistory) { 'full history' } else { 'shallow (--depth 1)' }
+        $sourceAction = if (Get-Command -Name git -ErrorAction SilentlyContinue)
+        {
+            "Clone repository ($cloneMode) from '$RepositoryUrl'"
+        }
+        else
+        {
+            "Download repository archive from '$RepositoryUrl'"
+        }
+
+        $null = $PSCmdlet.ShouldProcess($ResolvedProfileRoot, $sourceAction)
+    }
+
+    if ($pathsToPreserve.Count -gt 0)
+    {
+        Write-Host ''
+        Write-Host 'Restoring preserved paths ...' -ForegroundColor Cyan
+        foreach ($item in $pathsToPreserve)
+        {
+            $destinationPath = Join-Path -Path $ResolvedProfileRoot -ChildPath $item.Name
+            Write-Host "  Would restore: $($item.Name)" -ForegroundColor Gray
+            $null = $PSCmdlet.ShouldProcess($destinationPath, "Restore preserved profile path '$($item.Name)'")
+        }
+    }
+
+    Write-Host ''
+    Write-Host 'WhatIf: Profile install preview complete. No changes were made.' -ForegroundColor Yellow
     Write-Host ''
 }
 
@@ -820,6 +970,15 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
         $resolvedProfileRoot = if ($ProfileRoot) { Resolve-ProviderPath -PathToResolve $ProfileRoot } else { Get-DefaultProfileRoot }
         Write-Verbose "Using profile root: $resolvedProfileRoot"
 
+        $resolvedRestorePath = if ($RestorePath) { Resolve-ProviderPath -PathToResolve $RestorePath } else { $null }
+        $resolvedLocalSource = if ($LocalSourcePath) { Resolve-ProviderPath -PathToResolve $LocalSourcePath } else { $null }
+
+        if ($WhatIfPreference)
+        {
+            Invoke-InstallWhatIfPreview -ResolvedProfileRoot $resolvedProfileRoot -ResolvedRestorePath $resolvedRestorePath -ResolvedLocalSourcePath $resolvedLocalSource
+            return
+        }
+
         # Safety check: If current directory is inside the profile directory that will be removed, switch to home directory
         if (-not $RestorePath -and (Test-Path -Path $resolvedProfileRoot))
         {
@@ -838,11 +997,9 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
 
         if ($RestorePath)
         {
-            $resolvedRestorePath = Resolve-ProviderPath -PathToResolve $RestorePath
-
             # Only create a backup during restore if BackupPath is explicitly provided
             # This prevents the awkward situation of creating a backup when restoring from one
-            if ($PSBoundParameters.ContainsKey('BackupPath') -and (Test-Path -Path $resolvedProfileRoot))
+            if ($installerBoundParameters.ContainsKey('BackupPath') -and (Test-Path -Path $resolvedProfileRoot))
             {
                 $createdBackup = New-ProfileBackup -SourcePath $resolvedProfileRoot -DestinationPath $BackupPath
                 if ($createdBackup)
@@ -921,7 +1078,6 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
 
         if ($LocalSourcePath)
         {
-            $resolvedLocalSource = Resolve-ProviderPath -PathToResolve $LocalSourcePath
             Copy-LocalSource -SourcePath $resolvedLocalSource -DestinationPath $resolvedProfileRoot
         }
         else
