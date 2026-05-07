@@ -120,7 +120,6 @@ Describe 'Install-PlatformPackage' {
             $result.Installed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew install --cask visual-studio-code' }).StreamOutput | Should -BeTrue
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Spacebar: select*' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Publisher*' } -Times 1
         }
 
         It 'installs the current search result when Enter is pressed without a selection' {

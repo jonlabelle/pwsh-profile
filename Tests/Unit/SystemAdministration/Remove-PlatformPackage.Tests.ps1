@@ -345,7 +345,6 @@ Describe 'Remove-PlatformPackage' {
             $result.Removed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).StreamOutput | Should -BeTrue
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Spacebar: select  P: purge/zap  Enter: remove current/selected  A: toggle all  Home/End/PgUp/PgDn: navigate  Ctrl+C/Q/Esc: cancel' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Publisher*' } -Times 1
         }
 
         It 'treats Ctrl+C as a cancel command' {
