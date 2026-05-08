@@ -1,12 +1,14 @@
-# Installation Guide
-
-<!-- <p align="center">
+<p align="center">
   <a href="../README.md">← Project README</a>
   &nbsp;&nbsp;&nbsp;&nbsp;
   <a href="README.md">Docs</a>
   &nbsp;&nbsp;&nbsp;&nbsp;
   <a href="functions.md">Function Catalog →</a>
-</p> -->
+</p>
+
+---
+
+# Installation Guide
 
 > This page covers detailed install, restore, and fallback workflows for the PowerShell profile. For the shortest path, use the one-liners in the main [README](../README.md#install).
 

@@ -1,14 +1,16 @@
-# Function Catalog
-
-<!-- <p align="center">
+<p align="center">
   <a href="installation.md">← Installation Guide</a>
   &nbsp;&nbsp;&nbsp;&nbsp;
   <a href="README.md">Docs</a>
   &nbsp;&nbsp;&nbsp;&nbsp;
   <a href="troubleshooting.md">Troubleshooting →</a>
-</p> -->
+</p>
 
-> Public functions live under `Functions/{Category}` and are loaded automatically by the main profile. Private helper scripts may live below category-specific `Private` folders and are excluded from this catalog.
+---
+
+# Function Catalog
+
+> Public functions live under `Functions/{Category}` and are loaded automatically by the main profile.
 
 ## Contents
 

@@ -1,12 +1,14 @@
-# Troubleshooting
-
-<!-- <p align="center">
+<p align="center">
   <a href="functions.md">← Function Catalog</a>
   &nbsp;&nbsp;&nbsp;&nbsp;
   <a href="README.md">Docs</a>
   &nbsp;&nbsp;&nbsp;&nbsp;
   <a href="remote-sessions.md">Remote Sessions →</a>
-</p> -->
+</p>
+
+---
+
+# Troubleshooting
 
 > This page covers the most common profile loading problems and diagnostics.
 

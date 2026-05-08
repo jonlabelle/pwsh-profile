@@ -1,12 +1,14 @@
-# Remote Sessions
-
-<!-- <p align="center">
+<p align="center">
   <a href="troubleshooting.md">← Troubleshooting</a>
   &nbsp;&nbsp;&nbsp;&nbsp;
   <a href="README.md">Docs</a>
   &nbsp;&nbsp;&nbsp;&nbsp;
   <a href="../README.md">Project README →</a>
-</p> -->
+</p>
+
+---
+
+# Remote Sessions
 
 > PowerShell profiles do not load automatically in remote sessions, and `$PROFILE` is not populated there. Load the profile explicitly only after the WinRM or SSH remoting connection already works.
 
