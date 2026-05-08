@@ -8,9 +8,9 @@
   <a href="../README.md">Project README →</a>
 </p> -->
 
-> PowerShell profiles do not load automatically in remote sessions created with `Enter-PSSession`, `New-PSSession`, or `Invoke-Command`. This is consistent across Windows, macOS, and Linux, whether you use WinRM or SSH-based remoting.
+> PowerShell profiles do not load automatically in remote sessions, and `$PROFILE` is not populated there. Load the profile explicitly only after the WinRM or SSH remoting connection already works.
 
-SSH-based remoting requires PowerShell 6+ and SSH on both computers. See Microsoft's [PowerShell remoting over SSH](https://learn.microsoft.com/en-us/powershell/scripting/security/remoting/ssh-remoting-in-powershell) documentation for setup details.
+SSH-based remoting requires PowerShell 6+ and SSH on both computers. See Microsoft's [PowerShell remoting over SSH](https://learn.microsoft.com/en-us/powershell/scripting/security/remoting/ssh-remoting-in-powershell) documentation for setup details. This page only covers loading this profile into an existing remote session.
 
 ## Contents
 
@@ -19,9 +19,9 @@ SSH-based remoting requires PowerShell 6+ and SSH on both computers. See Microso
 
 ## Load the Remote Computer's Profile
 
-Prefer dot-sourcing the remote computer's own profile. `Invoke-Command -FilePath $PROFILE` sends only the local profile file content and does not copy sibling folders such as `Functions`.
+Prefer dot-sourcing the remote computer's own installed profile. `Invoke-Command -FilePath $PROFILE` sends the local profile script content to the remote computer, but it does not copy sibling folders such as `Functions`.
 
-This snippet probes standard profile paths because some non-interactive remoting endpoints leave `$PROFILE` unset:
+This snippet probes standard profile paths because remote sessions do not populate `$PROFILE`:
 
 ```powershell
 $session = New-PSSession -HostName RemoteHost -UserName YourUser
