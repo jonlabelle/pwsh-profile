@@ -61,7 +61,7 @@
       "style": "dash"
     },
     "MD033": {
-      "allowed_elements": ["details", "summary", "strong", "br"]
+      "allowed_elements": ["details", "summary", "strong", "br", "p", "a", "code", "em", "hr"]
     }
   }
 }

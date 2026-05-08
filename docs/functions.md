@@ -1,8 +1,14 @@
 # Function Catalog
 
-[Docs home](README.md) | Previous: [Installation Guide](installation.md) | Next: [Troubleshooting](troubleshooting.md)
+<!-- <p align="center">
+  <a href="installation.md">← Installation Guide</a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="README.md">Docs</a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="troubleshooting.md">Troubleshooting →</a>
+</p> -->
 
-The profile currently exposes 102 public functions. Public functions live under `Functions/{Category}` and are loaded automatically by the main profile. Private helper scripts may live below category-specific `Private` folders and are excluded from this catalog.
+> Public functions live under `Functions/{Category}` and are loaded automatically by the main profile. Private helper scripts may live below category-specific `Private` folders and are excluded from this catalog.
 
 ## Contents
 
@@ -147,4 +153,10 @@ The profile currently exposes 102 public functions. Public functions live under 
 
 ---
 
-[Docs home](README.md) | Previous: [Installation Guide](installation.md) | Next: [Troubleshooting](troubleshooting.md)
+<p align="center">
+  <a href="installation.md">← Installation Guide</a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="README.md">Docs</a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="troubleshooting.md">Troubleshooting →</a>
+</p>

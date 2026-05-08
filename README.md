@@ -133,17 +133,17 @@ Everything you need to know about installation, functions, troubleshooting, remo
 
 ## Function Areas
 
-| Area                  | Includes                                                                                      | Catalog                                                       |
-| --------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| Network and DNS       | DNS, ports, TLS checks, ping, traceroute, WHOIS, GeoIP, latency graphs                        | [22 functions](docs/functions.md#network-and-dns)             |
-| System Administration | permissions, elevation, TLS session settings, system info, package managers, resource monitor | [18 functions](docs/functions.md#system-administration)       |
-| Developer             | .NET, dotenv, Git, GitHub secrets/variables/topics, Docker, SQLFluff, Magika                  | [20 functions](docs/functions.md#developer)                   |
-| Utilities             | Base64, Markdown, slugs, encodings, file search, symbolic links, sync, archive extraction     | [24 functions](docs/functions.md#utilities)                   |
-| Security              | JWT decoding, certificate inspection, password-based file protection                          | [5 functions](docs/functions.md#security)                     |
-| Active Directory      | credentials, account lockout checks, group policy update                                      | [3 functions](docs/functions.md#active-directory)             |
-| Module Management     | module update checks and cleanup                                                              | [3 functions](docs/functions.md#powershell-module-management) |
-| Profile Management    | function discovery and profile update checks                                                  | [4 functions](docs/functions.md#profile-management)           |
-| Media Processing      | ffprobe, FFmpeg conversion, season file renaming                                              | [3 functions](docs/functions.md#media-processing)             |
+| Area                                                                | Includes                                                                                      |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| [Network and DNS](docs/functions.md#network-and-dns)                | DNS, ports, TLS checks, ping, traceroute, WHOIS, GeoIP, latency graphs                        |
+| [System Administration](docs/functions.md#system-administration)    | permissions, elevation, TLS session settings, system info, package managers, resource monitor |
+| [Developer](docs/functions.md#developer)                            | .NET, dotenv, Git, GitHub secrets/variables/topics, Docker, SQLFluff, Magika                  |
+| [Utilities](docs/functions.md#utilities)                            | Base64, Markdown, slugs, encodings, file search, symbolic links, sync, archive extraction     |
+| [Security](docs/functions.md#security)                              | JWT decoding, certificate inspection, password-based file protection                          |
+| [Active Directory](docs/functions.md#active-directory)              | credentials, account lockout checks, group policy update                                      |
+| [Module Management](docs/functions.md#powershell-module-management) | module update checks and cleanup                                                              |
+| [Profile Management](docs/functions.md#profile-management)          | function discovery and profile update checks                                                  |
+| [Media Processing](docs/functions.md#media-processing)              | ffprobe, FFmpeg conversion, season file renaming                                              |
 
 ## Local Functions
 

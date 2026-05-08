@@ -35,8 +35,6 @@ function Show-ProfileFunctions
 
         ...
 
-        Total: 52 functions across 7 categories
-
         Displays all available profile functions organized by category with brief descriptions.
 
     .EXAMPLE

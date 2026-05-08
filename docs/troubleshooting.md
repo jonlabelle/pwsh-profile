@@ -1,8 +1,14 @@
 # Troubleshooting
 
-[Docs home](README.md) | Previous: [Function Catalog](functions.md) | Next: [Remote Sessions](remote-sessions.md)
+<!-- <p align="center">
+  <a href="functions.md">← Function Catalog</a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="README.md">Docs</a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="remote-sessions.md">Remote Sessions →</a>
+</p> -->
 
-This page covers the most common profile loading problems and diagnostics.
+> This page covers the most common profile loading problems and diagnostics.
 
 ## Contents
 
@@ -92,4 +98,10 @@ Test-Port localhost -Port 80 -Verbose
 
 ---
 
-[Docs home](README.md) | Previous: [Function Catalog](functions.md) | Next: [Remote Sessions](remote-sessions.md)
+<p align="center">
+  <a href="functions.md">← Function Catalog</a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="README.md">Docs</a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="remote-sessions.md">Remote Sessions →</a>
+</p>

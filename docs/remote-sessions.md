@@ -1,8 +1,14 @@
 # Remote Sessions
 
-[Docs home](README.md) | Previous: [Troubleshooting](troubleshooting.md) | Next: [Project README](../README.md)
+<!-- <p align="center">
+  <a href="troubleshooting.md">← Troubleshooting</a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="README.md">Docs</a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="../README.md">Project README →</a>
+</p> -->
 
-PowerShell profiles do not load automatically in remote sessions created with `Enter-PSSession`, `New-PSSession`, or `Invoke-Command`. This is consistent across Windows, macOS, and Linux, whether you use WinRM or SSH-based remoting.
+> PowerShell profiles do not load automatically in remote sessions created with `Enter-PSSession`, `New-PSSession`, or `Invoke-Command`. This is consistent across Windows, macOS, and Linux, whether you use WinRM or SSH-based remoting.
 
 SSH-based remoting requires PowerShell 6+ and SSH on both computers. See Microsoft's [PowerShell remoting over SSH](https://learn.microsoft.com/en-us/powershell/scripting/security/remoting/ssh-remoting-in-powershell) documentation for setup details.
 
@@ -77,4 +83,10 @@ For more information, see Microsoft's [Profiles and Remote Sessions](https://lea
 
 ---
 
-[Docs home](README.md) | Previous: [Troubleshooting](troubleshooting.md) | Next: [Project README](../README.md)
+<p align="center">
+  <a href="troubleshooting.md">← Troubleshooting</a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="README.md">Docs</a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="../README.md">Project README →</a>
+</p>
