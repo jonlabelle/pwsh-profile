@@ -121,11 +121,11 @@ Describe 'Show-InstalledPlatformPackage' {
         It 'renders only the current viewport for long package lists' {
             $runner = & $script:NewPackageCommandRunner @{
                 'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @(
-                    'pkg-01 1.0.0'
-                    'pkg-02 1.0.0'
-                    'pkg-03 1.0.0'
-                    'pkg-04 1.0.0'
-                ))
+                        'pkg-01 1.0.0'
+                        'pkg-02 1.0.0'
+                        'pkg-03 1.0.0'
+                        'pkg-04 1.0.0'
+                    ))
                 'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @())
             }
 
@@ -177,7 +177,7 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Spacebar: select  Enter: return current/selected  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Spacebar: select  Enter: return current/selected  A: toggle all  S: [All]  Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit' } -Times 1
         }
 
         It 'shows keyboard help from the picker when question mark is pressed' {

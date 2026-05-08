@@ -20,6 +20,11 @@ function Show-InstalledPlatformPackage
     .PARAMETER ExcludePackage
         Optional package names or wildcard patterns to exclude. Matches package Name or Id.
 
+    .PARAMETER FilterSource
+        Sets the initial source filter in the interactive browser. When specified, the browser
+        opens showing only packages from this source. Press S in the browser to cycle through
+        available sources. Only applicable when multiple package sources are present.
+
     .PARAMETER NonInteractive
         Returns installed package records without opening the interactive browser. The
         previous -AsObject spelling is retained as an alias.
@@ -102,6 +107,9 @@ function Show-InstalledPlatformPackage
         [Parameter()]
         [Alias('Exclude')]
         [String[]]$ExcludePackage = @(),
+
+        [Parameter()]
+        [String]$FilterSource = '',
 
         [Parameter()]
         [Alias('AsObject')]
@@ -465,13 +473,45 @@ function Show-InstalledPlatformPackage
                 [Int32]$PageSize = 0,
 
                 [Parameter()]
-                [Switch]$EnableSelection
+                [Switch]$EnableSelection,
+
+                [Parameter()]
+                [String]$SourceFilter = ''
             )
 
             if ($InstalledPackages.Count -eq 0)
             {
                 return @()
             }
+
+            $allPackages = $InstalledPackages
+            $uniqueSources = @($allPackages | ForEach-Object { $_.Source } | Where-Object { -not [String]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
+            $hasEmptySource = @($allPackages | Where-Object { [String]::IsNullOrWhiteSpace($_.Source) }).Count -gt 0
+            $availableSources = @('All') + $uniqueSources
+            $hasSourceFilter = $uniqueSources.Count -gt 1 -or ($uniqueSources.Count -eq 1 -and $hasEmptySource)
+            $sourceFilterIndex = 0
+            if ($hasSourceFilter -and -not [String]::IsNullOrWhiteSpace($SourceFilter))
+            {
+                for ($si = 1; $si -lt $availableSources.Count; $si++)
+                {
+                    if ($availableSources[$si] -ieq $SourceFilter)
+                    {
+                        $sourceFilterIndex = $si
+                        break
+                    }
+                }
+            }
+
+            $visiblePackages = @(
+                if ($availableSources[$sourceFilterIndex] -eq 'All')
+                {
+                    $allPackages
+                }
+                else
+                {
+                    $allPackages | Where-Object { $_.Source -eq $availableSources[$sourceFilterIndex] }
+                }
+            )
 
             $usingConsoleKeyReader = $false
             if ($null -eq $KeyReader)
@@ -620,7 +660,7 @@ function Show-InstalledPlatformPackage
             $sourceWidth = [Math]::Min(18, [Math]::Max(6, (($InstalledPackages | ForEach-Object { $_.Source.Length } | Measure-Object -Maximum).Maximum)))
             $pageSize = Get-PackagePickerPageSize -RequestedPageSize $PageSize -ItemCount $InstalledPackages.Count
 
-            $selected = New-Object 'System.Boolean[]' $InstalledPackages.Count
+            $selectedKeys = [System.Collections.Generic.HashSet[String]]::new([System.StringComparer]::OrdinalIgnoreCase)
             $wingetDescriptionAttempted = @{}
             $pendingWingetDescriptionLookupKey = ''
             $cursor = 0
@@ -864,6 +904,13 @@ function Show-InstalledPlatformPackage
                 Write-PackagePickerHelpItem -Shortcut 'PageUp/PageDown' -Description 'move one page'
                 Write-PackagePickerHelpItem -Shortcut 'Home/End' -Description 'move to the first or last package'
 
+                if ($hasSourceFilter)
+                {
+                    Write-Host ''
+                    Write-Host 'Source Filter' -ForegroundColor White
+                    Write-PackagePickerHelpItem -Shortcut 'S' -Description "cycle source: $($availableSources -join ' | ')"
+                }
+
                 Write-Host ''
                 Write-Host 'Actions' -ForegroundColor White
                 Write-PackagePickerHelpItem -Shortcut 'D' -Description 'load a missing winget description when available'
@@ -873,7 +920,7 @@ function Show-InstalledPlatformPackage
                 if ($EnableSelection)
                 {
                     Write-PackagePickerHelpItem -Shortcut 'Spacebar' -Description 'select or clear the current package'
-                    Write-PackagePickerHelpItem -Shortcut 'A' -Description 'toggle all packages'
+                    Write-PackagePickerHelpItem -Shortcut 'A' -Description 'toggle all visible packages'
                     Write-PackagePickerHelpItem -Shortcut 'Enter' -Description 'return selected packages, or the current package if none are selected'
                 }
 
@@ -926,19 +973,19 @@ function Show-InstalledPlatformPackage
                         $topIndex = 0
                     }
 
-                    $maxTopIndex = [Math]::Max(0, $InstalledPackages.Count - $pageSize)
+                    $maxTopIndex = [Math]::Max(0, $visiblePackages.Count - $pageSize)
                     if ($topIndex -gt $maxTopIndex)
                     {
                         $topIndex = $maxTopIndex
                     }
 
-                    $bottomIndex = [Math]::Min($InstalledPackages.Count - 1, $topIndex + $pageSize - 1)
-                    $currentPackage = $InstalledPackages[$cursor]
-                    $currentPackageLookupKey = if (-not [String]::IsNullOrWhiteSpace($currentPackage.Id))
+                    $bottomIndex = [Math]::Min($visiblePackages.Count - 1, $topIndex + $pageSize - 1)
+                    $currentPackage = if ($visiblePackages.Count -gt 0) { $visiblePackages[$cursor] } else { $null }
+                    $currentPackageLookupKey = if ($null -ne $currentPackage -and -not [String]::IsNullOrWhiteSpace($currentPackage.Id))
                     {
                         $currentPackage.Id.Trim().ToLowerInvariant()
                     }
-                    elseif (-not [String]::IsNullOrWhiteSpace($currentPackage.Name))
+                    elseif ($null -ne $currentPackage -and -not [String]::IsNullOrWhiteSpace($currentPackage.Name))
                     {
                         $currentPackage.Name.Trim().ToLowerInvariant()
                     }
@@ -947,42 +994,85 @@ function Show-InstalledPlatformPackage
                         ''
                     }
                     $isCurrentWingetDescriptionPending =
-                        -not [String]::IsNullOrWhiteSpace($pendingWingetDescriptionLookupKey) -and
-                        $pendingWingetDescriptionLookupKey -eq $currentPackageLookupKey
+                    $null -ne $currentPackage -and
+                    -not [String]::IsNullOrWhiteSpace($pendingWingetDescriptionLookupKey) -and
+                    $pendingWingetDescriptionLookupKey -eq $currentPackageLookupKey
                     $canResolveCurrentWingetDescription =
-                        $currentPackage.PackageManager -eq 'winget' -and
-                        [String]::IsNullOrWhiteSpace($currentPackage.Description) -and
-                        -not [String]::IsNullOrWhiteSpace($currentPackageLookupKey) -and
-                        -not $wingetDescriptionAttempted.ContainsKey($currentPackageLookupKey)
+                    $null -ne $currentPackage -and
+                    $currentPackage.PackageManager -eq 'winget' -and
+                    [String]::IsNullOrWhiteSpace($currentPackage.Description) -and
+                    -not [String]::IsNullOrWhiteSpace($currentPackageLookupKey) -and
+                    -not $wingetDescriptionAttempted.ContainsKey($currentPackageLookupKey)
 
                     $frameLines = @(
                         (Format-PickerFrameLine -Text "Show-InstalledPlatformPackage - $($InstalledPackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
                         ''
                     )
 
+                    $sourceHint = if ($hasSourceFilter) { "S: [$($availableSources[$sourceFilterIndex])]  " } else { '' }
                     if ($EnableSelection)
                     {
-                        $frameLines += Format-PickerFrameLine -Text 'Spacebar: select  Enter: return current/selected  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit' -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text "Spacebar: select  Enter: return current/selected  A: toggle all  ${sourceHint}Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit" -ForegroundColor DarkGray
                         $frameLines += ''
                         $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth)) -ForegroundColor DarkGray
                         $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
                     }
                     else
                     {
-                        $frameLines += Format-PickerFrameLine -Text 'Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit' -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text "${sourceHint}Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit" -ForegroundColor DarkGray
                         $frameLines += ''
                         $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4}' -f (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth)) -ForegroundColor DarkGray
                         $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4}' -f ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
                     }
 
+                    if ($visiblePackages.Count -eq 0)
+                    {
+                        $frameLines += ''
+                        $frameLines += Format-PickerFrameLine -Text '  (No packages match this source filter. Press S to cycle.)' -ForegroundColor DarkYellow
+                        Write-PickerFrame -Lines $frameLines
+
+                        $key = & $KeyReader
+                        if (Test-PackagePickerCancelKey -KeyInfo $key)
+                        {
+                            Clear-PickerFrame
+                            return @()
+                        }
+
+                        if (Test-PackagePickerHelpKey -KeyInfo $key)
+                        {
+                            if (Show-PackagePickerHelp) { Clear-PickerFrame; return @() }
+                            continue
+                        }
+
+                        if ($hasSourceFilter -and $key.Key -eq [ConsoleKey]::S)
+                        {
+                            $sourceFilterIndex = ($sourceFilterIndex + 1) % $availableSources.Count
+                            $visiblePackages = @(
+                                if ($availableSources[$sourceFilterIndex] -eq 'All')
+                                {
+                                    $allPackages
+                                }
+                                else
+                                {
+                                    $allPackages | Where-Object { $_.Source -eq $availableSources[$sourceFilterIndex] }
+                                }
+                            )
+                            $cursor = 0
+                            $topIndex = 0
+                        }
+
+                        continue
+                    }
+
                     for ($i = $topIndex; $i -le $bottomIndex; $i++)
                     {
-                        $package = $InstalledPackages[$i]
+                        $package = $visiblePackages[$i]
+                        $pkgKey = "$($package.Id)::$($package.Name)"
                         $cursorMarker = if ($i -eq $cursor) { '>' } else { ' ' }
 
                         if ($EnableSelection)
                         {
-                            $selectedMarker = if ($selected[$i]) { '[x]' } else { '[ ]' }
+                            $selectedMarker = if ($selectedKeys.Contains($pkgKey)) { '[x]' } else { '[ ]' }
                             $packageLine = ('{0} {1} {2} {3} {4} {5} {6}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $versionWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
                         }
                         else
@@ -1030,7 +1120,17 @@ function Show-InstalledPlatformPackage
                     if ($EnableSelection)
                     {
                         $frameLines += ''
-                        $frameLines += Format-PickerFrameLine -Text "$(@($selected | Where-Object { $_ }).Count) of $($InstalledPackages.Count) package(s) selected." -ForegroundColor White
+                        $selCount = $selectedKeys.Count
+                        $totalCount = $allPackages.Count
+                        $countText = if ($hasSourceFilter -and $availableSources[$sourceFilterIndex] -ne 'All')
+                        {
+                            "$selCount of $totalCount selected  |  $($visiblePackages.Count) of $totalCount visible (filter: $($availableSources[$sourceFilterIndex]))"
+                        }
+                        else
+                        {
+                            "$selCount of $totalCount package(s) selected."
+                        }
+                        $frameLines += Format-PickerFrameLine -Text $countText -ForegroundColor White
                     }
 
                     Write-PickerFrame -Lines $frameLines
@@ -1039,10 +1139,10 @@ function Show-InstalledPlatformPackage
                     {
                         $wingetDescriptionAttempted[$currentPackageLookupKey] = $true
                         $resolvedDescription = Get-WingetPackageDescription -Manager ([PSCustomObject]@{
-                            Name = $currentPackage.PackageManager
-                            DisplayName = $currentPackage.PackageManagerDisplayName
-                            Command = $currentPackage.PackageManager
-                        }) -Package $currentPackage
+                                Name = $currentPackage.PackageManager
+                                DisplayName = $currentPackage.PackageManagerDisplayName
+                                Command = $currentPackage.PackageManager
+                            }) -Package $currentPackage
 
                         if (-not [String]::IsNullOrWhiteSpace($resolvedDescription))
                         {
@@ -1082,7 +1182,7 @@ function Show-InstalledPlatformPackage
                         }
                         'DownArrow'
                         {
-                            if ($cursor -lt ($InstalledPackages.Count - 1))
+                            if ($cursor -lt ($visiblePackages.Count - 1))
                             {
                                 $cursor++
                             }
@@ -1093,7 +1193,7 @@ function Show-InstalledPlatformPackage
                         }
                         'PageDown'
                         {
-                            $cursor = [Math]::Min($InstalledPackages.Count - 1, $cursor + $pageSize)
+                            $cursor = [Math]::Min($visiblePackages.Count - 1, $cursor + $pageSize)
                         }
                         'Home'
                         {
@@ -1101,23 +1201,29 @@ function Show-InstalledPlatformPackage
                         }
                         'End'
                         {
-                            $cursor = $InstalledPackages.Count - 1
+                            $cursor = $visiblePackages.Count - 1
                         }
                         'Spacebar'
                         {
                             if ($EnableSelection)
                             {
-                                $selected[$cursor] = -not $selected[$cursor]
+                                $pkgKey = "$($visiblePackages[$cursor].Id)::$($visiblePackages[$cursor].Name)"
+                                if ($selectedKeys.Contains($pkgKey)) { $null = $selectedKeys.Remove($pkgKey) }
+                                else { $null = $selectedKeys.Add($pkgKey) }
                             }
                         }
                         'A'
                         {
                             if ($EnableSelection)
                             {
-                                $selectAll = @($selected | Where-Object { -not $_ }).Count -gt 0
-                                for ($i = 0; $i -lt $selected.Count; $i++)
+                                $allVisibleSelected = @($visiblePackages | Where-Object { -not $selectedKeys.Contains("$($_.Id)::$($_.Name)") }).Count -eq 0
+                                if ($allVisibleSelected)
                                 {
-                                    $selected[$i] = $selectAll
+                                    foreach ($vp in $visiblePackages) { $null = $selectedKeys.Remove("$($vp.Id)::$($vp.Name)") }
+                                }
+                                else
+                                {
+                                    foreach ($vp in $visiblePackages) { $null = $selectedKeys.Add("$($vp.Id)::$($vp.Name)") }
                                 }
                             }
                         }
@@ -1126,6 +1232,25 @@ function Show-InstalledPlatformPackage
                             if ($canResolveCurrentWingetDescription)
                             {
                                 $pendingWingetDescriptionLookupKey = $currentPackageLookupKey
+                            }
+                        }
+                        'S'
+                        {
+                            if ($hasSourceFilter)
+                            {
+                                $sourceFilterIndex = ($sourceFilterIndex + 1) % $availableSources.Count
+                                $visiblePackages = @(
+                                    if ($availableSources[$sourceFilterIndex] -eq 'All')
+                                    {
+                                        $allPackages
+                                    }
+                                    else
+                                    {
+                                        $allPackages | Where-Object { $_.Source -eq $availableSources[$sourceFilterIndex] }
+                                    }
+                                )
+                                $cursor = 0
+                                $topIndex = 0
                             }
                         }
                         'Enter'
@@ -1137,18 +1262,10 @@ function Show-InstalledPlatformPackage
 
                             Clear-PickerFrame
 
-                            $selectedPackages = @()
-                            for ($i = 0; $i -lt $InstalledPackages.Count; $i++)
-                            {
-                                if ($selected[$i])
-                                {
-                                    $selectedPackages += $InstalledPackages[$i]
-                                }
-                            }
-
+                            $selectedPackages = @($allPackages | Where-Object { $selectedKeys.Contains("$($_.Id)::$($_.Name)") })
                             if ($selectedPackages.Count -eq 0)
                             {
-                                $selectedPackages = @($InstalledPackages[$cursor])
+                                $selectedPackages = @($visiblePackages[$cursor])
                             }
 
                             return $selectedPackages
@@ -1193,7 +1310,7 @@ function Show-InstalledPlatformPackage
         }
 
         $selectedPackages = @(
-            Select-InstalledPackageRecords -InstalledPackages $installedPackages -KeyReader $KeyReader -PageSize $PickerPageSize -EnableSelection:$PassThru.IsPresent
+            Select-InstalledPackageRecords -InstalledPackages $installedPackages -KeyReader $KeyReader -PageSize $PickerPageSize -EnableSelection:$PassThru.IsPresent -SourceFilter $FilterSource
         )
 
         if ($PassThru)
