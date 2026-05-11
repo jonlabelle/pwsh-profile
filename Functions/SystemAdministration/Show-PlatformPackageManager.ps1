@@ -226,15 +226,15 @@ function Show-PlatformPackageManager
                 )
 
                 $pattern = '\([^\)]*\? for help[^\)]*\)|\[[^\]]*\? for help[^\]]*\]'
-                $matches = [regex]::Matches($Text, $pattern)
-                if ($matches.Count -eq 0)
+                $promptMatches = [regex]::Matches($Text, $pattern)
+                if ($promptMatches.Count -eq 0)
                 {
                     [Console]::Write($Text)
                     return
                 }
 
                 $cursor = 0
-                foreach ($match in $matches)
+                foreach ($match in $promptMatches)
                 {
                     if ($match.Index -gt $cursor)
                     {
@@ -363,7 +363,7 @@ function Show-PlatformPackageManager
 
             Write-PlatformPackageManagerHeader -Title 'Platform Package Manager Help' -Subtitle $subtitle
 
-            function New-PlatformPackageManagerHelpItem
+            function Get-PlatformPackageManagerHelpItem
             {
                 param(
                     [Parameter(Mandatory)]
@@ -396,61 +396,61 @@ function Show-PlatformPackageManager
                 'Result'
                 {
                     @(
-                        New-PlatformPackageManagerHelpItem -Shortcut 'Any key or Enter' -Description 'return to the manager menu'
-                        New-PlatformPackageManagerHelpItem -Shortcut 'Q, Esc, or Ctrl+C' -Description 'quit the manager'
-                        New-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'Any key or Enter' -Description 'return to the manager menu'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'Q, Esc, or Ctrl+C' -Description 'quit the manager'
+                        Get-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
                     )
                 }
                 'SearchQuery'
                 {
                     @(
-                        New-PlatformPackageManagerHelpItem -Shortcut 'Text' -Description 'enter a package name, package id, or registry search term'
-                        New-PlatformPackageManagerHelpItem -Shortcut 'Blank' -Description 'cancel the search workflow'
-                        New-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'Text' -Description 'enter a package name, package id, or registry search term'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'Blank' -Description 'cancel the search workflow'
+                        Get-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
                     )
                 }
                 'DependencyPackage'
                 {
                     @(
-                        New-PlatformPackageManagerHelpItem -Shortcut 'Text' -Description 'enter one or more package names or ids'
-                        New-PlatformPackageManagerHelpItem -Shortcut 'Comma' -Description 'separate multiple packages in one lookup'
-                        New-PlatformPackageManagerHelpItem -Shortcut 'Blank' -Description 'cancel the dependency workflow'
-                        New-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'Text' -Description 'enter one or more package names or ids'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'Comma' -Description 'separate multiple packages in one lookup'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'Blank' -Description 'cancel the dependency workflow'
+                        Get-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
                     )
                 }
                 'DependencyDirection'
                 {
                     @(
-                        New-PlatformPackageManagerHelpItem -Shortcut '1 or DependsOn' -Description 'show packages required by the requested package'
-                        New-PlatformPackageManagerHelpItem -Shortcut '2 or RequiredBy' -Description 'show packages that depend on the requested package'
-                        New-PlatformPackageManagerHelpItem -Shortcut '3 or Both' -Description 'show both relationship directions'
-                        New-PlatformPackageManagerHelpItem -Shortcut 'Blank' -Description 'use DependsOn'
-                        New-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
+                        Get-PlatformPackageManagerHelpItem -Shortcut '1 or DependsOn' -Description 'show packages required by the requested package'
+                        Get-PlatformPackageManagerHelpItem -Shortcut '2 or RequiredBy' -Description 'show packages that depend on the requested package'
+                        Get-PlatformPackageManagerHelpItem -Shortcut '3 or Both' -Description 'show both relationship directions'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'Blank' -Description 'use DependsOn'
+                        Get-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
                     )
                 }
                 'YesNo'
                 {
                     @(
-                        New-PlatformPackageManagerHelpItem -Shortcut 'Y or Yes' -Description 'accept the prompt'
-                        New-PlatformPackageManagerHelpItem -Shortcut 'N or No' -Description 'decline the prompt'
-                        New-PlatformPackageManagerHelpItem -Shortcut 'Blank' -Description 'use the displayed default'
-                        New-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'Y or Yes' -Description 'accept the prompt'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'N or No' -Description 'decline the prompt'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'Blank' -Description 'use the displayed default'
+                        Get-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
                     )
                 }
                 default
                 {
                     @(
-                        New-PlatformPackageManagerHelpItem -Shortcut 'Up/Down' -Description 'choose an action'
-                        New-PlatformPackageManagerHelpItem -Shortcut 'Home/End' -Description 'move to the first or last action'
-                        New-PlatformPackageManagerHelpItem -Shortcut 'Enter' -Description 'run the selected action'
-                        New-PlatformPackageManagerHelpItem -Shortcut '1-5' -Description 'jump to a numbered workflow'
-                        New-PlatformPackageManagerHelpItem -Shortcut 'B' -Description 'browse installed packages'
-                        New-PlatformPackageManagerHelpItem -Shortcut 'S or I' -Description 'search and install packages'
-                        New-PlatformPackageManagerHelpItem -Shortcut 'U' -Description 'upgrade packages'
-                        New-PlatformPackageManagerHelpItem -Shortcut 'R' -Description 'remove packages'
-                        New-PlatformPackageManagerHelpItem -Shortcut 'D' -Description 'inspect dependencies'
-                        New-PlatformPackageManagerHelpItem -Shortcut 'Q, Esc, or Ctrl+C' -Description 'quit'
-                        New-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'Up/Down' -Description 'choose an action'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'Home/End' -Description 'move to the first or last action'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'Enter' -Description 'run the selected action'
+                        Get-PlatformPackageManagerHelpItem -Shortcut '1-5' -Description 'jump to a numbered workflow'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'B' -Description 'browse installed packages'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'S or I' -Description 'search and install packages'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'U' -Description 'upgrade packages'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'R' -Description 'remove packages'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'D' -Description 'inspect dependencies'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'Q, Esc, or Ctrl+C' -Description 'quit'
+                        Get-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
                     )
                 }
             }
