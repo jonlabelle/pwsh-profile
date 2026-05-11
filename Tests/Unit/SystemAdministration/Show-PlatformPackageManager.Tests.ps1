@@ -412,6 +412,41 @@ Describe 'Show-PlatformPackageManager' {
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Installed: 1' -and $ForegroundColor -eq 'Green' } -Times 1
     }
 
+    It 'shows captured informational output on the manager result screen' {
+        Mock -CommandName Install-PlatformPackage -MockWith {
+            [PSCustomObject]@{
+                PackageManager = 'brew'
+                PackageManagerDisplayName = 'Homebrew'
+                TotalMatched = 1
+                Selected = 1
+                NotSelected = 0
+                Installed = 1
+                Skipped = 0
+                Failed = 0
+                InformationalResults = @(
+                    [PSCustomObject]@{
+                        Name = 'python'
+                        Id = 'python'
+                        Status = 'Installed'
+                        Lines = @(
+                            '==> Caveats'
+                            'Add /opt/homebrew/opt/python/libexec/bin to PATH'
+                        )
+                    }
+                )
+                Results = @()
+            }
+        }
+        $promptReader = & $script:NewPromptReader @('2', 'python', 'q')
+
+        $result = @(Show-PlatformPackageManager -PackageManager brew -PromptReader $promptReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Additional output' -and $ForegroundColor -eq 'Cyan' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'python' -and $ForegroundColor -eq 'White' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq '  ==> Caveats' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+    }
+
     It 'shows a red status indicator when an operation has failures' {
         Mock -CommandName Install-PlatformPackage -MockWith {
             [PSCustomObject]@{

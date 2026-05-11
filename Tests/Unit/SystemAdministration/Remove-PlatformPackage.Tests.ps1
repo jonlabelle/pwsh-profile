@@ -121,6 +121,26 @@ Describe 'Remove-PlatformPackage' {
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew uninstall git output' } -Times 1
         }
 
+        It 'captures post-removal instructions in the result object' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = Get-TestCommandResponse -Output @('python 3.12.1')
+                'brew list --cask --versions' = Get-TestCommandResponse -Output @()
+                'brew uninstall python' = Get-TestCommandResponse -Output @(
+                    'Removing python...'
+                    'Note:'
+                    'Python user site-packages were left in place.'
+                )
+            }
+
+            $result = Remove-PlatformPackage -PackageManager brew -IncludePackage python -All -CommandRunner $runner -Confirm:$false
+
+            $result.Removed | Should -Be 1
+            $result.Results[0].CapturedOutput | Should -Contain 'Removing python...'
+            $result.Results[0].InformationalOutput | Should -Contain 'Note:'
+            $result.InformationalResults.Count | Should -Be 1
+            $result.InformationalResults[0].Lines | Should -Contain 'Python user site-packages were left in place.'
+        }
+
         It 'reports streamed command failures with command context when captured output is unavailable' {
             $runner = & $script:NewPackageCommandRunner @{
                 'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0')

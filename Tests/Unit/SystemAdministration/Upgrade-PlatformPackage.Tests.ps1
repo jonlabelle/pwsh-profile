@@ -141,6 +141,37 @@ Describe 'Upgrade-PlatformPackage' {
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew upgrade git output' } -Times 1
         }
 
+        It 'captures post-upgrade instructions in the result object' {
+            $brewJson = @{
+                formulae = @(
+                    @{
+                        name = 'python'
+                        installed_versions = @('3.12.0')
+                        current_version = '3.12.1'
+                        pinned = $false
+                    }
+                )
+                casks = @()
+            } | ConvertTo-Json -Depth 6 -Compress
+
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
+                'brew upgrade python' = Get-TestCommandResponse -Output @(
+                    'Upgrading python...'
+                    '==> Caveats'
+                    'Add /opt/homebrew/opt/python/libexec/bin to PATH'
+                )
+            }
+
+            $result = Upgrade-PlatformPackage -PackageManager brew -SkipRefresh -All -CommandRunner $runner -Confirm:$false
+
+            $result.Upgraded | Should -Be 1
+            $result.Results[0].CapturedOutput | Should -Contain 'Upgrading python...'
+            $result.Results[0].InformationalOutput | Should -Contain '==> Caveats'
+            $result.InformationalResults.Count | Should -Be 1
+            $result.InformationalResults[0].Lines | Should -Contain 'Add /opt/homebrew/opt/python/libexec/bin to PATH'
+        }
+
         It 'reports streamed command failures with command context when captured output is unavailable' {
             $brewJson = @{
                 formulae = @(

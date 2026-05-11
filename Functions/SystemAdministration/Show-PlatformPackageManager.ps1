@@ -769,14 +769,8 @@ function Show-PlatformPackageManager
             $displayRecords = @(
                 foreach ($record in $records)
                 {
-                    if ($record.PSObject.Properties['Results'])
-                    {
-                        $record | Select-Object -Property * -ExcludeProperty Results
-                    }
-                    else
-                    {
-                        $record
-                    }
+                    $excludeProperties = @('Results', 'CapturedOutput', 'InformationalOutput', 'InformationalResults')
+                    $record | Select-Object -Property * -ExcludeProperty $excludeProperties
                 }
             )
 
@@ -796,6 +790,24 @@ function Show-PlatformPackageManager
                     if ($record.PSObject.Properties['Results'] -and $null -ne $record.Results)
                     {
                         @($record.Results | Where-Object { $null -ne $_ })
+                    }
+                }
+            )
+        }
+
+        function Get-PlatformPackageManagerInformationalResults
+        {
+            param(
+                [Parameter()]
+                [Object[]]$Records = @()
+            )
+
+            @(
+                foreach ($record in @($Records | Where-Object { $null -ne $_ }))
+                {
+                    if ($record.PSObject.Properties['InformationalResults'] -and $null -ne $record.InformationalResults)
+                    {
+                        @($record.InformationalResults | Where-Object { $null -ne $_ })
                     }
                 }
             )
@@ -972,6 +984,37 @@ function Show-PlatformPackageManager
                         if (-not [String]::IsNullOrWhiteSpace($detailTable))
                         {
                             Write-Host $detailTable
+                            Write-Host ''
+                        }
+                    }
+
+                    $informationalResults = @(Get-PlatformPackageManagerInformationalResults -Records $Result.Records)
+                    if ($informationalResults.Count -gt 0)
+                    {
+                        Write-Host 'Additional output' -ForegroundColor Cyan
+                        Write-Host ('-' * 78) -ForegroundColor DarkGray
+
+                        foreach ($informationalResult in $informationalResults)
+                        {
+                            $label = if (-not [String]::IsNullOrWhiteSpace($informationalResult.Id) -and $informationalResult.Id -ne $informationalResult.Name)
+                            {
+                                "$($informationalResult.Name) ($($informationalResult.Id))"
+                            }
+                            else
+                            {
+                                $informationalResult.Name
+                            }
+
+                            if (-not [String]::IsNullOrWhiteSpace($label))
+                            {
+                                Write-Host $label -ForegroundColor White
+                            }
+
+                            foreach ($line in @($informationalResult.Lines | Where-Object { -not [String]::IsNullOrWhiteSpace("$($_)") }))
+                            {
+                                Write-Host "  $line" -ForegroundColor DarkGray
+                            }
+
                             Write-Host ''
                         }
                     }

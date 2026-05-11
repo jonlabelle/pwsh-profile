@@ -523,10 +523,16 @@ function Install-PlatformPackage
             {
                 if ($StreamOutput)
                 {
-                    & $Command @Arguments
+                    $capturedOutput = New-Object 'System.Collections.Generic.List[String]'
+                    & $Command @Arguments 2>&1 | ForEach-Object {
+                        $line = "$($_)"
+                        [void]$capturedOutput.Add($line)
+                        Write-Host $line
+                    }
+
                     return [PSCustomObject]@{
                         ExitCode = if ($null -ne $LASTEXITCODE) { [Int32]$LASTEXITCODE } else { 0 }
-                        Output = @()
+                        Output = @($capturedOutput)
                     }
                 }
 
@@ -775,6 +781,37 @@ function Install-PlatformPackage
 
             $commandText = "$Command $($Arguments -join ' ')".Trim()
             return "$commandText failed with exit code $ExitCode. Command output was streamed directly to the console above."
+        }
+
+        function Get-PackageInformationalOutput
+        {
+            param(
+                [Parameter()]
+                [Object[]]$Output = @()
+            )
+
+            $lines = @(
+                $Output |
+                Where-Object { $null -ne $_ } |
+                ForEach-Object { "$($_)" } |
+                Where-Object { -not [String]::IsNullOrWhiteSpace($_) }
+            )
+
+            if ($lines.Count -eq 0)
+            {
+                return @()
+            }
+
+            $anchorPattern = '^(==>\s+(Caveats|Next steps)|Caveats:?$|Next steps:?$|Warnings?:?$|Notes?:?$|Important:?$|To (restart|start|stop|use|finish|add|enable|disable|load|unload|link)\b|Service\b)'
+            for ($i = 0; $i -lt $lines.Count; $i++)
+            {
+                if ($lines[$i] -match $anchorPattern)
+                {
+                    return @($lines[$i..($lines.Count - 1)])
+                }
+            }
+
+            return @()
         }
 
         function ConvertTo-InstallPackageRecord
@@ -1688,6 +1725,8 @@ function Install-PlatformPackage
                     Status = 'Skipped'
                     ExitCode = 0
                     Message = 'Package is already installed'
+                    CapturedOutput = @()
+                    InformationalOutput = @()
                 }
             }
 
@@ -1700,6 +1739,8 @@ function Install-PlatformPackage
                     Status = 'Skipped'
                     ExitCode = 0
                     Message = 'Installation skipped by ShouldProcess'
+                    CapturedOutput = @()
+                    InformationalOutput = @()
                 }
             }
 
@@ -1712,6 +1753,7 @@ function Install-PlatformPackage
 
             if ($result.ExitCode -eq 0)
             {
+                $informationalOutput = @(Get-PackageInformationalOutput -Output $result.Output)
                 return [PSCustomObject]@{
                     Name = $Package.Name
                     Id = $Package.Id
@@ -1719,6 +1761,8 @@ function Install-PlatformPackage
                     Status = 'Installed'
                     ExitCode = $result.ExitCode
                     Message = 'Installation completed'
+                    CapturedOutput = @($result.Output)
+                    InformationalOutput = @($informationalOutput)
                 }
             }
 
@@ -1732,6 +1776,8 @@ function Install-PlatformPackage
                 Status = 'Failed'
                 ExitCode = $result.ExitCode
                 Message = $message
+                CapturedOutput = @($result.Output)
+                InformationalOutput = @()
             }
         }
     }
@@ -1841,6 +1887,18 @@ function Install-PlatformPackage
         $installedCount = @($results | Where-Object { $_.Status -eq 'Installed' }).Count
         $failedCount = @($results | Where-Object { $_.Status -eq 'Failed' }).Count
         $skippedCount = @($results | Where-Object { $_.Status -eq 'Skipped' }).Count
+        $informationalResults = @(
+            $results |
+            Where-Object { $_.PSObject.Properties['InformationalOutput'] -and @($_.InformationalOutput).Count -gt 0 } |
+            ForEach-Object {
+                [PSCustomObject]@{
+                    Name = $_.Name
+                    Id = $_.Id
+                    Status = $_.Status
+                    Lines = @($_.InformationalOutput)
+                }
+            }
+        )
 
         return [PSCustomObject]@{
             PackageManager = if ($manager) { $manager.Name } else { '' }
@@ -1851,6 +1909,7 @@ function Install-PlatformPackage
             Installed = $installedCount
             Failed = $failedCount
             Skipped = $skippedCount
+            InformationalResults = @($informationalResults)
             Results = @($results)
         }
     }

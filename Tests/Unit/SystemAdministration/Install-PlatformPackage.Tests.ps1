@@ -95,6 +95,25 @@ Describe 'Install-PlatformPackage' {
             $result.Skipped | Should -Be 1
             @($script:Invocations | Where-Object { $_.Key -eq 'brew install git' }).Count | Should -Be 0
         }
+
+        It 'captures post-install instructions in the result object' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew install python' = Get-TestCommandResponse -Output @(
+                    'Installing python...'
+                    '==> Caveats'
+                    'Python is installed as'
+                    '  /opt/homebrew/bin/python3'
+                )
+            }
+
+            $result = Install-PlatformPackage -PackageManager brew -Name python -CommandRunner $runner -Confirm:$false
+
+            $result.Installed | Should -Be 1
+            $result.Results[0].CapturedOutput | Should -Contain 'Installing python...'
+            $result.Results[0].InformationalOutput | Should -Contain '==> Caveats'
+            $result.InformationalResults.Count | Should -Be 1
+            $result.InformationalResults[0].Lines | Should -Contain 'Python is installed as'
+        }
     }
 
     Context 'Query-driven installs' {
