@@ -4,6 +4,7 @@ BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Remove-PlatformPackage.ps1"
+    . "$PSScriptRoot/../../../Functions/SystemAdministration/Get-PlatformPackageDependency.ps1"
 
     function Get-TestCommandResponse
     {
@@ -364,7 +365,7 @@ Describe 'Remove-PlatformPackage' {
             $result.NotSelected | Should -Be 0
             $result.Removed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Spacebar: select  P: purge/zap  Enter: remove current/selected  A: toggle all  F: [all]  Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: cancel' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Spacebar: select  P: purge/zap  Enter: remove current/selected  A: toggle all  D: deps  T: toggle direction  V: details  F: [all]  Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: cancel' } -Times 1
         }
 
         It 'shows keyboard help from the removal picker' {
@@ -458,6 +459,46 @@ Describe 'Remove-PlatformPackage' {
             ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall --cask --zap visual-studio-code' }).StreamOutput | Should -BeTrue
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*P: purge/zap*' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew zap output' } -Times 1
+        }
+
+        It 'toggles dependency direction from the removal picker with D and T' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0')
+                'brew list --cask --versions' = Get-TestCommandResponse -Output @()
+            }
+
+            Mock -CommandName Get-PlatformPackageDependency -MockWith {
+                param(
+                    [Object[]]$Package,
+                    [String]$Direction,
+                    [String]$PackageManager,
+                    [ScriptBlock]$CommandRunner
+                )
+
+                if ($Direction -eq 'DependsOn')
+                {
+                    return @([PSCustomObject]@{ RelatedPackage = 'gettext'; DependencyType = 'Dependency'; Installed = $true })
+                }
+
+                return @([PSCustomObject]@{ RelatedPackage = 'curl'; DependencyType = 'Dependent'; Installed = $true })
+            }
+
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new('d', [ConsoleKey]::D, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new('t', [ConsoleKey]::T, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new('b', [ConsoleKey]::B, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = Remove-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+
+            $result.Removed | Should -Be 0
+            Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
+            Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
         }
 
         It 'filters picker results by package name when F is pressed' {
