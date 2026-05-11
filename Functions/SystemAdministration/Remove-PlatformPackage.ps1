@@ -2658,7 +2658,7 @@ function Remove-PlatformPackage
                     else
                     {
                         $pickerHintPrefix = 'Spacebar: select'
-                        $pickerHintActions = "Enter: remove current/selected  A: toggle all  D: deps  T: toggle direction  V: details  ${nameFilterHint}${sourceHint}Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: cancel"
+                        $pickerHintActions = "Enter: remove current/selected  A: toggle all  D: deps  V: details  ${nameFilterHint}${sourceHint}Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: cancel"
                         $pickerHint = if ($showPurge) { "$pickerHintPrefix  P: purge/zap  $pickerHintActions" } else { "$pickerHintPrefix  $pickerHintActions" }
                         $frameLines = @(
                             (Format-PickerFrameLine -Text "Remove-PlatformPackage - $($allPackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)

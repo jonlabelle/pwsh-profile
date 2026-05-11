@@ -365,7 +365,7 @@ Describe 'Remove-PlatformPackage' {
             $result.NotSelected | Should -Be 0
             $result.Removed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Spacebar: select  P: purge/zap  Enter: remove current/selected  A: toggle all  D: deps  T: toggle direction  V: details  F: [all]  Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: cancel' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Spacebar: select  P: purge/zap  Enter: remove current/selected  A: toggle all  D: deps  V: details  F: [all]  Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: cancel' } -Times 1
         }
 
         It 'shows keyboard help from the removal picker' {
