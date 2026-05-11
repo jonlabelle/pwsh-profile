@@ -218,7 +218,41 @@ function Show-PlatformPackageManager
                 [String]$Prompt
             )
 
-            [Console]::Write("$Prompt`: ")
+            function Write-PlatformPackageManagerPromptText
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [String]$Text
+                )
+
+                $pattern = '\([^\)]*\? for help[^\)]*\)|\[[^\]]*\? for help[^\]]*\]'
+                $matches = [regex]::Matches($Text, $pattern)
+                if ($matches.Count -eq 0)
+                {
+                    [Console]::Write($Text)
+                    return
+                }
+
+                $cursor = 0
+                foreach ($match in $matches)
+                {
+                    if ($match.Index -gt $cursor)
+                    {
+                        [Console]::Write($Text.Substring($cursor, $match.Index - $cursor))
+                    }
+
+                    Write-Host $match.Value -NoNewline -ForegroundColor DarkGray
+                    $cursor = $match.Index + $match.Length
+                }
+
+                if ($cursor -lt $Text.Length)
+                {
+                    [Console]::Write($Text.Substring($cursor))
+                }
+            }
+
+            Write-PlatformPackageManagerPromptText -Text $Prompt
+            [Console]::Write(': ')
             $buffer = [System.Text.StringBuilder]::new()
 
             while ($true)
