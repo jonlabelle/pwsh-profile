@@ -1,0 +1,189 @@
+name: Develop a Function
+description: Submit a new function for the profile
+title: "[FUNCTION] "
+labels: ["function-development"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Great! You're ready to develop a new function. Please provide the details below to help us review and integrate your work.
+
+  - type: input
+    id: function-name
+    attributes:
+      label: Function Name
+      description: "PowerShell Verb-Noun naming convention (e.g., Get-NetworkMetrics, Test-Port)"
+      placeholder: "Verb-Noun"
+    validations:
+      required: true
+
+  - type: textarea
+    id: synopsis
+    attributes:
+      label: Synopsis
+      description: One-line description of the function
+      placeholder: "Gets network latency metrics for a specified host"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Detailed Description
+      description: Comprehensive description of functionality
+      placeholder: |
+        Measures network latency, jitter, and packet loss for a target host over time.
+        Supports live visualization and export formats.
+        Cross-platform compatible with PowerShell 5.1+ and Core 6.2+.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Function Category
+      description: Where will this function be placed?
+      options:
+        - "ActiveDirectory"
+        - "Developer"
+        - "MediaProcessing"
+        - "ModuleManagement"
+        - "NetworkAndDns"
+        - "ProfileManagement"
+        - "Security"
+        - "SystemAdministration"
+        - "Utilities"
+    validations:
+      required: true
+
+  - type: textarea
+    id: parameters
+    attributes:
+      label: Parameters
+      description: List of function parameters and their descriptions
+      placeholder: |
+        - **ComputerName** (string, mandatory): Target host to measure
+        - **Count** (int, default: 10): Number of measurements
+        - **Interval** (int, default: 1): Seconds between measurements
+        - **Plot** (switch): Display latency graph after completion
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: outputs
+    attributes:
+      label: Return Type and Output
+      description: What does the function return?
+      placeholder: |
+        Returns PSCustomObject with properties:
+        - ComputerName
+        - AverageLatency (ms)
+        - MinLatency (ms)
+        - MaxLatency (ms)
+        - Jitter (ms)
+        - PacketLoss (%)
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Usage Examples
+      description: Realistic examples of how to use this function
+      placeholder: |
+        ```powershell
+        # Basic usage
+        Get-NetworkMetrics 'example.com'
+
+        # With custom interval and count
+        Get-NetworkMetrics 'example.com' -Interval 2 -Count 30 -Plot
+
+        # Pipeline from multiple hosts
+        'google.com', 'cloudflare.com' | Get-NetworkMetrics
+        ```
+      render: powershell
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform-support
+    attributes:
+      label: Platform Support
+      description: Which platforms should this function support?
+      multiple: true
+      options:
+        - "Windows PowerShell 5.1"
+        - "PowerShell Core 6.2+ on Windows"
+        - "PowerShell Core 6.2+ on macOS"
+        - "PowerShell Core 6.2+ on Linux"
+      validations:
+        required: true
+
+  - type: textarea
+    id: cross-platform-notes
+    attributes:
+      label: Cross-Platform Considerations
+      description: Any platform-specific dependencies or workarounds needed?
+      placeholder: |
+        - Uses [System.Net.Dns]::GetHostAddresses() for cross-platform DNS
+        - Falls back to ping command on systems without .NET methods
+        - Requires elevation on Windows for ICMP
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Does this function depend on other profile functions?
+      placeholder: |
+        - Requires: `Test-Port` (for connection testing)
+        - Compatible with: `Show-NetworkLatencyGraph`
+
+  - type: textarea
+    id: implementation-notes
+    attributes:
+      label: Implementation Notes
+      description: Technical details about the implementation approach
+      placeholder: |
+        - Uses Pinger class from System.Net.NetworkInformation
+        - Implements custom sparkline graph rendering
+        - Handles timeouts gracefully with -ErrorAction Continue
+
+  - type: textarea
+    id: test-plan
+    attributes:
+      label: Test Plan
+      description: How should this function be tested?
+      placeholder: |
+        Unit Tests:
+        - [ ] Validates ComputerName parameter (not null, not empty)
+        - [ ] Returns PSCustomObject with correct properties
+        - [ ] Handles unreachable hosts gracefully
+
+        Integration Tests:
+        - [ ] Works with real DNS resolution
+        - [ ] Correctly measures latency to reachable hosts
+        - [ ] Timeout behavior works correctly
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: requirements
+    attributes:
+      label: Development Requirements
+      description: Confirm you've completed these before submitting
+      options:
+        - label: "Function follows Verb-Noun naming convention"
+        - label: "Function includes comprehensive comment-based help"
+        - label: "Function uses [CmdletBinding()] and [OutputType(...)]"
+        - label: "Function is cross-platform compatible (PS 5.1 and Core)"
+        - label: "Function passes PSScriptAnalyzer with no errors"
+        - label: "Unit and integration tests are included"
+        - label: "Code follows project conventions (UTF-8 BOM for Unicode, path handling, error handling)"
+        - label: "Examples are realistic and runnable"
+      validations:
+        required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: References, related functions, external documentation, etc.

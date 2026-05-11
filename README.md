@@ -186,6 +186,8 @@ Contributions are welcome. Please keep changes aligned with the existing structu
 - Keep functions cross-platform unless they are clearly platform-specific.
 - Open a pull request with a short description and verification steps.
 
+See the complete [contributing guide](CONTRIBUTING.md) for more details:
+
 ## Author
 
 [@jonlabelle](https://github.com/jonlabelle)

@@ -1,0 +1,48 @@
+name: Question or Discussion
+description: Ask a question or discuss an idea
+title: "[QUESTION] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question or want to discuss something? We're happy to help!
+
+        **Tip:** Check the [documentation](../../tree/main/docs) and [Troubleshooting guide](../../tree/main/docs/troubleshooting.md) first—your answer might be there.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question or Discussion
+      description: What would you like to know or discuss?
+      placeholder: "How can I...? Is it possible to...? Why does..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Provide context to help us understand better
+      placeholder: |
+        - What are you trying to accomplish?
+        - What have you already tried?
+        - Any error messages or unexpected behavior?
+
+  - type: dropdown
+    id: powershell-version
+    attributes:
+      label: PowerShell Version
+      description: What version are you using?
+      options:
+        - "PowerShell 5.1 (Windows only)"
+        - "PowerShell Core 7.x (Windows)"
+        - "PowerShell Core 7.x (macOS)"
+        - "PowerShell Core 7.x (Linux)"
+        - "Other"
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Information
+      description: Any other details that might help

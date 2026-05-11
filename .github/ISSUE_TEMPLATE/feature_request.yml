@@ -1,0 +1,84 @@
+name: Feature Request
+description: Suggest a new function or enhancement
+title: "[FEATURE] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the feature request! Help us understand what you'd like to add and why.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Use Case
+      description: What problem does this solve or what workflow does it improve?
+      placeholder: "Currently, I have to... but it would be better if..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe your proposed solution or new function
+      placeholder: |
+        A new function called `Get-NetworkMetrics` that would:
+        - Accept a hostname
+        - Return ping latency, jitter, packet loss
+        - Support -Plot parameter for visualization
+    validations:
+      required: true
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Example Usage
+      description: How would you like to use this feature?
+      placeholder: |
+        ```powershell
+        Get-NetworkMetrics 'example.com' -Interval 1 -Count 10 | Format-Table
+        ```
+      render: powershell
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Function Category
+      description: Where would this function fit best?
+      options:
+        - "ActiveDirectory - AD and group policy operations"
+        - "Developer - Git, GitHub, Docker, development tools"
+        - "MediaProcessing - Video/audio processing"
+        - "ModuleManagement - PowerShell module operations"
+        - "NetworkAndDns - Network testing, DNS, IP utilities"
+        - "ProfileManagement - Profile loading and management"
+        - "Security - Certificates, JWT, encryption"
+        - "SystemAdministration - System operations and admin tasks"
+        - "Utilities - General-purpose helpers"
+        - "Other / Not sure"
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Are there other approaches or existing functions that come close?
+      placeholder: |
+        - Existing function: `Test-Port` - similar but doesn't provide metrics
+        - Manual alternative: Running `ping` command directly
+
+  - type: textarea
+    id: cross-platform
+    attributes:
+      label: Cross-Platform Considerations
+      description: Any platform-specific requirements or limitations?
+      placeholder: |
+        - Should work on Windows 5.1, Core 6.2+ ✓
+        - Requires .NET 4.7.2 for TLS 1.3 on Windows 5.1
+        - Uses platform-specific commands for Linux
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Links to documentation, related issues, or reference implementations

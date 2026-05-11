@@ -1,0 +1,140 @@
+name: Bug Report
+description: Report a function or profile loading issue
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out the details below to help us diagnose and fix the issue.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of the bug
+      placeholder: "Describe what went wrong"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Run the command...
+        2. Pass parameter...
+        3. Observe error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should happen instead
+      placeholder: "The function should return..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What currently happens
+      placeholder: |
+        Error message:
+        ```
+        [error details]
+        ```
+    validations:
+      required: true
+
+  - type: dropdown
+    id: function
+    attributes:
+      label: Function Affected
+      description: Which function is affected (if applicable)
+      options:
+        - "Select a function..."
+        - "Invoke-NetworkDiagnostic"
+        - "Test-Port"
+        - "Test-DnsNameResolution"
+        - "Get-IPAddress"
+        - "Invoke-FFmpeg"
+        - "Update-AllModules"
+        - "Get-CertificateExpiration"
+        - "Other / Multiple / Not a specific function"
+
+  - type: dropdown
+    id: powershell-version
+    attributes:
+      label: PowerShell Version
+      description: What version of PowerShell are you using?
+      options:
+        - "PowerShell 5.1 (Windows only)"
+        - "PowerShell Core 7.x (Windows)"
+        - "PowerShell Core 7.x (macOS)"
+        - "PowerShell Core 7.x (Linux)"
+        - "Older version (specify below)"
+    validations:
+      required: true
+
+  - type: input
+    id: ps-version-exact
+    attributes:
+      label: Exact PowerShell Version
+      description: Output of `$PSVersionTable.PSVersion`
+      placeholder: "7.4.0"
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - "Windows 10 / 11"
+        - "Windows Server 2019 / 2022"
+        - "macOS (Intel)"
+        - "macOS (Apple Silicon)"
+        - "Ubuntu / Debian"
+        - "Other Linux"
+        - "Other"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment Details
+      description: Any other relevant environment information
+      placeholder: |
+        - Install method: (git clone / install.ps1 / manual)
+        - Custom configuration: (any modifications to profile)
+        - Other relevant details...
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Logs or Output
+      description: |
+        Full error messages, stack traces, or relevant output
+        (Use `verbose` parameter with `Write-Verbose` output if available)
+      render: powershell
+
+  - type: checkboxes
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Run these to help us help you
+      options:
+        - label: "Ran `Show-ProfileFunctions` to confirm function is loaded"
+        - label: "Tested with `Write-Verbose` parameter to see detailed output"
+        - label: "Searched existing issues for similar problems"
+        - label: "Ran PSScriptAnalyzer on the profile (no errors)"
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context about the problem
