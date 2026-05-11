@@ -461,7 +461,7 @@ Describe 'Remove-PlatformPackage' {
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew zap output' } -Times 1
         }
 
-        It 'toggles dependency direction from the removal picker with D and T' {
+        It 'shows both dependency directions from the removal picker with D' {
             $runner = & $script:NewPackageCommandRunner @{
                 'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0')
                 'brew list --cask --versions' = Get-TestCommandResponse -Output @()
@@ -486,7 +486,6 @@ Describe 'Remove-PlatformPackage' {
             $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
             @(
                 [System.ConsoleKeyInfo]::new('d', [ConsoleKey]::D, $false, $false, $false)
-                [System.ConsoleKeyInfo]::new('t', [ConsoleKey]::T, $false, $false, $false)
                 [System.ConsoleKeyInfo]::new('b', [ConsoleKey]::B, $false, $false, $false)
                 [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
             ) | ForEach-Object { $keys.Enqueue($_) }
@@ -499,6 +498,9 @@ Describe 'Remove-PlatformPackage' {
             $result.Removed | Should -Be 0
             Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
             Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn + RequiredBy]' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn]' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [RequiredBy]' } -Times 1
         }
 
         It 'filters picker results by package name when F is pressed' {

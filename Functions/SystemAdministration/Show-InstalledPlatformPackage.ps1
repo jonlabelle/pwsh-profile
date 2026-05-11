@@ -1141,7 +1141,6 @@ function Show-InstalledPlatformPackage
                 Write-Host 'Actions' -ForegroundColor White
                 Write-PackagePickerHelpItem -Shortcut 'D' -Description 'open or close the dependency view for the current package'
                 Write-PackagePickerHelpItem -Shortcut 'B' -Description 'return to the package list from the dependency view'
-                Write-PackagePickerHelpItem -Shortcut 'T' -Description 'toggle dependency direction (DependsOn/RequiredBy)'
                 Write-PackagePickerHelpItem -Shortcut 'V' -Description 'load a missing winget description when available'
                 Write-PackagePickerHelpItem -Shortcut 'R' -Description 'remove the current package (with confirmation)'
                 Write-PackagePickerHelpItem -Shortcut 'U' -Description 'upgrade the current package (with confirmation)'
@@ -1212,62 +1211,68 @@ function Show-InstalledPlatformPackage
                 }
             }
 
-            function Get-DependencyPanelLines
+            function Get-DependencyPanelSections
             {
                 param(
                     [Parameter(Mandatory)]
-                    [PSCustomObject]$Package,
-
-                    [Parameter(Mandatory)]
-                    [ValidateSet('DependsOn', 'RequiredBy')]
-                    [String]$Direction
+                    [PSCustomObject]$Package
                 )
 
-                $parameters = @{
-                    Package = @($Package)
-                    Direction = $Direction
-                    PackageManager = $Package.PackageManager
-                }
-                if ($CommandRunner)
+                $sections = @()
+                foreach ($direction in @('DependsOn', 'RequiredBy'))
                 {
-                    $parameters.CommandRunner = $CommandRunner
-                }
-
-                try
-                {
-                    $records = @(Get-PlatformPackageDependency @parameters)
-                    if ($records.Count -eq 0)
+                    $parameters = @{
+                        Package = @($Package)
+                        Direction = $direction
+                        PackageManager = $Package.PackageManager
+                    }
+                    if ($CommandRunner)
                     {
-                        return [PSCustomObject]@{
+                        $parameters.CommandRunner = $CommandRunner
+                    }
+
+                    try
+                    {
+                        $records = @(Get-PlatformPackageDependency @parameters)
+                        if ($records.Count -eq 0)
+                        {
+                            $sections += [PSCustomObject]@{
+                                Direction = $direction
+                                Error = ''
+                                Lines = @('(none found)')
+                            }
+                            continue
+                        }
+
+                        $lines = @()
+                        foreach ($record in $records | Select-Object -First 8)
+                        {
+                            $installedMarker = if ($record.Installed) { ' [installed]' } else { '' }
+                            $lines += "- $($record.RelatedPackage) ($($record.DependencyType))$installedMarker"
+                        }
+
+                        if ($records.Count -gt $lines.Count)
+                        {
+                            $lines += "... and $($records.Count - $lines.Count) more"
+                        }
+
+                        $sections += [PSCustomObject]@{
+                            Direction = $direction
                             Error = ''
-                            Lines = @('(none found)')
+                            Lines = $lines
                         }
                     }
-
-                    $lines = @()
-                    foreach ($record in $records | Select-Object -First 8)
+                    catch
                     {
-                        $installedMarker = if ($record.Installed) { ' [installed]' } else { '' }
-                        $lines += "- $($record.RelatedPackage) ($($record.DependencyType))$installedMarker"
-                    }
-
-                    if ($records.Count -gt $lines.Count)
-                    {
-                        $lines += "... and $($records.Count - $lines.Count) more"
-                    }
-
-                    return [PSCustomObject]@{
-                        Error = ''
-                        Lines = $lines
+                        $sections += [PSCustomObject]@{
+                            Direction = $direction
+                            Error = $_.Exception.Message
+                            Lines = @()
+                        }
                     }
                 }
-                catch
-                {
-                    return [PSCustomObject]@{
-                        Error = $_.Exception.Message
-                        Lines = @()
-                    }
-                }
+
+                return $sections
             }
 
             try
@@ -1295,11 +1300,8 @@ function Show-InstalledPlatformPackage
 
                 $showDependencyPanel = $false
                 $dependencyPanelRestoreInPlaceRedraw = $null
-                $dependencyDirection = 'DependsOn'
                 $dependencyPanelPackageKey = ''
-                $dependencyPanelDirection = ''
-                $dependencyPanelLines = @()
-                $dependencyPanelError = ''
+                $dependencyPanelSections = @()
                 $actionStatus = ''
 
                 while ($true)
@@ -1356,13 +1358,10 @@ function Show-InstalledPlatformPackage
 
                     if ($showDependencyPanel -and $null -ne $currentPackage)
                     {
-                        if ($dependencyPanelPackageKey -ne $currentPackageLookupKey -or $dependencyPanelDirection -ne $dependencyDirection)
+                        if ($dependencyPanelPackageKey -ne $currentPackageLookupKey)
                         {
-                            $dependencyResult = Get-DependencyPanelLines -Package $currentPackage -Direction $dependencyDirection
-                            $dependencyPanelLines = @($dependencyResult.Lines)
-                            $dependencyPanelError = "$($dependencyResult.Error)"
+                            $dependencyPanelSections = @(Get-DependencyPanelSections -Package $currentPackage)
                             $dependencyPanelPackageKey = $currentPackageLookupKey
-                            $dependencyPanelDirection = $dependencyDirection
                         }
                     }
 
@@ -1399,21 +1398,26 @@ function Show-InstalledPlatformPackage
                         $frameLines = @(
                             (Format-PickerFrameLine -Text "Show-InstalledPlatformPackage Dependencies - $($InstalledPackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
                             ''
-                            (Format-PickerFrameLine -Text "B/Backspace/LeftArrow: back  T: toggle direction  V: details  ${nameFilterHint}${sourceHint}Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit" -ForegroundColor DarkGray)
+                            (Format-PickerFrameLine -Text "B/Backspace/LeftArrow: back  V: details  ${nameFilterHint}${sourceHint}Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit" -ForegroundColor DarkGray)
                             ''
                             (Format-PickerFrameLine -Text ('Current: {0} | Id: {1} | Publisher: {2} | Version: {3} | Source: {4}' -f $currentPackage.Name, $currentPackage.Id, $currentPublisher, $currentVersion, $currentSource) -ForegroundColor White)
                             (Format-PickerFrameLine -Text ('Description: {0}' -f $currentDescription) -ForegroundColor White)
                             ''
-                            (Format-PickerFrameLine -Text ("Dependencies [$dependencyDirection]") -ForegroundColor White)
+                            (Format-PickerFrameLine -Text 'Dependencies [DependsOn + RequiredBy]' -ForegroundColor White)
                         )
 
-                        if (-not [String]::IsNullOrWhiteSpace($dependencyPanelError))
+                        foreach ($dependencySection in $dependencyPanelSections)
                         {
-                            $frameLines += Format-PickerFrameLine -Text ("Dependency lookup failed: $dependencyPanelError") -ForegroundColor DarkYellow
-                        }
-                        else
-                        {
-                            foreach ($dependencyLine in $dependencyPanelLines)
+                            $frameLines += ''
+                            $frameLines += Format-PickerFrameLine -Text ("Dependencies [$($dependencySection.Direction)]") -ForegroundColor White
+
+                            if (-not [String]::IsNullOrWhiteSpace($dependencySection.Error))
+                            {
+                                $frameLines += Format-PickerFrameLine -Text ("Dependency lookup failed: $($dependencySection.Error)") -ForegroundColor DarkYellow
+                                continue
+                            }
+
+                            foreach ($dependencyLine in $dependencySection.Lines)
                             {
                                 $frameLines += $dependencyLine
                             }
@@ -1675,7 +1679,6 @@ function Show-InstalledPlatformPackage
                                 $pickerRenderState.UseInPlaceRedraw = $false
                                 $pickerRenderState.RenderedLineCount = 0
                                 $dependencyPanelPackageKey = ''
-                                $dependencyPanelDirection = ''
                             }
                             elseif ($null -ne $dependencyPanelRestoreInPlaceRedraw)
                             {
@@ -1720,20 +1723,6 @@ function Show-InstalledPlatformPackage
                                     $pickerRenderState.UseInPlaceRedraw = $dependencyPanelRestoreInPlaceRedraw
                                     $dependencyPanelRestoreInPlaceRedraw = $null
                                     $pickerRenderState.RenderedLineCount = 0
-                                }
-                            }
-                        }
-                        'T'
-                        {
-                            if ($showDependencyPanel)
-                            {
-                                if ($dependencyDirection -eq 'DependsOn')
-                                {
-                                    $dependencyDirection = 'RequiredBy'
-                                }
-                                else
-                                {
-                                    $dependencyDirection = 'DependsOn'
                                 }
                             }
                         }

@@ -255,7 +255,7 @@ Describe 'Show-InstalledPlatformPackage' {
             @($script:Invocations | Where-Object { $_.Key -eq 'winget show --id Git.Git --exact --accept-source-agreements --output json' }).Count | Should -Be 1
         }
 
-        It 'toggles dependency direction from the picker with D and T' {
+        It 'shows both dependency directions from the picker with D' {
             $runner = & $script:NewPackageCommandRunner @{
                 'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0'))
                 'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @())
@@ -280,7 +280,6 @@ Describe 'Show-InstalledPlatformPackage' {
             $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
             @(
                 [System.ConsoleKeyInfo]::new('d', [ConsoleKey]::D, $false, $false, $false)
-                [System.ConsoleKeyInfo]::new('t', [ConsoleKey]::T, $false, $false, $false)
                 [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
             ) | ForEach-Object { $keys.Enqueue($_) }
             $keyReader = {
@@ -293,9 +292,10 @@ Describe 'Show-InstalledPlatformPackage' {
             Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
             Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Show-InstalledPlatformPackage Dependencies - Homebrew' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn + RequiredBy]' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn]' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [RequiredBy]' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/LeftArrow to return to the package list.' } -Times 2
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/LeftArrow to return to the package list.' } -Times 1
         }
 
         It 'invokes Remove-PlatformPackage from the picker when R is confirmed' {
