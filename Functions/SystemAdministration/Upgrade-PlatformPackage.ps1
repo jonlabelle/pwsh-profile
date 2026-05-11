@@ -605,7 +605,8 @@ function Upgrade-PlatformPackage
             Write-Host "Refreshing $($Manager.DisplayName) package metadata..." -ForegroundColor White
 
             $invocation = Resolve-PackageManagerInvocation -Manager $Manager -Arguments $Manager.RefreshArguments
-            $result = Invoke-PackageManagerCommand -Command $invocation.Command -Arguments $invocation.Arguments -StreamOutput
+            $streamOutput = $Manager.Name -ne 'winget'
+            $result = Invoke-PackageManagerCommand -Command $invocation.Command -Arguments $invocation.Arguments -StreamOutput:$streamOutput
 
             if ($result.ExitCode -ne 0)
             {
@@ -1937,7 +1938,15 @@ function Upgrade-PlatformPackage
                     return
                 }
 
-                $frameWidth = [Math]::Max(1, [Int32]$pickerRenderState.ConsoleBufferWidth)
+                $currentBufferWidth = Get-PickerConsoleBufferWidth
+                if ($currentBufferWidth -gt 0)
+                {
+                    $pickerRenderState.ConsoleBufferWidth = $currentBufferWidth
+                }
+
+                # Writing exactly to the console width can trigger terminal auto-wrap,
+                # which causes cursor jitter/artifacts in some Windows hosts.
+                $frameWidth = [Math]::Max(1, ([Int32]$pickerRenderState.ConsoleBufferWidth - 1))
                 $blankLine = ''.PadRight($frameWidth)
                 $frameLines = @()
                 foreach ($line in $Lines)
@@ -1968,18 +1977,14 @@ function Upgrade-PlatformPackage
 
                 try
                 {
-                    [Console]::SetCursorPosition(0, 0)
                     $originalForegroundColor = [Console]::ForegroundColor
                     try
                     {
+                        [Console]::SetCursorPosition(0, 0)
                         for ($lineIndex = 0; $lineIndex -lt $frameLines.Count; $lineIndex++)
                         {
-                            if ($lineIndex -gt 0)
-                            {
-                                [Console]::Write("`r`n")
-                            }
-
                             $line = $frameLines[$lineIndex]
+
                             if ($null -eq $line.ForegroundColor)
                             {
                                 [Console]::ForegroundColor = $originalForegroundColor
@@ -1990,6 +1995,11 @@ function Upgrade-PlatformPackage
                             }
 
                             [Console]::Write($line.Text)
+
+                            if ($lineIndex -lt ($frameLines.Count - 1))
+                            {
+                                [Console]::Write("`r`n")
+                            }
                         }
                     }
                     finally
@@ -2031,8 +2041,15 @@ function Upgrade-PlatformPackage
                 {
                     if ($pickerRenderState.RenderedLineCount -gt 0)
                     {
-                        $frameWidth = [Math]::Max(1, [Int32]$pickerRenderState.ConsoleBufferWidth)
+                        $currentBufferWidth = Get-PickerConsoleBufferWidth
+                        if ($currentBufferWidth -gt 0)
+                        {
+                            $pickerRenderState.ConsoleBufferWidth = $currentBufferWidth
+                        }
+
+                        $frameWidth = [Math]::Max(1, ([Int32]$pickerRenderState.ConsoleBufferWidth - 1))
                         $blankLine = ''.PadRight($frameWidth)
+
                         $clearLines = for ($lineIndex = 0; $lineIndex -lt $pickerRenderState.RenderedLineCount; $lineIndex++)
                         {
                             $blankLine

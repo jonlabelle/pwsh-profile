@@ -534,6 +534,34 @@ Describe 'Upgrade-PlatformPackage' {
     }
 
     Context 'winget package discovery' {
+        It 'does not stream winget source refresh output to the console' {
+            $wingetUpgradeJson = @{
+                Sources = @(
+                    @{
+                        SourceDetails = @{ Name = 'winget' }
+                        Packages = @(
+                            @{ PackageName = 'PowerShell'; PackageIdentifier = 'Microsoft.PowerShell'; Version = '7.4.1'; Available = '7.4.2' }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget source update' = Get-TestCommandResponse -Output @(
+                    'Updating all sources...'
+                    'Updating source: msstore...'
+                    'Done'
+                )
+                'winget upgrade --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetUpgradeJson)
+            }
+
+            $result = @(Upgrade-PlatformPackage -PackageManager winget -NonInteractive -CommandRunner $runner)
+
+            $result.Count | Should -Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget source update' }).StreamOutput | Should -BeFalse
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Updating all sources*' -or $Object -like 'Updating source:*' } -Times 0
+        }
+
         It 'falls back to table parsing when JSON output is unavailable' {
             $runner = & $script:NewPackageCommandRunner @{
                 'winget upgrade --accept-source-agreements --output json' = Get-TestCommandResponse -ExitCode 1 -Output @('Unrecognized argument: --output')
