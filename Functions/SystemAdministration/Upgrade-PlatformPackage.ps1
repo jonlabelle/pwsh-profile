@@ -1536,16 +1536,112 @@ function Upgrade-PlatformPackage
                 }
             }
 
-            $visiblePackages = @(
-                if ($availableSources[$sourceFilterIndex] -eq 'All')
+            function Get-FilteredVisiblePackages
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [Int32]$SourceIndex,
+
+                    [Parameter()]
+                    [String]$NameFilter = ''
+                )
+
+                $sourcePackages = @(
+                    if ($availableSources[$SourceIndex] -eq 'All')
+                    {
+                        $allPackages
+                    }
+                    else
+                    {
+                        $allPackages | Where-Object { $_.Source -eq $availableSources[$SourceIndex] }
+                    }
+                )
+
+                if ([String]::IsNullOrWhiteSpace($NameFilter))
                 {
-                    $allPackages
+                    return @($sourcePackages)
                 }
-                else
+
+                $namePattern = "*$NameFilter*"
+                return @($sourcePackages | Where-Object { $_.Name -like $namePattern -or $_.Id -like $namePattern })
+            }
+
+            function Read-PackageNameFilter
+            {
+                param(
+                    [Parameter()]
+                    [String]$CurrentFilter = ''
+                )
+
+                $restoreInPlaceRedraw = $pickerRenderState.UseInPlaceRedraw
+                $pickerRenderState.UseInPlaceRedraw = $false
+                $pickerRenderState.RenderedLineCount = 0
+
+                $workingFilter = "$CurrentFilter"
+                try
                 {
-                    $allPackages | Where-Object { $_.Source -eq $availableSources[$sourceFilterIndex] }
+                    while ($true)
+                    {
+                        Clear-Host
+                        Write-Host 'Filter upgradable packages' -ForegroundColor Cyan
+                        Write-Host 'Type package name text to match Name or Id.' -ForegroundColor DarkGray
+                        Write-Host ''
+                        Write-Host "Current filter: $workingFilter" -ForegroundColor White
+                        Write-Host ''
+                        Write-Host 'Enter: apply filter  Backspace: delete  Ctrl+U: clear  Esc/Ctrl+C: cancel' -ForegroundColor DarkGray
+
+                        $filterKey = & $KeyReader
+                        $isFilterControlC = $filterKey.Key -eq [ConsoleKey]::C -and (($filterKey.Modifiers -band [ConsoleModifiers]::Control) -eq [ConsoleModifiers]::Control)
+                        $isFilterControlC = $isFilterControlC -or ([Int32][Char]$filterKey.KeyChar -eq 3)
+                        if ($filterKey.Key -eq [ConsoleKey]::Escape -or $isFilterControlC)
+                        {
+                            return [PSCustomObject]@{
+                                Applied = $false
+                                Value = $CurrentFilter
+                            }
+                        }
+
+                        if ($filterKey.Key -eq [ConsoleKey]::Enter)
+                        {
+                            return [PSCustomObject]@{
+                                Applied = $true
+                                Value = $workingFilter.Trim()
+                            }
+                        }
+
+                        if ($filterKey.Key -eq [ConsoleKey]::Backspace)
+                        {
+                            if ($workingFilter.Length -gt 0)
+                            {
+                                $workingFilter = $workingFilter.Substring(0, $workingFilter.Length - 1)
+                            }
+
+                            continue
+                        }
+
+                        $isCtrlU = $filterKey.Key -eq [ConsoleKey]::U -and (($filterKey.Modifiers -band [ConsoleModifiers]::Control) -eq [ConsoleModifiers]::Control)
+                        if ($isCtrlU)
+                        {
+                            $workingFilter = ''
+                            continue
+                        }
+
+                        if (-not [Char]::IsControl($filterKey.KeyChar))
+                        {
+                            $workingFilter += $filterKey.KeyChar
+                        }
+                    }
                 }
-            )
+                finally
+                {
+                    Clear-Host
+                    $pickerRenderState.UseInPlaceRedraw = $restoreInPlaceRedraw
+                    $pickerRenderState.RenderedLineCount = 0
+                }
+            }
+
+            $nameFilterText = ''
+            $visiblePackages = @(Get-FilteredVisiblePackages -SourceIndex $sourceFilterIndex -NameFilter $nameFilterText)
 
             $usingConsoleKeyReader = $false
             if ($null -eq $KeyReader)
@@ -1970,6 +2066,10 @@ function Upgrade-PlatformPackage
                 }
 
                 Write-Host ''
+                Write-Host 'Name Filter' -ForegroundColor White
+                Write-PackagePickerHelpItem -Shortcut 'F' -Description 'set a name/id filter (blank value clears it)'
+
+                Write-Host ''
                 Write-Host 'Other Actions' -ForegroundColor White
                 Write-PackagePickerHelpItem -Shortcut 'D' -Description 'load a missing winget description when available'
                 Write-PackagePickerHelpItem -Shortcut 'Q, Esc, or Ctrl+C' -Description 'cancel upgrades'
@@ -2057,7 +2157,9 @@ function Upgrade-PlatformPackage
 
                     $pickerHintPrefix = 'Spacebar: select'
                     $sourceHint = if ($hasSourceFilter) { "S: [$($availableSources[$sourceFilterIndex])]  " } else { '' }
-                    $pickerHintActions = "Enter: upgrade selected  A: toggle all  ${sourceHint}Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: cancel"
+                    $nameFilterHintValue = if ([String]::IsNullOrWhiteSpace($nameFilterText)) { 'all' } else { $nameFilterText }
+                    $nameFilterHint = "F: [$nameFilterHintValue]  "
+                    $pickerHintActions = "Enter: upgrade selected  A: toggle all  ${nameFilterHint}${sourceHint}Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: cancel"
                     $pickerHint = if ($showUninstallPrevious) { "$pickerHintPrefix  U: uninstall previous  $pickerHintActions" } else { "$pickerHintPrefix  $pickerHintActions" }
                     $frameLines = @(
                         (Format-PickerFrameLine -Text "Upgrade-PlatformPackage - $($allPackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
@@ -2067,7 +2169,20 @@ function Upgrade-PlatformPackage
                     )
                     if ($visiblePackages.Count -eq 0)
                     {
-                        $frameLines += Format-PickerFrameLine -Text '  (No packages match this source filter. Press S to cycle.)' -ForegroundColor DarkYellow
+                        if ([String]::IsNullOrWhiteSpace($nameFilterText))
+                        {
+                            $frameLines += Format-PickerFrameLine -Text '  (No packages match this source filter. Press S to cycle.)' -ForegroundColor DarkYellow
+                        }
+                        else
+                        {
+                            $emptyKeys = @('F')
+                            if ($hasSourceFilter)
+                            {
+                                $emptyKeys += 'S'
+                            }
+
+                            $frameLines += Format-PickerFrameLine -Text "  (No packages match the active filters. Press $($emptyKeys -join ' or ') to adjust.)" -ForegroundColor DarkYellow
+                        }
                         Write-PickerFrame -Lines $frameLines
 
                         $key = & $KeyReader
@@ -2091,18 +2206,21 @@ function Upgrade-PlatformPackage
                         if ($hasSourceFilter -and $key.Key -eq [ConsoleKey]::S)
                         {
                             $sourceFilterIndex = ($sourceFilterIndex + 1) % $availableSources.Count
-                            $visiblePackages = @(
-                                if ($availableSources[$sourceFilterIndex] -eq 'All')
-                                {
-                                    $allPackages
-                                }
-                                else
-                                {
-                                    $allPackages | Where-Object { $_.Source -eq $availableSources[$sourceFilterIndex] }
-                                }
-                            )
+                            $visiblePackages = @(Get-FilteredVisiblePackages -SourceIndex $sourceFilterIndex -NameFilter $nameFilterText)
                             $cursor = 0
                             $topIndex = 0
+                        }
+
+                        if ($key.Key -eq [ConsoleKey]::F)
+                        {
+                            $filterResult = Read-PackageNameFilter -CurrentFilter $nameFilterText
+                            if ($filterResult.Applied)
+                            {
+                                $nameFilterText = "$($filterResult.Value)"
+                                $visiblePackages = @(Get-FilteredVisiblePackages -SourceIndex $sourceFilterIndex -NameFilter $nameFilterText)
+                                $cursor = 0
+                                $topIndex = 0
+                            }
                         }
 
                         continue
@@ -2288,16 +2406,18 @@ function Upgrade-PlatformPackage
                             if ($hasSourceFilter)
                             {
                                 $sourceFilterIndex = ($sourceFilterIndex + 1) % $availableSources.Count
-                                $visiblePackages = @(
-                                    if ($availableSources[$sourceFilterIndex] -eq 'All')
-                                    {
-                                        $allPackages
-                                    }
-                                    else
-                                    {
-                                        $allPackages | Where-Object { $_.Source -eq $availableSources[$sourceFilterIndex] }
-                                    }
-                                )
+                                $visiblePackages = @(Get-FilteredVisiblePackages -SourceIndex $sourceFilterIndex -NameFilter $nameFilterText)
+                                $cursor = 0
+                                $topIndex = 0
+                            }
+                        }
+                        'F'
+                        {
+                            $filterResult = Read-PackageNameFilter -CurrentFilter $nameFilterText
+                            if ($filterResult.Applied)
+                            {
+                                $nameFilterText = "$($filterResult.Value)"
+                                $visiblePackages = @(Get-FilteredVisiblePackages -SourceIndex $sourceFilterIndex -NameFilter $nameFilterText)
                                 $cursor = 0
                                 $topIndex = 0
                             }

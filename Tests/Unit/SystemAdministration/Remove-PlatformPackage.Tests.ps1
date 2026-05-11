@@ -344,7 +344,7 @@ Describe 'Remove-PlatformPackage' {
             $result.NotSelected | Should -Be 0
             $result.Removed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Spacebar: select  P: purge/zap  Enter: remove current/selected  A: toggle all  Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: cancel' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Spacebar: select  P: purge/zap  Enter: remove current/selected  A: toggle all  F: [all]  Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: cancel' } -Times 1
         }
 
         It 'shows keyboard help from the removal picker' {
@@ -438,6 +438,62 @@ Describe 'Remove-PlatformPackage' {
             ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall --cask --zap visual-studio-code' }).StreamOutput | Should -BeTrue
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*P: purge/zap*' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew zap output' } -Times 1
+        }
+
+        It 'filters picker results by package name when F is pressed' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0', 'curl 8.7.1')
+                'brew list --cask --versions' = Get-TestCommandResponse -Output @()
+                'brew uninstall git' = Get-TestCommandResponse -Output @('brew uninstall git output')
+            }
+
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new('f', [ConsoleKey]::F, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new('g', [ConsoleKey]::G, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new(' ', [ConsoleKey]::Spacebar, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = Remove-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+
+            $result.Removed | Should -Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should -Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall curl' }).Count | Should -Be 0
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: g' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[g\]' } -Times 1
+        }
+
+        It 'treats lowercase q as filter text instead of cancel' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0', 'jq 1.7.1')
+                'brew list --cask --versions' = Get-TestCommandResponse -Output @()
+                'brew uninstall jq' = Get-TestCommandResponse -Output @('brew uninstall jq output')
+            }
+
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new('f', [ConsoleKey]::F, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new(' ', [ConsoleKey]::Spacebar, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = Remove-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+
+            $result.Removed | Should -Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall jq' }).Count | Should -Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should -Be 0
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: q' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[q\]' } -Times 1
         }
     }
 

@@ -377,6 +377,76 @@ Describe 'Upgrade-PlatformPackage' {
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-04*' } -Times 0
         }
 
+        It 'filters picker results by package name when F is pressed' {
+            $brewJson = @{
+                formulae = @(
+                    @{ name = 'git'; installed_versions = @('2.43.0'); current_version = '2.44.0'; pinned = $false }
+                    @{ name = 'curl'; installed_versions = @('8.6.0'); current_version = '8.7.1'; pinned = $false }
+                )
+                casks = @()
+            } | ConvertTo-Json -Depth 6 -Compress
+
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
+                'brew upgrade git' = Get-TestCommandResponse -Output @('brew upgrade git output')
+            }
+
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new('f', [ConsoleKey]::F, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new('g', [ConsoleKey]::G, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new(' ', [ConsoleKey]::Spacebar, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = Upgrade-PlatformPackage -PackageManager brew -SkipRefresh -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+
+            $result.Upgraded | Should -Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should -Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade curl' }).Count | Should -Be 0
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: g' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[g\]' } -Times 1
+        }
+
+        It 'treats lowercase q as filter text instead of cancel' {
+            $brewJson = @{
+                formulae = @(
+                    @{ name = 'git'; installed_versions = @('2.43.0'); current_version = '2.44.0'; pinned = $false }
+                    @{ name = 'jq'; installed_versions = @('1.6'); current_version = '1.7.1'; pinned = $false }
+                )
+                casks = @()
+            } | ConvertTo-Json -Depth 6 -Compress
+
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
+                'brew upgrade jq' = Get-TestCommandResponse -Output @('brew upgrade jq output')
+            }
+
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new('f', [ConsoleKey]::F, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new(' ', [ConsoleKey]::Spacebar, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = Upgrade-PlatformPackage -PackageManager brew -SkipRefresh -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+
+            $result.Upgraded | Should -Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade jq' }).Count | Should -Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should -Be 0
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: q' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[q\]' } -Times 1
+        }
+
         It 'upgrades only the visible package when filtering duplicate winget ids by source' {
             $wingetUpgradeJson = @{
                 Sources = @(

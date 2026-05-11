@@ -93,7 +93,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'F: [all]  Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit' } -Times 1
             @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 3
         }
 
@@ -115,7 +115,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit' } -Times 2
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'F: [all]  Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit' } -Times 2
         }
 
         It 'renders only the current viewport for long package lists' {
@@ -177,7 +177,7 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Spacebar: select  Enter: return current/selected  A: toggle all  S: [All]  Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Spacebar: select  Enter: return current/selected  A: toggle all  F: [all]  S: [All]  Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit' } -Times 1
         }
 
         It 'shows keyboard help from the picker when question mark is pressed' {
@@ -246,6 +246,56 @@ Describe 'Show-InstalledPlatformPackage' {
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: retrieving description...' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
             @($script:Invocations | Where-Object { $_.Key -eq 'winget show --id Git.Git --exact --accept-source-agreements --output json' }).Count | Should -Be 1
+        }
+
+        It 'filters picker results by package name when F is pressed' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0', 'curl 8.7.1'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @())
+            }
+
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new('f', [ConsoleKey]::F, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new('g', [ConsoleKey]::G, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PassThru)
+
+            $result.Count | Should -Be 1
+            $result[0].Name | Should -Be 'git'
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: g' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[g\]' } -Times 1
+        }
+
+        It 'treats lowercase q as filter text instead of cancel' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0', 'jq 1.7.1'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @())
+            }
+
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new('f', [ConsoleKey]::F, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PassThru)
+
+            $result.Count | Should -Be 1
+            $result[0].Name | Should -Be 'jq'
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: q' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[q\]' } -Times 1
         }
     }
 }
