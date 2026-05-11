@@ -2030,7 +2030,7 @@ function Remove-PlatformPackage
 
                     if ($windowHeight -gt 0)
                     {
-                        $reservedRows = 8
+                        $reservedRows = 14
                         return [Math]::Min([Math]::Max(1, $windowHeight - $reservedRows), [Math]::Max(1, $ItemCount))
                     }
                 }
@@ -2268,29 +2268,27 @@ function Remove-PlatformPackage
 
                 $frameWidth = [Math]::Max(1, [Int32]$pickerRenderState.ConsoleBufferWidth)
                 $blankLine = ''.PadRight($frameWidth)
-                $frameLines = @(
-                    foreach ($line in $Lines)
-                    {
-                        $text = Get-PickerFrameLineText -Line $line
-                        if ($text.Length -ge $frameWidth)
-                        {
-                            if ($frameWidth -eq 1)
-                            {
-                                $text = $text.Substring(0, 1)
-                            }
-                            else
-                            {
-                                $text = $text.Substring(0, $frameWidth - 1) + '~'
-                            }
-                        }
-                        else
-                        {
-                            $text = $text.PadRight($frameWidth)
-                        }
+                $frameLines = @()
+                foreach ($line in $Lines)
+                {
+                    $lineColor = Get-PickerFrameLineColor -Line $line
+                    $text = Get-PickerFrameLineText -Line $line
 
-                        Format-PickerFrameLine -Text $text -ForegroundColor (Get-PickerFrameLineColor -Line $line)
+                    if ([String]::IsNullOrEmpty($text))
+                    {
+                        $frameLines += Format-PickerFrameLine -Text $blankLine -ForegroundColor $lineColor
+                        continue
                     }
-                )
+
+                    $remaining = $text
+                    while ($remaining.Length -gt $frameWidth)
+                    {
+                        $frameLines += Format-PickerFrameLine -Text $remaining.Substring(0, $frameWidth) -ForegroundColor $lineColor
+                        $remaining = $remaining.Substring($frameWidth)
+                    }
+
+                    $frameLines += Format-PickerFrameLine -Text $remaining.PadRight($frameWidth) -ForegroundColor $lineColor
+                }
 
                 while ($frameLines.Count -lt $pickerRenderState.RenderedLineCount)
                 {
