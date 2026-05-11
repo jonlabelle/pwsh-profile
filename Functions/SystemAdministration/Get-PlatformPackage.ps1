@@ -472,6 +472,56 @@ function Get-PlatformPackage
                 return @()
             }
 
+            function Get-WingetJsonSourceName
+            {
+                param(
+                    [Parameter()]
+                    [Object]$SourceRecord
+                )
+
+                if ($null -eq $SourceRecord)
+                {
+                    return ''
+                }
+
+                foreach ($sourcePropertyName in @('Name', 'Source', 'SourceName'))
+                {
+                    $sourceProperty = $SourceRecord.PSObject.Properties[$sourcePropertyName]
+                    if ($sourceProperty)
+                    {
+                        $sourceName = ConvertTo-PackageText -Value $sourceProperty.Value
+                        if (-not [String]::IsNullOrWhiteSpace($sourceName))
+                        {
+                            return $sourceName
+                        }
+                    }
+                }
+
+                foreach ($detailsPropertyName in @('SourceDetails', 'Details'))
+                {
+                    $detailsProperty = $SourceRecord.PSObject.Properties[$detailsPropertyName]
+                    if (-not $detailsProperty -or $null -eq $detailsProperty.Value)
+                    {
+                        continue
+                    }
+
+                    foreach ($sourcePropertyName in @('Name', 'Source', 'SourceName'))
+                    {
+                        $sourceProperty = $detailsProperty.Value.PSObject.Properties[$sourcePropertyName]
+                        if ($sourceProperty)
+                        {
+                            $sourceName = ConvertTo-PackageText -Value $sourceProperty.Value
+                            if (-not [String]::IsNullOrWhiteSpace($sourceName))
+                            {
+                                return $sourceName
+                            }
+                        }
+                    }
+                }
+
+                return ''
+            }
+
             $candidatePackages = @()
             if ($json -is [Array])
             {
@@ -483,7 +533,16 @@ function Get-PlatformPackage
                 {
                     if ($source.PSObject.Properties['Packages'])
                     {
-                        $candidatePackages += @($source.Packages)
+                        $sourceName = Get-WingetJsonSourceName -SourceRecord $source
+                        foreach ($sourcePackage in @($source.Packages))
+                        {
+                            $packageSource = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $sourcePackage -PropertyName @('CatalogName', 'Source', 'SourceName'))
+                            if ([String]::IsNullOrWhiteSpace($packageSource) -and -not [String]::IsNullOrWhiteSpace($sourceName))
+                            {
+                                $sourcePackage | Add-Member -NotePropertyName Source -NotePropertyValue $sourceName -Force
+                            }
+                            $candidatePackages += $sourcePackage
+                        }
                     }
                 }
             }

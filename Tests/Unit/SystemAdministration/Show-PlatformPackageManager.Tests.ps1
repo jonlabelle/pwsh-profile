@@ -268,6 +268,50 @@ Describe 'Show-PlatformPackageManager' {
         } -Times 1
     }
 
+    It 'forwards FilterSource to search and upgrade pickers' {
+        Mock -CommandName Install-PlatformPackage -MockWith {
+            [PSCustomObject]@{
+                PackageManager = 'winget'
+                PackageManagerDisplayName = 'Windows Package Manager'
+                TotalMatched = 1
+                Selected = 0
+                NotSelected = 1
+                Installed = 0
+                Skipped = 0
+                Failed = 0
+                Results = @()
+            }
+        }
+        Mock -CommandName Upgrade-PlatformPackage -MockWith {
+            [PSCustomObject]@{
+                PackageManager = 'winget'
+                PackageManagerDisplayName = 'Windows Package Manager'
+                TotalAvailable = 1
+                Selected = 0
+                NotSelected = 1
+                Upgraded = 0
+                Failed = 0
+                Skipped = 0
+                Results = @()
+            }
+        }
+        $promptReader = & $script:NewPromptReader @('2', 'git', '3', 'q')
+
+        $result = @(Show-PlatformPackageManager -PackageManager winget -FilterSource msstore -SkipRefresh -PromptReader $promptReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Install-PlatformPackage -ParameterFilter {
+            $Query -eq 'git' -and
+            $PackageManager -eq 'winget' -and
+            $FilterSource -eq 'msstore'
+        } -Times 1
+        Assert-MockCalled -CommandName Upgrade-PlatformPackage -ParameterFilter {
+            $PackageManager -eq 'winget' -and
+            $FilterSource -eq 'msstore'
+        } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*FilterSource=msstore*' } -Times 3
+    }
+
     It 'routes upgrade options and forwards winget uninstall-previous' {
         $runner = & $script:NewPackageCommandRunner @{
             'winget upgrade --accept-source-agreements --output json' = Get-TestCommandResponse -ExitCode 1 -Output @('Unrecognized argument: --output')
@@ -276,7 +320,7 @@ Describe 'Show-PlatformPackageManager' {
                 '-----------------------------------------------------------------------'
                 'Git                Git.Git                     2.43.0  2.44.0    winget'
             )
-            'winget upgrade --id Git.Git --exact --accept-package-agreements --accept-source-agreements --uninstall-previous' = Get-TestCommandResponse -Output @('winget upgrade output')
+            'winget upgrade --id Git.Git --exact --source winget --accept-package-agreements --accept-source-agreements --uninstall-previous' = Get-TestCommandResponse -Output @('winget upgrade output')
         }
         $promptReader = & $script:NewPromptReader @()
         $keyReader = & $script:NewKeyReader @(
@@ -289,7 +333,7 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager winget -SkipRefresh -UninstallPrevious -CommandRunner $runner -PromptReader $promptReader -KeyReader $keyReader)
 
         $result.Count | Should -Be 0
-        ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --accept-package-agreements --accept-source-agreements --uninstall-previous' }).StreamOutput | Should -BeTrue
+        ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source winget --accept-package-agreements --accept-source-agreements --uninstall-previous' }).StreamOutput | Should -BeTrue
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'winget upgrade output' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Upgraded' } -Times 1
     }
@@ -329,7 +373,7 @@ Describe 'Show-PlatformPackageManager' {
                 '-----------------------------------------------------------------------'
                 'Git                Git.Git                     2.43.0  2.44.0    winget'
             )
-            'winget upgrade --id Git.Git --exact --accept-package-agreements --accept-source-agreements' = Get-TestCommandResponse -Output @('winget upgrade output')
+            'winget upgrade --id Git.Git --exact --source winget --accept-package-agreements --accept-source-agreements' = Get-TestCommandResponse -Output @('winget upgrade output')
         }
         $promptReader = & $script:NewPromptReader @()
         $keyReader = & $script:NewKeyReader @(

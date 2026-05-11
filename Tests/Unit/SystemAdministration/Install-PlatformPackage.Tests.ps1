@@ -195,6 +195,59 @@ Describe 'Install-PlatformPackage' {
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $ForegroundColor -eq 'DarkGray' -and $Object -like '*jq*' } -Times 2
         }
 
+        It 'installs only the visible package when filtering duplicate winget ids by source' {
+            $wingetSearchJson = @{
+                Sources = @(
+                    @{
+                        SourceDetails = @{
+                            Name = 'winget'
+                        }
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.45.1'
+                            }
+                        )
+                    }
+                    @{
+                        SourceDetails = @{
+                            Name = 'msstore'
+                        }
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.45.1'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $wingetListJson = @{
+                Sources = @(
+                    @{
+                        Packages = @()
+                    }
+                )
+            } | ConvertTo-Json -Depth 4 -Compress
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget search git --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetSearchJson)
+                'winget list --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetListJson)
+                'winget install --id Git.Git --exact --source msstore --accept-source-agreements --accept-package-agreements' = Get-TestCommandResponse -Output @('winget install output')
+            }
+            $keyReader = {
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            }
+
+            $result = Install-PlatformPackage -PackageManager winget -Query git -FilterSource msstore -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+
+            $result.Selected | Should -Be 1
+            $result.Installed | Should -Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --source winget --accept-source-agreements --accept-package-agreements' }).Count | Should -Be 0
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --source msstore --accept-source-agreements --accept-package-agreements' }).StreamOutput | Should -BeTrue
+        }
+
         It 'returns a no-selection summary when the picker is cancelled' {
             $runner = & $script:NewPackageCommandRunner @{
                 'brew search --formulae git' = Get-TestCommandResponse -Output @('git')
@@ -231,6 +284,26 @@ Describe 'Install-PlatformPackage' {
             $result.Selected | Should -Be 1
             $result.Skipped | Should -Be 1
             $result.Results[0].Message | Should -Be 'Package is already installed'
+        }
+
+        It 'passes the package source to winget install commands' {
+            $package = [PSCustomObject]@{
+                Name = 'Git'
+                Id = 'Git.Git'
+                PackageManager = 'winget'
+                Type = 'Package'
+                Version = '2.44.0'
+                Source = 'msstore'
+                Installed = $false
+            }
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget install --id Git.Git --exact --source msstore --accept-source-agreements --accept-package-agreements' = Get-TestCommandResponse -Output @('winget install output')
+            }
+
+            $result = $package | Install-PlatformPackage -CommandRunner $runner -Confirm:$false
+
+            $result.Installed | Should -Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --source msstore --accept-source-agreements --accept-package-agreements' }).StreamOutput | Should -BeTrue
         }
     }
 }

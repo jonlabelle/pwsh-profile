@@ -460,7 +460,7 @@ Describe 'Remove-PlatformPackage' {
             $powershell = $result | Where-Object { $_.Name -eq 'PowerShell' }
             $powershell.Id | Should -Be 'Microsoft.PowerShell'
             $powershell.InstalledVersion | Should -Be '7.4.2'
-            (@($powershell.RemoveArguments) -join '|') | Should -Be 'uninstall|--id|Microsoft.PowerShell|--exact|--accept-source-agreements'
+            (@($powershell.RemoveArguments) -join '|') | Should -Be 'uninstall|--id|Microsoft.PowerShell|--exact|--source|winget|--accept-source-agreements'
         }
 
         It 'uses winget purge when purge is requested' {
@@ -475,7 +475,35 @@ Describe 'Remove-PlatformPackage' {
 
             $result = @(Remove-PlatformPackage -PackageManager winget -NonInteractive -Purge -CommandRunner $runner)
 
-            (@($result[0].RemoveArguments) -join '|') | Should -Be 'uninstall|--id|Microsoft.PowerShell|--exact|--accept-source-agreements|--purge'
+            (@($result[0].RemoveArguments) -join '|') | Should -Be 'uninstall|--id|Microsoft.PowerShell|--exact|--source|winget|--accept-source-agreements|--purge'
+        }
+
+        It 'passes the installed package source to winget uninstall commands' {
+            $wingetListJson = @{
+                Sources = @(
+                    @{
+                        SourceDetails = @{
+                            Name = 'msstore'
+                        }
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.44.0'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget list --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetListJson)
+                'winget uninstall --id Git.Git --exact --source msstore --accept-source-agreements' = Get-TestCommandResponse -Output @('winget uninstall output')
+            }
+
+            $result = Remove-PlatformPackage -PackageManager winget -IncludePackage Git -All -CommandRunner $runner -Confirm:$false
+
+            $result.Removed | Should -Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget uninstall --id Git.Git --exact --source msstore --accept-source-agreements' }).StreamOutput | Should -BeTrue
         }
 
         It 'renders and applies the purge column for winget interactive removals' {
@@ -486,7 +514,7 @@ Describe 'Remove-PlatformPackage' {
                     '--------------------------------------------------------------'
                     'PowerShell         Microsoft.PowerShell        7.4.2   winget'
                 )
-                'winget uninstall --id Microsoft.PowerShell --exact --accept-source-agreements --purge' = Get-TestCommandResponse -Output @('winget purge output')
+                'winget uninstall --id Microsoft.PowerShell --exact --source winget --accept-source-agreements --purge' = Get-TestCommandResponse -Output @('winget purge output')
             }
 
             $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
@@ -501,9 +529,55 @@ Describe 'Remove-PlatformPackage' {
             $result = Remove-PlatformPackage -PackageManager winget -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
             $result.Removed | Should -Be 1
-            ($script:Invocations | Where-Object { $_.Key -eq 'winget uninstall --id Microsoft.PowerShell --exact --accept-source-agreements --purge' }).StreamOutput | Should -BeTrue
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget uninstall --id Microsoft.PowerShell --exact --source winget --accept-source-agreements --purge' }).StreamOutput | Should -BeTrue
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Pge*' } -Times 2
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'winget purge output' } -Times 1
+        }
+
+        It 'removes only the visible package when filtering duplicate winget ids by source' {
+            $wingetListJson = @{
+                Sources = @(
+                    @{
+                        SourceDetails = @{
+                            Name = 'winget'
+                        }
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.44.0'
+                            }
+                        )
+                    }
+                    @{
+                        SourceDetails = @{
+                            Name = 'msstore'
+                        }
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.44.0'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget list --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetListJson)
+                'winget uninstall --id Git.Git --exact --source msstore --accept-source-agreements' = Get-TestCommandResponse -Output @('winget uninstall output')
+            }
+            $keyReader = {
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            }
+
+            $result = Remove-PlatformPackage -PackageManager winget -FilterSource msstore -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+
+            $result.Selected | Should -Be 1
+            $result.Removed | Should -Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'winget uninstall --id Git.Git --exact --source winget --accept-source-agreements' }).Count | Should -Be 0
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget uninstall --id Git.Git --exact --source msstore --accept-source-agreements' }).StreamOutput | Should -BeTrue
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[msstore\]' } -Times 1
         }
     }
 

@@ -295,6 +295,9 @@ function Remove-PlatformPackage
                 [String]$Type,
 
                 [Parameter()]
+                [String]$Source,
+
+                [Parameter()]
                 [Switch]$UsePurge
             )
 
@@ -302,13 +305,22 @@ function Remove-PlatformPackage
             {
                 'winget'
                 {
-                    $arguments = if (-not [String]::IsNullOrWhiteSpace($Id))
+                    $sourceArguments = if (-not [String]::IsNullOrWhiteSpace($Source))
                     {
-                        @('uninstall', '--id', $Id, '--exact', '--accept-source-agreements')
+                        @('--source', $Source)
                     }
                     else
                     {
-                        @('uninstall', $Name, '--accept-source-agreements')
+                        @()
+                    }
+
+                    $arguments = if (-not [String]::IsNullOrWhiteSpace($Id))
+                    {
+                        @('uninstall', '--id', $Id, '--exact') + $sourceArguments + @('--accept-source-agreements')
+                    }
+                    else
+                    {
+                        @('uninstall', $Name) + $sourceArguments + @('--accept-source-agreements')
                     }
 
                     if ($UsePurge)
@@ -401,7 +413,7 @@ function Remove-PlatformPackage
                 Description = if (-not [String]::IsNullOrWhiteSpace($Description)) { $Description } else { $Notes }
                 Notes = $Notes
                 Command = $Manager.Command
-                RemoveArguments = @(Get-PackageRemoveArguments -Manager $Manager -Name $Name -Id $Id -Type $Type -UsePurge:$Purge.IsPresent)
+                RemoveArguments = @(Get-PackageRemoveArguments -Manager $Manager -Name $Name -Id $Id -Type $Type -Source $Source -UsePurge:$Purge.IsPresent)
             }
         }
 
@@ -976,6 +988,56 @@ function Remove-PlatformPackage
                 return @()
             }
 
+            function Get-WingetJsonSourceName
+            {
+                param(
+                    [Parameter()]
+                    [Object]$SourceRecord
+                )
+
+                if ($null -eq $SourceRecord)
+                {
+                    return ''
+                }
+
+                foreach ($sourcePropertyName in @('Name', 'Source', 'SourceName'))
+                {
+                    $sourceProperty = $SourceRecord.PSObject.Properties[$sourcePropertyName]
+                    if ($sourceProperty)
+                    {
+                        $sourceName = ConvertTo-PackageText -Value $sourceProperty.Value
+                        if (-not [String]::IsNullOrWhiteSpace($sourceName))
+                        {
+                            return $sourceName
+                        }
+                    }
+                }
+
+                foreach ($detailsPropertyName in @('SourceDetails', 'Details'))
+                {
+                    $detailsProperty = $SourceRecord.PSObject.Properties[$detailsPropertyName]
+                    if (-not $detailsProperty -or $null -eq $detailsProperty.Value)
+                    {
+                        continue
+                    }
+
+                    foreach ($sourcePropertyName in @('Name', 'Source', 'SourceName'))
+                    {
+                        $sourceProperty = $detailsProperty.Value.PSObject.Properties[$sourcePropertyName]
+                        if ($sourceProperty)
+                        {
+                            $sourceName = ConvertTo-PackageText -Value $sourceProperty.Value
+                            if (-not [String]::IsNullOrWhiteSpace($sourceName))
+                            {
+                                return $sourceName
+                            }
+                        }
+                    }
+                }
+
+                return ''
+            }
+
             $candidatePackages = @()
             if ($json -is [Array])
             {
@@ -987,7 +1049,16 @@ function Remove-PlatformPackage
                 {
                     if ($source.PSObject.Properties['Packages'])
                     {
-                        $candidatePackages += @($source.Packages)
+                        $sourceName = Get-WingetJsonSourceName -SourceRecord $source
+                        foreach ($sourcePackage in @($source.Packages))
+                        {
+                            $packageSource = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $sourcePackage -PropertyName @('CatalogName', 'Source', 'SourceName'))
+                            if ([String]::IsNullOrWhiteSpace($packageSource) -and -not [String]::IsNullOrWhiteSpace($sourceName))
+                            {
+                                $sourcePackage | Add-Member -NotePropertyName Source -NotePropertyValue $sourceName -Force
+                            }
+                            $candidatePackages += $sourcePackage
+                        }
                     }
                 }
             }
@@ -1873,6 +1944,16 @@ function Remove-PlatformPackage
                 return [Math]::Max(0, $bufferWidth)
             }
 
+            function Get-PackagePickerKey
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [PSCustomObject]$Package
+                )
+
+                return "$($Package.PackageManager)::$($Package.Source)::$($Package.Id)::$($Package.Name)::$($Package.Type)"
+            }
+
             $nameWidth = [Math]::Min(36, [Math]::Max(4, (($InstalledPackages | ForEach-Object { $_.Name.Length } | Measure-Object -Maximum).Maximum)))
             $idWidth = [Math]::Min(34, [Math]::Max(2, (($InstalledPackages | ForEach-Object { "$($_.Id)".Length } | Measure-Object -Maximum).Maximum)))
             $versionWidth = [Math]::Min(20, [Math]::Max(7, (($InstalledPackages | ForEach-Object { $_.InstalledVersion.Length } | Measure-Object -Maximum).Maximum)))
@@ -2293,7 +2374,7 @@ function Remove-PlatformPackage
                     for ($i = $topIndex; $i -le $bottomIndex; $i++)
                     {
                         $package = $visiblePackages[$i]
-                        $pkgKey = "$($package.Id)::$($package.Name)"
+                        $pkgKey = Get-PackagePickerKey -Package $package
                         $cursorMarker = if ($i -eq $cursor) { '>' } else { ' ' }
                         $selectedMarker = if ($selectedKeys.Contains($pkgKey)) { '[x]' } else { '[ ]' }
                         if ($showPurge)
@@ -2428,20 +2509,20 @@ function Remove-PlatformPackage
                         }
                         'Spacebar'
                         {
-                            $pkgKey = "$($visiblePackages[$cursor].Id)::$($visiblePackages[$cursor].Name)"
+                            $pkgKey = Get-PackagePickerKey -Package $visiblePackages[$cursor]
                             if ($selectedKeys.Contains($pkgKey)) { $null = $selectedKeys.Remove($pkgKey) }
                             else { $null = $selectedKeys.Add($pkgKey) }
                         }
                         'A'
                         {
-                            $allVisibleSelected = @($visiblePackages | Where-Object { -not $selectedKeys.Contains("$($_.Id)::$($_.Name)") }).Count -eq 0
+                            $allVisibleSelected = @($visiblePackages | Where-Object { -not $selectedKeys.Contains((Get-PackagePickerKey -Package $_)) }).Count -eq 0
                             if ($allVisibleSelected)
                             {
-                                foreach ($vp in $visiblePackages) { $null = $selectedKeys.Remove("$($vp.Id)::$($vp.Name)") }
+                                foreach ($vp in $visiblePackages) { $null = $selectedKeys.Remove((Get-PackagePickerKey -Package $vp)) }
                             }
                             else
                             {
-                                foreach ($vp in $visiblePackages) { $null = $selectedKeys.Add("$($vp.Id)::$($vp.Name)") }
+                                foreach ($vp in $visiblePackages) { $null = $selectedKeys.Add((Get-PackagePickerKey -Package $vp)) }
                             }
                         }
                         'D'
@@ -2455,7 +2536,7 @@ function Remove-PlatformPackage
                         {
                             if ($showPurge)
                             {
-                                $pkgKey = "$($visiblePackages[$cursor].Id)::$($visiblePackages[$cursor].Name)"
+                                $pkgKey = Get-PackagePickerKey -Package $visiblePackages[$cursor]
                                 if ($purgeKeys.Contains($pkgKey)) { $null = $purgeKeys.Remove($pkgKey) }
                                 else { $null = $purgeKeys.Add($pkgKey) }
                             }
@@ -2481,17 +2562,17 @@ function Remove-PlatformPackage
                         }
                         'Enter'
                         {
-                            $selectedPackages = @($allPackages | Where-Object { $selectedKeys.Contains("$($_.Id)::$($_.Name)") })
+                            $selectedPackages = @($allPackages | Where-Object { $selectedKeys.Contains((Get-PackagePickerKey -Package $_)) })
                             foreach ($pkg in $selectedPackages)
                             {
-                                $pkgKey = "$($pkg.Id)::$($pkg.Name)"
+                                $pkgKey = Get-PackagePickerKey -Package $pkg
                                 $pkg | Add-Member -NotePropertyName 'Purge' -NotePropertyValue ($purgeKeys.Contains($pkgKey)) -Force
                             }
 
                             if ($selectedPackages.Count -eq 0)
                             {
                                 $pkg = $visiblePackages[$cursor]
-                                $pkgKey = "$($pkg.Id)::$($pkg.Name)"
+                                $pkgKey = Get-PackagePickerKey -Package $pkg
                                 $pkg | Add-Member -NotePropertyName 'Purge' -NotePropertyValue ($purgeKeys.Contains($pkgKey)) -Force
                                 $selectedPackages = @($pkg)
                             }
@@ -2530,7 +2611,7 @@ function Remove-PlatformPackage
             $perPackagePurge = $Package.PSObject.Properties['Purge'] -and [Boolean]$Package.Purge
             if ($perPackagePurge -and -not $Purge)
             {
-                $removeArguments = Get-PackageRemoveArguments -Manager $Manager -Name $Package.Name -Id $Package.Id -Type $Package.Type -UsePurge
+                $removeArguments = Get-PackageRemoveArguments -Manager $Manager -Name $Package.Name -Id $Package.Id -Type $Package.Type -Source $Package.Source -UsePurge
             }
             $requiredByProperties = Get-PackageResultRequiredByProperties -Package $Package
 
@@ -2590,7 +2671,7 @@ function Remove-PlatformPackage
 
         foreach ($installedPackage in $installedPackages)
         {
-            $removeArguments = Get-PackageRemoveArguments -Manager $manager -Name $installedPackage.Name -Id $installedPackage.Id -Type $installedPackage.Type -UsePurge:$Purge.IsPresent
+            $removeArguments = Get-PackageRemoveArguments -Manager $manager -Name $installedPackage.Name -Id $installedPackage.Id -Type $installedPackage.Type -Source $installedPackage.Source -UsePurge:$Purge.IsPresent
             $installedPackage | Add-Member -NotePropertyName 'RemoveArguments' -NotePropertyValue @($removeArguments) -Force
         }
 

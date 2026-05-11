@@ -653,6 +653,16 @@ function Show-InstalledPlatformPackage
                 return [Math]::Max(0, $bufferWidth)
             }
 
+            function Get-PackagePickerKey
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [PSCustomObject]$Package
+                )
+
+                return "$($Package.PackageManager)::$($Package.Source)::$($Package.Id)::$($Package.Name)::$($Package.Type)"
+            }
+
             $nameWidth = [Math]::Min(36, [Math]::Max(4, (($InstalledPackages | ForEach-Object { $_.Name.Length } | Measure-Object -Maximum).Maximum)))
             $idWidth = [Math]::Min(34, [Math]::Max(2, (($InstalledPackages | ForEach-Object { "$($_.Id)".Length } | Measure-Object -Maximum).Maximum)))
             $versionWidth = [Math]::Min(20, [Math]::Max(7, (($InstalledPackages | ForEach-Object { $_.InstalledVersion.Length } | Measure-Object -Maximum).Maximum)))
@@ -1067,7 +1077,7 @@ function Show-InstalledPlatformPackage
                     for ($i = $topIndex; $i -le $bottomIndex; $i++)
                     {
                         $package = $visiblePackages[$i]
-                        $pkgKey = "$($package.Id)::$($package.Name)"
+                        $pkgKey = Get-PackagePickerKey -Package $package
                         $cursorMarker = if ($i -eq $cursor) { '>' } else { ' ' }
 
                         if ($EnableSelection)
@@ -1207,7 +1217,7 @@ function Show-InstalledPlatformPackage
                         {
                             if ($EnableSelection)
                             {
-                                $pkgKey = "$($visiblePackages[$cursor].Id)::$($visiblePackages[$cursor].Name)"
+                                $pkgKey = Get-PackagePickerKey -Package $visiblePackages[$cursor]
                                 if ($selectedKeys.Contains($pkgKey)) { $null = $selectedKeys.Remove($pkgKey) }
                                 else { $null = $selectedKeys.Add($pkgKey) }
                             }
@@ -1216,14 +1226,14 @@ function Show-InstalledPlatformPackage
                         {
                             if ($EnableSelection)
                             {
-                                $allVisibleSelected = @($visiblePackages | Where-Object { -not $selectedKeys.Contains("$($_.Id)::$($_.Name)") }).Count -eq 0
+                                $allVisibleSelected = @($visiblePackages | Where-Object { -not $selectedKeys.Contains((Get-PackagePickerKey -Package $_)) }).Count -eq 0
                                 if ($allVisibleSelected)
                                 {
-                                    foreach ($vp in $visiblePackages) { $null = $selectedKeys.Remove("$($vp.Id)::$($vp.Name)") }
+                                    foreach ($vp in $visiblePackages) { $null = $selectedKeys.Remove((Get-PackagePickerKey -Package $vp)) }
                                 }
                                 else
                                 {
-                                    foreach ($vp in $visiblePackages) { $null = $selectedKeys.Add("$($vp.Id)::$($vp.Name)") }
+                                    foreach ($vp in $visiblePackages) { $null = $selectedKeys.Add((Get-PackagePickerKey -Package $vp)) }
                                 }
                             }
                         }
@@ -1262,7 +1272,7 @@ function Show-InstalledPlatformPackage
 
                             Clear-PickerFrame
 
-                            $selectedPackages = @($allPackages | Where-Object { $selectedKeys.Contains("$($_.Id)::$($_.Name)") })
+                            $selectedPackages = @($allPackages | Where-Object { $selectedKeys.Contains((Get-PackagePickerKey -Package $_)) })
                             if ($selectedPackages.Count -eq 0)
                             {
                                 $selectedPackages = @($visiblePackages[$cursor])

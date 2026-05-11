@@ -356,7 +356,7 @@ Describe 'Find-PlatformPackage' {
 
             $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
             @(
-                [System.ConsoleKeyInfo]::new('s', [ConsoleKey]::S, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new('/', [ConsoleKey]::Oem2, $false, $false, $false)
                 [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
             ) | ForEach-Object { $keys.Enqueue($_) }
             $keyReader = {
@@ -395,7 +395,7 @@ Describe 'Find-PlatformPackage' {
 
             $result.Count | Should -Be 0
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Find-PlatformPackage Help' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'S or /: ' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq '/: ' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'start a new search' -and $ForegroundColor -eq 'DarkGray' } -Times 1
         }
 
@@ -423,6 +423,62 @@ Describe 'Find-PlatformPackage' {
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Spacebar: select  Enter: return current/selected  I: install current/selected*' } -Times 1
+        }
+
+        It 'opens the result picker with the requested source filter' {
+            $wingetSearchJson = @{
+                Sources = @(
+                    @{
+                        SourceDetails = @{
+                            Name = 'winget'
+                        }
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.45.1'
+                            }
+                        )
+                    }
+                    @{
+                        SourceDetails = @{
+                            Name = 'msstore'
+                        }
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.45.1'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $wingetListJson = @{
+                Sources = @(
+                    @{
+                        Packages = @()
+                    }
+                )
+            } | ConvertTo-Json -Depth 4 -Compress
+
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget search git --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetSearchJson)
+                'winget list --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetListJson)
+            }
+            $queryReader = {
+                'git'
+            }
+            $keyReader = {
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            }
+
+            $result = @(Find-PlatformPackage -PackageManager winget -PassThru -FilterSource msstore -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
+
+            $result.Count | Should -Be 1
+            $result[0].Source | Should -Be 'msstore'
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[msstore\]' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*winget*' -and $Object -notlike '*msstore*' } -Times 0
         }
 
         It 'returns the current package when PassThru is used without a selection' {

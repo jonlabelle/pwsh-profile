@@ -36,6 +36,11 @@ function Upgrade-PlatformPackage
         Returns the discovered outdated package records without upgrading anything. The
         previous -AsObject spelling is retained as an alias.
 
+    .PARAMETER FilterSource
+        Sets the initial source filter in the interactive picker. When specified, the picker
+        opens showing only packages from this source. Press S in the picker to cycle through
+        available sources. Only applicable when multiple package sources are present.
+
     .PARAMETER UninstallPrevious
         When upgrading with winget, passes --uninstall-previous to remove the previously
         installed version before installing the new one. Has no effect on other package
@@ -116,6 +121,9 @@ function Upgrade-PlatformPackage
         [Parameter()]
         [Alias('AsObject')]
         [Switch]$NonInteractive,
+
+        [Parameter()]
+        [String]$FilterSource = '',
 
         [Parameter()]
         [Switch]$UninstallPrevious,
@@ -672,6 +680,56 @@ function Upgrade-PlatformPackage
                 return @()
             }
 
+            function Get-WingetJsonSourceName
+            {
+                param(
+                    [Parameter()]
+                    [Object]$SourceRecord
+                )
+
+                if ($null -eq $SourceRecord)
+                {
+                    return ''
+                }
+
+                foreach ($sourcePropertyName in @('Name', 'Source', 'SourceName'))
+                {
+                    $sourceProperty = $SourceRecord.PSObject.Properties[$sourcePropertyName]
+                    if ($sourceProperty)
+                    {
+                        $sourceName = ConvertTo-PackageText -Value $sourceProperty.Value
+                        if (-not [String]::IsNullOrWhiteSpace($sourceName))
+                        {
+                            return $sourceName
+                        }
+                    }
+                }
+
+                foreach ($detailsPropertyName in @('SourceDetails', 'Details'))
+                {
+                    $detailsProperty = $SourceRecord.PSObject.Properties[$detailsPropertyName]
+                    if (-not $detailsProperty -or $null -eq $detailsProperty.Value)
+                    {
+                        continue
+                    }
+
+                    foreach ($sourcePropertyName in @('Name', 'Source', 'SourceName'))
+                    {
+                        $sourceProperty = $detailsProperty.Value.PSObject.Properties[$sourcePropertyName]
+                        if ($sourceProperty)
+                        {
+                            $sourceName = ConvertTo-PackageText -Value $sourceProperty.Value
+                            if (-not [String]::IsNullOrWhiteSpace($sourceName))
+                            {
+                                return $sourceName
+                            }
+                        }
+                    }
+                }
+
+                return ''
+            }
+
             $candidatePackages = @()
             if ($json -is [Array])
             {
@@ -683,7 +741,16 @@ function Upgrade-PlatformPackage
                 {
                     if ($source.PSObject.Properties['Packages'])
                     {
-                        $candidatePackages += @($source.Packages)
+                        $sourceName = Get-WingetJsonSourceName -SourceRecord $source
+                        foreach ($sourcePackage in @($source.Packages))
+                        {
+                            $packageSource = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $sourcePackage -PropertyName @('CatalogName', 'Source', 'SourceName'))
+                            if ([String]::IsNullOrWhiteSpace($packageSource) -and -not [String]::IsNullOrWhiteSpace($sourceName))
+                            {
+                                $sourcePackage | Add-Member -NotePropertyName Source -NotePropertyValue $sourceName -Force
+                            }
+                            $candidatePackages += $sourcePackage
+                        }
                     }
                 }
             }
@@ -716,13 +783,22 @@ function Upgrade-PlatformPackage
                     continue
                 }
 
-                $upgradeArguments = if (-not [String]::IsNullOrWhiteSpace($id))
+                $sourceArguments = if (-not [String]::IsNullOrWhiteSpace($source))
                 {
-                    @('upgrade', '--id', $id, '--exact', '--accept-package-agreements', '--accept-source-agreements')
+                    @('--source', $source)
                 }
                 else
                 {
-                    @('upgrade', $name, '--accept-package-agreements', '--accept-source-agreements')
+                    @()
+                }
+
+                $upgradeArguments = if (-not [String]::IsNullOrWhiteSpace($id))
+                {
+                    @('upgrade', '--id', $id, '--exact') + $sourceArguments + @('--accept-package-agreements', '--accept-source-agreements')
+                }
+                else
+                {
+                    @('upgrade', $name) + $sourceArguments + @('--accept-package-agreements', '--accept-source-agreements')
                 }
 
                 $updates += Get-PackageUpdateObject -Manager $Manager -Name $name -Id $id -Type 'Package' -InstalledVersion $installedVersion -LatestVersion $latestVersion -Source $source -Description $description -UpgradeArguments $upgradeArguments
@@ -819,13 +895,22 @@ function Upgrade-PlatformPackage
                     continue
                 }
 
-                $upgradeArguments = if (-not [String]::IsNullOrWhiteSpace($id))
+                $sourceArguments = if (-not [String]::IsNullOrWhiteSpace($source))
                 {
-                    @('upgrade', '--id', $id, '--exact', '--accept-package-agreements', '--accept-source-agreements')
+                    @('--source', $source)
                 }
                 else
                 {
-                    @('upgrade', $name, '--accept-package-agreements', '--accept-source-agreements')
+                    @()
+                }
+
+                $upgradeArguments = if (-not [String]::IsNullOrWhiteSpace($id))
+                {
+                    @('upgrade', '--id', $id, '--exact') + $sourceArguments + @('--accept-package-agreements', '--accept-source-agreements')
+                }
+                else
+                {
+                    @('upgrade', $name) + $sourceArguments + @('--accept-package-agreements', '--accept-source-agreements')
                 }
 
                 $updates += Get-PackageUpdateObject -Manager $Manager -Name $name -Id $id -Type 'Package' -InstalledVersion $installedVersion -LatestVersion $latestVersion -Source $source -UpgradeArguments $upgradeArguments
@@ -1422,13 +1507,45 @@ function Upgrade-PlatformPackage
                 [Int32]$PageSize = 0,
 
                 [Parameter()]
-                [String]$PackageManagerName = ''
+                [String]$PackageManagerName = '',
+
+                [Parameter()]
+                [String]$SourceFilter = ''
             )
 
             if ($PackageUpdates.Count -eq 0)
             {
                 return @()
             }
+
+            $allPackages = $PackageUpdates
+            $uniqueSources = @($allPackages | ForEach-Object { $_.Source } | Where-Object { -not [String]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
+            $hasEmptySource = @($allPackages | Where-Object { [String]::IsNullOrWhiteSpace($_.Source) }).Count -gt 0
+            $availableSources = @('All') + $uniqueSources
+            $hasSourceFilter = $uniqueSources.Count -gt 1 -or ($uniqueSources.Count -eq 1 -and $hasEmptySource)
+            $sourceFilterIndex = 0
+            if ($hasSourceFilter -and -not [String]::IsNullOrWhiteSpace($SourceFilter))
+            {
+                for ($si = 1; $si -lt $availableSources.Count; $si++)
+                {
+                    if ($availableSources[$si] -ieq $SourceFilter)
+                    {
+                        $sourceFilterIndex = $si
+                        break
+                    }
+                }
+            }
+
+            $visiblePackages = @(
+                if ($availableSources[$sourceFilterIndex] -eq 'All')
+                {
+                    $allPackages
+                }
+                else
+                {
+                    $allPackages | Where-Object { $_.Source -eq $availableSources[$sourceFilterIndex] }
+                }
+            )
 
             $usingConsoleKeyReader = $false
             if ($null -eq $KeyReader)
@@ -1570,15 +1687,26 @@ function Upgrade-PlatformPackage
                 return [Math]::Max(0, $bufferWidth)
             }
 
-            $nameWidth = [Math]::Min(36, [Math]::Max(4, (($PackageUpdates | ForEach-Object { $_.Name.Length } | Measure-Object -Maximum).Maximum)))
-            $idWidth = [Math]::Min(34, [Math]::Max(2, (($PackageUpdates | ForEach-Object { "$($_.Id)".Length } | Measure-Object -Maximum).Maximum)))
-            $installedWidth = [Math]::Min(20, [Math]::Max(9, (($PackageUpdates | ForEach-Object { $_.InstalledVersion.Length } | Measure-Object -Maximum).Maximum)))
-            $latestWidth = [Math]::Min(20, [Math]::Max(6, (($PackageUpdates | ForEach-Object { $_.LatestVersion.Length } | Measure-Object -Maximum).Maximum)))
-            $typeWidth = [Math]::Min(12, [Math]::Max(4, (($PackageUpdates | ForEach-Object { $_.Type.Length } | Measure-Object -Maximum).Maximum)))
-            $pageSize = Get-PackagePickerPageSize -RequestedPageSize $PageSize -ItemCount $PackageUpdates.Count
+            function Get-PackagePickerKey
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [PSCustomObject]$Package
+                )
 
-            $selected = New-Object 'System.Boolean[]' $PackageUpdates.Count
-            $uninstallPreviousFlags = New-Object 'System.Boolean[]' $PackageUpdates.Count
+                return "$($Package.PackageManager)::$($Package.Source)::$($Package.Id)::$($Package.Name)::$($Package.Type)"
+            }
+
+            $nameWidth = [Math]::Min(36, [Math]::Max(4, (($allPackages | ForEach-Object { $_.Name.Length } | Measure-Object -Maximum).Maximum)))
+            $idWidth = [Math]::Min(34, [Math]::Max(2, (($allPackages | ForEach-Object { "$($_.Id)".Length } | Measure-Object -Maximum).Maximum)))
+            $installedWidth = [Math]::Min(20, [Math]::Max(9, (($allPackages | ForEach-Object { $_.InstalledVersion.Length } | Measure-Object -Maximum).Maximum)))
+            $latestWidth = [Math]::Min(20, [Math]::Max(6, (($allPackages | ForEach-Object { $_.LatestVersion.Length } | Measure-Object -Maximum).Maximum)))
+            $typeWidth = [Math]::Min(12, [Math]::Max(4, (($allPackages | ForEach-Object { $_.Type.Length } | Measure-Object -Maximum).Maximum)))
+            $sourceWidth = [Math]::Min(18, [Math]::Max(6, (($allPackages | ForEach-Object { $_.Source.Length } | Measure-Object -Maximum).Maximum)))
+            $pageSize = Get-PackagePickerPageSize -RequestedPageSize $PageSize -ItemCount $allPackages.Count
+
+            $selectedKeys = [System.Collections.Generic.HashSet[String]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            $uninstallPreviousKeys = [System.Collections.Generic.HashSet[String]]::new([System.StringComparer]::OrdinalIgnoreCase)
             $showUninstallPrevious = $PackageManagerName -eq 'winget'
             $wingetDescriptionAttempted = @{}
             $pendingWingetDescriptionLookupKey = ''
@@ -1826,12 +1954,19 @@ function Upgrade-PlatformPackage
                 Write-Host ''
                 Write-Host 'Selection' -ForegroundColor White
                 Write-PackagePickerHelpItem -Shortcut 'Spacebar' -Description 'select or clear the current package'
-                Write-PackagePickerHelpItem -Shortcut 'A' -Description 'toggle all packages'
+                Write-PackagePickerHelpItem -Shortcut 'A' -Description 'toggle all visible packages'
                 Write-PackagePickerHelpItem -Shortcut 'Enter' -Description 'upgrade selected packages'
 
                 if ($showUninstallPrevious)
                 {
                     Write-PackagePickerHelpItem -Shortcut 'U' -Description 'toggle winget --uninstall-previous for the current package'
+                }
+
+                if ($hasSourceFilter)
+                {
+                    Write-Host ''
+                    Write-Host 'Source Filter' -ForegroundColor White
+                    Write-PackagePickerHelpItem -Shortcut 'S' -Description "cycle source: $($availableSources -join ' | ')"
                 }
 
                 Write-Host ''
@@ -1889,19 +2024,19 @@ function Upgrade-PlatformPackage
                         $topIndex = 0
                     }
 
-                    $maxTopIndex = [Math]::Max(0, $PackageUpdates.Count - $pageSize)
+                    $maxTopIndex = [Math]::Max(0, $visiblePackages.Count - $pageSize)
                     if ($topIndex -gt $maxTopIndex)
                     {
                         $topIndex = $maxTopIndex
                     }
 
-                    $bottomIndex = [Math]::Min($PackageUpdates.Count - 1, $topIndex + $pageSize - 1)
-                    $currentPackage = $PackageUpdates[$cursor]
-                    $currentPackageLookupKey = if (-not [String]::IsNullOrWhiteSpace($currentPackage.Id))
+                    $bottomIndex = [Math]::Min($visiblePackages.Count - 1, $topIndex + $pageSize - 1)
+                    $currentPackage = if ($visiblePackages.Count -gt 0) { $visiblePackages[$cursor] } else { $null }
+                    $currentPackageLookupKey = if ($null -ne $currentPackage -and -not [String]::IsNullOrWhiteSpace($currentPackage.Id))
                     {
                         $currentPackage.Id.Trim().ToLowerInvariant()
                     }
-                    elseif (-not [String]::IsNullOrWhiteSpace($currentPackage.Name))
+                    elseif ($null -ne $currentPackage -and -not [String]::IsNullOrWhiteSpace($currentPackage.Name))
                     {
                         $currentPackage.Name.Trim().ToLowerInvariant()
                     }
@@ -1910,47 +2045,94 @@ function Upgrade-PlatformPackage
                         ''
                     }
                     $isCurrentWingetDescriptionPending =
+                        $null -ne $currentPackage -and
                         -not [String]::IsNullOrWhiteSpace($pendingWingetDescriptionLookupKey) -and
                         $pendingWingetDescriptionLookupKey -eq $currentPackageLookupKey
                     $canResolveCurrentWingetDescription =
+                        $null -ne $currentPackage -and
                         $currentPackage.PackageManager -eq 'winget' -and
                         [String]::IsNullOrWhiteSpace($currentPackage.Description) -and
                         -not [String]::IsNullOrWhiteSpace($currentPackageLookupKey) -and
                         -not $wingetDescriptionAttempted.ContainsKey($currentPackageLookupKey)
 
                     $pickerHintPrefix = 'Spacebar: select'
-                    $pickerHintActions = 'Enter: upgrade selected  A: toggle all  Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: cancel'
+                    $sourceHint = if ($hasSourceFilter) { "S: [$($availableSources[$sourceFilterIndex])]  " } else { '' }
+                    $pickerHintActions = "Enter: upgrade selected  A: toggle all  ${sourceHint}Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: cancel"
                     $pickerHint = if ($showUninstallPrevious) { "$pickerHintPrefix  U: uninstall previous  $pickerHintActions" } else { "$pickerHintPrefix  $pickerHintActions" }
                     $frameLines = @(
-                        (Format-PickerFrameLine -Text "Upgrade-PlatformPackage - $($PackageUpdates[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
+                        (Format-PickerFrameLine -Text "Upgrade-PlatformPackage - $($allPackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
                         ''
                         (Format-PickerFrameLine -Text $pickerHint -ForegroundColor DarkGray)
                         ''
                     )
+                    if ($visiblePackages.Count -eq 0)
+                    {
+                        $frameLines += Format-PickerFrameLine -Text '  (No packages match this source filter. Press S to cycle.)' -ForegroundColor DarkYellow
+                        Write-PickerFrame -Lines $frameLines
+
+                        $key = & $KeyReader
+                        if (Test-PackagePickerCancelKey -KeyInfo $key)
+                        {
+                            Clear-PickerFrame
+                            return @()
+                        }
+
+                        if (Test-PackagePickerHelpKey -KeyInfo $key)
+                        {
+                            if (Show-PackagePickerHelp)
+                            {
+                                Clear-PickerFrame
+                                return @()
+                            }
+
+                            continue
+                        }
+
+                        if ($hasSourceFilter -and $key.Key -eq [ConsoleKey]::S)
+                        {
+                            $sourceFilterIndex = ($sourceFilterIndex + 1) % $availableSources.Count
+                            $visiblePackages = @(
+                                if ($availableSources[$sourceFilterIndex] -eq 'All')
+                                {
+                                    $allPackages
+                                }
+                                else
+                                {
+                                    $allPackages | Where-Object { $_.Source -eq $availableSources[$sourceFilterIndex] }
+                                }
+                            )
+                            $cursor = 0
+                            $topIndex = 0
+                        }
+
+                        continue
+                    }
+
                     if ($showUninstallPrevious)
                     {
-                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6}' -f 'Sel', 'Unp', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth)) -ForegroundColor DarkGray
-                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6}' -f '---', '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth)) -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6} {7}' -f 'Sel', 'Unp', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth)) -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6} {7}' -f '---', '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
                     }
                     else
                     {
-                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth)) -ForegroundColor DarkGray
-                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth)) -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Installed' -Width $installedWidth), (Format-PickerCell -Text 'Available' -Width $latestWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth)) -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6}' -f '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
                     }
 
                     for ($i = $topIndex; $i -le $bottomIndex; $i++)
                     {
-                        $package = $PackageUpdates[$i]
+                        $package = $visiblePackages[$i]
+                        $pkgKey = Get-PackagePickerKey -Package $package
                         $cursorMarker = if ($i -eq $cursor) { '>' } else { ' ' }
-                        $selectedMarker = if ($selected[$i]) { '[x]' } else { '[ ]' }
+                        $selectedMarker = if ($selectedKeys.Contains($pkgKey)) { '[x]' } else { '[ ]' }
                         if ($showUninstallPrevious)
                         {
-                            $uninstallMarker = if ($uninstallPreviousFlags[$i]) { '[u]' } else { '[ ]' }
-                            $packageLine = ('{0} {1} {2} {3} {4} {5} {6} {7}' -f $cursorMarker, $selectedMarker, $uninstallMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
+                            $uninstallMarker = if ($uninstallPreviousKeys.Contains($pkgKey)) { '[u]' } else { '[ ]' }
+                            $packageLine = ('{0} {1} {2} {3} {4} {5} {6} {7} {8}' -f $cursorMarker, $selectedMarker, $uninstallMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
                         }
                         else
                         {
-                            $packageLine = ('{0} {1} {2} {3} {4} {5} {6}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth))
+                            $packageLine = ('{0} {1} {2} {3} {4} {5} {6} {7}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
                         }
 
                         if ($i -eq $cursor)
@@ -1966,6 +2148,7 @@ function Upgrade-PlatformPackage
                     $frameLines += ''
                     $currentInstalledVersion = if ([String]::IsNullOrWhiteSpace($currentPackage.InstalledVersion)) { 'n/a' } else { $currentPackage.InstalledVersion }
                     $currentLatestVersion = if ([String]::IsNullOrWhiteSpace($currentPackage.LatestVersion)) { 'n/a' } else { $currentPackage.LatestVersion }
+                    $currentSource = if ([String]::IsNullOrWhiteSpace($currentPackage.Source)) { 'n/a' } else { $currentPackage.Source }
                     $currentPublisher = if ([String]::IsNullOrWhiteSpace($currentPackage.Publisher)) { 'n/a' } else { $currentPackage.Publisher }
                     $currentDescription = if (-not [String]::IsNullOrWhiteSpace($currentPackage.Description))
                     {
@@ -1988,10 +2171,18 @@ function Upgrade-PlatformPackage
                         'n/a'
                     }
 
-                    $frameLines += ('Current: {0} | Id: {1} | Publisher: {2} | Installed: {3} | Available: {4}' -f $currentPackage.Name, $currentPackage.Id, $currentPublisher, $currentInstalledVersion, $currentLatestVersion)
+                    $frameLines += ('Current: {0} | Id: {1} | Publisher: {2} | Installed: {3} | Available: {4} | Source: {5}' -f $currentPackage.Name, $currentPackage.Id, $currentPublisher, $currentInstalledVersion, $currentLatestVersion, $currentSource)
                     $frameLines += ('Description: {0}' -f $currentDescription)
                     $frameLines += ''
-                    $frameLines += "$(@($selected | Where-Object { $_ }).Count) of $($PackageUpdates.Count) package(s) selected."
+                    $countText = if ($hasSourceFilter -and $availableSources[$sourceFilterIndex] -ne 'All')
+                    {
+                        "$($selectedKeys.Count) of $($allPackages.Count) selected  |  $($visiblePackages.Count) of $($allPackages.Count) visible (filter: $($availableSources[$sourceFilterIndex]))"
+                    }
+                    else
+                    {
+                        "$($selectedKeys.Count) of $($allPackages.Count) package(s) selected."
+                    }
+                    $frameLines += $countText
 
                     Write-PickerFrame -Lines $frameLines
 
@@ -2042,7 +2233,7 @@ function Upgrade-PlatformPackage
                         }
                         'DownArrow'
                         {
-                            if ($cursor -lt ($PackageUpdates.Count - 1))
+                            if ($cursor -lt ($visiblePackages.Count - 1))
                             {
                                 $cursor++
                             }
@@ -2053,7 +2244,7 @@ function Upgrade-PlatformPackage
                         }
                         'PageDown'
                         {
-                            $cursor = [Math]::Min($PackageUpdates.Count - 1, $cursor + $pageSize)
+                            $cursor = [Math]::Min($visiblePackages.Count - 1, $cursor + $pageSize)
                         }
                         'Home'
                         {
@@ -2061,18 +2252,20 @@ function Upgrade-PlatformPackage
                         }
                         'End'
                         {
-                            $cursor = $PackageUpdates.Count - 1
+                            $cursor = $visiblePackages.Count - 1
                         }
                         'Spacebar'
                         {
-                            $selected[$cursor] = -not $selected[$cursor]
+                            $pkgKey = Get-PackagePickerKey -Package $visiblePackages[$cursor]
+                            if ($selectedKeys.Contains($pkgKey)) { [void]$selectedKeys.Remove($pkgKey) } else { [void]$selectedKeys.Add($pkgKey) }
                         }
                         'A'
                         {
-                            $selectAll = @($selected | Where-Object { -not $_ }).Count -gt 0
-                            for ($i = 0; $i -lt $selected.Count; $i++)
+                            $allVisibleSelected = @($visiblePackages | Where-Object { $selectedKeys.Contains((Get-PackagePickerKey -Package $_)) }).Count -eq $visiblePackages.Count
+                            foreach ($pkg in $visiblePackages)
                             {
-                                $selected[$i] = $selectAll
+                                $pkgKey = Get-PackagePickerKey -Package $pkg
+                                if ($allVisibleSelected) { [void]$selectedKeys.Remove($pkgKey) } else { [void]$selectedKeys.Add($pkgKey) }
                             }
                         }
                         'D'
@@ -2086,20 +2279,36 @@ function Upgrade-PlatformPackage
                         {
                             if ($showUninstallPrevious)
                             {
-                                $uninstallPreviousFlags[$cursor] = -not $uninstallPreviousFlags[$cursor]
+                                $pkgKey = Get-PackagePickerKey -Package $visiblePackages[$cursor]
+                                if ($uninstallPreviousKeys.Contains($pkgKey)) { [void]$uninstallPreviousKeys.Remove($pkgKey) } else { [void]$uninstallPreviousKeys.Add($pkgKey) }
+                            }
+                        }
+                        'S'
+                        {
+                            if ($hasSourceFilter)
+                            {
+                                $sourceFilterIndex = ($sourceFilterIndex + 1) % $availableSources.Count
+                                $visiblePackages = @(
+                                    if ($availableSources[$sourceFilterIndex] -eq 'All')
+                                    {
+                                        $allPackages
+                                    }
+                                    else
+                                    {
+                                        $allPackages | Where-Object { $_.Source -eq $availableSources[$sourceFilterIndex] }
+                                    }
+                                )
+                                $cursor = 0
+                                $topIndex = 0
                             }
                         }
                         'Enter'
                         {
-                            $selectedPackages = @()
-                            for ($i = 0; $i -lt $PackageUpdates.Count; $i++)
+                            $selectedPackages = @($allPackages | Where-Object { $selectedKeys.Contains((Get-PackagePickerKey -Package $_)) })
+                            foreach ($pkg in $selectedPackages)
                             {
-                                if ($selected[$i])
-                                {
-                                    $pkg = $PackageUpdates[$i]
-                                    $pkg | Add-Member -NotePropertyName 'UninstallPrevious' -NotePropertyValue $uninstallPreviousFlags[$i] -Force
-                                    $selectedPackages += $pkg
-                                }
+                                $pkgKey = Get-PackagePickerKey -Package $pkg
+                                $pkg | Add-Member -NotePropertyName 'UninstallPrevious' -NotePropertyValue ($uninstallPreviousKeys.Contains($pkgKey)) -Force
                             }
 
                             Clear-PickerFrame
@@ -2225,7 +2434,7 @@ function Upgrade-PlatformPackage
             }
             else
             {
-                Select-PackageUpdateRecords -PackageUpdates $packageUpdates -KeyReader $KeyReader -PageSize $PickerPageSize -PackageManagerName $manager.Name
+                Select-PackageUpdateRecords -PackageUpdates $packageUpdates -KeyReader $KeyReader -PageSize $PickerPageSize -PackageManagerName $manager.Name -SourceFilter $FilterSource
             }
         )
 

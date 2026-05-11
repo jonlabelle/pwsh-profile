@@ -36,6 +36,10 @@ function Show-PlatformPackageManager
         On Linux package managers that normally require elevated privileges, do not
         automatically prefix install, upgrade, or removal commands with sudo.
 
+    .PARAMETER FilterSource
+        Sets the initial source filter for delegated interactive pickers that support
+        source selection. Press S inside those pickers to cycle available sources.
+
     .PARAMETER WhatIf
         Shows what install, upgrade, or removal commands would run without invoking the
         platform package manager.
@@ -91,6 +95,9 @@ function Show-PlatformPackageManager
 
         [Parameter()]
         [Switch]$NoSudo,
+
+        [Parameter()]
+        [String]$FilterSource = '',
 
         [Parameter(DontShow = $true)]
         [ScriptBlock]$CommandRunner,
@@ -578,6 +585,11 @@ function Show-PlatformPackageManager
             {
                 $Parameters.PickerPageSize = $PickerPageSize
             }
+
+            if (-not [String]::IsNullOrWhiteSpace($FilterSource))
+            {
+                $Parameters.FilterSource = $FilterSource
+            }
         }
 
         function Get-PlatformPackageManagerStatusText
@@ -601,6 +613,11 @@ function Show-PlatformPackageManager
             if ($Purge)
             {
                 $flags += 'Purge'
+            }
+
+            if (-not [String]::IsNullOrWhiteSpace($FilterSource))
+            {
+                $flags += "FilterSource=$FilterSource"
             }
 
             $managerText = if ($PackageManager -eq 'Auto')

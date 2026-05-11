@@ -836,12 +836,21 @@ function Install-PlatformPackage
             {
                 'winget'
                 {
-                    if (-not [String]::IsNullOrWhiteSpace($Package.Id))
+                    $sourceArguments = if (-not [String]::IsNullOrWhiteSpace($Package.Source))
                     {
-                        return @('install', '--id', $Package.Id, '--exact', '--accept-source-agreements', '--accept-package-agreements')
+                        @('--source', $Package.Source)
+                    }
+                    else
+                    {
+                        @()
                     }
 
-                    return @('install', $Package.Name, '--accept-source-agreements', '--accept-package-agreements')
+                    if (-not [String]::IsNullOrWhiteSpace($Package.Id))
+                    {
+                        return @('install', '--id', $Package.Id, '--exact') + $sourceArguments + @('--accept-source-agreements', '--accept-package-agreements')
+                    }
+
+                    return @('install', $Package.Name) + $sourceArguments + @('--accept-source-agreements', '--accept-package-agreements')
                 }
                 'brew'
                 {
@@ -1055,6 +1064,16 @@ function Install-PlatformPackage
                 }
 
                 return [Math]::Max(0, $bufferWidth)
+            }
+
+            function Get-PackagePickerKey
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [PSCustomObject]$Package
+                )
+
+                return "$($Package.PackageManager)::$($Package.Source)::$($Package.Id)::$($Package.Name)::$($Package.Type)"
             }
 
             $nameWidth = [Math]::Min(36, [Math]::Max(4, (($allPackages | ForEach-Object { $_.Name.Length } | Measure-Object -Maximum).Maximum)))
@@ -1477,7 +1496,7 @@ function Install-PlatformPackage
                     for ($i = $topIndex; $i -le $bottomIndex; $i++)
                     {
                         $package = $visiblePackages[$i]
-                        $pkgKey = "$($package.Id)::$($package.Name)"
+                        $pkgKey = Get-PackagePickerKey -Package $package
                         $cursorMarker = if ($i -eq $cursor) { '>' } else { ' ' }
                         $selectedMarker = if ($selectedKeys.Contains($pkgKey)) { '[x]' } else { '[ ]' }
                         $packageLine = ('{0} {1} {2} {3} {4} {5} {6}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.Version -Width $versionWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
@@ -1584,15 +1603,15 @@ function Install-PlatformPackage
                         }
                         'Spacebar'
                         {
-                            $pkgKey = "$($visiblePackages[$cursor].Id)::$($visiblePackages[$cursor].Name)"
+                            $pkgKey = Get-PackagePickerKey -Package $visiblePackages[$cursor]
                             if ($selectedKeys.Contains($pkgKey)) { [void]$selectedKeys.Remove($pkgKey) } else { [void]$selectedKeys.Add($pkgKey) }
                         }
                         'A'
                         {
-                            $allVisibleSelected = @($visiblePackages | Where-Object { $selectedKeys.Contains("$($_.Id)::$($_.Name)") }).Count -eq $visiblePackages.Count
+                            $allVisibleSelected = @($visiblePackages | Where-Object { $selectedKeys.Contains((Get-PackagePickerKey -Package $_)) }).Count -eq $visiblePackages.Count
                             foreach ($pkg in $visiblePackages)
                             {
-                                $pkgKey = "$($pkg.Id)::$($pkg.Name)"
+                                $pkgKey = Get-PackagePickerKey -Package $pkg
                                 if ($allVisibleSelected) { [void]$selectedKeys.Remove($pkgKey) } else { [void]$selectedKeys.Add($pkgKey) }
                             }
                         }
@@ -1626,7 +1645,7 @@ function Install-PlatformPackage
                         {
                             Clear-PickerFrame
 
-                            $selectedPackages = @($allPackages | Where-Object { $selectedKeys.Contains("$($_.Id)::$($_.Name)") })
+                            $selectedPackages = @($allPackages | Where-Object { $selectedKeys.Contains((Get-PackagePickerKey -Package $_)) })
 
                             if ($selectedPackages.Count -eq 0)
                             {

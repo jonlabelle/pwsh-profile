@@ -376,6 +376,60 @@ Describe 'Upgrade-PlatformPackage' {
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-03*' } -Times 0
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-04*' } -Times 0
         }
+
+        It 'upgrades only the visible package when filtering duplicate winget ids by source' {
+            $wingetUpgradeJson = @{
+                Sources = @(
+                    @{
+                        SourceDetails = @{
+                            Name = 'winget'
+                        }
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.43.0'
+                                Available = '2.44.0'
+                            }
+                        )
+                    }
+                    @{
+                        SourceDetails = @{
+                            Name = 'msstore'
+                        }
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.43.0'
+                                Available = '2.44.0'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget upgrade --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetUpgradeJson)
+                'winget upgrade --id Git.Git --exact --source msstore --accept-package-agreements --accept-source-agreements' = Get-TestCommandResponse -Output @('winget upgrade output')
+            }
+
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new(' ', [ConsoleKey]::Spacebar, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = Upgrade-PlatformPackage -PackageManager winget -SkipRefresh -FilterSource msstore -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+
+            $result.Selected | Should -Be 1
+            $result.Upgraded | Should -Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source winget --accept-package-agreements --accept-source-agreements' }).Count | Should -Be 0
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source msstore --accept-package-agreements --accept-source-agreements' }).StreamOutput | Should -BeTrue
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[msstore\]' } -Times 1
+        }
     }
 
     Context 'winget package discovery' {
@@ -399,7 +453,36 @@ Describe 'Upgrade-PlatformPackage' {
             $powershell.Id | Should -Be 'Microsoft.PowerShell'
             $powershell.InstalledVersion | Should -Be '7.4.1'
             $powershell.LatestVersion | Should -Be '7.4.2'
-            (@($powershell.UpgradeArguments) -join '|') | Should -Be 'upgrade|--id|Microsoft.PowerShell|--exact|--accept-package-agreements|--accept-source-agreements'
+            (@($powershell.UpgradeArguments) -join '|') | Should -Be 'upgrade|--id|Microsoft.PowerShell|--exact|--source|winget|--accept-package-agreements|--accept-source-agreements'
+        }
+
+        It 'passes the package source to winget upgrade commands' {
+            $wingetUpgradeJson = @{
+                Sources = @(
+                    @{
+                        SourceDetails = @{
+                            Name = 'msstore'
+                        }
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.43.0'
+                                Available = '2.44.0'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget upgrade --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetUpgradeJson)
+                'winget upgrade --id Git.Git --exact --source msstore --accept-package-agreements --accept-source-agreements' = Get-TestCommandResponse -Output @('winget upgrade output')
+            }
+
+            $result = Upgrade-PlatformPackage -PackageManager winget -SkipRefresh -All -CommandRunner $runner -Confirm:$false
+
+            $result.Upgraded | Should -Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source msstore --accept-package-agreements --accept-source-agreements' }).StreamOutput | Should -BeTrue
         }
     }
 
