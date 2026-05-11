@@ -2592,6 +2592,18 @@ function Remove-PlatformPackage
 
                     if ($showDependencyPanel)
                     {
+                        if ($dependencyPanelPackageKey -ne $currentPackageLookupKey -or $dependencyPanelDirection -ne $dependencyDirection)
+                        {
+                            $dependencyResult = Get-DependencyPanelLines -Package $currentPackage -Direction $dependencyDirection
+                            $dependencyPanelLines = @($dependencyResult.Lines)
+                            $dependencyPanelError = "$($dependencyResult.Error)"
+                            $dependencyPanelPackageKey = $currentPackageLookupKey
+                            $dependencyPanelDirection = $dependencyDirection
+                        }
+                    }
+
+                    if ($showDependencyPanel)
+                    {
                         $currentVersion = if ([String]::IsNullOrWhiteSpace($currentPackage.InstalledVersion)) { 'n/a' } else { $currentPackage.InstalledVersion }
                         $currentSource = if ([String]::IsNullOrWhiteSpace($currentPackage.Source)) { 'n/a' } else { $currentPackage.Source }
                         $currentPublisher = if ([String]::IsNullOrWhiteSpace($currentPackage.Publisher)) { 'n/a' } else { $currentPackage.Publisher }
@@ -2773,17 +2785,6 @@ function Remove-PlatformPackage
 
                         $frameLines += ('Current: {0} | Id: {1} | Publisher: {2} | Version: {3} | Source: {4}' -f $currentPackage.Name, $currentPackage.Id, $currentPublisher, $currentVersion, $currentSource)
                         $frameLines += ('Description: {0}' -f $currentDescription)
-                        if ($showDependencyPanel)
-                        {
-                            if ($dependencyPanelPackageKey -ne $currentPackageLookupKey -or $dependencyPanelDirection -ne $dependencyDirection)
-                            {
-                                $dependencyResult = Get-DependencyPanelLines -Package $currentPackage -Direction $dependencyDirection
-                                $dependencyPanelLines = @($dependencyResult.Lines)
-                                $dependencyPanelError = "$($dependencyResult.Error)"
-                                $dependencyPanelPackageKey = $currentPackageLookupKey
-                                $dependencyPanelDirection = $dependencyDirection
-                            }
-                        }
 
                         if (-not [String]::IsNullOrWhiteSpace($actionStatus))
                         {
