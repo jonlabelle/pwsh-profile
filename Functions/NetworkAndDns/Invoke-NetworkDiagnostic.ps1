@@ -1280,6 +1280,21 @@
         {
             $canClearHost = $false
         }
+
+        # Detect whether non-blocking key reads are available for optional Q-to-quit handling.
+        $rawUiAvailable = $false
+        try
+        {
+            # [Console]::KeyAvailable throws when input is redirected.
+            $null = [Console]::KeyAvailable
+            $rawUiAvailable = $true
+        }
+        catch
+        {
+            $rawUiAvailable = $false
+        }
+
+        $quitRequested = $false
         do
         {
             $iteration++
@@ -1485,7 +1500,7 @@
                 {
                     $linesPrinted += [int]$countOut
                 }
-                Write-Host 'Press Ctrl+C to stop monitoring.' -ForegroundColor DarkGray
+                Write-Host 'Press Q or Ctrl+C to stop monitoring.' -ForegroundColor DarkGray
                 $linesPrinted++
 
                 $nextSnapshot = @{}
@@ -1514,7 +1529,41 @@
                 [Console]::Error.Flush()
                 if ($MaxIterations -eq 0 -or $iteration -lt $MaxIterations)
                 {
-                    Start-Sleep -Seconds $Interval
+                    # Sleep for the configured interval while polling for a 'q' keypress.
+                    $sleepStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+                    $intervalMs = $Interval * 1000
+
+                    while ($sleepStopwatch.ElapsedMilliseconds -lt $intervalMs)
+                    {
+                        if ($rawUiAvailable)
+                        {
+                            try
+                            {
+                                # [Console]::KeyAvailable avoids non-keyboard RawUI events that can block ReadKey.
+                                if ([Console]::KeyAvailable)
+                                {
+                                    $consoleKey = [Console]::ReadKey($true)
+                                    if ($consoleKey.KeyChar -eq 'q' -or $consoleKey.KeyChar -eq 'Q')
+                                    {
+                                        $quitRequested = $true
+                                        break
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Key read failed, disabling keyboard polling: $($_.Exception.Message)"
+                                $rawUiAvailable = $false
+                            }
+                        }
+
+                        Start-Sleep -Milliseconds 100
+                    }
+
+                    if ($quitRequested)
+                    {
+                        break
+                    }
                 }
             }
 
