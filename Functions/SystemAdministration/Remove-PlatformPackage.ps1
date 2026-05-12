@@ -7,7 +7,7 @@ function Remove-PlatformPackage
     .DESCRIPTION
         Detects the supported package manager for the current platform, lists installed
         packages, and opens an interactive console picker where packages can be selected
-        with the spacebar before removal. In the picker, selecting a package controls
+        with Space before removal. In the picker, selecting a package controls
         whether it will be removed when Enter is pressed. If no package is selected,
         pressing Enter removes the current package. The purge/zap option is a separate
         per-package toggle that requests deeper cleanup for selected packages on package
@@ -41,7 +41,7 @@ function Remove-PlatformPackage
         apk uses del --purge, and Homebrew casks use uninstall --zap. It has no
         effect for Homebrew formulae.
 
-        In the interactive picker, Spacebar marks a package for removal and P toggles this
+        In the interactive picker, Space marks a package for removal and P toggles this
         purge/zap behavior for the highlighted package. Pressing Enter removes the
         selected packages, or the current package when nothing is selected, using
         purge/zap only for packages where it was requested.
@@ -62,9 +62,10 @@ function Remove-PlatformPackage
     .EXAMPLE
         PS > Remove-PlatformPackage
 
-        Lists installed packages and opens the interactive picker. Press Spacebar to select
+        Lists installed packages and opens the interactive picker. Press Space to select
         packages for removal, optionally press P to request purge/zap cleanup for a
-        selected package, then press Enter to remove the selected packages.
+        selected package, then press Enter to remove the selected packages or the current
+        package when nothing is selected.
 
     .EXAMPLE
         PS > Remove-PlatformPackage -IncludePackage 'git*' -All
@@ -86,7 +87,7 @@ function Remove-PlatformPackage
     .EXAMPLE
         PS > Remove-PlatformPackage -IncludePackage 'visual-studio-code'
 
-        Opens the picker for matching packages. Selecting the Homebrew cask with Spacebar
+        Opens the picker for matching packages. Selecting the Homebrew cask with Space
         removes it normally; pressing P before Enter changes that selected package to use
         brew uninstall --cask --zap instead.
 
@@ -188,16 +189,12 @@ function Remove-PlatformPackage
                 {
                     return $dependencyPath
                 }
-                else
-                {
-                    throw "Required function '$FunctionName' could not be found. Expected location: $dependencyPath"
-                }
+
+                throw "Required function '$FunctionName' could not be found. Expected location: $dependencyPath"
             }
-            else
-            {
-                Write-Verbose "$FunctionName is already loaded"
-                return $null
-            }
+
+            Write-Verbose "$FunctionName is already loaded"
+            return $null
         }
 
         $getPlatformPackagePath = Get-DependencyPathIfNeeded -FunctionName 'Get-PlatformPackage' -RelativePath 'Get-PlatformPackage.ps1'
@@ -369,7 +366,7 @@ function Remove-PlatformPackage
             }
         }
 
-        function Get-PackageInstallObject
+        function Get-PackageRemoveObject
         {
             param(
                 [Parameter(Mandatory)]
@@ -1166,7 +1163,7 @@ function Remove-PlatformPackage
                     continue
                 }
 
-                $packages += Get-PackageInstallObject -Manager $Manager -Name $name -Id $id -Type 'Package' -InstalledVersion $installedVersion -Source $source -Description $description
+                $packages += Get-PackageRemoveObject -Manager $Manager -Name $name -Id $id -Type 'Package' -InstalledVersion $installedVersion -Source $source -Description $description
             }
 
             return $packages
@@ -1258,7 +1255,7 @@ function Remove-PlatformPackage
                     continue
                 }
 
-                $packages += Get-PackageInstallObject -Manager $Manager -Name $name -Id $id -Type 'Package' -InstalledVersion $installedVersion -Source $source
+                $packages += Get-PackageRemoveObject -Manager $Manager -Name $name -Id $id -Type 'Package' -InstalledVersion $installedVersion -Source $source
             }
 
             return $packages
@@ -1527,7 +1524,7 @@ function Remove-PlatformPackage
                 $version = if ($parts.Count -gt 1) { ($parts[1..($parts.Count - 1)] -join ', ') } else { '' }
                 $source = if ($Type -eq 'Cask') { 'homebrew/cask' } else { 'homebrew/core' }
 
-                $packages += Get-PackageInstallObject -Manager $Manager -Name $name -Id $name -Type $Type -InstalledVersion $version -Source $source
+                $packages += Get-PackageRemoveObject -Manager $Manager -Name $name -Id $name -Type $Type -InstalledVersion $version -Source $source
             }
 
             return $packages
@@ -1707,7 +1704,7 @@ function Remove-PlatformPackage
                     $architecture = $Matches.Architecture
                     $state = $Matches.State
                     $notes = if ($state -match 'automatic') { 'Automatic' } else { '' }
-                    $packages += Get-PackageInstallObject -Manager $Manager -Name $name -Id $name -Type $architecture -InstalledVersion $version -Source $repository -Notes $notes
+                    $packages += Get-PackageRemoveObject -Manager $Manager -Name $name -Id $name -Type $architecture -InstalledVersion $version -Source $repository -Notes $notes
                 }
             }
 
@@ -1778,7 +1775,7 @@ function Remove-PlatformPackage
                     continue
                 }
 
-                $packages += Get-PackageInstallObject -Manager $Manager -Name $packageInfo.Name -Id $packageInfo.Name -Type 'Package' -InstalledVersion $packageInfo.Version -Source 'apk'
+                $packages += Get-PackageRemoveObject -Manager $Manager -Name $packageInfo.Name -Id $packageInfo.Name -Type 'Package' -InstalledVersion $packageInfo.Version -Source 'apk'
             }
 
             return $packages
@@ -2210,7 +2207,7 @@ function Remove-PlatformPackage
                     [Switch]$IncludesPurge
                 )
 
-                $prefixWidth = if ($IncludesPurge) { 10 } else { 6 }
+                $prefixWidth = if ($IncludesPurge) { 12 } else { 6 }
                 return $prefixWidth + [Int32]$ColumnWidths.Name + 1 + [Int32]$ColumnWidths.Id + 1 + [Int32]$ColumnWidths.Version + 1 + [Int32]$ColumnWidths.Type + 1 + [Int32]$ColumnWidths.Source
             }
 
@@ -2262,6 +2259,7 @@ function Remove-PlatformPackage
             }
 
             $showPurge = $PackageManagerName -in @('winget', 'brew', 'apt', 'apk')
+            $purgeWidth = 5
             $pickerFrameWidth = Get-PackagePickerFrameWidth
             $columnWidths = [PSCustomObject]@{
                 Name = Get-PackagePickerTextMaximum -Values @($InstalledPackages | ForEach-Object { $_.Name }) -Minimum 12 -Maximum 30
@@ -2450,7 +2448,15 @@ function Remove-PlatformPackage
                     return
                 }
 
-                $frameWidth = [Math]::Max(1, [Int32]$pickerRenderState.ConsoleBufferWidth)
+                $currentBufferWidth = Get-PickerConsoleBufferWidth
+                if ($currentBufferWidth -gt 0)
+                {
+                    $pickerRenderState.ConsoleBufferWidth = $currentBufferWidth
+                }
+
+                # Writing exactly to the console width can trigger terminal auto-wrap,
+                # which causes cursor jitter/artifacts in some Windows hosts.
+                $frameWidth = [Math]::Max(1, ([Int32]$pickerRenderState.ConsoleBufferWidth - 1))
                 $blankLine = ''.PadRight($frameWidth)
                 $frameLines = @()
                 foreach ($line in $Lines)
@@ -2544,7 +2550,13 @@ function Remove-PlatformPackage
                 {
                     if ($pickerRenderState.RenderedLineCount -gt 0)
                     {
-                        $frameWidth = [Math]::Max(1, [Int32]$pickerRenderState.ConsoleBufferWidth)
+                        $currentBufferWidth = Get-PickerConsoleBufferWidth
+                        if ($currentBufferWidth -gt 0)
+                        {
+                            $pickerRenderState.ConsoleBufferWidth = $currentBufferWidth
+                        }
+
+                        $frameWidth = [Math]::Max(1, ([Int32]$pickerRenderState.ConsoleBufferWidth - 1))
                         $blankLine = ''.PadRight($frameWidth)
                         $clearLines = for ($lineIndex = 0; $lineIndex -lt $pickerRenderState.RenderedLineCount; $lineIndex++)
                         {
@@ -2563,6 +2575,51 @@ function Remove-PlatformPackage
                     $pickerRenderState.UseInPlaceRedraw = $false
                     Clear-Host
                 }
+            }
+
+            function Get-PickerViewportSummary
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [Int32]$TopIndex,
+
+                    [Parameter(Mandatory)]
+                    [Int32]$BottomIndex,
+
+                    [Parameter(Mandatory)]
+                    [Int32]$VisibleCount,
+
+                    [Parameter(Mandatory)]
+                    [Int32]$TotalCount,
+
+                    [Parameter()]
+                    [Int32]$SelectedCount = -1,
+
+                    [Parameter()]
+                    [String]$FilterText = ''
+                )
+
+                $visibleText = if ($VisibleCount -le 0)
+                {
+                    '0 visible'
+                }
+                else
+                {
+                    "$($TopIndex + 1)-$($BottomIndex + 1) of $VisibleCount visible"
+                }
+
+                $parts = @($visibleText, "$TotalCount total")
+                if ($SelectedCount -ge 0)
+                {
+                    $parts += "$SelectedCount selected"
+                }
+
+                if (-not [String]::IsNullOrWhiteSpace($FilterText))
+                {
+                    $parts += $FilterText
+                }
+
+                return ($parts -join ' | ')
             }
 
             function Clear-PendingConsoleInput
@@ -2698,7 +2755,7 @@ function Remove-PlatformPackage
 
                 Write-Host ''
                 Write-Host 'Selection' -ForegroundColor White
-                Write-PackagePickerHelpItem -Shortcut 'Spacebar' -Description 'select or clear the current package'
+                Write-PackagePickerHelpItem -Shortcut 'Space' -Description 'select or clear the current package'
                 Write-PackagePickerHelpItem -Shortcut 'A' -Description 'toggle all visible packages'
                 Write-PackagePickerHelpItem -Shortcut 'Enter' -Description 'remove selected packages, or the current package if none are selected'
 
@@ -2917,10 +2974,18 @@ function Remove-PlatformPackage
                             'n/a'
                         }
 
+                        $dependencyFilterSummary = @("filter: $nameFilterHintValue")
+                        if ($hasSourceFilter)
+                        {
+                            $dependencyFilterSummary += "source: $($availableSources[$sourceFilterIndex])"
+                        }
+
                         $frameLines = @(
                             (Format-PickerFrameLine -Text "Remove-PlatformPackage Dependencies - $($allPackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
+                            (Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedKeys.Count -FilterText ($dependencyFilterSummary -join ' | ')) -ForegroundColor White)
                             ''
-                            (Format-PickerFrameLine -Text "B/Backspace/LeftArrow: back  V: details  ${nameFilterHint}${sourceHint}Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: cancel" -ForegroundColor DarkGray)
+                            (Format-PickerFrameLine -Text 'Keys: B/Backspace/LeftArrow back  V details' -ForegroundColor DarkGray)
+                            (Format-PickerFrameLine -Text "Nav: ${nameFilterHint}${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel" -ForegroundColor DarkGray)
                             ''
                             (Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor DarkGray)
                             (Format-PickerFrameLine -Text ('Id: {0} | Source: {1} | Publisher: {2}' -f $currentPackage.Id, $currentSource, $currentPublisher) -ForegroundColor DarkGray)
@@ -2984,15 +3049,21 @@ function Remove-PlatformPackage
                     {
                         $selectionHint = if ($showPurge)
                         {
-                            'Select: Spacebar  P: purge/zap  Enter: remove current/selected  A: toggle all'
+                            'Keys: Space select  P purge/zap  Enter remove  A all'
                         }
                         else
                         {
-                            'Select: Spacebar  Enter: remove current/selected  A: toggle all'
+                            'Keys: Space select  Enter remove  A all'
                         }
-                        $navigationHint = "Actions: D: deps  V: details  ${nameFilterHint}${sourceHint}Home/End/PgUp/PgDn  ?: help  Ctrl+C/Q/Esc: cancel"
+                        $filterSummary = @("filter: $nameFilterHintValue")
+                        if ($hasSourceFilter)
+                        {
+                            $filterSummary += "source: $($availableSources[$sourceFilterIndex])"
+                        }
+                        $navigationHint = "Nav: D deps  V details  ${nameFilterHint}${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel"
                         $frameLines = @(
                             (Format-PickerFrameLine -Text "Remove-PlatformPackage - $($allPackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
+                            (Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedKeys.Count -FilterText ($filterSummary -join ' | ')) -ForegroundColor White)
                             ''
                             (Format-PickerFrameLine -Text $selectionHint -ForegroundColor DarkGray)
                             (Format-PickerFrameLine -Text $navigationHint -ForegroundColor DarkGray)
@@ -3000,8 +3071,8 @@ function Remove-PlatformPackage
                         )
                         if ($showPurge)
                         {
-                            $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6}' -f 'Sel', 'Pge', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray
-                            $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6}' -f '---', '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
+                            $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6}' -f 'Sel', (Format-PickerCell -Text 'Purge' -Width $purgeWidth), (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray
+                            $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6}' -f '---', ('-' * $purgeWidth), ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
                         }
                         else
                         {
@@ -3073,7 +3144,7 @@ function Remove-PlatformPackage
                             if ($showPurge)
                             {
                                 $purgeMarker = if ($purgeKeys.Contains($pkgKey)) { '[p]' } else { '[ ]' }
-                                $packageLine = ('{0} {1} {2} {3} {4} {5} {6} {7}' -f $cursorMarker, $selectedMarker, $purgeMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $versionWidth), (Format-PickerCell -Text (Get-PackageTypeDisplay -Type $package.Type) -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
+                                $packageLine = ('{0} {1} {2} {3} {4} {5} {6} {7}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $purgeMarker -Width $purgeWidth), (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $versionWidth), (Format-PickerCell -Text (Get-PackageTypeDisplay -Type $package.Type) -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
                             }
                             else
                             {
@@ -3083,6 +3154,10 @@ function Remove-PlatformPackage
                             if ($i -eq $cursor)
                             {
                                 $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Cyan
+                            }
+                            elseif ($selectedKeys.Contains($pkgKey))
+                            {
+                                $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Green
                             }
                             else
                             {

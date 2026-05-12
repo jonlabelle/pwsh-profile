@@ -5,95 +5,7 @@ BeforeAll {
 
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Remove-PlatformPackage.ps1"
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Get-PlatformPackageDependency.ps1"
-
-    function Get-TestCommandResponse
-    {
-        param(
-            [Parameter()]
-            [Int32]$ExitCode = 0,
-
-            [Parameter()]
-            [String[]]$Output = @()
-        )
-
-        [PSCustomObject]@{
-            ExitCode = $ExitCode
-            Output = @($Output)
-        }
-    }
-
-    $script:NewPackageCommandRunner = {
-        param(
-            [Parameter(Mandatory)]
-            [Hashtable]$Responses
-        )
-
-        $localResponses = $Responses
-        $localInvocations = $script:Invocations
-
-        return {
-            param(
-                [Parameter(Mandatory)]
-                [String]$Command,
-
-                [Parameter()]
-                [String[]]$Arguments = @(),
-
-                [Parameter()]
-                [Switch]$StreamOutput
-            )
-
-            $key = "$Command $($Arguments -join ' ')".Trim()
-            $localInvocations.Add([PSCustomObject]@{
-                    Command = $Command
-                    Arguments = @($Arguments)
-                    Key = $key
-                    StreamOutput = $StreamOutput.IsPresent
-                })
-
-            if ($localResponses.ContainsKey($key))
-            {
-                return $localResponses[$key]
-            }
-
-            return Get-TestCommandResponse -ExitCode 127 -Output @("Unexpected command: $key")
-        }.GetNewClosure()
-    }
-
-    function Get-TestPickerLineLimit
-    {
-        $limit = 0
-        try
-        {
-            if (-not [Console]::IsOutputRedirected)
-            {
-                $limit = [Console]::BufferWidth - 1
-            }
-        }
-        catch
-        {
-            $limit = 0
-        }
-
-        if ($limit -le 0)
-        {
-            try
-            {
-                $limit = $Host.UI.RawUI.BufferSize.Width - 1
-            }
-            catch
-            {
-                $limit = 0
-            }
-        }
-
-        if ($limit -le 0)
-        {
-            $limit = 119
-        }
-
-        return [Math]::Max(60, $limit)
-    }
+    . "$PSScriptRoot/PlatformPackageTestHelpers.ps1"
 }
 
 Describe 'Remove-PlatformPackage' {
@@ -126,6 +38,20 @@ Describe 'Remove-PlatformPackage' {
             $cask = $result | Where-Object { $_.Name -eq 'visual-studio-code' }
             $cask.Type | Should -Be 'Cask'
             (@($cask.RemoveArguments) -join '|') | Should -Be 'uninstall|--cask|visual-studio-code'
+        }
+
+        It 'keeps AsObject as an alias for NonInteractive discovery' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0')
+                'brew list --cask --versions' = Get-TestCommandResponse -Output @()
+            }
+
+            $result = @(Remove-PlatformPackage -PackageManager brew -AsObject -CommandRunner $runner)
+
+            $result.Count | Should -Be 1
+            $result[0].Name | Should -Be 'git'
+            (@($result[0].RemoveArguments) -join '|') | Should -Be 'uninstall|git'
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should -Be 0
         }
 
         It 'uses zap for casks when purge is requested' {
@@ -400,8 +326,9 @@ Describe 'Remove-PlatformPackage' {
             $result.NotSelected | Should -Be 0
             $result.Removed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Select: Spacebar  P: purge/zap  Enter: remove current/selected  A: toggle all' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D: deps  V: details  F: [all]  Home/End/PgUp/PgDn  ?: help  Ctrl+C/Q/Esc: cancel' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  P purge/zap  Enter remove  A all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Nav: D deps  V details  F: [all]  Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq '1-1 of 1 visible | 1 total | 0 selected | filter: all' -and $ForegroundColor -eq 'White' } -Times 1
         }
 
         It 'shows keyboard help from the removal picker' {
@@ -493,7 +420,7 @@ Describe 'Remove-PlatformPackage' {
 
             $result.Removed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall --cask --zap visual-studio-code' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*P: purge/zap*' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*P purge/zap*' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew zap output' } -Times 1
         }
 
@@ -686,7 +613,7 @@ Describe 'Remove-PlatformPackage' {
 
             $result.Removed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'winget uninstall --id Microsoft.PowerShell --exact --source winget --accept-source-agreements --purge' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Pge*' } -Times 2
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -clike '*Purge*' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'winget purge output' } -Times 1
         }
 
@@ -721,15 +648,15 @@ Describe 'Remove-PlatformPackage' {
                 $script:HostOutput |
                 ForEach-Object { "$_" } |
                 Where-Object {
-                    $_ -match '^\s+Sel\s+Pge\s+' -or
+                    $_ -match '^\s+Sel\s+Purge\s+' -or
                     $_ -match '^[> ] \[[ x]\] \[[ p]\]\s+'
                 }
             )
 
             $tableLines.Count | Should -BeGreaterThan 1
-            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Pge\s+' } | Select-Object -First 1) | Should -Match '\bVer\b'
-            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Pge\s+' } | Select-Object -First 1) | Should -Match '\bTyp\b'
-            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Pge\s+' } | Select-Object -First 1) | Should -Match '\bSrc\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Purge\s+' } | Select-Object -First 1) | Should -Match '\bVer\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Purge\s+' } | Select-Object -First 1) | Should -Match '\bTyp\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Purge\s+' } | Select-Object -First 1) | Should -Match '\bSrc\b'
             ($tableLines | Where-Object { $_ -match '^[> ] \[[ x]\] \[[ p]\]\s+' } | Select-Object -First 1) | Should -Match 'homebrew/core'
             (($tableLines | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum) | Should -BeLessOrEqual (Get-TestPickerLineLimit)
         }

@@ -21,7 +21,7 @@ function Install-PlatformPackage
 
     .PARAMETER Query
         Searches the package registry, opens an interactive picker, and installs the
-        packages selected with the spacebar. If no package is selected, pressing Enter
+        packages selected with Space. If no package is selected, pressing Enter
         installs the current package.
 
     .PARAMETER Name
@@ -55,7 +55,7 @@ function Install-PlatformPackage
         PS > Install-PlatformPackage -Query git
 
         Searches the detected registry for git, opens the interactive picker, and installs
-        the selected package or packages.
+        the selected packages or the current package when nothing is selected.
 
     .EXAMPLE
         PS > Install-PlatformPackage -Name git
@@ -1380,7 +1380,15 @@ function Install-PlatformPackage
                     return
                 }
 
-                $frameWidth = [Math]::Max(1, [Int32]$pickerRenderState.ConsoleBufferWidth)
+                $currentBufferWidth = Get-PickerConsoleBufferWidth
+                if ($currentBufferWidth -gt 0)
+                {
+                    $pickerRenderState.ConsoleBufferWidth = $currentBufferWidth
+                }
+
+                # Writing exactly to the console width can trigger terminal auto-wrap,
+                # which causes cursor jitter/artifacts in some Windows hosts.
+                $frameWidth = [Math]::Max(1, ([Int32]$pickerRenderState.ConsoleBufferWidth - 1))
                 $blankLine = ''.PadRight($frameWidth)
                 $frameLines = @()
                 foreach ($line in $Lines)
@@ -1473,7 +1481,13 @@ function Install-PlatformPackage
                 {
                     if ($pickerRenderState.RenderedLineCount -gt 0)
                     {
-                        $frameWidth = [Math]::Max(1, [Int32]$pickerRenderState.ConsoleBufferWidth)
+                        $currentBufferWidth = Get-PickerConsoleBufferWidth
+                        if ($currentBufferWidth -gt 0)
+                        {
+                            $pickerRenderState.ConsoleBufferWidth = $currentBufferWidth
+                        }
+
+                        $frameWidth = [Math]::Max(1, ([Int32]$pickerRenderState.ConsoleBufferWidth - 1))
                         $blankLine = ''.PadRight($frameWidth)
                         $clearLines = for ($lineIndex = 0; $lineIndex -lt $pickerRenderState.RenderedLineCount; $lineIndex++)
                         {
@@ -1492,6 +1506,51 @@ function Install-PlatformPackage
                     $pickerRenderState.UseInPlaceRedraw = $false
                     Clear-Host
                 }
+            }
+
+            function Get-PickerViewportSummary
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [Int32]$TopIndex,
+
+                    [Parameter(Mandatory)]
+                    [Int32]$BottomIndex,
+
+                    [Parameter(Mandatory)]
+                    [Int32]$VisibleCount,
+
+                    [Parameter(Mandatory)]
+                    [Int32]$TotalCount,
+
+                    [Parameter()]
+                    [Int32]$SelectedCount = -1,
+
+                    [Parameter()]
+                    [String]$FilterText = ''
+                )
+
+                $visibleText = if ($VisibleCount -le 0)
+                {
+                    '0 visible'
+                }
+                else
+                {
+                    "$($TopIndex + 1)-$($BottomIndex + 1) of $VisibleCount visible"
+                }
+
+                $parts = @($visibleText, "$TotalCount total")
+                if ($SelectedCount -ge 0)
+                {
+                    $parts += "$SelectedCount selected"
+                }
+
+                if (-not [String]::IsNullOrWhiteSpace($FilterText))
+                {
+                    $parts += $FilterText
+                }
+
+                return ($parts -join ' | ')
             }
 
             function Show-PackagePickerHelp
@@ -1525,7 +1584,7 @@ function Install-PlatformPackage
 
                 Write-Host ''
                 Write-Host 'Selection' -ForegroundColor White
-                Write-PackagePickerHelpItem -Shortcut 'Spacebar' -Description 'select or clear the current package'
+                Write-PackagePickerHelpItem -Shortcut 'Space' -Description 'select or clear the current package'
                 Write-PackagePickerHelpItem -Shortcut 'A' -Description 'toggle all visible packages'
                 Write-PackagePickerHelpItem -Shortcut 'Enter' -Description 'install selected packages, or the current package if none are selected'
 
@@ -1642,10 +1701,12 @@ function Install-PlatformPackage
                     }
 
                     $sourceHint = if ($hasSourceFilter) { "S: [$($availableSources[$sourceFilterIndex])]  " } else { '' }
-                    $selectionHint = 'Select: Spacebar  Enter: install current/selected  A: toggle all'
-                    $navigationHint = "${sourceHint}Home/End/PgUp/PgDn  ?: help  Ctrl+C/Q/Esc: cancel"
+                    $sourceSummary = if ($hasSourceFilter) { "source: $($availableSources[$sourceFilterIndex])" } else { '' }
+                    $selectionHint = 'Keys: Space select  Enter install  A all'
+                    $navigationHint = "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel"
                     $frameLines = @(
                         (Format-PickerFrameLine -Text "Install-PlatformPackage - $($allPackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
+                        (Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedKeys.Count -FilterText $sourceSummary) -ForegroundColor White)
                         ''
                         (Format-PickerFrameLine -Text $selectionHint -ForegroundColor DarkGray)
                         (Format-PickerFrameLine -Text $navigationHint -ForegroundColor DarkGray)
@@ -1707,6 +1768,10 @@ function Install-PlatformPackage
                         elseif ($i -eq $cursor)
                         {
                             $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Cyan
+                        }
+                        elseif ($selectedKeys.Contains($pkgKey))
+                        {
+                            $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Green
                         }
                         else
                         {

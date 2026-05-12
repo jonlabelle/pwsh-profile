@@ -103,7 +103,7 @@ function Find-PlatformPackage
     .EXAMPLE
         PS > Find-PlatformPackage -PassThru
 
-        Opens the interactive UI, lets you select packages with the spacebar, and returns
+        Opens the interactive UI, lets you select packages with Space, and returns
         the selected package records when Enter is pressed.
 
     .OUTPUTS
@@ -2102,7 +2102,15 @@ function Find-PlatformPackage
                     return
                 }
 
-                $frameWidth = [Math]::Max(1, [Int32]$pickerRenderState.ConsoleBufferWidth)
+                $currentBufferWidth = Get-PickerConsoleBufferWidth
+                if ($currentBufferWidth -gt 0)
+                {
+                    $pickerRenderState.ConsoleBufferWidth = $currentBufferWidth
+                }
+
+                # Writing exactly to the console width can trigger terminal auto-wrap,
+                # which causes cursor jitter/artifacts in some Windows hosts.
+                $frameWidth = [Math]::Max(1, ([Int32]$pickerRenderState.ConsoleBufferWidth - 1))
                 $blankLine = ''.PadRight($frameWidth)
                 $frameLines = @()
                 foreach ($line in $Lines)
@@ -2195,7 +2203,13 @@ function Find-PlatformPackage
                 {
                     if ($pickerRenderState.RenderedLineCount -gt 0)
                     {
-                        $frameWidth = [Math]::Max(1, [Int32]$pickerRenderState.ConsoleBufferWidth)
+                        $currentBufferWidth = Get-PickerConsoleBufferWidth
+                        if ($currentBufferWidth -gt 0)
+                        {
+                            $pickerRenderState.ConsoleBufferWidth = $currentBufferWidth
+                        }
+
+                        $frameWidth = [Math]::Max(1, ([Int32]$pickerRenderState.ConsoleBufferWidth - 1))
                         $blankLine = ''.PadRight($frameWidth)
                         $clearLines = for ($lineIndex = 0; $lineIndex -lt $pickerRenderState.RenderedLineCount; $lineIndex++)
                         {
@@ -2214,6 +2228,51 @@ function Find-PlatformPackage
                     $pickerRenderState.UseInPlaceRedraw = $false
                     Clear-Host
                 }
+            }
+
+            function Get-PickerViewportSummary
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [Int32]$TopIndex,
+
+                    [Parameter(Mandatory)]
+                    [Int32]$BottomIndex,
+
+                    [Parameter(Mandatory)]
+                    [Int32]$VisibleCount,
+
+                    [Parameter(Mandatory)]
+                    [Int32]$TotalCount,
+
+                    [Parameter()]
+                    [Int32]$SelectedCount = -1,
+
+                    [Parameter()]
+                    [String]$FilterText = ''
+                )
+
+                $visibleText = if ($VisibleCount -le 0)
+                {
+                    '0 visible'
+                }
+                else
+                {
+                    "$($TopIndex + 1)-$($BottomIndex + 1) of $VisibleCount visible"
+                }
+
+                $parts = @($visibleText, "$TotalCount total")
+                if ($SelectedCount -ge 0)
+                {
+                    $parts += "$SelectedCount selected"
+                }
+
+                if (-not [String]::IsNullOrWhiteSpace($FilterText))
+                {
+                    $parts += $FilterText
+                }
+
+                return ($parts -join ' | ')
             }
 
             function Show-PackagePickerHelp
@@ -2264,7 +2323,7 @@ function Find-PlatformPackage
                 {
                     Write-Host ''
                     Write-Host 'Selection' -ForegroundColor White
-                    Write-PackagePickerHelpItem -Shortcut 'Spacebar' -Description 'select or clear the current package'
+                    Write-PackagePickerHelpItem -Shortcut 'Space' -Description 'select or clear the current package'
                     Write-PackagePickerHelpItem -Shortcut 'A' -Description 'toggle all visible packages'
                 }
 
@@ -2373,26 +2432,28 @@ function Find-PlatformPackage
                     }
                     $installedStatus = if ($null -ne $currentPackage -and $currentPackage.Installed) { 'yes' } else { 'no' }
 
+                    $sourceHint = if ($hasSourceFilter) { "S: [$($availableSources[$sourceFilterIndex])]  " } else { '' }
+                    $sourceSummary = if ($hasSourceFilter) { "source: $($availableSources[$sourceFilterIndex])" } else { '' }
+                    $selectedSummary = if ($EnableSelection) { $selectedKeys.Count } else { -1 }
                     $frameLines = @(
                         (Format-PickerFrameLine -Text "Find-PlatformPackage - $($allPackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
-                        ''
                         (Format-PickerFrameLine -Text ('Search: {0}' -f $QueryText) -ForegroundColor DarkGray)
+                        (Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedSummary -FilterText $sourceSummary) -ForegroundColor White)
                         ''
                     )
-                    $sourceHint = if ($hasSourceFilter) { "S: [$($availableSources[$sourceFilterIndex])]  " } else { '' }
                     if ($EnableSelection -and $EnableReturnSelection)
                     {
-                        $frameLines += Format-PickerFrameLine -Text 'Select: Spacebar  Enter: return current/selected  I: install current/selected  A: toggle all' -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text 'Keys: Space select  Enter return  I install  A all' -ForegroundColor DarkGray
                     }
                     elseif ($EnableSelection)
                     {
-                        $frameLines += Format-PickerFrameLine -Text 'Select: Spacebar  I: install current/selected  A: toggle all' -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text 'Keys: Space select  I install  A all' -ForegroundColor DarkGray
                     }
                     else
                     {
-                        $frameLines += Format-PickerFrameLine -Text 'Action: I: install current' -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text 'Keys: I install current' -ForegroundColor DarkGray
                     }
-                    $frameLines += Format-PickerFrameLine -Text "${sourceHint}/: new search  Home/End/PgUp/PgDn  ?: help  Ctrl+C/Q/Esc: exit" -ForegroundColor DarkGray
+                    $frameLines += Format-PickerFrameLine -Text "Nav: ${sourceHint}/ search  Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" -ForegroundColor DarkGray
                     $frameLines += ''
 
                     if ($visiblePackages.Count -eq 0)
@@ -2489,6 +2550,10 @@ function Find-PlatformPackage
                         elseif ($i -eq $cursor)
                         {
                             $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Cyan
+                        }
+                        elseif ($EnableSelection -and $selectedKeys.Contains($pkgKey))
+                        {
+                            $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Green
                         }
                         else
                         {

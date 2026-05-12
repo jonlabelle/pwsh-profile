@@ -7,7 +7,7 @@ function Upgrade-PlatformPackage
     .DESCRIPTION
         Detects the supported package manager for the current platform, refreshes package
         registry metadata, lists packages with available upgrades, and opens an interactive
-        console picker where packages can be selected with the spacebar.
+        console picker where packages can be selected with Space.
 
         Supported package managers:
         - Windows: winget
@@ -55,7 +55,7 @@ function Upgrade-PlatformPackage
         PS > Upgrade-PlatformPackage
 
         Refreshes package registry metadata, opens the interactive picker, and upgrades
-        the packages selected with the spacebar.
+        the packages selected with Space.
 
     .EXAMPLE
         PS > Upgrade-PlatformPackage -All
@@ -2240,6 +2240,51 @@ function Upgrade-PlatformPackage
                 }
             }
 
+            function Get-PickerViewportSummary
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [Int32]$TopIndex,
+
+                    [Parameter(Mandatory)]
+                    [Int32]$BottomIndex,
+
+                    [Parameter(Mandatory)]
+                    [Int32]$VisibleCount,
+
+                    [Parameter(Mandatory)]
+                    [Int32]$TotalCount,
+
+                    [Parameter()]
+                    [Int32]$SelectedCount = -1,
+
+                    [Parameter()]
+                    [String]$FilterText = ''
+                )
+
+                $visibleText = if ($VisibleCount -le 0)
+                {
+                    '0 visible'
+                }
+                else
+                {
+                    "$($TopIndex + 1)-$($BottomIndex + 1) of $VisibleCount visible"
+                }
+
+                $parts = @($visibleText, "$TotalCount total")
+                if ($SelectedCount -ge 0)
+                {
+                    $parts += "$SelectedCount selected"
+                }
+
+                if (-not [String]::IsNullOrWhiteSpace($FilterText))
+                {
+                    $parts += $FilterText
+                }
+
+                return ($parts -join ' | ')
+            }
+
             function Show-PackagePickerHelp
             {
                 function Write-PackagePickerHelpItem
@@ -2271,7 +2316,7 @@ function Upgrade-PlatformPackage
 
                 Write-Host ''
                 Write-Host 'Selection' -ForegroundColor White
-                Write-PackagePickerHelpItem -Shortcut 'Spacebar' -Description 'select or clear the current package'
+                Write-PackagePickerHelpItem -Shortcut 'Space' -Description 'select or clear the current package'
                 Write-PackagePickerHelpItem -Shortcut 'A' -Description 'toggle all visible packages'
                 Write-PackagePickerHelpItem -Shortcut 'Enter' -Description 'upgrade selected packages'
 
@@ -2381,15 +2426,21 @@ function Upgrade-PlatformPackage
                     $nameFilterHintValue = if ([String]::IsNullOrWhiteSpace($nameFilterText)) { 'all' } else { $nameFilterText }
                     $selectionHint = if ($showUninstallPrevious)
                     {
-                        'Select: Spacebar  U: uninstall previous  Enter: upgrade selected  A: toggle all'
+                        'Keys: Space select  U uninstall previous  Enter upgrade  A all'
                     }
                     else
                     {
-                        'Select: Spacebar  Enter: upgrade selected  A: toggle all'
+                        'Keys: Space select  Enter upgrade  A all'
                     }
-                    $navigationHint = "Filter/Nav: F: [$nameFilterHintValue]  ${sourceHint}Home/End/PgUp/PgDn  ?: help  Ctrl+C/Q/Esc: cancel"
+                    $filterSummary = @("filter: $nameFilterHintValue")
+                    if ($hasSourceFilter)
+                    {
+                        $filterSummary += "source: $($availableSources[$sourceFilterIndex])"
+                    }
+                    $navigationHint = "Nav: F: [$nameFilterHintValue]  ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel"
                     $frameLines = @(
                         (Format-PickerFrameLine -Text "Upgrade-PlatformPackage - $($allPackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
+                        (Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedKeys.Count -FilterText ($filterSummary -join ' | ')) -ForegroundColor White)
                         ''
                         (Format-PickerFrameLine -Text $selectionHint -ForegroundColor DarkGray)
                         (Format-PickerFrameLine -Text $navigationHint -ForegroundColor DarkGray)
@@ -2484,6 +2535,10 @@ function Upgrade-PlatformPackage
                         if ($i -eq $cursor)
                         {
                             $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Cyan
+                        }
+                        elseif ($selectedKeys.Contains($pkgKey))
+                        {
+                            $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Green
                         }
                         else
                         {

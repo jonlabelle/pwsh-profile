@@ -7,91 +7,7 @@ BeforeAll {
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Get-PlatformPackageDependency.ps1"
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Remove-PlatformPackage.ps1"
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Upgrade-PlatformPackage.ps1"
-
-    $script:NewTestCommandResponse = {
-        param(
-            [Parameter()]
-            [Int32]$ExitCode = 0,
-
-            [Parameter()]
-            [String[]]$Output = @()
-        )
-
-        [PSCustomObject]@{
-            ExitCode = $ExitCode
-            Output = @($Output)
-        }
-    }
-
-    $script:NewPackageCommandRunner = {
-        param(
-            [Parameter(Mandatory)]
-            [Hashtable]$Responses
-        )
-
-        $localResponses = $Responses
-        $localInvocations = $script:Invocations
-        $newTestCommandResponse = $script:NewTestCommandResponse
-
-        return {
-            param(
-                [Parameter(Mandatory)]
-                [String]$Command,
-
-                [Parameter()]
-                [String[]]$Arguments = @()
-            )
-
-            $key = "$Command $($Arguments -join ' ')".Trim()
-            $localInvocations.Add([PSCustomObject]@{
-                    Command = $Command
-                    Arguments = @($Arguments)
-                    Key = $key
-                })
-
-            if ($localResponses.ContainsKey($key))
-            {
-                return $localResponses[$key]
-            }
-
-            return & $newTestCommandResponse -ExitCode 127 -Output @("Unexpected command: $key")
-        }.GetNewClosure()
-    }
-
-    function Get-TestPickerLineLimit
-    {
-        $limit = 0
-        try
-        {
-            if (-not [Console]::IsOutputRedirected)
-            {
-                $limit = [Console]::BufferWidth - 1
-            }
-        }
-        catch
-        {
-            $limit = 0
-        }
-
-        if ($limit -le 0)
-        {
-            try
-            {
-                $limit = $Host.UI.RawUI.BufferSize.Width - 1
-            }
-            catch
-            {
-                $limit = 0
-            }
-        }
-
-        if ($limit -le 0)
-        {
-            $limit = 119
-        }
-
-        return [Math]::Max(60, $limit)
-    }
+    . "$PSScriptRoot/PlatformPackageTestHelpers.ps1"
 }
 
 Describe 'Show-InstalledPlatformPackage' {
@@ -115,6 +31,20 @@ Describe 'Show-InstalledPlatformPackage' {
             ($result | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should -Be '2.44.0'
             ($result | Where-Object { $_.Name -eq 'git' }).Publisher | Should -Be 'Homebrew'
         }
+
+        It 'keeps AsObject as an alias for NonInteractive output' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @())
+            }
+
+            $result = @(Show-InstalledPlatformPackage -PackageManager brew -AsObject -CommandRunner $runner)
+
+            $result.Count | Should -Be 1
+            $result[0].Name | Should -Be 'git'
+            $result[0].PackageManager | Should -Be 'brew'
+            Assert-MockCalled -CommandName Write-Host -Times 0
+        }
     }
 
     Context 'Interactive browsing' {
@@ -131,8 +61,10 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D: deps  V: details  R: remove  U: upgrade  F: [all]  Home/End/PgUp/PgDn  ?: help  Ctrl+C/Q/Esc: exit' } -Times 1
-            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 3
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D deps  V details  R remove  U upgrade' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Nav: F: [all]  Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq '1-1 of 1 visible | 1 total | filter: all' -and $ForegroundColor -eq 'White' } -Times 1
+            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 2
         }
 
         It 'does not exit when Enter is pressed in browse mode' {
@@ -153,7 +85,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D: deps  V: details  R: remove  U: upgrade  F: [all]  Home/End/PgUp/PgDn  ?: help  Ctrl+C/Q/Esc: exit' } -Times 2
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D deps  V details  R remove  U upgrade' } -Times 2
         }
 
         It 'renders only the current viewport for long package lists' {
@@ -198,7 +130,7 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Select: Spacebar  Enter: return current/selected  A: toggle all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  A all' } -Times 1
         }
 
         It 'returns the current package when PassThru is used without a selection' {
@@ -215,8 +147,8 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Select: Spacebar  Enter: return current/selected  A: toggle all' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D: deps  V: details  R: remove  U: upgrade  F: [all]  S: [All]  Home/End/PgUp/PgDn  ?: help  Ctrl+C/Q/Esc: exit' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  A all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Nav: F: [all]  S: [All]  Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit' } -Times 1
         }
 
         It 'shows keyboard help from the picker when question mark is pressed' {
