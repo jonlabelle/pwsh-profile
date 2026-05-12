@@ -1,8 +1,10 @@
 # PowerShell Profile Codebase Instructions
 
+Use only the sections relevant to the current task; treat examples as patterns, not mandatory boilerplate.
+
 - Do NOT create summaries of work performed in Markdown files.
-- Be sure to cleanup any temporary files created during tasks.
-- Use system-level temp directories (e.g. `[System.IO.Path]::GetTempPath()`) for temporary files during tests, not directories inside the repository. Always clean up temp files after use.
+- Clean up temporary files created during any task.
+- For temporary files created during tests, use system-level temp directories (e.g. `[System.IO.Path]::GetTempPath()`) instead of directories inside the repository, and always clean them up after use.
 
 ## Architecture Overview
 
