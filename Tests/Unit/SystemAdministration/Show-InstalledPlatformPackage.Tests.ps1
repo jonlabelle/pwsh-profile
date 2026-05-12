@@ -57,6 +57,41 @@ BeforeAll {
             return & $newTestCommandResponse -ExitCode 127 -Output @("Unexpected command: $key")
         }.GetNewClosure()
     }
+
+    function Get-TestPickerLineLimit
+    {
+        $limit = 0
+        try
+        {
+            if (-not [Console]::IsOutputRedirected)
+            {
+                $limit = [Console]::BufferWidth - 1
+            }
+        }
+        catch
+        {
+            $limit = 0
+        }
+
+        if ($limit -le 0)
+        {
+            try
+            {
+                $limit = $Host.UI.RawUI.BufferSize.Width - 1
+            }
+            catch
+            {
+                $limit = 0
+            }
+        }
+
+        if ($limit -le 0)
+        {
+            $limit = 119
+        }
+
+        return [Math]::Max(60, $limit)
+    }
 }
 
 Describe 'Show-InstalledPlatformPackage' {
@@ -96,7 +131,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'D: deps  V: details  R: remove  U: upgrade  F: [all]  Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D: deps  V: details  R: remove  U: upgrade  F: [all]  Home/End/PgUp/PgDn  ?: help  Ctrl+C/Q/Esc: exit' } -Times 1
             @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 3
         }
 
@@ -118,7 +153,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'D: deps  V: details  R: remove  U: upgrade  F: [all]  Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit' } -Times 2
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D: deps  V: details  R: remove  U: upgrade  F: [all]  Home/End/PgUp/PgDn  ?: help  Ctrl+C/Q/Esc: exit' } -Times 2
         }
 
         It 'renders only the current viewport for long package lists' {
@@ -163,7 +198,7 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Spacebar: select*' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Select: Spacebar  Enter: return current/selected  A: toggle all' } -Times 1
         }
 
         It 'returns the current package when PassThru is used without a selection' {
@@ -180,7 +215,8 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Spacebar: select  Enter: return current/selected  A: toggle all  D: deps  V: details  R: remove  U: upgrade  F: [all]  S: [All]  Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Select: Spacebar  Enter: return current/selected  A: toggle all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D: deps  V: details  R: remove  U: upgrade  F: [all]  S: [All]  Home/End/PgUp/PgDn  ?: help  Ctrl+C/Q/Esc: exit' } -Times 1
         }
 
         It 'shows keyboard help from the picker when question mark is pressed' {
@@ -289,6 +325,48 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should -Be 0
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[winget\]' } -Times 1
+        }
+
+        It 'keeps picker table rows within the current console width' {
+            $wingetListJson = @{
+                Sources = @(
+                    @{
+                        Packages = @(
+                            @{
+                                PackageName = 'Microsoft SQL Server Integration Services Projects'
+                                PackageIdentifier = 'Microsoft.DataTools.IntegrationServices'
+                                Version = '17.0.1010.2'
+                                Source = 'winget'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget list --accept-source-agreements --output json' = (& $script:NewTestCommandResponse -Output @($wingetListJson))
+            }
+
+            $keyReader = {
+                [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            }
+
+            $null = Show-InstalledPlatformPackage -PackageManager winget -CommandRunner $runner -KeyReader $keyReader
+
+            $tableLines = @(
+                $script:HostOutput |
+                ForEach-Object { "$_" } |
+                Where-Object {
+                    $_ -match '^\s+Name\s+' -or
+                    $_ -match '^>\s+'
+                }
+            )
+
+            $tableLines.Count | Should -BeGreaterThan 1
+            ($tableLines | Where-Object { $_ -match '^\s+Name\s+' } | Select-Object -First 1) | Should -Match '\bVer\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Name\s+' } | Select-Object -First 1) | Should -Match '\bTyp\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Name\s+' } | Select-Object -First 1) | Should -Match '\bSrc\b'
+            (($tableLines | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum) | Should -BeLessOrEqual (Get-TestPickerLineLimit)
         }
 
         It 'shows both dependency directions from the picker with D' {

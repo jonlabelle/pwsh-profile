@@ -59,6 +59,41 @@ BeforeAll {
             return Get-TestCommandResponse -ExitCode 127 -Output @("Unexpected command: $key")
         }.GetNewClosure()
     }
+
+    function Get-TestPickerLineLimit
+    {
+        $limit = 0
+        try
+        {
+            if (-not [Console]::IsOutputRedirected)
+            {
+                $limit = [Console]::BufferWidth - 1
+            }
+        }
+        catch
+        {
+            $limit = 0
+        }
+
+        if ($limit -le 0)
+        {
+            try
+            {
+                $limit = $Host.UI.RawUI.BufferSize.Width - 1
+            }
+            catch
+            {
+                $limit = 0
+            }
+        }
+
+        if ($limit -le 0)
+        {
+            $limit = 119
+        }
+
+        return [Math]::Max(60, $limit)
+    }
 }
 
 Describe 'Remove-PlatformPackage' {
@@ -365,7 +400,8 @@ Describe 'Remove-PlatformPackage' {
             $result.NotSelected | Should -Be 0
             $result.Removed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Spacebar: select  P: purge/zap  Enter: remove current/selected  A: toggle all  D: deps  V: details  F: [all]  Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: cancel' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Select: Spacebar  P: purge/zap  Enter: remove current/selected  A: toggle all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D: deps  V: details  F: [all]  Home/End/PgUp/PgDn  ?: help  Ctrl+C/Q/Esc: cancel' } -Times 1
         }
 
         It 'shows keyboard help from the removal picker' {
@@ -651,6 +687,49 @@ Describe 'Remove-PlatformPackage' {
             ($script:Invocations | Where-Object { $_.Key -eq 'winget uninstall --id Microsoft.PowerShell --exact --source winget --accept-source-agreements --purge' }).StreamOutput | Should -BeTrue
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Pge*' } -Times 2
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'winget purge output' } -Times 1
+        }
+
+        It 'keeps picker table rows within the current console width' {
+            $wingetListJson = @{
+                Sources = @(
+                    @{
+                        SourceDetails = @{
+                            Name = 'winget'
+                        }
+                        Packages = @(
+                            @{
+                                PackageName = 'Microsoft SQL Server Integration Services Projects'
+                                PackageIdentifier = 'Microsoft.DataTools.IntegrationServices'
+                                Version = '17.0.1010.2'
+                                Source = 'winget'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget list --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetListJson)
+            }
+            $keyReader = {
+                [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            }
+
+            $null = Remove-PlatformPackage -PackageManager winget -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+
+            $tableLines = @(
+                $script:HostOutput |
+                ForEach-Object { "$_" } |
+                Where-Object {
+                    $_ -match '^\s+Sel\s+Pge\s+' -or
+                    $_ -match '^[> ] \[[ x]\] \[[ p]\]\s+'
+                }
+            )
+
+            $tableLines.Count | Should -BeGreaterThan 1
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Pge\s+' } | Select-Object -First 1) | Should -Match '\bVer\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Pge\s+' } | Select-Object -First 1) | Should -Match '\bTyp\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Pge\s+' } | Select-Object -First 1) | Should -Match '\bSrc\b'
+            (($tableLines | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum) | Should -BeLessOrEqual (Get-TestPickerLineLimit)
         }
 
         It 'removes only the visible package when filtering duplicate winget ids by source' {

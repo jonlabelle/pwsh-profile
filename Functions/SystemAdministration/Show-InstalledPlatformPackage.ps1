@@ -763,7 +763,7 @@ function Show-InstalledPlatformPackage
 
                     if ($windowHeight -gt 0)
                     {
-                        $reservedRows = 14
+                        $reservedRows = 17
                         return [Math]::Min([Math]::Max(1, $windowHeight - $reservedRows), [Math]::Max(1, $ItemCount))
                     }
                 }
@@ -819,11 +819,140 @@ function Show-InstalledPlatformPackage
                 return "$($Package.PackageManager)::$($Package.Source)::$($Package.Id)::$($Package.Name)::$($Package.Type)"
             }
 
-            $nameWidth = [Math]::Min(36, [Math]::Max(4, (($InstalledPackages | ForEach-Object { $_.Name.Length } | Measure-Object -Maximum).Maximum)))
-            $idWidth = [Math]::Min(34, [Math]::Max(2, (($InstalledPackages | ForEach-Object { "$($_.Id)".Length } | Measure-Object -Maximum).Maximum)))
-            $versionWidth = [Math]::Min(20, [Math]::Max(7, (($InstalledPackages | ForEach-Object { $_.InstalledVersion.Length } | Measure-Object -Maximum).Maximum)))
-            $typeWidth = [Math]::Min(12, [Math]::Max(4, (($InstalledPackages | ForEach-Object { $_.Type.Length } | Measure-Object -Maximum).Maximum)))
-            $sourceWidth = [Math]::Min(18, [Math]::Max(6, (($InstalledPackages | ForEach-Object { $_.Source.Length } | Measure-Object -Maximum).Maximum)))
+            function Get-PackageTypeDisplay
+            {
+                param(
+                    [Parameter()]
+                    [String]$Type
+                )
+
+                if ([String]::IsNullOrWhiteSpace($Type))
+                {
+                    return ''
+                }
+
+                switch -Regex ($Type)
+                {
+                    '^Package$' { return 'Pkg' }
+                    '^Formula$' { return 'Form' }
+                    default { return $Type }
+                }
+            }
+
+            function Get-PackagePickerTextMaximum
+            {
+                param(
+                    [Parameter()]
+                    [Object[]]$Values = @(),
+
+                    [Parameter(Mandatory)]
+                    [Int32]$Minimum,
+
+                    [Parameter(Mandatory)]
+                    [Int32]$Maximum
+                )
+
+                $measuredMaximum = @(
+                    $Values |
+                    Where-Object { $null -ne $_ } |
+                    ForEach-Object { "$_".Length } |
+                    Measure-Object -Maximum
+                )[0].Maximum
+
+                if ($null -eq $measuredMaximum)
+                {
+                    $measuredMaximum = 0
+                }
+
+                return [Math]::Min($Maximum, [Math]::Max($Minimum, [Int32]$measuredMaximum))
+            }
+
+            function Get-PackagePickerFrameWidth
+            {
+                $bufferWidth = Get-PickerConsoleBufferWidth
+                if ($bufferWidth -le 0)
+                {
+                    return 119
+                }
+
+                return [Math]::Max(60, ($bufferWidth - 1))
+            }
+
+            function Get-PackagePickerTableLineWidth
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [PSCustomObject]$ColumnWidths,
+
+                    [Parameter()]
+                    [Switch]$IncludesSelection
+                )
+
+                $prefixWidth = if ($IncludesSelection) { 6 } else { 2 }
+                return $prefixWidth + [Int32]$ColumnWidths.Name + 1 + [Int32]$ColumnWidths.Id + 1 + [Int32]$ColumnWidths.Version + 1 + [Int32]$ColumnWidths.Type + 1 + [Int32]$ColumnWidths.Source
+            }
+
+            function Compress-PackagePickerTableWidths
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [PSCustomObject]$ColumnWidths,
+
+                    [Parameter(Mandatory)]
+                    [Int32]$MaximumWidth,
+
+                    [Parameter()]
+                    [Switch]$IncludesSelection
+                )
+
+                $minimumWidths = @{
+                    Name = 12
+                    Id = 14
+                    Version = 8
+                    Type = 3
+                    Source = 5
+                }
+                $shrinkOrder = @('Id', 'Name', 'Version', 'Source', 'Type')
+
+                while ((Get-PackagePickerTableLineWidth -ColumnWidths $ColumnWidths -IncludesSelection:$IncludesSelection.IsPresent) -gt $MaximumWidth)
+                {
+                    $shrunk = $false
+                    foreach ($columnName in $shrinkOrder)
+                    {
+                        if ([Int32]$ColumnWidths.$columnName -gt [Int32]$minimumWidths[$columnName])
+                        {
+                            $ColumnWidths.$columnName = [Int32]$ColumnWidths.$columnName - 1
+                            $shrunk = $true
+                            if ((Get-PackagePickerTableLineWidth -ColumnWidths $ColumnWidths -IncludesSelection:$IncludesSelection.IsPresent) -le $MaximumWidth)
+                            {
+                                break
+                            }
+                        }
+                    }
+
+                    if (-not $shrunk)
+                    {
+                        break
+                    }
+                }
+
+                return $ColumnWidths
+            }
+
+            $pickerFrameWidth = Get-PackagePickerFrameWidth
+            $columnWidths = [PSCustomObject]@{
+                Name = Get-PackagePickerTextMaximum -Values @($InstalledPackages | ForEach-Object { $_.Name }) -Minimum 12 -Maximum 30
+                Id = Get-PackagePickerTextMaximum -Values @($InstalledPackages | ForEach-Object { $_.Id }) -Minimum 14 -Maximum 32
+                Version = Get-PackagePickerTextMaximum -Values @($InstalledPackages | ForEach-Object { $_.InstalledVersion }) -Minimum 8 -Maximum 16
+                Type = Get-PackagePickerTextMaximum -Values @($InstalledPackages | ForEach-Object { Get-PackageTypeDisplay -Type $_.Type }) -Minimum 3 -Maximum 7
+                Source = Get-PackagePickerTextMaximum -Values @($InstalledPackages | ForEach-Object { $_.Source }) -Minimum 5 -Maximum 10
+            }
+            $columnWidths = Compress-PackagePickerTableWidths -ColumnWidths $columnWidths -MaximumWidth $pickerFrameWidth -IncludesSelection:$EnableSelection.IsPresent
+            $nameWidth = [Int32]$columnWidths.Name
+            $idWidth = [Int32]$columnWidths.Id
+            $versionWidth = [Int32]$columnWidths.Version
+            $typeWidth = [Int32]$columnWidths.Type
+            $sourceWidth = [Int32]$columnWidths.Source
             $pageSize = Get-PackagePickerPageSize -RequestedPageSize $PageSize -ItemCount $InstalledPackages.Count
 
             $selectedKeys = [System.Collections.Generic.HashSet[String]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -1415,7 +1544,9 @@ function Show-InstalledPlatformPackage
                             ''
                             (Format-PickerFrameLine -Text "B/Backspace/LeftArrow: back  V: details  ${nameFilterHint}${sourceHint}Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit" -ForegroundColor DarkGray)
                             ''
-                            (Format-PickerFrameLine -Text ('Current: {0} | Id: {1} | Publisher: {2} | Version: {3} | Source: {4}' -f $currentPackage.Name, $currentPackage.Id, $currentPublisher, $currentVersion, $currentSource) -ForegroundColor White)
+                            (Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor White)
+                            (Format-PickerFrameLine -Text ('Id: {0} | Source: {1} | Publisher: {2}' -f $currentPackage.Id, $currentSource, $currentPublisher) -ForegroundColor White)
+                            (Format-PickerFrameLine -Text ('Version: {0}' -f $currentVersion) -ForegroundColor White)
                             (Format-PickerFrameLine -Text ('Description: {0}' -f $currentDescription) -ForegroundColor White)
                             ''
                             (Format-PickerFrameLine -Text 'Dependencies [DependsOn + RequiredBy]' -ForegroundColor White)
@@ -1446,16 +1577,17 @@ function Show-InstalledPlatformPackage
                     {
                         if ($EnableSelection)
                         {
-                            $frameLines += Format-PickerFrameLine -Text "Spacebar: select  Enter: return current/selected  A: toggle all  D: deps  V: details  R: remove  U: upgrade  ${nameFilterHint}${sourceHint}Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit" -ForegroundColor DarkGray
+                            $frameLines += Format-PickerFrameLine -Text 'Select: Spacebar  Enter: return current/selected  A: toggle all' -ForegroundColor DarkGray
+                            $frameLines += Format-PickerFrameLine -Text "Actions: D: deps  V: details  R: remove  U: upgrade  ${nameFilterHint}${sourceHint}Home/End/PgUp/PgDn  ?: help  Ctrl+C/Q/Esc: exit" -ForegroundColor DarkGray
                             $frameLines += ''
-                            $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth)) -ForegroundColor DarkGray
+                            $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray
                             $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
                         }
                         else
                         {
-                            $frameLines += Format-PickerFrameLine -Text "D: deps  V: details  R: remove  U: upgrade  ${nameFilterHint}${sourceHint}Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: exit" -ForegroundColor DarkGray
+                            $frameLines += Format-PickerFrameLine -Text "Actions: D: deps  V: details  R: remove  U: upgrade  ${nameFilterHint}${sourceHint}Home/End/PgUp/PgDn  ?: help  Ctrl+C/Q/Esc: exit" -ForegroundColor DarkGray
                             $frameLines += ''
-                            $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4}' -f (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Version' -Width $versionWidth), (Format-PickerCell -Text 'Type' -Width $typeWidth), (Format-PickerCell -Text 'Source' -Width $sourceWidth)) -ForegroundColor DarkGray
+                            $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4}' -f (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray
                             $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4}' -f ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
                         }
 
@@ -1523,11 +1655,11 @@ function Show-InstalledPlatformPackage
                             if ($EnableSelection)
                             {
                                 $selectedMarker = if ($selectedKeys.Contains($pkgKey)) { '[x]' } else { '[ ]' }
-                                $packageLine = ('{0} {1} {2} {3} {4} {5} {6}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $versionWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
+                                $packageLine = ('{0} {1} {2} {3} {4} {5} {6}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $versionWidth), (Format-PickerCell -Text (Get-PackageTypeDisplay -Type $package.Type) -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
                             }
                             else
                             {
-                                $packageLine = ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $versionWidth), (Format-PickerCell -Text $package.Type -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
+                                $packageLine = ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $versionWidth), (Format-PickerCell -Text (Get-PackageTypeDisplay -Type $package.Type) -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
                             }
 
                             if ($i -eq $cursor)
@@ -1565,7 +1697,9 @@ function Show-InstalledPlatformPackage
                         }
 
                         $frameLines += ''
-                        $frameLines += Format-PickerFrameLine -Text ('Current: {0} | Id: {1} | Publisher: {2} | Version: {3} | Source: {4}' -f $currentPackage.Name, $currentPackage.Id, $currentPublisher, $currentVersion, $currentSource) -ForegroundColor White
+                        $frameLines += Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor White
+                        $frameLines += Format-PickerFrameLine -Text ('Id: {0} | Source: {1} | Publisher: {2}' -f $currentPackage.Id, $currentSource, $currentPublisher) -ForegroundColor White
+                        $frameLines += Format-PickerFrameLine -Text ('Version: {0}' -f $currentVersion) -ForegroundColor White
                         $frameLines += Format-PickerFrameLine -Text ('Description: {0}' -f $currentDescription) -ForegroundColor White
 
                         if (-not [String]::IsNullOrWhiteSpace($actionStatus))

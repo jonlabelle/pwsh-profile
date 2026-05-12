@@ -61,6 +61,41 @@ BeforeAll {
             }
         }.GetNewClosure()
     }
+
+    function Get-TestPickerLineLimit
+    {
+        $limit = 0
+        try
+        {
+            if (-not [Console]::IsOutputRedirected)
+            {
+                $limit = [Console]::BufferWidth - 1
+            }
+        }
+        catch
+        {
+            $limit = 0
+        }
+
+        if ($limit -le 0)
+        {
+            try
+            {
+                $limit = $Host.UI.RawUI.BufferSize.Width - 1
+            }
+            catch
+            {
+                $limit = 0
+            }
+        }
+
+        if ($limit -le 0)
+        {
+            $limit = 119
+        }
+
+        return [Math]::Max(60, $limit)
+    }
 }
 
 Describe 'Install-PlatformPackage' {
@@ -138,7 +173,7 @@ Describe 'Install-PlatformPackage' {
             $result.Selected | Should -Be 1
             $result.Installed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew install --cask visual-studio-code' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Spacebar: select*' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Select: Spacebar  Enter: install current/selected  A: toggle all' } -Times 1
         }
 
         It 'installs the current search result when Enter is pressed without a selection' {
@@ -158,7 +193,7 @@ Describe 'Install-PlatformPackage' {
             $result.NotSelected | Should -Be 0
             $result.Installed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew install git' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Spacebar: select  Enter: install current/selected  A: toggle all  Arrow keys/Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: cancel' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Select: Spacebar  Enter: install current/selected  A: toggle all' } -Times 1
         }
 
         It 'shows keyboard help from the query result picker' {
@@ -210,7 +245,8 @@ Describe 'Install-PlatformPackage' {
             $result.Skipped | Should -Be 1
             $result.Results[0].Message | Should -Be 'Package is already installed'
             @($script:Invocations | Where-Object { $_.Key -eq 'brew install jq' }).Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Current: jq | Id: jq | Publisher: Homebrew | Installed: yes' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Current: jq' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Id: jq | Publisher: Homebrew | Installed: yes' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $ForegroundColor -eq 'DarkGray' -and $Object -like '*jq*' } -Times 2
         }
 
@@ -265,6 +301,58 @@ Describe 'Install-PlatformPackage' {
             $result.Installed | Should -Be 1
             @($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --source winget --accept-source-agreements --accept-package-agreements' }).Count | Should -Be 0
             ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --source msstore --accept-source-agreements --accept-package-agreements' }).StreamOutput | Should -BeTrue
+        }
+
+        It 'keeps picker table rows within the current console width' {
+            $wingetSearchJson = @{
+                Sources = @(
+                    @{
+                        SourceDetails = @{
+                            Name = 'winget'
+                        }
+                        Packages = @(
+                            @{
+                                PackageName = 'Microsoft SQL Server Integration Services Projects'
+                                PackageIdentifier = 'Microsoft.DataTools.IntegrationServices'
+                                Version = '17.0.1010.2'
+                                Source = 'winget'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $wingetListJson = @{
+                Sources = @(
+                    @{
+                        Packages = @()
+                    }
+                )
+            } | ConvertTo-Json -Depth 4 -Compress
+
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget search sql --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetSearchJson)
+                'winget list --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetListJson)
+            }
+            $keyReader = {
+                [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            }
+
+            $null = Install-PlatformPackage -PackageManager winget -Query sql -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+
+            $tableLines = @(
+                $script:HostOutput |
+                ForEach-Object { "$_" } |
+                Where-Object {
+                    $_ -match '^\s+Sel\s+' -or
+                    $_ -match '^[> ] \[[ x]\]\s+'
+                }
+            )
+
+            $tableLines.Count | Should -BeGreaterThan 1
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+' } | Select-Object -First 1) | Should -Match '\bVer\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+' } | Select-Object -First 1) | Should -Match '\bTyp\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+' } | Select-Object -First 1) | Should -Match '\bSrc\b'
+            (($tableLines | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum) | Should -BeLessOrEqual (Get-TestPickerLineLimit)
         }
 
         It 'returns a no-selection summary when the picker is cancelled' {

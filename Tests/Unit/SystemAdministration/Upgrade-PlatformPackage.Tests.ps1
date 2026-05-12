@@ -531,6 +531,82 @@ Describe 'Upgrade-PlatformPackage' {
             ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source msstore --accept-package-agreements --accept-source-agreements' }).StreamOutput | Should -BeTrue
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[msstore\]' } -Times 1
         }
+
+        It 'keeps winget picker table rows within the current console width' {
+            $wingetUpgradeJson = @{
+                Sources = @(
+                    @{
+                        SourceDetails = @{
+                            Name = 'winget'
+                        }
+                        Packages = @(
+                            @{
+                                PackageName = 'Microsoft SQL Server Integration Services Projects'
+                                PackageIdentifier = 'Microsoft.DataTools.IntegrationServices'
+                                Version = '16.0.5685.0'
+                                Available = '17.0.1010.2'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget upgrade --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetUpgradeJson)
+            }
+
+            $keyReader = {
+                [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            }
+
+            $null = Upgrade-PlatformPackage -PackageManager winget -SkipRefresh -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+
+            $limit = 0
+            try
+            {
+                if (-not [Console]::IsOutputRedirected)
+                {
+                    $limit = [Console]::BufferWidth - 1
+                }
+            }
+            catch
+            {
+                $limit = 0
+            }
+
+            if ($limit -le 0)
+            {
+                try
+                {
+                    $limit = $Host.UI.RawUI.BufferSize.Width - 1
+                }
+                catch
+                {
+                    $limit = 0
+                }
+            }
+
+            if ($limit -le 0)
+            {
+                $limit = 119
+            }
+
+            $limit = [Math]::Max(60, $limit)
+            $tableLines = @(
+                $script:HostOutput |
+                ForEach-Object { "$_" } |
+                Where-Object {
+                    $_ -match '^\s+Sel\s+Unp\s+' -or
+                    $_ -match '^[> ] \[[ x]\] \[[ u]\]\s+'
+                }
+            )
+
+            $tableLines.Count | Should -BeGreaterThan 1
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Unp\s+' } | Select-Object -First 1) | Should -Match '\bInst\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Unp\s+' } | Select-Object -First 1) | Should -Match '\bAvail\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Unp\s+' } | Select-Object -First 1) | Should -Match '\bTyp\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Unp\s+' } | Select-Object -First 1) | Should -Match '\bSrc\b'
+            (($tableLines | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum) | Should -BeLessOrEqual $limit
+        }
     }
 
     Context 'winget package discovery' {

@@ -62,6 +62,41 @@ BeforeAll {
             }
         }.GetNewClosure()
     }
+
+    function Get-TestPickerLineLimit
+    {
+        $limit = 0
+        try
+        {
+            if (-not [Console]::IsOutputRedirected)
+            {
+                $limit = [Console]::BufferWidth - 1
+            }
+        }
+        catch
+        {
+            $limit = 0
+        }
+
+        if ($limit -le 0)
+        {
+            try
+            {
+                $limit = $Host.UI.RawUI.BufferSize.Width - 1
+            }
+            catch
+            {
+                $limit = 0
+            }
+        }
+
+        if ($limit -le 0)
+        {
+            $limit = 119
+        }
+
+        return [Math]::Max(60, $limit)
+    }
 }
 
 Describe 'Find-PlatformPackage' {
@@ -335,7 +370,7 @@ Describe 'Find-PlatformPackage' {
 
             $result.Count | Should -Be 0
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: git' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Spacebar: select  I: install current/selected*' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Select: Spacebar  I: install current/selected  A: toggle all' } -Times 1
             @($script:HostOutputRecords | Where-Object { $_.ForegroundColor -eq [ConsoleColor]::DarkGray -and $_.Object -like '*git*' }).Count | Should -Be 2
             @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 5
         }
@@ -422,7 +457,7 @@ Describe 'Find-PlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Spacebar: select  Enter: return current/selected  I: install current/selected*' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Select: Spacebar  Enter: return current/selected  I: install current/selected  A: toggle all' } -Times 1
         }
 
         It 'opens the result picker with the requested source filter' {
@@ -481,6 +516,61 @@ Describe 'Find-PlatformPackage' {
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*winget*' -and $Object -notlike '*msstore*' } -Times 0
         }
 
+        It 'keeps picker table rows within the current console width' {
+            $wingetSearchJson = @{
+                Sources = @(
+                    @{
+                        SourceDetails = @{
+                            Name = 'winget'
+                        }
+                        Packages = @(
+                            @{
+                                PackageName = 'Microsoft SQL Server Integration Services Projects'
+                                PackageIdentifier = 'Microsoft.DataTools.IntegrationServices'
+                                Version = '17.0.1010.2'
+                                Source = 'winget'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $wingetListJson = @{
+                Sources = @(
+                    @{
+                        Packages = @()
+                    }
+                )
+            } | ConvertTo-Json -Depth 4 -Compress
+
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget search sql --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetSearchJson)
+                'winget list --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetListJson)
+            }
+            $queryReader = {
+                'sql'
+            }
+            $keyReader = {
+                [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            }
+
+            $null = Find-PlatformPackage -PackageManager winget -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader
+
+            $tableLines = @(
+                $script:HostOutput |
+                ForEach-Object { "$_" } |
+                Where-Object {
+                    $_ -match '^\s+Sel\s+' -or
+                    $_ -match '^[> ] \[[ x]\]\s+'
+                }
+            )
+
+            $tableLines.Count | Should -BeGreaterThan 1
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+' } | Select-Object -First 1) | Should -Match '\bVer\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+' } | Select-Object -First 1) | Should -Match '\bTyp\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+' } | Select-Object -First 1) | Should -Match '\bSrc\b'
+            (($tableLines | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum) | Should -BeLessOrEqual (Get-TestPickerLineLimit)
+        }
+
         It 'returns the current package when PassThru is used without a selection' {
             $runner = & $script:NewPackageCommandRunner @{
                 'brew search --formulae git' = Get-TestCommandResponse -Output @('git', 'git-lfs')
@@ -499,7 +589,7 @@ Describe 'Find-PlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Spacebar: select  Enter: return current/selected  I: install current/selected*' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Select: Spacebar  Enter: return current/selected  I: install current/selected  A: toggle all' } -Times 1
         }
 
         It 'installs the selected package from the interactive browser' {
