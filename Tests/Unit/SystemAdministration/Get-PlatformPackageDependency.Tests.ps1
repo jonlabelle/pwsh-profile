@@ -4,56 +4,7 @@ BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Get-PlatformPackageDependency.ps1"
-
-    function Get-TestCommandResponse
-    {
-        param(
-            [Parameter()]
-            [Int32]$ExitCode = 0,
-
-            [Parameter()]
-            [String[]]$Output = @()
-        )
-
-        [PSCustomObject]@{
-            ExitCode = $ExitCode
-            Output = @($Output)
-        }
-    }
-
-    $script:NewPackageCommandRunner = {
-        param(
-            [Parameter(Mandatory)]
-            [Hashtable]$Responses
-        )
-
-        $localResponses = $Responses
-        $localInvocations = $script:Invocations
-
-        return {
-            param(
-                [Parameter(Mandatory)]
-                [String]$Command,
-
-                [Parameter()]
-                [String[]]$Arguments = @()
-            )
-
-            $key = "$Command $($Arguments -join ' ')".Trim()
-            $localInvocations.Add([PSCustomObject]@{
-                    Command = $Command
-                    Arguments = @($Arguments)
-                    Key = $key
-                })
-
-            if ($localResponses.ContainsKey($key))
-            {
-                return $localResponses[$key]
-            }
-
-            return Get-TestCommandResponse -ExitCode 127 -Output @("Unexpected command: $key")
-        }.GetNewClosure()
-    }
+    . "$PSScriptRoot/PlatformPackageTestHelpers.ps1"
 }
 
 Describe 'Get-PlatformPackageDependency' {

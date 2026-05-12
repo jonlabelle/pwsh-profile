@@ -51,6 +51,25 @@
 
 ## System Administration
 
+The platform package commands share normalized package records across winget, Homebrew,
+apt, and apk. Use `Get-PlatformPackage`, `Find-PlatformPackage -NonInteractive`, and
+`Get-PlatformPackageDependency` when scripts need objects. Use `Find-PlatformPackage`,
+`Show-InstalledPlatformPackage`, `Install-PlatformPackage`, `Remove-PlatformPackage`,
+and `Upgrade-PlatformPackage` for interactive package workflows; destructive commands
+also support `-WhatIf`.
+
+| Command | Best use |
+| --- | --- |
+| `Show-PlatformPackageManager` | Menu-driven package workflows. |
+| `Get-PlatformPackage` | Script-friendly installed package inventory. |
+| `Find-PlatformPackage -NonInteractive` | Script-friendly remote registry search. |
+| `Find-PlatformPackage` | Interactive remote search and optional install. |
+| `Show-InstalledPlatformPackage` | Interactive installed package browser. |
+| `Install-PlatformPackage` | Direct, pipeline, or search-driven installs. |
+| `Upgrade-PlatformPackage` | Interactive, filtered, or all-package upgrades. |
+| `Remove-PlatformPackage` | Interactive, filtered, or all-package removals. |
+| `Get-PlatformPackageDependency` | Direct and reverse dependency inspection. |
+
 - [`Find-PlatformPackage`](../Functions/SystemAdministration/Find-PlatformPackage.ps1) - Searches native platform package registries.
 - [`Get-PathPermission`](../Functions/SystemAdministration/Get-PathPermission.ps1) - Shows file and directory permission details for one or more paths.
 - [`Get-PlatformPackage`](../Functions/SystemAdministration/Get-PlatformPackage.ps1) - Gets installed packages from the native platform package manager.

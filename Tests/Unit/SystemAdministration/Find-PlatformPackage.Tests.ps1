@@ -5,98 +5,7 @@ BeforeAll {
 
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Find-PlatformPackage.ps1"
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Install-PlatformPackage.ps1"
-
-    function Get-TestCommandResponse
-    {
-        param(
-            [Parameter()]
-            [Int32]$ExitCode = 0,
-
-            [Parameter()]
-            [String[]]$Output = @()
-        )
-
-        [PSCustomObject]@{
-            ExitCode = $ExitCode
-            Output = @($Output)
-        }
-    }
-
-    $script:NewPackageCommandRunner = {
-        param(
-            [Parameter(Mandatory)]
-            [Hashtable]$Responses
-        )
-
-        $localResponses = $Responses
-        $localInvocations = $script:Invocations
-
-        return {
-            param(
-                [Parameter(Mandatory)]
-                [String]$Command,
-
-                [Parameter()]
-                [String[]]$Arguments = @(),
-
-                [Parameter()]
-                [Switch]$StreamOutput
-            )
-
-            $key = "$Command $($Arguments -join ' ')".Trim()
-            $localInvocations.Add([PSCustomObject]@{
-                    Command = $Command
-                    Arguments = @($Arguments)
-                    Key = $key
-                    StreamOutput = $StreamOutput.IsPresent
-                })
-
-            if ($localResponses.ContainsKey($key))
-            {
-                return $localResponses[$key]
-            }
-
-            return [PSCustomObject]@{
-                ExitCode = 127
-                Output = @("Unexpected command: $key")
-            }
-        }.GetNewClosure()
-    }
-
-    function Get-TestPickerLineLimit
-    {
-        $limit = 0
-        try
-        {
-            if (-not [Console]::IsOutputRedirected)
-            {
-                $limit = [Console]::BufferWidth - 1
-            }
-        }
-        catch
-        {
-            $limit = 0
-        }
-
-        if ($limit -le 0)
-        {
-            try
-            {
-                $limit = $Host.UI.RawUI.BufferSize.Width - 1
-            }
-            catch
-            {
-                $limit = 0
-            }
-        }
-
-        if ($limit -le 0)
-        {
-            $limit = 119
-        }
-
-        return [Math]::Max(60, $limit)
-    }
+    . "$PSScriptRoot/PlatformPackageTestHelpers.ps1"
 }
 
 Describe 'Find-PlatformPackage' {
@@ -350,6 +259,24 @@ Describe 'Find-PlatformPackage' {
         }
     }
 
+    Context 'mode validation' {
+        It 'requires interactive mode when PassThru is used' {
+            $runner = & $script:NewPackageCommandRunner @{}
+
+            {
+                Find-PlatformPackage -PackageManager brew -NonInteractive -PassThru -Query git -CommandRunner $runner
+            } | Should -Throw -ExpectedMessage '*PassThru requires interactive package search*'
+        }
+
+        It 'requires a query in NonInteractive mode' {
+            $runner = & $script:NewPackageCommandRunner @{}
+
+            {
+                Find-PlatformPackage -PackageManager brew -NonInteractive -CommandRunner $runner
+            } | Should -Throw -ExpectedMessage '*Query is required when -NonInteractive is used*'
+        }
+    }
+
     Context 'interactive remote search UI' {
         It 'prompts for a query and renders remote registry results by default' {
             $runner = & $script:NewPackageCommandRunner @{
@@ -370,9 +297,10 @@ Describe 'Find-PlatformPackage' {
 
             $result.Count | Should -Be 0
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: git' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Select: Spacebar  I: install current/selected  A: toggle all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  I install  A all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq '1-3 of 3 visible | 3 total | 0 selected | source: All' -and $ForegroundColor -eq 'White' } -Times 1
             @($script:HostOutputRecords | Where-Object { $_.ForegroundColor -eq [ConsoleColor]::DarkGray -and $_.Object -like '*git*' }).Count | Should -BeGreaterOrEqual 2
-            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 5
+            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 4
         }
 
         It 'allows a new query to be entered from the interactive browser' {
@@ -457,7 +385,7 @@ Describe 'Find-PlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Select: Spacebar  Enter: return current/selected  I: install current/selected  A: toggle all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  I install  A all' } -Times 1
         }
 
         It 'opens the result picker with the requested source filter' {
@@ -590,7 +518,7 @@ Describe 'Find-PlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Select: Spacebar  Enter: return current/selected  I: install current/selected  A: toggle all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  I install  A all' } -Times 1
         }
 
         It 'installs the selected package from the interactive browser' {

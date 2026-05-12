@@ -4,60 +4,7 @@ BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Upgrade-PlatformPackage.ps1"
-
-    function Get-TestCommandResponse
-    {
-        param(
-            [Parameter()]
-            [Int32]$ExitCode = 0,
-
-            [Parameter()]
-            [String[]]$Output = @()
-        )
-
-        [PSCustomObject]@{
-            ExitCode = $ExitCode
-            Output = @($Output)
-        }
-    }
-
-    $script:NewPackageCommandRunner = {
-        param(
-            [Parameter(Mandatory)]
-            [Hashtable]$Responses
-        )
-
-        $localResponses = $Responses
-        $localInvocations = $script:Invocations
-
-        return {
-            param(
-                [Parameter(Mandatory)]
-                [String]$Command,
-
-                [Parameter()]
-                [String[]]$Arguments = @(),
-
-                [Parameter()]
-                [Switch]$StreamOutput
-            )
-
-            $key = "$Command $($Arguments -join ' ')".Trim()
-            $localInvocations.Add([PSCustomObject]@{
-                    Command = $Command
-                    Arguments = @($Arguments)
-                    Key = $key
-                    StreamOutput = $StreamOutput.IsPresent
-                })
-
-            if ($localResponses.ContainsKey($key))
-            {
-                return $localResponses[$key]
-            }
-
-            return Get-TestCommandResponse -ExitCode 127 -Output @("Unexpected command: $key")
-        }.GetNewClosure()
-    }
+    . "$PSScriptRoot/PlatformPackageTestHelpers.ps1"
 }
 
 Describe 'Upgrade-PlatformPackage' {
@@ -107,6 +54,30 @@ Describe 'Upgrade-PlatformPackage' {
             $cask = $result | Where-Object { $_.Name -eq 'visual-studio-code' }
             $cask.Type | Should -Be 'Cask'
             (@($cask.UpgradeArguments) -join '|') | Should -Be 'upgrade|--cask|visual-studio-code'
+        }
+
+        It 'keeps AsObject as an alias for NonInteractive discovery' {
+            $brewJson = @{
+                formulae = @(
+                    @{
+                        name = 'git'
+                        installed_versions = @('2.43.0')
+                        current_version = '2.44.0'
+                    }
+                )
+                casks = @()
+            } | ConvertTo-Json -Depth 6 -Compress
+
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
+            }
+
+            $result = @(Upgrade-PlatformPackage -PackageManager brew -SkipRefresh -AsObject -CommandRunner $runner)
+
+            $result.Count | Should -Be 1
+            $result[0].Name | Should -Be 'git'
+            (@($result[0].UpgradeArguments) -join '|') | Should -Be 'upgrade|git'
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should -Be 0
         }
 
         It 'streams refresh and upgrade command output when upgrading all packages' {
@@ -376,6 +347,8 @@ Describe 'Upgrade-PlatformPackage' {
 
             $result.Selected | Should -Be 0
             $result.Upgraded | Should -Be 0
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter upgrade  A all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq '1-1 of 1 visible | 1 total | 0 selected | filter: all' -and $ForegroundColor -eq 'White' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Upgrade-PlatformPackage Help' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Enter: ' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'upgrade selected packages' -and $ForegroundColor -eq 'DarkGray' } -Times 1

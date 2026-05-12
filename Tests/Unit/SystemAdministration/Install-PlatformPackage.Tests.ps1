@@ -4,98 +4,7 @@ BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Install-PlatformPackage.ps1"
-
-    function Get-TestCommandResponse
-    {
-        param(
-            [Parameter()]
-            [Int32]$ExitCode = 0,
-
-            [Parameter()]
-            [String[]]$Output = @()
-        )
-
-        [PSCustomObject]@{
-            ExitCode = $ExitCode
-            Output = @($Output)
-        }
-    }
-
-    $script:NewPackageCommandRunner = {
-        param(
-            [Parameter(Mandatory)]
-            [Hashtable]$Responses
-        )
-
-        $localResponses = $Responses
-        $localInvocations = $script:Invocations
-
-        return {
-            param(
-                [Parameter(Mandatory)]
-                [String]$Command,
-
-                [Parameter()]
-                [String[]]$Arguments = @(),
-
-                [Parameter()]
-                [Switch]$StreamOutput
-            )
-
-            $key = "$Command $($Arguments -join ' ')".Trim()
-            $localInvocations.Add([PSCustomObject]@{
-                    Command = $Command
-                    Arguments = @($Arguments)
-                    Key = $key
-                    StreamOutput = $StreamOutput.IsPresent
-                })
-
-            if ($localResponses.ContainsKey($key))
-            {
-                return $localResponses[$key]
-            }
-
-            return [PSCustomObject]@{
-                ExitCode = 127
-                Output = @("Unexpected command: $key")
-            }
-        }.GetNewClosure()
-    }
-
-    function Get-TestPickerLineLimit
-    {
-        $limit = 0
-        try
-        {
-            if (-not [Console]::IsOutputRedirected)
-            {
-                $limit = [Console]::BufferWidth - 1
-            }
-        }
-        catch
-        {
-            $limit = 0
-        }
-
-        if ($limit -le 0)
-        {
-            try
-            {
-                $limit = $Host.UI.RawUI.BufferSize.Width - 1
-            }
-            catch
-            {
-                $limit = 0
-            }
-        }
-
-        if ($limit -le 0)
-        {
-            $limit = 119
-        }
-
-        return [Math]::Max(60, $limit)
-    }
+    . "$PSScriptRoot/PlatformPackageTestHelpers.ps1"
 }
 
 Describe 'Install-PlatformPackage' {
@@ -173,7 +82,8 @@ Describe 'Install-PlatformPackage' {
             $result.Selected | Should -Be 1
             $result.Installed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew install --cask visual-studio-code' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Select: Spacebar  Enter: install current/selected  A: toggle all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter install  A all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq '1-1 of 1 visible | 1 total | 1 selected' -and $ForegroundColor -eq 'White' } -Times 1
         }
 
         It 'installs the current search result when Enter is pressed without a selection' {
@@ -193,7 +103,7 @@ Describe 'Install-PlatformPackage' {
             $result.NotSelected | Should -Be 0
             $result.Installed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew install git' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Select: Spacebar  Enter: install current/selected  A: toggle all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter install  A all' } -Times 1
         }
 
         It 'shows keyboard help from the query result picker' {
