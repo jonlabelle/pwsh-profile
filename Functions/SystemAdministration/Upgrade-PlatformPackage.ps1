@@ -2517,10 +2517,10 @@ function Upgrade-PlatformPackage
                         'n/a'
                     }
 
-                    $frameLines += Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor White
-                    $frameLines += Format-PickerFrameLine -Text ('Id: {0} | Source: {1} | Publisher: {2}' -f $currentPackage.Id, $currentSource, $currentPublisher) -ForegroundColor White
-                    $frameLines += Format-PickerFrameLine -Text ('Version: {0} -> {1}' -f $currentInstalledVersion, $currentLatestVersion) -ForegroundColor White
-                    $frameLines += Format-PickerFrameLine -Text ('Description: {0}' -f $currentDescription) -ForegroundColor White
+                    $frameLines += Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor DarkGray
+                    $frameLines += Format-PickerFrameLine -Text ('Id: {0} | Source: {1} | Publisher: {2}' -f $currentPackage.Id, $currentSource, $currentPublisher) -ForegroundColor DarkGray
+                    $frameLines += Format-PickerFrameLine -Text ('Version: {0} -> {1}' -f $currentInstalledVersion, $currentLatestVersion) -ForegroundColor DarkGray
+                    $frameLines += Format-PickerFrameLine -Text ('Description: {0}' -f $currentDescription) -ForegroundColor DarkGray
                     $frameLines += ''
                     $countText = if ($hasSourceFilter -and $availableSources[$sourceFilterIndex] -ne 'All')
                     {

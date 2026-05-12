@@ -2498,9 +2498,9 @@ function Find-PlatformPackage
 
                     $frameLines += ''
                     $currentPublisher = if ([String]::IsNullOrWhiteSpace($currentPackage.Publisher)) { 'n/a' } else { $currentPackage.Publisher }
-                    $frameLines += Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor White
-                    $frameLines += Format-PickerFrameLine -Text ('Id: {0} | Publisher: {1} | Installed: {2}' -f $currentPackage.Id, $currentPublisher, $installedStatus) -ForegroundColor White
-                    $frameLines += Format-PickerFrameLine -Text ('Description: {0}' -f $currentDescription) -ForegroundColor White
+                    $frameLines += Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor DarkGray
+                    $frameLines += Format-PickerFrameLine -Text ('Id: {0} | Publisher: {1} | Installed: {2}' -f $currentPackage.Id, $currentPublisher, $installedStatus) -ForegroundColor DarkGray
+                    $frameLines += Format-PickerFrameLine -Text ('Description: {0}' -f $currentDescription) -ForegroundColor DarkGray
                     if ($EnableSelection)
                     {
                         $frameLines += ''

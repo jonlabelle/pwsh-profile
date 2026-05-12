@@ -2801,10 +2801,10 @@ function Remove-PlatformPackage
                             ''
                             (Format-PickerFrameLine -Text "B/Backspace/LeftArrow: back  V: details  ${nameFilterHint}${sourceHint}Home/End/PgUp/PgDn: navigate  ?: help  Ctrl+C/Q/Esc: cancel" -ForegroundColor DarkGray)
                             ''
-                            (Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor White)
-                            (Format-PickerFrameLine -Text ('Id: {0} | Source: {1} | Publisher: {2}' -f $currentPackage.Id, $currentSource, $currentPublisher) -ForegroundColor White)
-                            (Format-PickerFrameLine -Text ('Version: {0}' -f $currentVersion) -ForegroundColor White)
-                            (Format-PickerFrameLine -Text ('Description: {0}' -f $currentDescription) -ForegroundColor White)
+                            (Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor DarkGray)
+                            (Format-PickerFrameLine -Text ('Id: {0} | Source: {1} | Publisher: {2}' -f $currentPackage.Id, $currentSource, $currentPublisher) -ForegroundColor DarkGray)
+                            (Format-PickerFrameLine -Text ('Version: {0}' -f $currentVersion) -ForegroundColor DarkGray)
+                            (Format-PickerFrameLine -Text ('Description: {0}' -f $currentDescription) -ForegroundColor DarkGray)
                             ''
                             (Format-PickerFrameLine -Text 'Dependencies [DependsOn + RequiredBy]' -ForegroundColor White)
                         )
@@ -2965,10 +2965,10 @@ function Remove-PlatformPackage
                             'n/a'
                         }
 
-                        $frameLines += Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor White
-                        $frameLines += Format-PickerFrameLine -Text ('Id: {0} | Source: {1} | Publisher: {2}' -f $currentPackage.Id, $currentSource, $currentPublisher) -ForegroundColor White
-                        $frameLines += Format-PickerFrameLine -Text ('Version: {0}' -f $currentVersion) -ForegroundColor White
-                        $frameLines += Format-PickerFrameLine -Text ('Description: {0}' -f $currentDescription) -ForegroundColor White
+                        $frameLines += Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('Id: {0} | Source: {1} | Publisher: {2}' -f $currentPackage.Id, $currentSource, $currentPublisher) -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('Version: {0}' -f $currentVersion) -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('Description: {0}' -f $currentDescription) -ForegroundColor DarkGray
 
                         if (-not [String]::IsNullOrWhiteSpace($actionStatus))
                         {
