@@ -74,7 +74,7 @@ Describe 'Invoke-NetworkDiagnostic (Default continuous mode single iteration via
         $output | Should -Match 'example\.com:443'
         $output | Should -Match 'Stats'
         $output | Should -Match 'Quality\s+5/5\s+successful'
-        $output | Should -Match 'Press Ctrl\+C to stop monitoring\.'
+        $output | Should -Match 'Press (Q or )?Ctrl\+C to stop monitoring\.'
         $output | Should -Not -Match 'Samples per host'
         $output | Should -Not -Match 'Continuous Mode \(Press Ctrl\+C to stop\)'
 
