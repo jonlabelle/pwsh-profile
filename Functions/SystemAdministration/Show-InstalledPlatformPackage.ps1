@@ -1266,6 +1266,83 @@ function Show-InstalledPlatformPackage
                 }
             }
 
+            function Disable-PickerTerminalEcho
+            {
+                if (-not $usingConsoleKeyReader)
+                {
+                    return $null
+                }
+
+                $isWindowsPlatform = if ($PSVersionTable.PSVersion.Major -lt 6) { $true } else { [Bool]$IsWindows }
+                if ($isWindowsPlatform)
+                {
+                    return $null
+                }
+
+                try
+                {
+                    if ([Console]::IsInputRedirected)
+                    {
+                        return $null
+                    }
+                }
+                catch
+                {
+                    return $null
+                }
+
+                $sttyCommand = Get-Command -Name 'stty' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($null -eq $sttyCommand)
+                {
+                    return $null
+                }
+
+                try
+                {
+                    $sttyState = @(& $sttyCommand.Source '-g' 2>$null) | Select-Object -First 1
+                    if ([String]::IsNullOrWhiteSpace("$sttyState"))
+                    {
+                        return $null
+                    }
+
+                    $null = & $sttyCommand.Source '-echo' 2>$null
+                    return "$sttyState"
+                }
+                catch
+                {
+                    Write-Verbose "Unable to disable terminal echo: $($_.Exception.Message)"
+                    return $null
+                }
+            }
+
+            function Restore-PickerTerminalEcho
+            {
+                param(
+                    [Parameter()]
+                    [String]$State
+                )
+
+                if ([String]::IsNullOrWhiteSpace($State))
+                {
+                    return
+                }
+
+                $sttyCommand = Get-Command -Name 'stty' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($null -eq $sttyCommand)
+                {
+                    return
+                }
+
+                try
+                {
+                    $null = & $sttyCommand.Source $State 2>$null
+                }
+                catch
+                {
+                    Write-Verbose "Unable to restore terminal echo: $($_.Exception.Message)"
+                }
+            }
+
             function Show-PackagePickerHelp
             {
                 function Write-PackagePickerHelpItem
@@ -1615,7 +1692,16 @@ function Show-InstalledPlatformPackage
 
                         if ($null -ne $pendingDependencyPanelPackage)
                         {
-                            $dependencyPanelSections = @(Get-DependencyPanelSections -Package $pendingDependencyPanelPackage)
+                            $terminalEchoState = Disable-PickerTerminalEcho
+                            try
+                            {
+                                $dependencyPanelSections = @(Get-DependencyPanelSections -Package $pendingDependencyPanelPackage)
+                            }
+                            finally
+                            {
+                                Restore-PickerTerminalEcho -State $terminalEchoState
+                            }
+
                             $dependencyPanelPackageKey = $currentPackageLookupKey
                             $pendingDependencyPanelPackage = $null
                             Clear-PendingConsoleInput
