@@ -541,10 +541,11 @@ Describe 'Upgrade-PlatformPackage' {
                         }
                         Packages = @(
                             @{
-                                PackageName = 'Microsoft SQL Server Integration Services Projects'
-                                PackageIdentifier = 'Microsoft.DataTools.IntegrationServices'
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
                                 Version = '16.0.5685.0'
                                 Available = '17.0.1010.2'
+                                Source = 'homebrew/core'
                             }
                         )
                     }
@@ -605,6 +606,7 @@ Describe 'Upgrade-PlatformPackage' {
             ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Unp\s+' } | Select-Object -First 1) | Should -Match '\bAvail\b'
             ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Unp\s+' } | Select-Object -First 1) | Should -Match '\bTyp\b'
             ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Unp\s+' } | Select-Object -First 1) | Should -Match '\bSrc\b'
+            ($tableLines | Where-Object { $_ -match '^[> ] \[[ x]\] \[[ u]\]\s+' } | Select-Object -First 1) | Should -Match 'homebrew/core'
             (($tableLines | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum) | Should -BeLessOrEqual $limit
         }
     }

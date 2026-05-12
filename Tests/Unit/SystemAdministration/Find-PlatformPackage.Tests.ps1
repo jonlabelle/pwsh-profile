@@ -525,10 +525,10 @@ Describe 'Find-PlatformPackage' {
                         }
                         Packages = @(
                             @{
-                                PackageName = 'Microsoft SQL Server Integration Services Projects'
-                                PackageIdentifier = 'Microsoft.DataTools.IntegrationServices'
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
                                 Version = '17.0.1010.2'
-                                Source = 'winget'
+                                Source = 'homebrew/core'
                             }
                         )
                     }
@@ -568,6 +568,7 @@ Describe 'Find-PlatformPackage' {
             ($tableLines | Where-Object { $_ -match '^\s+Sel\s+' } | Select-Object -First 1) | Should -Match '\bVer\b'
             ($tableLines | Where-Object { $_ -match '^\s+Sel\s+' } | Select-Object -First 1) | Should -Match '\bTyp\b'
             ($tableLines | Where-Object { $_ -match '^\s+Sel\s+' } | Select-Object -First 1) | Should -Match '\bSrc\b'
+            ($tableLines | Where-Object { $_ -match '^[> ] \[[ x]\]\s+' } | Select-Object -First 1) | Should -Match 'homebrew/core'
             (($tableLines | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum) | Should -BeLessOrEqual (Get-TestPickerLineLimit)
         }
 

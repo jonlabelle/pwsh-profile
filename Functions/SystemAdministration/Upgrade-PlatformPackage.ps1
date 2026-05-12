@@ -1999,7 +1999,7 @@ function Upgrade-PlatformPackage
                 Installed = Get-PackagePickerTextMaximum -Values @($allPackages | ForEach-Object { $_.InstalledVersion }) -Minimum 8 -Maximum 16
                 Latest = Get-PackagePickerTextMaximum -Values @($allPackages | ForEach-Object { $_.LatestVersion }) -Minimum 8 -Maximum 16
                 Type = Get-PackagePickerTextMaximum -Values @($allPackages | ForEach-Object { Get-PackageTypeDisplay -Type $_.Type }) -Minimum 3 -Maximum 7
-                Source = Get-PackagePickerTextMaximum -Values @($allPackages | ForEach-Object { $_.Source }) -Minimum 5 -Maximum 10
+                Source = Get-PackagePickerTextMaximum -Values @($allPackages | ForEach-Object { $_.Source }) -Minimum 5 -Maximum 32
             }
             $columnWidths = Compress-PackagePickerTableWidths -ColumnWidths $columnWidths -MaximumWidth $pickerFrameWidth -IncludesUninstallPrevious:$showUninstallPrevious
             $nameWidth = [Int32]$columnWidths.Name

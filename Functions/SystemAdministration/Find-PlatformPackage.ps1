@@ -1994,7 +1994,7 @@ function Find-PlatformPackage
                 Id = Get-PackagePickerTextMaximum -Values @($allPackages | ForEach-Object { $_.Id }) -Minimum 14 -Maximum 32
                 Version = Get-PackagePickerTextMaximum -Values @($allPackages | ForEach-Object { $_.Version }) -Minimum 8 -Maximum 16
                 Type = Get-PackagePickerTextMaximum -Values @($allPackages | ForEach-Object { Get-PackageTypeDisplay -Type $_.Type }) -Minimum 3 -Maximum 7
-                Source = Get-PackagePickerTextMaximum -Values @($allPackages | ForEach-Object { $_.Source }) -Minimum 5 -Maximum 10
+                Source = Get-PackagePickerTextMaximum -Values @($allPackages | ForEach-Object { $_.Source }) -Minimum 5 -Maximum 32
             }
             $columnWidths = Compress-PackagePickerTableWidths -ColumnWidths $columnWidths -MaximumWidth $pickerFrameWidth -IncludesSelection:$EnableSelection.IsPresent
             $nameWidth = [Int32]$columnWidths.Name
