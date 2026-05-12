@@ -4,6 +4,7 @@ BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Show-PlatformPackageManager.ps1"
+    . "$PSScriptRoot/../../../Functions/SystemAdministration/Show-InstalledPlatformPackage.ps1"
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Install-PlatformPackage.ps1"
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Upgrade-PlatformPackage.ps1"
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Remove-PlatformPackage.ps1"
@@ -138,18 +139,41 @@ Describe 'Show-PlatformPackageManager' {
             'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0', 'gh 2.50.0')
             'brew list --cask --versions' = Get-TestCommandResponse -Output @()
         }
+        Mock -CommandName Show-InstalledPlatformPackage -MockWith {
+            @(
+                [PSCustomObject]@{
+                    Name = 'git'
+                    Id = 'git'
+                    PackageManager = 'brew'
+                    PackageManagerDisplayName = 'Homebrew'
+                    InstalledVersion = '2.44.0'
+                    Source = 'homebrew/formula'
+                }
+                [PSCustomObject]@{
+                    Name = 'gh'
+                    Id = 'gh'
+                    PackageManager = 'brew'
+                    PackageManagerDisplayName = 'Homebrew'
+                    InstalledVersion = '2.50.0'
+                    Source = 'homebrew/formula'
+                }
+            )
+        }
         $promptReader = & $script:NewPromptReader @()
         $keyReader = & $script:NewKeyReader @(
             [System.ConsoleKeyInfo]::new('1', [ConsoleKey]::D1, $false, $false, $false)
-            [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
-            [System.ConsoleKeyInfo]::new([Char]27, [ConsoleKey]::Escape, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
         )
 
         $result = @(Show-PlatformPackageManager -PackageManager brew -CommandRunner $runner -PromptReader $promptReader -KeyReader $keyReader)
 
         $result.Count | Should -Be 0
-        @($script:Invocations | Where-Object { $_.Key -eq 'brew list --formula --versions' }).Count | Should -Be 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Show-InstalledPlatformPackage - Homebrew' } -Times 1
+        Assert-MockCalled -CommandName Show-InstalledPlatformPackage -ParameterFilter {
+            $PackageManager -eq 'brew' -and
+            $null -ne $CommandRunner -and
+            $null -ne $KeyReader
+        } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Installed Packages' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*git*' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*gh*' } -Times 1
     }

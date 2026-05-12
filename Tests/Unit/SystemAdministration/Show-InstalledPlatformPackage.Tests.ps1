@@ -406,6 +406,7 @@ Describe 'Show-InstalledPlatformPackage' {
             Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
             Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Show-InstalledPlatformPackage Dependencies - Homebrew' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Resolving dependencies...' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn + RequiredBy]' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn]' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [RequiredBy]' } -Times 1

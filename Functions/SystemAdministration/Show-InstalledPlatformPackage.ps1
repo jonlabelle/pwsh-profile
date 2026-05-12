@@ -1241,6 +1241,31 @@ function Show-InstalledPlatformPackage
                 }
             }
 
+            function Clear-PendingConsoleInput
+            {
+                if (-not $usingConsoleKeyReader)
+                {
+                    return
+                }
+
+                try
+                {
+                    if ([Console]::IsInputRedirected)
+                    {
+                        return
+                    }
+
+                    while ([Console]::KeyAvailable)
+                    {
+                        $null = [Console]::ReadKey($true)
+                    }
+                }
+                catch
+                {
+                    Write-Verbose "Unable to clear pending console input: $($_.Exception.Message)"
+                }
+            }
+
             function Show-PackagePickerHelp
             {
                 function Write-PackagePickerHelpItem
@@ -1446,6 +1471,7 @@ function Show-InstalledPlatformPackage
                 $dependencyPanelRestoreInPlaceRedraw = $null
                 $dependencyPanelPackageKey = ''
                 $dependencyPanelSections = @()
+                $pendingDependencyPanelPackage = $null
                 $actionStatus = ''
 
                 while ($true)
@@ -1500,13 +1526,16 @@ function Show-InstalledPlatformPackage
                         ''
                     )
 
-                    if ($showDependencyPanel -and $null -ne $currentPackage)
+                    if ($showDependencyPanel -and $null -ne $currentPackage -and $dependencyPanelPackageKey -ne $currentPackageLookupKey)
                     {
-                        if ($dependencyPanelPackageKey -ne $currentPackageLookupKey)
-                        {
-                            $dependencyPanelSections = @(Get-DependencyPanelSections -Package $currentPackage)
-                            $dependencyPanelPackageKey = $currentPackageLookupKey
-                        }
+                        $pendingDependencyPanelPackage = $currentPackage
+                        $dependencyPanelSections = @(
+                            [PSCustomObject]@{
+                                Direction = 'Resolving'
+                                Error = ''
+                                Lines = @('Resolving dependencies...')
+                            }
+                        )
                     }
 
                     $sourceHint = if ($hasSourceFilter) { "S: [$($availableSources[$sourceFilterIndex])]  " } else { '' }
@@ -1554,6 +1583,17 @@ function Show-InstalledPlatformPackage
 
                         foreach ($dependencySection in $dependencyPanelSections)
                         {
+                            if ($dependencySection.Direction -eq 'Resolving')
+                            {
+                                $frameLines += ''
+                                foreach ($dependencyLine in $dependencySection.Lines)
+                                {
+                                    $frameLines += Format-PickerFrameLine -Text $dependencyLine -ForegroundColor DarkGray
+                                }
+
+                                continue
+                            }
+
                             $frameLines += ''
                             $frameLines += Format-PickerFrameLine -Text ("Dependencies [$($dependencySection.Direction)]") -ForegroundColor White
 
@@ -1572,6 +1612,15 @@ function Show-InstalledPlatformPackage
                         $frameLines += ''
                         $frameLines += Format-PickerFrameLine -Text 'Press B/Backspace/LeftArrow to return to the package list.' -ForegroundColor DarkGray
                         Write-PickerFrame -Lines $frameLines
+
+                        if ($null -ne $pendingDependencyPanelPackage)
+                        {
+                            $dependencyPanelSections = @(Get-DependencyPanelSections -Package $pendingDependencyPanelPackage)
+                            $dependencyPanelPackageKey = $currentPackageLookupKey
+                            $pendingDependencyPanelPackage = $null
+                            Clear-PendingConsoleInput
+                            continue
+                        }
                     }
                     else
                     {
@@ -1828,12 +1877,14 @@ function Show-InstalledPlatformPackage
                                 $pickerRenderState.UseInPlaceRedraw = $false
                                 $pickerRenderState.RenderedLineCount = 0
                                 $dependencyPanelPackageKey = ''
+                                $pendingDependencyPanelPackage = $null
                             }
                             elseif ($null -ne $dependencyPanelRestoreInPlaceRedraw)
                             {
                                 $pickerRenderState.UseInPlaceRedraw = $dependencyPanelRestoreInPlaceRedraw
                                 $dependencyPanelRestoreInPlaceRedraw = $null
                                 $pickerRenderState.RenderedLineCount = 0
+                                $pendingDependencyPanelPackage = $null
                             }
                         }
                         'B'
@@ -1846,6 +1897,7 @@ function Show-InstalledPlatformPackage
                                     $pickerRenderState.UseInPlaceRedraw = $dependencyPanelRestoreInPlaceRedraw
                                     $dependencyPanelRestoreInPlaceRedraw = $null
                                     $pickerRenderState.RenderedLineCount = 0
+                                    $pendingDependencyPanelPackage = $null
                                 }
                             }
                         }
@@ -1859,6 +1911,7 @@ function Show-InstalledPlatformPackage
                                     $pickerRenderState.UseInPlaceRedraw = $dependencyPanelRestoreInPlaceRedraw
                                     $dependencyPanelRestoreInPlaceRedraw = $null
                                     $pickerRenderState.RenderedLineCount = 0
+                                    $pendingDependencyPanelPackage = $null
                                 }
                             }
                         }
@@ -1872,6 +1925,7 @@ function Show-InstalledPlatformPackage
                                     $pickerRenderState.UseInPlaceRedraw = $dependencyPanelRestoreInPlaceRedraw
                                     $dependencyPanelRestoreInPlaceRedraw = $null
                                     $pickerRenderState.RenderedLineCount = 0
+                                    $pendingDependencyPanelPackage = $null
                                 }
                             }
                         }

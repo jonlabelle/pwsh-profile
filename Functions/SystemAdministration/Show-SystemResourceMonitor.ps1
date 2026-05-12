@@ -2582,10 +2582,11 @@
         $iterations = 0
         $wroteContinuousDashboardWithoutTrailingNewLine = $false
         $altScreenActive = $false
+        $isBoundedContinuousOutputMode = $isContinuousMode -and $MaxIterations -gt 0 -and -not $AsObject
 
         try
         {
-            if ($isContinuousMode -and $supportsAnsiControl -and -not $AsObject)
+            if ($isContinuousMode -and -not $isBoundedContinuousOutputMode -and $supportsAnsiControl -and -not $AsObject)
             {
                 # Use an alternate screen canvas for interactive terminals. Normal-screen cursor-home
                 # repainting is fragile in macOS Terminal once scrollback or autowrap is involved.
@@ -2609,10 +2610,30 @@
                 }
                 else
                 {
-                    $maxRenderedLines = if ($isContinuousMode) { Get-ResolvedDashboardHeight } else { $null }
+                    $maxRenderedLines = if ($isContinuousMode)
+                    {
+                        if ($isBoundedContinuousOutputMode -and $MaxDashboardLines -le 0)
+                        {
+                            $null
+                        }
+                        else
+                        {
+                            Get-ResolvedDashboardHeight
+                        }
+                    }
+                    else
+                    {
+                        $null
+                    }
                     $dashboard = Format-DashboardText -Sample $sample -IncludeContinuousHint:$isContinuousMode -MaxRenderedLines $maxRenderedLines
 
-                    if ($isContinuousMode)
+                    if ($isBoundedContinuousOutputMode)
+                    {
+                        # Bounded continuous mode is commonly used by automation/tests and should be capturable.
+                        $dashboard
+                        $wroteContinuousDashboardWithoutTrailingNewLine = $false
+                    }
+                    elseif ($isContinuousMode)
                     {
                         if ($supportsAnsiControl)
                         {
