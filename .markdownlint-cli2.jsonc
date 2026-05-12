@@ -62,6 +62,7 @@
     },
     "MD033": {
       "allowed_elements": ["details", "summary", "strong", "br", "p", "a", "code", "em", "hr"]
-    }
+    },
+    "MD041": false
   }
 }
