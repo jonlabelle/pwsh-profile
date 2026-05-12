@@ -55,9 +55,9 @@ During a normal install, the script:
 - Resolves the target profile root, or uses `-ProfileRoot` if supplied.
 - Preserves local paths from the existing profile directory.
 - Creates a backup unless `-SkipBackup` is supplied.
-- Removes the existing profile directory.
+- Removes existing profile content while keeping preserved paths in place.
 - Clones or downloads the profile repository.
-- Restores preserved local paths.
+- Copies profile files without overwriting preserved local paths.
 
 By default, these paths are preserved:
 

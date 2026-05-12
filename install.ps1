@@ -381,6 +381,21 @@ function Save-PreservedPaths
     }
 }
 
+function Remove-PreservationTempData
+{
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [PSCustomObject]$PreservationData
+    )
+
+    if (Test-Path -Path $PreservationData.TempRoot)
+    {
+        Remove-Item -Path $PreservationData.TempRoot -Recurse -Force
+    }
+}
+
 function Restore-PreservedPaths
 {
     param(
@@ -416,9 +431,188 @@ function Restore-PreservedPaths
         }
     }
 
-    if (Test-Path -Path $PreservationData.TempRoot)
+    Remove-PreservationTempData -PreservationData $PreservationData
+}
+
+function Get-NormalizedProfilePath
+{
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    return [System.IO.Path]::GetFullPath($Path).TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    )
+}
+
+function Test-PathIsSameOrChild
+{
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path,
+
+        [Parameter(Mandatory)]
+        [string]$BasePath
+    )
+
+    $normalizedPath = Get-NormalizedProfilePath -Path $Path
+    $normalizedBasePath = Get-NormalizedProfilePath -Path $BasePath
+    $comparison = [System.StringComparison]::OrdinalIgnoreCase
+
+    return $normalizedPath.Equals($normalizedBasePath, $comparison) -or
+        $normalizedPath.StartsWith(
+            $normalizedBasePath + [System.IO.Path]::DirectorySeparatorChar,
+            $comparison
+        )
+}
+
+function Test-PathHasProtectedDescendant
+{
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path,
+
+        [Parameter(Mandatory)]
+        [string[]]$ProtectedPaths
+    )
+
+    foreach ($protectedPath in $ProtectedPaths)
     {
-        Remove-Item -Path $PreservationData.TempRoot -Recurse -Force
+        if ((Test-PathIsSameOrChild -Path $protectedPath -BasePath $Path) -and
+            -not (Test-PathIsSameOrChild -Path $Path -BasePath $protectedPath))
+        {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Remove-ProfileItemExceptPreserved
+{
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path,
+
+        [Parameter(Mandatory)]
+        [string[]]$PreservedPaths
+    )
+
+    foreach ($preservedPath in $PreservedPaths)
+    {
+        if (Test-PathIsSameOrChild -Path $Path -BasePath $preservedPath)
+        {
+            Write-Verbose "Keeping preserved profile path: $Path"
+            return
+        }
+    }
+
+    if ((Test-Path -Path $Path -PathType Container) -and
+        (Test-PathHasProtectedDescendant -Path $Path -ProtectedPaths $PreservedPaths))
+    {
+        Get-ChildItem -Path $Path -Force | ForEach-Object {
+            Remove-ProfileItemExceptPreserved -Path $_.FullName -PreservedPaths $PreservedPaths
+        }
+        return
+    }
+
+    Remove-Item -Path $Path -Recurse -Force -ErrorAction Stop
+}
+
+function Remove-ProfileContentsExceptPreserved
+{
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path,
+
+        [Parameter(Mandatory)]
+        [PSCustomObject]$PreservationData
+    )
+
+    $preservedPaths = @(
+        $PreservationData.Items | ForEach-Object {
+            Join-Path -Path $Path -ChildPath $_.Name
+        }
+    )
+
+    Get-ChildItem -Path $Path -Force | ForEach-Object {
+        Remove-ProfileItemExceptPreserved -Path $_.FullName -PreservedPaths $preservedPaths
+    }
+}
+
+function Copy-ProfileItem
+{
+    param(
+        [Parameter(Mandatory)]
+        [string]$SourcePath,
+
+        [Parameter(Mandatory)]
+        [string]$DestinationPath,
+
+        [Parameter()]
+        [string[]]$ExcludedSourcePaths
+    )
+
+    foreach ($excludedSourcePath in $ExcludedSourcePaths)
+    {
+        if (Test-PathIsSameOrChild -Path $SourcePath -BasePath $excludedSourcePath)
+        {
+            Write-Verbose "Skipping preserved profile path from source copy: $SourcePath"
+            return
+        }
+    }
+
+    if (Test-Path -Path $SourcePath -PathType Container)
+    {
+        if (-not (Test-Path -Path $DestinationPath))
+        {
+            New-Item -Path $DestinationPath -ItemType Directory -Force | Out-Null
+        }
+
+        Get-ChildItem -Path $SourcePath -Force | ForEach-Object {
+            $childDestination = Join-Path -Path $DestinationPath -ChildPath $_.Name
+            Copy-ProfileItem -SourcePath $_.FullName -DestinationPath $childDestination -ExcludedSourcePaths $ExcludedSourcePaths
+        }
+        return
+    }
+
+    $destinationParent = Split-Path -Parent $DestinationPath
+    if ($destinationParent -and -not (Test-Path -Path $destinationParent))
+    {
+        New-Item -Path $destinationParent -ItemType Directory -Force | Out-Null
+    }
+
+    Copy-Item -Path $SourcePath -Destination $DestinationPath -Force
+}
+
+function Copy-ProfileSourceContent
+{
+    param(
+        [Parameter(Mandatory)]
+        [string]$SourcePath,
+
+        [Parameter(Mandatory)]
+        [string]$DestinationPath,
+
+        [Parameter()]
+        [string[]]$ExcludeRelativePaths = @()
+    )
+
+    $excludedSourcePaths = @(
+        $ExcludeRelativePaths | ForEach-Object {
+            Join-Path -Path $SourcePath -ChildPath $_
+        }
+    )
+
+    Get-ChildItem -Path $SourcePath -Force | ForEach-Object {
+        $targetPath = Join-Path -Path $DestinationPath -ChildPath $_.Name
+        Copy-ProfileItem -SourcePath $_.FullName -DestinationPath $targetPath -ExcludedSourcePaths $excludedSourcePaths
     }
 }
 
@@ -566,7 +760,15 @@ function Invoke-InstallWhatIfPreview
 
     if ($profileExists)
     {
-        $null = $PSCmdlet.ShouldProcess($ResolvedProfileRoot, 'Remove existing profile directory')
+        $removeAction = if ($pathsToPreserve.Count -gt 0)
+        {
+            'Remove existing profile content except preserved paths'
+        }
+        else
+        {
+            'Remove existing profile directory'
+        }
+        $null = $PSCmdlet.ShouldProcess($ResolvedProfileRoot, $removeAction)
     }
 
     if ($ResolvedLocalSourcePath)
@@ -576,7 +778,15 @@ function Invoke-InstallWhatIfPreview
             throw "Local source path not found: $ResolvedLocalSourcePath"
         }
 
-        $null = $PSCmdlet.ShouldProcess($ResolvedProfileRoot, "Copy profile files from '$ResolvedLocalSourcePath'")
+        $copyAction = if ($pathsToPreserve.Count -gt 0)
+        {
+            "Copy profile files from '$ResolvedLocalSourcePath' without overwriting preserved paths"
+        }
+        else
+        {
+            "Copy profile files from '$ResolvedLocalSourcePath'"
+        }
+        $null = $PSCmdlet.ShouldProcess($ResolvedProfileRoot, $copyAction)
     }
     else
     {
@@ -590,18 +800,21 @@ function Invoke-InstallWhatIfPreview
             "Download repository archive from '$RepositoryUrl'"
         }
 
+        if ($pathsToPreserve.Count -gt 0)
+        {
+            $sourceAction = "$sourceAction without overwriting preserved paths"
+        }
+
         $null = $PSCmdlet.ShouldProcess($ResolvedProfileRoot, $sourceAction)
     }
 
     if ($pathsToPreserve.Count -gt 0)
     {
         Write-Host ''
-        Write-Host 'Restoring preserved paths ...' -ForegroundColor Cyan
+        Write-Host 'Keeping preserved paths in place ...' -ForegroundColor Cyan
         foreach ($item in $pathsToPreserve)
         {
-            $destinationPath = Join-Path -Path $ResolvedProfileRoot -ChildPath $item.Name
-            Write-Host "  Would restore: $($item.Name)" -ForegroundColor Gray
-            $null = $PSCmdlet.ShouldProcess($destinationPath, "Restore preserved profile path '$($item.Name)'")
+            Write-Host "  Would keep: $($item.Name)" -ForegroundColor Gray
         }
     }
 
@@ -670,6 +883,38 @@ function Invoke-RepositoryDownload
         Write-Host ''
         Write-Host 'Git not found, downloading repository as archive ...' -ForegroundColor Cyan
         Invoke-ZipDownload -Repository $Repository -Destination $Destination
+    }
+}
+
+function Install-RepositoryIntoExistingDestination
+{
+    param(
+        [Parameter(Mandatory)]
+        [string]$Repository,
+
+        [Parameter(Mandatory)]
+        [string]$Destination,
+
+        [Parameter()]
+        [switch]$FullHistory,
+
+        [Parameter()]
+        [string[]]$ExcludeRelativePaths = @()
+    )
+
+    $tempSource = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ('pwsh-profile-source-{0}' -f ([guid]::NewGuid().ToString('N')))
+
+    try
+    {
+        Invoke-RepositoryDownload -Repository $Repository -Destination $tempSource -FullHistory:$FullHistory
+        Copy-LocalSource -SourcePath $tempSource -DestinationPath $Destination -ExcludeRelativePaths $ExcludeRelativePaths
+    }
+    finally
+    {
+        if (Test-Path -Path $tempSource)
+        {
+            Remove-Item -Path $tempSource -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -853,7 +1098,10 @@ function Copy-LocalSource
         [string]$SourcePath,
 
         [Parameter(Mandatory)]
-        [string]$DestinationPath
+        [string]$DestinationPath,
+
+        [Parameter()]
+        [string[]]$ExcludeRelativePaths = @()
     )
 
     if (-not (Test-Path -Path $SourcePath -PathType Container))
@@ -886,29 +1134,7 @@ function Copy-LocalSource
         throw "Destination directory $DestinationPath does not exist after creation attempt"
     }
 
-    # Copy each item individually to avoid path resolution issues on Windows
-    Get-ChildItem -Path $SourcePath -Force | ForEach-Object {
-        $itemName = $_.Name
-        $sourcePath = $_.FullName
-        $destPath = Join-Path -Path $DestinationPath -ChildPath $itemName
-
-        Write-Verbose "Copying: $itemName"
-
-        if ($_.PSIsContainer)
-        {
-            # For directories, ensure destination exists then copy contents
-            if (-not (Test-Path -Path $destPath))
-            {
-                New-Item -Path $destPath -ItemType Directory -Force | Out-Null
-            }
-            Copy-Item -Path (Join-Path -Path $sourcePath -ChildPath '*') -Destination $destPath -Recurse -Force
-        }
-        else
-        {
-            # For files, copy directly
-            Copy-Item -Path $sourcePath -Destination $destPath -Force
-        }
-    }
+    Copy-ProfileSourceContent -SourcePath $SourcePath -DestinationPath $DestinationPath -ExcludeRelativePaths $ExcludeRelativePaths
 }
 
 function Restore-FromBackup
@@ -1045,19 +1271,41 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
             }
         }
 
+        $preservedRelativePaths = @()
+        if ($preservationData)
+        {
+            $preservedRelativePaths = @($preservationData.Items | ForEach-Object { $_.Name })
+        }
+
         if (Test-Path -Path $resolvedProfileRoot)
         {
             Write-Host ''
-            Write-Host "Removing existing profile directory: $resolvedProfileRoot ..." -ForegroundColor Cyan
-            Write-Verbose "Removing existing profile directory $resolvedProfileRoot"
+            if ($preservationData)
+            {
+                Write-Host "Removing existing profile content except preserved paths: $resolvedProfileRoot ..." -ForegroundColor Cyan
+                Write-Verbose "Removing existing profile content except preserved paths from $resolvedProfileRoot"
+            }
+            else
+            {
+                Write-Host "Removing existing profile directory: $resolvedProfileRoot ..." -ForegroundColor Cyan
+                Write-Verbose "Removing existing profile directory $resolvedProfileRoot"
+            }
+
             try
             {
-                Remove-Item -Path $resolvedProfileRoot -Recurse -Force -ErrorAction Stop
+                if ($preservationData)
+                {
+                    Remove-ProfileContentsExceptPreserved -Path $resolvedProfileRoot -PreservationData $preservationData
+                }
+                else
+                {
+                    Remove-Item -Path $resolvedProfileRoot -Recurse -Force -ErrorAction Stop
+                }
             }
             catch
             {
                 # Check if the error is due to files being in use
-                if ($_.Exception.Message -match 'being used by another process|cannot access|is in use')
+                if ($_.Exception.Message -match 'being used by another process|cannot access|is in use|Access to the path|denied')
                 {
                     Write-Host ''
                     Write-Host 'ERROR: Cannot remove profile directory because files are currently in use.' -ForegroundColor Red
@@ -1078,18 +1326,23 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
 
         if ($LocalSourcePath)
         {
-            Copy-LocalSource -SourcePath $resolvedLocalSource -DestinationPath $resolvedProfileRoot
+            Copy-LocalSource -SourcePath $resolvedLocalSource -DestinationPath $resolvedProfileRoot -ExcludeRelativePaths $preservedRelativePaths
         }
         else
         {
-            Invoke-RepositoryDownload -Repository $RepositoryUrl -Destination $resolvedProfileRoot -FullHistory:$FullCloneHistory
+            if ($preservationData)
+            {
+                Install-RepositoryIntoExistingDestination -Repository $RepositoryUrl -Destination $resolvedProfileRoot -FullHistory:$FullCloneHistory -ExcludeRelativePaths $preservedRelativePaths
+            }
+            else
+            {
+                Invoke-RepositoryDownload -Repository $RepositoryUrl -Destination $resolvedProfileRoot -FullHistory:$FullCloneHistory
+            }
         }
 
         if ($preservationData)
         {
-            Write-Host ''
-            Write-Host 'Restoring preserved paths ...' -ForegroundColor Cyan
-            Restore-PreservedPaths -PreservationData $preservationData -DestinationRoot $resolvedProfileRoot
+            Remove-PreservationTempData -PreservationData $preservationData
         }
 
         Write-Host ''

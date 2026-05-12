@@ -104,6 +104,63 @@ Describe 'install.ps1 integration tests' {
                 }
             }
         }
+
+        It 'removes stale non-preserved content without overwriting preserved paths' {
+            $testRoot = Join-Path -Path $TestDrive -ChildPath ('InstallPreserveInPlace_{0}' -f ([guid]::NewGuid().ToString('N')))
+            $profileRoot = Join-Path -Path $testRoot -ChildPath 'ProfileRoot'
+            $sourceRoot = Join-Path -Path $testRoot -ChildPath 'SourceRoot'
+
+            try
+            {
+                New-Item -ItemType Directory -Path $profileRoot -Force | Out-Null
+                New-Item -ItemType Directory -Path $sourceRoot -Force | Out-Null
+
+                Set-Content -Path (Join-Path -Path $profileRoot -ChildPath 'stale-root.ps1') -Value '# stale root'
+                $staleFunctionPath = Join-Path -Path $profileRoot -ChildPath 'Functions/Old'
+                New-Item -ItemType Directory -Path $staleFunctionPath -Force | Out-Null
+                Set-Content -Path (Join-Path -Path $staleFunctionPath -ChildPath 'stale.ps1') -Value '# stale function'
+
+                $localFunctionPath = Join-Path -Path $profileRoot -ChildPath 'Functions/Local'
+                New-Item -ItemType Directory -Path $localFunctionPath -Force | Out-Null
+                Set-Content -Path (Join-Path -Path $localFunctionPath -ChildPath 'original.ps1') -Value '# local function'
+
+                $modulePath = Join-Path -Path $profileRoot -ChildPath 'Modules/UserModule'
+                New-Item -ItemType Directory -Path $modulePath -Force | Out-Null
+                Set-Content -Path (Join-Path -Path $modulePath -ChildPath 'UserModule.psm1') -Value '# user module'
+
+                Set-Content -Path (Join-Path -Path $sourceRoot -ChildPath 'Microsoft.PowerShell_profile.ps1') -Value '# installed profile'
+                $newFunctionPath = Join-Path -Path $sourceRoot -ChildPath 'Functions/New'
+                New-Item -ItemType Directory -Path $newFunctionPath -Force | Out-Null
+                Set-Content -Path (Join-Path -Path $newFunctionPath -ChildPath 'new.ps1') -Value '# new function'
+
+                $sourceLocalFunctionPath = Join-Path -Path $sourceRoot -ChildPath 'Functions/Local'
+                New-Item -ItemType Directory -Path $sourceLocalFunctionPath -Force | Out-Null
+                Set-Content -Path (Join-Path -Path $sourceLocalFunctionPath -ChildPath 'source-only.ps1') -Value '# source local function'
+
+                $sourceModulePath = Join-Path -Path $sourceRoot -ChildPath 'Modules/SourceModule'
+                New-Item -ItemType Directory -Path $sourceModulePath -Force | Out-Null
+                Set-Content -Path (Join-Path -Path $sourceModulePath -ChildPath 'SourceModule.psm1') -Value '# source module'
+
+                & $script:installScript -ProfileRoot $profileRoot -LocalSourcePath $sourceRoot -SkipBackup -Verbose:$false
+
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Microsoft.PowerShell_profile.ps1') | Should -BeTrue
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'stale-root.ps1') | Should -BeFalse
+                Test-Path (Join-Path -Path $staleFunctionPath -ChildPath 'stale.ps1') | Should -BeFalse
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Functions/New/new.ps1') | Should -BeTrue
+
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Functions/Local/original.ps1') | Should -BeTrue
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Functions/Local/source-only.ps1') | Should -BeFalse
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Modules/UserModule/UserModule.psm1') | Should -BeTrue
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Modules/SourceModule/SourceModule.psm1') | Should -BeFalse
+            }
+            finally
+            {
+                if (Test-Path -Path $testRoot)
+                {
+                    Remove-TestDirectory -Path $testRoot
+                }
+            }
+        }
     }
     Context 'Install via git clone' {
         It 'clones from RepositoryUrl when git is available' -Skip:($null -eq $script:gitExecutable) {
