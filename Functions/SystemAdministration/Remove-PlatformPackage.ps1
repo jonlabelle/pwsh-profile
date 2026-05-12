@@ -1868,6 +1868,21 @@ function Remove-PlatformPackage
                     }
                 }
             }
+            elseif ($hasSourceFilter)
+            {
+                $isWingetContext = @($allPackages | Where-Object { "$($_.PackageManager)" -ieq 'winget' }).Count -gt 0
+                if ($isWingetContext)
+                {
+                    for ($si = 1; $si -lt $availableSources.Count; $si++)
+                    {
+                        if ($availableSources[$si] -ieq 'winget')
+                        {
+                            $sourceFilterIndex = $si
+                            break
+                        }
+                    }
+                }
+            }
 
             function Get-FilteredVisiblePackages
             {

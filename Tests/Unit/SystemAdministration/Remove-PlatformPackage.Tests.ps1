@@ -732,6 +732,47 @@ Describe 'Remove-PlatformPackage' {
             (($tableLines | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum) | Should -BeLessOrEqual (Get-TestPickerLineLimit)
         }
 
+        It 'defaults source filter to winget for the winget picker when multiple sources exist' {
+            $wingetListJson = @{
+                Sources = @(
+                    @{
+                        SourceDetails = @{
+                            Name = 'winget'
+                        }
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.44.0'
+                            }
+                        )
+                    }
+                    @{
+                        SourceDetails = @{
+                            Name = 'msstore'
+                        }
+                        Packages = @(
+                            @{
+                                PackageName = 'App Installer'
+                                PackageIdentifier = 'Microsoft.AppInstaller'
+                                Version = '1.24.12371.0'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget list --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetListJson)
+            }
+            $keyReader = {
+                [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            }
+
+            $null = Remove-PlatformPackage -PackageManager winget -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[winget\]' } -Times 1
+        }
+
         It 'removes only the visible package when filtering duplicate winget ids by source' {
             $wingetListJson = @{
                 Sources = @(
