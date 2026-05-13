@@ -2554,7 +2554,7 @@ function Find-PlatformPackage
                 Write-Host 'Search Actions' -ForegroundColor White
                 Write-PackagePickerHelpItem -Shortcut '/' -Description 'start a new search'
                 Write-PackagePickerHelpItem -Shortcut 'I' -Description 'install selected packages, or the current package if none are selected'
-                Write-PackagePickerHelpItem -Shortcut 'D' -Description 'load a missing winget description when available'
+                Write-PackagePickerHelpItem -Shortcut 'V' -Description 'load a missing winget description when available'
                 Write-PackagePickerHelpItem -Shortcut 'Q, Esc, or Ctrl+C' -Description 'exit the search browser'
                 Write-PackagePickerHelpItem -Shortcut '?' -Description 'show this help'
 
@@ -2665,7 +2665,7 @@ function Find-PlatformPackage
                         }
                         elseif ($null -ne $currentPackage -and $currentPackage.PackageManager -eq 'winget' -and -not [String]::IsNullOrWhiteSpace($currentPackageLookupKey))
                         {
-                            if ($wingetDescriptionAttempted.ContainsKey($currentPackageLookupKey)) { 'description unavailable' } else { '<press D to load>' }
+                            if ($wingetDescriptionAttempted.ContainsKey($currentPackageLookupKey)) { 'description unavailable' } else { '<press V to load>' }
                         }
                         else
                         {
@@ -2689,15 +2689,15 @@ function Find-PlatformPackage
                     )
                     if ($EnableSelection -and $EnableReturnSelection)
                     {
-                        $frameLines += Format-PickerFrameLine -Text 'Keys: Space select  Enter return  I install  A all' -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text 'Keys: Space select  Enter return  I install  V details  A all' -ForegroundColor DarkGray
                     }
                     elseif ($EnableSelection)
                     {
-                        $frameLines += Format-PickerFrameLine -Text 'Keys: Space select  I install  A all' -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text 'Keys: Space select  I install  V details  A all' -ForegroundColor DarkGray
                     }
                     else
                     {
-                        $frameLines += Format-PickerFrameLine -Text 'Keys: I install current' -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text 'Keys: I install current  V details' -ForegroundColor DarkGray
                     }
                     $frameLines += Format-PickerFrameLine -Text "Nav: ${sourceHint}/ search  Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" -ForegroundColor DarkGray
                     $frameLines += ''
@@ -2969,7 +2969,7 @@ function Find-PlatformPackage
                                 }
                             }
                         }
-                        'D'
+                        'V'
                         {
                             if ($canResolveCurrentWingetDescription)
                             {

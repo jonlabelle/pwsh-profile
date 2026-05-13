@@ -347,7 +347,7 @@ Describe 'Upgrade-PlatformPackage' {
 
             $result.Selected | Should -Be 0
             $result.Upgraded | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter upgrade  A all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter upgrade  V details  A all' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq '1-1 of 1 visible | 1 total | 0 selected | filter: all' -and $ForegroundColor -eq 'White' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Upgrade-PlatformPackage Help' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Enter: ' } -Times 1
@@ -533,7 +533,7 @@ Describe 'Upgrade-PlatformPackage' {
                 'winget show --id Git.Git --exact --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetShowJson)
             }
             $keyReader = & $script:NewKeyReader -Values @(
-                [System.ConsoleKeyInfo]::new('d', [ConsoleKey]::D, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new('v', [ConsoleKey]::V, $false, $false, $false)
                 [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
             )
             $echoActions = New-Object 'System.Collections.Generic.List[Object]'
@@ -594,7 +594,7 @@ Describe 'Upgrade-PlatformPackage' {
                 }
             }.GetNewClosure()
             $keyReader = & $script:NewKeyReader -Values @(
-                [System.ConsoleKeyInfo]::new('d', [ConsoleKey]::D, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new('v', [ConsoleKey]::V, $false, $false, $false)
             )
             $echoActions = New-Object 'System.Collections.Generic.List[Object]'
             $terminalEchoController = & $script:NewTerminalEchoController -Actions $echoActions

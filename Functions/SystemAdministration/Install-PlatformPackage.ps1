@@ -1744,7 +1744,7 @@ function Install-PlatformPackage
 
                 Write-Host ''
                 Write-Host 'Other Actions' -ForegroundColor White
-                Write-PackagePickerHelpItem -Shortcut 'D' -Description 'load a missing winget description when available'
+                Write-PackagePickerHelpItem -Shortcut 'V' -Description 'load a missing winget description when available'
                 Write-PackagePickerHelpItem -Shortcut 'Q, Esc, or Ctrl+C' -Description 'cancel installation'
                 Write-PackagePickerHelpItem -Shortcut '?' -Description 'show this help'
 
@@ -1835,7 +1835,7 @@ function Install-PlatformPackage
                         }
                         elseif ($null -ne $currentPackage -and $currentPackage.PackageManager -eq 'winget' -and -not [String]::IsNullOrWhiteSpace($currentPackageLookupKey))
                         {
-                            if ($wingetDescriptionAttempted.ContainsKey($currentPackageLookupKey)) { 'description unavailable' } else { '<press D to load>' }
+                            if ($wingetDescriptionAttempted.ContainsKey($currentPackageLookupKey)) { 'description unavailable' } else { '<press V to load>' }
                         }
                         else
                         {
@@ -1849,7 +1849,7 @@ function Install-PlatformPackage
 
                     $sourceHint = if ($hasSourceFilter) { "S: [$($availableSources[$sourceFilterIndex])]  " } else { '' }
                     $sourceSummary = if ($hasSourceFilter) { "source: $($availableSources[$sourceFilterIndex])" } else { '' }
-                    $selectionHint = 'Keys: Space select  Enter install  A all'
+                    $selectionHint = 'Keys: Space select  Enter install  V details  A all'
                     $navigationHint = "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel"
                     $frameLines = @(
                         (Format-PickerFrameLine -Text "Install-PlatformPackage - $($allPackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
@@ -2037,7 +2037,7 @@ function Install-PlatformPackage
                                 if ($allVisibleSelected) { [void]$selectedKeys.Remove($pkgKey) } else { [void]$selectedKeys.Add($pkgKey) }
                             }
                         }
-                        'D'
+                        'V'
                         {
                             if ($canResolveCurrentWingetDescription)
                             {

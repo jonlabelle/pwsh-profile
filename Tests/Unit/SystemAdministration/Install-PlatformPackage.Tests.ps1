@@ -82,7 +82,7 @@ Describe 'Install-PlatformPackage' {
             $result.Selected | Should -Be 1
             $result.Installed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew install --cask visual-studio-code' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter install  A all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter install  V details  A all' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq '1-1 of 1 visible | 1 total | 1 selected' -and $ForegroundColor -eq 'White' } -Times 1
         }
 
@@ -103,7 +103,7 @@ Describe 'Install-PlatformPackage' {
             $result.NotSelected | Should -Be 0
             $result.Installed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew install git' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter install  A all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter install  V details  A all' } -Times 1
         }
 
         It 'shows keyboard help from the query result picker' {
@@ -246,7 +246,7 @@ Describe 'Install-PlatformPackage' {
                 'winget show --id Git.Git --exact --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetShowJson)
             }
             $keyReader = & $script:NewKeyReader -Values @(
-                [System.ConsoleKeyInfo]::new('d', [ConsoleKey]::D, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new('v', [ConsoleKey]::V, $false, $false, $false)
                 [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
             )
             $echoActions = New-Object 'System.Collections.Generic.List[Object]'
@@ -317,7 +317,7 @@ Describe 'Install-PlatformPackage' {
                 }
             }.GetNewClosure()
             $keyReader = & $script:NewKeyReader -Values @(
-                [System.ConsoleKeyInfo]::new('d', [ConsoleKey]::D, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new('v', [ConsoleKey]::V, $false, $false, $false)
             )
             $echoActions = New-Object 'System.Collections.Generic.List[Object]'
             $terminalEchoController = & $script:NewTerminalEchoController -Actions $echoActions

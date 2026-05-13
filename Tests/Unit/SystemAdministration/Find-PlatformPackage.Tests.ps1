@@ -340,7 +340,7 @@ Describe 'Find-PlatformPackage' {
 
             $result.Count | Should -Be 0
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: git' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  I install  A all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  I install  V details  A all' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq '1-3 of 3 visible | 3 total | 0 selected | source: All' -and $ForegroundColor -eq 'White' } -Times 1
             @($script:HostOutputRecords | Where-Object { $_.ForegroundColor -eq [ConsoleColor]::DarkGray -and $_.Object -like '*git*' }).Count | Should -BeGreaterOrEqual 2
             @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 4
@@ -428,7 +428,7 @@ Describe 'Find-PlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  I install  A all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  I install  V details  A all' } -Times 1
         }
 
         It 'opens the result picker with the requested source filter' {
@@ -561,7 +561,7 @@ Describe 'Find-PlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  I install  A all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  I install  V details  A all' } -Times 1
         }
 
         It 'installs the selected package from the interactive browser' {
@@ -631,7 +631,7 @@ Describe 'Find-PlatformPackage' {
             }
             $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
             @(
-                [System.ConsoleKeyInfo]::new('d', [ConsoleKey]::D, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new('v', [ConsoleKey]::V, $false, $false, $false)
                 [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
             ) | ForEach-Object { $keys.Enqueue($_) }
             $keyReader = {
@@ -641,7 +641,7 @@ Describe 'Find-PlatformPackage' {
             $result = @(Find-PlatformPackage -PackageManager winget -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: <press D to load>' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: <press V to load>' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: retrieving description...' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
             @($script:Invocations | Where-Object { $_.Key -eq 'winget show --id Git.Git --exact --accept-source-agreements --output json' }).Count | Should -Be 1
@@ -684,7 +684,7 @@ Describe 'Find-PlatformPackage' {
                 'git'
             }
             $keyReader = & $script:NewKeyReader -Values @(
-                [System.ConsoleKeyInfo]::new('d', [ConsoleKey]::D, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new('v', [ConsoleKey]::V, $false, $false, $false)
                 [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
             )
             $echoActions = New-Object 'System.Collections.Generic.List[Object]'
@@ -755,7 +755,7 @@ Describe 'Find-PlatformPackage' {
                 'git'
             }
             $keyReader = & $script:NewKeyReader -Values @(
-                [System.ConsoleKeyInfo]::new('d', [ConsoleKey]::D, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new('v', [ConsoleKey]::V, $false, $false, $false)
             )
             $echoActions = New-Object 'System.Collections.Generic.List[Object]'
             $terminalEchoController = & $script:NewTerminalEchoController -Actions $echoActions

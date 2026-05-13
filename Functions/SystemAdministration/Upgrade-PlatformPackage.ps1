@@ -2485,7 +2485,7 @@ function Upgrade-PlatformPackage
 
                 Write-Host ''
                 Write-Host 'Other Actions' -ForegroundColor White
-                Write-PackagePickerHelpItem -Shortcut 'D' -Description 'load a missing winget description when available'
+                Write-PackagePickerHelpItem -Shortcut 'V' -Description 'load a missing winget description when available'
                 Write-PackagePickerHelpItem -Shortcut 'Q, Esc, or Ctrl+C' -Description 'cancel upgrades'
                 Write-PackagePickerHelpItem -Shortcut '?' -Description 'show this help'
 
@@ -2573,11 +2573,11 @@ function Upgrade-PlatformPackage
                     $nameFilterHintValue = if ([String]::IsNullOrWhiteSpace($nameFilterText)) { 'all' } else { $nameFilterText }
                     $selectionHint = if ($showUninstallPrevious)
                     {
-                        'Keys: Space select  U uninstall previous  Enter upgrade  A all'
+                        'Keys: Space select  U uninstall previous  Enter upgrade  V details  A all'
                     }
                     else
                     {
-                        'Keys: Space select  Enter upgrade  A all'
+                        'Keys: Space select  Enter upgrade  V details  A all'
                     }
                     $filterSummary = @("filter: $nameFilterHintValue")
                     if ($hasSourceFilter)
@@ -2712,7 +2712,7 @@ function Upgrade-PlatformPackage
                     }
                     elseif ($currentPackage.PackageManager -eq 'winget' -and -not [String]::IsNullOrWhiteSpace($currentPackageLookupKey))
                     {
-                        if ($wingetDescriptionAttempted.ContainsKey($currentPackageLookupKey)) { 'description unavailable' } else { '<press D to load>' }
+                        if ($wingetDescriptionAttempted.ContainsKey($currentPackageLookupKey)) { 'description unavailable' } else { '<press V to load>' }
                     }
                     else
                     {
@@ -2827,7 +2827,7 @@ function Upgrade-PlatformPackage
                                 if ($allVisibleSelected) { [void]$selectedKeys.Remove($pkgKey) } else { [void]$selectedKeys.Add($pkgKey) }
                             }
                         }
-                        'D'
+                        'V'
                         {
                             if ($canResolveCurrentWingetDescription)
                             {
