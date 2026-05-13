@@ -161,6 +161,87 @@ Describe 'install.ps1 integration tests' {
                 }
             }
         }
+
+        It 'keeps locked content under preserved module paths without aborting installation' {
+            $testRoot = Join-Path -Path $TestDrive -ChildPath ('InstallLockedPreserve_{0}' -f ([guid]::NewGuid().ToString('N')))
+            $profileRoot = Join-Path -Path $testRoot -ChildPath 'OneDrive/Documents/WindowsPowerShell'
+            $sourceRoot = Join-Path -Path $testRoot -ChildPath 'SourceRoot'
+
+            try
+            {
+                New-Item -ItemType Directory -Path $sourceRoot -Force | Out-Null
+                Set-Content -Path (Join-Path -Path $sourceRoot -ChildPath 'Microsoft.PowerShell_profile.ps1') -Value '# installed profile'
+
+                $sourceModulePath = Join-Path -Path $sourceRoot -ChildPath 'Modules/SourceModule'
+                New-Item -ItemType Directory -Path $sourceModulePath -Force | Out-Null
+                Set-Content -Path (Join-Path -Path $sourceModulePath -ChildPath 'SourceModule.psm1') -Value '# source module'
+
+                New-Item -ItemType Directory -Path $profileRoot -Force | Out-Null
+                Set-Content -Path (Join-Path -Path $profileRoot -ChildPath 'stale-root.ps1') -Value '# stale root'
+
+                $psReadLinePath = Join-Path -Path $profileRoot -ChildPath 'Modules/PSReadLine/2.3.6'
+                New-Item -ItemType Directory -Path $psReadLinePath -Force | Out-Null
+                $lockedModuleFile = Join-Path -Path $psReadLinePath -ChildPath 'PSReadLine.dll'
+                Set-Content -Path $lockedModuleFile -Value 'locked module content'
+
+                $modulesRoot = Join-Path -Path $profileRoot -ChildPath 'Modules'
+
+                # Simulate Windows locking semantics for a loaded PSReadLine file in a synced profile path.
+                function Copy-Item {
+                    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidOverwritingBuiltInCmdlets', '')]
+                    [CmdletBinding(DefaultParameterSetName = 'Path')]
+                    param(
+                        [Parameter(ParameterSetName = 'Path', Position = 0, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]
+                        [string[]]$Path,
+
+                        [Parameter(ParameterSetName = 'Path', Position = 1)]
+                        [string]$Destination,
+
+                        [switch]$Recurse,
+
+                        [switch]$Force
+                    )
+
+                    process
+                    {
+                        foreach ($itemPath in @($Path))
+                        {
+                            $comparison = [System.StringComparison]::OrdinalIgnoreCase
+                            if ($itemPath.Equals($profileRoot, $comparison) -or
+                                ($Destination -like '*pwsh-profile-preserve-*' -and $itemPath.Equals($modulesRoot, $comparison)) -or
+                                $itemPath.Equals($lockedModuleFile, $comparison))
+                            {
+                                throw [System.UnauthorizedAccessException]::new("Access to the path '$lockedModuleFile' is denied.")
+                            }
+                        }
+
+                        Microsoft.PowerShell.Management\Copy-Item @PSBoundParameters
+                    }
+                }
+
+                { & $script:installScript -ProfileRoot $profileRoot -LocalSourcePath $sourceRoot -Verbose:$false } | Should -Not -Throw
+
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Microsoft.PowerShell_profile.ps1') | Should -BeTrue
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'stale-root.ps1') | Should -BeFalse
+                Test-Path $lockedModuleFile | Should -BeTrue
+                (Get-Content $lockedModuleFile) | Should -Be 'locked module content'
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Modules/SourceModule/SourceModule.psm1') | Should -BeFalse
+
+                $backup = Get-ChildItem -Path (Split-Path -Parent $profileRoot) -Directory -Filter 'WindowsPowerShell-backup-*' | Select-Object -First 1
+                $backup | Should -Not -BeNullOrEmpty
+                Test-Path (Join-Path -Path $backup.FullName -ChildPath 'stale-root.ps1') | Should -BeTrue
+                Test-Path (Join-Path -Path $backup.FullName -ChildPath 'Modules/PSReadLine/2.3.6/PSReadLine.dll') | Should -BeFalse
+            }
+            finally
+            {
+                Remove-Item Function:\Copy-Item -ErrorAction SilentlyContinue
+
+                if (Test-Path -Path $testRoot)
+                {
+                    Remove-TestDirectory -Path $testRoot
+                }
+            }
+        }
     }
     Context 'Install via git clone' {
         It 'clones from RepositoryUrl when git is available' -Skip:($null -eq $script:gitExecutable) {

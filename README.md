@@ -23,7 +23,7 @@ Prerequisites:
 - Internet access for the installer and update checks
 - `git`, optional but recommended for `Update-Profile` and `Test-ProfileUpdate`
 
-The installer backs up the current profile directory, preserves local paths such as `Functions/Local`, `Help`, `Modules`, `PSReadLine`, `Scripts`, and `powershell.config.json`, then deploys the latest profile files.
+The installer backs up profile content it may replace, preserves local paths such as `Functions/Local`, `Help`, `Modules`, `PSReadLine`, `Scripts`, and `powershell.config.json` in place, then deploys the latest profile files.
 
 Git is optional. When Git is unavailable, the installer downloads the repository zip from GitHub.
 

@@ -4,8 +4,8 @@
 
     .DESCRIPTION
         `install.ps1` detects the active PowerShell profile directory (Windows PowerShell 5.1 or PowerShell Core on macOS, Linux, and Windows),
-        backs up the existing contents, preserves the `Functions/Local`, `Help`, `Modules`, `PSReadLine`, and `Scripts` paths plus the root-level
-        `powershell.config.json` file by default, and then deploys the
+        backs up replaceable existing contents, preserves the `Functions/Local`, `Help`, `Modules`, `PSReadLine`, and `Scripts` paths plus the root-level
+        `powershell.config.json` file in place by default, and then deploys the
         latest profile files from this repository (via `git clone`) or from a local path. You can also point the script at a previous backup to restore it.
 
         When installing from a remote repository, the script will use `git clone` if Git is available. If Git is not installed, it will
@@ -129,7 +129,7 @@
         The CurrentUser scope affects only your user account and does not require administrator privileges.
 
         Backup Behavior:
-        - During installation: A backup is created automatically unless -SkipBackup is specified
+        - During installation: A backup is created automatically unless -SkipBackup is specified. When preserved paths are kept in place, the backup skips those paths because the installer does not replace them.
         - During restore: No backup is created by default (since you're restoring to a previous state)
         - To force a backup during restore, explicitly provide -BackupPath with a destination path
 
@@ -308,7 +308,10 @@ function New-ProfileBackup
         [string]$SourcePath,
 
         [Parameter()]
-        [string]$DestinationPath
+        [string]$DestinationPath,
+
+        [Parameter()]
+        [string[]]$ExcludeRelativePaths = @()
     )
 
     if (-not (Test-Path -Path $SourcePath))
@@ -322,7 +325,16 @@ function New-ProfileBackup
     {
         Write-Host ''
         Write-Host "Backing up existing profile to: $resolvedDestination ..." -ForegroundColor Cyan
-        Copy-Item -Path $SourcePath -Destination $resolvedDestination -Recurse -Force
+        if ($ExcludeRelativePaths.Count -gt 0)
+        {
+            Assert-DirectoryExists -Path $resolvedDestination
+            Copy-ProfileSourceContent -SourcePath $SourcePath -DestinationPath $resolvedDestination -ExcludeRelativePaths $ExcludeRelativePaths
+            Write-Host "Backup skipped preserved paths kept in place: $($ExcludeRelativePaths -join ', ')" -ForegroundColor Gray
+        }
+        else
+        {
+            Copy-Item -Path $SourcePath -Destination $resolvedDestination -Recurse -Force
+        }
         Write-Host 'Backup complete.' -ForegroundColor Gray
         Write-Host ''
     }
@@ -339,8 +351,6 @@ function Save-PreservedPaths
         [string[]]$PathsToPreserve
     )
 
-    $tempRootName = 'pwsh-profile-preserve-{0}' -f ([guid]::NewGuid().ToString())
-    $tempRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath $tempRootName
     $preservedItems = @()
 
     foreach ($relativePath in $PathsToPreserve)
@@ -348,18 +358,10 @@ function Save-PreservedPaths
         $sourcePath = Join-Path -Path $SourceRoot -ChildPath $relativePath
         if (Test-Path -Path $sourcePath)
         {
-            $destinationPath = Join-Path -Path $tempRoot -ChildPath $relativePath
-            $destinationParent = Split-Path -Parent $destinationPath
-            if ($destinationParent -and -not (Test-Path -Path $destinationParent))
-            {
-                New-Item -Path $destinationParent -ItemType Directory -Force | Out-Null
-            }
-
-            Write-Host "  Preserving: $relativePath ..." -ForegroundColor Gray
-            Copy-Item -Path $sourcePath -Destination $destinationPath -Recurse -Force
+            Write-Host "  Keeping in place: $relativePath ..." -ForegroundColor Gray
             $preservedItems += [PSCustomObject]@{
                 Name = $relativePath
-                TempPath = $destinationPath
+                SourcePath = $sourcePath
                 IsDirectory = Test-Path -Path $sourcePath -PathType Container
             }
         }
@@ -367,17 +369,13 @@ function Save-PreservedPaths
 
     if ($preservedItems.Count -eq 0)
     {
-        if (Test-Path -Path $tempRoot)
-        {
-            Remove-Item -Path $tempRoot -Recurse -Force
-        }
-
         return $null
     }
 
     return [PSCustomObject]@{
-        TempRoot = $tempRoot
+        TempRoot = $null
         Items = $preservedItems
+        PreserveInPlace = $true
     }
 }
 
@@ -390,7 +388,7 @@ function Remove-PreservationTempData
         [PSCustomObject]$PreservationData
     )
 
-    if (Test-Path -Path $PreservationData.TempRoot)
+    if ($PreservationData.TempRoot -and (Test-Path -Path $PreservationData.TempRoot))
     {
         Remove-Item -Path $PreservationData.TempRoot -Recurse -Force
     }
@@ -405,6 +403,11 @@ function Restore-PreservedPaths
         [Parameter(Mandatory)]
         [string]$DestinationRoot
     )
+
+    if ($PreservationData.PSObject.Properties['PreserveInPlace'] -and $PreservationData.PreserveInPlace)
+    {
+        return
+    }
 
     foreach ($item in $PreservationData.Items)
     {
@@ -1257,17 +1260,7 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
             $preservationData = Save-PreservedPaths -SourceRoot $resolvedProfileRoot -PathsToPreserve $PreserveDirectories
             if ($preservationData)
             {
-                Write-Host "Preserved profile paths: $($preservationData.Items.Name -join ', ')"
-            }
-        }
-
-        $backupLocation = $null
-        if (-not $SkipBackup -and (Test-Path -Path $resolvedProfileRoot))
-        {
-            $backupLocation = New-ProfileBackup -SourcePath $resolvedProfileRoot -DestinationPath $BackupPath
-            if ($backupLocation)
-            {
-                Write-Host "Profile backed up to: $backupLocation"
+                Write-Host "Preserved profile paths in place: $($preservationData.Items.Name -join ', ')"
             }
         }
 
@@ -1275,6 +1268,16 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -notmatch '^\s*
         if ($preservationData)
         {
             $preservedRelativePaths = @($preservationData.Items | ForEach-Object { $_.Name })
+        }
+
+        $backupLocation = $null
+        if (-not $SkipBackup -and (Test-Path -Path $resolvedProfileRoot))
+        {
+            $backupLocation = New-ProfileBackup -SourcePath $resolvedProfileRoot -DestinationPath $BackupPath -ExcludeRelativePaths $preservedRelativePaths
+            if ($backupLocation)
+            {
+                Write-Host "Profile backed up to: $backupLocation"
+            }
         }
 
         if (Test-Path -Path $resolvedProfileRoot)

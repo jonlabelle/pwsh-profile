@@ -53,8 +53,8 @@ irm 'https://raw.githubusercontent.com/jonlabelle/pwsh-profile/main/install.ps1'
 During a normal install, the script:
 
 - Resolves the target profile root, or uses `-ProfileRoot` if supplied.
-- Preserves local paths from the existing profile directory.
-- Creates a backup unless `-SkipBackup` is supplied.
+- Preserves local paths from the existing profile directory in place.
+- Creates a backup of replaceable profile content unless `-SkipBackup` is supplied.
 - Removes existing profile content while keeping preserved paths in place.
 - Clones or downloads the profile repository.
 - Copies profile files without overwriting preserved local paths.
