@@ -536,6 +536,95 @@ function Find-PlatformPackage
             }
         }
 
+        function Test-WingetNoPackageFoundOutput
+        {
+            param(
+                [Parameter()]
+                [Object[]]$Output = @()
+            )
+
+            $text = (@($Output | ForEach-Object { "$_" }) -join "`n")
+            return $text -match '(?im)\bNo package found(?: matching input criteria)?\.?'
+        }
+
+        function Test-WingetProgressOutputLine
+        {
+            param(
+                [Parameter()]
+                [String]$Line = ''
+            )
+
+            $trimmedLine = $Line.Trim()
+            if ([String]::IsNullOrWhiteSpace($trimmedLine))
+            {
+                return $true
+            }
+
+            if ($trimmedLine -match '[\u2580-\u259F]')
+            {
+                return $true
+            }
+
+            if ($trimmedLine -match '^[-\\/|\s]+$' -and $trimmedLine -match '[-\\/|]')
+            {
+                return $true
+            }
+
+            if ($trimmedLine -match '^\d{1,3}%$')
+            {
+                return $true
+            }
+
+            return $trimmedLine -match '^\d+(?:\.\d+)?\s*(?:B|KB|MB|GB|KiB|MiB|GiB)\s*/\s*\d+(?:\.\d+)?\s*(?:B|KB|MB|GB|KiB|MiB|GiB)$'
+        }
+
+        function Get-WingetCommandFailureMessage
+        {
+            param(
+                [Parameter(Mandatory)]
+                [ValidateNotNullOrEmpty()]
+                [String]$Command,
+
+                [Parameter()]
+                [String[]]$Arguments = @(),
+
+                [Parameter(Mandatory)]
+                [Int32]$ExitCode,
+
+                [Parameter()]
+                [Object[]]$Output = @()
+            )
+
+            $messageLines = New-Object 'System.Collections.Generic.List[String]'
+            foreach ($item in @($Output))
+            {
+                $text = "$item" -replace '\x1b\[[0-?]*[ -/]*[@-~]', ''
+                foreach ($line in @($text -split '\r?\n|\r'))
+                {
+                    $normalizedLine = ($line -replace '[\x00-\x1F\x7F]', ' ').Trim()
+                    $normalizedLine = $normalizedLine -replace '\s{2,}', ' '
+                    if (Test-WingetProgressOutputLine -Line $normalizedLine)
+                    {
+                        continue
+                    }
+
+                    if (-not $messageLines.Contains($normalizedLine))
+                    {
+                        $messageLines.Add($normalizedLine)
+                    }
+                }
+            }
+
+            $message = ($messageLines -join ' ').Trim()
+            if (-not [String]::IsNullOrWhiteSpace($message))
+            {
+                return $message
+            }
+
+            $commandText = "$Command $($Arguments -join ' ')".Trim()
+            return "$commandText failed with exit code $ExitCode."
+        }
+
         function Split-ApkPackageVersion
         {
             param(
@@ -1235,13 +1324,23 @@ function Find-PlatformPackage
                     return @()
                 }
             }
+            elseif (Test-WingetNoPackageFoundOutput -Output $jsonResult.Output)
+            {
+                return @()
+            }
 
             if ($packages.Count -eq 0)
             {
-                $tableResult = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments @('search', $QueryText, '--accept-source-agreements')
+                $tableArguments = @('search', $QueryText, '--accept-source-agreements')
+                $tableResult = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments $tableArguments
                 if ($tableResult.ExitCode -ne 0)
                 {
-                    $message = ($tableResult.Output | Where-Object { -not [String]::IsNullOrWhiteSpace("$($_)") }) -join ' '
+                    if (Test-WingetNoPackageFoundOutput -Output $tableResult.Output)
+                    {
+                        return @()
+                    }
+
+                    $message = Get-WingetCommandFailureMessage -Command $Manager.Command -Arguments $tableArguments -ExitCode $tableResult.ExitCode -Output $tableResult.Output
                     throw "Failed to search winget packages: $message"
                 }
 

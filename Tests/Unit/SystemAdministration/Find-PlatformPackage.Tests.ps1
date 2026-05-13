@@ -149,6 +149,49 @@ Describe 'Find-PlatformPackage' {
             ($result | Where-Object { $_.Id -eq 'OpenJS.NodeJS' }).Installed | Should -BeFalse
             ($result | Where-Object { $_.Id -eq 'OpenJS.NodeJS.LTS' }).Installed | Should -BeTrue
         }
+
+        It 'returns no results when winget reports no package found with progress output' {
+            $progressLine = ('{0}{0}{1}{1} 7%' -f [Char]0x2588, [Char]0x2592)
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget search codeql --accept-source-agreements --output json' = Get-TestCommandResponse -ExitCode 1 -Output @('Unrecognized argument: --output')
+                'winget search codeql --accept-source-agreements' = Get-TestCommandResponse -ExitCode 1 -Output @(
+                    '   -     \     |     /'
+                    $progressLine
+                    'No package found matching input criteria.'
+                )
+            }
+
+            $result = @(Find-PlatformPackage -PackageManager winget -NonInteractive -Query codeql -CommandRunner $runner)
+
+            $result.Count | Should -Be 0
+        }
+
+        It 'strips winget progress output from search failure messages' {
+            $progressLine = ('{0}{0}{1}{1} 7%' -f [Char]0x2588, [Char]0x2592)
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget search git --accept-source-agreements --output json' = Get-TestCommandResponse -ExitCode 1 -Output @('Unrecognized argument: --output')
+                'winget search git --accept-source-agreements' = Get-TestCommandResponse -ExitCode 2 -Output @(
+                    '   -     \     |     /'
+                    $progressLine
+                    'Failed when opening source(s); try source reset.'
+                )
+            }
+
+            $thrown = $null
+            try
+            {
+                $null = Find-PlatformPackage -PackageManager winget -NonInteractive -Query git -CommandRunner $runner
+            }
+            catch
+            {
+                $thrown = $_
+            }
+
+            ($null -eq $thrown) | Should -BeFalse
+            $thrown.Exception.Message | Should -Be 'Failed to search winget packages: Failed when opening source(s); try source reset.'
+            $thrown.Exception.Message | Should -Not -Match '\u2588'
+            $thrown.Exception.Message | Should -Not -Match '\\\s+\|'
+        }
     }
 
     Context 'Homebrew search' {
