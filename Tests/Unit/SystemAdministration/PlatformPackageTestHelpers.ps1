@@ -109,6 +109,52 @@ $script:NewKeyReader = {
     }.GetNewClosure()
 }
 
+$script:NewTerminalEchoController = {
+    param(
+        [Parameter()]
+        [System.Collections.Generic.List[Object]]$Actions,
+
+        [Parameter()]
+        [String]$SavedState = 'saved-stty-state'
+    )
+
+    if ($null -eq $Actions)
+    {
+        $Actions = New-Object 'System.Collections.Generic.List[Object]'
+    }
+
+    $localActions = $Actions
+    $localSavedState = $SavedState
+
+    return {
+        param(
+            [Parameter()]
+            [String]$Action,
+
+            [Parameter()]
+            [String]$State
+        )
+
+        switch ($Action)
+        {
+            'Disable'
+            {
+                $localActions.Add('Disable')
+                return $localSavedState
+            }
+            'Restore'
+            {
+                $localActions.Add("Restore:$State")
+                return
+            }
+            default
+            {
+                throw "Unexpected terminal echo action: $Action"
+            }
+        }
+    }.GetNewClosure()
+}
+
 function Get-TestPickerLineLimit
 {
     $limit = 0

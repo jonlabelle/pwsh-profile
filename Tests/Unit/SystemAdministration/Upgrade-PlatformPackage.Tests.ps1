@@ -505,6 +505,107 @@ Describe 'Upgrade-PlatformPackage' {
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[msstore\]' } -Times 1
         }
 
+        It 'does not suppress terminal echo when a custom key reader drives winget details' -Skip:($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
+            $wingetUpgradeJson = @{
+                Sources = @(
+                    @{
+                        SourceDetails = @{
+                            Name = 'winget'
+                        }
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.43.0'
+                                Available = '2.44.0'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $wingetShowJson = @{
+                DefaultLocale = @{
+                    Description = 'Distributed version control system'
+                }
+            } | ConvertTo-Json -Depth 4 -Compress
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget upgrade --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetUpgradeJson)
+                'winget show --id Git.Git --exact --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetShowJson)
+            }
+            $keyReader = & $script:NewKeyReader -Values @(
+                [System.ConsoleKeyInfo]::new('d', [ConsoleKey]::D, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            )
+            $echoActions = New-Object 'System.Collections.Generic.List[Object]'
+            $terminalEchoController = & $script:NewTerminalEchoController -Actions $echoActions
+
+            $result = Upgrade-PlatformPackage -PackageManager winget -SkipRefresh -CommandRunner $runner -KeyReader $keyReader -TerminalEchoController $terminalEchoController -Confirm:$false
+
+            $result.Selected | Should -Be 0
+            $echoActions.Count | Should -Be 0
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
+        }
+
+        It 'restores terminal echo when winget details throw in the console key reader flow' -Skip:($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
+            $wingetUpgradeJson = @{
+                Sources = @(
+                    @{
+                        SourceDetails = @{
+                            Name = 'winget'
+                        }
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.43.0'
+                                Available = '2.44.0'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $upgradeResponse = Get-TestCommandResponse -Output @($wingetUpgradeJson)
+            $runner = {
+                param(
+                    [Parameter(Mandatory)]
+                    [String]$Command,
+
+                    [Parameter()]
+                    [String[]]$Arguments = @(),
+
+                    [Parameter()]
+                    [Switch]$StreamOutput
+                )
+
+                $key = "$Command $($Arguments -join ' ')".Trim()
+                if ($key -eq 'winget upgrade --accept-source-agreements --output json')
+                {
+                    return $upgradeResponse
+                }
+
+                if ($key -eq 'winget show --id Git.Git --exact --accept-source-agreements --output json')
+                {
+                    throw 'winget details failed'
+                }
+
+                return [PSCustomObject]@{
+                    ExitCode = 127
+                    Output = @("Unexpected command: $key")
+                }
+            }.GetNewClosure()
+            $keyReader = & $script:NewKeyReader -Values @(
+                [System.ConsoleKeyInfo]::new('d', [ConsoleKey]::D, $false, $false, $false)
+            )
+            $echoActions = New-Object 'System.Collections.Generic.List[Object]'
+            $terminalEchoController = & $script:NewTerminalEchoController -Actions $echoActions
+
+            {
+                Upgrade-PlatformPackage -PackageManager winget -SkipRefresh -CommandRunner $runner -KeyReader $keyReader -TreatKeyReaderAsConsoleKeyReader -TerminalEchoController $terminalEchoController -Confirm:$false
+            } | Should -Throw -ExpectedMessage '*winget details failed*'
+
+            ($echoActions -join '|') | Should -Be 'Disable|Restore:saved-stty-state'
+        }
+
         It 'keeps winget picker table rows within the current console width' {
             $wingetUpgradeJson = @{
                 Sources = @(

@@ -155,6 +155,12 @@ function Find-PlatformPackage
         [ScriptBlock]$KeyReader,
 
         [Parameter(DontShow = $true)]
+        [Switch]$TreatKeyReaderAsConsoleKeyReader,
+
+        [Parameter(DontShow = $true)]
+        [ScriptBlock]$TerminalEchoController,
+
+        [Parameter(DontShow = $true)]
         [ScriptBlock]$QueryReader,
 
         [Parameter(DontShow = $true)]
@@ -1772,7 +1778,13 @@ function Find-PlatformPackage
                 [Switch]$EnableReturnSelection,
 
                 [Parameter()]
-                [String]$SourceFilter = ''
+                [String]$SourceFilter = '',
+
+                [Parameter()]
+                [Switch]$TreatKeyReaderAsConsoleKeyReader,
+
+                [Parameter()]
+                [ScriptBlock]$TerminalEchoController
             )
 
             if ($AvailablePackages.Count -eq 0)
@@ -1813,6 +1825,7 @@ function Find-PlatformPackage
             )
 
             $usingConsoleKeyReader = $false
+            $usePickerTerminalEchoControl = $false
             if ($null -eq $KeyReader)
             {
                 try
@@ -1829,6 +1842,11 @@ function Find-PlatformPackage
 
                 $KeyReader = { [Console]::ReadKey($true) }
                 $usingConsoleKeyReader = $true
+                $usePickerTerminalEchoControl = $true
+            }
+            elseif ($TreatKeyReaderAsConsoleKeyReader)
+            {
+                $usePickerTerminalEchoControl = $true
             }
 
             function Format-PickerCell
@@ -2374,6 +2392,135 @@ function Find-PlatformPackage
                 return ($parts -join ' | ')
             }
 
+            function Clear-PendingConsoleInput
+            {
+                if (-not $usingConsoleKeyReader)
+                {
+                    return
+                }
+
+                try
+                {
+                    if ([Console]::IsInputRedirected)
+                    {
+                        return
+                    }
+
+                    while ([Console]::KeyAvailable)
+                    {
+                        $null = [Console]::ReadKey($true)
+                    }
+                }
+                catch
+                {
+                    Write-Verbose "Unable to clear pending console input: $($_.Exception.Message)"
+                }
+            }
+
+            function Disable-PickerTerminalEcho
+            {
+                if (-not $usePickerTerminalEchoControl)
+                {
+                    return $null
+                }
+
+                $isWindowsPlatform = if ($PSVersionTable.PSVersion.Major -lt 6) { $true } else { [Bool]$IsWindows }
+                if ($isWindowsPlatform)
+                {
+                    return $null
+                }
+
+                if ($TerminalEchoController)
+                {
+                    try
+                    {
+                        return (& $TerminalEchoController -Action 'Disable')
+                    }
+                    catch
+                    {
+                        Write-Verbose "Unable to disable terminal echo: $($_.Exception.Message)"
+                        return $null
+                    }
+                }
+
+                try
+                {
+                    if ([Console]::IsInputRedirected)
+                    {
+                        return $null
+                    }
+                }
+                catch
+                {
+                    return $null
+                }
+
+                $sttyCommand = Get-Command -Name 'stty' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($null -eq $sttyCommand)
+                {
+                    return $null
+                }
+
+                try
+                {
+                    $sttyState = @(& $sttyCommand.Source '-g' 2>$null) | Select-Object -First 1
+                    if ([String]::IsNullOrWhiteSpace("$sttyState"))
+                    {
+                        return $null
+                    }
+
+                    $null = & $sttyCommand.Source '-echo' 2>$null
+                    return "$sttyState"
+                }
+                catch
+                {
+                    Write-Verbose "Unable to disable terminal echo: $($_.Exception.Message)"
+                    return $null
+                }
+            }
+
+            function Restore-PickerTerminalEcho
+            {
+                param(
+                    [Parameter()]
+                    [String]$State
+                )
+
+                if ([String]::IsNullOrWhiteSpace($State))
+                {
+                    return
+                }
+
+                if ($TerminalEchoController)
+                {
+                    try
+                    {
+                        $null = & $TerminalEchoController -Action 'Restore' -State $State
+                    }
+                    catch
+                    {
+                        Write-Verbose "Unable to restore terminal echo: $($_.Exception.Message)"
+                    }
+
+                    return
+                }
+
+                $sttyCommand = Get-Command -Name 'stty' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($null -eq $sttyCommand)
+                {
+                    return
+                }
+
+                try
+                {
+                    $null = & $sttyCommand.Source $State 2>$null
+                }
+                catch
+                {
+                    Write-Verbose "Unable to restore terminal echo: $($_.Exception.Message)"
+                }
+            }
+
             function Show-PackagePickerHelp
             {
                 function Write-PackagePickerHelpItem
@@ -2684,11 +2831,19 @@ function Find-PlatformPackage
                     if ($isCurrentWingetDescriptionPending)
                     {
                         $wingetDescriptionAttempted[$currentPackageLookupKey] = $true
-                        $resolvedDescription = Get-WingetPackageDescription -Manager ([PSCustomObject]@{
-                            Name = $currentPackage.PackageManager
-                            DisplayName = $currentPackage.PackageManagerDisplayName
-                            Command = $currentPackage.PackageManager
-                        }) -Package $currentPackage
+                        $terminalEchoState = Disable-PickerTerminalEcho
+                        try
+                        {
+                            $resolvedDescription = Get-WingetPackageDescription -Manager ([PSCustomObject]@{
+                                Name = $currentPackage.PackageManager
+                                DisplayName = $currentPackage.PackageManagerDisplayName
+                                Command = $currentPackage.PackageManager
+                            }) -Package $currentPackage
+                        }
+                        finally
+                        {
+                            Restore-PickerTerminalEcho -State $terminalEchoState
+                        }
 
                         if (-not [String]::IsNullOrWhiteSpace($resolvedDescription))
                         {
@@ -2696,6 +2851,7 @@ function Find-PlatformPackage
                         }
 
                         $pendingWingetDescriptionLookupKey = ''
+                        Clear-PendingConsoleInput
                         continue
                     }
 
@@ -2919,7 +3075,7 @@ function Find-PlatformPackage
                     continue
                 }
 
-                $browserResult = Show-AvailablePackageResults -AvailablePackages $packages -QueryText $queryText -KeyReader $KeyReader -PageSize $PickerPageSize -EnableSelection -EnableReturnSelection:$PassThru.IsPresent -SourceFilter $FilterSource
+                $browserResult = Show-AvailablePackageResults -AvailablePackages $packages -QueryText $queryText -KeyReader $KeyReader -PageSize $PickerPageSize -EnableSelection -EnableReturnSelection:$PassThru.IsPresent -SourceFilter $FilterSource -TreatKeyReaderAsConsoleKeyReader:$TreatKeyReaderAsConsoleKeyReader -TerminalEchoController $TerminalEchoController
                 if ($browserResult.Action -eq 'Return')
                 {
                     return @($browserResult.SelectedPackages)

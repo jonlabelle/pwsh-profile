@@ -646,5 +646,125 @@ Describe 'Find-PlatformPackage' {
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
             @($script:Invocations | Where-Object { $_.Key -eq 'winget show --id Git.Git --exact --accept-source-agreements --output json' }).Count | Should -Be 1
         }
+
+        It 'does not suppress terminal echo when a custom key reader drives winget details' -Skip:($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
+            $wingetSearchJson = @{
+                Sources = @(
+                    @{
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.45.1'
+                                Source = 'winget'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $wingetListJson = @{
+                Sources = @(
+                    @{
+                        Packages = @()
+                    }
+                )
+            } | ConvertTo-Json -Depth 4 -Compress
+            $wingetShowJson = @{
+                DefaultLocale = @{
+                    Description = 'Distributed version control system'
+                }
+            } | ConvertTo-Json -Depth 4 -Compress
+
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget search git --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetSearchJson)
+                'winget list --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetListJson)
+                'winget show --id Git.Git --exact --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetShowJson)
+            }
+            $queryReader = {
+                'git'
+            }
+            $keyReader = & $script:NewKeyReader -Values @(
+                [System.ConsoleKeyInfo]::new('d', [ConsoleKey]::D, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            )
+            $echoActions = New-Object 'System.Collections.Generic.List[Object]'
+            $terminalEchoController = & $script:NewTerminalEchoController -Actions $echoActions
+
+            $result = @(Find-PlatformPackage -PackageManager winget -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader -TerminalEchoController $terminalEchoController)
+
+            $result.Count | Should -Be 0
+            $echoActions.Count | Should -Be 0
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
+        }
+
+        It 'restores terminal echo when winget details throw in the console key reader flow' -Skip:($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
+            $wingetSearchJson = @{
+                Sources = @(
+                    @{
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.45.1'
+                                Source = 'winget'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $wingetListJson = @{
+                Sources = @(
+                    @{
+                        Packages = @()
+                    }
+                )
+            } | ConvertTo-Json -Depth 4 -Compress
+            $searchResponse = Get-TestCommandResponse -Output @($wingetSearchJson)
+            $listResponse = Get-TestCommandResponse -Output @($wingetListJson)
+            $runner = {
+                param(
+                    [Parameter(Mandatory)]
+                    [String]$Command,
+
+                    [Parameter()]
+                    [String[]]$Arguments = @()
+                )
+
+                $key = "$Command $($Arguments -join ' ')".Trim()
+                if ($key -eq 'winget search git --accept-source-agreements --output json')
+                {
+                    return $searchResponse
+                }
+
+                if ($key -eq 'winget list --accept-source-agreements --output json')
+                {
+                    return $listResponse
+                }
+
+                if ($key -eq 'winget show --id Git.Git --exact --accept-source-agreements --output json')
+                {
+                    throw 'winget details failed'
+                }
+
+                return [PSCustomObject]@{
+                    ExitCode = 127
+                    Output = @("Unexpected command: $key")
+                }
+            }.GetNewClosure()
+            $queryReader = {
+                'git'
+            }
+            $keyReader = & $script:NewKeyReader -Values @(
+                [System.ConsoleKeyInfo]::new('d', [ConsoleKey]::D, $false, $false, $false)
+            )
+            $echoActions = New-Object 'System.Collections.Generic.List[Object]'
+            $terminalEchoController = & $script:NewTerminalEchoController -Actions $echoActions
+
+            {
+                Find-PlatformPackage -PackageManager winget -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader -TreatKeyReaderAsConsoleKeyReader -TerminalEchoController $terminalEchoController
+            } | Should -Throw -ExpectedMessage '*winget details failed*'
+
+            ($echoActions -join '|') | Should -Be 'Disable|Restore:saved-stty-state'
+        }
     }
 }
