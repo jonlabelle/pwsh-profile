@@ -1271,6 +1271,12 @@ function Show-PlatformPackageManager
                 return 'No installed packages matched the requested filters.'
             }
 
+            # Nothing matched for search/install
+            if ($summaryRecord.PSObject.Properties['TotalMatched'] -and [Int32]$summaryRecord.TotalMatched -eq 0 -and $summaryRecord.PSObject.Properties['Installed'])
+            {
+                return 'No packages matched the requested search query.'
+            }
+
             # User dismissed the picker without selecting — intentional, no notification needed
             return ''
         }

@@ -465,6 +465,42 @@ Describe 'Show-PlatformPackageManager' {
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Search and Install Packages' } -Times 0
     }
 
+    It 'shows a notification in the menu when search returns no matches' {
+        Mock -CommandName Install-PlatformPackage -MockWith {
+            [PSCustomObject]@{
+                PackageManager = 'winget'
+                PackageManagerDisplayName = 'Windows Package Manager'
+                TotalMatched = 0
+                Selected = 0
+                NotSelected = 0
+                Installed = 0
+                Skipped = 0
+                Failed = 0
+                Results = @()
+            }
+        }
+        $promptReader = & $script:NewPromptReader @('2', 'codeql', 'q')
+
+        $result = @(Show-PlatformPackageManager -PackageManager winget -PromptReader $promptReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Install-PlatformPackage -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*No packages matched the requested search query*' } -Times 1
+    }
+
+    It 'shows a notification in the menu when winget search returns no registry matches' {
+        $runner = & $script:NewPackageCommandRunner @{
+            'winget search codeql --accept-source-agreements --output json' = Get-TestCommandResponse -ExitCode 1 -Output @('Unrecognized argument: --output')
+            'winget search codeql --accept-source-agreements' = Get-TestCommandResponse -ExitCode 1 -Output @('No package found matching input criteria.')
+        }
+        $promptReader = & $script:NewPromptReader @('2', 'codeql', 'q')
+
+        $result = @(Show-PlatformPackageManager -PackageManager winget -CommandRunner $runner -PromptReader $promptReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*No packages matched the requested search query*' } -Times 1
+    }
+
     It 'shows a notification in the menu when no packages are available for upgrade' {
         Mock -CommandName Upgrade-PlatformPackage -MockWith {
             [PSCustomObject]@{
