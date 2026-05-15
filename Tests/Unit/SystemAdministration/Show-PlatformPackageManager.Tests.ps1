@@ -75,11 +75,33 @@ Describe 'Show-PlatformPackageManager' {
         Assert-MockCalled -CommandName Show-InstalledPlatformPackage -ParameterFilter {
             $PackageManager -eq 'brew' -and
             $null -ne $CommandRunner -and
-            $null -ne $KeyReader
+            $null -ne $KeyReader -and
+            $ReturnToPlatformPackageManagerOnBackKey
         } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Installed Packages' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*git*' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*gh*' } -Times 1
+    }
+
+    It 'returns from the installed package browser to the manager menu on Backspace' {
+        $runner = & $script:NewPackageCommandRunner @{
+            'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0')
+            'brew list --cask --versions' = Get-TestCommandResponse -Output @()
+        }
+        $promptReader = & $script:NewPromptReader @()
+        $keyReader = & $script:NewKeyReader @(
+            [System.ConsoleKeyInfo]::new('1', [ConsoleKey]::D1, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new([Char]8, [ConsoleKey]::Backspace, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
+        )
+
+        $result = @(Show-PlatformPackageManager -PackageManager brew -CommandRunner $runner -PromptReader $promptReader -KeyReader $keyReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 2
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Show-InstalledPlatformPackage - Homebrew' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Installed Packages' } -Times 0
     }
 
     It 'does not expose numbers outside 1-5 as valid actions' {
@@ -119,7 +141,8 @@ Describe 'Show-PlatformPackageManager' {
         Assert-MockCalled -CommandName Install-PlatformPackage -ParameterFilter {
             $Query -eq 'git' -and
             $PackageManager -eq 'apt' -and
-            $NoSudo
+            $NoSudo -and
+            $ReturnToPlatformPackageManagerOnBackKey
         } -Times 1
     }
 
@@ -192,7 +215,8 @@ Describe 'Show-PlatformPackageManager' {
             $Query -eq 'git' -and
             $PackageManager -eq 'apt' -and
             $NoSudo -and
-            $Top -eq 50
+            $Top -eq 50 -and
+            $ReturnToPlatformPackageManagerOnBackKey
         } -Times 1
     }
 
@@ -231,11 +255,13 @@ Describe 'Show-PlatformPackageManager' {
         Assert-MockCalled -CommandName Install-PlatformPackage -ParameterFilter {
             $Query -eq 'git' -and
             $PackageManager -eq 'winget' -and
-            $FilterSource -eq 'msstore'
+            $FilterSource -eq 'msstore' -and
+            $ReturnToPlatformPackageManagerOnBackKey
         } -Times 1
         Assert-MockCalled -CommandName Upgrade-PlatformPackage -ParameterFilter {
             $PackageManager -eq 'winget' -and
-            $FilterSource -eq 'msstore'
+            $FilterSource -eq 'msstore' -and
+            $ReturnToPlatformPackageManagerOnBackKey
         } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*FilterSource=msstore*' } -Times 3
     }
@@ -291,6 +317,32 @@ Describe 'Show-PlatformPackageManager' {
         ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall --cask --zap visual-studio-code' }).StreamOutput | Should -BeTrue
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew zap output' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Removed' } -Times 1
+    }
+
+    It 'returns from the removal picker to the manager menu on Delete' {
+        $runner = & $script:NewPackageCommandRunner @{
+            'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0')
+            'brew list --cask --versions' = Get-TestCommandResponse -Output @()
+        }
+        $promptReader = & $script:NewPromptReader @()
+        $keyReader = & $script:NewKeyReader @(
+            [System.ConsoleKeyInfo]::new('4', [ConsoleKey]::D4, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new([Char]0, [ConsoleKey]::Delete, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
+        )
+
+        $result = @(
+            & {
+                $ConfirmPreference = 'None'
+                Show-PlatformPackageManager -PackageManager brew -CommandRunner $runner -PromptReader $promptReader -KeyReader $keyReader
+            }
+        )
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 2
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Remove-PlatformPackage - Homebrew' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
+        @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should -Be 0
     }
 
     It 'shows a green status indicator after a successful upgrade' {
@@ -548,7 +600,10 @@ Describe 'Show-PlatformPackageManager' {
         )
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Remove-PlatformPackage -Times 1
+        Assert-MockCalled -CommandName Remove-PlatformPackage -ParameterFilter {
+            $PackageManager -eq 'brew' -and
+            $ReturnToPlatformPackageManagerOnBackKey
+        } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*No installed packages matched the requested filters*' } -Times 1
     }
 

@@ -162,7 +162,10 @@ function Install-PlatformPackage
 
         [Parameter(DontShow = $true)]
         [ValidateRange(0, 500)]
-        [Int32]$PickerPageSize = 0
+        [Int32]$PickerPageSize = 0,
+
+        [Parameter(DontShow = $true)]
+        [Switch]$ReturnToPlatformPackageManagerOnBackKey
     )
 
     begin
@@ -978,7 +981,10 @@ function Install-PlatformPackage
                 [Switch]$TreatKeyReaderAsConsoleKeyReader,
 
                 [Parameter()]
-                [ScriptBlock]$TerminalEchoController
+                [ScriptBlock]$TerminalEchoController,
+
+                [Parameter()]
+                [Switch]$ReturnToPlatformPackageManagerOnBackKey
             )
 
             if ($AvailablePackages.Count -eq 0)
@@ -1070,6 +1076,16 @@ function Install-PlatformPackage
                 $isControlC = $isControlC -or ([Int32][Char]$KeyInfo.KeyChar -eq 3)
 
                 return $KeyInfo.Key -in @([ConsoleKey]::Escape, [ConsoleKey]::Q) -or $isControlC
+            }
+
+            function Test-PackagePickerManagerBackKey
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [ConsoleKeyInfo]$KeyInfo
+                )
+
+                return $ReturnToPlatformPackageManagerOnBackKey -and $KeyInfo.Key -in @([ConsoleKey]::Backspace, [ConsoleKey]::Delete)
             }
 
             function Test-PackagePickerHelpKey
@@ -1857,10 +1873,14 @@ function Install-PlatformPackage
                         ''
                         (Format-PickerFrameLine -Text $selectionHint -ForegroundColor DarkGray)
                         (Format-PickerFrameLine -Text $navigationHint -ForegroundColor DarkGray)
-                        ''
-                        (Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray)
-                        (Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray)
                     )
+                    if ($ReturnToPlatformPackageManagerOnBackKey)
+                    {
+                        $frameLines += Format-PickerFrameLine -Text 'Backspace/Delete: manager menu' -ForegroundColor DarkGray
+                    }
+                    $frameLines += ''
+                    $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray
+                    $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
 
                     if ($visiblePackages.Count -eq 0)
                     {
@@ -1869,6 +1889,12 @@ function Install-PlatformPackage
                         Write-PickerFrame -Lines $frameLines
 
                         $key = & $KeyReader
+                        if (Test-PackagePickerManagerBackKey -KeyInfo $key)
+                        {
+                            Clear-PickerFrame
+                            return @()
+                        }
+
                         if (Test-PackagePickerCancelKey -KeyInfo $key)
                         {
                             Clear-PickerFrame
@@ -1974,6 +2000,12 @@ function Install-PlatformPackage
                     }
 
                     $key = & $KeyReader
+                    if (Test-PackagePickerManagerBackKey -KeyInfo $key)
+                    {
+                        Clear-PickerFrame
+                        return @()
+                    }
+
                     if (Test-PackagePickerCancelKey -KeyInfo $key)
                     {
                         Clear-PickerFrame
@@ -2199,7 +2231,7 @@ function Install-PlatformPackage
                 }
                 else
                 {
-                    $selectedPackages = @(Select-AvailablePackageRecords -AvailablePackages $candidatePackages -KeyReader $KeyReader -PageSize $PickerPageSize -SourceFilter $FilterSource -TreatKeyReaderAsConsoleKeyReader:$TreatKeyReaderAsConsoleKeyReader -TerminalEchoController $TerminalEchoController)
+                    $selectedPackages = @(Select-AvailablePackageRecords -AvailablePackages $candidatePackages -KeyReader $KeyReader -PageSize $PickerPageSize -SourceFilter $FilterSource -TreatKeyReaderAsConsoleKeyReader:$TreatKeyReaderAsConsoleKeyReader -TerminalEchoController $TerminalEchoController -ReturnToPlatformPackageManagerOnBackKey:$ReturnToPlatformPackageManagerOnBackKey)
                     $notSelected = $candidatePackages.Count - $selectedPackages.Count
                     if ($selectedPackages.Count -eq 0)
                     {

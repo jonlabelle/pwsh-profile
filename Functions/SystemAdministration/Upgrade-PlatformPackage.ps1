@@ -149,7 +149,10 @@ function Upgrade-PlatformPackage
 
         [Parameter(DontShow = $true)]
         [ValidateRange(0, 500)]
-        [Int32]$PickerPageSize = 0
+        [Int32]$PickerPageSize = 0,
+
+        [Parameter(DontShow = $true)]
+        [Switch]$ReturnToPlatformPackageManagerOnBackKey
     )
 
     begin
@@ -1599,7 +1602,10 @@ function Upgrade-PlatformPackage
                 [Switch]$TreatKeyReaderAsConsoleKeyReader,
 
                 [Parameter()]
-                [ScriptBlock]$TerminalEchoController
+                [ScriptBlock]$TerminalEchoController,
+
+                [Parameter()]
+                [Switch]$ReturnToPlatformPackageManagerOnBackKey
             )
 
             if ($PackageUpdates.Count -eq 0)
@@ -1787,6 +1793,16 @@ function Upgrade-PlatformPackage
                 $isControlC = $isControlC -or ([Int32][Char]$KeyInfo.KeyChar -eq 3)
 
                 return $KeyInfo.Key -in @([ConsoleKey]::Escape, [ConsoleKey]::Q) -or $isControlC
+            }
+
+            function Test-PackagePickerManagerBackKey
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [ConsoleKeyInfo]$KeyInfo
+                )
+
+                return $ReturnToPlatformPackageManagerOnBackKey -and $KeyInfo.Key -in @([ConsoleKey]::Backspace, [ConsoleKey]::Delete)
             }
 
             function Test-PackagePickerHelpKey
@@ -2591,8 +2607,12 @@ function Upgrade-PlatformPackage
                         ''
                         (Format-PickerFrameLine -Text $selectionHint -ForegroundColor DarkGray)
                         (Format-PickerFrameLine -Text $navigationHint -ForegroundColor DarkGray)
-                        ''
                     )
+                    if ($ReturnToPlatformPackageManagerOnBackKey)
+                    {
+                        $frameLines += Format-PickerFrameLine -Text 'Backspace/Delete: manager menu' -ForegroundColor DarkGray
+                    }
+                    $frameLines += ''
                     if ($visiblePackages.Count -eq 0)
                     {
                         if ([String]::IsNullOrWhiteSpace($nameFilterText))
@@ -2612,6 +2632,12 @@ function Upgrade-PlatformPackage
                         Write-PickerFrame -Lines $frameLines
 
                         $key = & $KeyReader
+                        if (Test-PackagePickerManagerBackKey -KeyInfo $key)
+                        {
+                            Clear-PickerFrame
+                            return @()
+                        }
+
                         if (Test-PackagePickerCancelKey -KeyInfo $key)
                         {
                             Clear-PickerFrame
@@ -2764,6 +2790,12 @@ function Upgrade-PlatformPackage
                     }
 
                     $key = & $KeyReader
+                    if (Test-PackagePickerManagerBackKey -KeyInfo $key)
+                    {
+                        Clear-PickerFrame
+                        return @()
+                    }
+
                     if (Test-PackagePickerCancelKey -KeyInfo $key)
                     {
                         Clear-PickerFrame
@@ -3000,7 +3032,7 @@ function Upgrade-PlatformPackage
             }
             else
             {
-                Select-PackageUpdateRecords -PackageUpdates $packageUpdates -KeyReader $KeyReader -PageSize $PickerPageSize -PackageManagerName $manager.Name -SourceFilter $FilterSource -TreatKeyReaderAsConsoleKeyReader:$TreatKeyReaderAsConsoleKeyReader -TerminalEchoController $TerminalEchoController
+                Select-PackageUpdateRecords -PackageUpdates $packageUpdates -KeyReader $KeyReader -PageSize $PickerPageSize -PackageManagerName $manager.Name -SourceFilter $FilterSource -TreatKeyReaderAsConsoleKeyReader:$TreatKeyReaderAsConsoleKeyReader -TerminalEchoController $TerminalEchoController -ReturnToPlatformPackageManagerOnBackKey:$ReturnToPlatformPackageManagerOnBackKey
             }
         )
 

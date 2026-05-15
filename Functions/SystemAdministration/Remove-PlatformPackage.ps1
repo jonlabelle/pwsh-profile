@@ -163,7 +163,10 @@ function Remove-PlatformPackage
 
         [Parameter(DontShow = $true)]
         [ValidateRange(0, 500)]
-        [Int32]$PickerPageSize = 0
+        [Int32]$PickerPageSize = 0,
+
+        [Parameter(DontShow = $true)]
+        [Switch]$ReturnToPlatformPackageManagerOnBackKey
     )
 
     begin
@@ -1840,7 +1843,10 @@ function Remove-PlatformPackage
                 [String]$PackageManagerName = '',
 
                 [Parameter()]
-                [String]$SourceFilter = ''
+                [String]$SourceFilter = '',
+
+                [Parameter()]
+                [Switch]$ReturnToPlatformPackageManagerOnBackKey
             )
 
             if ($InstalledPackages.Count -eq 0)
@@ -2037,6 +2043,16 @@ function Remove-PlatformPackage
                 $isControlC = $isControlC -or ([Int32][Char]$KeyInfo.KeyChar -eq 3)
 
                 return $KeyInfo.Key -in @([ConsoleKey]::Escape, [ConsoleKey]::Q) -or $isControlC
+            }
+
+            function Test-PackagePickerManagerBackKey
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [ConsoleKeyInfo]$KeyInfo
+                )
+
+                return $ReturnToPlatformPackageManagerOnBackKey -and $KeyInfo.Key -in @([ConsoleKey]::Backspace, [ConsoleKey]::Delete)
             }
 
             function Test-PackagePickerHelpKey
@@ -2984,7 +3000,7 @@ function Remove-PlatformPackage
                             (Format-PickerFrameLine -Text "Remove-PlatformPackage Dependencies - $($allPackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
                             (Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedKeys.Count -FilterText ($dependencyFilterSummary -join ' | ')) -ForegroundColor White)
                             ''
-                            (Format-PickerFrameLine -Text 'Keys: B/Backspace/LeftArrow back  V details' -ForegroundColor DarkGray)
+                            (Format-PickerFrameLine -Text 'Keys: B/Backspace/Delete/LeftArrow back  V details' -ForegroundColor DarkGray)
                             (Format-PickerFrameLine -Text "Nav: ${nameFilterHint}${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel" -ForegroundColor DarkGray)
                             ''
                             (Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor DarkGray)
@@ -3024,7 +3040,7 @@ function Remove-PlatformPackage
                         }
 
                         $frameLines += ''
-                        $frameLines += Format-PickerFrameLine -Text 'Press B/Backspace/LeftArrow to return to the package list.' -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text 'Press B/Backspace/Delete/LeftArrow to return to the package list.' -ForegroundColor DarkGray
                         Write-PickerFrame -Lines $frameLines
 
                         if ($null -ne $pendingDependencyPanelPackage)
@@ -3067,8 +3083,12 @@ function Remove-PlatformPackage
                             ''
                             (Format-PickerFrameLine -Text $selectionHint -ForegroundColor DarkGray)
                             (Format-PickerFrameLine -Text $navigationHint -ForegroundColor DarkGray)
-                            ''
                         )
+                        if ($ReturnToPlatformPackageManagerOnBackKey)
+                        {
+                            $frameLines += Format-PickerFrameLine -Text 'Backspace/Delete: manager menu' -ForegroundColor DarkGray
+                        }
+                        $frameLines += ''
                         if ($showPurge)
                         {
                             $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6}' -f 'Sel', (Format-PickerCell -Text 'Purge' -Width $purgeWidth), (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray
@@ -3100,6 +3120,12 @@ function Remove-PlatformPackage
                             Write-PickerFrame -Lines $frameLines
 
                             $key = & $KeyReader
+                            if (Test-PackagePickerManagerBackKey -KeyInfo $key)
+                            {
+                                Clear-PickerFrame
+                                return @()
+                            }
+
                             if (Test-PackagePickerCancelKey -KeyInfo $key)
                             {
                                 Clear-PickerFrame
@@ -3239,6 +3265,12 @@ function Remove-PlatformPackage
                     }
 
                     $key = & $KeyReader
+                    if (-not $showDependencyPanel -and (Test-PackagePickerManagerBackKey -KeyInfo $key))
+                    {
+                        Clear-PickerFrame
+                        return @()
+                    }
+
                     if (Test-PackagePickerCancelKey -KeyInfo $key)
                     {
                         Clear-PickerFrame
@@ -3333,6 +3365,20 @@ function Remove-PlatformPackage
                             }
                         }
                         'Backspace'
+                        {
+                            if ($showDependencyPanel)
+                            {
+                                $showDependencyPanel = $false
+                                if ($null -ne $dependencyPanelRestoreInPlaceRedraw)
+                                {
+                                    $pickerRenderState.UseInPlaceRedraw = $dependencyPanelRestoreInPlaceRedraw
+                                    $dependencyPanelRestoreInPlaceRedraw = $null
+                                    $pickerRenderState.RenderedLineCount = 0
+                                    $pendingDependencyPanelPackage = $null
+                                }
+                            }
+                        }
+                        'Delete'
                         {
                             if ($showDependencyPanel)
                             {
@@ -3550,7 +3596,7 @@ function Remove-PlatformPackage
             }
             else
             {
-                Select-PackageInstallRecords -InstalledPackages $installedPackages -KeyReader $KeyReader -PageSize $PickerPageSize -PackageManagerName $manager.Name -SourceFilter $FilterSource
+                Select-PackageInstallRecords -InstalledPackages $installedPackages -KeyReader $KeyReader -PageSize $PickerPageSize -PackageManagerName $manager.Name -SourceFilter $FilterSource -ReturnToPlatformPackageManagerOnBackKey:$ReturnToPlatformPackageManagerOnBackKey
             }
         )
 

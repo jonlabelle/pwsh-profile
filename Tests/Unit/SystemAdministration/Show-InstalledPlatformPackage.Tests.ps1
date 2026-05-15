@@ -88,6 +88,51 @@ Describe 'Show-InstalledPlatformPackage' {
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D deps  V details  R remove  U upgrade' } -Times 2
         }
 
+        It 'ignores Backspace and Delete as manager navigation when not launched by the manager' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @())
+            }
+
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new([Char]8, [ConsoleKey]::Backspace, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]0, [ConsoleKey]::Delete, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
+
+            $result.Count | Should -Be 0
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D deps  V details  R remove  U upgrade' } -Times 3
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 0
+        }
+
+        It 'returns to the manager menu on <Name> when manager navigation is enabled' -TestCases @(
+            @{ Name = 'Backspace'; Key = [ConsoleKey]::Backspace; Char = [Char]8 }
+            @{ Name = 'Delete'; Key = [ConsoleKey]::Delete; Char = [Char]0 }
+        ) {
+            param($Name, $Key, $Char)
+
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @())
+            }
+
+            $keyReader = {
+                [System.ConsoleKeyInfo]::new($Char, $Key, $false, $false, $false)
+            }.GetNewClosure()
+
+            $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey)
+
+            $result.Count | Should -Be 0
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D deps  V details  R remove  U upgrade' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
+        }
+
         It 'renders only the current viewport for long package lists' {
             $runner = & $script:NewPackageCommandRunner @{
                 'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @(
@@ -343,7 +388,47 @@ Describe 'Show-InstalledPlatformPackage' {
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn + RequiredBy]' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn]' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [RequiredBy]' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/LeftArrow to return to the package list.' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/Delete/LeftArrow to return to the package list.' } -Times 1
+        }
+
+        It 'returns from dependency view to the package list on <Name> when manager navigation is enabled' -TestCases @(
+            @{ Name = 'Backspace'; Key = [ConsoleKey]::Backspace; Char = [Char]8 }
+            @{ Name = 'Delete'; Key = [ConsoleKey]::Delete; Char = [Char]0 }
+        ) {
+            param($Name, $Key, $Char)
+
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @())
+            }
+
+            Mock -CommandName Get-PlatformPackageDependency -MockWith {
+                param(
+                    [Object[]]$Package,
+                    [String]$Direction,
+                    [String]$PackageManager,
+                    [ScriptBlock]$CommandRunner
+                )
+
+                return @([PSCustomObject]@{ RelatedPackage = 'gettext'; DependencyType = 'Dependency'; Installed = $true })
+            }
+
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new('d', [ConsoleKey]::D, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new($Char, $Key, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey)
+
+            $result.Count | Should -Be 0
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D deps  V details  R remove  U upgrade' } -Times 2
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Show-InstalledPlatformPackage Dependencies - Homebrew' } -Times 2
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/Delete/LeftArrow to return to the package list.' } -Times 2
         }
 
         It 'invokes Remove-PlatformPackage from the picker when R is confirmed' {

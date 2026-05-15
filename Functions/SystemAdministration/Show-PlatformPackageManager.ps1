@@ -615,6 +615,8 @@ function Show-PlatformPackageManager
                 $Parameters.KeyReader = $KeyReader
             }
 
+            $Parameters.ReturnToPlatformPackageManagerOnBackKey = $true
+
             if ($PickerPageSize -gt 0)
             {
                 $Parameters.PickerPageSize = $PickerPageSize

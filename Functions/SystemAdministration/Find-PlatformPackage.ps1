@@ -165,7 +165,10 @@ function Find-PlatformPackage
 
         [Parameter(DontShow = $true)]
         [ValidateRange(0, 500)]
-        [Int32]$PickerPageSize = 0
+        [Int32]$PickerPageSize = 0,
+
+        [Parameter(DontShow = $true)]
+        [Switch]$ReturnToPlatformPackageManagerOnBackKey
     )
 
     begin
@@ -1784,7 +1787,10 @@ function Find-PlatformPackage
                 [Switch]$TreatKeyReaderAsConsoleKeyReader,
 
                 [Parameter()]
-                [ScriptBlock]$TerminalEchoController
+                [ScriptBlock]$TerminalEchoController,
+
+                [Parameter()]
+                [Switch]$ReturnToPlatformPackageManagerOnBackKey
             )
 
             if ($AvailablePackages.Count -eq 0)
@@ -1879,6 +1885,16 @@ function Find-PlatformPackage
                 $isControlC = $isControlC -or ([Int32][Char]$KeyInfo.KeyChar -eq 3)
 
                 return $KeyInfo.Key -in @([ConsoleKey]::Escape, [ConsoleKey]::Q) -or $isControlC
+            }
+
+            function Test-PackagePickerManagerBackKey
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [ConsoleKeyInfo]$KeyInfo
+                )
+
+                return $ReturnToPlatformPackageManagerOnBackKey -and $KeyInfo.Key -in @([ConsoleKey]::Backspace, [ConsoleKey]::Delete)
             }
 
             function Test-PackagePickerHelpKey
@@ -2700,6 +2716,10 @@ function Find-PlatformPackage
                         $frameLines += Format-PickerFrameLine -Text 'Keys: I install current  V details' -ForegroundColor DarkGray
                     }
                     $frameLines += Format-PickerFrameLine -Text "Nav: ${sourceHint}/ search  Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" -ForegroundColor DarkGray
+                    if ($ReturnToPlatformPackageManagerOnBackKey)
+                    {
+                        $frameLines += Format-PickerFrameLine -Text 'Backspace/Delete: manager menu' -ForegroundColor DarkGray
+                    }
                     $frameLines += ''
 
                     if ($visiblePackages.Count -eq 0)
@@ -2708,6 +2728,15 @@ function Find-PlatformPackage
                         Write-PickerFrame -Lines $frameLines
 
                         $key = & $KeyReader
+                        if (Test-PackagePickerManagerBackKey -KeyInfo $key)
+                        {
+                            Clear-PickerFrame
+                            return [PSCustomObject]@{
+                                Action = 'Cancel'
+                                SelectedPackages = @()
+                            }
+                        }
+
                         if (Test-PackagePickerCancelKey -KeyInfo $key)
                         {
                             Clear-PickerFrame
@@ -2856,6 +2885,15 @@ function Find-PlatformPackage
                     }
 
                     $key = & $KeyReader
+                    if (Test-PackagePickerManagerBackKey -KeyInfo $key)
+                    {
+                        Clear-PickerFrame
+                        return [PSCustomObject]@{
+                            Action = 'Cancel'
+                            SelectedPackages = @()
+                        }
+                    }
+
                     if (Test-PackagePickerCancelKey -KeyInfo $key)
                     {
                         Clear-PickerFrame
@@ -3075,7 +3113,7 @@ function Find-PlatformPackage
                     continue
                 }
 
-                $browserResult = Show-AvailablePackageResults -AvailablePackages $packages -QueryText $queryText -KeyReader $KeyReader -PageSize $PickerPageSize -EnableSelection -EnableReturnSelection:$PassThru.IsPresent -SourceFilter $FilterSource -TreatKeyReaderAsConsoleKeyReader:$TreatKeyReaderAsConsoleKeyReader -TerminalEchoController $TerminalEchoController
+                $browserResult = Show-AvailablePackageResults -AvailablePackages $packages -QueryText $queryText -KeyReader $KeyReader -PageSize $PickerPageSize -EnableSelection -EnableReturnSelection:$PassThru.IsPresent -SourceFilter $FilterSource -TreatKeyReaderAsConsoleKeyReader:$TreatKeyReaderAsConsoleKeyReader -TerminalEchoController $TerminalEchoController -ReturnToPlatformPackageManagerOnBackKey:$ReturnToPlatformPackageManagerOnBackKey
                 if ($browserResult.Action -eq 'Return')
                 {
                     return @($browserResult.SelectedPackages)
