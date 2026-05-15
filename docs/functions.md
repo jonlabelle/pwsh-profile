@@ -58,17 +58,17 @@ apt, and apk. Use `Get-PlatformPackage`, `Find-PlatformPackage -NonInteractive`,
 and `Upgrade-PlatformPackage` for interactive package workflows; destructive commands
 also support `-WhatIf`.
 
-| Command | Best use |
-| --- | --- |
-| `Show-PlatformPackageManager` | Menu-driven package workflows. |
-| `Get-PlatformPackage` | Script-friendly installed package inventory. |
-| `Find-PlatformPackage -NonInteractive` | Script-friendly remote registry search. |
-| `Find-PlatformPackage` | Interactive remote search and optional install. |
-| `Show-InstalledPlatformPackage` | Interactive installed package browser. |
-| `Install-PlatformPackage` | Direct, pipeline, or search-driven installs. |
-| `Upgrade-PlatformPackage` | Interactive, filtered, or all-package upgrades. |
-| `Remove-PlatformPackage` | Interactive, filtered, or all-package removals. |
-| `Get-PlatformPackageDependency` | Direct and reverse dependency inspection. |
+| Command                                | Best use                                        |
+| -------------------------------------- | ----------------------------------------------- |
+| `Show-PlatformPackageManager`          | Menu-driven package workflows.                  |
+| `Get-PlatformPackage`                  | Script-friendly installed package inventory.    |
+| `Find-PlatformPackage -NonInteractive` | Script-friendly remote registry search.         |
+| `Find-PlatformPackage`                 | Interactive remote search and optional install. |
+| `Show-InstalledPlatformPackage`        | Interactive installed package browser.          |
+| `Install-PlatformPackage`              | Direct, pipeline, or search-driven installs.    |
+| `Upgrade-PlatformPackage`              | Interactive, filtered, or all-package upgrades. |
+| `Remove-PlatformPackage`               | Interactive, filtered, or all-package removals. |
+| `Get-PlatformPackageDependency`        | Direct and reverse dependency inspection.       |
 
 - [`Find-PlatformPackage`](../Functions/SystemAdministration/Find-PlatformPackage.ps1) - Searches native platform package registries.
 - [`Get-PathPermission`](../Functions/SystemAdministration/Get-PathPermission.ps1) - Shows file and directory permission details for one or more paths.
@@ -143,6 +143,7 @@ also support `-WhatIf`.
 
 - [`Get-MediaInfo`](../Functions/MediaProcessing/Get-MediaInfo.ps1) - Retrieves detailed information about media files.
 - [`Invoke-FFmpeg`](../Functions/MediaProcessing/Invoke-FFmpeg.ps1) - Converts video files using Samsung-friendly H.264 or H.265 settings.
+- [`Remove-ImageMetadata`](../Functions/MediaProcessing/Remove-ImageMetadata.ps1) - Removes metadata and privacy-sensitive information from images.
 - [`Rename-VideoSeasonFile`](../Functions/MediaProcessing/Rename-VideoSeasonFile.ps1) - Renames files into a consistent season sequence format.
 
 ## Utilities
