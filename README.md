@@ -143,7 +143,7 @@ Everything you need to know about installation, functions, troubleshooting, remo
 | [Active Directory](docs/functions.md#active-directory)              | credentials, account lockout checks, group policy update                                      |
 | [Module Management](docs/functions.md#powershell-module-management) | module update checks and cleanup                                                              |
 | [Profile Management](docs/functions.md#profile-management)          | function discovery and profile update checks                                                  |
-| [Media Processing](docs/functions.md#media-processing)              | ffprobe, FFmpeg conversion, image metadata stripping, season file renaming                    |
+| [Media Processing](docs/functions.md#media-processing)              | ffprobe, FFmpeg conversion, image metadata inspection and stripping, season file renaming     |
 
 ## Local Functions
 

@@ -122,6 +122,7 @@
 
 ## Media Processing
 
+- [`Get-ImageMetadata`](../Functions/MediaProcessing/Get-ImageMetadata.ps1) - Retrieves embedded metadata from image files using ExifTool.
 - [`Get-MediaInfo`](../Functions/MediaProcessing/Get-MediaInfo.ps1) - Retrieves detailed information about media files.
 - [`Invoke-FFmpeg`](../Functions/MediaProcessing/Invoke-FFmpeg.ps1) - Converts video files using Samsung-friendly H.264 or H.265 settings.
 - [`Remove-ImageMetadata`](../Functions/MediaProcessing/Remove-ImageMetadata.ps1) - Removes metadata and privacy-sensitive information from images.
