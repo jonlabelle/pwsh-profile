@@ -193,6 +193,14 @@ function Verb-Noun {
 - Return `$false` for expected failures (like DNS not found)
 - Re-throw unexpected errors: `throw $_`
 - Always include verbose logging: `Write-Verbose "Error: $($_.Exception.Message)"`
+- When an external executable dependency or platform requirement is missing, include a non-executing install hint when a verified package name/id exists for the current platform. Assume profile functions are already auto-loaded and package-manager detection is automatic, call `Install-PlatformPackage` directly without `-PackageManager`, and include its project-root path `./Functions/SystemAdministration/Install-PlatformPackage.ps1` for discoverability:
+
+  ```powershell
+  Install-PlatformPackage -Id <winget-package-id>
+  Install-PlatformPackage -Name <package-name>
+  ```
+
+  Do not automatically run the install command. Prefer official packages, use `-Id` for exact winget package identifiers, and use `-Name` for Homebrew/APT/APK package names. If no verified package exists for the detected platform/package manager, omit the hint rather than guessing.
 
 ### Validation Patterns
 

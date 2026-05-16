@@ -167,6 +167,59 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
         }
     }
 
+    Context 'Dependency Install Hints' {
+        BeforeEach {
+            $script:DependencyHintRoot = Join-Path -Path $TestDrive -ChildPath "DependencyHintTest-$(Get-Random)"
+            New-Item -Path $script:DependencyHintRoot -ItemType Directory -Force | Out-Null
+
+            $script:DependencyHintImage = Join-Path -Path $script:DependencyHintRoot -ChildPath 'photo.jpg'
+            $script:DependencyHintExifTool = Join-Path -Path $script:DependencyHintRoot -ChildPath 'exiftool.ps1'
+
+            'fake image bytes' | Set-Content -LiteralPath $script:DependencyHintImage -Encoding UTF8
+            "'1 image files updated'" | Set-Content -LiteralPath $script:DependencyHintExifTool -Encoding UTF8
+        }
+
+        It 'Should include an Install-PlatformPackage hint when ExifTool is missing' {
+            $missingExifToolPath = Join-Path -Path $script:DependencyHintRoot -ChildPath 'missing-exiftool'
+            $exception = $null
+
+            try
+            {
+                Remove-ImageMetadata -Path $script:DependencyHintImage -ExifToolPath $missingExifToolPath -ErrorAction Stop
+            }
+            catch
+            {
+                $exception = $_.Exception
+            }
+
+            $exception | Should -Not -BeNullOrEmpty
+            $exception.Message | Should -BeLike '*Install-PlatformPackage.ps1*'
+            $exception.Message | Should -Not -BeLike '*. ./Functions/SystemAdministration/Install-PlatformPackage.ps1*'
+            $exception.Message | Should -Not -BeLike '*-PackageManager*'
+            $exception.Message | Should -Match '(-Id OliverBetz\.ExifTool|-Name exiftool|-Name libimage-exiftool-perl)'
+        }
+
+        It 'Should include an Install-PlatformPackage hint when ImageMagick is missing' {
+            $missingImageMagickPath = Join-Path -Path $script:DependencyHintRoot -ChildPath 'missing-magick'
+            $exception = $null
+
+            try
+            {
+                Remove-ImageMetadata -Path $script:DependencyHintImage -ExifToolPath $script:DependencyHintExifTool -Paranoid -ImageMagickPath $missingImageMagickPath -ErrorAction Stop
+            }
+            catch
+            {
+                $exception = $_.Exception
+            }
+
+            $exception | Should -Not -BeNullOrEmpty
+            $exception.Message | Should -BeLike '*Install-PlatformPackage.ps1*'
+            $exception.Message | Should -Not -BeLike '*. ./Functions/SystemAdministration/Install-PlatformPackage.ps1*'
+            $exception.Message | Should -Not -BeLike '*-PackageManager*'
+            $exception.Message | Should -Match '(-Id ImageMagick\.ImageMagick|-Name imagemagick)'
+        }
+    }
+
     Context 'Default Behavior' {
         BeforeAll {
             $script:TestRoot = Join-Path -Path $TestDrive -ChildPath 'ImageMetadataTest'

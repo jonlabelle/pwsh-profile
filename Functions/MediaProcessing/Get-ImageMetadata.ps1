@@ -216,6 +216,145 @@ function Get-ImageMetadata
             $script:IsLinuxPlatform = $IsLinux
         }
 
+        function Get-ImageMetadataLinuxPackageManagerHint
+        {
+            $aptCommand = Get-Command -Name 'apt' -CommandType Application -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+            if ($aptCommand)
+            {
+                return 'apt'
+            }
+
+            $apkCommand = Get-Command -Name 'apk' -CommandType Application -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+            if ($apkCommand)
+            {
+                return 'apk'
+            }
+
+            $brewCommand = Get-Command -Name 'brew' -CommandType Application -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+            if ($brewCommand)
+            {
+                return 'brew'
+            }
+
+            if (-not (Test-Path -Path '/etc/os-release' -PathType Leaf))
+            {
+                return ''
+            }
+
+            try
+            {
+                $linuxIds = @()
+                foreach ($line in (Get-Content -Path '/etc/os-release' -ErrorAction Stop))
+                {
+                    if ($line -match '^(?<Name>ID|ID_LIKE)=(?<Value>.+)$')
+                    {
+                        $linuxIds += $Matches.Value.Trim().Trim('"')
+                    }
+                }
+
+                $linuxFamily = ($linuxIds -join ' ').ToLowerInvariant()
+                if ($linuxFamily -match '\balpine\b')
+                {
+                    return 'apk'
+                }
+
+                if ($linuxFamily -match '\b(debian|ubuntu)\b')
+                {
+                    return 'apt'
+                }
+            }
+            catch
+            {
+                Write-Verbose "Unable to detect Linux package manager for install hint: $($_.Exception.Message)"
+            }
+
+            return ''
+        }
+
+        function Get-ImageMetadataInstallPackageHint
+        {
+            param(
+                [Parameter(Mandatory)]
+                [ValidateSet('ExifTool')]
+                [String]$RequirementName
+            )
+
+            $installerCommand = 'Install-PlatformPackage'
+
+            if ($script:IsWindowsPlatform)
+            {
+                switch ($RequirementName)
+                {
+                    'ExifTool' { return "$installerCommand -Id OliverBetz.ExifTool" }
+                }
+            }
+
+            if ($script:IsMacOSPlatform)
+            {
+                switch ($RequirementName)
+                {
+                    'ExifTool' { return "$installerCommand -Name exiftool" }
+                }
+            }
+
+            if ($script:IsLinuxPlatform)
+            {
+                $linuxPackageManager = Get-ImageMetadataLinuxPackageManagerHint
+                switch ($linuxPackageManager)
+                {
+                    'apt'
+                    {
+                        switch ($RequirementName)
+                        {
+                            'ExifTool' { return "$installerCommand -Name libimage-exiftool-perl" }
+                        }
+                    }
+                    'apk'
+                    {
+                        switch ($RequirementName)
+                        {
+                            'ExifTool' { return "$installerCommand -Name exiftool" }
+                        }
+                    }
+                    'brew'
+                    {
+                        switch ($RequirementName)
+                        {
+                            'ExifTool' { return "$installerCommand -Name exiftool" }
+                        }
+                    }
+                }
+            }
+
+            return ''
+        }
+
+        function Get-ImageMetadataMissingRequirementMessage
+        {
+            param(
+                [Parameter(Mandatory)]
+                [ValidateSet('ExifTool')]
+                [String]$RequirementName,
+
+                [Parameter(Mandatory)]
+                [ValidateNotNullOrEmpty()]
+                [String]$PathParameterName
+            )
+
+            $message = "$RequirementName executable not found. Install $RequirementName or specify the path using -$PathParameterName."
+            $installPackageHint = Get-ImageMetadataInstallPackageHint -RequirementName $RequirementName
+
+            if (-not [String]::IsNullOrWhiteSpace($installPackageHint))
+            {
+                $message = "$message Hint: run: $installPackageHint (function path: ./Functions/SystemAdministration/Install-PlatformPackage.ps1)."
+            }
+
+            return $message
+        }
+
         function Get-ValidExifToolPath
         {
             param([String]$ProvidedPath)
@@ -292,7 +431,7 @@ function Get-ImageMetadata
 
             if (-not $resolvedPath -or -not (Test-Path -LiteralPath $resolvedPath -PathType Leaf))
             {
-                throw 'ExifTool executable not found. Install ExifTool or specify the path using -ExifToolPath.'
+                throw (Get-ImageMetadataMissingRequirementMessage -RequirementName 'ExifTool' -PathParameterName 'ExifToolPath')
             }
 
             return $resolvedPath

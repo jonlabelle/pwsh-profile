@@ -145,6 +145,28 @@ Describe 'Get-ImageMetadata' -Tag 'Unit' {
         }
     }
 
+    Context 'Dependency Install Hints' {
+        It 'Should include an Install-PlatformPackage hint when ExifTool is missing' {
+            $missingExifToolPath = Join-Path -Path $TestDrive -ChildPath 'missing-exiftool'
+            $exception = $null
+
+            try
+            {
+                Get-ImageMetadata -Path $TestDrive -ExifToolPath $missingExifToolPath -ErrorAction Stop
+            }
+            catch
+            {
+                $exception = $_.Exception
+            }
+
+            $exception | Should -Not -BeNullOrEmpty
+            $exception.Message | Should -BeLike '*Install-PlatformPackage.ps1*'
+            $exception.Message | Should -Not -BeLike '*. ./Functions/SystemAdministration/Install-PlatformPackage.ps1*'
+            $exception.Message | Should -Not -BeLike '*-PackageManager*'
+            $exception.Message | Should -Match '(-Id OliverBetz\.ExifTool|-Name exiftool|-Name libimage-exiftool-perl)'
+        }
+    }
+
     Context 'Default Behavior' {
         BeforeEach {
             $script:TestRoot = Join-Path -Path $TestDrive -ChildPath "ImageMetadataTest-$(Get-Random)"
