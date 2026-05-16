@@ -83,7 +83,7 @@ function Get-PlatformPackageDependency
     [OutputType([PSCustomObject], [PSCustomObject[]], [Object[]])]
     param(
         [Parameter(Mandatory, Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [Alias('Name', 'Id', 'PackageName')]
+        [Alias('Name', 'PackageName')]
         [Object[]]$Package,
 
         [Parameter()]

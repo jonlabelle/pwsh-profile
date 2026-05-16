@@ -6,7 +6,7 @@ function Install-PlatformPackage
 
     .DESCRIPTION
         Installs packages using the supported native package manager for the current platform.
-        You can install packages directly by name or id, pipe normalized results from
+        You can install packages directly by name, pipe normalized results from
         Find-PlatformPackage, or start from a search query and select packages in an
         interactive console picker.
 
@@ -25,11 +25,9 @@ function Install-PlatformPackage
         installs the current package.
 
     .PARAMETER Name
-        Installs one or more packages by name using the detected package manager.
-
-    .PARAMETER Id
-        Installs one or more packages by package identifier. This is most useful for
-        package managers such as winget that distinguish names from ids.
+        Installs one or more packages using the detected package manager. On Windows,
+        pass the winget package id to -Name; it is installed internally with winget's
+        --id and --exact arguments. On other platforms, pass the package name.
 
     .PARAMETER InputObject
         One or more normalized package records, such as objects returned by
@@ -63,9 +61,10 @@ function Install-PlatformPackage
         Installs git by name using the detected package manager.
 
     .EXAMPLE
-        PS > Install-PlatformPackage -Id Git.Git -PackageManager winget
+        PS > Install-PlatformPackage -Name Git.Git
 
-        Installs a package by winget identifier.
+        Installs a Windows package by winget package id when winget is the detected
+        package manager.
 
     .EXAMPLE
         PS > Find-PlatformPackage -NonInteractive -Query code | Install-PlatformPackage
@@ -123,9 +122,6 @@ function Install-PlatformPackage
         [Parameter(Mandatory, Position = 0, ParameterSetName = 'Name')]
         [Alias('PackageName')]
         [String[]]$Name,
-
-        [Parameter(Mandatory, Position = 0, ParameterSetName = 'Id')]
-        [String[]]$Id,
 
         [Parameter(Mandatory, ValueFromPipeline, ParameterSetName = 'InputObject')]
         [Object]$InputObject,
@@ -1034,7 +1030,7 @@ function Install-PlatformPackage
                 }
                 catch
                 {
-                    throw 'Interactive package installation requires an attached console. Use Find-PlatformPackage -NonInteractive for object output or install explicit package names or ids in non-interactive sessions.'
+                    throw 'Interactive package installation requires an attached console. Use Find-PlatformPackage -NonInteractive for object output or install explicit package names in non-interactive sessions.'
                 }
 
                 $KeyReader = { [Console]::ReadKey($true) }
@@ -2245,31 +2241,10 @@ function Install-PlatformPackage
                 $selectedPackages = @(
                     foreach ($packageName in @($Name | Where-Object { -not [String]::IsNullOrWhiteSpace($_) }))
                     {
+                        $trimmedName = $packageName.Trim()
                         [PSCustomObject]@{
-                            Name = $packageName.Trim()
-                            Id = ''
-                            Publisher = ''
-                            Type = 'Package'
-                            Version = ''
-                            Source = ''
-                            Description = ''
-                            Installed = $false
-                            Notes = ''
-                        }
-                    }
-                )
-                $totalMatched = $selectedPackages.Count
-            }
-            'Id'
-            {
-                $manager = Resolve-PackageManager
-                $selectedPackages = @(
-                    foreach ($packageId in @($Id | Where-Object { -not [String]::IsNullOrWhiteSpace($_) }))
-                    {
-                        $trimmedId = $packageId.Trim()
-                        [PSCustomObject]@{
-                            Name = $trimmedId
-                            Id = $trimmedId
+                            Name = $trimmedName
+                            Id = if ($manager.Name -eq 'winget') { $trimmedName } else { '' }
                             Publisher = ''
                             Type = 'Package'
                             Version = ''

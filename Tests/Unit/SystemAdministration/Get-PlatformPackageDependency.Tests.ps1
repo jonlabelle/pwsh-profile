@@ -12,6 +12,15 @@ Describe 'Get-PlatformPackageDependency' {
         $script:Invocations = New-Object 'System.Collections.Generic.List[Object]'
     }
 
+    Context 'Parameter shape' {
+        It 'uses Name as an alias for Package without exposing an Id alias' {
+            $command = Get-Command Get-PlatformPackageDependency
+
+            $command.Parameters['Package'].Aliases | Should -Contain 'Name'
+            $command.Parameters['Package'].Aliases | Should -Not -Contain 'Id'
+        }
+    }
+
     Context 'Homebrew dependency discovery' {
         It 'returns direct dependencies from brew deps' {
             $runner = & $script:NewPackageCommandRunner @{

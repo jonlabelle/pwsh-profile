@@ -57,9 +57,37 @@ function Get-ImageMetadata
         Adds the parsed raw ExifTool JSON object to each non-flattened result.
 
     .EXAMPLE
-        PS > Get-ImageMetadata -Path '.\photo.jpg'
+        PS > Get-ImageMetadata -Path './photo.jpg'
 
         Retrieves all available metadata from photo.jpg.
+
+    .EXAMPLE
+        PS > Get-ImageMetadata './photo.jpg' | Select-Object -ExpandProperty Metadata
+
+        Name                           Value
+        ----                           -----
+        ExifTool:ExifToolVersion       13.55
+        System:FileName                photo.jpg
+        System:Directory               /Users/jl/image-meta-data
+        System:FileSize                1758 kB
+        System:FileModifyDate          1999:12:31 18:00:00-06:00
+        System:FileAccessDate          2026:05:16 09:31:18-05:00
+        System:FileInodeChangeDate     2026:05:16 09:31:16-05:00
+        System:FilePermissions         -rw-r--r--
+        File:FileType                  PNG
+        File:FileTypeExtension         png
+        File:MIMEType                  image/png
+        PNG:ImageWidth                 1304
+        PNG:ImageHeight                1206
+        PNG:BitDepth                   8
+        PNG:ColorType                  RGB
+        PNG:Compression                Deflate/Inflate
+        PNG:Filter                     Adaptive
+        PNG:Interlace                  Noninterlaced
+        Composite:ImageSize            1304x1206
+        Composite:Megapixels           1.6
+
+        Expands the Metadata property to show all tags as top-level properties.
 
     .EXAMPLE
         PS > Get-ImageMetadata -Path '.\Images'
@@ -87,32 +115,32 @@ function Get-ImageMetadata
         Retrieves metadata from JPEG files provided through the pipeline.
 
     .EXAMPLE
-        PS > Get-ImageMetadata -Path '.\photo.jpg' -Tag EXIF:Make, EXIF:Model, GPS:all
+        PS > Get-ImageMetadata -Path './photo.jpg' -Tag EXIF:Make, EXIF:Model, GPS:all
 
         Retrieves only camera make, camera model, and GPS tags.
 
     .EXAMPLE
-        PS > Get-ImageMetadata -Path '.\photo.jpg' -Tag DateTimeOriginal -Numeric
+        PS > Get-ImageMetadata -Path './photo.jpg' -Tag DateTimeOriginal -Numeric
 
         Retrieves DateTimeOriginal while requesting numeric ExifTool output.
 
     .EXAMPLE
-        PS > Get-ImageMetadata -Path '.\photo.jpg' -Flatten
+        PS > Get-ImageMetadata -Path './photo.jpg' -Flatten
 
         Returns one object per metadata tag with Path, Group, Tag, Name, and Value properties.
 
     .EXAMPLE
-        PS > Get-ImageMetadata -Path '.\photo.jpg' -Flatten | Where-Object Group -eq 'GPS'
+        PS > Get-ImageMetadata -Path './photo.jpg' -Flatten | Where-Object Group -eq 'GPS'
 
         Displays only GPS metadata tags from photo.jpg.
 
     .EXAMPLE
-        PS > Get-ImageMetadata -Path '.\photo.jpg' -NoEmptyProperties
+        PS > Get-ImageMetadata -Path './photo.jpg' -NoEmptyProperties
 
         Retrieves metadata and omits empty tag values from the Metadata property.
 
     .EXAMPLE
-        PS > Get-ImageMetadata -Path '.\photo.jpg' -IncludeRawExifToolData
+        PS > Get-ImageMetadata -Path './photo.jpg' -IncludeRawExifToolData
 
         Includes the parsed raw ExifTool JSON object with the structured result.
 
@@ -127,7 +155,7 @@ function Get-ImageMetadata
         Recursively inspects a photo folder for non-empty GPS tags.
 
     .EXAMPLE
-        PS > Get-ImageMetadata -Path '.\photo.jpg' -ExifToolPath '/opt/homebrew/bin/exiftool'
+        PS > Get-ImageMetadata -Path './photo.jpg' -ExifToolPath '/opt/homebrew/bin/exiftool'
 
         Uses a specific ExifTool executable to retrieve image metadata.
 
@@ -288,7 +316,7 @@ function Get-ImageMetadata
             {
                 switch ($RequirementName)
                 {
-                    'ExifTool' { return "$installerCommand -Id OliverBetz.ExifTool" }
+                    'ExifTool' { return "$installerCommand -Name OliverBetz.ExifTool" }
                 }
             }
 

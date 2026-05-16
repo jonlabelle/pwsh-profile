@@ -196,7 +196,8 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $exception.Message | Should -BeLike '*Install-PlatformPackage.ps1*'
             $exception.Message | Should -Not -BeLike '*. ./Functions/SystemAdministration/Install-PlatformPackage.ps1*'
             $exception.Message | Should -Not -BeLike '*-PackageManager*'
-            $exception.Message | Should -Match '(-Id OliverBetz\.ExifTool|-Name exiftool|-Name libimage-exiftool-perl)'
+            $exception.Message | Should -Not -BeLike '*-Id*'
+            $exception.Message | Should -Match '(-Name OliverBetz\.ExifTool|-Name exiftool|-Name libimage-exiftool-perl)'
         }
 
         It 'Should include an Install-PlatformPackage hint when ImageMagick is missing' {
@@ -216,7 +217,8 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $exception.Message | Should -BeLike '*Install-PlatformPackage.ps1*'
             $exception.Message | Should -Not -BeLike '*. ./Functions/SystemAdministration/Install-PlatformPackage.ps1*'
             $exception.Message | Should -Not -BeLike '*-PackageManager*'
-            $exception.Message | Should -Match '(-Id ImageMagick\.ImageMagick|-Name imagemagick)'
+            $exception.Message | Should -Not -BeLike '*-Id*'
+            $exception.Message | Should -Match '(-Name ImageMagick\.ImageMagick|-Name imagemagick)'
         }
     }
 

@@ -492,8 +492,8 @@ function Remove-ImageMetadata
             {
                 switch ($RequirementName)
                 {
-                    'ExifTool' { return "$installerCommand -Id OliverBetz.ExifTool" }
-                    'ImageMagick' { return "$installerCommand -Id ImageMagick.ImageMagick" }
+                    'ExifTool' { return "$installerCommand -Name OliverBetz.ExifTool" }
+                    'ImageMagick' { return "$installerCommand -Name ImageMagick.ImageMagick" }
                 }
             }
 

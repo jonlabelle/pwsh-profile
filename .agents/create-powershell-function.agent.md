@@ -98,14 +98,13 @@ if ($PSVersionTable.PSVersion.Major -lt 6) {
 
 **Missing external dependencies:**
 
-When a function requires an external executable or platform package and the requirement is not resolved, include a non-executing install hint when a verified package name/id exists for the target platform/package manager. Prefer official packages. Assume profile functions are already auto-loaded and package-manager detection is automatic, call `Install-PlatformPackage` directly without `-PackageManager`, and include its project-root path `./Functions/SystemAdministration/Install-PlatformPackage.ps1` for discoverability:
+When a function requires an external executable or platform package and the requirement is not resolved, include a non-executing install hint when a verified package name or winget package id exists for the target platform/package manager. Prefer official packages. Assume profile functions are already auto-loaded and package-manager detection is automatic, call `Install-PlatformPackage` directly without `-PackageManager`, and include its project-root path `./Functions/SystemAdministration/Install-PlatformPackage.ps1` for discoverability:
 
 ```powershell
-Install-PlatformPackage -Id <package-id>
-Install-PlatformPackage -Name <package-name>
+Install-PlatformPackage -Name <package-name>|<winget-package-id>
 ```
 
-Do not automatically run the install command. Use `-Id` for exact winget package identifiers and `-Name` for Homebrew/APT/APK package names. If no verified package exists for the detected platform/package manager, omit the hint rather than guessing.
+Do not automatically run the install command. Use `-Name` for both exact winget package identifiers and Homebrew/APT/APK package names. If no verified package exists for the detected platform/package manager, omit the hint rather than guessing.
 
 **Alias creation (only if needed):**
 

@@ -16,16 +16,23 @@ Describe 'Install-PlatformPackage' {
     }
 
     Context 'Direct installs' {
-        It 'installs a winget package by id and streams command output' {
+        It 'installs a winget package name as an exact id and streams command output' {
             $runner = & $script:NewPackageCommandRunner @{
                 'winget install --id Git.Git --exact --accept-source-agreements --accept-package-agreements' = Get-TestCommandResponse -Output @('winget install output')
             }
 
-            $result = Install-PlatformPackage -PackageManager winget -Id Git.Git -CommandRunner $runner -Confirm:$false
+            $result = Install-PlatformPackage -PackageManager winget -Name Git.Git -CommandRunner $runner -Confirm:$false
 
             $result.Installed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --accept-source-agreements --accept-package-agreements' }).StreamOutput | Should -BeTrue
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'winget install output' } -Times 1
+        }
+
+        It 'does not expose a separate Id parameter' {
+            $command = Get-Command Install-PlatformPackage
+
+            $command.Parameters.ContainsKey('Name') | Should -BeTrue
+            $command.Parameters.ContainsKey('Id') | Should -BeFalse
         }
 
         It 'honors WhatIf for direct installs' {
