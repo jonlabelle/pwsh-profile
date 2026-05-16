@@ -83,9 +83,10 @@ function Remove-ImageMetadata
         deletion may not fully normalize.
 
     .PARAMETER Verify
-        Runs ExifTool after cleanup and reports remaining watched metadata tags
-        such as EXIF, GPS, XMP, IPTC, ICC profile, Photoshop, comments, titles,
-        authors, software, device details, and thumbnail/preview tags.
+        Runs post-cleanup verification and reports remaining watched metadata as
+        tag/value entries (for example, [EXIF] Make = Canon) using Get-ImageMetadata.
+        Watched tags include EXIF, GPS, XMP, IPTC, ICC profile, Photoshop,
+        comments, titles, authors, software, device details, and thumbnail/preview tags.
 
     .PARAMETER PassThru
         Returns a result object for each image file considered for processing.
@@ -1032,70 +1033,108 @@ function Remove-ImageMetadata
         {
             param([String]$FilePath)
 
-            $verifyArgs = @(
-                '-a'
-                '-G1'
-                '-s'
-                '-EXIF:all'
-                '-GPS:all'
-                '-XMP:all'
-                '-IPTC:all'
-                '-MakerNotes:all'
-                '-ICC_Profile:all'
-                '-Photoshop:all'
-                '-Comment'
-                '-UserComment'
-                '-ImageDescription'
-                '-Description'
-                '-Title'
-                '-Subject'
-                '-Keywords'
-                '-Artist'
-                '-Author'
-                '-Creator'
-                '-Copyright'
-                '-Software'
-                '-Make'
-                '-Model'
-                '-SerialNumber'
-                '-OwnerName'
-                '-DocumentName'
-                '-XPTitle'
-                '-XPComment'
-                '-XPAuthor'
-                '-XPKeywords'
-                '-XPSubject'
-                '-ThumbnailImage'
-                '-PreviewImage'
-                $FilePath
-            )
-
-            Write-Verbose "ExifTool verify command: $exifToolExecutable $($verifyArgs -join ' ')"
-
-            $global:LASTEXITCODE = 0
-            $commandOutput = @(& $exifToolExecutable @verifyArgs 2>&1)
-            $exitCode = $LASTEXITCODE
-
-            if ($exitCode -ne 0)
+            if (-not (Get-Command -Name 'Get-ImageMetadata' -CommandType Function -ErrorAction SilentlyContinue))
             {
-                $message = ($commandOutput | ForEach-Object { "$_" }) -join [Environment]::NewLine
-                return [PSCustomObject]@{
-                    Success = $false
-                    Tags = @("Verification failed: $message")
+                if (-not [String]::IsNullOrWhiteSpace($PSScriptRoot))
+                {
+                    $getImageMetadataPath = Join-Path -Path $PSScriptRoot -ChildPath 'Get-ImageMetadata.ps1'
+                    if (Test-Path -LiteralPath $getImageMetadataPath -PathType Leaf)
+                    {
+                        . $getImageMetadataPath
+                    }
                 }
             }
 
-            $remainingTags = [System.Collections.Generic.List[String]]::new()
-            foreach ($line in $commandOutput)
+            if (-not (Get-Command -Name 'Get-ImageMetadata' -CommandType Function -ErrorAction SilentlyContinue))
             {
-                $text = "$line"
-                if ($text -match '^\[(?<Group>[^\]]+)\]\s+(?<Tag>[^:]+)\s*:')
-                {
-                    $remainingTags.Add(('[{0}] {1}' -f $Matches.Group.Trim(), $Matches.Tag.Trim()))
+                return [PSCustomObject]@{
+                    Success = $false
+                    Tags = @('Verification failed: Get-ImageMetadata is not available in the current session.')
                 }
-                elseif ($text -match '^(?<Tag>[^:]+)\s*:')
+            }
+
+            $verifyTags = @(
+                'EXIF:all'
+                'GPS:all'
+                'XMP:all'
+                'IPTC:all'
+                'MakerNotes:all'
+                'ICC_Profile:all'
+                'Photoshop:all'
+                'Comment'
+                'UserComment'
+                'ImageDescription'
+                'Description'
+                'Title'
+                'Subject'
+                'Keywords'
+                'Artist'
+                'Author'
+                'Creator'
+                'Copyright'
+                'Software'
+                'Make'
+                'Model'
+                'SerialNumber'
+                'OwnerName'
+                'DocumentName'
+                'XPTitle'
+                'XPComment'
+                'XPAuthor'
+                'XPKeywords'
+                'XPSubject'
+                'ThumbnailImage'
+                'PreviewImage'
+            )
+
+            $remainingTags = [System.Collections.Generic.List[String]]::new()
+            try
+            {
+                Write-Verbose "Get-ImageMetadata verify target: $FilePath"
+                $verificationResult = @(Get-ImageMetadata -Path $FilePath -ExifToolPath $exifToolExecutable -Tag $verifyTags -NoEmptyProperties -ErrorAction Stop)
+
+                foreach ($item in $verificationResult)
                 {
-                    $remainingTags.Add($Matches.Tag.Trim())
+                    if ($null -eq $item.Metadata)
+                    {
+                        continue
+                    }
+
+                    foreach ($entry in $item.Metadata.GetEnumerator())
+                    {
+                        $metadataName = [String]$entry.Key
+                        $value = $entry.Value
+                        $nameMatch = [regex]::Match($metadataName, '^(?<Group>[^:]+):(?<Tag>.+)$')
+                        if ($nameMatch.Success)
+                        {
+                            $label = '[{0}] {1}' -f $nameMatch.Groups['Group'].Value.Trim(), $nameMatch.Groups['Tag'].Value.Trim()
+                        }
+                        else
+                        {
+                            $label = $metadataName.Trim()
+                        }
+
+                        if ($value -is [System.Array])
+                        {
+                            $valueText = @($value | ForEach-Object { "$_" }) -join ', '
+                        }
+                        else
+                        {
+                            $valueText = "$value"
+                        }
+
+                        if (-not [String]::IsNullOrWhiteSpace($valueText))
+                        {
+                            $remainingTags.Add("$label = $valueText")
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                return [PSCustomObject]@{
+                    Success = $false
+                    Tags = @("Verification failed: $($_.Exception.Message)")
                 }
             }
 

@@ -2,6 +2,7 @@ BeforeAll {
     # Suppress progress bars to prevent freezing in non-interactive environments
     $Global:ProgressPreference = 'SilentlyContinue'
 
+    . "$PSScriptRoot/../../../Functions/MediaProcessing/Get-ImageMetadata.ps1"
     . "$PSScriptRoot/../../../Functions/MediaProcessing/Remove-ImageMetadata.ps1"
 }
 
@@ -487,20 +488,50 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $result.MetadataRemoved | Should -Be $true
         }
 
-        It 'Should return verification details when Verify is specified' {
-            $env:PWSH_PROFILE_FAKE_EXIFTOOL_REMAINING_TAG = '1'
-            try
-            {
-                $result = Remove-ImageMetadata -Path $script:PrivacySourceImage -OutputPath $script:PrivacyOutputDir -ExifToolPath $script:PrivacyFakeExifToolPath -Verify
+        It 'Should surface remaining metadata tag values when output-path verification is incomplete' {
+            Mock -CommandName Get-ImageMetadata -MockWith {
+                [PSCustomObject]@{
+                    Path = $script:PrivacyOutputImage
+                    Name = 'private-photo.jpg'
+                    Metadata = [ordered]@{
+                        'EXIF:Make' = 'Test Camera'
+                        'XMP:Title' = 'Private Album'
+                    }
+                }
             }
-            finally
-            {
-                Remove-Item -Path Env:\PWSH_PROFILE_FAKE_EXIFTOOL_REMAINING_TAG -ErrorAction SilentlyContinue
-            }
+
+            $result = Remove-ImageMetadata -Path $script:PrivacySourceImage -OutputPath $script:PrivacyOutputDir -ExifToolPath $script:PrivacyFakeExifToolPath -Verify -PassThru
 
             $result | Should -Not -BeNullOrEmpty
             $result.Verified | Should -Be $false
-            $result.RemainingMetadataTags | Should -Contain '[EXIF] Make'
+            $result.Path | Should -Be $script:PrivacyOutputImage
+            $result.OutputCopied | Should -Be $true
+            $result.RemainingMetadataTags | Should -Contain '[EXIF] Make = Test Camera'
+            $result.RemainingMetadataTags | Should -Contain '[XMP] Title = Private Album'
+            Assert-MockCalled -CommandName Get-ImageMetadata -Times 1 -Exactly -ParameterFilter { $Path -eq $script:PrivacyOutputImage }
+        }
+
+        It 'Should surface remaining metadata tag values when in-place verification is incomplete' {
+            Mock -CommandName Get-ImageMetadata -MockWith {
+                [PSCustomObject]@{
+                    Path = $script:PrivacySourceImage
+                    Name = 'private-photo.jpg'
+                    Metadata = [ordered]@{
+                        'GPS:GPSLatitude' = 41.88
+                        'IPTC:Keywords' = @('private', 'home')
+                    }
+                }
+            }
+
+            $result = Remove-ImageMetadata -Path $script:PrivacySourceImage -ExifToolPath $script:PrivacyFakeExifToolPath -Verify -PassThru
+
+            $result | Should -Not -BeNullOrEmpty
+            $result.Verified | Should -Be $false
+            $result.Path | Should -Be $script:PrivacySourceImage
+            $result.OutputCopied | Should -Be $false
+            $result.RemainingMetadataTags | Should -Contain '[GPS] GPSLatitude = 41.88'
+            $result.RemainingMetadataTags | Should -Contain '[IPTC] Keywords = private, home'
+            Assert-MockCalled -CommandName Get-ImageMetadata -Times 1 -Exactly -ParameterFilter { $Path -eq $script:PrivacySourceImage }
         }
     }
 }
