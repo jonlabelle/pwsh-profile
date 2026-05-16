@@ -30,10 +30,10 @@
 - [`Get-DnsRecord`](../Functions/NetworkAndDns/Get-DnsRecord.ps1) - Retrieves DNS records for a specified domain name.
 - [`Get-IPAddress`](../Functions/NetworkAndDns/Get-IPAddress.ps1) - Retrieves local network interface IP addresses or public external IP address.
 - [`Get-IPSubnet`](../Functions/NetworkAndDns/Get-IPSubnet.ps1) - Calculates IP subnet information including network address, broadcast address, and subnet mask.
-- [`Get-NetworkMetrics`](../Functions/NetworkAndDns/Get-NetworkMetrics.ps1) - Collects network performance metrics for a target host.
+- [`Get-NetworkMetric`](../Functions/NetworkAndDns/Get-NetworkMetric.ps1) - Collects network performance metrics for a target host.
 - [`Get-NetworkProcess`](../Functions/NetworkAndDns/Get-NetworkProcess.ps1) - Shows local network ports and the processes using them.
 - [`Get-NetworkRoute`](../Functions/NetworkAndDns/Get-NetworkRoute.ps1) - Displays the local routing table as structured PowerShell objects.
-- [`Get-PublicDnsServers`](../Functions/NetworkAndDns/Get-PublicDnsServers.ps1) - Returns a curated list of well-known public DNS servers.
+- [`Get-PublicDnsServer`](../Functions/NetworkAndDns/Get-PublicDnsServer.ps1) - Returns a curated list of well-known public DNS servers.
 - [`Get-ReverseDns`](../Functions/NetworkAndDns/Get-ReverseDns.ps1) - Performs reverse DNS (PTR) lookups for IP addresses.
 - [`Get-Whois`](../Functions/NetworkAndDns/Get-Whois.ps1) - Performs WHOIS lookups for domain names and IP addresses.
 - [`Invoke-NetworkDiagnostic`](../Functions/NetworkAndDns/Invoke-NetworkDiagnostic.ps1) - Performs comprehensive network diagnostics with visual output.
@@ -81,17 +81,17 @@
 - [`Invoke-GitPull`](../Functions/Developer/Invoke-GitPull.ps1) - Performs a Git pull with rebase on one or more Git repositories.
 - [`Invoke-Magika`](../Functions/Developer/Invoke-Magika.ps1) - Runs Magika file-type detection against files and folders.
 - [`Invoke-SqlFluff`](../Functions/Developer/Invoke-SqlFluff.ps1) - Runs SQLFluff lint, fix, or format against SQL files.
-- [`Remove-DockerArtifacts`](../Functions/Developer/Remove-DockerArtifacts.ps1) - Cleans up unused Docker artifacts with safety controls.
-- [`Remove-DotNetBuildArtifacts`](../Functions/Developer/Remove-DotNetBuildArtifacts.ps1) - Removes `bin` and `obj` folders from .NET project directories.
+- [`Remove-DockerArtifact`](../Functions/Developer/Remove-DockerArtifact.ps1) - Cleans up unused Docker artifacts with safety controls.
+- [`Remove-DotNetBuildArtifact`](../Functions/Developer/Remove-DotNetBuildArtifact.ps1) - Removes `bin` and `obj` folders from .NET project directories.
 - [`Remove-GitHubRepositoryTopic`](../Functions/Developer/Remove-GitHubRepositoryTopic.ps1) - Ensures one or more GitHub repository topics are absent.
 - [`Remove-GitHubSecret`](../Functions/Developer/Remove-GitHubSecret.ps1) - Removes a GitHub secret from repository, environment, organization, or user scope.
 - [`Remove-GitHubVariable`](../Functions/Developer/Remove-GitHubVariable.ps1) - Removes a GitHub configuration variable from repository, environment, or organization scope.
-- [`Remove-GitIgnoredFiles`](../Functions/Developer/Remove-GitIgnoredFiles.ps1) - Removes ignored and optionally untracked files from a Git repository.
-- [`Remove-NodeModules`](../Functions/Developer/Remove-NodeModules.ps1) - Removes `node_modules` folders from Node.js project directories.
+- [`Remove-GitIgnoredFile`](../Functions/Developer/Remove-GitIgnoredFile.ps1) - Removes ignored and optionally untracked files from a Git repository.
+- [`Remove-NodeModule`](../Functions/Developer/Remove-NodeModule.ps1) - Removes `node_modules` folders from Node.js project directories.
 - [`Set-GitHubRepositoryTopic`](../Functions/Developer/Set-GitHubRepositoryTopic.ps1) - Ensures one or more GitHub repository topics are present.
 - [`Set-GitHubSecret`](../Functions/Developer/Set-GitHubSecret.ps1) - Creates or updates a GitHub secret at repository, environment, organization, or user scope.
 - [`Set-GitHubVariable`](../Functions/Developer/Set-GitHubVariable.ps1) - Creates or updates a GitHub configuration variable at repository, environment, or organization scope.
-- [`Update-DockerImages`](../Functions/Developer/Update-DockerImages.ps1) - Pulls the latest versions of local Docker images from their remote registries.
+- [`Update-DockerImage`](../Functions/Developer/Update-DockerImage.ps1) - Pulls the latest versions of local Docker images from their remote registries.
 
 ## Security
 
@@ -109,14 +109,14 @@
 
 ## PowerShell Module Management
 
-- [`Get-OutdatedModules`](../Functions/ModuleManagement/Get-OutdatedModules.ps1) - Gets installed PowerShell modules that have newer versions available.
-- [`Remove-OldModules`](../Functions/ModuleManagement/Remove-OldModules.ps1) - Removes older versions of installed PowerShell modules.
-- [`Update-AllModules`](../Functions/ModuleManagement/Update-AllModules.ps1) - Updates installed PowerShell modules to their latest versions.
+- [`Get-OutdatedModule`](../Functions/ModuleManagement/Get-OutdatedModule.ps1) - Gets installed PowerShell modules that have newer versions available.
+- [`Remove-OldModule`](../Functions/ModuleManagement/Remove-OldModule.ps1) - Removes older versions of installed PowerShell modules.
+- [`Update-AllModule`](../Functions/ModuleManagement/Update-AllModule.ps1) - Updates installed PowerShell modules to their latest versions.
 
 ## Profile Management
 
 - [`Find-ProfileFunction`](../Functions/ProfileManagement/Find-ProfileFunction.ps1) - Searches profile functions to help find the right command quickly.
-- [`Show-ProfileFunctions`](../Functions/ProfileManagement/Show-ProfileFunctions.ps1) - Shows the available profile functions grouped by category.
+- [`Show-ProfileFunction`](../Functions/ProfileManagement/Show-ProfileFunction.ps1) - Shows the available profile functions grouped by category.
 - [`Test-ProfileUpdate`](../Functions/ProfileManagement/Test-ProfileUpdate.ps1) - Checks for available profile updates from the remote repository.
 - [`Update-Profile`](../Functions/ProfileManagement/Update-Profile.ps1) - Updates the PowerShell profile to the latest version.
 
@@ -129,7 +129,7 @@
 
 ## Utilities
 
-- [`Convert-LineEndings`](../Functions/Utilities/Convert-LineEndings.ps1) - Converts line endings between LF and CRLF with optional encoding conversion.
+- [`Convert-LineEnding`](../Functions/Utilities/Convert-LineEnding.ps1) - Converts line endings between LF and CRLF with optional encoding conversion.
 - [`ConvertFrom-Base64`](../Functions/Utilities/ConvertFrom-Base64.ps1) - Decodes a Base64-encoded string to text or file content.
 - [`ConvertTo-Base64`](../Functions/Utilities/ConvertTo-Base64.ps1) - Converts a string or file content to Base64 encoding.
 - [`ConvertTo-Markdown`](../Functions/Utilities/ConvertTo-Markdown.ps1) - Converts a URL or local file path to Markdown using Pandoc.
@@ -137,8 +137,8 @@
 - [`ConvertTo-USDateTime`](../Functions/Utilities/ConvertTo-USDateTime.ps1) - Converts a local, UTC, or offset-aware date/time into major US time zones.
 - [`ConvertTo-UrlSlug`](../Functions/Utilities/ConvertTo-UrlSlug.ps1) - Converts text to URL-friendly slugs or renames paths using slugified names.
 - [`Copy-Directory`](../Functions/Utilities/Copy-Directory.ps1) - Copies directories with recursion, exclusions, and parallel processing options.
-- [`Extract-Archives`](../Functions/Utilities/Extract-Archives.ps1) - Extracts archive files and can optionally process nested archives.
-- [`Format-Bytes`](../Functions/Utilities/Format-Bytes.ps1) - Formats byte or bit quantities into human-friendly unit conversions.
+- [`Extract-Archive`](../Functions/Utilities/Extract-Archive.ps1) - Extracts archive files and can optionally process nested archives.
+- [`Format-Byte`](../Functions/Utilities/Format-Byte.ps1) - Formats byte or bit quantities into human-friendly unit conversions.
 - [`Get-CommandAlias`](../Functions/Utilities/Get-CommandAlias.ps1) - Lists aliases for a specified PowerShell command.
 - [`Get-EncodingFromName`](../Functions/Utilities/Get-EncodingFromName.ps1) - Resolves a profile encoding name to a .NET encoding instance.
 - [`Get-FileEncoding`](../Functions/Utilities/Get-FileEncoding.ps1) - Detects text file encoding using BOM and content sampling.
@@ -146,7 +146,7 @@
 - [`Get-WhichCommand`](../Functions/Utilities/Get-WhichCommand.ps1) - Locates a command and displays its location or type.
 - [`New-RandomString`](../Functions/Utilities/New-RandomString.ps1) - Generates random strings for passwords, tokens, and other uses.
 - [`New-SymbolicLink`](../Functions/Utilities/New-SymbolicLink.ps1) - Creates a symbolic link to a file or directory.
-- [`Remove-OldFiles`](../Functions/Utilities/Remove-OldFiles.ps1) - Removes files older than a specified time period.
+- [`Remove-OldFile`](../Functions/Utilities/Remove-OldFile.ps1) - Removes files older than a specified time period.
 - [`Remove-SymbolicLink`](../Functions/Utilities/Remove-SymbolicLink.ps1) - Removes a symbolic link without deleting the target.
 - [`Rename-File`](../Functions/Utilities/Rename-File.ps1) - Renames files with transformations such as case conversion, normalization, replacement, and batch numbering.
 - [`Replace-StringInFile`](../Functions/Utilities/Replace-StringInFile.ps1) - Finds and replaces text in files.

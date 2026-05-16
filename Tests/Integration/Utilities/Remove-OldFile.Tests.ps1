@@ -2,10 +2,10 @@
 
 <#
 .SYNOPSIS
-    Integration tests for Remove-OldFiles function.
+    Integration tests for Remove-OldFile function.
 
 .DESCRIPTION
-    Integration tests that verify Remove-OldFiles works correctly in real-world scenarios
+    Integration tests that verify Remove-OldFile works correctly in real-world scenarios
     with actual file systems, file age manipulation, and directory cleanup.
 
 .NOTES
@@ -26,13 +26,13 @@ BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
     # Import the function under test
-    . "$PSScriptRoot/../../../Functions/Utilities/Remove-OldFiles.ps1"
+    . "$PSScriptRoot/../../../Functions/Utilities/Remove-OldFile.ps1"
 
     # Import cleanup utilities
     . "$PSScriptRoot/../../TestCleanupUtilities.ps1"
 }
 
-Describe 'Remove-OldFiles Integration Tests' {
+Describe 'Remove-OldFile Integration Tests' {
     Context 'Basic File Deletion by Age' {
         BeforeAll {
             $script:testDir = Join-Path -Path $TestDrive -ChildPath 'AgeTests'
@@ -64,7 +64,7 @@ Describe 'Remove-OldFiles Integration Tests' {
         }
 
         It 'Should remove only files older than threshold' {
-            $result = Remove-OldFiles -Path $script:testDir -OlderThan 7 -Confirm:$false
+            $result = Remove-OldFile -Path $script:testDir -OlderThan 7 -Confirm:$false
 
             $result.FilesRemoved | Should -Be 3
 
@@ -89,7 +89,7 @@ Describe 'Remove-OldFiles Integration Tests' {
             $content | Set-Content -Path $file -NoNewline
             (Get-Item $file).LastWriteTime = (Get-Date).AddDays(-10)
 
-            $result = Remove-OldFiles -Path $spaceTestDir -OlderThan 5 -Confirm:$false
+            $result = Remove-OldFile -Path $spaceTestDir -OlderThan 5 -Confirm:$false
 
             $result.TotalSpaceFreed | Should -BeGreaterThan 1000000
             $result.TotalSpaceFreedMB | Should -BeGreaterThan 0.9
@@ -113,7 +113,7 @@ Describe 'Remove-OldFiles Integration Tests' {
             'test' | Set-Content -Path $file
             (Get-Item $file).LastWriteTime = (Get-Date).AddHours(-48)
 
-            $result = Remove-OldFiles -Path $script:timeTestDir -OlderThan 24 -Unit Hours -Confirm:$false
+            $result = Remove-OldFile -Path $script:timeTestDir -OlderThan 24 -Unit Hours -Confirm:$false
 
             $result.FilesRemoved | Should -Be 1
             Test-Path $file | Should -Be $false
@@ -124,7 +124,7 @@ Describe 'Remove-OldFiles Integration Tests' {
             'test' | Set-Content -Path $file
             (Get-Item $file).LastWriteTime = (Get-Date).AddDays(-15)
 
-            $result = Remove-OldFiles -Path $script:timeTestDir -OlderThan 10 -Unit Days -Confirm:$false
+            $result = Remove-OldFile -Path $script:timeTestDir -OlderThan 10 -Unit Days -Confirm:$false
 
             $result.FilesRemoved | Should -Be 1
             Test-Path $file | Should -Be $false
@@ -135,7 +135,7 @@ Describe 'Remove-OldFiles Integration Tests' {
             'test' | Set-Content -Path $file
             (Get-Item $file).LastWriteTime = (Get-Date).AddMonths(-6)
 
-            $result = Remove-OldFiles -Path $script:timeTestDir -OlderThan 3 -Unit Months -Confirm:$false
+            $result = Remove-OldFile -Path $script:timeTestDir -OlderThan 3 -Unit Months -Confirm:$false
 
             $result.FilesRemoved | Should -Be 1
             Test-Path $file | Should -Be $false
@@ -146,7 +146,7 @@ Describe 'Remove-OldFiles Integration Tests' {
             'test' | Set-Content -Path $file
             (Get-Item $file).LastWriteTime = (Get-Date).AddYears(-2)
 
-            $result = Remove-OldFiles -Path $script:timeTestDir -OlderThan 1 -Unit Years -Confirm:$false
+            $result = Remove-OldFile -Path $script:timeTestDir -OlderThan 1 -Unit Years -Confirm:$false
 
             $result.FilesRemoved | Should -Be 1
             Test-Path $file | Should -Be $false
@@ -171,7 +171,7 @@ Describe 'Remove-OldFiles Integration Tests' {
         }
 
         It 'Should only remove files matching Include pattern' {
-            $result = Remove-OldFiles -Path $script:filterDir -OlderThan 7 -Include '*.log' -Confirm:$false
+            $result = Remove-OldFile -Path $script:filterDir -OlderThan 7 -Include '*.log' -Confirm:$false
 
             $result.FilesRemoved | Should -Be 3
 
@@ -195,7 +195,7 @@ Describe 'Remove-OldFiles Integration Tests' {
                 (Get-Item $file).LastWriteTime = (Get-Date).AddDays(-30)
             }
 
-            $result = Remove-OldFiles -Path $excludeTestDir -OlderThan 7 -Exclude 'keep*' -Confirm:$false
+            $result = Remove-OldFile -Path $excludeTestDir -OlderThan 7 -Exclude 'keep*' -Confirm:$false
 
             $result.FilesRemoved | Should -Be 2
             Test-Path (Join-Path -Path $excludeTestDir -ChildPath 'keep1.txt') | Should -Be $true
@@ -213,7 +213,7 @@ Describe 'Remove-OldFiles Integration Tests' {
                 (Get-Item $file).LastWriteTime = (Get-Date).AddDays(-30)
             }
 
-            $result = Remove-OldFiles -Path $multiIncludeDir -OlderThan 7 -Include @('*.log', '*.tmp') -Confirm:$false
+            $result = Remove-OldFile -Path $multiIncludeDir -OlderThan 7 -Include @('*.log', '*.tmp') -Confirm:$false
 
             $result.FilesRemoved | Should -Be 4
             Test-Path (Join-Path -Path $multiIncludeDir -ChildPath 'file3.txt') | Should -Be $true
@@ -247,7 +247,7 @@ Describe 'Remove-OldFiles Integration Tests' {
         }
 
         It 'Should exclude specified directories from processing' {
-            $result = Remove-OldFiles -Path $script:dirExcludeTest -OlderThan 7 -ExcludeDirectory 'KeepMe' -Recurse -Confirm:$false
+            $result = Remove-OldFile -Path $script:dirExcludeTest -OlderThan 7 -ExcludeDirectory 'KeepMe' -Recurse -Confirm:$false
 
             $result.FilesRemoved | Should -Be 1
 
@@ -291,7 +291,7 @@ Describe 'Remove-OldFiles Integration Tests' {
         }
 
         It 'Should remove empty directories when specified' {
-            $result = Remove-OldFiles -Path $script:emptyDirTest -OlderThan 7 -RemoveEmptyDirectories -Recurse -Confirm:$false -ErrorAction SilentlyContinue
+            $result = Remove-OldFile -Path $script:emptyDirTest -OlderThan 7 -RemoveEmptyDirectories -Recurse -Confirm:$false -ErrorAction SilentlyContinue
 
             $result.FilesRemoved | Should -Be 2
             $result.DirectoriesRemoved | Should -BeGreaterOrEqual 2
@@ -315,7 +315,7 @@ Describe 'Remove-OldFiles Integration Tests' {
             'content' | Set-Content -Path $file
             (Get-Item $file).LastWriteTime = (Get-Date).AddDays(-30)
 
-            $result = Remove-OldFiles -Path $noRemoveDir -OlderThan 7 -Recurse -Confirm:$false
+            $result = Remove-OldFile -Path $noRemoveDir -OlderThan 7 -Recurse -Confirm:$false
 
             $result.FilesRemoved | Should -Be 1
             $result.DirectoriesRemoved | Should -Be 0
@@ -356,7 +356,7 @@ Describe 'Remove-OldFiles Integration Tests' {
         }
 
         It 'Should skip read-only files without Force' {
-            $result = Remove-OldFiles -Path $script:forceTestDir -OlderThan 7 -Confirm:$false
+            $result = Remove-OldFile -Path $script:forceTestDir -OlderThan 7 -Confirm:$false
 
             # Only normal file should be removed
             $result.FilesRemoved | Should -Be 1
@@ -376,7 +376,7 @@ Describe 'Remove-OldFiles Integration Tests' {
             (Get-Item $readOnlyFile).LastWriteTime = (Get-Date).AddDays(-30)
             Set-ItemProperty -Path $readOnlyFile -Name IsReadOnly -Value $true
 
-            $result = Remove-OldFiles -Path $script:forceTestDir -OlderThan 7 -Force -Confirm:$false
+            $result = Remove-OldFile -Path $script:forceTestDir -OlderThan 7 -Force -Confirm:$false
 
             $result.FilesRemoved | Should -BeGreaterOrEqual 1
             Test-Path $readOnlyFile | Should -Be $false
@@ -409,7 +409,7 @@ Describe 'Remove-OldFiles Integration Tests' {
 
         It 'Should accept pipeline input' {
             $result = @($script:pipelineDir1, $script:pipelineDir2) |
-                Remove-OldFiles -OlderThan 7 -Confirm:$false
+                Remove-OldFile -OlderThan 7 -Confirm:$false
 
             # Should process both directories and return a single summary
             $result | Should -Not -BeNullOrEmpty
@@ -422,7 +422,7 @@ Describe 'Remove-OldFiles Integration Tests' {
         It 'Should handle non-existent paths gracefully' {
             $nonExistent = Join-Path -Path $TestDrive -ChildPath 'DoesNotExist'
 
-            $result = Remove-OldFiles -Path $nonExistent -OlderThan 1 -ErrorAction SilentlyContinue
+            $result = Remove-OldFile -Path $nonExistent -OlderThan 1 -ErrorAction SilentlyContinue
 
             $result.Errors | Should -BeGreaterThan 0
         }
@@ -442,7 +442,7 @@ Describe 'Remove-OldFiles Integration Tests' {
             # Make first file locked (read-only without Force)
             Set-ItemProperty -Path $file1 -Name IsReadOnly -Value $true
 
-            $result = Remove-OldFiles -Path $errorTestDir -OlderThan 7 -Confirm:$false
+            $result = Remove-OldFile -Path $errorTestDir -OlderThan 7 -Confirm:$false
 
             # Should remove file2 even if file1 fails
             $result.FilesRemoved | Should -BeGreaterOrEqual 1

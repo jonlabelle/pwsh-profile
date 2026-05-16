@@ -1,4 +1,4 @@
-function Remove-DockerArtifacts
+function Remove-DockerArtifact
 {
     <#
     .SYNOPSIS
@@ -47,48 +47,48 @@ function Remove-DockerArtifacts
         - 'docker buildx prune --all --force' (removes reusable build cache entries)
 
     .EXAMPLE
-        PS > Remove-DockerArtifacts
+        PS > Remove-DockerArtifact
         PS > # Unused images (all), networks, and build cache pruned; containers and volumes untouched
 
         Runs a safe cleanup that leaves stopped containers and volumes alone while reclaiming image, network,
         and build cache space.
 
     .EXAMPLE
-        PS > Remove-DockerArtifacts -IncludeStoppedContainers -IncludeVolumes
+        PS > Remove-DockerArtifact -IncludeStoppedContainers -IncludeVolumes
 
         Performs a full 'docker system prune --all --volumes', removing stopped containers, unused images,
         networks, build cache, and unused volumes.
 
     .EXAMPLE
-        PS > Remove-DockerArtifacts -DanglingImagesOnly -IncludeStoppedContainers
+        PS > Remove-DockerArtifact -DanglingImagesOnly -IncludeStoppedContainers
 
         Mirrors 'docker system prune' default behavior: removes stopped containers, dangling images, unused
         networks, and build cache while keeping non-dangling unused images.
 
     .EXAMPLE
-        PS > Remove-DockerArtifacts -IncludeStoppedContainers -WhatIf
+        PS > Remove-DockerArtifact -IncludeStoppedContainers -WhatIf
 
         Shows what a full system prune would remove without actually deleting anything and displays an
         estimated reclaimable size for unused images.
 
     .EXAMPLE
-        PS > Remove-DockerArtifacts -IncludeVolumes -Confirm
+        PS > Remove-DockerArtifact -IncludeVolumes -Confirm
 
         Prompts for confirmation before removing unused volumes along with images, networks, and build cache.
 
     .EXAMPLE
-        PS > Remove-DockerArtifacts -IncludeBuildHistory
+        PS > Remove-DockerArtifact -IncludeBuildHistory
 
         Includes Docker Desktop build history cleanup by removing build records and pruning build cache.
 
     .EXAMPLE
-        PS > Remove-DockerArtifacts -IncludeBuildxBuilders
+        PS > Remove-DockerArtifact -IncludeBuildxBuilders
 
         Removes Buildx builders that use the docker-container driver so their BuildKit containers no longer
         hold BuildKit images in-use.
 
     .EXAMPLE
-        PS > Remove-DockerArtifacts -All
+        PS > Remove-DockerArtifact -All
 
         Includes stopped containers, unused volumes, Buildx builder instances, and Docker Desktop build
         history in a single cleanup run.
@@ -114,7 +114,7 @@ function Remove-DockerArtifacts
 
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-DockerArtifacts.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-DockerArtifact.ps1
 
     .LINK
         https://docs.docker.com/reference/cli/docker/system/prune/
@@ -657,11 +657,11 @@ if (-not (Get-Command -Name 'docker-prune' -ErrorAction SilentlyContinue))
 {
     try
     {
-        Write-Verbose "Creating 'docker-prune' alias for Remove-DockerArtifacts"
-        Set-Alias -Name 'docker-prune' -Value 'Remove-DockerArtifacts' -Force -ErrorAction Stop
+        Write-Verbose "Creating 'docker-prune' alias for Remove-DockerArtifact"
+        Set-Alias -Name 'docker-prune' -Value 'Remove-DockerArtifact' -Force -ErrorAction Stop
     }
     catch
     {
-        Write-Warning "Remove-DockerArtifacts: Could not create 'docker-prune' alias: $($_.Exception.Message)"
+        Write-Warning "Remove-DockerArtifact: Could not create 'docker-prune' alias: $($_.Exception.Message)"
     }
 }

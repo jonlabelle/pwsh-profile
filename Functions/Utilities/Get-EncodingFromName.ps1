@@ -9,7 +9,7 @@ function Get-EncodingFromName
         [System.Text.Encoding] instances for consistent file processing behavior.
 
         This helper is primarily used by content-modifying utilities such as
-        Convert-LineEndings, Replace-StringInFile, and ConvertTo-Markdown.
+        Convert-LineEnding, Replace-StringInFile, and ConvertTo-Markdown.
 
         Resolution behavior:
         - Null, empty, or whitespace input returns $null.

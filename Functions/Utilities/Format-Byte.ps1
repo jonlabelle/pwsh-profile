@@ -1,4 +1,4 @@
-function Format-Bytes
+function Format-Byte
 {
     <#
     .SYNOPSIS
@@ -48,7 +48,7 @@ function Format-Bytes
         Number of decimal places to round display values. Default 2.
 
     .EXAMPLE
-        PS > Format-Bytes -Value 1048576
+        PS > Format-Byte -Value 1048576
 
         Bytes     : 1048576
         Kilobytes : 1024
@@ -60,7 +60,7 @@ function Format-Bytes
         Bytes: 1048576, Kilobytes: 1024, Megabytes: 1, Gigabytes: 0.00, ...
 
     .EXAMPLE
-        PS > Format-Bytes -Value '10 Mbps' -BandwidthOnly
+        PS > Format-Byte -Value '10 Mbps' -BandwidthOnly
 
         Bits     : 10000000
         Kilobits : 10000
@@ -71,7 +71,7 @@ function Format-Bytes
         Bits: 10000000, Kilobits: 10000, Megabits: 10, ...
 
     .EXAMPLE
-        PS > Format-Bytes -Value '1MB' -IncludeBandwidth
+        PS > Format-Byte -Value '1MB' -IncludeBandwidth
 
         Bytes     : 1048576
         Kilobytes : 1024
@@ -88,7 +88,7 @@ function Format-Bytes
         Returns both storage (bytes) and bandwidth (bits) conversions for 1 megabyte.
 
     .EXAMPLE
-        PS > Format-Bytes -Value '1 megabyte'
+        PS > Format-Byte -Value '1 megabyte'
 
         Bytes     : 1048576
         Kilobytes : 1024
@@ -100,7 +100,7 @@ function Format-Bytes
         Parses the spelled-out unit and returns all storage conversions.
 
     .EXAMPLE
-        PS > Format-Bytes -Value 1000000 -Base 1000
+        PS > Format-Byte -Value 1000000 -Base 1000
 
         Bytes     : 1000000
         Kilobytes : 1000
@@ -112,7 +112,7 @@ function Format-Bytes
         Uses SI scaling to show 1 MB from 1,000,000 bytes.
 
     .EXAMPLE
-        PS > Format-Bytes -Value '1 GiB'
+        PS > Format-Byte -Value '1 GiB'
 
         Bytes     : 1073741824
         Kilobytes : 1048576
@@ -124,7 +124,7 @@ function Format-Bytes
         Treats GiB as IEC (1024-based) and returns storage conversions.
 
     .EXAMPLE
-        PS > Format-Bytes -Value '100 Mb' -BandwidthOnly
+        PS > Format-Byte -Value '100 Mb' -BandwidthOnly
 
         Bits     : 838860800
         Kilobits : 838860.8
@@ -135,7 +135,7 @@ function Format-Bytes
         Returns conversions for 100 megabits.
 
     .EXAMPLE
-        PS > Format-Bytes -Value '2.5 GB' -Base 1000 -Precision 3
+        PS > Format-Byte -Value '2.5 GB' -Base 1000 -Precision 3
 
         Bytes     : 2500000000
         Kilobytes : 2500000
@@ -147,7 +147,7 @@ function Format-Bytes
         Shows fractional gigabytes with 3 decimal places using SI scaling.
 
     .EXAMPLE
-        PS > 1048576, 2097152 | Format-Bytes
+        PS > 1048576, 2097152 | Format-Byte
 
         Bytes     : 1048576
         Kilobytes : 1024
@@ -166,7 +166,7 @@ function Format-Bytes
         Accepts pipeline input of numeric bytes, returning a PSCustomObject for each.
 
     .EXAMPLE
-        PS > Format-Bytes -Value 1048576 -IncludeBandwidth
+        PS > Format-Byte -Value 1048576 -IncludeBandwidth
 
         Bytes     : 1048576
         Kilobytes : 1024
@@ -183,7 +183,7 @@ function Format-Bytes
         Useful to compare file size (bytes) with equivalent link speed (bits).
 
     .EXAMPLE
-        PS > Format-Bytes -Value '10 Mbps' -BandwidthOnly -Base 1024
+        PS > Format-Byte -Value '10 Mbps' -BandwidthOnly -Base 1024
 
         Bits     : 10000000
         Kilobits : 9765.62
@@ -194,7 +194,7 @@ function Format-Bytes
         Overrides default SI scaling for bandwidth to use 1024 if you need binary steps.
 
     .EXAMPLE
-        PS > Format-Bytes -Value 1234567 -Base 1000 -Precision 4
+        PS > Format-Byte -Value 1234567 -Base 1000 -Precision 4
 
         Bytes     : 1234567
         Kilobytes : 1234.567
@@ -214,10 +214,10 @@ function Format-Bytes
         Author: Jon LaBelle
         License: MIT
 
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Format-Bytes.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Format-Byte.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Format-Bytes.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Format-Byte.ps1
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]

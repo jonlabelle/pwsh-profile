@@ -1,4 +1,4 @@
-function Remove-OldFiles
+function Remove-OldFile
 {
     <#
     .SYNOPSIS
@@ -55,37 +55,37 @@ function Remove-OldFiles
         Prompts for confirmation before removing files.
 
     .EXAMPLE
-        PS > Remove-OldFiles -OlderThan 30
+        PS > Remove-OldFile -OlderThan 30
 
         Removes files in the current directory older than 30 days.
 
     .EXAMPLE
-        PS > Remove-OldFiles -Path C:\Logs -OlderThan 7 -Include '*.log','*.txt' -Recurse
+        PS > Remove-OldFile -Path C:\Logs -OlderThan 7 -Include '*.log','*.txt' -Recurse
 
         Removes .log and .txt files from C:\Logs and subdirectories that are older than 7 days.
 
     .EXAMPLE
-        PS > Remove-OldFiles -OlderThan 12 -Unit Hours -RemoveEmptyDirectories
+        PS > Remove-OldFile -OlderThan 12 -Unit Hours -RemoveEmptyDirectories
 
         Removes files older than 12 hours and cleans up any empty directories.
 
     .EXAMPLE
-        PS > Remove-OldFiles -OlderThan 3 -Unit Months -Exclude '*.keep' -WhatIf
+        PS > Remove-OldFile -OlderThan 3 -Unit Months -Exclude '*.keep' -WhatIf
 
         Shows what files older than 3 months would be removed, excluding files matching '*.keep'.
 
     .EXAMPLE
-        PS > Remove-OldFiles -Path ~/Downloads -OlderThan 90 -ExcludeDirectory @('Important', 'Archive')
+        PS > Remove-OldFile -Path ~/Downloads -OlderThan 90 -ExcludeDirectory @('Important', 'Archive')
 
         Removes files older than 90 days from ~/Downloads, excluding the Important and Archive directories.
 
     .EXAMPLE
-        PS > Remove-OldFiles -OlderThan 1 -Unit Years -Force -Confirm
+        PS > Remove-OldFile -OlderThan 1 -Unit Years -Force -Confirm
 
         Removes files older than 1 year, including read-only and hidden files, with confirmation prompts.
 
     .EXAMPLE
-        PS > Get-ChildItem -Directory | Remove-OldFiles -OlderThan 14 -Include '*.tmp','*.cache'
+        PS > Get-ChildItem -Directory | Remove-OldFile -OlderThan 14 -Include '*.tmp','*.cache'
 
         Processes multiple directories via pipeline, removing .tmp and .cache files older than 14 days.
 
@@ -107,10 +107,10 @@ function Remove-OldFiles
 
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Remove-OldFiles.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Remove-OldFile.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Remove-OldFiles.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Remove-OldFile.ps1
 
     .LINK
         https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.management/remove-item
@@ -219,7 +219,7 @@ function Remove-OldFiles
             return $false
         }
 
-        Write-Verbose 'Starting Remove-OldFiles'
+        Write-Verbose 'Starting Remove-OldFile'
 
         # Initialize counters
         $filesRemoved = 0

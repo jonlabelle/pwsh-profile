@@ -33,9 +33,9 @@ Tests/
 │       └── Sync-Directory.Tests.ps1                # Directory synchronization tests
 ├── Integration/                                    # Integration and cross-system tests
 │   ├── Developer/                                  # Developer utility integration tests
-│   │   ├── Remove-DotNetBuildArtifacts.Tests.ps1   # .NET build cleanup integration tests
-│   │   ├── Remove-GitIgnoredFiles.Tests.ps1        # Git cleanup integration tests
-│   │   └── Remove-NodeModules.Tests.ps1            # Node.js cleanup integration tests
+│   │   ├── Remove-DotNetBuildArtifact.Tests.ps1   # .NET build cleanup integration tests
+│   │   ├── Remove-GitIgnoredFile.Tests.ps1        # Git cleanup integration tests
+│   │   └── Remove-NodeModule.Tests.ps1            # Node.js cleanup integration tests
 │   ├── NetworkAndDns/                              # Network and DNS integration tests
 │   │   └── Test-Port.Tests.ps1                     # Real-world port testing scenarios
 │   ├── Security/                                   # Security integration tests

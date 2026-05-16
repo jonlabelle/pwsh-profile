@@ -1,4 +1,4 @@
-function Remove-DotNetBuildArtifacts
+function Remove-DotNetBuildArtifact
 {
     <#
     .SYNOPSIS
@@ -36,33 +36,33 @@ function Remove-DotNetBuildArtifacts
         Prompts for confirmation before removing each folder.
 
     .EXAMPLE
-        PS > Remove-DotNetBuildArtifacts -Recurse
+        PS > Remove-DotNetBuildArtifact -Recurse
 
         Removes bin and obj folders from .NET projects in the current directory and subdirectories,
         showing the total space freed.
 
     .EXAMPLE
-        PS > Remove-DotNetBuildArtifacts -NoSizeCalculation
+        PS > Remove-DotNetBuildArtifact -NoSizeCalculation
 
         Removes build artifacts without calculating space freed (faster for large directory structures).
 
     .EXAMPLE
-        PS > Remove-DotNetBuildArtifacts -Path ~/Projects -Recurse -WhatIf
+        PS > Remove-DotNetBuildArtifact -Path ~/Projects -Recurse -WhatIf
 
         Shows what would be removed in the ~/Projects directory and its subdirectories without actually removing anything.
 
     .EXAMPLE
-        PS > Remove-DotNetBuildArtifacts -Path C:\MyProjects -Recurse -Confirm
+        PS > Remove-DotNetBuildArtifact -Path C:\MyProjects -Recurse -Confirm
 
         Removes build artifacts with confirmation prompts for each folder.
 
     .EXAMPLE
-        PS > Remove-DotNetBuildArtifacts -Verbose
+        PS > Remove-DotNetBuildArtifact -Verbose
 
         Removes build artifacts with detailed verbose output showing each operation.
 
     .EXAMPLE
-        PS > Remove-DotNetBuildArtifacts -Path ~/Projects -ExcludeDirectory @('.git', 'node_modules', 'vendor')
+        PS > Remove-DotNetBuildArtifact -Path ~/Projects -ExcludeDirectory @('.git', 'node_modules', 'vendor')
 
         Removes build artifacts while excluding .git, node_modules, and vendor directories from the search.
 
@@ -85,10 +85,10 @@ function Remove-DotNetBuildArtifacts
 
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-DotNetBuildArtifacts.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-DotNetBuildArtifact.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-DotNetBuildArtifacts.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-DotNetBuildArtifact.ps1
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding(SupportsShouldProcess)]

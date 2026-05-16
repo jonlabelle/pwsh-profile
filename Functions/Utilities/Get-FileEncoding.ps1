@@ -22,7 +22,7 @@ function Get-FileEncoding
 
         This helper is used by content-modifying functions that need
         consistent read/write encoding behavior across PowerShell editions,
-        including Convert-LineEndings, Replace-StringInFile, and ConvertTo-Markdown.
+        including Convert-LineEnding, Replace-StringInFile, and ConvertTo-Markdown.
 
     .PARAMETER FilePath
         Path to the file to inspect.

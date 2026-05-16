@@ -3,13 +3,13 @@
     $Global:ProgressPreference = 'SilentlyContinue'
 
     # Load the function
-    . "$PSScriptRoot/../../../Functions/Developer/Remove-DotNetBuildArtifacts.ps1"
+    . "$PSScriptRoot/../../../Functions/Developer/Remove-DotNetBuildArtifact.ps1"
 
     # Import test utilities
     . "$PSScriptRoot/../../TestCleanupUtilities.ps1"
 }
 
-Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
+Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
     BeforeAll {
         # Create base test directory
         $script:TestRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "dotnet-cleanup-integration-$(Get-Random)"
@@ -50,7 +50,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             'cache content' | Out-File (Join-Path -Path $ObjPath -ChildPath 'cache.txt')
 
             # Run cleanup
-            $Result = Remove-DotNetBuildArtifacts -Path $script:ProjectPath -Recurse
+            $Result = Remove-DotNetBuildArtifact -Path $script:ProjectPath -Recurse
 
             # Verify folders are removed
             Test-Path $BinPath | Should -BeFalse
@@ -69,7 +69,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             'exe content' | Out-File (Join-Path -Path $BinPath -ChildPath 'output.exe')
 
             # Run cleanup
-            $Result = Remove-DotNetBuildArtifacts -Path $script:ProjectPath -Recurse
+            $Result = Remove-DotNetBuildArtifact -Path $script:ProjectPath -Recurse
 
             # Verify
             Test-Path $BinPath | Should -BeFalse
@@ -86,7 +86,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             'cache' | Out-File (Join-Path -Path $ObjPath -ChildPath 'project.assets.json')
 
             # Run cleanup
-            $Result = Remove-DotNetBuildArtifacts -Path $script:ProjectPath -Recurse
+            $Result = Remove-DotNetBuildArtifact -Path $script:ProjectPath -Recurse
 
             # Verify
             Test-Path $ObjPath | Should -BeFalse
@@ -103,7 +103,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             'dacpac' | Out-File (Join-Path -Path $BinPath -ChildPath 'database.dacpac')
 
             # Run cleanup (explicit recursion for nested projects)
-            $Result = Remove-DotNetBuildArtifacts -Path $script:ProjectPath -Recurse
+            $Result = Remove-DotNetBuildArtifact -Path $script:ProjectPath -Recurse
 
             # Verify
             Test-Path $BinPath | Should -BeFalse
@@ -118,7 +118,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             New-Item -ItemType Directory -Path $ObjPath -Force | Out-Null
 
             # Run cleanup
-            $Result = Remove-DotNetBuildArtifacts -Path $script:ProjectPath
+            $Result = Remove-DotNetBuildArtifact -Path $script:ProjectPath
 
             # Verify folders still exist (no project file found)
             Test-Path $BinPath | Should -BeTrue
@@ -134,7 +134,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             New-Item -ItemType Directory -Path $BinPath -Force | Out-Null
 
             # Run with -WhatIf
-            $null = Remove-DotNetBuildArtifacts -Path $script:ProjectPath -WhatIf
+            $null = Remove-DotNetBuildArtifact -Path $script:ProjectPath -WhatIf
 
             # Verify folder still exists
             Test-Path $BinPath | Should -BeTrue
@@ -150,7 +150,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             'x' * 1000 | Out-File (Join-Path -Path $BinPath -ChildPath 'output.dll') -NoNewline
 
             # Run cleanup
-            $Result = Remove-DotNetBuildArtifacts -Path $script:ProjectPath
+            $Result = Remove-DotNetBuildArtifact -Path $script:ProjectPath
 
             # Verify space calculation
             $Result.TotalSpaceFreed | Should -Not -Match 'Not calculated'
@@ -167,7 +167,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             'content' | Out-File (Join-Path -Path $BinPath -ChildPath 'output.dll')
 
             # Run cleanup with -NoSizeCalculation
-            $Result = Remove-DotNetBuildArtifacts -Path $script:ProjectPath -NoSizeCalculation
+            $Result = Remove-DotNetBuildArtifact -Path $script:ProjectPath -NoSizeCalculation
 
             # Verify
             $Result.TotalSpaceFreed | Should -Match 'Not calculated'
@@ -210,7 +210,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             }
 
             # Run cleanup
-            $Result = Remove-DotNetBuildArtifacts -Path $script:WorkspacePath -Recurse
+            $Result = Remove-DotNetBuildArtifact -Path $script:WorkspacePath -Recurse
 
             # Verify all artifacts removed
             Test-Path (Join-Path -Path $Project1 -ChildPath 'bin') | Should -BeFalse
@@ -236,7 +236,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
                 New-Item -ItemType Directory -Path (Join-Path -Path $proj -ChildPath 'obj') -Force | Out-Null
             }
 
-            $Result = Remove-DotNetBuildArtifacts -Path $rootProject
+            $Result = Remove-DotNetBuildArtifact -Path $rootProject
 
             Test-Path (Join-Path -Path $rootProject -ChildPath 'bin') | Should -BeFalse
             Test-Path (Join-Path -Path $rootProject -ChildPath 'obj') | Should -BeFalse
@@ -261,7 +261,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             New-Item -ItemType Directory -Path $ObjPath -Force | Out-Null
 
             # Run cleanup
-            $Result = Remove-DotNetBuildArtifacts -Path $script:WorkspacePath -Recurse
+            $Result = Remove-DotNetBuildArtifact -Path $script:WorkspacePath -Recurse
 
             # Verify
             Test-Path $BinPath | Should -BeFalse
@@ -286,7 +286,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             'release.dll' | Out-File (Join-Path -Path $BinRelease -ChildPath 'output.dll')
 
             # Run cleanup
-            $Result = Remove-DotNetBuildArtifacts -Path $script:WorkspacePath -Recurse
+            $Result = Remove-DotNetBuildArtifact -Path $script:WorkspacePath -Recurse
 
             # Verify entire bin directory is removed
             Test-Path $BinPath | Should -BeFalse
@@ -324,7 +324,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             New-Item -ItemType Directory -Path $NormalBin -Force | Out-Null
 
             # Run cleanup
-            $Result = Remove-DotNetBuildArtifacts -Path $script:WorkspacePath -Recurse
+            $Result = Remove-DotNetBuildArtifact -Path $script:WorkspacePath -Recurse
 
             # Verify .git project was excluded
             Test-Path $BinPath | Should -BeTrue
@@ -342,7 +342,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             New-Item -ItemType Directory -Path $BinPath -Force | Out-Null
 
             # Run cleanup
-            $Result = Remove-DotNetBuildArtifacts -Path $script:WorkspacePath
+            $Result = Remove-DotNetBuildArtifact -Path $script:WorkspacePath
 
             # Verify node_modules project was excluded
             Test-Path $BinPath | Should -BeTrue
@@ -366,7 +366,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             New-Item -ItemType Directory -Path $NormalBin -Force | Out-Null
 
             # Run cleanup with custom exclusion
-            $Result = Remove-DotNetBuildArtifacts -Path $script:WorkspacePath -ExcludeDirectory @('.git', 'node_modules', 'vendor') -Recurse
+            $Result = Remove-DotNetBuildArtifact -Path $script:WorkspacePath -ExcludeDirectory @('.git', 'node_modules', 'vendor') -Recurse
 
             # Verify vendor was excluded, normal was cleaned
             Test-Path $VendorBin | Should -BeTrue
@@ -397,7 +397,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             try
             {
                 $RelativePath = Split-Path $script:ProjectPath -Leaf
-                $Result = Remove-DotNetBuildArtifacts -Path $RelativePath
+                $Result = Remove-DotNetBuildArtifact -Path $RelativePath
 
                 $Result.FoldersRemoved | Should -Be 1
             }
@@ -411,7 +411,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             Push-Location $script:ProjectPath
             try
             {
-                $Result = Remove-DotNetBuildArtifacts
+                $Result = Remove-DotNetBuildArtifact
 
                 $Result.FoldersRemoved | Should -Be 1
             }
@@ -426,7 +426,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
         It 'Should handle invalid path' {
             $InvalidPath = Join-Path -Path $script:TestRoot -ChildPath 'nonexistent-path'
 
-            { Remove-DotNetBuildArtifacts -Path $InvalidPath -ErrorAction Stop } | Should -Throw
+            { Remove-DotNetBuildArtifact -Path $InvalidPath -ErrorAction Stop } | Should -Throw
         }
 
         It 'Should handle path that is not a directory' {
@@ -435,7 +435,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
 
             try
             {
-                { Remove-DotNetBuildArtifacts -Path $FilePath -ErrorAction Stop } | Should -Throw
+                { Remove-DotNetBuildArtifact -Path $FilePath -ErrorAction Stop } | Should -Throw
             }
             finally
             {
@@ -449,7 +449,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
 
             try
             {
-                $Result = Remove-DotNetBuildArtifacts -Path $EmptyPath
+                $Result = Remove-DotNetBuildArtifact -Path $EmptyPath
 
                 $Result.PSObject.Properties.Name | Should -Contain 'Errors'
                 $Result.Errors | Should -BeOfType [int]
@@ -479,7 +479,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             '<Project></Project>' | Set-Content (Join-Path -Path $script:ProjectPath -ChildPath 'Test.csproj')
 
             # Run cleanup
-            $Result = Remove-DotNetBuildArtifacts -Path $script:ProjectPath
+            $Result = Remove-DotNetBuildArtifact -Path $script:ProjectPath
 
             # Should complete successfully
             $Result.TotalProjectsFound | Should -Be 1
@@ -489,7 +489,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
 
         It 'Should handle empty directory' {
             # Run on empty directory
-            $Result = Remove-DotNetBuildArtifacts -Path $script:ProjectPath
+            $Result = Remove-DotNetBuildArtifact -Path $script:ProjectPath
 
             # Should complete without errors
             $Result.TotalProjectsFound | Should -Be 0
@@ -511,7 +511,7 @@ Describe 'Remove-DotNetBuildArtifacts Integration Tests' -Tag 'Integration' {
             New-Item -ItemType Directory -Path $ObjPath -Force | Out-Null
 
             # Run cleanup
-            $Result = Remove-DotNetBuildArtifacts -Path $script:ProjectPath -Recurse
+            $Result = Remove-DotNetBuildArtifact -Path $script:ProjectPath -Recurse
 
             # Verify both projects cleaned
             Test-Path $BinPath1 | Should -BeFalse

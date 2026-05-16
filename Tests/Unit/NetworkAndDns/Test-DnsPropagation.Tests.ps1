@@ -17,7 +17,7 @@ BeforeAll {
     # Suppress progress bars to prevent freezing in non-interactive environments
     $Global:ProgressPreference = 'SilentlyContinue'
 
-    . "$PSScriptRoot/../../../Functions/NetworkAndDns/Get-PublicDnsServers.ps1"
+    . "$PSScriptRoot/../../../Functions/NetworkAndDns/Get-PublicDnsServer.ps1"
     . "$PSScriptRoot/../../../Functions/NetworkAndDns/Test-DnsPropagation.ps1"
 }
 
@@ -76,8 +76,8 @@ Describe 'Test-DnsPropagation' {
     }
 
     Context 'Dependency loading' {
-        It 'Should load Get-PublicDnsServers dependency' {
-            Get-Command -Name 'Get-PublicDnsServers' -ErrorAction SilentlyContinue | Should -Not -BeNullOrEmpty
+        It 'Should load Get-PublicDnsServer dependency' {
+            Get-Command -Name 'Get-PublicDnsServer' -ErrorAction SilentlyContinue | Should -Not -BeNullOrEmpty
         }
     }
 }

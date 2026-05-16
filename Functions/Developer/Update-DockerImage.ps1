@@ -1,4 +1,4 @@
-function Update-DockerImages
+function Update-DockerImage
 {
     <#
     .SYNOPSIS
@@ -30,27 +30,27 @@ function Update-DockerImages
         dangling images.
 
     .EXAMPLE
-        PS > Update-DockerImages
+        PS > Update-DockerImage
 
         Pulls the latest version of every local Docker image that has a remote registry reference.
 
     .EXAMPLE
-        PS > Update-DockerImages -Verbose
+        PS > Update-DockerImage -Verbose
 
         Pulls the latest images with detailed progress output for each image.
 
     .EXAMPLE
-        PS > Update-DockerImages -Filter 'mcr.microsoft.com/*'
+        PS > Update-DockerImage -Filter 'mcr.microsoft.com/*'
 
         Only updates images from the Microsoft Container Registry.
 
     .EXAMPLE
-        PS > Update-DockerImages -ExcludeFilter '*dev*'
+        PS > Update-DockerImage -ExcludeFilter '*dev*'
 
         Updates all images except those with 'dev' in their name.
 
     .EXAMPLE
-        PS > Update-DockerImages -PruneDanglingImages
+        PS > Update-DockerImage -PruneDanglingImages
 
         Updates eligible images, then prunes dangling Docker images.
 
@@ -75,7 +75,7 @@ function Update-DockerImages
 
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Update-DockerImages.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Update-DockerImage.ps1
 
     .LINK
         https://docs.docker.com/reference/cli/docker/image/pull/

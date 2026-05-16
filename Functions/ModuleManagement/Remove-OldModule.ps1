@@ -1,4 +1,4 @@
-function Remove-OldModules
+function Remove-OldModule
 {
     <#
     .SYNOPSIS
@@ -26,42 +26,42 @@ function Remove-OldModules
         Includes system modules in the cleanup process. Use with caution.
 
     .EXAMPLE
-        PS > Remove-OldModules
+        PS > Remove-OldModule
 
         Removes all older versions of PowerShell modules, keeping only the latest version of each.
 
     .EXAMPLE
-        PS > Remove-OldModules -ExcludeModule @('PSReadLine', 'PowerShellGet') -WhatIf
+        PS > Remove-OldModule -ExcludeModule @('PSReadLine', 'PowerShellGet') -WhatIf
 
         Shows what would be removed while excluding specific modules from cleanup.
 
     .EXAMPLE
-        PS > Remove-OldModules -IncludeModule @('Pester', 'PSScriptAnalyzer')
+        PS > Remove-OldModule -IncludeModule @('Pester', 'PSScriptAnalyzer')
 
         Removes old versions only for the specified modules.
 
     .EXAMPLE
-        PS > Remove-OldModules -Force -Verbose
+        PS > Remove-OldModule -Force -Verbose
 
         Forces removal of old module versions with verbose output.
 
     .EXAMPLE
-        PS > Remove-OldModules -IncludeSystemModules -WhatIf
+        PS > Remove-OldModule -IncludeSystemModules -WhatIf
 
         Shows what would be removed including system modules (use with caution).
 
     .EXAMPLE
-        PS > Remove-OldModules -ExcludeModule @('Azure*', 'PowerShellGet') -IncludeSystemModules
+        PS > Remove-OldModule -ExcludeModule @('Azure*', 'PowerShellGet') -IncludeSystemModules
 
         Removes old versions including system modules but excludes Azure modules and PowerShellGet.
 
     .EXAMPLE
-        PS > Remove-OldModules -Confirm
+        PS > Remove-OldModule -Confirm
 
         Removes old module versions with interactive confirmation for each removal operation.
 
     .EXAMPLE
-        PS > Remove-OldModules -ExcludeModule @('PSReadLine') -Force -Verbose
+        PS > Remove-OldModule -ExcludeModule @('PSReadLine') -Force -Verbose
 
         Forces removal with verbose output while excluding PSReadLine from cleanup.
 
@@ -81,10 +81,10 @@ function Remove-OldModules
 
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Remove-OldModules.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Remove-OldModule.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Remove-OldModules.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Remove-OldModule.ps1
 
     .LINK
         https://luke.geek.nz/powershell/remove-old-powershell-modules-versions-using-powershell/

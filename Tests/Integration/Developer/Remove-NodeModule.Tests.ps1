@@ -3,13 +3,13 @@
     $Global:ProgressPreference = 'SilentlyContinue'
 
     # Load the function
-    . "$PSScriptRoot/../../../Functions/Developer/Remove-NodeModules.ps1"
+    . "$PSScriptRoot/../../../Functions/Developer/Remove-NodeModule.ps1"
 
     # Import test utilities
     . "$PSScriptRoot/../../TestCleanupUtilities.ps1"
 }
 
-Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
+Describe 'Remove-NodeModule Integration Tests' -Tag 'Integration' {
     BeforeAll {
         # Create base test directory
         $script:TestRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "node-cleanup-integration-$(Get-Random)"
@@ -48,7 +48,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
             'module code' | Out-File (Join-Path -Path $PackagePath -ChildPath 'index.js')
 
             # Run cleanup
-            $Result = Remove-NodeModules -Path $script:ProjectPath -Recurse
+            $Result = Remove-NodeModule -Path $script:ProjectPath -Recurse
 
             # Verify folder is removed
             Test-Path $NodeModulesPath | Should -BeFalse
@@ -63,7 +63,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
             'content' | Out-File (Join-Path -Path $NodeModulesPath -ChildPath 'file.txt')
 
             # Run cleanup (explicit recursion for nested projects)
-            $Result = Remove-NodeModules -Path $script:ProjectPath -Recurse
+            $Result = Remove-NodeModule -Path $script:ProjectPath -Recurse
 
             # Verify folder still exists (no package.json found)
             Test-Path $NodeModulesPath | Should -BeTrue
@@ -78,7 +78,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
             New-Item -ItemType Directory -Path $NodeModulesPath -Force | Out-Null
 
             # Run with -WhatIf
-            $null = Remove-NodeModules -Path $script:ProjectPath -WhatIf
+            $null = Remove-NodeModule -Path $script:ProjectPath -WhatIf
 
             # Verify folder still exists
             Test-Path $NodeModulesPath | Should -BeTrue
@@ -94,7 +94,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
             'x' * 2000 | Out-File (Join-Path -Path $NodeModulesPath -ChildPath 'package.js') -NoNewline
 
             # Run cleanup
-            $Result = Remove-NodeModules -Path $script:ProjectPath
+            $Result = Remove-NodeModule -Path $script:ProjectPath
 
             # Verify space calculation
             $Result.TotalSpaceFreed | Should -Not -Match 'Not calculated'
@@ -111,7 +111,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
             'content' | Out-File (Join-Path -Path $NodeModulesPath -ChildPath 'index.js')
 
             # Run cleanup with -NoSizeCalculation
-            $Result = Remove-NodeModules -Path $script:ProjectPath -NoSizeCalculation
+            $Result = Remove-NodeModule -Path $script:ProjectPath -NoSizeCalculation
 
             # Verify
             $Result.TotalSpaceFreed | Should -Match 'Not calculated'
@@ -136,7 +136,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
             'code' | Out-File (Join-Path -Path $NestedPackage -ChildPath 'index.js')
 
             # Run cleanup
-            $Result = Remove-NodeModules -Path $script:ProjectPath
+            $Result = Remove-NodeModule -Path $script:ProjectPath
 
             # Verify entire node_modules is removed (including nested)
             Test-Path $NodeModulesPath | Should -BeFalse
@@ -177,7 +177,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
             }
 
             # Run cleanup
-            $Result = Remove-NodeModules -Path $script:WorkspacePath -Recurse
+            $Result = Remove-NodeModule -Path $script:WorkspacePath -Recurse
 
             # Verify all node_modules removed
             Test-Path (Join-Path -Path $Project1 -ChildPath 'node_modules') | Should -BeFalse
@@ -199,7 +199,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
                 New-Item -ItemType Directory -Path (Join-Path -Path $proj -ChildPath 'node_modules') -Force | Out-Null
             }
 
-            $Result = Remove-NodeModules -Path $rootProject
+            $Result = Remove-NodeModule -Path $rootProject
 
             Test-Path (Join-Path -Path $rootProject -ChildPath 'node_modules') | Should -BeFalse
             Test-Path (Join-Path -Path $nestedProject -ChildPath 'node_modules') | Should -BeTrue
@@ -221,7 +221,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
             New-Item -ItemType Directory -Path $NodeModulesPath -Force | Out-Null
 
             # Run cleanup
-            $Result = Remove-NodeModules -Path $script:WorkspacePath -Recurse
+            $Result = Remove-NodeModule -Path $script:WorkspacePath -Recurse
 
             # Verify
             Test-Path $NodeModulesPath | Should -BeFalse
@@ -250,7 +250,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
             }
 
             # Run cleanup
-            $Result = Remove-NodeModules -Path $script:WorkspacePath -Recurse
+            $Result = Remove-NodeModule -Path $script:WorkspacePath -Recurse
 
             # Verify all node_modules removed (root + packages)
             Test-Path $RootNodeModules | Should -BeFalse
@@ -292,7 +292,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
             New-Item -ItemType Directory -Path $NormalNodeModules -Force | Out-Null
 
             # Run cleanup
-            $Result = Remove-NodeModules -Path $script:WorkspacePath -Recurse
+            $Result = Remove-NodeModule -Path $script:WorkspacePath -Recurse
 
             # Verify .git project was excluded
             Test-Path $GitNodeModules | Should -BeTrue
@@ -317,7 +317,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
             New-Item -ItemType Directory -Path $NormalNodeModules -Force | Out-Null
 
             # Run cleanup with custom exclusion
-            $Result = Remove-NodeModules -Path $script:WorkspacePath -ExcludeDirectory @('.git', 'vendor') -Recurse
+            $Result = Remove-NodeModule -Path $script:WorkspacePath -ExcludeDirectory @('.git', 'vendor') -Recurse
 
             # Verify vendor was excluded, normal was cleaned
             Test-Path $VendorNodeModules | Should -BeTrue
@@ -349,7 +349,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
             New-Item -ItemType Directory -Path $NormalNodeModules -Force | Out-Null
 
             # Run cleanup with multiple exclusions
-            $Result = Remove-NodeModules -Path $script:WorkspacePath -ExcludeDirectory @('.git', 'vendor', 'archive') -Recurse
+            $Result = Remove-NodeModule -Path $script:WorkspacePath -ExcludeDirectory @('.git', 'vendor', 'archive') -Recurse
 
             # Verify all excluded projects still have node_modules
             foreach ($path in $Paths)
@@ -385,7 +385,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
             try
             {
                 $RelativePath = Split-Path $script:ProjectPath -Leaf
-                $Result = Remove-NodeModules -Path $RelativePath
+                $Result = Remove-NodeModule -Path $RelativePath
 
                 $Result.FoldersRemoved | Should -Be 1
             }
@@ -399,7 +399,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
             Push-Location $script:ProjectPath
             try
             {
-                $Result = Remove-NodeModules
+                $Result = Remove-NodeModule
 
                 $Result.FoldersRemoved | Should -Be 1
             }
@@ -414,7 +414,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
         It 'Should handle invalid path' {
             $InvalidPath = Join-Path -Path $script:TestRoot -ChildPath 'nonexistent-path'
 
-            { Remove-NodeModules -Path $InvalidPath -ErrorAction Stop } | Should -Throw
+            { Remove-NodeModule -Path $InvalidPath -ErrorAction Stop } | Should -Throw
         }
 
         It 'Should handle path that is not a directory' {
@@ -423,7 +423,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
 
             try
             {
-                { Remove-NodeModules -Path $FilePath -ErrorAction Stop } | Should -Throw
+                { Remove-NodeModule -Path $FilePath -ErrorAction Stop } | Should -Throw
             }
             finally
             {
@@ -437,7 +437,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
 
             try
             {
-                $Result = Remove-NodeModules -Path $EmptyPath
+                $Result = Remove-NodeModule -Path $EmptyPath
 
                 $Result.PSObject.Properties.Name | Should -Contain 'Errors'
                 $Result.Errors | Should -BeOfType [int]
@@ -467,7 +467,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
             '{"name":"test"}' | Set-Content (Join-Path -Path $script:ProjectPath -ChildPath 'package.json')
 
             # Run cleanup
-            $Result = Remove-NodeModules -Path $script:ProjectPath -Recurse
+            $Result = Remove-NodeModule -Path $script:ProjectPath -Recurse
 
             # Should complete successfully
             $Result.TotalProjectsFound | Should -Be 1
@@ -477,7 +477,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
 
         It 'Should handle empty directory' {
             # Run on empty directory
-            $Result = Remove-NodeModules -Path $script:ProjectPath
+            $Result = Remove-NodeModule -Path $script:ProjectPath
 
             # Should complete without errors
             $Result.TotalProjectsFound | Should -Be 0
@@ -499,7 +499,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
             New-Item -ItemType Directory -Path $SubNodeModules -Force | Out-Null
 
             # Run cleanup
-            $Result = Remove-NodeModules -Path $script:ProjectPath -Recurse
+            $Result = Remove-NodeModule -Path $script:ProjectPath -Recurse
 
             # Verify both removed
             Test-Path $RootNodeModules | Should -BeFalse
@@ -523,7 +523,7 @@ Describe 'Remove-NodeModules Integration Tests' -Tag 'Integration' {
             }
 
             # Run cleanup
-            $Result = Remove-NodeModules -Path $script:ProjectPath
+            $Result = Remove-NodeModule -Path $script:ProjectPath
 
             # Verify removed
             Test-Path $NodeModulesPath | Should -BeFalse

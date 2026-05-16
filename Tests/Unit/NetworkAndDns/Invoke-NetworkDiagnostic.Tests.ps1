@@ -5,7 +5,7 @@ BeforeAll {
     $invokePath = Join-Path -Path $PSScriptRoot -ChildPath '..\..\..\Functions\NetworkAndDns\Invoke-NetworkDiagnostic.ps1'
     $invokePath = [System.IO.Path]::GetFullPath($invokePath)
 
-    function Get-NetworkMetrics
+    function Get-NetworkMetric
     {
         param(
             [Parameter(Mandatory)][string]$HostName,

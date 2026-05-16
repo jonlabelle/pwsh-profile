@@ -3,7 +3,7 @@
     $Global:ProgressPreference = 'SilentlyContinue'
 
     # Load the function
-    . "$PSScriptRoot/../../../Functions/Developer/Remove-GitIgnoredFiles.ps1"
+    . "$PSScriptRoot/../../../Functions/Developer/Remove-GitIgnoredFile.ps1"
 
     # Import test utilities
     . "$PSScriptRoot/../../TestCleanupUtilities.ps1"
@@ -12,7 +12,7 @@
     $script:GitAvailable = $null -ne (Get-Command 'git' -ErrorAction SilentlyContinue)
 }
 
-Describe 'Remove-GitIgnoredFiles Integration Tests' -Tag 'Integration' {
+Describe 'Remove-GitIgnoredFile Integration Tests' -Tag 'Integration' {
     BeforeAll {
         # Create base test directory
         $script:TestRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "git-cleanup-integration-$(Get-Random)"
@@ -64,7 +64,7 @@ temp/
             'test tmp' | Out-File (Join-Path -Path $script:RepoPath -ChildPath 'test.tmp')
 
             # Run cleanup
-            $Result = Remove-GitIgnoredFiles -Path $script:RepoPath
+            $Result = Remove-GitIgnoredFile -Path $script:RepoPath
 
             # Verify files are removed
             Test-Path (Join-Path -Path $script:RepoPath -ChildPath 'test.log') | Should -BeFalse
@@ -79,7 +79,7 @@ temp/
             'artifact' | Out-File (Join-Path -Path $BuildDir -ChildPath 'output.dll')
 
             # Run cleanup
-            $Result = Remove-GitIgnoredFiles -Path $script:RepoPath
+            $Result = Remove-GitIgnoredFile -Path $script:RepoPath
 
             # Verify directory is removed
             Test-Path $BuildDir | Should -BeFalse
@@ -96,7 +96,7 @@ temp/
             'log' | Out-File (Join-Path -Path $script:RepoPath -ChildPath 'test.log')
 
             # Run cleanup
-            $null = Remove-GitIgnoredFiles -Path $script:RepoPath
+            $null = Remove-GitIgnoredFile -Path $script:RepoPath
 
             # Verify tracked file still exists
             Test-Path (Join-Path -Path $script:RepoPath -ChildPath 'README.md') | Should -BeTrue
@@ -111,7 +111,7 @@ temp/
             'log' | Out-File (Join-Path -Path $script:RepoPath -ChildPath 'test.log')
 
             # Run cleanup without -IncludeUntracked
-            $null = Remove-GitIgnoredFiles -Path $script:RepoPath
+            $null = Remove-GitIgnoredFile -Path $script:RepoPath
 
             # Verify untracked file still exists, ignored file removed
             Test-Path (Join-Path -Path $script:RepoPath -ChildPath 'untracked.txt') | Should -BeTrue
@@ -126,7 +126,7 @@ temp/
             'log' | Out-File (Join-Path -Path $script:RepoPath -ChildPath 'test.log')
 
             # Run cleanup with -IncludeUntracked
-            $Result = Remove-GitIgnoredFiles -Path $script:RepoPath -IncludeUntracked
+            $Result = Remove-GitIgnoredFile -Path $script:RepoPath -IncludeUntracked
 
             # Verify both files are removed
             Test-Path (Join-Path -Path $script:RepoPath -ChildPath 'untracked.txt') | Should -BeFalse
@@ -139,7 +139,7 @@ temp/
             'test log' | Out-File (Join-Path -Path $script:RepoPath -ChildPath 'test.log')
 
             # Run with -WhatIf
-            $null = Remove-GitIgnoredFiles -Path $script:RepoPath -WhatIf
+            $null = Remove-GitIgnoredFile -Path $script:RepoPath -WhatIf
 
             # Verify file still exists
             Test-Path (Join-Path -Path $script:RepoPath -ChildPath 'test.log') | Should -BeTrue
@@ -147,7 +147,7 @@ temp/
 
         It 'Should handle repository with no ignored files' {
             # Run cleanup on clean repository
-            $Result = Remove-GitIgnoredFiles -Path $script:RepoPath
+            $Result = Remove-GitIgnoredFile -Path $script:RepoPath
 
             # Should complete successfully with no removals
             $Result.FilesRemoved | Should -Be 0
@@ -161,7 +161,7 @@ temp/
             'x' * 1000 | Out-File $TestFile -NoNewline
 
             # Run cleanup
-            $Result = Remove-GitIgnoredFiles -Path $script:RepoPath
+            $Result = Remove-GitIgnoredFile -Path $script:RepoPath
 
             # Verify space was calculated (not "Not calculated")
             $Result.TotalSpaceFreed | Should -Not -Match 'Not calculated'
@@ -173,7 +173,7 @@ temp/
             'test log' | Out-File (Join-Path -Path $script:RepoPath -ChildPath 'test.log')
 
             # Run cleanup with -NoSizeCalculation
-            $Result = Remove-GitIgnoredFiles -Path $script:RepoPath -NoSizeCalculation
+            $Result = Remove-GitIgnoredFile -Path $script:RepoPath -NoSizeCalculation
 
             # Verify size calculation was skipped
             $Result.TotalSpaceFreed | Should -Match 'Not calculated'
@@ -187,7 +187,7 @@ temp/
             try
             {
                 # Should throw an error
-                { Remove-GitIgnoredFiles -Path $NonGitPath -ErrorAction Stop } | Should -Throw '*git repository*'
+                { Remove-GitIgnoredFile -Path $NonGitPath -ErrorAction Stop } | Should -Throw '*git repository*'
             }
             finally
             {
@@ -237,7 +237,7 @@ temp/
             'log3' | Out-File (Join-Path -Path $script:Repo3 -ChildPath 'test.log')
 
             # Run cleanup with -Recurse
-            $Result = Remove-GitIgnoredFiles -Path $script:WorkspacePath -Recurse
+            $Result = Remove-GitIgnoredFile -Path $script:WorkspacePath -Recurse
 
             # Verify all files are removed
             Test-Path (Join-Path -Path $script:Repo1 -ChildPath 'test.log') | Should -BeFalse
@@ -252,7 +252,7 @@ temp/
             'log' | Out-File (Join-Path -Path $script:Repo1 -ChildPath 'test.log')
 
             # Run cleanup with -Recurse
-            $Result = Remove-GitIgnoredFiles -Path $script:WorkspacePath -Recurse
+            $Result = Remove-GitIgnoredFile -Path $script:WorkspacePath -Recurse
 
             # Verify correct statistics
             $Result.RepositoriesProcessed | Should -Be 1
@@ -265,7 +265,7 @@ temp/
             'log2' | Out-File (Join-Path -Path $script:Repo2 -ChildPath 'test.log')
 
             # Run with -WhatIf
-            $null = Remove-GitIgnoredFiles -Path $script:WorkspacePath -Recurse -WhatIf
+            $null = Remove-GitIgnoredFile -Path $script:WorkspacePath -Recurse -WhatIf
 
             # Verify files still exist
             Test-Path (Join-Path -Path $script:Repo1 -ChildPath 'test.log') | Should -BeTrue
@@ -280,7 +280,7 @@ temp/
             try
             {
                 # Should complete without errors but report no repositories
-                $Result = Remove-GitIgnoredFiles -Path $EmptyWorkspace -Recurse
+                $Result = Remove-GitIgnoredFile -Path $EmptyWorkspace -Recurse
 
                 $Result.RepositoriesProcessed | Should -Be 0
                 $Result.FilesRemoved | Should -Be 0
@@ -298,7 +298,7 @@ temp/
             'x' * 500 | Out-File (Join-Path -Path $script:Repo2 -ChildPath 'test.log') -NoNewline
 
             # Run cleanup
-            $Result = Remove-GitIgnoredFiles -Path $script:WorkspacePath -Recurse
+            $Result = Remove-GitIgnoredFile -Path $script:WorkspacePath -Recurse
 
             # Verify cumulative space calculation
             $Result.TotalSpaceFreed | Should -Not -Match 'Not calculated'
@@ -339,7 +339,7 @@ temp/
             {
                 # Use relative path
                 $RelativePath = Split-Path $script:RepoPath -Leaf
-                $Result = Remove-GitIgnoredFiles -Path $RelativePath
+                $Result = Remove-GitIgnoredFile -Path $RelativePath
 
                 $Result.FilesRemoved | Should -Be 1
             }
@@ -358,7 +358,7 @@ temp/
             try
             {
                 # Run without specifying path (should use current directory)
-                $Result = Remove-GitIgnoredFiles
+                $Result = Remove-GitIgnoredFile
 
                 $Result.FilesRemoved | Should -Be 1
             }
@@ -374,12 +374,12 @@ temp/
             $InvalidPath = Join-Path -Path $script:TestRoot -ChildPath 'nonexistent-path'
 
             # Should handle gracefully
-            { Remove-GitIgnoredFiles -Path $InvalidPath -ErrorAction Stop } | Should -Throw
+            { Remove-GitIgnoredFile -Path $InvalidPath -ErrorAction Stop } | Should -Throw
         }
 
         It 'Should return error count when issues occur' {
             # This is a basic check - specific error scenarios would be tested here
-            $Result = Remove-GitIgnoredFiles -Path $script:TestRoot -Recurse
+            $Result = Remove-GitIgnoredFile -Path $script:TestRoot -Recurse
 
             # Result should have Errors property
             $Result.PSObject.Properties.Name | Should -Contain 'Errors'

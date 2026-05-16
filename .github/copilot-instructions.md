@@ -121,10 +121,10 @@ $utf8WithBom = New-Object System.Text.UTF8Encoding $true
 [System.IO.File]::WriteAllText($path, $content, $utf8WithBom)
 ```
 
-Alternatively, use the [`Convert-LineEndings`](../Functions/Utilities/Convert-LineEndings.ps1) function which can convert encoding in a single command:
+Alternatively, use the [`Convert-LineEnding`](../Functions/Utilities/Convert-LineEnding.ps1) function which can convert encoding in a single command:
 
 ```powershell
-Convert-LineEndings -Path "path\to\file.ps1" -Encoding UTF8BOM
+Convert-LineEnding -Path "path\to\file.ps1" -Encoding UTF8BOM
 ```
 
 **Testing for encoding issues:**

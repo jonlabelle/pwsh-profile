@@ -1,4 +1,4 @@
-function Update-AllModules
+function Update-AllModule
 {
     <#
     .SYNOPSIS
@@ -44,86 +44,86 @@ function Update-AllModules
 
     .PARAMETER RemoveOldVersions
         Removes older installed versions for modules that were successfully updated. This reuses
-        the Remove-OldModules function so the cleanup behavior stays consistent.
+        the Remove-OldModule function so the cleanup behavior stays consistent.
 
     .PARAMETER WhatIf
         Shows what modules would be updated without actually updating them.
 
     .EXAMPLE
-        PS > Update-AllModules
+        PS > Update-AllModule
 
         Updates all installed PowerShell modules to their latest versions.
 
     .EXAMPLE
-        PS > Update-AllModules -IncludeModule @('Pester', 'DailyBackup')
+        PS > Update-AllModule -IncludeModule @('Pester', 'DailyBackup')
 
         Updates only the specified modules (Pester and DailyBackup).
 
     .EXAMPLE
-        PS > Update-AllModules -IncludeModule @('Pester') -Interactive -UseElevation
+        PS > Update-AllModule -IncludeModule @('Pester') -Interactive -UseElevation
 
         Interactive mode for only the Pester module with automatic privilege elevation.
 
     .EXAMPLE
-        PS > Update-AllModules -ExcludeModule @('Azure', 'AzureRM') -TrustPSGallery
+        PS > Update-AllModule -ExcludeModule @('Azure', 'AzureRM') -TrustPSGallery
 
         Updates all modules except Azure and AzureRM, and configures PSGallery as trusted.
 
     .EXAMPLE
-        PS > Update-AllModules -UseElevation -Verbose
+        PS > Update-AllModule -UseElevation -Verbose
 
         Updates all modules with automatic privilege elevation for modules requiring admin rights.
 
     .EXAMPLE
-        PS > Update-AllModules -Interactive
+        PS > Update-AllModule -Interactive
 
         Prompts for each module update, allowing the user to choose which modules to update.
 
     .EXAMPLE
-        PS > Update-AllModules -Interactive -UseElevation
+        PS > Update-AllModule -Interactive -UseElevation
 
         Interactive mode with automatic privilege elevation when needed.
 
     .EXAMPLE
-        PS > Update-AllModules -UseElevation -SkipPublisherCheck -Verbose
+        PS > Update-AllModule -UseElevation -SkipPublisherCheck -Verbose
 
         Updates all modules with automatic privilege elevation and skips publisher verification.
         WARNING: Only use -SkipPublisherCheck when you trust the module sources.
 
     .EXAMPLE
-        PS > Update-AllModules -ExcludeModule @('Azure', 'AzureRM') -UseElevation
+        PS > Update-AllModule -ExcludeModule @('Azure', 'AzureRM') -UseElevation
 
         Updates all modules except Azure and AzureRM, using elevation when needed.
 
     .EXAMPLE
-        PS > Update-AllModules -Force -Verbose
+        PS > Update-AllModule -Force -Verbose
 
         Forcefully updates all modules with verbose output.
 
     .EXAMPLE
-        PS > Update-AllModules -RemoveOldVersions
+        PS > Update-AllModule -RemoveOldVersions
 
         Updates all outdated modules and removes their older installed versions afterward.
 
     .EXAMPLE
-        PS > Update-AllModules -WhatIf
-        PS > Get-OutdatedModules | ForEach-Object { Update-Module -Name $_.Name -SkipPublisherCheck }
+        PS > Update-AllModule -WhatIf
+        PS > Get-OutdatedModule | ForEach-Object { Update-Module -Name $_.Name -SkipPublisherCheck }
 
         Safer alternative: First preview what would be updated, then update modules individually
         with selective use of -SkipPublisherCheck for better security control.
 
     .EXAMPLE
-        PS > Update-AllModules -WhatIf
+        PS > Update-AllModule -WhatIf
 
         Shows what modules would be updated without actually performing the updates.
 
     .EXAMPLE
-        PS > Update-AllModules -ExcludeModule @('Azure', 'AzureRM') -WhatIf
+        PS > Update-AllModule -ExcludeModule @('Azure', 'AzureRM') -WhatIf
 
         Preview what would be updated while excluding specific modules from the update process.
 
     .EXAMPLE
-        PS > Update-AllModules -Confirm
+        PS > Update-AllModule -Confirm
 
         Updates all modules with interactive confirmation for each operation.
 
@@ -141,7 +141,7 @@ function Update-AllModules
         - Use -SkipPublisherCheck to bypass digital signature verification issues (requires PowerShellGet 2.0+)
         - Use -Interactive for fine-grained control over which modules to update
         - The Invoke-ElevatedCommand function (Functions/SystemAdministration/Invoke-ElevatedCommand.ps1) function must be available for elevation support
-        - The Remove-OldModules function (Functions/ModuleManagement/Remove-OldModules.ps1) must be available when using -RemoveOldVersions
+        - The Remove-OldModule function (Functions/ModuleManagement/Remove-OldModule.ps1) must be available when using -RemoveOldVersions
 
         SECURITY CONSIDERATIONS:
         - The -SkipPublisherCheck parameter bypasses PowerShell's built-in security that validates
@@ -159,10 +159,10 @@ function Update-AllModules
 
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Update-AllModules.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Update-AllModule.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Update-AllModules.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Update-AllModule.ps1
 
     .LINK
         https://jonlabelle.com/snippets/view/markdown/powershellget-commands
@@ -335,7 +335,7 @@ function Update-AllModules
 
         if ($RemoveOldVersions)
         {
-            Import-DependencyIfNeeded -FunctionName 'Remove-OldModules' -RelativePath 'Remove-OldModules.ps1'
+            Import-DependencyIfNeeded -FunctionName 'Remove-OldModule' -RelativePath 'Remove-OldModule.ps1'
         }
 
         # Check PowerShellGet version for SkipPublisherCheck compatibility
@@ -483,7 +483,7 @@ function Update-AllModules
                 {
                     Write-Host ''
                     Write-Host 'WhatIf: Older installed versions would be removed for successfully updated modules:' -ForegroundColor Yellow
-                    Remove-OldModules -IncludeModule $modulesToProcess.Name -Force:$Force -Verbose:($VerbosePreference -eq 'Continue') -WhatIf
+                    Remove-OldModule -IncludeModule $modulesToProcess.Name -Force:$Force -Verbose:($VerbosePreference -eq 'Continue') -WhatIf
                 }
 
                 return
@@ -744,7 +744,7 @@ function Update-AllModules
                     try
                     {
                         Write-Host 'Removing old versions for successfully updated modules...' -ForegroundColor Cyan
-                        Remove-OldModules -IncludeModule $updatedModuleNames -Force:$Force -Verbose:($VerbosePreference -eq 'Continue')
+                        Remove-OldModule -IncludeModule $updatedModuleNames -Force:$Force -Verbose:($VerbosePreference -eq 'Continue')
                     }
                     catch
                     {

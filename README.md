@@ -49,7 +49,7 @@ After installation, open a new PowerShell session and try:
 
 ```powershell
 # Browse everything the profile loaded
-Show-ProfileFunctions
+Show-ProfileFunction
 
 # Search for the right command by keyword
 Find-ProfileFunction dns
@@ -108,15 +108,15 @@ PS > Show-SystemResourceMonitor
 </details>
 
 <details>
-<summary><strong>Show-ProfileFunctions</strong></summary>
+<summary><strong>Show-ProfileFunction</strong></summary>
 
 Lists all functions available in this profile, organized by category.
 
 ```powershell
-PS > Show-ProfileFunctions
+PS > Show-ProfileFunction
 ```
 
-![Show-ProfileFunctions screenshot](resources/screenshots/Show-ProfileFunctions.png "Show-ProfileFunctions in action")
+![Show-ProfileFunction screenshot](resources/screenshots/Show-ProfileFunction.png "Show-ProfileFunction in action")
 
 </details>
 

@@ -1,4 +1,4 @@
-function Extract-Archives
+function Extract-Archive
 {
     <#
     .SYNOPSIS
@@ -58,62 +58,62 @@ function Extract-Archives
         Overwrite existing destination folders by removing them before extraction.
 
     .EXAMPLE
-        PS > Extract-Archives
+        PS > Extract-Archive
 
         Extracts all supported archives in the current directory into folders named
         after each archive.
 
     .EXAMPLE
-        PS > Extract-Archives -Path ~/Downloads -Recurse -Force
+        PS > Extract-Archive -Path ~/Downloads -Recurse -Force
 
         Recursively extracts archives under ~/Downloads, overwriting any existing
         destination folders.
 
     .EXAMPLE
-        PS > 'C:\Archives', './artifacts' | Extract-Archives -Recurse
+        PS > 'C:\Archives', './artifacts' | Extract-Archive -Recurse
 
         Processes multiple directories from the pipeline and extracts archives found
         in each location.
 
     .EXAMPLE
-        PS > Extract-Archives -Path ./artifacts -Include '*.zip','*.tar.gz'
+        PS > Extract-Archive -Path ./artifacts -Include '*.zip','*.tar.gz'
 
         Extracts only .zip and .tar.gz archives under ./artifacts, leaving other
         archive types untouched.
 
     .EXAMPLE
-        PS > Extract-Archives -Path ./logs -Exclude '*old*','*backup*'
+        PS > Extract-Archive -Path ./logs -Exclude '*old*','*backup*'
 
         Extracts supported archives under ./logs while skipping any whose names
         contain "old" or "backup".
 
     .EXAMPLE
-        PS > Extract-Archives -Path ./archives -DestinationRoot ~/Extracted
+        PS > Extract-Archive -Path ./archives -DestinationRoot ~/Extracted
 
         Places extracted folders beneath ~/Extracted instead of alongside the
         original archives.
 
     .EXAMPLE
-        PS > Extract-Archives -Recurse -WhatIf
+        PS > Extract-Archive -Recurse -WhatIf
 
         Shows which archives would be extracted recursively without making any
         changes.
 
     .EXAMPLE
-        PS > Extract-Archives -Path ./downloads -ExtractNested -Recurse
+        PS > Extract-Archive -Path ./downloads -ExtractNested -Recurse
 
         Extracts archives under ./downloads, then continues extracting archives that
         appear inside newly created destinations (useful for zip-to-rar chains).
 
     .EXAMPLE
-        PS > Extract-Archives -Path ./media -Recurse -ExtractNested -MergeMultipartAcrossDirectories
+        PS > Extract-Archive -Path ./media -Recurse -ExtractNested -MergeMultipartAcrossDirectories
 
         Recurses through ./media, stages multipart volumes that were unpacked into
         separate folders (for example, zip parts that each contain rar volumes),
         merges them, and extracts the combined payload.
 
     .EXAMPLE
-        PS > Get-ChildItem ~/Downloads -Directory | Extract-Archives -DestinationRoot ~/Unpacked
+        PS > Get-ChildItem ~/Downloads -Directory | Extract-Archive -DestinationRoot ~/Unpacked
 
         Sends directories from Get-ChildItem through the pipeline for processing and
         extracts any archives found into ~/Unpacked.
@@ -130,10 +130,10 @@ function Extract-Archives
 
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Extract-Archives.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Extract-Archive.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Extract-Archives.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Extract-Archive.ps1
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '')]
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
@@ -608,7 +608,7 @@ function Extract-Archives
                         $uniquePartDirectories = $multipartParts | Select-Object -ExpandProperty DirectoryName -Unique
                         if ($uniquePartDirectories.Count -gt 1)
                         {
-                            $stagingRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'Extract-Archives'
+                            $stagingRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'Extract-Archive'
                             if (-not (Test-Path -LiteralPath $stagingRoot))
                             {
                                 New-Item -ItemType Directory -Path $stagingRoot -Force -ErrorAction Stop | Out-Null
@@ -735,11 +735,11 @@ if (-not (Get-Command -Name 'extract' -ErrorAction SilentlyContinue))
 {
     try
     {
-        Write-Verbose "Creating 'extract' alias for Extract-Archives"
-        Set-Alias -Name 'extract' -Value 'Extract-Archives' -Force -ErrorAction Stop
+        Write-Verbose "Creating 'extract' alias for Extract-Archive"
+        Set-Alias -Name 'extract' -Value 'Extract-Archive' -Force -ErrorAction Stop
     }
     catch
     {
-        Write-Warning "Extract-Archives: Could not create 'extract' alias: $($_.Exception.Message)"
+        Write-Warning "Extract-Archive: Could not create 'extract' alias: $($_.Exception.Message)"
     }
 }

@@ -110,7 +110,7 @@
 
         RELATED FUNCTIONS:
         This function requires and auto-loads:
-        - Get-NetworkMetrics: Collects network performance data for each host
+        - Get-NetworkMetric: Collects network performance data for each host
         - Show-NetworkLatencyGraph: Generates sparkline graphs and optional time-series visualizations
 
         All dependencies are automatically loaded if not already available.
@@ -365,9 +365,9 @@
     .EXAMPLE
         PS > # WORKFLOW: Progressive diagnosis for slow website
         PS > # Step 1: Quick latency check
-        PS > Get-NetworkMetrics -HostName 'website.com' -Count 10
+        PS > Get-NetworkMetric -HostName 'website.com' -Count 10
         PS > # Step 2: If high latency, visualize the pattern
-        PS > $metrics = Get-NetworkMetrics -HostName 'website.com' -Count 50
+        PS > $metrics = Get-NetworkMetric -HostName 'website.com' -Count 50
         PS > Show-NetworkLatencyGraph -Data $metrics.LatencyData -GraphType TimeSeries -ShowStats
         PS > # Step 3: Check if DNS is the culprit
         PS > Invoke-NetworkDiagnostic -HostName 'website.com' -IncludeDns -Count 30
@@ -377,8 +377,8 @@
 
     .EXAMPLE
         PS > # WORKFLOW: API endpoint comparison
-        PS > $api1 = Get-NetworkMetrics -HostName 'api-us-east.example.com' -Port 8080 -Count 100
-        PS > $api2 = Get-NetworkMetrics -HostName 'api-us-west.example.com' -Port 8080 -Count 100
+        PS > $api1 = Get-NetworkMetric -HostName 'api-us-east.example.com' -Port 8080 -Count 100
+        PS > $api2 = Get-NetworkMetric -HostName 'api-us-west.example.com' -Port 8080 -Count 100
         PS > Show-NetworkLatencyGraph -Data $api1.LatencyData -GraphType Sparkline -ShowStats
         PS > Show-NetworkLatencyGraph -Data $api2.LatencyData -GraphType Sparkline -ShowStats
         PS > Invoke-NetworkDiagnostic -HostName 'api-us-east.example.com','api-us-west.example.com' -Port 8080 -Count 100 -ShowGraph
@@ -391,7 +391,7 @@
         PS > # Step 1: Monitor continuously to catch failures
         PS > Invoke-NetworkDiagnostic -HostName 'vpn.company.com' -Continuous -Interval 3
         PS > # Step 2: When drops occur, collect detailed samples
-        PS > $metrics = Get-NetworkMetrics -HostName 'vpn.company.com' -Count 200 -SampleDelayMilliseconds 50
+        PS > $metrics = Get-NetworkMetric -HostName 'vpn.company.com' -Count 200 -SampleDelayMilliseconds 50
         PS > # Step 3: Analyze distribution pattern
         PS > Show-NetworkLatencyGraph -Data $metrics.LatencyData -GraphType Distribution -Width 80
 
@@ -400,7 +400,7 @@
 
     .EXAMPLE
         PS > # WORKFLOW: Real-time application baseline comparison
-        PS > $baseline = Get-NetworkMetrics -HostName 'game-server.net' -Port 27015 -Count 100
+        PS > $baseline = Get-NetworkMetric -HostName 'game-server.net' -Port 27015 -Count 100
         PS > Invoke-NetworkDiagnostic -HostName 'game-server.net' -Port 27015 -Continuous -ShowGraph -Interval 5
         PS > "Baseline Jitter: $($baseline.Jitter)ms"  # Should be < 20ms for gaming
 
@@ -412,7 +412,7 @@
         PS > $services = @('web.company.com:443', 'api.company.com:8080', 'db.company.com:5432')
         PS > foreach ($svc in $services) {
         >>       $host,$port = $svc -split ':'
-        >>       Get-NetworkMetrics -HostName $host -Port $port -Count 10 | Select-Object HostName,Port,PacketLoss,LatencyAvg
+        >>       Get-NetworkMetric -HostName $host -Port $port -Count 10 | Select-Object HostName,Port,PacketLoss,LatencyAvg
         >>   }
         PS > Invoke-NetworkDiagnostic -HostName 'db.company.com' -Port 5432 -ShowGraph -Count 100
 
@@ -605,11 +605,11 @@
             }
         }
 
-        # Load Get-NetworkMetrics if needed
-        if (-not (Get-Command -Name 'Get-NetworkMetrics' -ErrorAction SilentlyContinue))
+        # Load Get-NetworkMetric if needed
+        if (-not (Get-Command -Name 'Get-NetworkMetric' -ErrorAction SilentlyContinue))
         {
-            Write-Verbose 'Get-NetworkMetrics is required - attempting to load it'
-            $metricsPath = Join-Path -Path $PSScriptRoot -ChildPath 'Get-NetworkMetrics.ps1'
+            Write-Verbose 'Get-NetworkMetric is required - attempting to load it'
+            $metricsPath = Join-Path -Path $PSScriptRoot -ChildPath 'Get-NetworkMetric.ps1'
             $metricsPath = [System.IO.Path]::GetFullPath($metricsPath)
             $script:MetricsPath = $metricsPath
 
@@ -618,22 +618,22 @@
                 try
                 {
                     . $metricsPath
-                    Write-Verbose "Loaded Get-NetworkMetrics from: $metricsPath"
+                    Write-Verbose "Loaded Get-NetworkMetric from: $metricsPath"
                 }
                 catch
                 {
-                    throw "Failed to load required dependency 'Get-NetworkMetrics' from '$metricsPath': $($_.Exception.Message)"
+                    throw "Failed to load required dependency 'Get-NetworkMetric' from '$metricsPath': $($_.Exception.Message)"
                 }
             }
             else
             {
-                throw "Required function 'Get-NetworkMetrics' could not be found. Expected location: $metricsPath"
+                throw "Required function 'Get-NetworkMetric' could not be found. Expected location: $metricsPath"
             }
         }
         else
         {
-            Write-Verbose 'Get-NetworkMetrics is already loaded'
-            $existingMetricsPath = Join-Path -Path $PSScriptRoot -ChildPath 'Get-NetworkMetrics.ps1'
+            Write-Verbose 'Get-NetworkMetric is already loaded'
+            $existingMetricsPath = Join-Path -Path $PSScriptRoot -ChildPath 'Get-NetworkMetric.ps1'
             $existingMetricsPath = [System.IO.Path]::GetFullPath($existingMetricsPath)
             $script:MetricsPath = $existingMetricsPath
         }
@@ -1329,11 +1329,11 @@
                         $hostEntry = $_
 
                         # Each parallel runspace starts clean; ensure the dependency is loaded locally using the captured path
-                        if (-not (Get-Command -Name 'Get-NetworkMetrics' -ErrorAction SilentlyContinue) -and $using:MetricsPath)
+                        if (-not (Get-Command -Name 'Get-NetworkMetric' -ErrorAction SilentlyContinue) -and $using:MetricsPath)
                         {
                             try { . $using:MetricsPath } catch
                             {
-                                throw "Failed to load required dependency 'Get-NetworkMetrics' from '$using:MetricsPath': $($_.Exception.Message)"
+                                throw "Failed to load required dependency 'Get-NetworkMetric' from '$using:MetricsPath': $($_.Exception.Message)"
                             }
                         }
 
@@ -1360,7 +1360,7 @@
                         $metrics = $null
                         try
                         {
-                            $metrics = Get-NetworkMetrics -HostName $hostEntry.HostName -Count $using:Count -Timeout $using:Timeout -Port $using:Port -IncludeDns:$using:IncludeDns -SampleDelayMilliseconds $using:SampleDelayMilliseconds
+                            $metrics = Get-NetworkMetric -HostName $hostEntry.HostName -Count $using:Count -Timeout $using:Timeout -Port $using:Port -IncludeDns:$using:IncludeDns -SampleDelayMilliseconds $using:SampleDelayMilliseconds
                         }
                         catch
                         {
@@ -1388,7 +1388,7 @@
 
                     try
                     {
-                        $metrics = Get-NetworkMetrics -HostName $hostTarget -Count $Count -Timeout $Timeout -Port $Port -IncludeDns:$IncludeDns -SampleDelayMilliseconds $SampleDelayMilliseconds
+                        $metrics = Get-NetworkMetric -HostName $hostTarget -Count $Count -Timeout $Timeout -Port $Port -IncludeDns:$IncludeDns -SampleDelayMilliseconds $SampleDelayMilliseconds
                     }
                     catch
                     {

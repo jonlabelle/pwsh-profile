@@ -150,7 +150,7 @@ $boxChars = @('┌', '┐', '└', '┘', '─', '│')
 To add BOM to a file:
 
 ```powershell
-Convert-LineEndings -Path "Functions/Category/Function.ps1" -Encoding UTF8BOM
+Convert-LineEnding -Path "Functions/Category/Function.ps1" -Encoding UTF8BOM
 ```
 
 #### Code Style

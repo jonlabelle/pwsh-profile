@@ -1,4 +1,4 @@
-function Convert-LineEndings
+function Convert-LineEnding
 {
     <#
     .SYNOPSIS
@@ -99,81 +99,81 @@ function Convert-LineEndings
         Returns information about the processed files.
 
     .EXAMPLE
-        PS > Convert-LineEndings -Path 'script.ps1' -LineEnding 'LF'
+        PS > Convert-LineEnding -Path 'script.ps1' -LineEnding 'LF'
 
         Converts the specified PowerShell script to use Unix line endings only if it doesn't
         already have LF line endings. The file encoding is preserved (Auto encoding).
 
     .EXAMPLE
-        PS > Convert-LineEndings -Path 'script.ps1'
+        PS > Convert-LineEnding -Path 'script.ps1'
 
         Converts the specified PowerShell script to use platform default line endings
         (CRLF on Windows, LF on Unix/Linux/macOS). The file encoding is preserved.
 
     .EXAMPLE
-        PS > Convert-LineEndings -Path 'C:\Scripts' -LineEnding 'CRLF' -Recurse -Include '*.ps1', '*.txt'
+        PS > Convert-LineEnding -Path 'C:\Scripts' -LineEnding 'CRLF' -Recurse -Include '*.ps1', '*.txt'
 
         Recursively converts all PowerShell and text files in the Scripts directory to Windows line endings.
 
     .EXAMPLE
-        PS > Convert-LineEndings -Path 'project' -LineEnding 'LF' -Recurse
+        PS > Convert-LineEnding -Path 'project' -LineEnding 'LF' -Recurse
 
         Converts all files in the project directory to Unix line endings, including common text files
         like LICENSE, README, Dockerfile, and Makefile, along with all supported text file extensions.
 
     .EXAMPLE
-        PS > Get-ChildItem '*.md' | Convert-LineEndings -LineEnding 'LF' -WhatIf
+        PS > Get-ChildItem '*.md' | Convert-LineEnding -LineEnding 'LF' -WhatIf
 
         Shows which Markdown files would be converted to Unix line endings vs. which would be skipped.
         Files needing line ending conversion show "Convert line endings from [Current] to LF" while files
         with correct endings show "Skip file - already has correct line endings (LF)".
 
     .EXAMPLE
-        PS > Convert-LineEndings -Path 'project' -LineEnding 'LF' -Exclude '*.min.js', 'node_modules' -Recurse
+        PS > Convert-LineEnding -Path 'project' -LineEnding 'LF' -Exclude '*.min.js', 'node_modules' -Recurse
 
         Converts files to Unix line endings while excluding minified JavaScript files and node_modules directories.
 
     .EXAMPLE
-        PS > Convert-LineEndings -Path 'data.csv' -LineEnding 'CRLF' -Encoding 'UTF8BOM'
+        PS > Convert-LineEnding -Path 'data.csv' -LineEnding 'CRLF' -Encoding 'UTF8BOM'
 
         Converts a CSV file to Windows line endings and UTF-8 with BOM encoding. Both conversions
         are performed independently - if the file already has CRLF endings but wrong encoding,
         only the encoding will be converted.
 
     .EXAMPLE
-        PS > Convert-LineEndings -Path 'legacy-file.txt' -LineEnding 'CRLF' -Encoding 'ANSI'
+        PS > Convert-LineEnding -Path 'legacy-file.txt' -LineEnding 'CRLF' -Encoding 'ANSI'
 
         Converts a legacy text file to Windows line endings and system default ANSI encoding.
         This is useful for older Windows applications that expect ANSI-encoded files with
         the system's default code page.
 
     .EXAMPLE
-        PS > Convert-LineEndings -Path 'unicode-data.xml' -LineEnding 'LF' -Encoding 'UTF32'
+        PS > Convert-LineEnding -Path 'unicode-data.xml' -LineEnding 'LF' -Encoding 'UTF32'
 
         Converts an XML file to Unix line endings and UTF-32 Little Endian encoding with BOM.
         UTF-32 provides fixed-width encoding for all Unicode characters, useful for applications
         that need predictable character indexing.
 
     .EXAMPLE
-        PS > Convert-LineEndings -Path 'big-endian-file.txt' -LineEnding 'CRLF' -Encoding 'UTF32BE'
+        PS > Convert-LineEnding -Path 'big-endian-file.txt' -LineEnding 'CRLF' -Encoding 'UTF32BE'
 
         Converts a file to Windows line endings and UTF-32 Big Endian encoding. This might be
         needed for interoperability with systems that prefer big-endian byte ordering.
 
     .EXAMPLE
-        PS > Convert-LineEndings -Path 'script.txt' -LineEnding 'LF' -Encoding 'UTF8' -PassThru
+        PS > Convert-LineEnding -Path 'script.txt' -LineEnding 'LF' -Encoding 'UTF8' -PassThru
 
         Converts to LF line endings and UTF-8 without BOM. The PassThru output will show which
         conversions were actually performed (line endings, encoding, both, or neither).
 
     .EXAMPLE
-        PS > Get-ChildItem '*.txt' | Convert-LineEndings -LineEnding 'LF' -Encoding 'UTF8' -PassThru
+        PS > Get-ChildItem '*.txt' | Convert-LineEnding -LineEnding 'LF' -Encoding 'UTF8' -PassThru
 
         Processes all text files for both line ending and encoding conversion. Returns detailed
         information about which files were converted and what changes were made.
 
     .EXAMPLE
-        PS > Convert-LineEndings -Path 'mixed-content' -LineEnding 'LF' -Recurse -PassThru |
+        PS > Convert-LineEnding -Path 'mixed-content' -LineEnding 'LF' -Recurse -PassThru |
              Where-Object {$_.Converted -or $_.EncodingChanged} |
              Format-Table FilePath,Converted,EncodingChanged,SourceEncoding,TargetEncoding
 
@@ -181,14 +181,14 @@ function Convert-LineEndings
         displaying what type of conversion was performed on each file.
 
     .EXAMPLE
-        PS > Convert-LineEndings -Path @('file1.txt','file2.json','file3.xml') -LineEnding 'CRLF' -Encoding 'UTF8' -PassThru
+        PS > Convert-LineEnding -Path @('file1.txt','file2.json','file3.xml') -LineEnding 'CRLF' -Encoding 'UTF8' -PassThru
 
         Processes multiple specific files and shows which ones needed line ending conversion,
         encoding conversion, both, or neither. Demonstrates independent conversion logic
         across different file types.
 
     .EXAMPLE
-        PS > Convert-LineEndings -Path 'config.json' -LineEnding 'LF' -Encoding 'UTF8' -WhatIf
+        PS > Convert-LineEnding -Path 'config.json' -LineEnding 'LF' -Encoding 'UTF8' -WhatIf
 
         Preview what would happen when converting a JSON file. Shows output like:
         "Convert line endings from CRLF to LF" (if line endings need conversion)
@@ -196,7 +196,7 @@ function Convert-LineEndings
         "Skip file - already has correct line endings (LF) and encoding (UTF8)" (if no conversion needed)
 
     .EXAMPLE
-        PS > Convert-LineEndings -Path 'document.txt' -Encoding 'UTF8BOM' -PassThru
+        PS > Convert-LineEnding -Path 'document.txt' -Encoding 'UTF8BOM' -PassThru
 
         Converts only the encoding to UTF-8 with BOM while using platform default line endings.
         When LineEnding is not specified, it defaults to 'Auto' which uses the current platform's
@@ -204,19 +204,19 @@ function Convert-LineEndings
         ending information based on platform defaults.
 
     .EXAMPLE
-        PS > Get-ChildItem 'src\*.cs' | Convert-LineEndings -LineEnding 'CRLF' -Force -PassThru | Where-Object Converted
+        PS > Get-ChildItem 'src\*.cs' | Convert-LineEnding -LineEnding 'CRLF' -Force -PassThru | Where-Object Converted
 
         Converts C# source files to Windows line endings and returns only files that actually
         had their line endings converted (filters out files that already had CRLF).
 
     .EXAMPLE
-        PS > Convert-LineEndings -Path 'legacy-file.txt' -LineEnding 'LF' -Encoding 'UTF8' -PassThru
+        PS > Convert-LineEnding -Path 'legacy-file.txt' -LineEnding 'LF' -Encoding 'UTF8' -PassThru
 
         Converts both line endings and encoding. The file timestamps will be updated to
         the current time since -PreserveTimestamps is not specified.
 
     .EXAMPLE
-        PS > Convert-LineEndings -Path 'project' -LineEnding 'LF' -Recurse -PreserveTimestamps -PassThru
+        PS > Convert-LineEnding -Path 'project' -LineEnding 'LF' -Recurse -PreserveTimestamps -PassThru
 
         Converts all files in the project directory to Unix line endings while preserving their
         original timestamps. Without -PreserveTimestamps, modified files would get new timestamps
@@ -224,7 +224,7 @@ function Convert-LineEndings
         so their timestamps are naturally preserved regardless of the -PreserveTimestamps setting.
 
     .EXAMPLE
-        PS > Convert-LineEndings -Path 'legacy-file.txt' -LineEnding 'LF' -Encoding 'UTF8' -PassThru | Format-Table
+        PS > Convert-LineEnding -Path 'legacy-file.txt' -LineEnding 'LF' -Encoding 'UTF8' -PassThru | Format-Table
 
         Converts both line endings and encoding with tabular output showing before/after state:
         FilePath         OriginalLF OriginalCRLF NewLF NewCRLF SourceEncoding TargetEncoding EncodingChanged Converted Skipped
@@ -232,7 +232,7 @@ function Convert-LineEndings
         legacy-file.txt  0          15           15    0       ASCII          UTF8           True            True      False
 
     .EXAMPLE
-        PS > $results = Get-ChildItem '*.md' | Convert-LineEndings -LineEnding 'LF' -Encoding 'UTF8' -PassThru
+        PS > $results = Get-ChildItem '*.md' | Convert-LineEnding -LineEnding 'LF' -Encoding 'UTF8' -PassThru
         PS > $results | Group-Object Skipped,Converted,EncodingChanged | Select-Object Name,Count
 
         Processes Markdown files and groups results by conversion type to see summary statistics:
@@ -242,39 +242,39 @@ function Convert-LineEndings
         - "True,False,False": Files that were skipped (no conversion needed)
 
     .EXAMPLE
-        PS > Convert-LineEndings -Path 'project' -Recurse -PassThru
+        PS > Convert-LineEnding -Path 'project' -Recurse -PassThru
 
         Converts all files in the current working directory to platform default line endings using 'Auto' mode.
         On Windows systems, files will be converted to CRLF; on Unix/Linux/macOS systems, files will
         be converted to LF. Returns detailed information about processed files.
 
     .EXAMPLE
-        PS > Convert-LineEndings -Path 'script.js' -LineEnding 'LF' -EnsureEndingNewline
+        PS > Convert-LineEnding -Path 'script.js' -LineEnding 'LF' -EnsureEndingNewline
 
         Converts the JavaScript file to Unix line endings and ensures it ends with a newline.
         If the file already ends with a newline, it won't be modified for that purpose.
 
     .EXAMPLE
-        PS > Convert-LineEndings -Path 'config.json' -LineEnding 'CRLF' -EnsureEndingNewline -PassThru
+        PS > Convert-LineEnding -Path 'config.json' -LineEnding 'CRLF' -EnsureEndingNewline -PassThru
 
         Converts a JSON file to Windows line endings and ensures it ends with CRLF.
         Returns detailed information showing whether an ending newline was added.
 
     .EXAMPLE
-        PS > Get-ChildItem '*.cs' | Convert-LineEndings -LineEnding 'CRLF' -EnsureEndingNewline -PassThru |
+        PS > Get-ChildItem '*.cs' | Convert-LineEnding -LineEnding 'CRLF' -EnsureEndingNewline -PassThru |
              Where-Object EndingNewlineAdded
 
         Processes C# files and returns only those that had an ending newline added.
         Useful for identifying files that didn't previously end with a newline.
 
     .EXAMPLE
-        PS > Convert-LineEndings -Path 'src' -LineEnding 'LF' -EnsureEndingNewline -Recurse -Include '*.py' -WhatIf
+        PS > Convert-LineEnding -Path 'src' -LineEnding 'LF' -EnsureEndingNewline -Recurse -Include '*.py' -WhatIf
 
         Shows what would happen when processing Python files recursively - which files would
         have line endings converted and which would have ending newlines added.
 
     .EXAMPLE
-        PS > Measure-Command { Convert-LineEndings -Path 'large-project' -LineEnding 'LF' -Recurse }
+        PS > Measure-Command { Convert-LineEnding -Path 'large-project' -LineEnding 'LF' -Recurse }
 
         Measures the performance of processing a large project directory. The optimized
         implementation reduces I/O operations by combining file analysis (binary detection,
@@ -358,13 +358,13 @@ function Convert-LineEndings
 
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Convert-LineEndings.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Convert-LineEnding.ps1
 
     .LINK
         https://jonlabelle.com/snippets/view/powershell/convert-line-endings-in-powershell
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Convert-LineEndings.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Convert-LineEnding.ps1
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding(SupportsShouldProcess)]

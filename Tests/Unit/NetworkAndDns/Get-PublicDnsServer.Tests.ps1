@@ -2,10 +2,10 @@
 
 <#
 .SYNOPSIS
-    Unit tests for Get-PublicDnsServers function.
+    Unit tests for Get-PublicDnsServer function.
 
 .DESCRIPTION
-    Tests the Get-PublicDnsServers function which returns a curated list of
+    Tests the Get-PublicDnsServer function which returns a curated list of
     well-known public DNS servers with their addresses and DoH URLs.
 #>
 
@@ -13,18 +13,18 @@ BeforeAll {
     # Suppress progress bars to prevent freezing in non-interactive environments
     $Global:ProgressPreference = 'SilentlyContinue'
 
-    . "$PSScriptRoot/../../../Functions/NetworkAndDns/Get-PublicDnsServers.ps1"
+    . "$PSScriptRoot/../../../Functions/NetworkAndDns/Get-PublicDnsServer.ps1"
 }
 
-Describe 'Get-PublicDnsServers' {
+Describe 'Get-PublicDnsServer' {
     Context 'Default output (no parameters)' {
         It 'Should return multiple DNS server entries' {
-            $results = Get-PublicDnsServers
+            $results = Get-PublicDnsServer
             @($results).Count | Should -BeGreaterThan 5
         }
 
         It 'Should return objects with expected properties' {
-            $results = Get-PublicDnsServers
+            $results = Get-PublicDnsServer
             $first = $results | Select-Object -First 1
             $first.PSObject.Properties.Name | Should -Contain 'Name'
             $first.PSObject.Properties.Name | Should -Contain 'IPv4Primary'
@@ -37,7 +37,7 @@ Describe 'Get-PublicDnsServers' {
         }
 
         It 'Should include well-known providers (Cloudflare, Google, Quad9)' {
-            $results = Get-PublicDnsServers
+            $results = Get-PublicDnsServer
             $names = $results | ForEach-Object { $_.Name }
             $names | Should -Contain 'Cloudflare'
             $names | Should -Contain 'Google'
@@ -45,7 +45,7 @@ Describe 'Get-PublicDnsServers' {
         }
 
         It 'Should have valid IPv4 addresses for all entries' {
-            $results = Get-PublicDnsServers
+            $results = Get-PublicDnsServer
             foreach ($server in $results)
             {
                 $parsed = $null
@@ -56,27 +56,27 @@ Describe 'Get-PublicDnsServers' {
 
     Context 'Name filter' {
         It 'Should filter by exact name' {
-            $results = Get-PublicDnsServers -Name 'Google'
+            $results = Get-PublicDnsServer -Name 'Google'
             @($results).Count | Should -Be 1
             $results.Name | Should -Be 'Google'
             $results.IPv4Primary | Should -Be '8.8.8.8'
         }
 
         It 'Should support wildcard filtering' {
-            $results = Get-PublicDnsServers -Name 'Cloud*'
+            $results = Get-PublicDnsServer -Name 'Cloud*'
             @($results).Count | Should -Be 1
             $results.Name | Should -Be 'Cloudflare'
         }
 
         It 'Should return empty for non-matching name' {
-            $results = Get-PublicDnsServers -Name 'NonExistentProvider'
+            $results = Get-PublicDnsServer -Name 'NonExistentProvider'
             $results | Should -BeNullOrEmpty
         }
     }
 
     Context 'IPv4Only switch' {
         It 'Should return only IPv4 address strings' {
-            $results = Get-PublicDnsServers -IPv4Only
+            $results = Get-PublicDnsServer -IPv4Only
             foreach ($ip in $results)
             {
                 $ip | Should -BeOfType [String]
@@ -86,13 +86,13 @@ Describe 'Get-PublicDnsServers' {
         }
 
         It 'Should return the same count as full results' {
-            $full = Get-PublicDnsServers
-            $ipsOnly = Get-PublicDnsServers -IPv4Only
+            $full = Get-PublicDnsServer
+            $ipsOnly = Get-PublicDnsServer -IPv4Only
             @($ipsOnly).Count | Should -Be @($full).Count
         }
 
         It 'Should include well-known IPs' {
-            $results = Get-PublicDnsServers -IPv4Only
+            $results = Get-PublicDnsServer -IPv4Only
             $results | Should -Contain '1.1.1.1'
             $results | Should -Contain '8.8.8.8'
             $results | Should -Contain '9.9.9.9'
@@ -101,7 +101,7 @@ Describe 'Get-PublicDnsServers' {
 
     Context 'Known server data integrity' {
         It 'Should have correct Cloudflare data' {
-            $cf = Get-PublicDnsServers -Name 'Cloudflare'
+            $cf = Get-PublicDnsServer -Name 'Cloudflare'
             $cf.IPv4Primary | Should -Be '1.1.1.1'
             $cf.IPv4Secondary | Should -Be '1.0.0.1'
             $cf.DoHUrl | Should -Be 'https://cloudflare-dns.com/dns-query'
@@ -109,7 +109,7 @@ Describe 'Get-PublicDnsServers' {
         }
 
         It 'Should have correct Google data' {
-            $g = Get-PublicDnsServers -Name 'Google'
+            $g = Get-PublicDnsServer -Name 'Google'
             $g.IPv4Primary | Should -Be '8.8.8.8'
             $g.IPv4Secondary | Should -Be '8.8.4.4'
             $g.DoHUrl | Should -Be 'https://dns.google/dns-query'

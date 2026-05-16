@@ -1,4 +1,4 @@
-function Get-PublicDnsServers
+function Get-PublicDnsServer
 {
     <#
     .SYNOPSIS
@@ -21,7 +21,7 @@ function Get-PublicDnsServers
         Useful for piping into other commands that need a simple list of server IPs.
 
     .EXAMPLE
-        PS > Get-PublicDnsServers
+        PS > Get-PublicDnsServer
 
         Name          IPv4Primary       IPv4Secondary   IPv6Primary            IPv6Secondary            DoHUrl
         ----          -----------       -------------   -----------            -------------            ------
@@ -37,7 +37,7 @@ function Get-PublicDnsServers
         Returns all known public DNS servers.
 
     .EXAMPLE
-        PS > Get-PublicDnsServers -Name 'Google'
+        PS > Get-PublicDnsServer -Name 'Google'
 
         Name   IPv4Primary IPv4Secondary IPv6Primary          IPv6Secondary        DoHUrl
         ----   ----------- ------------- -----------          -------------        ------
@@ -46,7 +46,7 @@ function Get-PublicDnsServers
         Returns only Google's DNS server information.
 
     .EXAMPLE
-        PS > Get-PublicDnsServers -IPv4Only
+        PS > Get-PublicDnsServer -IPv4Only
 
         1.1.1.1
         8.8.8.8
@@ -60,7 +60,7 @@ function Get-PublicDnsServers
         Returns just the primary IPv4 addresses for all providers.
 
     .EXAMPLE
-        PS > Get-PublicDnsServers -IPv4Only | ForEach-Object { Test-Port -ComputerName $_ -Port 53 }
+        PS > Get-PublicDnsServer -IPv4Only | ForEach-Object { Test-Port -ComputerName $_ -Port 53 }
 
         Tests DNS port connectivity to all public DNS servers.
 
@@ -72,10 +72,10 @@ function Get-PublicDnsServers
     .NOTES
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-PublicDnsServers.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-PublicDnsServer.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-PublicDnsServers.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-PublicDnsServer.ps1
     #>
 
     [CmdletBinding()]

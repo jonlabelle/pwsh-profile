@@ -2,7 +2,7 @@
 
 <#
 .SYNOPSIS
-    Unit tests for Remove-DockerArtifacts.
+    Unit tests for Remove-DockerArtifact.
 
 .DESCRIPTION
     Validates Docker cleanup wrapper logic: prerequisite checks, command selection, reclaimable estimation,
@@ -14,18 +14,18 @@ BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
     # Load the function under test
-    . "$PSScriptRoot/../../../Functions/Developer/Remove-DockerArtifacts.ps1"
+    . "$PSScriptRoot/../../../Functions/Developer/Remove-DockerArtifact.ps1"
 
     # Check if Docker is available for testing
     $script:dockerAvailable = $null -ne (Get-Command -Name 'docker' -ErrorAction SilentlyContinue)
 }
 
-Describe 'Remove-DockerArtifacts' {
+Describe 'Remove-DockerArtifact' {
     Context 'Prerequisite validation' {
         It 'Throws when Docker is not available' -Skip:(-not $script:dockerAvailable) {
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
 
-            { Remove-DockerArtifacts } | Should -Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
+            { Remove-DockerArtifact } | Should -Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
         }
     }
 
@@ -52,7 +52,7 @@ Describe 'Remove-DockerArtifacts' {
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'network' -and $args[1] -eq 'prune' } -MockWith { 'Total reclaimed space: 100MB' }
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'builder' -and $args[1] -eq 'prune' } -MockWith { 'Total reclaimed space: 50MB' }
 
-            $result = Remove-DockerArtifacts
+            $result = Remove-DockerArtifact
 
             $result.ContainersPruned | Should -BeFalse
             $result.VolumesPruned | Should -BeFalse
@@ -69,7 +69,7 @@ Describe 'Remove-DockerArtifacts' {
         It 'Uses docker system prune when stopped containers are included' -Skip:(-not $script:dockerAvailable) {
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'system' -and $args[1] -eq 'prune' -and $args -contains '--all' -and $args -contains '--volumes' } -MockWith { 'Total reclaimed space: 2GB' }
 
-            $result = Remove-DockerArtifacts -IncludeStoppedContainers -IncludeVolumes
+            $result = Remove-DockerArtifact -IncludeStoppedContainers -IncludeVolumes
 
             $result.ContainersPruned | Should -BeTrue
             $result.VolumesPruned | Should -BeTrue
@@ -89,7 +89,7 @@ Describe 'Remove-DockerArtifacts' {
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'buildx' -and $args[1] -eq 'history' -and $args[2] -eq 'rm' -and $args -contains '--all' } -MockWith { @() }
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'buildx' -and $args[1] -eq 'prune' -and $args -contains '--all' } -MockWith { 'Total: 0B' }
 
-            $result = Remove-DockerArtifacts -All
+            $result = Remove-DockerArtifact -All
 
             $result.ContainersPruned | Should -BeTrue
             $result.VolumesPruned | Should -BeTrue
@@ -106,7 +106,7 @@ Describe 'Remove-DockerArtifacts' {
         }
 
         It 'Throws when -All and -DanglingImagesOnly are used together' -Skip:(-not $script:dockerAvailable) {
-            { Remove-DockerArtifacts -All -DanglingImagesOnly } | Should -Throw 'The -All and -DanglingImagesOnly parameters cannot be used together.'
+            { Remove-DockerArtifact -All -DanglingImagesOnly } | Should -Throw 'The -All and -DanglingImagesOnly parameters cannot be used together.'
         }
 
         It 'Prunes Docker Desktop build history when requested' -Skip:(-not $script:dockerAvailable) {
@@ -116,7 +116,7 @@ Describe 'Remove-DockerArtifacts' {
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'buildx' -and $args[1] -eq 'history' -and $args[2] -eq 'rm' -and $args -contains '--all' } -MockWith { @() }
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'buildx' -and $args[1] -eq 'prune' -and $args -contains '--all' } -MockWith { 'Total: 200MB' }
 
-            $result = Remove-DockerArtifacts -IncludeBuildHistory
+            $result = Remove-DockerArtifact -IncludeBuildHistory
 
             $result.BuildHistoryPruned | Should -BeTrue
             $result.TotalSpaceFreed | Should -Be '200.00 MB'
@@ -129,7 +129,7 @@ Describe 'Remove-DockerArtifacts' {
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'network' -and $args[1] -eq 'prune' } -MockWith { 'Total reclaimed space: 0B' }
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'builder' -and $args[1] -eq 'prune' -and -not ($args -contains '--all') } -MockWith { 'Total reclaimed space: 0B' }
 
-            $result = Remove-DockerArtifacts -DanglingImagesOnly
+            $result = Remove-DockerArtifact -DanglingImagesOnly
 
             $result.ImageMode | Should -Be 'DanglingOnly'
             Assert-MockCalled -CommandName docker -ParameterFilter { $args -contains '--all' } -Times 0
@@ -145,7 +145,7 @@ Describe 'Remove-DockerArtifacts' {
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'buildx' -and $args[1] -eq 'prune' } -MockWith { throw 'Should not prune build history under -WhatIf' }
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'system' -and $args[1] -eq 'prune' } -MockWith { throw 'Should not system prune under -WhatIf' }
 
-            $result = Remove-DockerArtifacts -IncludeStoppedContainers -IncludeBuildHistory -WhatIf
+            $result = Remove-DockerArtifact -IncludeStoppedContainers -IncludeBuildHistory -WhatIf
 
             $result.TotalSpaceFreed | Should -Be '0 bytes'
             Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' } -Times 0
@@ -180,7 +180,7 @@ Describe 'Remove-DockerArtifacts' {
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'network' -and $args[1] -eq 'prune' } -MockWith { 'Total reclaimed space: 0B' }
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'builder' -and $args[1] -eq 'prune' } -MockWith { 'Total reclaimed space: 0B' }
 
-            $result = Remove-DockerArtifacts
+            $result = Remove-DockerArtifact
 
             $result.TotalSpaceFreed | Should -Be '1.20 GB'
             $result.EstimatedReclaimable | Should -Be 'Not calculated (use -WhatIf to preview)'
@@ -194,7 +194,7 @@ Describe 'Remove-DockerArtifacts' {
             }
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'ps' -and $args[1] -eq '-a' } -MockWith { @() }
 
-            $result = Remove-DockerArtifacts -WhatIf
+            $result = Remove-DockerArtifact -WhatIf
 
             $result.EstimatedReclaimable | Should -Be '400.00 MB'
             $result.TotalSpaceFreed | Should -Be '0 bytes'

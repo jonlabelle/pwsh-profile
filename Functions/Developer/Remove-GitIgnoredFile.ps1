@@ -1,4 +1,4 @@
-function Remove-GitIgnoredFiles
+function Remove-GitIgnoredFile
 {
     <#
     .SYNOPSIS
@@ -48,45 +48,45 @@ function Remove-GitIgnoredFiles
         Prompts for confirmation before removing files.
 
     .EXAMPLE
-        PS > Remove-GitIgnoredFiles
+        PS > Remove-GitIgnoredFile
 
         Removes all ignored files from the Git repository in the current directory,
         showing the total space freed.
 
     .EXAMPLE
-        PS > Remove-GitIgnoredFiles -Recurse -WhatIf
+        PS > Remove-GitIgnoredFile -Recurse -WhatIf
 
         Shows what would be removed from all Git repositories found in the current directory
         and its subdirectories without actually removing anything.
 
     .EXAMPLE
-        PS > Remove-GitIgnoredFiles -Path ~/Projects -Recurse
+        PS > Remove-GitIgnoredFile -Path ~/Projects -Recurse
 
         Finds all Git repositories within ~/Projects and cleans ignored files from each one.
         Useful for cleaning up an entire workspace with multiple projects.
 
     .EXAMPLE
-        PS > Remove-GitIgnoredFiles -IncludeUntracked
+        PS > Remove-GitIgnoredFile -IncludeUntracked
 
         Removes both ignored and untracked files from the repository.
 
     .EXAMPLE
-        PS > Remove-GitIgnoredFiles -NoSizeCalculation
+        PS > Remove-GitIgnoredFile -NoSizeCalculation
 
         Removes ignored files without calculating space freed (faster for large repositories).
 
     .EXAMPLE
-        PS > Remove-GitIgnoredFiles -Path ~/Projects/MyRepo -WhatIf
+        PS > Remove-GitIgnoredFile -Path ~/Projects/MyRepo -WhatIf
 
         Shows what would be removed in the specified repository without actually removing anything.
 
     .EXAMPLE
-        PS > Remove-GitIgnoredFiles -IncludeUntracked -Confirm
+        PS > Remove-GitIgnoredFile -IncludeUntracked -Confirm
 
         Removes ignored and untracked files with confirmation prompts.
 
     .EXAMPLE
-        PS > Remove-GitIgnoredFiles -Verbose
+        PS > Remove-GitIgnoredFile -Verbose
 
         Removes ignored files with detailed verbose output showing each operation.
 
@@ -102,7 +102,7 @@ function Remove-GitIgnoredFiles
     .NOTES
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-GitIgnoredFiles.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-GitIgnoredFile.ps1
 
         - Requires PowerShell 5.1 or later
         - Requires Git to be installed and available in PATH
@@ -116,7 +116,7 @@ function Remove-GitIgnoredFiles
     .LINK
         https://git-scm.com/docs/git-clean
         .LINK
-            https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-GitIgnoredFiles.ps1
+            https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-GitIgnoredFile.ps1
         #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding(SupportsShouldProcess)]

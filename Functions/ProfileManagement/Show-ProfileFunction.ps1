@@ -1,4 +1,4 @@
-function Show-ProfileFunctions
+function Show-ProfileFunction
 {
     <#
     .SYNOPSIS
@@ -21,7 +21,7 @@ function Show-ProfileFunctions
         sysadmin, sys, admin, utils, util.
 
     .EXAMPLE
-        PS > Show-ProfileFunctions
+        PS > Show-ProfileFunction
 
         Active Directory Functions:
           - Invoke-GroupPolicyUpdate - Forces an immediate Group Policy update on Windows systems.
@@ -31,14 +31,14 @@ function Show-ProfileFunctions
         Developer Functions:
           - Get-DotNetVersion - Gets the installed .NET Framework versions.
           - Import-DotEnv - Loads environment variables from dotenv (.env) files.
-          - Remove-DotNetBuildArtifacts - Removes bin and obj folders from .NET project directories.
+          - Remove-DotNetBuildArtifact - Removes bin and obj folders from .NET project directories.
 
         ...
 
         Displays all available profile functions organized by category with brief descriptions.
 
     .EXAMPLE
-        PS > Show-ProfileFunctions -Category network
+        PS > Show-ProfileFunction -Category network
 
         Network And Dns:
           - Get-DnsRecord - Retrieves DNS records for a specified domain name.
@@ -48,14 +48,14 @@ function Show-ProfileFunctions
         Displays only the Network And Dns category functions using the short alias 'network'.
 
     .EXAMPLE
-        PS > Show-ProfileFunctions -Category dev, utils
+        PS > Show-ProfileFunction -Category dev, utils
 
         Developer:
           - Get-DotNetVersion - Gets the installed .NET Framework versions.
         ...
 
         Utilities:
-          - Format-Bytes - Formats a number of bytes into a human-readable string.
+          - Format-Byte - Formats a number of bytes into a human-readable string.
         ...
 
         Displays functions from the Developer and Utilities categories.
@@ -67,10 +67,10 @@ function Show-ProfileFunctions
     .NOTES
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ProfileManagement/Show-ProfileFunctions.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ProfileManagement/Show-ProfileFunction.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ProfileManagement/Show-ProfileFunctions.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ProfileManagement/Show-ProfileFunction.ps1
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding()]
@@ -126,7 +126,7 @@ function Show-ProfileFunctions
 
     begin
     {
-        Write-Verbose 'Starting Show-ProfileFunctions'
+        Write-Verbose 'Starting Show-ProfileFunction'
         $skipProcessing = $false
 
         # Get the Functions directory path relative to the profile script
@@ -426,6 +426,6 @@ function Show-ProfileFunctions
 
     end
     {
-        Write-Verbose 'Show-ProfileFunctions completed'
+        Write-Verbose 'Show-ProfileFunction completed'
     }
 }

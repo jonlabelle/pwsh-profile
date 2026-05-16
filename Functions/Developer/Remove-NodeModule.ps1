@@ -1,4 +1,4 @@
-function Remove-NodeModules
+function Remove-NodeModule
 {
     <#
     .SYNOPSIS
@@ -36,33 +36,33 @@ function Remove-NodeModules
         Prompts for confirmation before removing each folder.
 
     .EXAMPLE
-        PS > Remove-NodeModules -Recurse
+        PS > Remove-NodeModule -Recurse
 
         Removes node_modules folders from Node.js projects in the current directory and subdirectories,
         showing the total space freed.
 
     .EXAMPLE
-        PS > Remove-NodeModules -NoSizeCalculation
+        PS > Remove-NodeModule -NoSizeCalculation
 
         Removes node_modules folders without calculating space freed (faster for large directory structures).
 
     .EXAMPLE
-        PS > Remove-NodeModules -Path ~/Projects -Recurse -WhatIf
+        PS > Remove-NodeModule -Path ~/Projects -Recurse -WhatIf
 
         Shows what would be removed in the ~/Projects directory and its subdirectories without actually removing anything.
 
     .EXAMPLE
-        PS > Remove-NodeModules -Path C:\MyProjects -Recurse -Confirm
+        PS > Remove-NodeModule -Path C:\MyProjects -Recurse -Confirm
 
         Removes node_modules folders with confirmation prompts for each folder.
 
     .EXAMPLE
-        PS > Remove-NodeModules -Verbose
+        PS > Remove-NodeModule -Verbose
 
         Removes node_modules folders with detailed verbose output showing each operation.
 
     .EXAMPLE
-        PS > Remove-NodeModules -Path ~/Projects -ExcludeDirectory @('.git', 'vendor', 'archive')
+        PS > Remove-NodeModule -Path ~/Projects -ExcludeDirectory @('.git', 'vendor', 'archive')
 
         Removes node_modules folders while excluding .git, vendor, and archive directories from the search.
 
@@ -83,10 +83,10 @@ function Remove-NodeModules
 
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-NodeModules.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-NodeModule.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-NodeModules.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Developer/Remove-NodeModule.ps1
 
     .LINK
         https://docs.npmjs.com/cli/v9/commands/npm-install

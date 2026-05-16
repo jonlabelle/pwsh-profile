@@ -2,7 +2,7 @@
 
 <#
 .SYNOPSIS
-    Unit tests for Update-DockerImages.
+    Unit tests for Update-DockerImage.
 
 .DESCRIPTION
     Validates Docker image update logic: prerequisite checks, image filtering, deduplication,
@@ -14,18 +14,18 @@ BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
     # Load the function under test
-    . "$PSScriptRoot/../../../Functions/Developer/Update-DockerImages.ps1"
+    . "$PSScriptRoot/../../../Functions/Developer/Update-DockerImage.ps1"
 
     # Check if Docker is available for testing
     $script:dockerAvailable = $null -ne (Get-Command -Name 'docker' -ErrorAction SilentlyContinue)
 }
 
-Describe 'Update-DockerImages' {
+Describe 'Update-DockerImage' {
     Context 'Prerequisite validation' {
         It 'Throws when Docker is not available' {
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
 
-            { Update-DockerImages } | Should -Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
+            { Update-DockerImage } | Should -Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
         }
     }
 
@@ -54,7 +54,7 @@ Describe 'Update-DockerImages' {
             }
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'pull' } -MockWith { 'Status: Image is up to date for nginx:latest' }
 
-            $result = Update-DockerImages
+            $result = Update-DockerImage
 
             $result.Eligible | Should -Be 1
             $result.Results.Count | Should -Be 1
@@ -70,7 +70,7 @@ Describe 'Update-DockerImages' {
             }
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'pull' } -MockWith { 'Status: Image is up to date for alpine:3.18' }
 
-            $result = Update-DockerImages
+            $result = Update-DockerImage
 
             $result.Eligible | Should -Be 1
             $result.Results[0].Image | Should -Be 'alpine:3.18'
@@ -86,7 +86,7 @@ Describe 'Update-DockerImages' {
             }
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'pull' } -MockWith { 'Status: Image is up to date' }
 
-            $result = Update-DockerImages
+            $result = Update-DockerImage
 
             $result.Eligible | Should -Be 2
         }
@@ -101,7 +101,7 @@ Describe 'Update-DockerImages' {
             }
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'pull' } -MockWith { 'Status: Image is up to date' }
 
-            $result = Update-DockerImages -Filter 'mcr.microsoft.com/*'
+            $result = Update-DockerImage -Filter 'mcr.microsoft.com/*'
 
             $result.Eligible | Should -Be 2
             $result.Results | ForEach-Object { $_.Image | Should -BeLike 'mcr.microsoft.com/*' }
@@ -117,7 +117,7 @@ Describe 'Update-DockerImages' {
             }
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'pull' } -MockWith { 'Status: Image is up to date' }
 
-            $result = Update-DockerImages -ExcludeFilter '*dev*'
+            $result = Update-DockerImage -ExcludeFilter '*dev*'
 
             $result.Eligible | Should -Be 2
             $result.Results | ForEach-Object { $_.Image | Should -Not -BeLike '*dev*' }
@@ -151,7 +151,7 @@ Describe 'Update-DockerImages' {
                 'Status: Downloaded newer image for nginx:latest'
             }
 
-            $result = Update-DockerImages
+            $result = Update-DockerImage
 
             $result.Updated | Should -Be 1
             $result.Failed | Should -Be 0
@@ -170,7 +170,7 @@ Describe 'Update-DockerImages' {
                 'Status: Image is up to date for nginx:latest'
             }
 
-            $result = Update-DockerImages
+            $result = Update-DockerImage
 
             $result.Updated | Should -Be 1
             $result.Results[0].Status | Should -Be 'Success'
@@ -186,7 +186,7 @@ Describe 'Update-DockerImages' {
                 'Error response from daemon: pull access denied'
             }
 
-            $result = Update-DockerImages
+            $result = Update-DockerImage
 
             $result.Failed | Should -Be 1
             $result.Results[0].Status | Should -Be 'Failed'
@@ -202,7 +202,7 @@ Describe 'Update-DockerImages' {
             }
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'pull' } -MockWith { 'Status: Image is up to date' }
 
-            $result = Update-DockerImages
+            $result = Update-DockerImage
 
             $result.TotalImages | Should -Be 3
             $result.Eligible | Should -Be 2
@@ -214,7 +214,7 @@ Describe 'Update-DockerImages' {
         It 'Returns empty results when no images exist' -Skip:(-not $script:dockerAvailable) {
             Mock -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'ls' } -MockWith { @() }
 
-            $result = Update-DockerImages
+            $result = Update-DockerImage
 
             $result.TotalImages | Should -Be 0
             $result.Eligible | Should -Be 0
@@ -256,7 +256,7 @@ Describe 'Update-DockerImages' {
                 'Total reclaimed space: 150MB'
             }
 
-            $result = Update-DockerImages -PruneDanglingImages
+            $result = Update-DockerImage -PruneDanglingImages
 
             $result.DanglingPruneRequested | Should -BeTrue
             $result.DanglingPruneSucceeded | Should -BeTrue
@@ -278,7 +278,7 @@ Describe 'Update-DockerImages' {
                 throw 'Dangling prune should not run unless -PruneDanglingImages is specified'
             }
 
-            $result = Update-DockerImages
+            $result = Update-DockerImage
 
             $result.DanglingPruneRequested | Should -BeFalse
             $result.DanglingPruneSucceeded | Should -BeFalse
@@ -299,7 +299,7 @@ Describe 'Update-DockerImages' {
                 throw 'Dangling prune should not run under -WhatIf'
             }
 
-            $result = Update-DockerImages -PruneDanglingImages -WhatIf
+            $result = Update-DockerImage -PruneDanglingImages -WhatIf
 
             $result.DanglingPruneRequested | Should -BeTrue
             $result.DanglingPruneSucceeded | Should -BeFalse

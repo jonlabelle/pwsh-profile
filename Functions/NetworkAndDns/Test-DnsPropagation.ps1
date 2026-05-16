@@ -12,7 +12,7 @@ function Test-DnsPropagation
         Google, Control D), and falls back to direct DNS over UDP for all other providers
         (Quad9, OpenDNS, CleanBrowsing, AdGuard).
 
-        This function leverages Get-PublicDnsServers for its resolver list.
+        This function leverages Get-PublicDnsServer for its resolver list.
 
         Compatible with PowerShell Desktop 5.1+ on Windows, macOS, and Linux.
 
@@ -138,7 +138,7 @@ function Test-DnsPropagation
             }
         }
 
-        Import-DependencyIfNeeded -FunctionName 'Get-PublicDnsServers' -RelativePath 'Get-PublicDnsServers.ps1'
+        Import-DependencyIfNeeded -FunctionName 'Get-PublicDnsServer' -RelativePath 'Get-PublicDnsServer.ps1'
 
         # DNS record type numeric codes
         $typeCode = @{
@@ -645,7 +645,7 @@ function Test-DnsPropagation
         Write-Verbose "Checking DNS propagation for '$Name' (type: $Type)"
 
         # Get all servers that can be queried (have DoH JSON URL or IPv4 address for UDP)
-        $servers = Get-PublicDnsServers | Where-Object { $_.DoHJsonUrl -or $_.IPv4Primary }
+        $servers = Get-PublicDnsServer | Where-Object { $_.DoHJsonUrl -or $_.IPv4Primary }
 
         $results = @()
         $recordTypeCode = $typeCode[$Type]

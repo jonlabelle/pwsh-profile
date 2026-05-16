@@ -87,7 +87,7 @@
 
         RELATED FUNCTIONS:
         This function is designed to work with:
-        - Get-NetworkMetrics: Auto-loaded in continuous mode to collect latency samples
+        - Get-NetworkMetric: Auto-loaded in continuous mode to collect latency samples
         - Invoke-NetworkDiagnostic: Calls Show-NetworkLatencyGraph to generate sparkline and time-series graphs
 
         Can also be used standalone with pre-collected latency data arrays.
@@ -173,7 +173,7 @@
         ▂▁▂▅▂▁▁▂ (min: 13ms, max: 22ms, avg: 15.6ms)
 
     .EXAMPLE
-        PS > $metrics = Get-NetworkMetrics -HostName 'bing.com' -Count 30
+        PS > $metrics = Get-NetworkMetric -HostName 'bing.com' -Count 30
         PS > Show-NetworkLatencyGraph -Data $metrics.LatencyData -GraphType TimeSeries -ShowStats
 
         Collect metrics and display as a time-series graph with statistics
@@ -209,7 +209,7 @@
         Display time-series with simple line connections between data points
 
     .EXAMPLE
-        PS > $metrics = Get-NetworkMetrics -HostName 'cloudflare.com' -Count 40
+        PS > $metrics = Get-NetworkMetric -HostName 'cloudflare.com' -Count 40
         PS > Show-NetworkLatencyGraph -Data $metrics.LatencyData -GraphType Distribution
 
         Show distribution of latency values to analyze consistency
@@ -222,7 +222,7 @@
         Displays graph with failed requests shown as gray bars at baseline
 
     .EXAMPLE
-        PS > Get-NetworkMetrics -HostName 'github.com' -Count 25 |
+        PS > Get-NetworkMetric -HostName 'github.com' -Count 25 |
              ForEach-Object { Show-NetworkLatencyGraph -Data $_.LatencyData -GraphType Sparkline -ShowStats }
 
         Pipe metrics directly to graph for quick visualization
@@ -237,7 +237,7 @@
     .EXAMPLE
         PS > $results = @()
         PS > 1..5 | ForEach-Object {
-                 $m = Get-NetworkMetrics -HostName 'api.example.com' -Count 20
+                 $m = Get-NetworkMetric -HostName 'api.example.com' -Count 20
                  $results += $m.LatencyData
              }
         PS > Show-NetworkLatencyGraph -Data $results -GraphType TimeSeries -Width 100 -Height 12
@@ -326,7 +326,7 @@
 
     .EXAMPLE
         PS > # WORKFLOW: Quick visual triage
-        PS > $metrics = Get-NetworkMetrics -HostName 'slow-api.example.com' -Count 50
+        PS > $metrics = Get-NetworkMetric -HostName 'slow-api.example.com' -Count 50
         PS > Show-NetworkLatencyGraph -Data $metrics.LatencyData -GraphType Sparkline -ShowStats
         PS > # If pattern looks concerning, get detailed view
         PS > Show-NetworkLatencyGraph -Data $metrics.LatencyData -GraphType TimeSeries -Width 80 -Height 15 -ShowStats
@@ -338,8 +338,8 @@
 
     .EXAMPLE
         PS > # WORKFLOW: Comparing network paths
-        PS > $primary = Get-NetworkMetrics -HostName 'primary.example.com' -Count 100
-        PS > $backup = Get-NetworkMetrics -HostName 'backup.example.com' -Count 100
+        PS > $primary = Get-NetworkMetric -HostName 'primary.example.com' -Count 100
+        PS > $backup = Get-NetworkMetric -HostName 'backup.example.com' -Count 100
         PS > Write-Host "Primary: " -NoNewline
         PS > Show-NetworkLatencyGraph -Data $primary.LatencyData -GraphType Sparkline -ShowStats
         PS > Write-Host "Backup:  " -NoNewline
@@ -361,9 +361,9 @@
 
     .EXAMPLE
         PS > # WORKFLOW: Historical pattern analysis
-        PS > $morning = Get-NetworkMetrics -HostName 'database.local' -Port 5432 -Count 200
+        PS > $morning = Get-NetworkMetric -HostName 'database.local' -Port 5432 -Count 200
         PS > # ... collect at different times of day ...
-        PS > $evening = Get-NetworkMetrics -HostName 'database.local' -Port 5432 -Count 200
+        PS > $evening = Get-NetworkMetric -HostName 'database.local' -Port 5432 -Count 200
         PS > Show-NetworkLatencyGraph -Data $morning.LatencyData -GraphType Distribution
         PS > Show-NetworkLatencyGraph -Data $evening.LatencyData -GraphType Distribution
 
@@ -372,10 +372,10 @@
 
     .EXAMPLE
         PS > # WORKFLOW: Validating network configuration changes
-        PS > $before = Get-NetworkMetrics -HostName 'endpoint.com' -Count 100
+        PS > $before = Get-NetworkMetric -HostName 'endpoint.com' -Count 100
         PS > Show-NetworkLatencyGraph -Data $before.LatencyData -GraphType Sparkline -ShowStats
         PS > # Apply network configuration change (QoS, routing, etc.)
-        PS > $after = Get-NetworkMetrics -HostName 'endpoint.com' -Count 100
+        PS > $after = Get-NetworkMetric -HostName 'endpoint.com' -Count 100
         PS > Show-NetworkLatencyGraph -Data $after.LatencyData -GraphType Sparkline -ShowStats
         PS > Show-NetworkLatencyGraph -Data $before.LatencyData -GraphType Distribution -Width 60
         PS > Show-NetworkLatencyGraph -Data $after.LatencyData -GraphType Distribution -Width 60
@@ -840,13 +840,13 @@
             Write-Verbose 'HostName provided without -Continuous; running a single collection iteration'
         }
 
-        # Load Get-NetworkMetrics if in continuous mode
+        # Load Get-NetworkMetric if in continuous mode
         if ($Continuous)
         {
-            if (-not (Get-Command -Name 'Get-NetworkMetrics' -ErrorAction SilentlyContinue))
+            if (-not (Get-Command -Name 'Get-NetworkMetric' -ErrorAction SilentlyContinue))
             {
-                Write-Verbose 'Get-NetworkMetrics is required - attempting to load it'
-                $metricsPath = Join-Path -Path $PSScriptRoot -ChildPath 'Get-NetworkMetrics.ps1'
+                Write-Verbose 'Get-NetworkMetric is required - attempting to load it'
+                $metricsPath = Join-Path -Path $PSScriptRoot -ChildPath 'Get-NetworkMetric.ps1'
                 $metricsPath = [System.IO.Path]::GetFullPath($metricsPath)
 
                 if (Test-Path -Path $metricsPath -PathType Leaf)
@@ -854,16 +854,16 @@
                     try
                     {
                         . $metricsPath
-                        Write-Verbose "Loaded Get-NetworkMetrics from: $metricsPath"
+                        Write-Verbose "Loaded Get-NetworkMetric from: $metricsPath"
                     }
                     catch
                     {
-                        throw "Failed to load required dependency 'Get-NetworkMetrics' from '$metricsPath': $($_.Exception.Message)"
+                        throw "Failed to load required dependency 'Get-NetworkMetric' from '$metricsPath': $($_.Exception.Message)"
                     }
                 }
                 else
                 {
-                    throw "Required function 'Get-NetworkMetrics' could not be found. Expected location: $metricsPath"
+                    throw "Required function 'Get-NetworkMetric' could not be found. Expected location: $metricsPath"
                 }
             }
         }
@@ -932,7 +932,7 @@
                 Write-Host "$clearTail"
 
                 # Collect metrics
-                $metrics = Get-NetworkMetrics -HostName $HostName -Count $Count -Port $Port -SampleDelayMilliseconds $SampleDelayMilliseconds
+                $metrics = Get-NetworkMetric -HostName $HostName -Count $Count -Port $Port -SampleDelayMilliseconds $SampleDelayMilliseconds
                 $Data = $metrics.LatencyData
 
                 # Filter and calculate for this iteration

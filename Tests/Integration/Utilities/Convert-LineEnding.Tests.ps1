@@ -2,10 +2,10 @@
 
 <#
 .SYNOPSIS
-    Integration tests for Convert-LineEndings function.
+    Integration tests for Convert-LineEnding function.
 
 .DESCRIPTION
-    Integration tests that verify the Convert-LineEndings function works correctly in real-world scenarios
+    Integration tests that verify the Convert-LineEnding function works correctly in real-world scenarios
     with actual file systems, complex directory structures, and various file types.
 
 .NOTES
@@ -22,7 +22,7 @@ BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
     # Load the function
-    . "$PSScriptRoot/../../../Functions/Utilities/Convert-LineEndings.ps1"
+    . "$PSScriptRoot/../../../Functions/Utilities/Convert-LineEnding.ps1"
 
     # Create a comprehensive test directory structure
     $script:TestDir = Join-Path -Path $TestDrive -ChildPath 'LineEndingIntegrationTests'
@@ -45,7 +45,7 @@ AfterAll {
     }
 }
 
-Describe 'Convert-LineEndings Integration Tests' {
+Describe 'Convert-LineEnding Integration Tests' {
     Context 'Real Project Structure Processing' {
         BeforeAll {
             # Create a realistic project structure with various file types
@@ -93,7 +93,7 @@ Describe 'Convert-LineEndings Integration Tests' {
 
         It 'Should convert entire project to Unix line endings while preserving structure' {
             # Convert entire project to LF
-            Convert-LineEndings -Path $script:TestDir -LineEnding 'LF' -Recurse
+            Convert-LineEnding -Path $script:TestDir -LineEnding 'LF' -Recurse
 
             # Verify PowerShell files were converted
             $mainContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:SourceDir -ChildPath 'main.ps1'))
@@ -129,7 +129,7 @@ Describe 'Convert-LineEndings Integration Tests' {
 
         It 'Should respect default exclusions for node_modules' {
             # Files in node_modules should be excluded by default patterns
-            Convert-LineEndings -Path $script:TestDir -LineEnding 'LF' -Recurse
+            Convert-LineEnding -Path $script:TestDir -LineEnding 'LF' -Recurse
 
             # Verify that node_modules was excluded by checking if files were processed
             # This test ensures the exclude patterns work correctly
@@ -160,7 +160,7 @@ Describe 'Convert-LineEndings Integration Tests' {
         }
 
         It 'Should handle UTF-8 files correctly across platforms' {
-            Convert-LineEndings -Path $script:Utf8File -LineEnding 'LF'
+            Convert-LineEnding -Path $script:Utf8File -LineEnding 'LF'
 
             $result = [System.IO.File]::ReadAllText($script:Utf8File, [System.Text.Encoding]::UTF8)
             $result | Should -Not -Match "`r"
@@ -168,7 +168,7 @@ Describe 'Convert-LineEndings Integration Tests' {
         }
 
         It 'Should preserve UTF-8 BOM across platforms' {
-            Convert-LineEndings -Path $script:Utf8BomFile -LineEnding 'LF'
+            Convert-LineEnding -Path $script:Utf8BomFile -LineEnding 'LF'
 
             # Check BOM is preserved
             $bytes = [System.IO.File]::ReadAllBytes($script:Utf8BomFile)
@@ -183,7 +183,7 @@ Describe 'Convert-LineEndings Integration Tests' {
         }
 
         It 'Should handle ASCII files correctly' {
-            Convert-LineEndings -Path $script:AsciiFile -LineEnding 'CRLF'
+            Convert-LineEnding -Path $script:AsciiFile -LineEnding 'CRLF'
 
             $result = [System.IO.File]::ReadAllText($script:AsciiFile, [System.Text.Encoding]::ASCII)
             $result | Should -Match "`r`n"
@@ -221,7 +221,7 @@ Describe 'Convert-LineEndings Integration Tests' {
         It 'Should work seamlessly with Get-ChildItem pipeline for specific file types' {
             # Convert only PowerShell files using pipeline
             Get-ChildItem -Path $script:PipelineDir -Filter '*.ps1' -Recurse |
-            Convert-LineEndings -LineEnding 'LF'
+            Convert-LineEnding -LineEnding 'LF'
 
             # PowerShell files should be converted
             $mainContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:PipelineDir -ChildPath 'main.ps1'))
@@ -239,7 +239,7 @@ Describe 'Convert-LineEndings Integration Tests' {
             # Convert files larger than a certain size
             $processedFiles = Get-ChildItem -Path $script:PipelineDir -Recurse -File |
             Where-Object { $_.Length -gt 20 } |
-            Convert-LineEndings -LineEnding 'LF' -PassThru
+            Convert-LineEnding -LineEnding 'LF' -PassThru
 
             # Verify that files were processed correctly
             if ($processedFiles)
@@ -253,7 +253,7 @@ Describe 'Convert-LineEndings Integration Tests' {
 
         It 'Should provide detailed information with PassThru in pipeline scenarios' {
             $results = Get-ChildItem -Path $script:PipelineDir -Filter '*.md' -Recurse |
-            Convert-LineEndings -LineEnding 'CRLF' -PassThru
+            Convert-LineEnding -LineEnding 'CRLF' -PassThru
 
             $results | Should -Not -BeNullOrEmpty
             $results | ForEach-Object {
@@ -275,7 +275,7 @@ Describe 'Convert-LineEndings Integration Tests' {
                 # Make file read-only to simulate permission issues
                 Set-ItemProperty -Path $permissionFile -Name IsReadOnly -Value $true
 
-                $results = Convert-LineEndings -Path $permissionFile -LineEnding 'LF' -PassThru -ErrorAction SilentlyContinue
+                $results = Convert-LineEnding -Path $permissionFile -LineEnding 'LF' -PassThru -ErrorAction SilentlyContinue
 
                 if ($results)
                 {
@@ -303,7 +303,7 @@ Describe 'Convert-LineEndings Integration Tests' {
                 $fileStream = [System.IO.File]::Open($lockedFile, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
 
                 $errorMessages = @()
-                Convert-LineEndings -Path $lockedFile -LineEnding 'LF' -ErrorVariable errorMessages -ErrorAction SilentlyContinue
+                Convert-LineEnding -Path $lockedFile -LineEnding 'LF' -ErrorVariable errorMessages -ErrorAction SilentlyContinue
 
                 # Should handle the error gracefully
                 $errorMessages | Should -Not -BeNullOrEmpty
@@ -367,7 +367,7 @@ Describe 'Convert-LineEndings Integration Tests' {
                 [System.IO.File]::WriteAllText($file.Key, $file.Value, [System.Text.Encoding]::UTF8)
             }
 
-            Convert-LineEndings -Path $script:ComplexDir -LineEnding 'LF' -Recurse -Include '*.js', '*.ts' -Exclude '*.min.*', 'dist'
+            Convert-LineEnding -Path $script:ComplexDir -LineEnding 'LF' -Recurse -Include '*.js', '*.ts' -Exclude '*.min.*', 'dist'
 
             # Source files should be converted
             $mainJsContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:SourceCodeDir -ChildPath 'main.js'))
@@ -401,7 +401,7 @@ Describe 'Convert-LineEndings Integration Tests' {
                 [System.IO.File]::WriteAllText($file.Key, $file.Value, [System.Text.Encoding]::UTF8)
             }
 
-            Convert-LineEndings -Path $script:ComplexDir -LineEnding 'LF' -Recurse -Exclude '*.min.*', 'dist', '*.test.*', '*.spec.*'
+            Convert-LineEnding -Path $script:ComplexDir -LineEnding 'LF' -Recurse -Exclude '*.min.*', 'dist', '*.test.*', '*.spec.*'
 
             # Only main source files should be converted
             $mainJsContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:SourceCodeDir -ChildPath 'main.js'))
@@ -457,7 +457,7 @@ Describe 'Convert-LineEndings Integration Tests' {
         }
 
         It 'Should process directory recursively and add ending newlines where needed' {
-            $results = Convert-LineEndings -Path $script:EndingTestDir -LineEnding 'LF' -EnsureEndingNewline -Recurse -PassThru
+            $results = Convert-LineEnding -Path $script:EndingTestDir -LineEnding 'LF' -EnsureEndingNewline -Recurse -PassThru
 
             # Check files that should have had newlines added
             $noEndingResult = $results | Where-Object { $_.FilePath -like '*no-ending.txt' }
@@ -497,7 +497,7 @@ Describe 'Convert-LineEndings Integration Tests' {
             [System.IO.File]::WriteAllText($script:SubFileWithEnding, $jsWithEndingContent, [System.Text.Encoding]::UTF8)
 
             # Process only .js files
-            $results = Convert-LineEndings -Path $script:EndingTestDir -LineEnding 'LF' -EnsureEndingNewline -Recurse -Include '*.js' -PassThru
+            $results = Convert-LineEnding -Path $script:EndingTestDir -LineEnding 'LF' -EnsureEndingNewline -Recurse -Include '*.js' -PassThru
 
             # Should only process .js files
             $results | Should -HaveCount 2
@@ -522,7 +522,7 @@ Describe 'Convert-LineEndings Integration Tests' {
             [System.IO.File]::WriteAllText($script:NoEndingFile, $content, [System.Text.Encoding]::UTF8)
 
             # Use WhatIf to see what would be processed
-            Convert-LineEndings -Path $script:NoEndingFile -LineEnding 'LF' -EnsureEndingNewline -WhatIf
+            Convert-LineEnding -Path $script:NoEndingFile -LineEnding 'LF' -EnsureEndingNewline -WhatIf
 
             # File should not be modified
             $contentAfter = [System.IO.File]::ReadAllText($script:NoEndingFile)
@@ -535,7 +535,7 @@ Describe 'Convert-LineEndings Integration Tests' {
             $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
             [System.IO.File]::WriteAllText($testFile, 'Test content with café', $utf8NoBom)
 
-            $result = Convert-LineEndings -Path $testFile -LineEnding 'LF' -Encoding 'UTF8BOM' -EnsureEndingNewline -PassThru
+            $result = Convert-LineEnding -Path $testFile -LineEnding 'LF' -Encoding 'UTF8BOM' -EnsureEndingNewline -PassThru
 
             # Should have both encoding change and ending newline added
             $result.EncodingChanged | Should -Be $true
@@ -573,7 +573,7 @@ Describe 'Convert-LineEndings Integration Tests' {
             }
 
             # Process all files
-            $results = Convert-LineEndings -Path $manyFilesDir -LineEnding 'LF' -EnsureEndingNewline -Recurse -PassThru
+            $results = Convert-LineEnding -Path $manyFilesDir -LineEnding 'LF' -EnsureEndingNewline -Recurse -PassThru
 
             # Should have processed all files
             $results | Should -HaveCount $fileCount
@@ -597,7 +597,7 @@ Describe 'Convert-LineEndings Integration Tests' {
 
             # Note: On macOS/Linux, we'll test with normal permissions since read-only behavior is different
 
-            $result = Convert-LineEndings -Path $attributeTestFile -LineEnding 'LF' -EnsureEndingNewline -PassThru
+            $result = Convert-LineEnding -Path $attributeTestFile -LineEnding 'LF' -EnsureEndingNewline -PassThru
 
             $result.EndingNewlineAdded | Should -Be $true
             $result.Success | Should -Be $true
@@ -635,7 +635,7 @@ Describe 'Convert-LineEndings Integration Tests' {
 
         It 'Should process entire directory with Auto parameter (platform default)' {
             # Test Auto parameter behavior - should use platform default
-            $results = Convert-LineEndings -Path $script:AutoTestDir -Recurse -PassThru
+            $results = Convert-LineEnding -Path $script:AutoTestDir -Recurse -PassThru
 
             # Should have results for all files
             $results | Should -Not -BeNullOrEmpty
@@ -670,7 +670,7 @@ Describe 'Convert-LineEndings Integration Tests' {
             [System.IO.File]::WriteAllText($script:MixedFile, $mixedContent, [System.Text.Encoding]::UTF8)
 
             # Don't specify LineEnding - should default to Auto
-            $result = Convert-LineEndings -Path $script:MixedFile -PassThru
+            $result = Convert-LineEnding -Path $script:MixedFile -PassThru
 
             $result | Should -Not -BeNullOrEmpty
             $result.Skipped | Should -Be $false
@@ -715,14 +715,14 @@ Describe 'Convert-LineEndings Integration Tests' {
             if ($script:IsWindowsPlatform)
             {
                 # On Windows, CRLF file should be skipped when using Auto
-                $result = Convert-LineEndings -Path $script:CrlfFile -PassThru
+                $result = Convert-LineEnding -Path $script:CrlfFile -PassThru
                 $result.Skipped | Should -Be $true
                 $result.LineEnding | Should -Be 'CRLF'
             }
             else
             {
                 # On Unix/Linux/macOS, LF file should be skipped when using Auto
-                $result = Convert-LineEndings -Path $script:LfFile -PassThru
+                $result = Convert-LineEnding -Path $script:LfFile -PassThru
                 $result.Skipped | Should -Be $true
                 $result.LineEnding | Should -Be 'LF'
             }
@@ -807,7 +807,7 @@ Describe 'Convert-LineEndings Integration Tests' {
             $fileInfo.LastWriteTime = $pastTime
 
             # Convert with timestamp preservation enabled
-            $result = Convert-LineEndings -Path $singleTestFile -LineEnding 'LF' -PreserveTimestamps -PassThru
+            $result = Convert-LineEnding -Path $singleTestFile -LineEnding 'LF' -PreserveTimestamps -PassThru
 
             # Verify the file was converted successfully
             $result.Success | Should -Be $true
@@ -848,7 +848,7 @@ Describe 'Convert-LineEndings Integration Tests' {
             $fileInfo.LastWriteTime = $pastTime
 
             # Convert without PreserveTimestamps (default behavior)
-            $result = Convert-LineEndings -Path $singleTestFile -LineEnding 'LF' -PassThru
+            $result = Convert-LineEnding -Path $singleTestFile -LineEnding 'LF' -PassThru
 
             # Verify the file was converted
             $result.Success | Should -Be $true
@@ -930,7 +930,7 @@ Describe 'Convert-LineEndings Integration Tests' {
             }
 
             # Convert directory with timestamp preservation enabled
-            $results = Convert-LineEndings -Path $mixedTestDir -LineEnding 'LF' -Recurse -PreserveTimestamps -PassThru
+            $results = Convert-LineEnding -Path $mixedTestDir -LineEnding 'LF' -Recurse -PreserveTimestamps -PassThru
 
             # Verify we have both conversions and skips
             $convertedResults = @($results | Where-Object { $_.Converted -eq $true })

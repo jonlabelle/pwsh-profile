@@ -1,4 +1,4 @@
-function Get-OutdatedModules
+function Get-OutdatedModule
 {
     <#
     .SYNOPSIS
@@ -25,52 +25,52 @@ function Get-OutdatedModules
         'Current' and 'Newer' status values.
 
     .EXAMPLE
-        PS > Get-OutdatedModules
+        PS > Get-OutdatedModule
 
         Returns only modules that have updates available.
 
     .EXAMPLE
-        PS > Get-OutdatedModules -ExcludeModule @('PSReadLine', 'PowerShellGet')
+        PS > Get-OutdatedModule -ExcludeModule @('PSReadLine', 'PowerShellGet')
 
         Gets only outdated modules while excluding specific modules from the check.
 
     .EXAMPLE
-        PS > Get-OutdatedModules -ShowAll
+        PS > Get-OutdatedModule -ShowAll
 
         Returns all checked modules with current version, available version, and detailed status.
 
     .EXAMPLE
-        PS > Get-OutdatedModules -ShowAll | Format-Table Name, CurrentVersion, AvailableVersion, Status
+        PS > Get-OutdatedModule -ShowAll | Format-Table Name, CurrentVersion, AvailableVersion, Status
 
         Displays all modules in a formatted table showing version information and detailed status.
 
     .EXAMPLE
-        PS > Get-OutdatedModules -ShowAll | Where-Object Status -eq 'Outdated'
+        PS > Get-OutdatedModule -ShowAll | Where-Object Status -eq 'Outdated'
 
         Gets only modules that have updates available using the Status property.
 
     .EXAMPLE
-        PS > Get-OutdatedModules -ShowAll | Where-Object Status -eq 'Current'
+        PS > Get-OutdatedModule -ShowAll | Where-Object Status -eq 'Current'
 
         Gets only modules that are already up-to-date.
 
     .EXAMPLE
-        PS > Get-OutdatedModules -ShowAll | Where-Object IsPrerelease
+        PS > Get-OutdatedModule -ShowAll | Where-Object IsPrerelease
 
         Gets modules that are prerelease versions.
 
     .EXAMPLE
-        PS > Get-OutdatedModules -ShowAll | Where-Object VersionAge -lt 30
+        PS > Get-OutdatedModule -ShowAll | Where-Object VersionAge -lt 30
 
         Gets modules where the available version was published within the last 30 days.
 
     .EXAMPLE
-        PS > Get-OutdatedModules -ShowAll | Where-Object Name -like 'Azure*'
+        PS > Get-OutdatedModule -ShowAll | Where-Object Name -like 'Azure*'
 
         Gets status for all Azure modules using pipeline filtering.
 
     .EXAMPLE
-        PS > $results = Get-OutdatedModules -ShowAll; $results | Where-Object -Not IsUpToDate | Update-AllModules
+        PS > $results = Get-OutdatedModule -ShowAll; $results | Where-Object -Not IsUpToDate | Update-AllModule
 
         Check all modules and selectively update only those that are outdated.
 
@@ -98,10 +98,10 @@ function Get-OutdatedModules
 
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Get-OutdatedModules.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Get-OutdatedModule.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Get-OutdatedModules.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/ModuleManagement/Get-OutdatedModule.ps1
     .LINK
         https://jonlabelle.com/snippets/view/markdown/powershellget-commands
     #>

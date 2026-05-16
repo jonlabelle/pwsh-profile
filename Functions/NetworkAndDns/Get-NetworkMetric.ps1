@@ -1,4 +1,4 @@
-﻿function Get-NetworkMetrics
+﻿function Get-NetworkMetric
 {
     <#
     .SYNOPSIS
@@ -77,8 +77,8 @@
 
         RELATED FUNCTIONS:
         This function is designed to be used by:
-        - Invoke-NetworkDiagnostic: Calls Get-NetworkMetrics to collect data for each host
-        - Show-NetworkLatencyGraph: Uses Get-NetworkMetrics in continuous mode to gather latency samples
+        - Invoke-NetworkDiagnostic: Calls Get-NetworkMetric to collect data for each host
+        - Show-NetworkLatencyGraph: Uses Get-NetworkMetric in continuous mode to gather latency samples
 
         Can also be used standalone for custom network metric collection and analysis.    .PARAMETER HostName
         Target hostname or IP address to test
@@ -99,56 +99,56 @@
         Delay between samples in milliseconds (default: 100). Set to 0 for back-to-back samples.
 
     .EXAMPLE
-        PS > Get-NetworkMetrics -HostName 'bing.com' -Count 20
+        PS > Get-NetworkMetric -HostName 'bing.com' -Count 20
 
         Collects 20 samples of network metrics for bing.com
 
     .EXAMPLE
-        PS > Get-NetworkMetrics -HostName '1.1.1.1' -Port 53 -IncludeDns
+        PS > Get-NetworkMetric -HostName '1.1.1.1' -Port 53 -IncludeDns
 
         Tests DNS server with DNS resolution metrics
 
     .EXAMPLE
-        PS > Get-NetworkMetrics -HostName 'github.com' -Count 50 | Format-List
+        PS > Get-NetworkMetric -HostName 'github.com' -Count 50 | Format-List
 
         Collects 50 samples and displays detailed metrics in list format
 
     .EXAMPLE
-        PS > $metrics = Get-NetworkMetrics -HostName 'api.example.com' -Port 8080 -Count 100
+        PS > $metrics = Get-NetworkMetric -HostName 'api.example.com' -Port 8080 -Count 100
         PS > $metrics.LatencyData | Measure-Object -Average -Minimum -Maximum
 
         Collect metrics and perform custom analysis on latency data
 
     .EXAMPLE
-        PS > Get-NetworkMetrics -HostName 'database.local' -Port 5432 -Timeout 5000 -Count 30
+        PS > Get-NetworkMetric -HostName 'database.local' -Port 5432 -Timeout 5000 -Count 30
 
         Test database server with 5-second timeout and 30 samples
 
     .EXAMPLE
-        PS > 'bing.com', 'cloudflare.com', 'github.com' | Get-NetworkMetrics -Count 25
+        PS > 'bing.com', 'cloudflare.com', 'github.com' | Get-NetworkMetric -Count 25
 
         Test multiple hosts via pipeline with 25 samples each
 
     .EXAMPLE
-        PS > $result = Get-NetworkMetrics -HostName 'vpn.company.com' -IncludeDns
+        PS > $result = Get-NetworkMetric -HostName 'vpn.company.com' -IncludeDns
         PS > if ($result.PacketLoss -gt 5) { Write-Warning "High packet loss: $($result.PacketLoss)%" }
 
         Collect metrics and conditionally alert on high packet loss
 
     .EXAMPLE
-        PS > Get-NetworkMetrics -HostName '8.8.8.8' -Port 53 -Count 20 | Select-Object HostName, PacketLoss, LatencyAvg, Jitter
+        PS > Get-NetworkMetric -HostName '8.8.8.8' -Port 53 -Count 20 | Select-Object HostName, PacketLoss, LatencyAvg, Jitter
 
         Collect DNS server metrics and display specific properties
 
     .EXAMPLE
-        PS > $metrics = Get-NetworkMetrics -HostName 'server.local' -Port 22 -Count 40
+        PS > $metrics = Get-NetworkMetric -HostName 'server.local' -Port 22 -Count 40
         PS > $metrics.LatencyData | Export-Csv -Path latency-log.csv -NoTypeInformation
 
         Collect metrics and export raw latency data to CSV for further analysis
 
     .EXAMPLE
         PS > # TROUBLESHOOTING: Slow application performance
-        PS > $metrics = Get-NetworkMetrics -HostName 'app-server.com' -Count 30
+        PS > $metrics = Get-NetworkMetric -HostName 'app-server.com' -Count 30
         PS > if ($metrics.LatencyAvg -gt 100) {
         >>       "High latency detected: $($metrics.LatencyAvg)ms (threshold: 100ms)"
         >>       "Check: Network path, routing, server location"
@@ -164,7 +164,7 @@
     .EXAMPLE
         PS > # TROUBLESHOOTING: VoIP quality issues
         PS > # VoIP requirements: latency < 150ms, jitter < 30ms, packet loss < 1%
-        PS > $voip = Get-NetworkMetrics -HostName 'sip.company.com' -Port 5060 -Count 100
+        PS > $voip = Get-NetworkMetric -HostName 'sip.company.com' -Port 5060 -Count 100
         PS > $issues = @()
         PS > if ($voip.LatencyAvg -gt 150) { $issues += "Latency: $($voip.LatencyAvg)ms" }
         PS > if ($voip.Jitter -gt 30) { $issues += "Jitter: $($voip.Jitter)ms" }
@@ -176,7 +176,7 @@
 
     .EXAMPLE
         PS > # TROUBLESHOOTING: Intermittent connection problems
-        PS > $extended = Get-NetworkMetrics -HostName 'unreliable-host.com' -Count 200 -SampleDelayMilliseconds 50
+        PS > $extended = Get-NetworkMetric -HostName 'unreliable-host.com' -Count 200 -SampleDelayMilliseconds 50
         PS > $failures = $extended.LatencyData | Where-Object { $null -eq $_ }
         PS > "Total failures: $($failures.Count) out of $($extended.SamplesTotal)"
         PS > "Failure rate: $($extended.PacketLoss)%"
@@ -193,7 +193,7 @@
         PS > # WORKFLOW: Comparing service endpoints
         PS > $endpoints = @('api-us-east.com', 'api-us-west.com', 'api-eu.com')
         PS > $results = foreach ($ep in $endpoints) {
-        >>       Get-NetworkMetrics -HostName $ep -Port 8080 -Count 50
+        >>       Get-NetworkMetric -HostName $ep -Port 8080 -Count 50
         >>   }
         PS > $results | Select-Object HostName,LatencyAvg,Jitter,PacketLoss | Format-Table
         PS > # Rank by overall quality
@@ -209,11 +209,11 @@
 
     .EXAMPLE
         PS > # WORKFLOW: DNS performance investigation
-        PS > $dns1 = Get-NetworkMetrics -HostName '8.8.8.8' -Port 53 -IncludeDns -Count 30
-        PS > $dns2 = Get-NetworkMetrics -HostName '1.1.1.1' -Port 53 -IncludeDns -Count 30
+        PS > $dns1 = Get-NetworkMetric -HostName '8.8.8.8' -Port 53 -IncludeDns -Count 30
+        PS > $dns2 = Get-NetworkMetric -HostName '1.1.1.1' -Port 53 -IncludeDns -Count 30
         PS > "Google DNS: $($dns1.DnsResolution)ms avg latency: $($dns1.LatencyAvg)ms"
         PS > "Cloudflare DNS: $($dns2.DnsResolution)ms avg latency: $($dns2.LatencyAvg)ms"
-        PS > $site = Get-NetworkMetrics -HostName 'slow-website.com' -IncludeDns -Count 20
+        PS > $site = Get-NetworkMetric -HostName 'slow-website.com' -IncludeDns -Count 20
         PS > if ($site.DnsResolution -gt $site.LatencyAvg) {
         >>     "DNS resolution ($($site.DnsResolution)ms) is slower than network latency ($($site.LatencyAvg)ms)"
         >>     "Consider: Using different DNS server or checking DNS infrastructure"
@@ -225,10 +225,10 @@
     .EXAMPLE
         PS > # WORKFLOW: Service health baseline and comparison
         PS > # Step 1: Create baseline during healthy period
-        PS > $baseline = Get-NetworkMetrics -HostName 'prod-database.com' -Port 3306 -Count 100
+        PS > $baseline = Get-NetworkMetric -HostName 'prod-database.com' -Port 3306 -Count 100
         PS > $baseline | Export-Clixml -Path 'db-baseline.xml'
         PS > # Step 2: During incident, compare to baseline
-        PS > $current = Get-NetworkMetrics -HostName 'prod-database.com' -Port 3306 -Count 100
+        PS > $current = Get-NetworkMetric -HostName 'prod-database.com' -Port 3306 -Count 100
         PS > $baseline = Import-Clixml -Path 'db-baseline.xml'
         PS > $degradation = [PSCustomObject]@{
         >>       LatencyIncrease = $current.LatencyAvg - $baseline.LatencyAvg
@@ -247,9 +247,9 @@
         Author: Jon LaBelle
         License: MIT
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-NetworkMetrics.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-NetworkMetric.ps1
 
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-NetworkMetrics.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Get-NetworkMetric.ps1
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
