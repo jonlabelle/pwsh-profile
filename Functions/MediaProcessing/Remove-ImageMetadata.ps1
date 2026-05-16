@@ -298,7 +298,7 @@ function Remove-ImageMetadata
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '', Justification = 'Metadata is a mass noun in this command name.')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification = 'Several parameters are consumed by nested helper functions; the analyzer reports false positives for this pattern.')]
-    [CmdletBinding(SupportsShouldProcess)]
+    [CmdletBinding(SupportsShouldProcess, DefaultParameterSetName = 'InPlace')]
     [OutputType([PSCustomObject])]
     param(
         [Parameter(Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
@@ -326,17 +326,32 @@ function Remove-ImageMetadata
         [String]
         $ExifToolPath,
 
-        [Parameter()]
+        [Parameter(ParameterSetName = 'InPlaceParanoid')]
+        [Parameter(ParameterSetName = 'InPlaceParanoidPreserveTimestamp')]
+        [Parameter(ParameterSetName = 'InPlaceParanoidResetTimestamp')]
+        [Parameter(ParameterSetName = 'OutputParanoid')]
+        [Parameter(ParameterSetName = 'OutputParanoidPreserveTimestamp')]
+        [Parameter(ParameterSetName = 'OutputParanoidResetTimestamp')]
         [ValidateNotNullOrEmpty()]
         [String]
         $ImageMagickPath,
 
-        [Parameter()]
+        [Parameter(Mandatory, ParameterSetName = 'Output')]
+        [Parameter(Mandatory, ParameterSetName = 'OutputPreserveTimestamp')]
+        [Parameter(Mandatory, ParameterSetName = 'OutputResetTimestamp')]
+        [Parameter(Mandatory, ParameterSetName = 'OutputParanoid')]
+        [Parameter(Mandatory, ParameterSetName = 'OutputParanoidPreserveTimestamp')]
+        [Parameter(Mandatory, ParameterSetName = 'OutputParanoidResetTimestamp')]
         [ValidateNotNullOrEmpty()]
         [String]
         $OutputPath,
 
-        [Parameter()]
+        [Parameter(ParameterSetName = 'Output')]
+        [Parameter(ParameterSetName = 'OutputPreserveTimestamp')]
+        [Parameter(ParameterSetName = 'OutputResetTimestamp')]
+        [Parameter(ParameterSetName = 'OutputParanoid')]
+        [Parameter(ParameterSetName = 'OutputParanoidPreserveTimestamp')]
+        [Parameter(ParameterSetName = 'OutputParanoidResetTimestamp')]
         [Switch]
         $Force,
 
@@ -344,19 +359,33 @@ function Remove-ImageMetadata
         [Switch]
         $KeepBackup,
 
-        [Parameter()]
+        [Parameter(Mandatory, ParameterSetName = 'InPlacePreserveTimestamp')]
+        [Parameter(Mandatory, ParameterSetName = 'InPlaceParanoidPreserveTimestamp')]
+        [Parameter(Mandatory, ParameterSetName = 'OutputPreserveTimestamp')]
+        [Parameter(Mandatory, ParameterSetName = 'OutputParanoidPreserveTimestamp')]
         [Switch]
         $PreserveFileTimestamp,
 
-        [Parameter()]
+        [Parameter(Mandatory, ParameterSetName = 'InPlaceResetTimestamp')]
+        [Parameter(Mandatory, ParameterSetName = 'InPlaceParanoidResetTimestamp')]
+        [Parameter(Mandatory, ParameterSetName = 'OutputResetTimestamp')]
+        [Parameter(Mandatory, ParameterSetName = 'OutputParanoidResetTimestamp')]
         [Switch]
         $ResetFileTimestamp,
 
-        [Parameter()]
+        [Parameter(ParameterSetName = 'InPlaceResetTimestamp')]
+        [Parameter(ParameterSetName = 'InPlaceParanoidResetTimestamp')]
+        [Parameter(ParameterSetName = 'OutputResetTimestamp')]
+        [Parameter(ParameterSetName = 'OutputParanoidResetTimestamp')]
         [DateTime]
         $ResetTimestamp = ([DateTime]::SpecifyKind([DateTime]'2000-01-01T00:00:00', [DateTimeKind]::Utc)),
 
-        [Parameter()]
+        [Parameter(Mandatory, ParameterSetName = 'InPlaceParanoid')]
+        [Parameter(Mandatory, ParameterSetName = 'InPlaceParanoidPreserveTimestamp')]
+        [Parameter(Mandatory, ParameterSetName = 'InPlaceParanoidResetTimestamp')]
+        [Parameter(Mandatory, ParameterSetName = 'OutputParanoid')]
+        [Parameter(Mandatory, ParameterSetName = 'OutputParanoidPreserveTimestamp')]
+        [Parameter(Mandatory, ParameterSetName = 'OutputParanoidResetTimestamp')]
         [Switch]
         $Paranoid,
 
@@ -746,6 +775,36 @@ function Remove-ImageMetadata
             return $temporaryPath
         }
 
+        function Move-ImageMetadataOutput
+        {
+            param(
+                [String]$SourcePath,
+                [String]$DestinationPath,
+                [Boolean]$AllowOverwrite,
+                [Boolean]$UseForce
+            )
+
+            if ((Test-Path -LiteralPath $DestinationPath) -and -not $AllowOverwrite)
+            {
+                throw "Output file already exists: '$DestinationPath'. Use -Force to overwrite it."
+            }
+
+            if ($UseForce)
+            {
+                Move-Item -LiteralPath $SourcePath -Destination $DestinationPath -Force -ErrorAction Stop
+                return
+            }
+
+            if (Test-Path -LiteralPath $DestinationPath)
+            {
+                [System.IO.File]::Copy($SourcePath, $DestinationPath, $true)
+                [System.IO.File]::Delete($SourcePath)
+                return
+            }
+
+            [System.IO.File]::Move($SourcePath, $DestinationPath)
+        }
+
         function Invoke-ExifToolMetadataRemoval
         {
             param([String]$FilePath)
@@ -1075,7 +1134,7 @@ function Remove-ImageMetadata
 
                     if ($Paranoid)
                     {
-                        Move-Item -LiteralPath $temporaryPath -Destination $targetPath -Force -ErrorAction Stop
+                        Move-ImageMetadataOutput -SourcePath $temporaryPath -DestinationPath $targetPath -AllowOverwrite:((-not $usesOutputPath) -or $Force) -UseForce:($usesOutputPath -and $Force)
                         $temporaryPath = $null
                         $outputCopied = $usesOutputPath
                     }

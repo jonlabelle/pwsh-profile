@@ -76,6 +76,42 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $command = Get-Command Remove-ImageMetadata
             $command.Parameters.ContainsKey('PassThru') | Should -Be $true
         }
+
+        It 'Should scope Force to OutputPath parameter sets' {
+            $command = Get-Command Remove-ImageMetadata
+            $parameterSetNames = @($command.Parameters['Force'].ParameterSets.Keys)
+
+            $parameterSetNames | Should -Contain 'Output'
+            $parameterSetNames | Should -Contain 'OutputParanoid'
+            $parameterSetNames | Should -Not -Contain 'InPlace'
+            $parameterSetNames | Should -Not -Contain 'InPlaceParanoid'
+        }
+
+        It 'Should keep timestamp preservation and reset options in separate parameter sets' {
+            $command = Get-Command Remove-ImageMetadata
+            $preserveParameterSetNames = @($command.Parameters['PreserveFileTimestamp'].ParameterSets.Keys)
+            $resetParameterSetNames = @($command.Parameters['ResetFileTimestamp'].ParameterSets.Keys)
+
+            @($preserveParameterSetNames | Where-Object { $resetParameterSetNames -contains $_ }) | Should -BeNullOrEmpty
+        }
+
+        It 'Should only expose ResetTimestamp in reset timestamp parameter sets' {
+            $command = Get-Command Remove-ImageMetadata
+            $parameterSetNames = @($command.Parameters['ResetTimestamp'].ParameterSets.Keys)
+
+            $parameterSetNames | Should -Contain 'InPlaceResetTimestamp'
+            $parameterSetNames | Should -Contain 'OutputResetTimestamp'
+            @($parameterSetNames | Where-Object { $_ -notmatch 'ResetTimestamp$' }) | Should -BeNullOrEmpty
+        }
+
+        It 'Should only expose ImageMagickPath in Paranoid parameter sets' {
+            $command = Get-Command Remove-ImageMetadata
+            $parameterSetNames = @($command.Parameters['ImageMagickPath'].ParameterSets.Keys)
+
+            $parameterSetNames | Should -Contain 'InPlaceParanoid'
+            $parameterSetNames | Should -Contain 'OutputParanoid'
+            @($parameterSetNames | Where-Object { $_ -notmatch 'Paranoid' }) | Should -BeNullOrEmpty
+        }
     }
 
     Context 'Parameter Types' {
@@ -320,7 +356,7 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
                 ("`$RemainingArgs -join [Environment]::NewLine | Set-Content -LiteralPath '{0}' -Encoding UTF8" -f $escapedImageMagickLogPath),
                 '$sourcePath = [String]$RemainingArgs[0]',
                 '$destinationPath = [String]$RemainingArgs[$RemainingArgs.Count - 1]',
-                'Copy-Item -LiteralPath $sourcePath -Destination $destinationPath -Force',
+                "Set-Content -LiteralPath `$destinationPath -Value 're-encoded image bytes' -Encoding UTF8",
                 '$global:LASTEXITCODE = 0',
                 "''"
             ) -join [Environment]::NewLine
@@ -350,6 +386,17 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             Get-Content -LiteralPath $script:PrivacyOutputImage | Should -Be 'existing clean image'
         }
 
+        It 'Should overwrite an existing OutputPath target when Force is specified' {
+            New-Item -Path $script:PrivacyOutputDir -ItemType Directory -Force | Out-Null
+            'existing clean image' | Set-Content -LiteralPath $script:PrivacyOutputImage -Encoding UTF8
+
+            $result = Remove-ImageMetadata -Path $script:PrivacySourceImage -OutputPath $script:PrivacyOutputDir -ExifToolPath $script:PrivacyFakeExifToolPath -Force -PassThru
+
+            Get-Content -LiteralPath $script:PrivacyOutputImage | Should -Be 'source image bytes'
+            $result.MetadataRemoved | Should -Be $true
+            $result.OutputCopied | Should -Be $true
+        }
+
         It 'Should reset filesystem timestamps when ResetFileTimestamp is specified' {
             $resetTimestamp = [DateTime]::SpecifyKind([DateTime]'1999-12-31T00:00:00', [DateTimeKind]::Utc)
 
@@ -362,7 +409,7 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
 
         It 'Should reject conflicting timestamp options' {
             { Remove-ImageMetadata -Path $script:PrivacySourceImage -ExifToolPath $script:PrivacyFakeExifToolPath -PreserveFileTimestamp -ResetFileTimestamp } |
-            Should -Throw '*cannot be used together*'
+            Should -Throw
         }
 
         It 'Should re-encode through ImageMagick in Paranoid mode' {
@@ -372,6 +419,15 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $imageMagickArgs = Get-Content -LiteralPath $script:PrivacyImageMagickLogPath
             $imageMagickArgs | Should -Contain $script:PrivacySourceImage
             $imageMagickArgs | Should -Contain '-strip'
+            $result.Paranoid | Should -Be $true
+            $result.MetadataRemoved | Should -Be $true
+        }
+
+        It 'Should re-encode in place through ImageMagick in Paranoid mode without Force' {
+            $result = Remove-ImageMetadata -Path $script:PrivacySourceImage -ExifToolPath $script:PrivacyFakeExifToolPath -ImageMagickPath $script:PrivacyFakeImageMagickPath -Paranoid -PassThru
+
+            Get-Content -LiteralPath $script:PrivacySourceImage | Should -Be 're-encoded image bytes'
+            $result.Path | Should -Be $script:PrivacySourceImage
             $result.Paranoid | Should -Be $true
             $result.MetadataRemoved | Should -Be $true
         }
