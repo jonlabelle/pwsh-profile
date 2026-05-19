@@ -272,5 +272,23 @@ Describe 'GitHub pull request function' {
                 Get-GitHubPullRequest -Owner 'octocat' -Organization 'octo-org'
             } | Should -Throw '*Use only one of -Owner or -Organization*'
         }
+
+        It 'rejects whitespace-only search filter values' -ForEach @(
+            @{ Parameters = @{ Author = '   ' }; Error = '*GitHub author cannot be empty or whitespace*' }
+            @{ Parameters = @{ Organization = " `t " }; Error = '*GitHub organization cannot be empty or whitespace*' }
+            @{ Parameters = @{ Owner = '   ' }; Error = '*GitHub owner cannot be empty or whitespace*' }
+            @{ Parameters = @{ Repository = '   ' }; Error = '*GitHub repository cannot be empty or whitespace*' }
+            @{ Parameters = @{ GitHubHost = '   ' }; Error = '*GitHub host cannot be empty or whitespace*' }
+        ) {
+            {
+                Get-GitHubPullRequest @Parameters
+            } | Should -Throw $Error
+        }
+
+        It 'rejects a repository host that conflicts with an explicitly supplied GitHub host' {
+            {
+                Get-GitHubPullRequest -Repository 'github.example.com/octo-org/service-api' -GitHubHost 'github.invalid' -AllAuthors
+            } | Should -Throw "*Repository 'github.example.com/octo-org/service-api' resolves to host 'github.example.com', which does not match -GitHubHost 'github.invalid'.*"
+        }
     }
 }

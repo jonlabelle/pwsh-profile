@@ -188,6 +188,14 @@ function Get-GitHubPullRequest
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
+        [ValidateScript({
+                if ([string]::IsNullOrWhiteSpace($_))
+                {
+                    throw 'GitHub author cannot be empty or whitespace.'
+                }
+
+                $true
+            })]
         [String]$Author,
 
         [Parameter()]
@@ -195,18 +203,50 @@ function Get-GitHubPullRequest
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
+        [ValidateScript({
+                if ([string]::IsNullOrWhiteSpace($_))
+                {
+                    throw 'GitHub organization cannot be empty or whitespace.'
+                }
+
+                $true
+            })]
         [String]$Organization,
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
+        [ValidateScript({
+                if ([string]::IsNullOrWhiteSpace($_))
+                {
+                    throw 'GitHub owner cannot be empty or whitespace.'
+                }
+
+                $true
+            })]
         [String]$Owner,
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
+        [ValidateScript({
+                if ([string]::IsNullOrWhiteSpace($_))
+                {
+                    throw 'GitHub repository cannot be empty or whitespace.'
+                }
+
+                $true
+            })]
         [String]$Repository,
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
+        [ValidateScript({
+                if ([string]::IsNullOrWhiteSpace($_))
+                {
+                    throw 'GitHub host cannot be empty or whitespace.'
+                }
+
+                $true
+            })]
         [String]$GitHubHost = 'github.com',
 
         [Parameter()]
