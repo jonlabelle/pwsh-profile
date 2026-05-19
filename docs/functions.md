@@ -73,6 +73,7 @@
 ## Developer
 
 - [`Get-DotNetVersion`](../Functions/Developer/Get-DotNetVersion.ps1) - Gets installed .NET Framework and .NET versions from local or remote computers.
+- [`Get-GitHubPullRequest`](../Functions/Developer/Get-GitHubPullRequest.ps1) - Retrieves GitHub pull requests for the current user or a specified GitHub scope.
 - [`Get-GitHubRepositoryTopic`](../Functions/Developer/Get-GitHubRepositoryTopic.ps1) - Gets GitHub repository topics from an explicit repository or the current Git repository.
 - [`Get-GitHubVariable`](../Functions/Developer/Get-GitHubVariable.ps1) - Retrieves a GitHub configuration variable from repository, environment, or organization scope.
 - [`Import-DotEnv`](../Functions/Developer/Import-DotEnv.ps1) - Loads environment variables from dotenv (`.env`) files.

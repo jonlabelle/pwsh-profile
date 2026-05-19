@@ -12,6 +12,7 @@
     - Set-GitHubVariable
     - Get-GitHubVariable
     - Remove-GitHubVariable
+    - Get-GitHubPullRequest
 
     It is intentionally not a public profile function:
     - The filename is not in Verb-Noun format
