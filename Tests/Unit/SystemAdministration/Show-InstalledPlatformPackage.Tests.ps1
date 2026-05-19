@@ -582,7 +582,7 @@ Describe 'Show-InstalledPlatformPackage' {
                 $keys.Enqueue([System.ConsoleKeyInfo]::new($pathChar, [ConsoleKey]::A, $false, $false, $false))
             }
             $keys.Enqueue([System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false))
-            $keys.Enqueue([System.ConsoleKeyInfo]::new('y', [ConsoleKey]::Y, $false, $false, $false))
+            $keys.Enqueue([System.ConsoleKeyInfo]::new('b', [ConsoleKey]::B, $false, $false, $false))
             $keys.Enqueue([System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true))
             $keyReader = {
                 return $keys.Dequeue()
@@ -599,7 +599,55 @@ Describe 'Show-InstalledPlatformPackage' {
             $exportedPackages[0].RequiredBy | Should -Be 'git-extras'
             Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
             Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Status: Exported 1 package(s) with dependencies to *selected-packages.csv (CSV)' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Status: Exported 1 package(s) with dependencies and required-by relationships to *selected-packages.csv (CSV)' } -Times 1
+        }
+
+        It 'exports direct dependencies without resolving required-by relationships' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @())
+            }
+
+            Mock -CommandName Get-PlatformPackageDependency -MockWith {
+                param(
+                    [Object[]]$Package,
+                    [String]$Direction,
+                    [String]$PackageManager,
+                    [ScriptBlock]$CommandRunner
+                )
+
+                return @([PSCustomObject]@{
+                        Direction = $Direction
+                        Relationship = "$($Package[0].Name) -> openssl"
+                        RelatedPackage = 'openssl'
+                        DependencyType = 'Dependency'
+                        Installed = $true
+                        Notes = ''
+                    })
+            }
+
+            $exportPath = Join-Path -Path $TestDrive -ChildPath 'direct-dependencies.csv'
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            $keys.Enqueue([System.ConsoleKeyInfo]::new('e', [ConsoleKey]::E, $false, $false, $false))
+            foreach ($pathChar in $exportPath.ToCharArray())
+            {
+                $keys.Enqueue([System.ConsoleKeyInfo]::new($pathChar, [ConsoleKey]::A, $false, $false, $false))
+            }
+            $keys.Enqueue([System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false))
+            $keys.Enqueue([System.ConsoleKeyInfo]::new('y', [ConsoleKey]::Y, $false, $false, $false))
+            $keys.Enqueue([System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true))
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
+
+            $result.Count | Should -Be 0
+            $exportedPackages = @(Import-Csv -LiteralPath $exportPath)
+            $exportedPackages[0].DependsOn | Should -Be 'openssl'
+            $exportedPackages[0].RequiredBy | Should -Be ''
+            Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
+            Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 0
         }
 
         It 'filters picker results by package name when F is pressed' {

@@ -1727,7 +1727,8 @@ function Show-InstalledPlatformPackage
                         Write-Host "Format: $Format" -ForegroundColor White
                         Write-Host ''
                         Write-Host 'Include dependency relationships in the export?' -ForegroundColor White
-                        Write-Host 'Y: include dependencies  N/Enter: packages only  Esc/Ctrl+C: cancel' -ForegroundColor DarkGray
+                        Write-Host 'Dependency lookup can be slow for large exports.' -ForegroundColor DarkYellow
+                        Write-Host 'D/Y: direct dependencies  B: direct + required-by  N/Enter: packages only  Esc/Ctrl+C: cancel' -ForegroundColor DarkGray
 
                         $dependencyKey = & $KeyReader
                         if (Test-PackageTextPromptCancelKey -KeyInfo $dependencyKey)
@@ -1735,14 +1736,25 @@ function Show-InstalledPlatformPackage
                             return [PSCustomObject]@{
                                 Canceled = $true
                                 Include = $false
+                                Mode = 'None'
                             }
                         }
 
-                        if ($dependencyKey.Key -eq [ConsoleKey]::Y)
+                        if ($dependencyKey.Key -eq [ConsoleKey]::D -or $dependencyKey.Key -eq [ConsoleKey]::Y)
                         {
                             return [PSCustomObject]@{
                                 Canceled = $false
                                 Include = $true
+                                Mode = 'DependsOn'
+                            }
+                        }
+
+                        if ($dependencyKey.Key -eq [ConsoleKey]::B)
+                        {
+                            return [PSCustomObject]@{
+                                Canceled = $false
+                                Include = $true
+                                Mode = 'Both'
                             }
                         }
 
@@ -1751,6 +1763,7 @@ function Show-InstalledPlatformPackage
                             return [PSCustomObject]@{
                                 Canceled = $false
                                 Include = $false
+                                Mode = 'None'
                             }
                         }
                     }
@@ -1811,18 +1824,121 @@ function Show-InstalledPlatformPackage
                 return $resolvedPath
             }
 
+            function Test-PackageExportCancelRequested
+            {
+                if (-not $usingConsoleKeyReader)
+                {
+                    return $false
+                }
+
+                try
+                {
+                    if ([Console]::IsInputRedirected)
+                    {
+                        return $false
+                    }
+
+                    while ([Console]::KeyAvailable)
+                    {
+                        $cancelKey = [Console]::ReadKey($true)
+                        if ($cancelKey.Key -eq [ConsoleKey]::Escape)
+                        {
+                            return $true
+                        }
+
+                        $isControlC = $cancelKey.Key -eq [ConsoleKey]::C -and (($cancelKey.Modifiers -band [ConsoleModifiers]::Control) -eq [ConsoleModifiers]::Control)
+                        $isControlC = $isControlC -or ([Int32][Char]$cancelKey.KeyChar -eq 3)
+                        if ($isControlC)
+                        {
+                            return $true
+                        }
+                    }
+                }
+                catch
+                {
+                    Write-Verbose "Unable to inspect pending export cancel keys: $($_.Exception.Message)"
+                }
+
+                return $false
+            }
+
+            function Write-PackageExportProgress
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [PSCustomObject]$Package,
+
+                    [Parameter()]
+                    [Int32]$PackageIndex = 0,
+
+                    [Parameter()]
+                    [Int32]$PackageCount = 0,
+
+                    [Parameter()]
+                    [String]$Direction = '',
+
+                    [Parameter()]
+                    [String]$ExportPath = ''
+                )
+
+                Clear-Host
+                Write-Host 'Exporting installed packages...' -ForegroundColor Cyan
+                if ($PackageCount -gt 0 -and $PackageIndex -gt 0)
+                {
+                    Write-Host "Package: $PackageIndex of $PackageCount - $($Package.Name)" -ForegroundColor White
+                }
+                else
+                {
+                    Write-Host "Package: $($Package.Name)" -ForegroundColor White
+                }
+
+                if (-not [String]::IsNullOrWhiteSpace($Direction))
+                {
+                    Write-Host "Resolving: $Direction" -ForegroundColor White
+                }
+
+                if (-not [String]::IsNullOrWhiteSpace($ExportPath))
+                {
+                    Write-Host "File: $ExportPath" -ForegroundColor DarkGray
+                }
+
+                Write-Host ''
+                Write-Host 'Esc cancels between dependency lookups. Ctrl+C stops the current lookup.' -ForegroundColor DarkGray
+            }
+
             function Get-PackageExportDependencyData
             {
                 param(
                     [Parameter(Mandatory)]
-                    [PSCustomObject]$Package
+                    [PSCustomObject]$Package,
+
+                    [Parameter(Mandatory)]
+                    [ValidateSet('DependsOn', 'Both')]
+                    [String]$DependencyMode,
+
+                    [Parameter()]
+                    [Int32]$PackageIndex = 0,
+
+                    [Parameter()]
+                    [Int32]$PackageCount = 0,
+
+                    [Parameter()]
+                    [String]$ExportPath = ''
                 )
 
                 $dependencyRecords = @()
                 $dependencyErrors = @()
+                $directions = if ($DependencyMode -eq 'Both') { @('DependsOn', 'RequiredBy') } else { @('DependsOn') }
 
-                foreach ($direction in @('DependsOn', 'RequiredBy'))
+                foreach ($direction in $directions)
                 {
+                    if (Test-PackageExportCancelRequested)
+                    {
+                        throw [System.OperationCanceledException]::new('Export canceled.')
+                    }
+
+                    Write-PackageExportProgress -Package $Package -PackageIndex $PackageIndex -PackageCount $PackageCount -Direction $direction -ExportPath $ExportPath
+
                     $parameters = @{
                         Package = @($Package)
                         Direction = $direction
@@ -1849,7 +1965,17 @@ function Show-InstalledPlatformPackage
                     }
                     catch
                     {
+                        if ($_.Exception -is [System.OperationCanceledException])
+                        {
+                            throw
+                        }
+
                         $dependencyErrors += "$direction`: $($_.Exception.Message)"
+                    }
+
+                    if (Test-PackageExportCancelRequested)
+                    {
+                        throw [System.OperationCanceledException]::new('Export canceled.')
                     }
                 }
 
@@ -1870,14 +1996,24 @@ function Show-InstalledPlatformPackage
                     [String]$Format,
 
                     [Parameter()]
-                    [Switch]$IncludeDependencies
+                    [ValidateSet('None', 'DependsOn', 'Both')]
+                    [String]$DependencyMode = 'None',
+
+                    [Parameter()]
+                    [Int32]$PackageIndex = 0,
+
+                    [Parameter()]
+                    [Int32]$PackageCount = 0,
+
+                    [Parameter()]
+                    [String]$ExportPath = ''
                 )
 
                 $dependencyRecords = @()
                 $dependencyLookupError = ''
-                if ($IncludeDependencies)
+                if ($DependencyMode -ne 'None')
                 {
-                    $dependencyData = Get-PackageExportDependencyData -Package $Package
+                    $dependencyData = Get-PackageExportDependencyData -Package $Package -DependencyMode $DependencyMode -PackageIndex $PackageIndex -PackageCount $PackageCount -ExportPath $ExportPath
                     $dependencyRecords = @($dependencyData.Records)
                     $dependencyLookupError = "$($dependencyData.Error)"
                 }
@@ -1922,13 +2058,22 @@ function Show-InstalledPlatformPackage
                     [String]$Format,
 
                     [Parameter()]
-                    [Switch]$IncludeDependencies
+                    [ValidateSet('None', 'DependsOn', 'Both')]
+                    [String]$DependencyMode = 'None'
                 )
 
                 $resolvedPath = Resolve-PackageExportPath -Path $Path
-                $exportRecords = @($Packages | ForEach-Object {
-                        ConvertTo-PackageExportRecord -Package $_ -Format $Format -IncludeDependencies:$IncludeDependencies.IsPresent
-                    })
+                $exportRecords = @()
+                for ($packageIndex = 0; $packageIndex -lt $Packages.Count; $packageIndex++)
+                {
+                    if (Test-PackageExportCancelRequested)
+                    {
+                        throw [System.OperationCanceledException]::new('Export canceled.')
+                    }
+
+                    $package = $Packages[$packageIndex]
+                    $exportRecords += ConvertTo-PackageExportRecord -Package $package -Format $Format -DependencyMode $DependencyMode -PackageIndex ($packageIndex + 1) -PackageCount $Packages.Count -ExportPath $resolvedPath
+                }
 
                 switch ($Format)
                 {
@@ -1947,7 +2092,8 @@ function Show-InstalledPlatformPackage
                     Path = $resolvedPath
                     Format = $Format.ToUpperInvariant()
                     Count = $exportRecords.Count
-                    IncludeDependencies = $IncludeDependencies.IsPresent
+                    DependencyMode = $DependencyMode
+                    IncludeDependencies = $DependencyMode -ne 'None'
                 }
             }
 
@@ -1995,11 +2141,64 @@ function Show-InstalledPlatformPackage
                         Write-Host 'Resolving dependencies...' -ForegroundColor DarkGray
                     }
 
-                    $exportResult = Export-InstalledPackageRecords -Packages @($exportTarget.Packages) -Path $exportPath -Format $exportFormat -IncludeDependencies:$dependencyChoice.Include
-                    $dependencyText = if ($exportResult.IncludeDependencies) { ' with dependencies' } else { '' }
+                    $exportTreatControlCAsInputChanged = $false
+                    $exportPreviousTreatControlCAsInput = $false
+                    if ($usingConsoleKeyReader)
+                    {
+                        try
+                        {
+                            $exportPreviousTreatControlCAsInput = [Console]::TreatControlCAsInput
+                            [Console]::TreatControlCAsInput = $false
+                            $exportTreatControlCAsInputChanged = $true
+                        }
+                        catch
+                        {
+                            Write-Verbose "Unable to enable Ctrl+C interruption during export: $($_.Exception.Message)"
+                        }
+                    }
+
+                    try
+                    {
+                        $exportResult = Export-InstalledPackageRecords -Packages @($exportTarget.Packages) -Path $exportPath -Format $exportFormat -DependencyMode $dependencyChoice.Mode
+                    }
+                    finally
+                    {
+                        if ($exportTreatControlCAsInputChanged)
+                        {
+                            try
+                            {
+                                [Console]::TreatControlCAsInput = $exportPreviousTreatControlCAsInput
+                            }
+                            catch
+                            {
+                                Write-Verbose "Unable to restore Ctrl+C picker handling after export: $($_.Exception.Message)"
+                            }
+                        }
+                    }
+
+                    $dependencyText = switch ($exportResult.DependencyMode)
+                    {
+                        'DependsOn' { ' with dependencies' }
+                        'Both' { ' with dependencies and required-by relationships' }
+                        default { '' }
+                    }
                     return [PSCustomObject]@{
                         Succeeded = $true
                         Message = "Exported $($exportResult.Count) package(s)$dependencyText to $($exportResult.Path) ($($exportResult.Format))"
+                    }
+                }
+                catch [System.OperationCanceledException]
+                {
+                    return [PSCustomObject]@{
+                        Succeeded = $false
+                        Message = 'Export canceled.'
+                    }
+                }
+                catch [System.Management.Automation.PipelineStoppedException]
+                {
+                    return [PSCustomObject]@{
+                        Succeeded = $false
+                        Message = 'Export canceled.'
                     }
                 }
                 catch
