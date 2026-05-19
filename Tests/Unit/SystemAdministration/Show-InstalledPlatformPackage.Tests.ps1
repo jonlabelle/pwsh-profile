@@ -61,7 +61,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D deps  V details  R remove  U upgrade' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D deps  V details  E export  R remove  U upgrade' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Nav: F: [all]  Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq '1-1 of 1 visible | 1 total | filter: all' -and $ForegroundColor -eq 'White' } -Times 1
             @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 2
@@ -85,7 +85,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D deps  V details  R remove  U upgrade' } -Times 2
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D deps  V details  E export  R remove  U upgrade' } -Times 2
         }
 
         It 'ignores Backspace and Delete as manager navigation when not launched by the manager' {
@@ -107,7 +107,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D deps  V details  R remove  U upgrade' } -Times 3
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D deps  V details  E export  R remove  U upgrade' } -Times 3
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 0
         }
 
@@ -129,7 +129,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D deps  V details  R remove  U upgrade' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D deps  V details  E export  R remove  U upgrade' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
         }
 
@@ -222,6 +222,8 @@ Describe 'Show-InstalledPlatformPackage' {
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'return to the package list from the dependency view' -and $ForegroundColor -eq 'DarkGray' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'V: ' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'load a missing winget description when available' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'E: ' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'export visible packages, or selected packages when any are selected, to JSON or CSV' -and $ForegroundColor -eq 'DarkGray' } -Times 1
         }
 
         It 'loads missing winget descriptions only when V is pressed' {
@@ -426,7 +428,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D deps  V details  R remove  U upgrade' } -Times 2
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D deps  V details  E export  R remove  U upgrade' } -Times 2
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Show-InstalledPlatformPackage Dependencies - Homebrew' } -Times 2
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/Delete/LeftArrow to return to the package list.' } -Times 2
         }
@@ -502,6 +504,102 @@ Describe 'Show-InstalledPlatformPackage' {
                 @($IncludePackage)[0] -eq 'git'
             } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Status: Upgraded: 1, Failed: 0, Skipped: 0' } -Times 1
+        }
+
+        It 'exports visible packages to JSON from the picker when E is used' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0', 'curl 8.7.1'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @())
+            }
+
+            $exportPath = Join-Path -Path $TestDrive -ChildPath 'installed-packages.json'
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            $keys.Enqueue([System.ConsoleKeyInfo]::new('e', [ConsoleKey]::E, $false, $false, $false))
+            foreach ($pathChar in $exportPath.ToCharArray())
+            {
+                $keys.Enqueue([System.ConsoleKeyInfo]::new($pathChar, [ConsoleKey]::A, $false, $false, $false))
+            }
+            $keys.Enqueue([System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false))
+            $keys.Enqueue([System.ConsoleKeyInfo]::new('n', [ConsoleKey]::N, $false, $false, $false))
+            $keys.Enqueue([System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true))
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
+
+            $result.Count | Should -Be 0
+            Test-Path -LiteralPath $exportPath | Should -BeTrue
+            $exportedPackages = @(Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json)
+            $exportedPackages.Count | Should -Be 2
+            ($exportedPackages | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should -Be '2.44.0'
+            ($exportedPackages | Where-Object { $_.Name -eq 'curl' }).PackageManager | Should -Be 'brew'
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Status: Exported 2 package(s) to *installed-packages.json (JSON)' } -Times 1
+        }
+
+        It 'exports selected packages to CSV with dependencies from the picker' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0', 'curl 8.7.1'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @())
+            }
+
+            Mock -CommandName Get-PlatformPackageDependency -MockWith {
+                param(
+                    [Object[]]$Package,
+                    [String]$Direction,
+                    [String]$PackageManager,
+                    [ScriptBlock]$CommandRunner
+                )
+
+                if ($Direction -eq 'DependsOn')
+                {
+                    return @([PSCustomObject]@{
+                            Direction = $Direction
+                            Relationship = "$($Package[0].Name) -> openssl"
+                            RelatedPackage = 'openssl'
+                            DependencyType = 'Dependency'
+                            Installed = $true
+                            Notes = ''
+                        })
+                }
+
+                return @([PSCustomObject]@{
+                        Direction = $Direction
+                        Relationship = "git-extras -> $($Package[0].Name)"
+                        RelatedPackage = 'git-extras'
+                        DependencyType = 'Dependent'
+                        Installed = $false
+                        Notes = ''
+                    })
+            }
+
+            $exportPath = Join-Path -Path $TestDrive -ChildPath 'selected-packages.csv'
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            $keys.Enqueue([System.ConsoleKeyInfo]::new(' ', [ConsoleKey]::Spacebar, $false, $false, $false))
+            $keys.Enqueue([System.ConsoleKeyInfo]::new('e', [ConsoleKey]::E, $false, $false, $false))
+            foreach ($pathChar in $exportPath.ToCharArray())
+            {
+                $keys.Enqueue([System.ConsoleKeyInfo]::new($pathChar, [ConsoleKey]::A, $false, $false, $false))
+            }
+            $keys.Enqueue([System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false))
+            $keys.Enqueue([System.ConsoleKeyInfo]::new('y', [ConsoleKey]::Y, $false, $false, $false))
+            $keys.Enqueue([System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true))
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PassThru)
+
+            $result.Count | Should -Be 0
+            Test-Path -LiteralPath $exportPath | Should -BeTrue
+            $exportedPackages = @(Import-Csv -LiteralPath $exportPath)
+            $exportedPackages.Count | Should -Be 1
+            $exportedPackages[0].Name | Should -Be 'curl'
+            $exportedPackages[0].DependsOn | Should -Be 'openssl'
+            $exportedPackages[0].RequiredBy | Should -Be 'git-extras'
+            Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
+            Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Status: Exported 1 package(s) with dependencies to *selected-packages.csv (CSV)' } -Times 1
         }
 
         It 'filters picker results by package name when F is pressed' {

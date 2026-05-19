@@ -7,8 +7,8 @@ function Show-InstalledPlatformPackage
     .DESCRIPTION
         Gets installed packages by calling Get-PlatformPackage and renders them in a
         interactive browser when a console is available. The browser supports paging,
-        source and name filtering, dependency inspection, and package actions on winget,
-        Homebrew, apt, and apk.
+        source and name filtering, dependency inspection, JSON/CSV export, and package
+        actions on winget, Homebrew, apt, and apk.
 
         Use -NonInteractive to bypass the interactive browser and return package objects
         directly. Use -PassThru to select one or more packages in the browser and return
@@ -66,6 +66,9 @@ function Show-InstalledPlatformPackage
         Opens the browser, lets you select packages with Space, and returns the selected
         records when Enter is pressed. If nothing is selected, Enter returns the current
         package.
+
+        Press E in the browser to export the visible packages, or the selected packages
+        when selection mode has active selections, to JSON or CSV.
 
     .EXAMPLE
         PS > Show-InstalledPlatformPackage -PassThru -Name 'node*' | Format-Table
@@ -1464,6 +1467,7 @@ function Show-InstalledPlatformPackage
                 Write-PackagePickerHelpItem -Shortcut 'D' -Description 'open or close the dependency view for the current package'
                 Write-PackagePickerHelpItem -Shortcut 'B' -Description 'return to the package list from the dependency view'
                 Write-PackagePickerHelpItem -Shortcut 'V' -Description 'load a missing winget description when available'
+                Write-PackagePickerHelpItem -Shortcut 'E' -Description 'export visible packages, or selected packages when any are selected, to JSON or CSV'
                 Write-PackagePickerHelpItem -Shortcut 'R' -Description 'remove the current package (with confirmation)'
                 Write-PackagePickerHelpItem -Shortcut 'U' -Description 'upgrade the current package (with confirmation)'
                 Write-PackagePickerHelpItem -Shortcut 'Q, Esc, or Ctrl+C' -Description 'exit the browser'
@@ -1529,6 +1533,485 @@ function Show-InstalledPlatformPackage
                 {
                     Clear-Host
                     $pickerRenderState.UseInPlaceRedraw = $restoreInPlaceRedraw
+                    $pickerRenderState.RenderedLineCount = 0
+                }
+            }
+
+            function Test-PackageTextPromptCancelKey
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [ConsoleKeyInfo]$KeyInfo
+                )
+
+                $isControlC = $KeyInfo.Key -eq [ConsoleKey]::C -and (($KeyInfo.Modifiers -band [ConsoleModifiers]::Control) -eq [ConsoleModifiers]::Control)
+                $isControlC = $isControlC -or ([Int32][Char]$KeyInfo.KeyChar -eq 3)
+
+                return $KeyInfo.Key -eq [ConsoleKey]::Escape -or $isControlC
+            }
+
+            function Read-PackageExportPath
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [String]$ScopeDescription
+                )
+
+                $restoreInPlaceRedraw = $pickerRenderState.UseInPlaceRedraw
+                $pickerRenderState.UseInPlaceRedraw = $false
+                $pickerRenderState.RenderedLineCount = 0
+
+                $workingPath = ''
+                $validationMessage = ''
+                try
+                {
+                    while ($true)
+                    {
+                        Clear-Host
+                        Write-Host 'Export installed packages' -ForegroundColor Cyan
+                        Write-Host ''
+                        Write-Host "Scope: $ScopeDescription" -ForegroundColor White
+                        Write-Host 'Formats: .json and .csv are supported. The format is inferred from the file extension.' -ForegroundColor DarkGray
+                        Write-Host ''
+                        Write-Host "File: $workingPath" -ForegroundColor White
+                        if (-not [String]::IsNullOrWhiteSpace($validationMessage))
+                        {
+                            Write-Host $validationMessage -ForegroundColor DarkYellow
+                        }
+                        Write-Host ''
+                        Write-Host 'Enter: continue  Backspace: delete  Ctrl+U: clear  Esc/Ctrl+C: cancel' -ForegroundColor DarkGray
+
+                        $pathKey = & $KeyReader
+                        if (Test-PackageTextPromptCancelKey -KeyInfo $pathKey)
+                        {
+                            return $null
+                        }
+
+                        if ($pathKey.Key -eq [ConsoleKey]::Enter)
+                        {
+                            $candidatePath = $workingPath.Trim()
+                            if ([String]::IsNullOrWhiteSpace($candidatePath))
+                            {
+                                $validationMessage = 'File path is required.'
+                                continue
+                            }
+
+                            return $candidatePath
+                        }
+
+                        if ($pathKey.Key -eq [ConsoleKey]::Backspace)
+                        {
+                            if ($workingPath.Length -gt 0)
+                            {
+                                $workingPath = $workingPath.Substring(0, $workingPath.Length - 1)
+                            }
+
+                            $validationMessage = ''
+                            continue
+                        }
+
+                        $isCtrlU = $pathKey.Key -eq [ConsoleKey]::U -and (($pathKey.Modifiers -band [ConsoleModifiers]::Control) -eq [ConsoleModifiers]::Control)
+                        if ($isCtrlU)
+                        {
+                            $workingPath = ''
+                            $validationMessage = ''
+                            continue
+                        }
+
+                        if (-not [Char]::IsControl($pathKey.KeyChar))
+                        {
+                            $workingPath += $pathKey.KeyChar
+                            $validationMessage = ''
+                        }
+                    }
+                }
+                finally
+                {
+                    Clear-Host
+                    $pickerRenderState.UseInPlaceRedraw = $restoreInPlaceRedraw
+                    $pickerRenderState.RenderedLineCount = 0
+                }
+            }
+
+            function Get-PackageExportFormatFromPath
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [String]$Path
+                )
+
+                $extension = [System.IO.Path]::GetExtension($Path)
+                if ([String]::IsNullOrWhiteSpace($extension))
+                {
+                    return ''
+                }
+
+                switch ($extension.ToLowerInvariant())
+                {
+                    '.json' { return 'Json' }
+                    '.csv' { return 'Csv' }
+                    default { return '' }
+                }
+            }
+
+            function Read-PackageExportFormat
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [String]$Path
+                )
+
+                $restoreInPlaceRedraw = $pickerRenderState.UseInPlaceRedraw
+                $pickerRenderState.UseInPlaceRedraw = $false
+                $pickerRenderState.RenderedLineCount = 0
+
+                try
+                {
+                    while ($true)
+                    {
+                        Clear-Host
+                        Write-Host 'Choose export format' -ForegroundColor Cyan
+                        Write-Host ''
+                        Write-Host "File: $Path" -ForegroundColor White
+                        Write-Host 'The file extension does not identify a supported format.' -ForegroundColor DarkYellow
+                        Write-Host ''
+                        Write-Host 'J: JSON  C: CSV  Esc/Ctrl+C: cancel' -ForegroundColor DarkGray
+
+                        $formatKey = & $KeyReader
+                        if (Test-PackageTextPromptCancelKey -KeyInfo $formatKey)
+                        {
+                            return ''
+                        }
+
+                        if ($formatKey.Key -eq [ConsoleKey]::J)
+                        {
+                            return 'Json'
+                        }
+
+                        if ($formatKey.Key -eq [ConsoleKey]::C)
+                        {
+                            return 'Csv'
+                        }
+                    }
+                }
+                finally
+                {
+                    Clear-Host
+                    $pickerRenderState.UseInPlaceRedraw = $restoreInPlaceRedraw
+                    $pickerRenderState.RenderedLineCount = 0
+                }
+            }
+
+            function Read-PackageExportDependencyChoice
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [String]$Format,
+
+                    [Parameter(Mandatory)]
+                    [String]$ScopeDescription
+                )
+
+                $restoreInPlaceRedraw = $pickerRenderState.UseInPlaceRedraw
+                $pickerRenderState.UseInPlaceRedraw = $false
+                $pickerRenderState.RenderedLineCount = 0
+
+                try
+                {
+                    while ($true)
+                    {
+                        Clear-Host
+                        Write-Host 'Export installed packages' -ForegroundColor Cyan
+                        Write-Host ''
+                        Write-Host "Scope: $ScopeDescription" -ForegroundColor White
+                        Write-Host "Format: $Format" -ForegroundColor White
+                        Write-Host ''
+                        Write-Host 'Include dependency relationships in the export?' -ForegroundColor White
+                        Write-Host 'Y: include dependencies  N/Enter: packages only  Esc/Ctrl+C: cancel' -ForegroundColor DarkGray
+
+                        $dependencyKey = & $KeyReader
+                        if (Test-PackageTextPromptCancelKey -KeyInfo $dependencyKey)
+                        {
+                            return [PSCustomObject]@{
+                                Canceled = $true
+                                Include = $false
+                            }
+                        }
+
+                        if ($dependencyKey.Key -eq [ConsoleKey]::Y)
+                        {
+                            return [PSCustomObject]@{
+                                Canceled = $false
+                                Include = $true
+                            }
+                        }
+
+                        if ($dependencyKey.Key -eq [ConsoleKey]::N -or $dependencyKey.Key -eq [ConsoleKey]::Enter)
+                        {
+                            return [PSCustomObject]@{
+                                Canceled = $false
+                                Include = $false
+                            }
+                        }
+                    }
+                }
+                finally
+                {
+                    Clear-Host
+                    $pickerRenderState.UseInPlaceRedraw = $restoreInPlaceRedraw
+                    $pickerRenderState.RenderedLineCount = 0
+                }
+            }
+
+            function Get-PackageExportTarget
+            {
+                if ($EnableSelection -and $selectedKeys.Count -gt 0)
+                {
+                    $selectedPackages = @($allPackages | Where-Object { $selectedKeys.Contains((Get-PackagePickerKey -Package $_)) })
+                    return [PSCustomObject]@{
+                        Packages = $selectedPackages
+                        ScopeDescription = "$($selectedPackages.Count) selected package(s)"
+                    }
+                }
+
+                return [PSCustomObject]@{
+                    Packages = @($visiblePackages)
+                    ScopeDescription = "$($visiblePackages.Count) visible package(s)"
+                }
+            }
+
+            function Resolve-PackageExportPath
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [String]$Path
+                )
+
+                $expandedPath = [Environment]::ExpandEnvironmentVariables($Path.Trim())
+                try
+                {
+                    $resolvedPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($expandedPath)
+                }
+                catch
+                {
+                    throw "Invalid export path '$Path': $($_.Exception.Message)"
+                }
+
+                if (Test-Path -LiteralPath $resolvedPath -PathType Container)
+                {
+                    throw "Export path points to a directory: $resolvedPath"
+                }
+
+                $parentPath = Split-Path -Path $resolvedPath -Parent
+                if (-not [String]::IsNullOrWhiteSpace($parentPath) -and -not (Test-Path -LiteralPath $parentPath -PathType Container))
+                {
+                    throw "Export directory does not exist: $parentPath"
+                }
+
+                return $resolvedPath
+            }
+
+            function Get-PackageExportDependencyData
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [PSCustomObject]$Package
+                )
+
+                $dependencyRecords = @()
+                $dependencyErrors = @()
+
+                foreach ($direction in @('DependsOn', 'RequiredBy'))
+                {
+                    $parameters = @{
+                        Package = @($Package)
+                        Direction = $direction
+                        PackageManager = $Package.PackageManager
+                    }
+                    if ($CommandRunner)
+                    {
+                        $parameters.CommandRunner = $CommandRunner
+                    }
+
+                    try
+                    {
+                        foreach ($dependencyRecord in @(Get-PlatformPackageDependency @parameters))
+                        {
+                            $dependencyRecords += [PSCustomObject]@{
+                                Direction = $dependencyRecord.Direction
+                                Relationship = $dependencyRecord.Relationship
+                                RelatedPackage = $dependencyRecord.RelatedPackage
+                                DependencyType = $dependencyRecord.DependencyType
+                                Installed = $dependencyRecord.Installed
+                                Notes = $dependencyRecord.Notes
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        $dependencyErrors += "$direction`: $($_.Exception.Message)"
+                    }
+                }
+
+                return [PSCustomObject]@{
+                    Records = @($dependencyRecords)
+                    Error = ($dependencyErrors -join '; ')
+                }
+            }
+
+            function ConvertTo-PackageExportRecord
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [PSCustomObject]$Package,
+
+                    [Parameter(Mandatory)]
+                    [ValidateSet('Json', 'Csv')]
+                    [String]$Format,
+
+                    [Parameter()]
+                    [Switch]$IncludeDependencies
+                )
+
+                $dependencyRecords = @()
+                $dependencyLookupError = ''
+                if ($IncludeDependencies)
+                {
+                    $dependencyData = Get-PackageExportDependencyData -Package $Package
+                    $dependencyRecords = @($dependencyData.Records)
+                    $dependencyLookupError = "$($dependencyData.Error)"
+                }
+
+                $baseRecord = [Ordered]@{
+                    Name = $Package.Name
+                    Id = $Package.Id
+                    PackageManager = $Package.PackageManager
+                    PackageManagerDisplayName = $Package.PackageManagerDisplayName
+                    Type = $Package.Type
+                    InstalledVersion = $Package.InstalledVersion
+                    Source = $Package.Source
+                    Publisher = $Package.Publisher
+                    Description = $Package.Description
+                    Notes = $Package.Notes
+                }
+
+                if ($Format -eq 'Csv')
+                {
+                    $baseRecord['DependsOn'] = (($dependencyRecords | Where-Object { $_.Direction -eq 'DependsOn' } | ForEach-Object { $_.RelatedPackage }) -join '; ')
+                    $baseRecord['RequiredBy'] = (($dependencyRecords | Where-Object { $_.Direction -eq 'RequiredBy' } | ForEach-Object { $_.RelatedPackage }) -join '; ')
+                    $baseRecord['DependencyLookupError'] = $dependencyLookupError
+                    return [PSCustomObject]$baseRecord
+                }
+
+                $baseRecord['Dependencies'] = @($dependencyRecords)
+                $baseRecord['DependencyLookupError'] = $dependencyLookupError
+                return [PSCustomObject]$baseRecord
+            }
+
+            function Export-InstalledPackageRecords
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [PSCustomObject[]]$Packages,
+
+                    [Parameter(Mandatory)]
+                    [String]$Path,
+
+                    [Parameter(Mandatory)]
+                    [ValidateSet('Json', 'Csv')]
+                    [String]$Format,
+
+                    [Parameter()]
+                    [Switch]$IncludeDependencies
+                )
+
+                $resolvedPath = Resolve-PackageExportPath -Path $Path
+                $exportRecords = @($Packages | ForEach-Object {
+                        ConvertTo-PackageExportRecord -Package $_ -Format $Format -IncludeDependencies:$IncludeDependencies.IsPresent
+                    })
+
+                switch ($Format)
+                {
+                    'Json'
+                    {
+                        $jsonText = ConvertTo-Json -InputObject @($exportRecords) -Depth 8
+                        Set-Content -LiteralPath $resolvedPath -Value $jsonText -Encoding UTF8
+                    }
+                    'Csv'
+                    {
+                        $exportRecords | Export-Csv -LiteralPath $resolvedPath -NoTypeInformation -Encoding UTF8
+                    }
+                }
+
+                return [PSCustomObject]@{
+                    Path = $resolvedPath
+                    Format = $Format.ToUpperInvariant()
+                    Count = $exportRecords.Count
+                    IncludeDependencies = $IncludeDependencies.IsPresent
+                }
+            }
+
+            function Invoke-PackageExportPrompt
+            {
+                $exportTarget = Get-PackageExportTarget
+                if (@($exportTarget.Packages).Count -eq 0)
+                {
+                    return [PSCustomObject]@{
+                        Succeeded = $false
+                        Message = 'Export failed: no packages are available for the current scope'
+                    }
+                }
+
+                $exportPath = Read-PackageExportPath -ScopeDescription $exportTarget.ScopeDescription
+                if ([String]::IsNullOrWhiteSpace($exportPath))
+                {
+                    return $null
+                }
+
+                $exportFormat = Get-PackageExportFormatFromPath -Path $exportPath
+                if ([String]::IsNullOrWhiteSpace($exportFormat))
+                {
+                    $exportFormat = Read-PackageExportFormat -Path $exportPath
+                    if ([String]::IsNullOrWhiteSpace($exportFormat))
+                    {
+                        return $null
+                    }
+                }
+
+                $dependencyChoice = Read-PackageExportDependencyChoice -Format $exportFormat.ToUpperInvariant() -ScopeDescription $exportTarget.ScopeDescription
+                if ($dependencyChoice.Canceled)
+                {
+                    return $null
+                }
+
+                try
+                {
+                    Clear-Host
+                    Write-Host 'Exporting installed packages...' -ForegroundColor Cyan
+                    Write-Host "Scope: $($exportTarget.ScopeDescription)" -ForegroundColor White
+                    Write-Host "File: $exportPath" -ForegroundColor White
+                    if ($dependencyChoice.Include)
+                    {
+                        Write-Host 'Resolving dependencies...' -ForegroundColor DarkGray
+                    }
+
+                    $exportResult = Export-InstalledPackageRecords -Packages @($exportTarget.Packages) -Path $exportPath -Format $exportFormat -IncludeDependencies:$dependencyChoice.Include
+                    $dependencyText = if ($exportResult.IncludeDependencies) { ' with dependencies' } else { '' }
+                    return [PSCustomObject]@{
+                        Succeeded = $true
+                        Message = "Exported $($exportResult.Count) package(s)$dependencyText to $($exportResult.Path) ($($exportResult.Format))"
+                    }
+                }
+                catch
+                {
+                    return [PSCustomObject]@{
+                        Succeeded = $false
+                        Message = "Export failed: $($_.Exception.Message)"
+                    }
+                }
+                finally
+                {
+                    Clear-Host
                     $pickerRenderState.RenderedLineCount = 0
                 }
             }
@@ -1731,7 +2214,7 @@ function Show-InstalledPlatformPackage
                             (Format-PickerFrameLine -Text "Show-InstalledPlatformPackage Dependencies - $($InstalledPackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
                             (Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount (-1) -FilterText ($dependencyFilterSummary -join ' | ')) -ForegroundColor White)
                             ''
-                            (Format-PickerFrameLine -Text 'Keys: B/Backspace/Delete/LeftArrow back  V details' -ForegroundColor DarkGray)
+                            (Format-PickerFrameLine -Text 'Keys: B/Backspace/Delete/LeftArrow back  V details  E export' -ForegroundColor DarkGray)
                             (Format-PickerFrameLine -Text "Nav: ${nameFilterHint}${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" -ForegroundColor DarkGray)
                             ''
                             (Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor DarkGray)
@@ -1803,7 +2286,7 @@ function Show-InstalledPlatformPackage
                             }
                             $frameLines += Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedKeys.Count -FilterText ($filterSummary -join ' | ')) -ForegroundColor White
                             $frameLines += Format-PickerFrameLine -Text 'Keys: Space select  Enter return  A all' -ForegroundColor DarkGray
-                            $frameLines += Format-PickerFrameLine -Text 'Actions: D deps  V details  R remove  U upgrade' -ForegroundColor DarkGray
+                            $frameLines += Format-PickerFrameLine -Text 'Actions: D deps  V details  E export  R remove  U upgrade' -ForegroundColor DarkGray
                             $frameLines += Format-PickerFrameLine -Text "Nav: ${nameFilterHint}${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" -ForegroundColor DarkGray
                             if ($ReturnToPlatformPackageManagerOnBackKey)
                             {
@@ -1821,7 +2304,7 @@ function Show-InstalledPlatformPackage
                                 $filterSummary += "source: $($availableSources[$sourceFilterIndex])"
                             }
                             $frameLines += Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -FilterText ($filterSummary -join ' | ')) -ForegroundColor White
-                            $frameLines += Format-PickerFrameLine -Text 'Actions: D deps  V details  R remove  U upgrade' -ForegroundColor DarkGray
+                            $frameLines += Format-PickerFrameLine -Text 'Actions: D deps  V details  E export  R remove  U upgrade' -ForegroundColor DarkGray
                             $frameLines += Format-PickerFrameLine -Text "Nav: ${nameFilterHint}${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" -ForegroundColor DarkGray
                             if ($ReturnToPlatformPackageManagerOnBackKey)
                             {
@@ -2156,6 +2639,15 @@ function Show-InstalledPlatformPackage
                             if ($canResolveCurrentWingetDescription)
                             {
                                 $pendingWingetDescriptionLookupKey = $currentPackageLookupKey
+                            }
+                        }
+                        'E'
+                        {
+                            $exportResult = Invoke-PackageExportPrompt
+                            if ($null -ne $exportResult)
+                            {
+                                $actionStatus = $exportResult.Message
+                                $actionStatusColor = if ($exportResult.Succeeded) { [ConsoleColor]::Green } else { [ConsoleColor]::DarkYellow }
                             }
                         }
                         'R'
