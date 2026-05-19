@@ -96,6 +96,43 @@ function Get-GitHubPullRequest
         Retrieves open pull requests authored by the authenticated GitHub user.
 
     .EXAMPLE
+        PS > Get-GitHubPullRequest | Select-Object -ExpandProperty PullRequests
+
+        Repository : github/github-mcp-server
+        Number     : 576
+        Title      : feat: my new feature
+        State      : open
+        IsMerged   : False
+        IsDraft    : False
+        Author     : fake-user
+        Url        : https://github.com/github/github-mcp-server/pull/576
+        ApiUrl     : https://api.github.com/repos/github/github-mcp-server/pulls/576
+        Labels     : {}
+        Comments   : 0
+        CreatedAt  : 2/26/2026 3:31:09 PM
+        UpdatedAt  : 2/26/2026 3:31:09 PM
+        ClosedAt   :
+        MergedAt   :
+
+        Repository : github/github-mcp-server
+        Number     : 577
+        Title      : fix: my bug fix
+        State      : open
+        IsMerged   : False
+        IsDraft    : False
+        Author     : fake-user
+        Url        : https://github.com/github/github-mcp-server/pull/577
+        ApiUrl     : https://api.github.com/repos/github/github-mcp-server/pulls/577
+        Labels     : {}
+        Comments   : 0
+        CreatedAt  : 5/16/2021 4:06:49 AM
+        UpdatedAt  : 5/16/2021 4:06:49 AM
+        ClosedAt   :
+        MergedAt   :
+
+        Retrieves open pull requests authored by the authenticated GitHub user and expands the list of pull requests.
+
+    .EXAMPLE
         PS > Get-GitHubPullRequest -State Merged
 
         Retrieves merged pull requests authored by the authenticated GitHub user.
