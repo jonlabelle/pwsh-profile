@@ -463,7 +463,7 @@ function Show-PlatformPackageManager
             Write-Host ''
             if ($KeyReader -or -not $PromptReader)
             {
-                Write-Host 'Press any key to return.' -ForegroundColor DarkGray
+                Write-Host 'Press any key to return to the menu. Q/Esc/Ctrl+C quits.' -ForegroundColor DarkGray
                 $null = Read-PlatformPackageManagerKey
             }
             else
@@ -742,7 +742,9 @@ function Show-PlatformPackageManager
                 [String]$Subtitle
             )
 
-            $rule = '=' * 78
+            $ruleWidth = 78
+            try { $w = [Console]::BufferWidth; if ($w -gt 0) { $ruleWidth = [Math]::Max(40, $w - 1) } } catch {}
+            $rule = '=' * $ruleWidth
             Write-Host $rule -ForegroundColor DarkGray
             Write-Host $Title -ForegroundColor Cyan
             if (-not [String]::IsNullOrWhiteSpace($Subtitle))
@@ -981,7 +983,9 @@ function Show-PlatformPackageManager
                     if ($detailRecords.Count -gt 0)
                     {
                         Write-Host 'Details' -ForegroundColor Cyan
-                        Write-Host ('-' * 78) -ForegroundColor DarkGray
+                        $sepWidth = 78
+                        try { $w = [Console]::BufferWidth; if ($w -gt 0) { $sepWidth = [Math]::Max(40, $w - 1) } } catch {}
+                        Write-Host ('-' * $sepWidth) -ForegroundColor DarkGray
                         $detailTable = Format-PlatformPackageManagerResultTable -InputObject $detailRecords
                         if (-not [String]::IsNullOrWhiteSpace($detailTable))
                         {
@@ -994,7 +998,9 @@ function Show-PlatformPackageManager
                     if ($informationalResults.Count -gt 0)
                     {
                         Write-Host 'Additional output' -ForegroundColor Cyan
-                        Write-Host ('-' * 78) -ForegroundColor DarkGray
+                        $sepWidth = 78
+                        try { $w = [Console]::BufferWidth; if ($w -gt 0) { $sepWidth = [Math]::Max(40, $w - 1) } } catch {}
+                        Write-Host ('-' * $sepWidth) -ForegroundColor DarkGray
 
                         foreach ($informationalResult in $informationalResults)
                         {

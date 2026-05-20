@@ -2316,7 +2316,7 @@ function Upgrade-PlatformPackage
                     $parts += $FilterText
                 }
 
-                return ($parts -join ' | ')
+                return ($parts -join "  $([char]0x00B7)  ")
             }
 
             function Clear-PendingConsoleInput
@@ -2589,21 +2589,21 @@ function Upgrade-PlatformPackage
                     $nameFilterHintValue = if ([String]::IsNullOrWhiteSpace($nameFilterText)) { 'all' } else { $nameFilterText }
                     $selectionHint = if ($showUninstallPrevious)
                     {
-                        'Keys: Space select  U uninstall previous  Enter upgrade  V details  A all'
+                        "Keys: Space select  U uninstall previous  Enter upgrade  V details  A all  F: [$nameFilterHintValue]"
                     }
                     else
                     {
-                        'Keys: Space select  Enter upgrade  V details  A all'
+                        "Keys: Space select  Enter upgrade  V details  A all  F: [$nameFilterHintValue]"
                     }
                     $filterSummary = @("filter: $nameFilterHintValue")
                     if ($hasSourceFilter)
                     {
                         $filterSummary += "source: $($availableSources[$sourceFilterIndex])"
                     }
-                    $navigationHint = "Nav: F: [$nameFilterHintValue]  ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel"
+                    $navigationHint = "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel"
                     $frameLines = @(
                         (Format-PickerFrameLine -Text "Upgrade-PlatformPackage - $($allPackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
-                        (Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedKeys.Count -FilterText ($filterSummary -join ' | ')) -ForegroundColor White)
+                        (Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedKeys.Count -FilterText ($filterSummary -join "  $([char]0x00B7)  ")) -ForegroundColor White)
                         ''
                         (Format-PickerFrameLine -Text $selectionHint -ForegroundColor DarkGray)
                         (Format-PickerFrameLine -Text $navigationHint -ForegroundColor DarkGray)
@@ -2681,12 +2681,12 @@ function Upgrade-PlatformPackage
                     if ($showUninstallPrevious)
                     {
                         $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6} {7}' -f 'Sel', 'Unp', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Inst' -Width $installedWidth), (Format-PickerCell -Text 'Avail' -Width $latestWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray
-                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6} {7}' -f '---', '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('- {0} {1} {2} {3} {4} {5} {6} {7}' -f '---', '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
                     }
                     else
                     {
                         $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Inst' -Width $installedWidth), (Format-PickerCell -Text 'Avail' -Width $latestWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray
-                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6}' -f '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('- {0} {1} {2} {3} {4} {5} {6}' -f '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
                     }
 
                     for ($i = $topIndex; $i -le $bottomIndex; $i++)

@@ -1317,7 +1317,7 @@ function Show-InstalledPlatformPackage
                     $parts += $FilterText
                 }
 
-                return ($parts -join ' | ')
+                return ($parts -join "  $([char]0x00B7)  ")
             }
 
             function Clear-PendingConsoleInput
@@ -2411,10 +2411,10 @@ function Show-InstalledPlatformPackage
 
                         $frameLines = @(
                             (Format-PickerFrameLine -Text "Show-InstalledPlatformPackage Dependencies - $($InstalledPackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
-                            (Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount (-1) -FilterText ($dependencyFilterSummary -join ' | ')) -ForegroundColor White)
+                            (Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount (-1) -FilterText ($dependencyFilterSummary -join "  $([char]0x00B7)  ")) -ForegroundColor White)
                             ''
-                            (Format-PickerFrameLine -Text 'Keys: B/Backspace/Delete/LeftArrow back  V details  E export' -ForegroundColor DarkGray)
-                            (Format-PickerFrameLine -Text "Nav: ${nameFilterHint}${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" -ForegroundColor DarkGray)
+                            (Format-PickerFrameLine -Text "Keys: B/Backspace/Delete/LeftArrow back  V details  E export  ${nameFilterHint}" -ForegroundColor DarkGray)
+                            (Format-PickerFrameLine -Text "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" -ForegroundColor DarkGray)
                             ''
                             (Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor DarkGray)
                             (Format-PickerFrameLine -Text ('Id: {0} | Source: {1} | Publisher: {2}' -f $currentPackage.Id, $currentSource, $currentPublisher) -ForegroundColor DarkGray)
@@ -2483,17 +2483,16 @@ function Show-InstalledPlatformPackage
                             {
                                 $filterSummary += "source: $($availableSources[$sourceFilterIndex])"
                             }
-                            $frameLines += Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedKeys.Count -FilterText ($filterSummary -join ' | ')) -ForegroundColor White
-                            $frameLines += Format-PickerFrameLine -Text 'Keys: Space select  Enter return  A all' -ForegroundColor DarkGray
-                            $frameLines += Format-PickerFrameLine -Text 'Actions: D deps  V details  E export  R remove  U upgrade' -ForegroundColor DarkGray
-                            $frameLines += Format-PickerFrameLine -Text "Nav: ${nameFilterHint}${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" -ForegroundColor DarkGray
+                            $frameLines += Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedKeys.Count -FilterText ($filterSummary -join "  $([char]0x00B7)  ")) -ForegroundColor White
+                            $frameLines += Format-PickerFrameLine -Text "Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A all  F: [$nameFilterHintValue]" -ForegroundColor DarkGray
+                            $frameLines += Format-PickerFrameLine -Text "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" -ForegroundColor DarkGray
                             if ($ReturnToPlatformPackageManagerOnBackKey)
                             {
                                 $frameLines += Format-PickerFrameLine -Text 'Backspace/Delete: manager menu' -ForegroundColor DarkGray
                             }
                             $frameLines += ''
                             $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray
-                            $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
+                            $frameLines += Format-PickerFrameLine -Text ('- {0} {1} {2} {3} {4} {5}' -f '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
                         }
                         else
                         {
@@ -2502,16 +2501,16 @@ function Show-InstalledPlatformPackage
                             {
                                 $filterSummary += "source: $($availableSources[$sourceFilterIndex])"
                             }
-                            $frameLines += Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -FilterText ($filterSummary -join ' | ')) -ForegroundColor White
-                            $frameLines += Format-PickerFrameLine -Text 'Actions: D deps  V details  E export  R remove  U upgrade' -ForegroundColor DarkGray
-                            $frameLines += Format-PickerFrameLine -Text "Nav: ${nameFilterHint}${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" -ForegroundColor DarkGray
+                            $frameLines += Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -FilterText ($filterSummary -join "  $([char]0x00B7)  ")) -ForegroundColor White
+                            $frameLines += Format-PickerFrameLine -Text "Keys: D deps  V details  E export  R remove  U upgrade  F: [$nameFilterHintValue]" -ForegroundColor DarkGray
+                            $frameLines += Format-PickerFrameLine -Text "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" -ForegroundColor DarkGray
                             if ($ReturnToPlatformPackageManagerOnBackKey)
                             {
                                 $frameLines += Format-PickerFrameLine -Text 'Backspace/Delete: manager menu' -ForegroundColor DarkGray
                             }
                             $frameLines += ''
                             $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4}' -f (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray
-                            $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4}' -f ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
+                            $frameLines += Format-PickerFrameLine -Text ('- {0} {1} {2} {3} {4}' -f ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
                         }
 
                         if ($visiblePackages.Count -eq 0)

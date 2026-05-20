@@ -980,7 +980,10 @@ function Install-PlatformPackage
                 [ScriptBlock]$TerminalEchoController,
 
                 [Parameter()]
-                [Switch]$ReturnToPlatformPackageManagerOnBackKey
+                [Switch]$ReturnToPlatformPackageManagerOnBackKey,
+
+                [Parameter()]
+                [String]$QueryText = ''
             )
 
             if ($AvailablePackages.Count -eq 0)
@@ -1580,7 +1583,7 @@ function Install-PlatformPackage
                     $parts += $FilterText
                 }
 
-                return ($parts -join ' | ')
+                return ($parts -join "  $([char]0x00B7)  ")
             }
 
             function Clear-PendingConsoleInput
@@ -1865,6 +1868,7 @@ function Install-PlatformPackage
                     $navigationHint = "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel"
                     $frameLines = @(
                         (Format-PickerFrameLine -Text "Install-PlatformPackage - $($allPackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
+                        (Format-PickerFrameLine -Text "Search: $QueryText" -ForegroundColor DarkGray)
                         (Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedKeys.Count -FilterText $sourceSummary) -ForegroundColor White)
                         ''
                         (Format-PickerFrameLine -Text $selectionHint -ForegroundColor DarkGray)
@@ -1875,8 +1879,8 @@ function Install-PlatformPackage
                         $frameLines += Format-PickerFrameLine -Text 'Backspace/Delete: manager menu' -ForegroundColor DarkGray
                     }
                     $frameLines += ''
-                    $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray
-                    $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
+                    $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth), 'Inst') -ForegroundColor DarkGray
+                    $frameLines += Format-PickerFrameLine -Text ('- {0} {1} {2} {3} {4} {5} {6}' -f '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth), '----') -ForegroundColor DarkGray
 
                     if ($visiblePackages.Count -eq 0)
                     {
@@ -1929,7 +1933,8 @@ function Install-PlatformPackage
                         $pkgKey = Get-PackagePickerKey -Package $package
                         $cursorMarker = if ($i -eq $cursor) { '>' } else { ' ' }
                         $selectedMarker = if ($selectedKeys.Contains($pkgKey)) { '[x]' } else { '[ ]' }
-                        $packageLine = ('{0} {1} {2} {3} {4} {5} {6}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.Version -Width $versionWidth), (Format-PickerCell -Text (Get-PackageTypeDisplay -Type $package.Type) -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
+                        $installedCell = if ($package.Installed) { 'yes ' } else { 'no  ' }
+                        $packageLine = ('{0} {1} {2} {3} {4} {5} {6} {7}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.Version -Width $versionWidth), (Format-PickerCell -Text (Get-PackageTypeDisplay -Type $package.Type) -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth), $installedCell)
                         if ($package.Installed)
                         {
                             $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor DarkGray
@@ -1950,8 +1955,9 @@ function Install-PlatformPackage
 
                     $frameLines += ''
                     $currentPublisher = if ($null -eq $currentPackage -or [String]::IsNullOrWhiteSpace($currentPackage.Publisher)) { 'n/a' } else { $currentPackage.Publisher }
+                    $currentSource = if ($null -eq $currentPackage -or [String]::IsNullOrWhiteSpace($currentPackage.Source)) { 'n/a' } else { $currentPackage.Source }
                     $frameLines += Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor DarkGray
-                    $frameLines += Format-PickerFrameLine -Text ('Id: {0} | Publisher: {1} | Installed: {2}' -f $currentPackage.Id, $currentPublisher, ($(if ($currentPackage.Installed) { 'yes' } else { 'no' }))) -ForegroundColor DarkGray
+                    $frameLines += Format-PickerFrameLine -Text ('Id: {0} | Source: {1} | Publisher: {2} | Installed: {3}' -f $currentPackage.Id, $currentSource, $currentPublisher, ($(if ($currentPackage.Installed) { 'yes' } else { 'no' }))) -ForegroundColor DarkGray
                     $frameLines += Format-PickerFrameLine -Text ('Description: {0}' -f $currentDescription) -ForegroundColor DarkGray
                     $frameLines += ''
                     $selCount = $selectedKeys.Count
@@ -2227,7 +2233,7 @@ function Install-PlatformPackage
                 }
                 else
                 {
-                    $selectedPackages = @(Select-AvailablePackageRecords -AvailablePackages $candidatePackages -KeyReader $KeyReader -PageSize $PickerPageSize -SourceFilter $FilterSource -TreatKeyReaderAsConsoleKeyReader:$TreatKeyReaderAsConsoleKeyReader -TerminalEchoController $TerminalEchoController -ReturnToPlatformPackageManagerOnBackKey:$ReturnToPlatformPackageManagerOnBackKey)
+                    $selectedPackages = @(Select-AvailablePackageRecords -AvailablePackages $candidatePackages -KeyReader $KeyReader -PageSize $PickerPageSize -SourceFilter $FilterSource -TreatKeyReaderAsConsoleKeyReader:$TreatKeyReaderAsConsoleKeyReader -TerminalEchoController $TerminalEchoController -ReturnToPlatformPackageManagerOnBackKey:$ReturnToPlatformPackageManagerOnBackKey -QueryText $Query)
                     $notSelected = $candidatePackages.Count - $selectedPackages.Count
                     if ($selectedPackages.Count -eq 0)
                     {

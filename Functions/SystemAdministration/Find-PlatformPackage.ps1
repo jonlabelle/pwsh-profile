@@ -1714,7 +1714,13 @@ function Find-PlatformPackage
 
             while ($true)
             {
-                $value = ConvertTo-PackageText -Value (Read-Host -Prompt 'Search registry query (blank to exit, ? for help)')
+                $oldPromptColor = [Console]::ForegroundColor
+                [Console]::Write('Search registry query ')
+                [Console]::ForegroundColor = [ConsoleColor]::DarkGray
+                [Console]::Write('(blank to exit, ? for help)')
+                [Console]::ForegroundColor = $oldPromptColor
+                [Console]::Write(': ')
+                $value = ConvertTo-PackageText -Value ([Console]::ReadLine())
                 if ($value -eq '?')
                 {
                     Write-Host 'Enter a package name, package id, or registry search term.' -ForegroundColor White
@@ -2405,7 +2411,7 @@ function Find-PlatformPackage
                     $parts += $FilterText
                 }
 
-                return ($parts -join ' | ')
+                return ($parts -join "  $([char]0x00B7)  ")
             }
 
             function Clear-PendingConsoleInput
@@ -2793,12 +2799,12 @@ function Find-PlatformPackage
                     if ($EnableSelection)
                     {
                         $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth), 'Inst') -ForegroundColor DarkGray
-                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6}' -f '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth), '----') -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('- {0} {1} {2} {3} {4} {5} {6}' -f '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth), '----') -ForegroundColor DarkGray
                     }
                     else
                     {
                         $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth), 'Inst') -ForegroundColor DarkGray
-                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth), '----') -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('- {0} {1} {2} {3} {4} {5}' -f ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth), '----') -ForegroundColor DarkGray
                     }
 
                     for ($i = $topIndex; $i -le $bottomIndex; $i++)
@@ -2838,8 +2844,9 @@ function Find-PlatformPackage
 
                     $frameLines += ''
                     $currentPublisher = if ([String]::IsNullOrWhiteSpace($currentPackage.Publisher)) { 'n/a' } else { $currentPackage.Publisher }
+                    $currentSource = if ([String]::IsNullOrWhiteSpace($currentPackage.Source)) { 'n/a' } else { $currentPackage.Source }
                     $frameLines += Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor DarkGray
-                    $frameLines += Format-PickerFrameLine -Text ('Id: {0} | Publisher: {1} | Installed: {2}' -f $currentPackage.Id, $currentPublisher, $installedStatus) -ForegroundColor DarkGray
+                    $frameLines += Format-PickerFrameLine -Text ('Id: {0} | Source: {1} | Publisher: {2} | Installed: {3}' -f $currentPackage.Id, $currentSource, $currentPublisher, $installedStatus) -ForegroundColor DarkGray
                     $frameLines += Format-PickerFrameLine -Text ('Description: {0}' -f $currentDescription) -ForegroundColor DarkGray
                     if ($EnableSelection)
                     {
