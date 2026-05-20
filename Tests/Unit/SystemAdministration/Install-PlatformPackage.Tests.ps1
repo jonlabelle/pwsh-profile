@@ -90,7 +90,7 @@ Describe 'Install-PlatformPackage' {
             $result.Installed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew install --cask visual-studio-code' }).StreamOutput | Should -BeTrue
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter install  V details  A all' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq '1-1 of 1 visible | 1 total | 1 selected' -and $ForegroundColor -eq 'White' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  1 selected" -and $ForegroundColor -eq 'White' } -Times 1
         }
 
         It 'installs the current search result when Enter is pressed without a selection' {
@@ -163,7 +163,7 @@ Describe 'Install-PlatformPackage' {
             $result.Results[0].Message | Should -Be 'Package is already installed'
             @($script:Invocations | Where-Object { $_.Key -eq 'brew install jq' }).Count | Should -Be 0
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Current: jq' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Id: jq | Publisher: Homebrew | Installed: yes' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Id: jq | Source: homebrew/core | Publisher: Homebrew | Installed: yes' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $ForegroundColor -eq 'DarkGray' -and $Object -like '*jq*' } -Times 2
         }
 

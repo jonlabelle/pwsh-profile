@@ -326,9 +326,9 @@ Describe 'Remove-PlatformPackage' {
             $result.NotSelected | Should -Be 0
             $result.Removed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  P purge/zap  Enter remove  A all' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Nav: D deps  V details  F: [all]  Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq '1-1 of 1 visible | 1 total | 0 selected | filter: all' -and $ForegroundColor -eq 'White' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A all  F: [all]" } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Nav: Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel" } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  0 selected  $([char]0x00B7)  filter: all" -and $ForegroundColor -eq 'White' } -Times 1
         }
 
         It 'shows keyboard help from the removal picker' {
@@ -397,7 +397,7 @@ Describe 'Remove-PlatformPackage' {
 
             $result.Selected | Should -Be 0
             $result.Removed | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  P purge/zap  Enter remove  A all' } -Times 3
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A all  F: [all]" } -Times 3
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 0
             @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should -Be 0
         }
@@ -422,7 +422,7 @@ Describe 'Remove-PlatformPackage' {
 
             $result.Selected | Should -Be 0
             $result.Removed | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  P purge/zap  Enter remove  A all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A all  F: [all]" } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
             @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should -Be 0
         }
@@ -555,7 +555,7 @@ Describe 'Remove-PlatformPackage' {
 
             $result.Selected | Should -Be 0
             $result.Removed | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  P purge/zap  Enter remove  A all' } -Times 2
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A all  F: [all]" } -Times 2
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Remove-PlatformPackage Dependencies - Homebrew' } -Times 2
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/Delete/LeftArrow to return to the package list.' } -Times 2
         }

@@ -347,8 +347,8 @@ Describe 'Upgrade-PlatformPackage' {
 
             $result.Selected | Should -Be 0
             $result.Upgraded | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter upgrade  V details  A all' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq '1-1 of 1 visible | 1 total | 0 selected | filter: all' -and $ForegroundColor -eq 'White' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  Enter upgrade  V details  A all  F: [all]" } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  0 selected  $([char]0x00B7)  filter: all" -and $ForegroundColor -eq 'White' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Upgrade-PlatformPackage Help' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Enter: ' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'upgrade selected packages' -and $ForegroundColor -eq 'DarkGray' } -Times 1

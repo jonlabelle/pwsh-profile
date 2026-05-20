@@ -61,9 +61,9 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D deps  V details  E export  R remove  U upgrade' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Nav: F: [all]  Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq '1-1 of 1 visible | 1 total | filter: all' -and $ForegroundColor -eq 'White' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: D deps  V details  E export  R remove  U upgrade  F: [all]" } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Nav: Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  filter: all" -and $ForegroundColor -eq 'White' } -Times 1
             @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 2
         }
 
@@ -85,7 +85,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D deps  V details  E export  R remove  U upgrade' } -Times 2
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: D deps  V details  E export  R remove  U upgrade  F: [all]" } -Times 2
         }
 
         It 'ignores Backspace and Delete as manager navigation when not launched by the manager' {
@@ -107,7 +107,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D deps  V details  E export  R remove  U upgrade' } -Times 3
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: D deps  V details  E export  R remove  U upgrade  F: [all]" } -Times 3
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 0
         }
 
@@ -129,7 +129,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D deps  V details  E export  R remove  U upgrade' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: D deps  V details  E export  R remove  U upgrade  F: [all]" } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
         }
 
@@ -175,7 +175,7 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  A all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A all  F: [all]" } -Times 1
         }
 
         It 'returns the current package when PassThru is used without a selection' {
@@ -192,8 +192,8 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  A all' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Nav: F: [all]  S: [All]  Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A all  F: [all]" } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Nav: S: [All]  Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" } -Times 1
         }
 
         It 'shows keyboard help from the picker when question mark is pressed' {
@@ -428,7 +428,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Actions: D deps  V details  E export  R remove  U upgrade' } -Times 2
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: D deps  V details  E export  R remove  U upgrade  F: [all]" } -Times 2
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Show-InstalledPlatformPackage Dependencies - Homebrew' } -Times 2
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/Delete/LeftArrow to return to the package list.' } -Times 2
         }
