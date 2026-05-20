@@ -26,6 +26,15 @@ on:
         required: false
         default: true
         type: boolean
+      powershell-desktop-test-type:
+        description: "PowerShell Desktop test scope"
+        required: false
+        default: Unit
+        type: choice
+        options:
+          - Unit
+          - Integration
+          - All
 
 # Cancel any in-progress runs when a new commit is pushed
 concurrency:
@@ -102,6 +111,11 @@ jobs:
             Write-Error "Tests failed with exit code $LASTEXITCODE" -ErrorAction Stop
           }
 
+      - name: Summarize test timings
+        shell: pwsh
+        if: always()
+        run: ./Tests/Write-TestTimingSummary.ps1 -Path testresults.xml -Title "Pester timings (${{ matrix.platform }} / pwsh)"
+
       - name: Upload test results
         uses: actions/upload-artifact@main
         if: always()
@@ -162,10 +176,16 @@ jobs:
       - name: Run Pester tests
         shell: powershell
         run: |
-          .\Invoke-Tests.ps1 -TestType All -OutputFormat Normal
+          $testType = "${{ github.event_name == 'workflow_dispatch' && inputs['powershell-desktop-test-type'] || 'Unit' }}"
+          .\Invoke-Tests.ps1 -TestType $testType -OutputFormat Normal
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Tests failed with exit code $LASTEXITCODE" -ErrorAction Stop
           }
+
+      - name: Summarize test timings
+        shell: powershell
+        if: always()
+        run: .\Tests\Write-TestTimingSummary.ps1 -Path testresults.xml -Title "Pester timings (windows-latest / powershell)"
 
       - name: Upload test results
         uses: actions/upload-artifact@main

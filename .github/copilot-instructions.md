@@ -323,8 +323,10 @@ pwsh -NoProfile -Command ". ./Functions/YourFunction.ps1; Test-YourFunction -Ver
 
 ### CI Pipeline
 
-- Tests run on macOS, Ubuntu, Windows with PowerShell Core
-- Additional Windows-only test with PowerShell Desktop 5.1
+- Full unit and integration tests run on macOS, Ubuntu, and Windows with PowerShell Core
+- Windows PowerShell Desktop 5.1 runs unit tests by default as a compatibility pass
+- Desktop integration or full-suite runs can be started manually with the workflow dispatch test scope input
+- Each test job publishes a timing summary from `testresults.xml`
 - PSScriptAnalyzer must pass with zero errors
 - Warnings are acceptable but tracked
 

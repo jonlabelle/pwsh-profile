@@ -12,13 +12,13 @@ Tests/
 │   ├── Developer/                                  # Developer utility tests
 │   │   └── Get-DotNetVersion.Tests.ps1             # .NET version detection tests
 │   ├── NetworkAndDns/                              # Network and DNS tests
+│   │   ├── Get-IPSubnet.Tests.ps1                  # IP subnet calculation tests
 │   │   ├── Test-DnsNameResolution.Tests.ps1        # DNS resolution tests
-│   │   └── Test-Port.Tests.ps1                     # Network port testing tests
+│   │   ├── Test-Port.Tests.ps1                     # Network port testing tests
+│   │   └── Test-TlsProtocol.Tests.ps1              # TLS protocol metadata and failure-path tests
 │   ├── Security/                                   # Security function tests
 │   │   ├── Protect-PathWithPassword.Tests.ps1      # File encryption tests
 │   │   └── Unprotect-PathWithPassword.Tests.ps1    # File decryption tests
-│   ├── NetworkAndDns/                               # Network and DNS tests
-│   │   └── Get-IPSubnet.Tests.ps1                  # IP subnet calculation tests
 │   ├── Security/                                   # Security tests
 │   │   └── ConvertFrom-JwtToken.Tests.ps1           # JWT token decoding tests
 │   ├── SystemAdministration/                       # System administration tests
@@ -37,7 +37,8 @@ Tests/
 │   │   ├── Remove-GitIgnoredFile.Tests.ps1        # Git cleanup integration tests
 │   │   └── Remove-NodeModule.Tests.ps1            # Node.js cleanup integration tests
 │   ├── NetworkAndDns/                              # Network and DNS integration tests
-│   │   └── Test-Port.Tests.ps1                     # Real-world port testing scenarios
+│   │   ├── Test-Port.Tests.ps1                     # Real-world port testing scenarios
+│   │   └── Test-TlsProtocol.Tests.ps1              # Real TLS endpoint coverage
 │   ├── Security/                                   # Security integration tests
 │   │   └── Protect-PathWithPassword.Tests.ps1      # End-to-end encryption workflows
 │   ├── SystemAdministration/                       # System administration integration tests
@@ -46,6 +47,7 @@ Tests/
 │       ├── Convert-LineEnding.Tests.ps1            # Real-world line ending scenarios
 │       └── Sync-Directory.Tests.ps1                # Directory synchronization integration
 ├── TestCleanupUtilities.ps1                        # Robust cleanup functions for tests
+├── Write-TestTimingSummary.ps1                     # GitHub Actions timing summary helper
 ├── PesterConfiguration.psd1                        # Pester configuration file
 └── README.md                                       # This file
 ```
@@ -66,7 +68,18 @@ Tests/
 
 # Run with detailed output
 ./Invoke-Tests.ps1 -OutputFormat Detailed
+
+# Summarize slow test files and cases from NUnit XML output
+./Tests/Write-TestTimingSummary.ps1 -Path testresults.xml -OutputPath ''
 ```
+
+### CI Test Scope
+
+The `ci` workflow runs the full unit and integration suite on PowerShell Core across macOS, Ubuntu, and Windows. Windows PowerShell Desktop 5.1 runs unit tests by default as a compatibility pass because the full integration suite duplicates Core coverage and is substantially slower on Desktop.
+
+Use `workflow_dispatch` and set **PowerShell Desktop test scope** to `Integration` or `All` when you need an explicit Desktop integration run.
+
+Each CI job appends a timing summary to the GitHub Actions job summary from `testresults.xml`, including the slowest test files and individual test cases.
 
 ### Docker Testing (Linux Containers)
 
@@ -139,6 +152,10 @@ All tests are derived from the `.EXAMPLE` sections in function documentation.
 ### Cross-Platform Compatibility
 
 Tests work on Windows (PowerShell Desktop 5.1 and PowerShell Core), macOS, and Linux (PowerShell Core).
+
+### Unit vs. Integration Scope
+
+Unit tests should avoid public network endpoints, long timeouts, and real external services. Use parameter metadata assertions, mocks, fast local fixtures, or deterministic failure paths with short explicit timeouts. Real endpoint checks belong in `Tests/Integration`.
 
 ### Robust Resource Cleanup
 
