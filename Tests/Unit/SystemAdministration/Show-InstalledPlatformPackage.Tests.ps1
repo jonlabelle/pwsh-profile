@@ -530,7 +530,7 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should -Be 0
             Test-Path -LiteralPath $exportPath | Should -BeTrue
-            $exportedPackages = @(Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json)
+            $exportedPackages = Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json
             $exportedPackages.Count | Should -Be 2
             ($exportedPackages | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should -Be '2.44.0'
             ($exportedPackages | Where-Object { $_.Name -eq 'curl' }).PackageManager | Should -Be 'brew'
