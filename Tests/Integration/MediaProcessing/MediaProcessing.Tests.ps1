@@ -1,9 +1,14 @@
+$script:ExifToolCommand = Get-Command 'exiftool' -CommandType Application, ExternalScript -ErrorAction SilentlyContinue |
+    Select-Object -First 1
+$script:HasExifTool = $null -ne $script:ExifToolCommand
+
 BeforeAll {
     # Suppress progress bars to prevent freezing in non-interactive environments
     $Global:ProgressPreference = 'SilentlyContinue'
 
     . "$PSScriptRoot/../../../Functions/MediaProcessing/Get-MediaInfo.ps1"
     . "$PSScriptRoot/../../../Functions/MediaProcessing/Invoke-FFmpeg.ps1"
+    . "$PSScriptRoot/../../../Functions/MediaProcessing/Get-ImageMetadata.ps1"
     . "$PSScriptRoot/../../../Functions/MediaProcessing/Remove-ImageMetadata.ps1"
     . "$PSScriptRoot/../../../Functions/MediaProcessing/Rename-VideoSeasonFile.ps1"
 
@@ -102,6 +107,37 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
             { Invoke-FFmpeg -Path $testRoot -WhatIf } | Should -Not -Throw
             { Remove-ImageMetadata -Path $testRoot -WhatIf } | Should -Not -Throw
             { Rename-VideoSeasonFile -Path $testRoot -WhatIf } | Should -Not -Throw
+        }
+    }
+
+    Context 'Image Metadata Cleanup' {
+        It 'Should remove watched metadata tags through the real ExifTool verification round trip' -Skip:(-not $script:HasExifTool) {
+            $testRoot = Join-Path -Path $TestDrive -ChildPath 'ImageMetadataRoundTrip'
+            New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
+
+            $sampleImage = Join-Path -Path $testRoot -ChildPath 'private-comment.gif'
+            $sampleGifBytes = [Convert]::FromBase64String('R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==')
+            [System.IO.File]::WriteAllBytes($sampleImage, $sampleGifBytes)
+
+            $exifToolCommand = Get-Command 'exiftool' -CommandType Application, ExternalScript -ErrorAction Stop |
+                Select-Object -First 1
+            $exifToolPath = $exifToolCommand.Path
+            $global:LASTEXITCODE = 0
+            $metadataWriteOutput = @(& $exifToolPath -overwrite_original '-Comment=Private integration comment' $sampleImage 2>&1)
+            $metadataWriteExitCode = $LASTEXITCODE
+            $metadataWriteExitCode | Should -Be 0 -Because "ExifTool should stage the test metadata. Output: $($metadataWriteOutput -join ' ')"
+
+            $beforeCleanup = Get-ImageMetadata -Path $sampleImage -ExifToolPath $exifToolPath -Tag 'Comment' -NoEmptyProperties
+            $beforeCleanup.Metadata['File:Comment'] | Should -Be 'Private integration comment'
+
+            $cleanupResult = Remove-ImageMetadata -Path $sampleImage -ExifToolPath $exifToolPath -Verify -PassThru
+
+            $cleanupResult.MetadataRemoved | Should -Be $true
+            $cleanupResult.Verified | Should -Be $true
+            $cleanupResult.RemainingMetadataTags | Should -BeNullOrEmpty
+
+            $afterCleanup = Get-ImageMetadata -Path $sampleImage -ExifToolPath $exifToolPath -Tag 'Comment' -NoEmptyProperties
+            $afterCleanup.Metadata.Contains('File:Comment') | Should -Be $false
         }
     }
 }
