@@ -70,6 +70,21 @@ Describe 'Get-PlatformPackageDependency' {
             $result[0].Direction | Should -Be 'RequiredBy'
             $result[0].RelatedPackage | Should -Be 'gojq'
         }
+
+        It 'returns both dependency directions when Direction is Both' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew deps --direct openssl' = Get-TestCommandResponse -Output @('ca-certificates')
+                'brew uses --eval-all openssl' = Get-TestCommandResponse -Output @('curl')
+            }
+
+            $result = @(Get-PlatformPackageDependency -PackageManager brew -Package openssl -Direction Both -CommandRunner $runner)
+
+            $result.Count | Should -Be 2
+            ($result | Where-Object { $_.Direction -eq 'DependsOn' }).RelatedPackage | Should -Be 'ca-certificates'
+            ($result | Where-Object { $_.Direction -eq 'RequiredBy' }).RelatedPackage | Should -Be 'curl'
+            ($result | Where-Object { $_.Direction -eq 'DependsOn' }).Relationship | Should -Be 'openssl -> ca-certificates'
+            ($result | Where-Object { $_.Direction -eq 'RequiredBy' }).Relationship | Should -Be 'curl -> openssl'
+        }
     }
 
     Context 'APT dependency discovery' {

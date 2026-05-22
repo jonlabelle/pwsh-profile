@@ -447,7 +447,7 @@ function Export-InstalledPlatformPackage
     {
         if ($packageRecords.Count -eq 0)
         {
-            throw 'no packages are available for the current scope'
+            throw 'No packages are available for the current scope'
         }
 
         $resolvedPath = Resolve-PackageExportPath -ExportPath $Path

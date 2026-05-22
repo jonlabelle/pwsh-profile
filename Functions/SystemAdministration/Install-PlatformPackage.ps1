@@ -2156,7 +2156,7 @@ function Install-PlatformPackage
                     Id = $Package.Id
                     Version = $Package.Version
                     Status = 'Skipped'
-                    ExitCode = 0
+                    ExitCode = $null
                     Message = 'Installation skipped by ShouldProcess'
                     CapturedOutput = @()
                     InformationalOutput = @()

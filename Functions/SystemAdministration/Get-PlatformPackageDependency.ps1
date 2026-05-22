@@ -628,17 +628,17 @@ function Get-PlatformPackageDependency
                 [PSCustomObject]$Manager
             )
 
-            $getPlatformPackageDependencyPath = Get-DependencyPathIfNeeded -FunctionName 'Get-PlatformPackage' -RelativePath 'Get-PlatformPackage.ps1'
-            if (-not [String]::IsNullOrWhiteSpace($getPlatformPackageDependencyPath))
+            $getPlatformPackagePath = Get-DependencyPathIfNeeded -FunctionName 'Get-PlatformPackage' -RelativePath 'Get-PlatformPackage.ps1'
+            if (-not [String]::IsNullOrWhiteSpace($getPlatformPackagePath))
             {
                 try
                 {
-                    . $getPlatformPackageDependencyPath
-                    Write-Verbose "Loaded Get-PlatformPackage from: $getPlatformPackageDependencyPath"
+                    . $getPlatformPackagePath
+                    Write-Verbose "Loaded Get-PlatformPackage from: $getPlatformPackagePath"
                 }
                 catch
                 {
-                    throw "Failed to load required dependency 'Get-PlatformPackage' from '$getPlatformPackageDependencyPath': $($_.Exception.Message)"
+                    throw "Failed to load required dependency 'Get-PlatformPackage' from '$getPlatformPackagePath': $($_.Exception.Message)"
                 }
             }
 
