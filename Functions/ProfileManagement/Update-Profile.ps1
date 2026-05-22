@@ -73,12 +73,17 @@ function Update-Profile
 
         try
         {
-            & git -C $profileDirectory pull --rebase
+            $commitBefore = & git -C $profileDirectory rev-parse HEAD 2>$null
+
+            $gitOutput = & git -C $profileDirectory pull --rebase 2>&1
             if ($LASTEXITCODE -ne 0)
             {
+                $gitOutput | ForEach-Object { Write-Host $_ }
                 Write-Error "git pull failed with exit code $LASTEXITCODE."
                 return
             }
+
+            $commitAfter = & git -C $profileDirectory rev-parse HEAD 2>$null
         }
         catch
         {
@@ -86,7 +91,15 @@ function Update-Profile
             return
         }
 
-        Write-Host 'Profile updated successfully! Restart your PowerShell session to reload your profile.' -ForegroundColor Green
+        if ($commitBefore -eq $commitAfter)
+        {
+            Write-Host 'Profile is already up to date.' -ForegroundColor Green
+        }
+        else
+        {
+            $gitOutput | ForEach-Object { Write-Host $_ }
+            Write-Host 'Profile updated successfully! Restart your PowerShell session to reload your profile.' -ForegroundColor Green
+        }
     }
 
     end
