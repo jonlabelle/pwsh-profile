@@ -69,7 +69,13 @@ Tests/
 # Run with detailed output
 ./Invoke-Tests.ps1 -OutputFormat Detailed
 
-# Summarize slow test files and cases from NUnit XML output
+# Run tests and print the slow-test Markdown summary locally
+./Invoke-Tests.ps1 -ShowTimingSummary
+
+# Run tests and append the slow-test Markdown summary to a file
+./Invoke-Tests.ps1 -ShowTimingSummary -TimingSummaryOutputPath test-timing-summary.md
+
+# Summarize slow test files and cases from existing NUnit XML output
 ./Tests/Write-TestTimingSummary.ps1 -Path testresults.xml -OutputPath ''
 ```
 
@@ -79,7 +85,7 @@ The `ci` workflow runs the full unit and integration suite on PowerShell Core ac
 
 Use `workflow_dispatch` and set **PowerShell Desktop test scope** to `Integration` or `All` when you need an explicit Desktop integration run.
 
-Each CI job appends a timing summary to the GitHub Actions job summary from `testresults.xml`, including the slowest test files and individual test cases.
+Each CI job appends a timing summary to the GitHub Actions job summary from `testresults.xml`, including the slowest test files and individual test cases. Local runs can print the same Markdown summary by adding `-ShowTimingSummary`; use `-TimingSummaryTop` to change the number of slow files and cases shown.
 
 ### Docker Testing (Linux Containers)
 

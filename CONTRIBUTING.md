@@ -239,6 +239,9 @@ pwsh -NoProfile -File ./Invoke-Tests.ps1 -TestType Unit
 
 # With detailed output
 pwsh -NoProfile -File ./Invoke-Tests.ps1 -TestType All -OutputFormat Detailed
+
+# With the slow-test Markdown summary
+pwsh -NoProfile -File ./Invoke-Tests.ps1 -TestType All -ShowTimingSummary
 ```
 
 ### Code Analysis

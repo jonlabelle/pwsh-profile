@@ -38,6 +38,21 @@
     When specified, returns the Pester test results object for further processing
     instead of just displaying the summary.
 
+.PARAMETER ShowTimingSummary
+    When specified, writes a Markdown timing summary from the generated NUnit XML
+    test results after the test run completes.
+
+.PARAMETER TimingSummaryTop
+    Specifies how many slow test files and test cases to include in the timing
+    summary. The default is 10.
+
+.PARAMETER TimingSummaryTitle
+    Specifies the Markdown heading text for the timing summary.
+
+.PARAMETER TimingSummaryOutputPath
+    Specifies where to append the Markdown timing summary. Use an empty string
+    to write the summary to the console. The default is an empty string.
+
 .EXAMPLE
     ./Invoke-Tests.ps1
     Runs all tests with detailed output.
@@ -53,6 +68,15 @@
 .EXAMPLE
     ./Invoke-Tests.ps1 -TestType All -OutputFormat Diagnostic -PassThru
     Runs all tests with maximum verbosity and returns results object.
+
+.EXAMPLE
+    ./Invoke-Tests.ps1 -TestType Unit -ShowTimingSummary
+    Runs unit tests and writes a Markdown summary of the slowest test files and
+    test cases to the console.
+
+.EXAMPLE
+    ./Invoke-Tests.ps1 -ShowTimingSummary -TimingSummaryOutputPath test-timing-summary.md
+    Runs all tests and appends the timing summary to test-timing-summary.md.
 
 .NOTES
     Requires Pester module to be installed. The script will automatically detect
@@ -71,7 +95,21 @@ param(
     [string]$OutputFormat = 'Detailed',
 
     [Parameter()]
-    [switch]$PassThru
+    [switch]$PassThru,
+
+    [Parameter()]
+    [switch]$ShowTimingSummary,
+
+    [Parameter()]
+    [ValidateRange(1, 100)]
+    [int]$TimingSummaryTop = 10,
+
+    [Parameter()]
+    [string]$TimingSummaryTitle = 'Pester timing summary',
+
+    [Parameter()]
+    [AllowEmptyString()]
+    [string]$TimingSummaryOutputPath = ''
 )
 
 # Ensure we're in the script directory
@@ -101,6 +139,7 @@ function Join-Parts
 $UnitTestsPath = Join-Parts -BasePath $ScriptDirectory -PathSegments @('Tests', 'Unit')
 $IntegrationTestsPath = Join-Parts -BasePath $ScriptDirectory -PathSegments @('Tests', 'Integration')
 $NUnitResultsPath = Join-Path -Path $ScriptDirectory -ChildPath 'testresults.xml'
+$TestTimingSummaryScriptPath = Join-Parts -BasePath $ScriptDirectory -PathSegments @('Tests', 'Write-TestTimingSummary.ps1')
 
 # Import Pester if not already loaded
 if (-not (Get-Module Pester -ListAvailable))
@@ -305,6 +344,44 @@ if ($pesterTestResults.FailedCount -gt 0)
     Write-Host 'Failed Tests:' -ForegroundColor Red
     $pesterTestResults.Failed | ForEach-Object {
         Write-Host "  - $($_.Name)" -ForegroundColor Red
+    }
+}
+
+if ($ShowTimingSummary)
+{
+    if (-not (Test-Path -LiteralPath $TestTimingSummaryScriptPath -PathType Leaf))
+    {
+        Write-Warning "Could not find test timing summary script at '$TestTimingSummaryScriptPath'."
+    }
+    else
+    {
+        Write-Host ''
+
+        $timingSummaryParams = @{
+            Path = $NUnitResultsPath
+            Top = $TimingSummaryTop
+            Title = $TimingSummaryTitle
+            OutputPath = $TimingSummaryOutputPath
+        }
+
+        try
+        {
+            $timingSummaryOutput = & $TestTimingSummaryScriptPath @timingSummaryParams
+            if ($PassThru)
+            {
+                $timingSummaryOutput | ForEach-Object {
+                    Write-Host $_
+                }
+            }
+            else
+            {
+                $timingSummaryOutput
+            }
+        }
+        catch
+        {
+            Write-Warning "Could not write test timing summary: $($_.Exception.Message)"
+        }
     }
 }
 
