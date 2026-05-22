@@ -3,6 +3,7 @@
 BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
+    . "$PSScriptRoot/../../../Functions/SystemAdministration/Export-InstalledPlatformPackage.ps1"
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Show-InstalledPlatformPackage.ps1"
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Get-PlatformPackageDependency.ps1"
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Remove-PlatformPackage.ps1"
@@ -44,6 +45,111 @@ Describe 'Show-InstalledPlatformPackage' {
             $result[0].Name | Should -Be 'git'
             $result[0].PackageManager | Should -Be 'brew'
             Assert-MockCalled -CommandName Write-Host -Times 0
+        }
+
+        It 'exports installed packages to inferred JSON without opening the picker' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0', 'curl 8.7.1'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @())
+            }
+
+            $exportPath = Join-Path -Path $TestDrive -ChildPath 'installed-packages.json'
+            $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -ExportPath $exportPath)
+
+            $result.Count | Should -Be 1
+            $result[0].Format | Should -Be 'JSON'
+            $result[0].Count | Should -Be 2
+            $result[0].DependencyMode | Should -Be 'None'
+            Test-Path -LiteralPath $exportPath | Should -BeTrue
+            $exportedPackages = @(Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json)
+            $exportedPackages.Count | Should -Be 2
+            ($exportedPackages | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should -Be '2.44.0'
+            Assert-MockCalled -CommandName Write-Host -Times 0
+        }
+
+        It 'exports installed packages to explicit CSV with dependency relationships' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @())
+            }
+
+            Mock -CommandName Get-PlatformPackageDependency -MockWith {
+                param(
+                    [Object[]]$Package,
+                    [String]$Direction,
+                    [String]$PackageManager,
+                    [ScriptBlock]$CommandRunner
+                )
+
+                if ($Direction -eq 'DependsOn')
+                {
+                    return @([PSCustomObject]@{
+                            Direction = $Direction
+                            Relationship = "$($Package[0].Name) -> openssl"
+                            RelatedPackage = 'openssl'
+                            DependencyType = 'Dependency'
+                            Installed = $true
+                            Notes = ''
+                        })
+                }
+
+                return @([PSCustomObject]@{
+                        Direction = $Direction
+                        Relationship = "git-extras -> $($Package[0].Name)"
+                        RelatedPackage = 'git-extras'
+                        DependencyType = 'Dependent'
+                        Installed = $false
+                        Notes = ''
+                    })
+            }
+
+            $exportPath = Join-Path -Path $TestDrive -ChildPath 'installed-packages-export'
+            $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -ExportPath $exportPath -ExportFormat Csv -ExportDependencyMode Both)
+
+            $result.Count | Should -Be 1
+            $result[0].Format | Should -Be 'CSV'
+            $result[0].DependencyMode | Should -Be 'Both'
+            $exportedPackages = @(Import-Csv -LiteralPath $exportPath)
+            $exportedPackages.Count | Should -Be 1
+            $exportedPackages[0].DependsOn | Should -Be 'openssl'
+            $exportedPackages[0].RequiredBy | Should -Be 'git-extras'
+            Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
+            Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -Times 0
+        }
+
+        It 'shows dependency resolution progress when export progress is requested' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @())
+            }
+
+            Mock -CommandName Get-PlatformPackageDependency -MockWith {
+                param(
+                    [Object[]]$Package,
+                    [String]$Direction,
+                    [String]$PackageManager,
+                    [ScriptBlock]$CommandRunner
+                )
+
+                [PSCustomObject]@{
+                    Direction = $Direction
+                    Relationship = "$($Package[0].Name) -> openssl"
+                    RelatedPackage = 'openssl'
+                    DependencyType = 'Dependency'
+                    Installed = $true
+                    Notes = ''
+                }
+            }
+
+            $exportPath = Join-Path -Path $TestDrive -ChildPath 'installed-packages-progress.csv'
+            $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -ExportPath $exportPath -ExportFormat Csv -ExportDependencyMode Both -ShowExportProgress)
+
+            $result.Count | Should -Be 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Exporting installed packages...' -and $ForegroundColor -eq 'Cyan' } -Times 2
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Package: 1 of 1 - git' -and $ForegroundColor -eq 'White' } -Times 2
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Resolving: DependsOn' -and $ForegroundColor -eq 'White' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Resolving: RequiredBy' -and $ForegroundColor -eq 'White' } -Times 1
         }
     }
 

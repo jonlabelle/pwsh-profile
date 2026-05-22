@@ -80,7 +80,7 @@ Describe 'Upgrade-PlatformPackage' {
             @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should -Be 0
         }
 
-        It 'streams refresh and upgrade command output when upgrading all packages' {
+        It 'captures Homebrew refresh output and streams upgrade command output when upgrading all packages' {
             $brewJson = @{
                 formulae = @(
                     @{
@@ -94,7 +94,7 @@ Describe 'Upgrade-PlatformPackage' {
             } | ConvertTo-Json -Depth 6 -Compress
 
             $runner = & $script:NewPackageCommandRunner @{
-                'brew update' = Get-TestCommandResponse -Output @('brew update output')
+                'brew update --quiet' = Get-TestCommandResponse -Output @('brew update output')
                 'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
                 'brew upgrade git' = Get-TestCommandResponse -Output @('brew upgrade git output')
             }
@@ -105,10 +105,10 @@ Describe 'Upgrade-PlatformPackage' {
             $result.Failed | Should -Be 0
             $result.NotSelected | Should -Be 0
 
-            ($script:Invocations | Where-Object { $_.Key -eq 'brew update' }).StreamOutput | Should -BeTrue
+            ($script:Invocations | Where-Object { $_.Key -eq 'brew update --quiet' }).StreamOutput | Should -BeFalse
             ($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).StreamOutput | Should -BeTrue
 
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew update output' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew update output' } -Times 0
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew upgrade git output' } -Times 1
         }
 
@@ -824,7 +824,7 @@ Describe 'Upgrade-PlatformPackage' {
             $result.Upgraded | Should -Be 0
             $result.Skipped | Should -Be 1
 
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew update' }).Count | Should -Be 0
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew update --quiet' }).Count | Should -Be 0
             @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should -Be 0
         }
     }

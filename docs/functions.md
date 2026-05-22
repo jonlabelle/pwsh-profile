@@ -51,6 +51,7 @@
 
 ## System Administration
 
+- [`Export-InstalledPlatformPackage`](../Functions/SystemAdministration/Export-InstalledPlatformPackage.ps1) - Exports installed platform package records to JSON or CSV.
 - [`Find-PlatformPackage`](../Functions/SystemAdministration/Find-PlatformPackage.ps1) - Searches native platform package registries.
 - [`Get-PathPermission`](../Functions/SystemAdministration/Get-PathPermission.ps1) - Shows file and directory permission details for one or more paths.
 - [`Get-PlatformPackage`](../Functions/SystemAdministration/Get-PlatformPackage.ps1) - Gets installed packages from the native platform package manager.

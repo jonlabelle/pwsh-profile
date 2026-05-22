@@ -4,6 +4,7 @@ BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Show-PlatformPackageManager.ps1"
+    . "$PSScriptRoot/../../../Functions/SystemAdministration/Export-InstalledPlatformPackage.ps1"
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Show-InstalledPlatformPackage.ps1"
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Install-PlatformPackage.ps1"
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Upgrade-PlatformPackage.ps1"
@@ -27,6 +28,7 @@ Describe 'Show-PlatformPackageManager' {
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Manager: Auto -> *' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Installed packages*' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Export installed*' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Direct install*' } -Times 0
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Dependencies*' } -Times 1
     }
@@ -104,14 +106,14 @@ Describe 'Show-PlatformPackageManager' {
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Installed Packages' } -Times 0
     }
 
-    It 'does not expose numbers outside 1-5 as valid actions' {
+    It 'does not expose numbers outside 1-6 as valid actions' {
         $promptReader = & $script:NewPromptReader @('7', 'q')
 
         $result = @(Show-PlatformPackageManager -PackageManager winget -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Direct install*' } -Times 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Choose 1-5 or Q.' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Choose 1-6 or Q.' } -Times 1
     }
 
     It 'supports arrow key navigation in the manager menu' {
@@ -160,6 +162,43 @@ Describe 'Show-PlatformPackageManager' {
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager Help' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'B: ' } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'browse installed packages' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'E: ' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'export installed packages' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+    }
+
+    It 'routes installed package export through Show-InstalledPlatformPackage from the manager shortcut' {
+        Mock -CommandName Show-InstalledPlatformPackage -MockWith {
+            [PSCustomObject]@{
+                PSTypeName = 'InstalledPlatformPackage.ExportResult'
+                Path = $ExportPath
+                Format = 'JSON'
+                Count = 2
+                DependencyMode = $ExportDependencyMode
+                IncludeDependencies = $false
+            }
+        }
+
+        $exportPath = Join-Path -Path $TestDrive -ChildPath 'installed-packages.json'
+        $promptReader = & $script:NewPromptReader @($exportPath, '')
+        $keyReader = & $script:NewKeyReader @(
+            [System.ConsoleKeyInfo]::new('e', [ConsoleKey]::E, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
+        )
+
+        $result = @(Show-PlatformPackageManager -PackageManager brew -CommandRunner { } -PromptReader $promptReader -KeyReader $keyReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Show-InstalledPlatformPackage -ParameterFilter {
+            $PackageManager -eq 'brew' -and
+            $ExportPath -eq $exportPath -and
+            $ExportFormat -eq 'Json' -and
+            $ExportDependencyMode -eq 'None' -and
+            $ShowExportProgress -and
+            $null -ne $ExportCancelRequested -and
+            $NonInteractive
+        } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Export Installed Packages' } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Export completed.' } -Times 1
     }
 
     It 'shows keyboard help from a manager result screen' {

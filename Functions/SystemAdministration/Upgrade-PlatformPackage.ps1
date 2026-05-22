@@ -15,10 +15,11 @@ function Upgrade-PlatformPackage
         - Debian/Ubuntu Linux: apt
         - Alpine Linux: apk
 
-        Refresh and upgrade command output is streamed directly to the console so the
-        operation can be followed while it runs. Use -NonInteractive to return the
-        discovered package update list without starting the interactive picker, or -All to
-        upgrade every discovered package without prompting.
+        Package refresh output is captured where package managers are known to produce
+        noisy progress output before the picker starts. Upgrade command output is streamed
+        directly to the console so the operation can be followed while it runs. Use
+        -NonInteractive to return the discovered package update list without starting the
+        interactive picker, or -All to upgrade every discovered package without prompting.
 
     .PARAMETER IncludePackage
         Optional package names or wildcard patterns to include. Matches package Name or Id.
@@ -90,8 +91,8 @@ function Upgrade-PlatformPackage
         - apt is used on Debian/Ubuntu-style Linux distributions.
         - apk is used on Alpine Linux.
         - apt and apk operations are prefixed with sudo when needed and available.
-        - Query commands are parsed to build the picker; refresh and upgrade commands stream
-          their native output to the console.
+        - Query commands are parsed to build the picker; upgrade commands stream their
+          native output to the console.
 
         Author: Jon LaBelle
         License: MIT
@@ -338,7 +339,7 @@ function Upgrade-PlatformPackage
                         DisplayName = 'Homebrew'
                         Command = 'brew'
                         Platform = 'macOS'
-                        RefreshArguments = @('update')
+                        RefreshArguments = @('update', '--quiet')
                         NeedsSudo = $false
                     }
                 }
@@ -654,7 +655,7 @@ function Upgrade-PlatformPackage
             Write-Host "Refreshing $($Manager.DisplayName) package metadata..." -ForegroundColor White
 
             $invocation = Resolve-PackageManagerInvocation -Manager $Manager -Arguments $Manager.RefreshArguments
-            $streamOutput = $Manager.Name -ne 'winget'
+            $streamOutput = $Manager.Name -in @('apt', 'apk')
             $result = Invoke-PackageManagerCommand -Command $invocation.Command -Arguments $invocation.Arguments -StreamOutput:$streamOutput
 
             if ($result.ExitCode -ne 0)

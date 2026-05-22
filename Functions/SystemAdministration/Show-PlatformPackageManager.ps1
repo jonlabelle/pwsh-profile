@@ -10,7 +10,7 @@ function Show-PlatformPackageManager
 
         The manager delegates to the existing package functions so their object output and
         automation behavior remain available:
-        - Show-InstalledPlatformPackage for installed package browsing.
+        - Show-InstalledPlatformPackage for installed package browsing and export.
         - Find-PlatformPackage for remote registry search.
         - Install-PlatformPackage for search-driven installs.
         - Upgrade-PlatformPackage for package upgrades.
@@ -331,6 +331,32 @@ function Show-PlatformPackageManager
             return $KeyInfo.Key -in @([ConsoleKey]::Escape, [ConsoleKey]::Q) -or $isControlC
         }
 
+        function Test-PlatformPackageManagerExportCancelRequested
+        {
+            try
+            {
+                if ([Console]::IsInputRedirected)
+                {
+                    return $false
+                }
+
+                while ([Console]::KeyAvailable)
+                {
+                    $cancelKey = [Console]::ReadKey($true)
+                    if (Test-PlatformPackageManagerCancelKey -KeyInfo $cancelKey)
+                    {
+                        return $true
+                    }
+                }
+            }
+            catch
+            {
+                Write-Verbose "Unable to inspect pending export cancel keys: $($_.Exception.Message)"
+            }
+
+            return $false
+        }
+
         function Test-PlatformPackageManagerHelpKey
         {
             param(
@@ -345,7 +371,7 @@ function Show-PlatformPackageManager
         {
             param(
                 [Parameter()]
-                [ValidateSet('Menu', 'Result', 'SearchQuery', 'DependencyPackage', 'DependencyDirection', 'YesNo')]
+                [ValidateSet('Menu', 'Result', 'SearchQuery', 'ExportPath', 'ExportFormat', 'ExportDependencyMode', 'DependencyPackage', 'DependencyDirection', 'YesNo')]
                 [String]$Topic = 'Menu'
             )
 
@@ -355,6 +381,9 @@ function Show-PlatformPackageManager
             {
                 'Result' { 'Result screen shortcuts' }
                 'SearchQuery' { 'Search prompt help' }
+                'ExportPath' { 'Export path prompt help' }
+                'ExportFormat' { 'Export format help' }
+                'ExportDependencyMode' { 'Export dependency help' }
                 'DependencyPackage' { 'Dependency package prompt help' }
                 'DependencyDirection' { 'Dependency direction help' }
                 'YesNo' { 'Confirmation prompt help' }
@@ -409,6 +438,33 @@ function Show-PlatformPackageManager
                         Get-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
                     )
                 }
+                'ExportPath'
+                {
+                    @(
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'Text' -Description 'enter a .json or .csv export path'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'Blank' -Description 'cancel the export workflow'
+                        Get-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
+                    )
+                }
+                'ExportFormat'
+                {
+                    @(
+                        Get-PlatformPackageManagerHelpItem -Shortcut '1 or JSON' -Description 'write JSON records'
+                        Get-PlatformPackageManagerHelpItem -Shortcut '2 or CSV' -Description 'write CSV records'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'Blank' -Description 'cancel the export workflow'
+                        Get-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
+                    )
+                }
+                'ExportDependencyMode'
+                {
+                    @(
+                        Get-PlatformPackageManagerHelpItem -Shortcut '1 or None' -Description 'export package records only'
+                        Get-PlatformPackageManagerHelpItem -Shortcut '2 or DependsOn' -Description 'include direct dependencies'
+                        Get-PlatformPackageManagerHelpItem -Shortcut '3 or Both' -Description 'include direct and required-by relationships'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'Blank' -Description 'export package records only'
+                        Get-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
+                    )
+                }
                 'DependencyPackage'
                 {
                     @(
@@ -443,8 +499,9 @@ function Show-PlatformPackageManager
                         Get-PlatformPackageManagerHelpItem -Shortcut 'Up/Down' -Description 'choose an action'
                         Get-PlatformPackageManagerHelpItem -Shortcut 'Home/End' -Description 'move to the first or last action'
                         Get-PlatformPackageManagerHelpItem -Shortcut 'Enter' -Description 'run the selected action'
-                        Get-PlatformPackageManagerHelpItem -Shortcut '1-5' -Description 'jump to a numbered workflow'
+                        Get-PlatformPackageManagerHelpItem -Shortcut '1-6' -Description 'jump to a numbered workflow'
                         Get-PlatformPackageManagerHelpItem -Shortcut 'B' -Description 'browse installed packages'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'E' -Description 'export installed packages'
                         Get-PlatformPackageManagerHelpItem -Shortcut 'S or I' -Description 'search and install packages'
                         Get-PlatformPackageManagerHelpItem -Shortcut 'U' -Description 'upgrade packages'
                         Get-PlatformPackageManagerHelpItem -Shortcut 'R' -Description 'remove packages'
@@ -517,6 +574,117 @@ function Show-PlatformPackageManager
                 }
 
                 return @(ConvertFrom-PlatformPackageManagerListInput -Value $value)
+            }
+        }
+
+        function Get-PlatformPackageExportFormatFromPath
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$Path
+            )
+
+            $extension = [System.IO.Path]::GetExtension($Path)
+            if ([String]::IsNullOrWhiteSpace($extension))
+            {
+                return 'Auto'
+            }
+
+            switch ($extension.ToLowerInvariant())
+            {
+                '.json' { return 'Json' }
+                '.csv' { return 'Csv' }
+                default { return 'Auto' }
+            }
+        }
+
+        function Read-PlatformPackageExportPath
+        {
+            while ($true)
+            {
+                $value = Read-PlatformPackageManagerInput -Prompt 'Export path (.json or .csv, ? for help)'
+                if ($null -eq $value -or [String]::IsNullOrWhiteSpace($value))
+                {
+                    return $null
+                }
+
+                $value = $value.Trim()
+                if ($value -eq '?')
+                {
+                    Show-PlatformPackageManagerHelp -Topic ExportPath
+                    continue
+                }
+
+                return $value
+            }
+        }
+
+        function Read-PlatformPackageExportFormat
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$Path
+            )
+
+            while ($true)
+            {
+                Write-Host 'Export format:' -ForegroundColor White
+                Write-Host '  1. JSON' -ForegroundColor White
+                Write-Host '  2. CSV' -ForegroundColor White
+                Write-Host '  ?. Help' -ForegroundColor DarkGray
+
+                $value = Read-PlatformPackageManagerInput -Prompt "Select format for $Path [1, ? for help]"
+                if ($null -eq $value)
+                {
+                    return $null
+                }
+
+                $value = $value.Trim()
+                if ([String]::IsNullOrWhiteSpace($value))
+                {
+                    return $null
+                }
+
+                switch ($value.ToLowerInvariant())
+                {
+                    { $_ -in @('1', 'j', 'json') } { return 'Json' }
+                    { $_ -in @('2', 'c', 'csv') } { return 'Csv' }
+                    '?' { Show-PlatformPackageManagerHelp -Topic ExportFormat }
+                    default { Write-Host 'Choose 1 or 2.' -ForegroundColor DarkGray }
+                }
+            }
+        }
+
+        function Read-PlatformPackageExportDependencyMode
+        {
+            while ($true)
+            {
+                Write-Host 'Dependency export:' -ForegroundColor White
+                Write-Host '  1. Packages only' -ForegroundColor White
+                Write-Host '  2. Direct dependencies' -ForegroundColor White
+                Write-Host '  3. Direct + required-by relationships' -ForegroundColor White
+                Write-Host '  ?. Help' -ForegroundColor DarkGray
+
+                $value = Read-PlatformPackageManagerInput -Prompt 'Select dependency mode [1, ? for help]'
+                if ($null -eq $value)
+                {
+                    return $null
+                }
+
+                $value = $value.Trim()
+                if ([String]::IsNullOrWhiteSpace($value))
+                {
+                    return 'None'
+                }
+
+                switch ($value.ToLowerInvariant())
+                {
+                    { $_ -in @('1', 'n', 'no', 'none') } { return 'None' }
+                    { $_ -in @('2', 'd', 'dependson', 'depends on', 'dependencies') } { return 'DependsOn' }
+                    { $_ -in @('3', 'b', 'both', 'all') } { return 'Both' }
+                    '?' { Show-PlatformPackageManagerHelp -Topic ExportDependencyMode }
+                    default { Write-Host 'Choose 1, 2, or 3.' -ForegroundColor DarkGray }
+                }
             }
         }
 
@@ -1093,6 +1261,58 @@ function Show-PlatformPackageManager
             return (Get-PlatformPackageManagerActionResult -Title 'Installed Packages' -Records $result)
         }
 
+        function Invoke-PlatformPackageManagerExport
+        {
+            $exportPath = Read-PlatformPackageExportPath
+            if ([String]::IsNullOrWhiteSpace($exportPath))
+            {
+                return (Get-PlatformPackageManagerActionResult -Title 'Export Installed Packages' -Message 'Export cancelled; file path is required.' -AutoReturn)
+            }
+
+            $exportFormat = Get-PlatformPackageExportFormatFromPath -Path $exportPath
+            if ($exportFormat -eq 'Auto')
+            {
+                $exportFormat = Read-PlatformPackageExportFormat -Path $exportPath
+                if ([String]::IsNullOrWhiteSpace($exportFormat))
+                {
+                    return (Get-PlatformPackageManagerActionResult -Title 'Export Installed Packages' -Message 'Export cancelled; format is required.' -AutoReturn)
+                }
+            }
+
+            $dependencyMode = Read-PlatformPackageExportDependencyMode
+            if ($null -eq $dependencyMode)
+            {
+                return (Get-PlatformPackageManagerActionResult -Title 'Export Installed Packages' -Message 'Export cancelled.' -AutoReturn)
+            }
+
+            $parameters = Get-PlatformPackageManagerCommonParameters
+            $parameters.ExportPath = $exportPath
+            $parameters.ExportFormat = $exportFormat
+            $parameters.ExportDependencyMode = $dependencyMode
+            $parameters.NonInteractive = $true
+            $parameters.ShowExportProgress = $true
+            $parameters.ExportCancelRequested = ${function:Test-PlatformPackageManagerExportCancelRequested}.GetNewClosure()
+
+            try
+            {
+                $result = @(Invoke-PlatformPackageManagerFunction -FunctionName 'Show-InstalledPlatformPackage' -FileName 'Show-InstalledPlatformPackage.ps1' -Parameters $parameters -Invocation {
+                        param([Hashtable]$InvocationParameters)
+                        Show-InstalledPlatformPackage @InvocationParameters
+                    })
+            }
+            catch
+            {
+                return (Get-PlatformPackageManagerActionResult -Title 'Export Installed Packages' -Message "Export failed: $($_.Exception.Message)")
+            }
+
+            if ($result.Count -eq 0)
+            {
+                return (Get-PlatformPackageManagerActionResult -Title 'Export Installed Packages' -Message 'Export completed with no result records.' -AutoReturn)
+            }
+
+            return (Get-PlatformPackageManagerActionResult -Title 'Export Installed Packages' -Message 'Export completed.' -Records $result)
+        }
+
         function Invoke-PlatformPackageManagerSearch
         {
             while ($true)
@@ -1318,6 +1538,11 @@ function Show-PlatformPackageManager
                     Purpose = 'Inspect dependency relationships'
                 }
                 [PSCustomObject]@{
+                    Choice = '6'
+                    Workflow = 'Export installed'
+                    Purpose = 'Write installed package records to JSON or CSV'
+                }
+                [PSCustomObject]@{
                     Choice = 'Q'
                     Workflow = 'Quit'
                     Purpose = 'Exit the manager'
@@ -1362,7 +1587,7 @@ function Show-PlatformPackageManager
 
             if ($SelectedIndex -ge 0)
             {
-                Write-Host 'Up/Down: choose  Enter: run  1-5/Q: jump  ?: help' -ForegroundColor DarkGray
+                Write-Host 'Up/Down: choose  Enter: run  1-6/Q: jump  ?: help' -ForegroundColor DarkGray
                 Write-Host ''
             }
         }
@@ -1460,6 +1685,7 @@ function Show-PlatformPackageManager
                         switch ($keyChar.ToLowerInvariant())
                         {
                             'b' { return '1' }
+                            'e' { return '6' }
                             's' { return '2' }
                             'i' { return '2' }
                             'u' { return '3' }
@@ -1486,7 +1712,8 @@ function Show-PlatformPackageManager
                 { $_ -in @('3', 'upgrade', 'update') } { Invoke-PlatformPackageManagerUpgrade; break }
                 { $_ -in @('4', 'remove', 'uninstall') } { Invoke-PlatformPackageManagerRemoval; break }
                 { $_ -in @('5', 'deps', 'dependencies', 'dependency') } { Invoke-PlatformPackageManagerDependencyView; break }
-                default { Get-PlatformPackageManagerActionResult -Title 'Platform Package Manager' -Message 'Choose 1-5 or Q.' }
+                { $_ -in @('6', 'export') } { Invoke-PlatformPackageManagerExport; break }
+                default { Get-PlatformPackageManagerActionResult -Title 'Platform Package Manager' -Message 'Choose 1-6 or Q.' }
             }
         }
 

@@ -11,9 +11,10 @@ function Show-InstalledPlatformPackage
         actions on winget, Homebrew, apt, and apk.
 
         Use -NonInteractive to bypass the interactive browser and return package objects
-        directly. Use -PassThru to select one or more packages in the browser and return
-        them when Enter is pressed. If nothing is selected, Enter returns the current
-        package.
+        directly. Use -ExportPath to bypass the interactive browser and write installed
+        package records to JSON or CSV. Use -PassThru to select one or more packages in
+        the browser and return them when Enter is pressed. If nothing is selected, Enter
+        returns the current package.
 
     .PARAMETER Name
         Optional package names or wildcard patterns to include. Matches package Name or Id.
@@ -34,6 +35,18 @@ function Show-InstalledPlatformPackage
         Allows packages to be selected in the interactive browser and returns the selected
         package records when Enter is pressed. If nothing is selected, returns the current
         package record.
+
+    .PARAMETER ExportPath
+        Writes matching installed package records to this file without opening the
+        interactive browser.
+
+    .PARAMETER ExportFormat
+        Export format. Auto infers JSON or CSV from the ExportPath extension.
+
+    .PARAMETER ExportDependencyMode
+        Dependency relationships to include in the export. None exports package records
+        only. DependsOn includes direct dependencies. Both includes direct dependencies
+        and required-by relationships where supported.
 
     .EXAMPLE
         PS > Show-InstalledPlatformPackage
@@ -59,6 +72,17 @@ function Show-InstalledPlatformPackage
         PS > Show-InstalledPlatformPackage -NonInteractive | Format-Table Name, InstalledVersion, Source
 
         Returns installed packages and formats them as a table.
+
+    .EXAMPLE
+        PS > Show-InstalledPlatformPackage -ExportPath ./installed-packages.json
+
+        Exports installed packages to JSON without opening the browser.
+
+    .EXAMPLE
+        PS > Show-InstalledPlatformPackage -Name 'git' -ExportPath ./git.csv -ExportDependencyMode Both
+
+        Exports matching packages to CSV with direct and required-by dependency
+        relationships.
 
     .EXAMPLE
         PS > Show-InstalledPlatformPackage -PassThru
@@ -122,6 +146,17 @@ function Show-InstalledPlatformPackage
         [Parameter()]
         [Switch]$PassThru,
 
+        [Parameter()]
+        [String]$ExportPath = '',
+
+        [Parameter()]
+        [ValidateSet('Auto', 'Json', 'Csv')]
+        [String]$ExportFormat = 'Auto',
+
+        [Parameter()]
+        [ValidateSet('None', 'DependsOn', 'Both')]
+        [String]$ExportDependencyMode = 'None',
+
         [Parameter(DontShow = $true)]
         [ValidateSet('Auto', 'winget', 'brew', 'apt', 'apk')]
         [String]$PackageManager = 'Auto',
@@ -131,6 +166,12 @@ function Show-InstalledPlatformPackage
 
         [Parameter(DontShow = $true)]
         [ScriptBlock]$KeyReader,
+
+        [Parameter(DontShow = $true)]
+        [ScriptBlock]$ExportCancelRequested,
+
+        [Parameter(DontShow = $true)]
+        [Switch]$ShowExportProgress,
 
         [Parameter(DontShow = $true)]
         [ValidateRange(0, 500)]
@@ -196,6 +237,20 @@ function Show-InstalledPlatformPackage
             catch
             {
                 throw "Failed to load required dependency 'Get-PlatformPackageDependency' from '$getPlatformPackageDependencyPath': $($_.Exception.Message)"
+            }
+        }
+
+        $exportInstalledPlatformPackagePath = Get-DependencyPathIfNeeded -FunctionName 'Export-InstalledPlatformPackage' -RelativePath 'Export-InstalledPlatformPackage.ps1'
+        if (-not [String]::IsNullOrWhiteSpace($exportInstalledPlatformPackagePath))
+        {
+            try
+            {
+                . $exportInstalledPlatformPackagePath
+                Write-Verbose "Loaded Export-InstalledPlatformPackage from: $exportInstalledPlatformPackagePath"
+            }
+            catch
+            {
+                throw "Failed to load required dependency 'Export-InstalledPlatformPackage' from '$exportInstalledPlatformPackagePath': $($_.Exception.Message)"
             }
         }
 
@@ -1793,37 +1848,6 @@ function Show-InstalledPlatformPackage
                 }
             }
 
-            function Resolve-PackageExportPath
-            {
-                param(
-                    [Parameter(Mandatory)]
-                    [String]$Path
-                )
-
-                $expandedPath = [Environment]::ExpandEnvironmentVariables($Path.Trim())
-                try
-                {
-                    $resolvedPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($expandedPath)
-                }
-                catch
-                {
-                    throw "Invalid export path '$Path': $($_.Exception.Message)"
-                }
-
-                if (Test-Path -LiteralPath $resolvedPath -PathType Container)
-                {
-                    throw "Export path points to a directory: $resolvedPath"
-                }
-
-                $parentPath = Split-Path -Path $resolvedPath -Parent
-                if (-not [String]::IsNullOrWhiteSpace($parentPath) -and -not (Test-Path -LiteralPath $parentPath -PathType Container))
-                {
-                    throw "Export directory does not exist: $parentPath"
-                }
-
-                return $resolvedPath
-            }
-
             function Test-PackageExportCancelRequested
             {
                 if (-not $usingConsoleKeyReader)
@@ -1860,241 +1884,6 @@ function Show-InstalledPlatformPackage
                 }
 
                 return $false
-            }
-
-            function Write-PackageExportProgress
-            {
-                param(
-                    [Parameter(Mandatory)]
-                    [PSCustomObject]$Package,
-
-                    [Parameter()]
-                    [Int32]$PackageIndex = 0,
-
-                    [Parameter()]
-                    [Int32]$PackageCount = 0,
-
-                    [Parameter()]
-                    [String]$Direction = '',
-
-                    [Parameter()]
-                    [String]$ExportPath = ''
-                )
-
-                Clear-Host
-                Write-Host 'Exporting installed packages...' -ForegroundColor Cyan
-                if ($PackageCount -gt 0 -and $PackageIndex -gt 0)
-                {
-                    Write-Host "Package: $PackageIndex of $PackageCount - $($Package.Name)" -ForegroundColor White
-                }
-                else
-                {
-                    Write-Host "Package: $($Package.Name)" -ForegroundColor White
-                }
-
-                if (-not [String]::IsNullOrWhiteSpace($Direction))
-                {
-                    Write-Host "Resolving: $Direction" -ForegroundColor White
-                }
-
-                if (-not [String]::IsNullOrWhiteSpace($ExportPath))
-                {
-                    Write-Host "File: $ExportPath" -ForegroundColor DarkGray
-                }
-
-                Write-Host ''
-                Write-Host 'Esc cancels between dependency lookups. Ctrl+C stops the current lookup.' -ForegroundColor DarkGray
-            }
-
-            function Get-PackageExportDependencyData
-            {
-                param(
-                    [Parameter(Mandatory)]
-                    [PSCustomObject]$Package,
-
-                    [Parameter(Mandatory)]
-                    [ValidateSet('DependsOn', 'Both')]
-                    [String]$DependencyMode,
-
-                    [Parameter()]
-                    [Int32]$PackageIndex = 0,
-
-                    [Parameter()]
-                    [Int32]$PackageCount = 0,
-
-                    [Parameter()]
-                    [String]$ExportPath = ''
-                )
-
-                $dependencyRecords = @()
-                $dependencyErrors = @()
-                $directions = if ($DependencyMode -eq 'Both') { @('DependsOn', 'RequiredBy') } else { @('DependsOn') }
-
-                foreach ($direction in $directions)
-                {
-                    if (Test-PackageExportCancelRequested)
-                    {
-                        throw [System.OperationCanceledException]::new('Export canceled.')
-                    }
-
-                    Write-PackageExportProgress -Package $Package -PackageIndex $PackageIndex -PackageCount $PackageCount -Direction $direction -ExportPath $ExportPath
-
-                    $parameters = @{
-                        Package = @($Package)
-                        Direction = $direction
-                        PackageManager = $Package.PackageManager
-                    }
-                    if ($CommandRunner)
-                    {
-                        $parameters.CommandRunner = $CommandRunner
-                    }
-
-                    try
-                    {
-                        foreach ($dependencyRecord in @(Get-PlatformPackageDependency @parameters))
-                        {
-                            $dependencyRecords += [PSCustomObject]@{
-                                Direction = $dependencyRecord.Direction
-                                Relationship = $dependencyRecord.Relationship
-                                RelatedPackage = $dependencyRecord.RelatedPackage
-                                DependencyType = $dependencyRecord.DependencyType
-                                Installed = $dependencyRecord.Installed
-                                Notes = $dependencyRecord.Notes
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        if ($_.Exception -is [System.OperationCanceledException])
-                        {
-                            throw
-                        }
-
-                        $dependencyErrors += "$direction`: $($_.Exception.Message)"
-                    }
-
-                    if (Test-PackageExportCancelRequested)
-                    {
-                        throw [System.OperationCanceledException]::new('Export canceled.')
-                    }
-                }
-
-                return [PSCustomObject]@{
-                    Records = @($dependencyRecords)
-                    Error = ($dependencyErrors -join '; ')
-                }
-            }
-
-            function ConvertTo-PackageExportRecord
-            {
-                param(
-                    [Parameter(Mandatory)]
-                    [PSCustomObject]$Package,
-
-                    [Parameter(Mandatory)]
-                    [ValidateSet('Json', 'Csv')]
-                    [String]$Format,
-
-                    [Parameter()]
-                    [ValidateSet('None', 'DependsOn', 'Both')]
-                    [String]$DependencyMode = 'None',
-
-                    [Parameter()]
-                    [Int32]$PackageIndex = 0,
-
-                    [Parameter()]
-                    [Int32]$PackageCount = 0,
-
-                    [Parameter()]
-                    [String]$ExportPath = ''
-                )
-
-                $dependencyRecords = @()
-                $dependencyLookupError = ''
-                if ($DependencyMode -ne 'None')
-                {
-                    $dependencyData = Get-PackageExportDependencyData -Package $Package -DependencyMode $DependencyMode -PackageIndex $PackageIndex -PackageCount $PackageCount -ExportPath $ExportPath
-                    $dependencyRecords = @($dependencyData.Records)
-                    $dependencyLookupError = "$($dependencyData.Error)"
-                }
-
-                $baseRecord = [Ordered]@{
-                    Name = $Package.Name
-                    Id = $Package.Id
-                    PackageManager = $Package.PackageManager
-                    PackageManagerDisplayName = $Package.PackageManagerDisplayName
-                    Type = $Package.Type
-                    InstalledVersion = $Package.InstalledVersion
-                    Source = $Package.Source
-                    Publisher = $Package.Publisher
-                    Description = $Package.Description
-                    Notes = $Package.Notes
-                }
-
-                if ($Format -eq 'Csv')
-                {
-                    $baseRecord['DependsOn'] = (($dependencyRecords | Where-Object { $_.Direction -eq 'DependsOn' } | ForEach-Object { $_.RelatedPackage }) -join '; ')
-                    $baseRecord['RequiredBy'] = (($dependencyRecords | Where-Object { $_.Direction -eq 'RequiredBy' } | ForEach-Object { $_.RelatedPackage }) -join '; ')
-                    $baseRecord['DependencyLookupError'] = $dependencyLookupError
-                    return [PSCustomObject]$baseRecord
-                }
-
-                $baseRecord['Dependencies'] = @($dependencyRecords)
-                $baseRecord['DependencyLookupError'] = $dependencyLookupError
-                return [PSCustomObject]$baseRecord
-            }
-
-            function Export-InstalledPackageRecords
-            {
-                param(
-                    [Parameter(Mandatory)]
-                    [PSCustomObject[]]$Packages,
-
-                    [Parameter(Mandatory)]
-                    [String]$Path,
-
-                    [Parameter(Mandatory)]
-                    [ValidateSet('Json', 'Csv')]
-                    [String]$Format,
-
-                    [Parameter()]
-                    [ValidateSet('None', 'DependsOn', 'Both')]
-                    [String]$DependencyMode = 'None'
-                )
-
-                $resolvedPath = Resolve-PackageExportPath -Path $Path
-                $exportRecords = @()
-                for ($packageIndex = 0; $packageIndex -lt $Packages.Count; $packageIndex++)
-                {
-                    if (Test-PackageExportCancelRequested)
-                    {
-                        throw [System.OperationCanceledException]::new('Export canceled.')
-                    }
-
-                    $package = $Packages[$packageIndex]
-                    $exportRecords += ConvertTo-PackageExportRecord -Package $package -Format $Format -DependencyMode $DependencyMode -PackageIndex ($packageIndex + 1) -PackageCount $Packages.Count -ExportPath $resolvedPath
-                }
-
-                switch ($Format)
-                {
-                    'Json'
-                    {
-                        $jsonText = ConvertTo-Json -InputObject @($exportRecords) -Depth 8
-                        Set-Content -LiteralPath $resolvedPath -Value $jsonText -Encoding UTF8
-                    }
-                    'Csv'
-                    {
-                        $exportRecords | Export-Csv -LiteralPath $resolvedPath -NoTypeInformation -Encoding UTF8
-                    }
-                }
-
-                return [PSCustomObject]@{
-                    Path = $resolvedPath
-                    Format = $Format.ToUpperInvariant()
-                    Count = $exportRecords.Count
-                    DependencyMode = $DependencyMode
-                    IncludeDependencies = $DependencyMode -ne 'None'
-                }
             }
 
             function Invoke-PackageExportPrompt
@@ -2159,7 +1948,21 @@ function Show-InstalledPlatformPackage
 
                     try
                     {
-                        $exportResult = Export-InstalledPackageRecords -Packages @($exportTarget.Packages) -Path $exportPath -Format $exportFormat -DependencyMode $dependencyChoice.Mode
+                        $packageExportCancelRequested = ${function:Test-PackageExportCancelRequested}.GetNewClosure()
+                        $exportParameters = @{
+                            Package = @($exportTarget.Packages)
+                            Path = $exportPath
+                            Format = $exportFormat
+                            DependencyMode = $dependencyChoice.Mode
+                            ShowProgress = $true
+                            CancelRequested = $packageExportCancelRequested
+                        }
+                        if ($CommandRunner)
+                        {
+                            $exportParameters.CommandRunner = $CommandRunner
+                        }
+
+                        $exportResult = Export-InstalledPlatformPackage @exportParameters
                     }
                     finally
                     {
@@ -2958,6 +2761,30 @@ function Show-InstalledPlatformPackage
         }
 
         $installedPackages = @(Get-PlatformPackage @getPlatformPackageParameters)
+
+        if (-not [String]::IsNullOrWhiteSpace($ExportPath))
+        {
+            $exportParameters = @{
+                Package = $installedPackages
+                Path = $ExportPath
+                Format = $ExportFormat
+                DependencyMode = $ExportDependencyMode
+            }
+            if ($ShowExportProgress)
+            {
+                $exportParameters.ShowProgress = $true
+            }
+            if ($ExportCancelRequested)
+            {
+                $exportParameters.CancelRequested = $ExportCancelRequested
+            }
+            if ($CommandRunner)
+            {
+                $exportParameters.CommandRunner = $CommandRunner
+            }
+
+            return (Export-InstalledPlatformPackage @exportParameters)
+        }
 
         if ($NonInteractive)
         {
