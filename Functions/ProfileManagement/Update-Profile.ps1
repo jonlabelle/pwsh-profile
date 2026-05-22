@@ -98,6 +98,20 @@ function Update-Profile
         else
         {
             $gitOutput | ForEach-Object { Write-Host $_ }
+
+            $gitLog = & git -C $profileDirectory log --oneline "${commitBefore}..${commitAfter}" 2>$null
+            if ($gitLog)
+            {
+                Write-Host ''
+                Write-Host 'Changes pulled:' -ForegroundColor Cyan
+                foreach ($line in $gitLog)
+                {
+                    $cleanLine = $line -replace '^\w+\s+', '' -replace '\s*\([^)]+\)\s*', ''
+                    Write-Host "  - $cleanLine" -ForegroundColor Gray
+                }
+                Write-Host ''
+            }
+
             Write-Host 'Profile updated successfully! Restart your PowerShell session to reload your profile.' -ForegroundColor Green
         }
     }
