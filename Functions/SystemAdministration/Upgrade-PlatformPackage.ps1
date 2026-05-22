@@ -2596,7 +2596,11 @@ function Upgrade-PlatformPackage
                     {
                         "Keys: Space select  Enter upgrade  V details  A all  F: [$nameFilterHintValue]"
                     }
-                    $filterSummary = @("filter: $nameFilterHintValue")
+                    $filterSummary = @()
+                    if (-not [String]::IsNullOrWhiteSpace($nameFilterText))
+                    {
+                        $filterSummary += "filter: $nameFilterHintValue"
+                    }
                     if ($hasSourceFilter)
                     {
                         $filterSummary += "source: $($availableSources[$sourceFilterIndex])"

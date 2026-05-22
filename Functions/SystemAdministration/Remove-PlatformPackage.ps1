@@ -2992,7 +2992,11 @@ function Remove-PlatformPackage
                             'n/a'
                         }
 
-                        $dependencyFilterSummary = @("filter: $nameFilterHintValue")
+                        $dependencyFilterSummary = @()
+                        if (-not [String]::IsNullOrWhiteSpace($nameFilterText))
+                        {
+                            $dependencyFilterSummary += "filter: $nameFilterHintValue"
+                        }
                         if ($hasSourceFilter)
                         {
                             $dependencyFilterSummary += "source: $($availableSources[$sourceFilterIndex])"
@@ -3073,7 +3077,11 @@ function Remove-PlatformPackage
                         {
                             "Keys: Space select  Enter remove  D deps  V details  A all  F: [$nameFilterHintValue]"
                         }
-                        $filterSummary = @("filter: $nameFilterHintValue")
+                        $filterSummary = @()
+                        if (-not [String]::IsNullOrWhiteSpace($nameFilterText))
+                        {
+                            $filterSummary += "filter: $nameFilterHintValue"
+                        }
                         if ($hasSourceFilter)
                         {
                             $filterSummary += "source: $($availableSources[$sourceFilterIndex])"
