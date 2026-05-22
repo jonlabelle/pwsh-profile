@@ -61,7 +61,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result[0].Count | Should -Be 2
             $result[0].DependencyMode | Should -Be 'None'
             Test-Path -LiteralPath $exportPath | Should -BeTrue
-            $exportedPackages = @(Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json)
+            $exportedPackages = Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json
             $exportedPackages.Count | Should -Be 2
             ($exportedPackages | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should -Be '2.44.0'
             Assert-MockCalled -CommandName Write-Host -Times 0

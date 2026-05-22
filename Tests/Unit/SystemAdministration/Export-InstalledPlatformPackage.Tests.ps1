@@ -47,7 +47,7 @@ Describe 'Export-InstalledPlatformPackage' {
         $result.Count | Should -Be 1
         $result[0].Format | Should -Be 'JSON'
         $result[0].Count | Should -Be 2
-        $exportedPackages = @(Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json)
+        $exportedPackages = Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json
         $exportedPackages.Count | Should -Be 2
         ($exportedPackages | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should -Be '2.44.0'
         Assert-MockCalled -CommandName Write-Host -Times 0
