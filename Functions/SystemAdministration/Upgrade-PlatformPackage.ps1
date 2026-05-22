@@ -2980,9 +2980,9 @@ function Upgrade-PlatformPackage
                     LatestVersion = $Package.LatestVersion
                     Status = 'Failed'
                     ExitCode = $result.ExitCode
-                    Message = $message
+                    Message = 'Upgrade failed'
                     CapturedOutput = @($result.Output)
-                    InformationalOutput = @()
+                    InformationalOutput = @($message)
                 }
             }
         }
