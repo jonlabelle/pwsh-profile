@@ -60,30 +60,30 @@ function Update-Profile
             return
         }
 
-        # Get the profile directory (parent of the Functions folder)
-        $profilePath = $PROFILE
-        if (-not $profilePath)
+        # Resolve the repo root from this script's known location (Functions/ProfileManagement/)
+        $profileDirectory = [System.IO.Path]::GetFullPath((Join-Path -Path $PSScriptRoot -ChildPath (Join-Path -Path '..' -ChildPath '..')))
+
+        # Verify the directory is a git repository
+        $gitDir = Join-Path -Path $profileDirectory -ChildPath '.git'
+        if (-not (Test-Path -Path $gitDir))
         {
-            $profilePath = $PSCommandPath
+            Write-Error "Profile directory '$profileDirectory' is not a git repository. Cannot update."
+            return
         }
-
-        $profileDirectory = Split-Path $profilePath -Parent
-
-        # CD to profile directory and update
-        Push-Location -Path $profileDirectory -ErrorAction 'Stop'
 
         try
         {
-            $null = Start-Process -FilePath 'git' -ArgumentList 'pull', '--rebase', '--quiet' -WorkingDirectory $profileDirectory -Wait -NoNewWindow -PassThru
+            & git -C $profileDirectory pull --rebase
+            if ($LASTEXITCODE -ne 0)
+            {
+                Write-Error "git pull failed with exit code $LASTEXITCODE."
+                return
+            }
         }
         catch
         {
             Write-Error "An error occurred while updating the profile: $($_.Exception.Message)"
             return
-        }
-        finally
-        {
-            Pop-Location
         }
 
         Write-Host 'Profile updated successfully! Restart your PowerShell session to reload your profile.' -ForegroundColor Green
