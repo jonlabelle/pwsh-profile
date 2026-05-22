@@ -2760,6 +2760,11 @@ function Show-InstalledPlatformPackage
             $getPlatformPackageParameters.SkipDescriptionEnrichment = $true
         }
 
+        if (-not [String]::IsNullOrWhiteSpace($ExportPath) -and -not $CommandRunner)
+        {
+            Write-Host 'Loading packages...' -ForegroundColor Cyan
+        }
+
         $installedPackages = @(Get-PlatformPackage @getPlatformPackageParameters)
 
         if (-not [String]::IsNullOrWhiteSpace($ExportPath))
