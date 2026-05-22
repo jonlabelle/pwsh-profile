@@ -2393,7 +2393,11 @@ function Show-InstalledPlatformPackage
                                 $packageLine = ('{0} {1} {2} {3} {4} {5}' -f $cursorMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $versionWidth), (Format-PickerCell -Text (Get-PackageTypeDisplay -Type $package.Type) -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
                             }
 
-                            if ($i -eq $cursor)
+                            if ($i -eq $cursor -and $EnableSelection -and $selectedKeys.Contains($pkgKey))
+                            {
+                                $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Yellow
+                            }
+                            elseif ($i -eq $cursor)
                             {
                                 $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Cyan
                             }
