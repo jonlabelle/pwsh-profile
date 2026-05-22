@@ -169,7 +169,31 @@ function Export-InstalledPlatformPackage
                 [String]$ExportPath
             )
 
-            $expandedPath = [Environment]::ExpandEnvironmentVariables($ExportPath.Trim())
+            $expandedPath = $ExportPath.Trim()
+            # Expand %VARIABLE% style (Windows environment variables)
+            $expandedPath = [System.Environment]::ExpandEnvironmentVariables($expandedPath)
+            # Expand $HOME (PowerShell home variable, case-insensitive)
+            $homeMatches = [System.Text.RegularExpressions.Regex]::Matches($expandedPath, '(?i)\$HOME')
+            if ($homeMatches.Count -gt 0)
+            {
+                $homeDir = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::UserProfile)
+                for ($i = $homeMatches.Count - 1; $i -ge 0; $i--)
+                {
+                    $homeMatch = $homeMatches[$i]
+                    $expandedPath = $expandedPath.Remove($homeMatch.Index, $homeMatch.Length).Insert($homeMatch.Index, $homeDir)
+                }
+            }
+            # Expand $env:VARNAME style
+            $envVarMatches = [System.Text.RegularExpressions.Regex]::Matches($expandedPath, '(?i)\$env:([A-Za-z_][A-Za-z0-9_]*)')
+            for ($i = $envVarMatches.Count - 1; $i -ge 0; $i--)
+            {
+                $envVarMatch = $envVarMatches[$i]
+                $varValue = [System.Environment]::GetEnvironmentVariable($envVarMatch.Groups[1].Value)
+                if ($null -ne $varValue)
+                {
+                    $expandedPath = $expandedPath.Remove($envVarMatch.Index, $envVarMatch.Length).Insert($envVarMatch.Index, $varValue)
+                }
+            }
             try
             {
                 $resolvedPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($expandedPath)
@@ -429,7 +453,7 @@ function Export-InstalledPlatformPackage
         $resolvedPath = Resolve-PackageExportPath -ExportPath $Path
         $resolvedFormat = Resolve-PackageExportFormat -ExportPath $resolvedPath -RequestedFormat $Format
 
-        $exportRecords = @()
+        $exportRecords = New-Object 'System.Collections.Generic.List[PSCustomObject]'
         for ($packageIndex = 0; $packageIndex -lt $packageRecords.Count; $packageIndex++)
         {
             if (Test-PackageExportCancelRequested)
@@ -438,7 +462,11 @@ function Export-InstalledPlatformPackage
             }
 
             $packageRecord = $packageRecords[$packageIndex]
-            $exportRecords += ConvertTo-PackageExportRecord -PackageRecord $packageRecord -ResolvedFormat $resolvedFormat -RequestedDependencyMode $DependencyMode -PackageIndex ($packageIndex + 1) -PackageCount $packageRecords.Count -ExportPath $resolvedPath
+            if ($DependencyMode -eq 'None')
+            {
+                Write-PackageExportProgress -PackageRecord $packageRecord -PackageIndex ($packageIndex + 1) -PackageCount $packageRecords.Count -ExportPath $resolvedPath
+            }
+            $exportRecords.Add((ConvertTo-PackageExportRecord -PackageRecord $packageRecord -ResolvedFormat $resolvedFormat -RequestedDependencyMode $DependencyMode -PackageIndex ($packageIndex + 1) -PackageCount $packageRecords.Count -ExportPath $resolvedPath))
         }
 
         switch ($resolvedFormat)
