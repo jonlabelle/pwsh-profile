@@ -3189,7 +3189,7 @@ function Remove-PlatformPackage
 
                             if ($i -eq $cursor -and $selectedKeys.Contains($pkgKey))
                             {
-                                $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Yellow
+                                $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Green
                             }
                             elseif ($i -eq $cursor)
                             {

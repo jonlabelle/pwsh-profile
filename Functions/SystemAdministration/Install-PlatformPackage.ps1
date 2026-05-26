@@ -1939,6 +1939,10 @@ function Install-PlatformPackage
                         {
                             $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor DarkGray
                         }
+                        elseif ($i -eq $cursor -and $selectedKeys.Contains($pkgKey))
+                        {
+                            $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Green
+                        }
                         elseif ($i -eq $cursor)
                         {
                             $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Cyan

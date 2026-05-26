@@ -2826,7 +2826,7 @@ function Find-PlatformPackage
 
                         if ($i -eq $cursor -and $EnableSelection -and $selectedKeys.Contains($pkgKey))
                         {
-                            $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Yellow
+                            $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Green
                         }
                         elseif ($i -eq $cursor)
                         {
