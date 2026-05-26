@@ -37,7 +37,7 @@ Describe 'Upgrade-PlatformPackage' {
             } | ConvertTo-Json -Depth 6 -Compress
 
             $runner = & $script:NewPackageCommandRunner @{
-                'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
+                'brew outdated --json=v2 --greedy' = Get-TestCommandResponse -Output @($brewJson)
             }
 
             $result = @(Upgrade-PlatformPackage -PackageManager brew -SkipRefresh -NonInteractive -CommandRunner $runner)
@@ -69,7 +69,7 @@ Describe 'Upgrade-PlatformPackage' {
             } | ConvertTo-Json -Depth 6 -Compress
 
             $runner = & $script:NewPackageCommandRunner @{
-                'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
+                'brew outdated --json=v2 --greedy' = Get-TestCommandResponse -Output @($brewJson)
             }
 
             $result = @(Upgrade-PlatformPackage -PackageManager brew -SkipRefresh -AsObject -CommandRunner $runner)
@@ -95,7 +95,7 @@ Describe 'Upgrade-PlatformPackage' {
 
             $runner = & $script:NewPackageCommandRunner @{
                 'brew update --quiet' = Get-TestCommandResponse -Output @('brew update output')
-                'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
+                'brew outdated --json=v2 --greedy' = Get-TestCommandResponse -Output @($brewJson)
                 'brew upgrade git' = Get-TestCommandResponse -Output @('brew upgrade git output')
             }
 
@@ -126,7 +126,7 @@ Describe 'Upgrade-PlatformPackage' {
             } | ConvertTo-Json -Depth 6 -Compress
 
             $runner = & $script:NewPackageCommandRunner @{
-                'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
+                'brew outdated --json=v2 --greedy' = Get-TestCommandResponse -Output @($brewJson)
                 'brew upgrade python' = Get-TestCommandResponse -Output @(
                     'Upgrading python...'
                     '==> Caveats'
@@ -157,7 +157,7 @@ Describe 'Upgrade-PlatformPackage' {
             } | ConvertTo-Json -Depth 6 -Compress
 
             $runner = & $script:NewPackageCommandRunner @{
-                'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
+                'brew outdated --json=v2 --greedy' = Get-TestCommandResponse -Output @($brewJson)
                 'brew upgrade git' = Get-TestCommandResponse -ExitCode 42 -Output @()
             }
 
@@ -203,7 +203,7 @@ Describe 'Upgrade-PlatformPackage' {
 
                     $key = "$Command $($Arguments -join ' ')".Trim()
 
-                    if ($key -eq 'brew outdated --json=v2')
+                    if ($key -eq 'brew outdated --json=v2 --greedy')
                     {
                         return [PSCustomObject]@{
                             ExitCode = 0
@@ -299,7 +299,7 @@ Describe 'Upgrade-PlatformPackage' {
             } | ConvertTo-Json -Depth 6 -Compress
 
             $runner = & $script:NewPackageCommandRunner @{
-                'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
+                'brew outdated --json=v2 --greedy' = Get-TestCommandResponse -Output @($brewJson)
                 'brew upgrade git' = Get-TestCommandResponse -Output @('brew upgrade git output')
             }
 
@@ -330,7 +330,7 @@ Describe 'Upgrade-PlatformPackage' {
             } | ConvertTo-Json -Depth 6 -Compress
 
             $runner = & $script:NewPackageCommandRunner @{
-                'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
+                'brew outdated --json=v2 --greedy' = Get-TestCommandResponse -Output @($brewJson)
             }
 
             $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
@@ -366,7 +366,7 @@ Describe 'Upgrade-PlatformPackage' {
             } | ConvertTo-Json -Depth 6 -Compress
 
             $runner = & $script:NewPackageCommandRunner @{
-                'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
+                'brew outdated --json=v2 --greedy' = Get-TestCommandResponse -Output @($brewJson)
             }
 
             $keyReader = {
@@ -391,7 +391,7 @@ Describe 'Upgrade-PlatformPackage' {
             } | ConvertTo-Json -Depth 6 -Compress
 
             $runner = & $script:NewPackageCommandRunner @{
-                'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
+                'brew outdated --json=v2 --greedy' = Get-TestCommandResponse -Output @($brewJson)
                 'brew upgrade git' = Get-TestCommandResponse -Output @('brew upgrade git output')
             }
 
@@ -426,7 +426,7 @@ Describe 'Upgrade-PlatformPackage' {
             } | ConvertTo-Json -Depth 6 -Compress
 
             $runner = & $script:NewPackageCommandRunner @{
-                'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
+                'brew outdated --json=v2 --greedy' = Get-TestCommandResponse -Output @($brewJson)
                 'brew upgrade jq' = Get-TestCommandResponse -Output @('brew upgrade jq output')
             }
 
@@ -791,7 +791,7 @@ Describe 'Upgrade-PlatformPackage' {
             } | ConvertTo-Json -Depth 6 -Compress
 
             $runner = & $script:NewPackageCommandRunner @{
-                'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
+                'brew outdated --json=v2 --greedy' = Get-TestCommandResponse -Output @($brewJson)
             }
 
             $result = @(Upgrade-PlatformPackage -PackageManager brew -SkipRefresh -NonInteractive -IncludePackage 'git*' -ExcludePackage 'git-lfs' -CommandRunner $runner)
@@ -813,7 +813,7 @@ Describe 'Upgrade-PlatformPackage' {
             } | ConvertTo-Json -Depth 6 -Compress
 
             $runner = & $script:NewPackageCommandRunner @{
-                'brew outdated --json=v2' = Get-TestCommandResponse -Output @($brewJson)
+                'brew outdated --json=v2 --greedy' = Get-TestCommandResponse -Output @($brewJson)
             }
 
             $result = Upgrade-PlatformPackage -PackageManager brew -All -WhatIf -CommandRunner $runner

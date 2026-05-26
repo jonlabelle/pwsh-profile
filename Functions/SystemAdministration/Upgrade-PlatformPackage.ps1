@@ -1256,7 +1256,7 @@ function Upgrade-PlatformPackage
                 [PSCustomObject]$Manager
             )
 
-            $result = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments @('outdated', '--json=v2')
+            $result = Invoke-PackageManagerCommand -Command $Manager.Command -Arguments @('outdated', '--json=v2', '--greedy')
             if ($result.ExitCode -ne 0)
             {
                 $message = ($result.Output | Where-Object { -not [String]::IsNullOrWhiteSpace("$($_)") }) -join ' '
