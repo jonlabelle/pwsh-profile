@@ -97,13 +97,12 @@ function Update-Profile
         }
         else
         {
-            $gitOutput | ForEach-Object { Write-Host $_ }
-
             $gitLog = & git -C $profileDirectory log --oneline "${commitBefore}..${commitAfter}" 2>$null
             if ($gitLog)
             {
                 Write-Host ''
-                Write-Host 'Changes pulled:' -ForegroundColor Cyan
+                Write-Host 'Updates:' -ForegroundColor Cyan
+                Write-Host ''
                 foreach ($line in $gitLog)
                 {
                     $cleanLine = $line -replace '^\w+\s+', '' -replace '\s*\([^)]+\)\s*', ''
