@@ -214,6 +214,20 @@ function Export-InstalledPlatformPackage
                 throw "Export directory does not exist: $parentPath"
             }
 
+            if (-not [String]::IsNullOrWhiteSpace($parentPath) -and (Test-Path -LiteralPath $parentPath -PathType Container))
+            {
+                $probeFile = Join-Path -Path $parentPath -ChildPath ([System.IO.Path]::GetRandomFileName())
+                try
+                {
+                    [System.IO.File]::Create($probeFile).Dispose()
+                    Remove-Item -LiteralPath $probeFile -Force -ErrorAction SilentlyContinue
+                }
+                catch
+                {
+                    throw "Export directory is not writable: $parentPath"
+                }
+            }
+
             return $resolvedPath
         }
 

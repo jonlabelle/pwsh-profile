@@ -204,4 +204,90 @@ Describe 'Export-InstalledPlatformPackage' {
         { Export-InstalledPlatformPackage -Package $package -Path $exportPath } |
         Should -Throw -ExpectedMessage '*Export format could not be inferred*'
     }
+
+    It 'uses explicit Format override when path extension is ambiguous' {
+        $package = [PSCustomObject]@{
+            Name = 'git'
+            Id = 'git'
+            PackageManager = 'brew'
+            PackageManagerDisplayName = 'Homebrew'
+            Type = 'Formula'
+            InstalledVersion = '2.44.0'
+            Source = 'homebrew/formula'
+            Publisher = 'Homebrew'
+            Description = ''
+            Notes = ''
+        }
+
+        $exportPath = Join-Path -Path $TestDrive -ChildPath 'packages'
+        $result = @(Export-InstalledPlatformPackage -Package $package -Path $exportPath -Format Csv)
+
+        $result.Count | Should -Be 1
+        $result[0].Format | Should -Be 'CSV'
+        Test-Path -LiteralPath $exportPath | Should -BeTrue
+        $exportedPackages = @(Import-Csv -LiteralPath $exportPath)
+        $exportedPackages.Count | Should -Be 1
+        $exportedPackages[0].Name | Should -Be 'git'
+    }
+
+    It 'uses explicit Format Json override even when path has a csv extension' {
+        $package = [PSCustomObject]@{
+            Name = 'curl'
+            Id = 'curl'
+            PackageManager = 'brew'
+            PackageManagerDisplayName = 'Homebrew'
+            Type = 'Formula'
+            InstalledVersion = '8.7.1'
+            Source = 'homebrew/formula'
+            Publisher = 'Homebrew'
+            Description = ''
+            Notes = ''
+        }
+
+        $exportPath = Join-Path -Path $TestDrive -ChildPath 'packages.csv'
+        $result = @(Export-InstalledPlatformPackage -Package $package -Path $exportPath -Format Json)
+
+        $result.Count | Should -Be 1
+        $result[0].Format | Should -Be 'JSON'
+        $exportedJson = Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json
+        $exportedJson | Should -Not -BeNullOrEmpty
+    }
+
+    It 'throws when path points to an existing directory' {
+        $package = [PSCustomObject]@{
+            Name = 'git'
+            Id = 'git'
+            PackageManager = 'brew'
+            PackageManagerDisplayName = 'Homebrew'
+            Type = 'Formula'
+            InstalledVersion = '2.44.0'
+            Source = 'homebrew/formula'
+            Publisher = 'Homebrew'
+            Description = ''
+            Notes = ''
+        }
+
+        { Export-InstalledPlatformPackage -Package $package -Path $TestDrive } |
+        Should -Throw -ExpectedMessage '*points to a directory*'
+    }
+
+    It 'throws when the parent directory does not exist' {
+        $package = [PSCustomObject]@{
+            Name = 'git'
+            Id = 'git'
+            PackageManager = 'brew'
+            PackageManagerDisplayName = 'Homebrew'
+            Type = 'Formula'
+            InstalledVersion = '2.44.0'
+            Source = 'homebrew/formula'
+            Publisher = 'Homebrew'
+            Description = ''
+            Notes = ''
+        }
+
+        $exportPath = Join-Path -Path (Join-Path -Path $TestDrive -ChildPath 'nonexistent-dir') -ChildPath 'packages.json'
+
+        { Export-InstalledPlatformPackage -Package $package -Path $exportPath } |
+        Should -Throw -ExpectedMessage '*Export directory does not exist*'
+    }
 }
