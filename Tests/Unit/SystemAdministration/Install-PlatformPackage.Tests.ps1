@@ -89,7 +89,7 @@ Describe 'Install-PlatformPackage' {
             $result.Selected | Should -Be 1
             $result.Installed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew install --cask visual-studio-code' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter install  V details  A all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter install  V details  A toggle all' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  1 selected" -and $ForegroundColor -eq 'White' } -Times 1
         }
 
@@ -110,7 +110,7 @@ Describe 'Install-PlatformPackage' {
             $result.NotSelected | Should -Be 0
             $result.Installed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew install git' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter install  V details  A all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter install  V details  A toggle all' } -Times 1
         }
 
         It 'shows keyboard help from the query result picker' {

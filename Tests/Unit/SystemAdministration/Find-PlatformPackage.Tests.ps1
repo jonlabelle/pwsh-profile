@@ -340,7 +340,7 @@ Describe 'Find-PlatformPackage' {
 
             $result.Count | Should -Be 0
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: git' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  I install  V details  A all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  I install  V details  A toggle all' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "1-3 of 3 visible  $([char]0x00B7)  3 total  $([char]0x00B7)  0 selected  $([char]0x00B7)  source: All" -and $ForegroundColor -eq 'White' } -Times 1
             @($script:HostOutputRecords | Where-Object { $_.ForegroundColor -eq [ConsoleColor]::DarkGray -and $_.Object -like '*git*' }).Count | Should -BeGreaterOrEqual 2
             @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 4
@@ -428,7 +428,7 @@ Describe 'Find-PlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  I install  V details  A all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  I install  V details  A toggle all' } -Times 1
         }
 
         It 'opens the result picker with the requested source filter' {
@@ -561,7 +561,7 @@ Describe 'Find-PlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  I install  V details  A all' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  I install  V details  A toggle all' } -Times 1
         }
 
         It 'installs the selected package from the interactive browser' {

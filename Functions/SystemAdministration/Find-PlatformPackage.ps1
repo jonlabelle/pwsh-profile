@@ -2592,7 +2592,7 @@ function Find-PlatformPackage
                     Write-Host ''
                     Write-Host 'Selection' -ForegroundColor White
                     Write-PackagePickerHelpItem -Shortcut 'Space' -Description 'select or clear the current package'
-                    Write-PackagePickerHelpItem -Shortcut 'A' -Description 'toggle all visible packages'
+                    Write-PackagePickerHelpItem -Shortcut 'A' -Description 'select or clear all visible packages'
                 }
 
                 if ($EnableReturnSelection)
@@ -2711,11 +2711,11 @@ function Find-PlatformPackage
                     )
                     if ($EnableSelection -and $EnableReturnSelection)
                     {
-                        $frameLines += Format-PickerFrameLine -Text 'Keys: Space select  Enter return  I install  V details  A all' -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text 'Keys: Space select  Enter return  I install  V details  A toggle all' -ForegroundColor DarkGray
                     }
                     elseif ($EnableSelection)
                     {
-                        $frameLines += Format-PickerFrameLine -Text 'Keys: Space select  I install  V details  A all' -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text 'Keys: Space select  I install  V details  A toggle all' -ForegroundColor DarkGray
                     }
                     else
                     {

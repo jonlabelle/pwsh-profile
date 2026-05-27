@@ -1747,7 +1747,7 @@ function Install-PlatformPackage
                 Write-Host ''
                 Write-Host 'Selection' -ForegroundColor White
                 Write-PackagePickerHelpItem -Shortcut 'Space' -Description 'select or clear the current package'
-                Write-PackagePickerHelpItem -Shortcut 'A' -Description 'toggle all visible packages'
+                Write-PackagePickerHelpItem -Shortcut 'A' -Description 'select or clear all visible packages'
                 Write-PackagePickerHelpItem -Shortcut 'Enter' -Description 'install selected packages, or the current package if none are selected'
 
                 if ($hasSourceFilter)
@@ -1864,7 +1864,7 @@ function Install-PlatformPackage
 
                     $sourceHint = if ($hasSourceFilter) { "S: [$($availableSources[$sourceFilterIndex])]  " } else { '' }
                     $sourceSummary = if ($hasSourceFilter) { "source: $($availableSources[$sourceFilterIndex])" } else { '' }
-                    $selectionHint = 'Keys: Space select  Enter install  V details  A all'
+                    $selectionHint = 'Keys: Space select  Enter install  V details  A toggle all'
                     $navigationHint = "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel"
                     $frameLines = @(
                         (Format-PickerFrameLine -Text "Install-PlatformPackage - $($allPackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)

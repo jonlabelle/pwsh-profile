@@ -2481,7 +2481,7 @@ function Upgrade-PlatformPackage
                 Write-Host ''
                 Write-Host 'Selection' -ForegroundColor White
                 Write-PackagePickerHelpItem -Shortcut 'Space' -Description 'select or clear the current package'
-                Write-PackagePickerHelpItem -Shortcut 'A' -Description 'toggle all visible packages'
+                Write-PackagePickerHelpItem -Shortcut 'A' -Description 'select or clear all visible packages'
                 Write-PackagePickerHelpItem -Shortcut 'Enter' -Description 'upgrade selected packages'
 
                 if ($showUninstallPrevious)
@@ -2590,11 +2590,11 @@ function Upgrade-PlatformPackage
                     $nameFilterHintValue = if ([String]::IsNullOrWhiteSpace($nameFilterText)) { 'all' } else { $nameFilterText }
                     $selectionHint = if ($showUninstallPrevious)
                     {
-                        "Keys: Space select  U uninstall previous  Enter upgrade  V details  A all  F: [$nameFilterHintValue]"
+                        "Keys: Space select  U uninstall previous  Enter upgrade  V details  A toggle all  F: [$nameFilterHintValue]"
                     }
                     else
                     {
-                        "Keys: Space select  Enter upgrade  V details  A all  F: [$nameFilterHintValue]"
+                        "Keys: Space select  Enter upgrade  V details  A toggle all  F: [$nameFilterHintValue]"
                     }
                     $filterSummary = @()
                     if (-not [String]::IsNullOrWhiteSpace($nameFilterText))
