@@ -162,11 +162,7 @@ Describe 'Get-PlatformPackage' {
             $result[0].Name | Should -Be 'Git'
         }
 
-        It 'falls back to winget table output when JSON returns an empty package list' {
-            $wingetJson = @{
-                Sources = @()
-            } | ConvertTo-Json -Depth 4 -Compress
-
+        It 'falls back to winget table output when the JSON command fails' {
             $tableOutput = @(
                 'Name                                Id                  Version     Available Source'
                 '-----------------------------------------------------------------------------------------------------------'
