@@ -281,7 +281,7 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A all  F: [all]" } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A toggle all  F: [all]" } -Times 1
         }
 
         It 'returns the current package when PassThru is used without a selection' {
@@ -298,7 +298,7 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A all  F: [all]" } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A toggle all  F: [all]" } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Nav: S: [All]  Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" } -Times 1
         }
 

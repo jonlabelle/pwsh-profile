@@ -1531,7 +1531,7 @@ function Show-InstalledPlatformPackage
                 if ($EnableSelection)
                 {
                     Write-PackagePickerHelpItem -Shortcut 'Space' -Description 'select or clear the current package'
-                    Write-PackagePickerHelpItem -Shortcut 'A' -Description 'toggle all visible packages'
+                    Write-PackagePickerHelpItem -Shortcut 'A' -Description 'select or clear all visible packages'
                     Write-PackagePickerHelpItem -Shortcut 'Enter' -Description 'return selected packages, or the current package if none are selected'
                 }
 
@@ -2287,7 +2287,7 @@ function Show-InstalledPlatformPackage
                                 $filterSummary += "source: $($availableSources[$sourceFilterIndex])"
                             }
                             $frameLines += Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedKeys.Count -FilterText ($filterSummary -join "  $([char]0x00B7)  ")) -ForegroundColor White
-                            $frameLines += Format-PickerFrameLine -Text "Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A all  F: [$nameFilterHintValue]" -ForegroundColor DarkGray
+                            $frameLines += Format-PickerFrameLine -Text "Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A toggle all  F: [$nameFilterHintValue]" -ForegroundColor DarkGray
                             $frameLines += Format-PickerFrameLine -Text "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" -ForegroundColor DarkGray
                             if ($ReturnToPlatformPackageManagerOnBackKey)
                             {
@@ -2802,7 +2802,8 @@ function Show-InstalledPlatformPackage
 
         if ($installedPackages.Count -eq 0)
         {
-            Write-Host 'No installed packages matched the requested filters.' -ForegroundColor White
+            $hasInputFilter = $Name.Count -gt 0 -or $ExcludePackage.Count -gt 0 -or -not [String]::IsNullOrWhiteSpace($FilterSource)
+            Write-Host (if ($hasInputFilter) { 'No installed packages matched the requested filters.' } else { 'No installed packages found.' }) -ForegroundColor White
             return @()
         }
 

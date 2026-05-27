@@ -2774,7 +2774,7 @@ function Remove-PlatformPackage
                 Write-Host ''
                 Write-Host 'Selection' -ForegroundColor White
                 Write-PackagePickerHelpItem -Shortcut 'Space' -Description 'select or clear the current package'
-                Write-PackagePickerHelpItem -Shortcut 'A' -Description 'toggle all visible packages'
+                Write-PackagePickerHelpItem -Shortcut 'A' -Description 'select or clear all visible packages'
                 Write-PackagePickerHelpItem -Shortcut 'Enter' -Description 'remove selected packages, or the current package if none are selected'
 
                 if ($showPurge)
@@ -3071,11 +3071,11 @@ function Remove-PlatformPackage
                     {
                         $selectionHint = if ($showPurge)
                         {
-                            "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A all  F: [$nameFilterHintValue]"
+                            "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A toggle all  F: [$nameFilterHintValue]"
                         }
                         else
                         {
-                            "Keys: Space select  Enter remove  D deps  V details  A all  F: [$nameFilterHintValue]"
+                            "Keys: Space select  Enter remove  D deps  V details  A toggle all  F: [$nameFilterHintValue]"
                         }
                         $filterSummary = @()
                         if (-not [String]::IsNullOrWhiteSpace($nameFilterText))
@@ -3584,7 +3584,8 @@ function Remove-PlatformPackage
 
         if ($installedPackages.Count -eq 0)
         {
-            Write-Host 'No installed packages matched the requested filters.' -ForegroundColor White
+            $hasInputFilter = $IncludePackage.Count -gt 0 -or $ExcludePackage.Count -gt 0 -or -not [String]::IsNullOrWhiteSpace($FilterSource)
+            Write-Host (if ($hasInputFilter) { 'No installed packages matched the requested filters.' } else { 'No installed packages found.' }) -ForegroundColor White
             return [PSCustomObject]@{
                 PackageManager = $manager.Name
                 PackageManagerDisplayName = $manager.DisplayName

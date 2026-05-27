@@ -241,5 +241,39 @@ Describe 'Get-PlatformPackageDependency' {
             $result[0].Id | Should -Be 'git'
             $result[0].RelatedPackage | Should -Be 'gettext'
         }
+
+        It 'returns empty when brew reports no dependencies for a package' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew deps --direct --formula wget' = Get-TestCommandResponse -Output @()
+            }
+
+            $package = [PSCustomObject]@{
+                Name = 'wget'
+                Id = 'wget'
+                Type = 'Formula'
+            }
+
+            $result = @($package | Get-PlatformPackageDependency -PackageManager brew -CommandRunner $runner)
+
+            $result.Count | Should -Be 0
+        }
+
+        It 'returns dependency records for each package when multiple packages are piped' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew deps --direct --formula git' = Get-TestCommandResponse -Output @('gettext', 'pcre2')
+                'brew deps --direct --formula curl' = Get-TestCommandResponse -Output @('openssl@3', 'zstd')
+            }
+
+            $packages = @(
+                [PSCustomObject]@{ Name = 'git'; Id = 'git'; Type = 'Formula' }
+                [PSCustomObject]@{ Name = 'curl'; Id = 'curl'; Type = 'Formula' }
+            )
+
+            $result = @($packages | Get-PlatformPackageDependency -PackageManager brew -CommandRunner $runner)
+
+            $result.Count | Should -Be 4
+            ($result | Where-Object { $_.Package -eq 'git' }).Count | Should -Be 2
+            ($result | Where-Object { $_.Package -eq 'curl' }).Count | Should -Be 2
+        }
     }
 }

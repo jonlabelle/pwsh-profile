@@ -834,7 +834,8 @@ function Show-PlatformPackageManager
             }
 
             $flagText = if ($flags.Count -gt 0) { $flags -join ', ' } else { 'none' }
-            return "Manager: $managerText | Search limit: $Top | Flags: $flagText"
+            $dot = [char]0x00B7
+            return "Manager: $managerText  $dot  Top: $Top  $dot  Flags: $flagText"
         }
 
         function Test-PlatformPackageManagerCommandAvailable
@@ -1203,7 +1204,7 @@ function Show-PlatformPackageManager
                     Write-Host ''
                 }
 
-                Write-Host 'Any key: return to menu  Q/Esc: quit  ?: help' -ForegroundColor DarkGray
+                Write-Host 'Any key: return to menu  Q/Esc/Ctrl+C: quit  ?: help' -ForegroundColor DarkGray
 
                 $isQuit = $false
                 if ($KeyReader -or -not $PromptReader)

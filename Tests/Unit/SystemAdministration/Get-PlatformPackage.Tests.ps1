@@ -118,5 +118,66 @@ Describe 'Get-PlatformPackage' {
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
         }
+
+        It 'returns empty when brew list output is empty' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = Get-TestCommandResponse -Output @()
+                'brew list --cask --versions' = Get-TestCommandResponse -Output @()
+            }
+
+            $result = @(Get-PlatformPackage -PackageManager brew -CommandRunner $runner)
+
+            $result.Count | Should -Be 0
+        }
+
+        It 'excludes winget packages matched by wildcard ExcludePackage pattern' {
+            $wingetJson = @{
+                Sources = @(
+                    @{
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.45.1'
+                                Source = 'winget'
+                            }
+                            @{
+                                PackageName = 'GitHub Desktop'
+                                PackageIdentifier = 'GitHub.GitHubDesktop'
+                                Version = '3.3.6'
+                                Source = 'winget'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget list --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetJson)
+            }
+
+            $result = @(Get-PlatformPackage -PackageManager winget -ExcludePackage '*Desktop*' -SkipDescriptionEnrichment -CommandRunner $runner)
+
+            $result.Count | Should -Be 1
+            $result[0].Name | Should -Be 'Git'
+        }
+
+        It 'falls back to winget table output when the JSON command fails' {
+            $tableOutput = @(
+                'Name                                Id                  Version     Available Source'
+                '-----------------------------------------------------------------------------------------------------------'
+                'Git                                 Git.Git             2.45.1                winget'
+            )
+
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget list --accept-source-agreements --output json' = Get-TestCommandResponse -ExitCode 1 -Output @()
+                'winget list --accept-source-agreements' = Get-TestCommandResponse -Output $tableOutput
+            }
+
+            $result = @(Get-PlatformPackage -PackageManager winget -SkipDescriptionEnrichment -CommandRunner $runner)
+
+            $result.Count | Should -Be 1
+            $result[0].Name | Should -Be 'Git'
+        }
     }
 }
