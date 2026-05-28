@@ -657,7 +657,7 @@ function Convert-LineEnding
                 {
                     return @{
                         IsBinary = $false
-                        SourceEncoding = [System.Text.Encoding]::UTF8
+                        SourceEncoding = New-Object System.Text.UTF8Encoding($false)
                         NeedsLineEndingConversion = $false
                         NeedsEncodingConversion = $false
                         NeedsEndingNewline = $CheckEndingNewline
@@ -815,11 +815,10 @@ function Convert-LineEnding
                         # For UTF-32, look for line endings in 4-byte patterns
                         # Start after BOM (4 bytes for UTF-32)
                         $startPos = if ($sourceEncoding.GetPreamble().Length -gt 0) { 4 } else { 0 }
+                        $utf32Preamble = $sourceEncoding.GetPreamble()
+                        $isBigEndian = $utf32Preamble.Length -eq 4 -and $utf32Preamble[0] -eq 0x00 -and $utf32Preamble[1] -eq 0x00 -and $utf32Preamble[2] -eq 0xFE -and $utf32Preamble[3] -eq 0xFF
                         for ($i = $startPos; $i -lt ($bytesRead - 3); $i += 4)
                         {
-                            $preamble = $sourceEncoding.GetPreamble()
-                            $isBigEndian = $preamble.Length -eq 4 -and $preamble[0] -eq 0x00 -and $preamble[1] -eq 0x00 -and $preamble[2] -eq 0xFE -and $preamble[3] -eq 0xFF
-
                             if ($isBigEndian)
                             {
                                 # UTF-32 BE: look for 00 00 00 0A (LF) or 00 00 00 0D (CR)
@@ -1092,349 +1091,6 @@ function Convert-LineEnding
             return ($sourceType -eq $targetType) -and ($sourceBomLength -eq $targetBomLength)
         }
 
-        function Test-BinaryFile
-        {
-            param(
-                [String]$FilePath
-            )
-
-            try
-            {
-                # First check file extension
-                $extension = [System.IO.Path]::GetExtension($FilePath).ToLower()
-
-                if ($binaryExtensions -contains $extension)
-                {
-                    Write-Verbose "File '$FilePath' detected as binary by extension: $extension"
-                    return $true
-                }
-
-                # Content-based detection for files without clear extensions
-                $buffer = New-Object byte[] 8192
-                $stream = [System.IO.File]::OpenRead($FilePath)
-                try
-                {
-                    $bytesRead = $stream.Read($buffer, 0, $buffer.Length)
-                    if ($bytesRead -eq 0)
-                    {
-                        return $false  # Empty file is not binary
-                    }
-
-                    # Perform checks for text encoding patterns first to avoid false positives
-
-                    # UTF-32 LE BOM: FF FE 00 00 (check before UTF-16 LE to avoid conflict)
-                    $hasUtf32LeBom = $bytesRead -ge 4 -and $buffer[0] -eq 0xFF -and $buffer[1] -eq 0xFE -and $buffer[2] -eq 0x00 -and $buffer[3] -eq 0x00
-
-                    # UTF-32 BE BOM: 00 00 FE FF
-                    $hasUtf32BeBom = $bytesRead -ge 4 -and $buffer[0] -eq 0x00 -and $buffer[1] -eq 0x00 -and $buffer[2] -eq 0xFE -and $buffer[3] -eq 0xFF
-
-                    # UTF-16 LE BOM: FF FE (check after UTF-32 LE to avoid conflict)
-                    $hasUtf16LeBom = $bytesRead -ge 2 -and $buffer[0] -eq 0xFF -and $buffer[1] -eq 0xFE -and -not $hasUtf32LeBom
-
-                    # UTF-16 BE BOM: FE FF
-                    $hasUtf16BeBom = $bytesRead -ge 2 -and $buffer[0] -eq 0xFE -and $buffer[1] -eq 0xFF
-
-                    # If we detect UTF-32 encoding, analyze accordingly
-                    if ($hasUtf32LeBom -or $hasUtf32BeBom)
-                    {
-                        Write-Verbose "File '$FilePath' has UTF-32 BOM, analyzing as UTF-32 text"
-                        # For UTF-32, check every 4 bytes starting from position 4 (after BOM)
-                        $printableCount = 0
-                        $totalChars = 0
-                        $startPos = 4
-
-                        for ($i = $startPos; $i -lt $bytesRead - 3; $i += 4)
-                        {
-                            $char = if ($hasUtf32LeBom)
-                            {
-                                $buffer[$i] + ($buffer[$i + 1] * 256) + ($buffer[$i + 2] * 65536) + ($buffer[$i + 3] * 16777216)
-                            }
-                            else
-                            {
-                                ($buffer[$i] * 16777216) + ($buffer[$i + 1] * 65536) + ($buffer[$i + 2] * 256) + $buffer[$i + 3]
-                            }
-
-                            $totalChars++
-                            # Check if character is printable (including common whitespace and extended Unicode)
-                            if (($char -ge 32 -and $char -le 126) -or $char -eq 9 -or $char -eq 10 -or $char -eq 13 -or ($char -ge 128 -and $char -le 0x10FFFF))
-                            {
-                                $printableCount++
-                            }
-                        }
-
-                        if ($totalChars -gt 0)
-                        {
-                            $printableRatio = $printableCount / $totalChars
-                            if ($printableRatio -lt 0.75)
-                            {
-                                Write-Verbose "File '$FilePath' detected as binary (low UTF-32 printable character ratio: $([math]::Round($printableRatio * 100, 1))%)"
-                                return $true
-                            }
-                        }
-                        return $false
-                    }
-                    # If we detect UTF-16 encoding (common with PowerShell Out-File), analyze accordingly
-                    elseif ($hasUtf16LeBom -or $hasUtf16BeBom)
-                    {
-                        Write-Verbose "File '$FilePath' has UTF-16 BOM, analyzing as UTF-16 text"
-
-                        # For UTF-16, check every other byte starting from position 2 (after BOM)
-                        $printableCount = 0
-                        $totalChars = 0
-                        $startPos = if ($hasUtf16LeBom -or $hasUtf16BeBom) { 2 } else { 0 }
-
-                        for ($i = $startPos; $i -lt $bytesRead - 1; $i += 2)
-                        {
-                            $char = if ($hasUtf16LeBom)
-                            {
-                                $buffer[$i] + ($buffer[$i + 1] * 256)
-                            }
-                            else
-                            {
-                                ($buffer[$i] * 256) + $buffer[$i + 1]
-                            }
-
-                            $totalChars++
-
-                            # Check if character is printable (including common whitespace)
-                            if (($char -ge 32 -and $char -le 126) -or $char -eq 9 -or $char -eq 10 -or $char -eq 13 -or ($char -ge 128 -and $char -le 255))
-                            {
-                                $printableCount++
-                            }
-                        }
-
-                        if ($totalChars -gt 0)
-                        {
-                            $printableRatio = $printableCount / $totalChars
-                            if ($printableRatio -lt 0.75)
-                            {
-                                Write-Verbose "File '$FilePath' detected as binary (low UTF-16 printable character ratio: $([math]::Round($printableRatio * 100, 1))%)"
-                                return $true
-                            }
-                        }
-                        return $false
-                    }
-
-                    # Check for potential UTF-16 without BOM (look for alternating null bytes pattern)
-                    if ($bytesRead -ge 4)
-                    {
-                        $nullByteCount = 0
-                        $alternatingNullPattern = $true
-
-                        # Check first 100 bytes for alternating null pattern (UTF-16 LE)
-                        $checkLength = [Math]::Min(100, $bytesRead)
-                        for ($i = 1; $i -lt $checkLength; $i += 2)
-                        {
-                            if ($buffer[$i] -eq 0)
-                            {
-                                $nullByteCount++
-                            }
-                            else
-                            {
-                                $alternatingNullPattern = $false
-                            }
-                        }
-
-                        # If more than 80% of even positions are null, likely UTF-16 LE
-                        if ($alternatingNullPattern -and $nullByteCount -gt ($checkLength / 2) * 0.8)
-                        {
-                            Write-Verbose "File '$FilePath' appears to be UTF-16 LE without BOM (alternating null pattern)"
-
-                            # Analyze as UTF-16 LE
-                            $printableCount = 0
-                            $totalChars = 0
-
-                            for ($i = 0; $i -lt $bytesRead - 1; $i += 2)
-                            {
-                                $char = $buffer[$i] + ($buffer[$i + 1] * 256)
-                                $totalChars++
-                                if (($char -ge 32 -and $char -le 126) -or $char -eq 9 -or $char -eq 10 -or $char -eq 13 -or ($char -ge 128 -and $char -le 255))
-                                {
-                                    $printableCount++
-                                }
-                            }
-
-                            if ($totalChars -gt 0)
-                            {
-                                $printableRatio = $printableCount / $totalChars
-                                if ($printableRatio -lt 0.75)
-                                {
-                                    Write-Verbose "File '$FilePath' detected as binary (low UTF-16 printable character ratio: $([math]::Round($printableRatio * 100, 1))%)"
-                                    return $true
-                                }
-                            }
-                            return $false
-                        }
-                    }
-
-                    # For other encodings, first try to validate as UTF-8
-                    try
-                    {
-                        $utf8NoBom = New-Object System.Text.UTF8Encoding($false, $true) # Strict UTF-8 validation
-                        $decoded = $utf8NoBom.GetString($buffer, 0, $bytesRead)
-
-                        # If we successfully decoded as UTF-8, check the decoded string for printable characters
-                        $printableCount = 0
-                        foreach ($char in $decoded.ToCharArray())
-                        {
-                            $charCode = [int]$char
-                            # Printable Unicode characters: basic ASCII printable (32-126), common whitespace (9,10,13),
-                            # and other Unicode characters (128+, but exclude control characters 127-159)
-                            if (($charCode -ge 32 -and $charCode -le 126) -or
-                                $charCode -eq 9 -or $charCode -eq 10 -or $charCode -eq 13 -or
-                                ($charCode -ge 160)) # Unicode characters above control range
-                            {
-                                $printableCount++
-                            }
-                        }
-
-                        $printableRatio = if ($decoded.Length -gt 0) { $printableCount / $decoded.Length } else { 1.0 }
-                        if ($printableRatio -ge 0.75)
-                        {
-                            Write-Verbose "File '$FilePath' validated as UTF-8 text (printable character ratio: $([math]::Round($printableRatio * 100, 1))%)"
-                            return $false
-                        }
-                        else
-                        {
-                            Write-Verbose "File '$FilePath' is valid UTF-8 but has low printable character ratio: $([math]::Round($printableRatio * 100, 1))%"
-                        }
-                    }
-                    catch
-                    {
-                        # Not valid UTF-8, fall back to byte-level analysis
-                        Write-Verbose "File '$FilePath' is not valid UTF-8, performing byte-level analysis: $($_.Exception.Message)"
-                    }
-
-                    # Fall back to byte-level analysis for non-UTF-8 files
-                    # Check for null bytes (but be more selective)
-                    $nullByteCount = 0
-                    for ($i = 0; $i -lt $bytesRead; $i++)
-                    {
-                        if ($buffer[$i] -eq 0)
-                        {
-                            $nullByteCount++
-                        }
-                    }
-
-                    # If more than 10% of bytes are null (and not UTF-16), likely binary
-                    if ($nullByteCount -gt ($bytesRead * 0.1))
-                    {
-                        Write-Verbose "File '$FilePath' detected as binary (contains $nullByteCount null bytes out of $bytesRead total)"
-                        return $true
-                    }
-
-                    # Check ratio of printable characters for non-UTF-8 files (ASCII/ANSI)
-                    $printableCount = 0
-                    for ($i = 0; $i -lt $bytesRead; $i++)
-                    {
-                        $byte = $buffer[$i]
-                        # Only count ASCII printable and common whitespace for byte-level analysis
-                        # Don't assume extended ASCII (128-255) is printable without proper encoding context
-                        if (($byte -ge 32 -and $byte -le 126) -or $byte -eq 9 -or $byte -eq 10 -or $byte -eq 13)
-                        {
-                            $printableCount++
-                        }
-                    }
-
-                    $printableRatio = $printableCount / $bytesRead
-                    if ($printableRatio -lt 0.60) # Lower threshold for ASCII-only analysis
-                    {
-                        Write-Verbose "File '$FilePath' detected as binary (low ASCII printable character ratio: $([math]::Round($printableRatio * 100, 1))%)"
-                        return $true
-                    }
-
-                    return $false
-                }
-                finally
-                {
-                    $stream.Close()
-                }
-            }
-            catch
-            {
-                Write-Verbose "Error analyzing file '$FilePath': $($_.Exception.Message)"
-                return $true  # Assume binary if we can't analyze
-            }
-        }
-
-        function Test-LineEndingConversionNeeded
-        {
-            param(
-                [String]$FilePath,
-                [String]$TargetLineEnding
-            )
-
-            try
-            {
-                $stream = [System.IO.File]::OpenRead($FilePath)
-                try
-                {
-                    if ($stream.Length -eq 0)
-                    {
-                        return $false  # Empty files don't need conversion
-                    }
-
-                    # Sample first 64KB for performance (most files are smaller)
-                    $sampleSize = [Math]::Min($stream.Length, 65536)
-                    $buffer = New-Object byte[] $sampleSize
-                    $bytesRead = $stream.Read($buffer, 0, $sampleSize)
-
-                    $hasLF = $false
-                    $hasCRLF = $false
-
-                    for ($i = 0; $i -lt $bytesRead; $i++)
-                    {
-                        if ($buffer[$i] -eq 13) # CR
-                        {
-                            if ($i + 1 -lt $bytesRead -and $buffer[$i + 1] -eq 10) # LF
-                            {
-                                $hasCRLF = $true
-                                $i++ # Skip next LF
-                            }
-                            else
-                            {
-                                $hasLF = $true # Standalone CR treated as line ending
-                            }
-                        }
-                        elseif ($buffer[$i] -eq 10) # Standalone LF
-                        {
-                            $hasLF = $true
-                        }
-
-                        # Early exit if we found mixed endings or the "wrong" type
-                        if ($TargetLineEnding -eq "`n" -and $hasCRLF)
-                        {
-                            return $true # Need conversion: found CRLF when targeting LF
-                        }
-                        elseif ($TargetLineEnding -eq "`r`n" -and $hasLF)
-                        {
-                            return $true # Need conversion: found LF when targeting CRLF
-                        }
-                    }
-
-                    # If we reached here without early exit, check final state
-                    if ($TargetLineEnding -eq "`n") # LF target
-                    {
-                        return $hasCRLF # Need conversion if any CRLF found
-                    }
-                    else # CRLF target
-                    {
-                        return $hasLF # Need conversion if any standalone LF/CR found
-                    }
-                }
-                finally
-                {
-                    $stream.Close()
-                }
-            }
-            catch
-            {
-                Write-Verbose "Error checking line endings for '$FilePath': $($_.Exception.Message)"
-                # If we can't determine, assume conversion is needed for safety
-                return $true
-            }
-        }
-
         function Test-FileEndsWithNewline
         {
             param(
@@ -1504,7 +1160,7 @@ function Convert-LineEnding
                 [Hashtable]$OriginalTimestamps = $null
             )
 
-            $tempFilePath = "$FilePath.tmp"
+            $tempFilePath = "$FilePath.$([System.IO.Path]::GetRandomFileName()).tmp"
             $originalLfCount = 0
             $originalCrlfCount = 0
             $newLfCount = 0
@@ -1773,12 +1429,6 @@ function Convert-LineEnding
                         {
                             $needsEndingNewline = $true
                         }
-                        # If file originally ended with newline but we have content in buffer,
-                        # it means the file didn't end with a line ending after our conversion
-                        elseif ($lineBuffer.Length -gt 0)
-                        {
-                            $needsEndingNewline = $true
-                        }
 
                         if ($needsEndingNewline)
                         {
@@ -2041,10 +1691,10 @@ function Convert-LineEnding
                                 $result = [PSCustomObject]@{
                                     FilePath = $file.FullName
                                     LineEnding = $LineEnding
-                                    OriginalLF = if ($LineEnding -eq 'LF') { 1 } else { 0 }
-                                    OriginalCRLF = if ($LineEnding -eq 'CRLF') { 1 } else { 0 }
-                                    NewLF = if ($LineEnding -eq 'LF') { 1 } else { 0 }
-                                    NewCRLF = if ($LineEnding -eq 'CRLF') { 1 } else { 0 }
+                                    OriginalLF = 0
+                                    OriginalCRLF = 0
+                                    NewLF = 0
+                                    NewCRLF = 0
                                     SourceEncoding = $sourceEncoding.EncodingName
                                     TargetEncoding = $sourceEncoding.EncodingName
                                     EncodingChanged = $false
@@ -2154,10 +1804,10 @@ function Convert-LineEnding
                             $result = [PSCustomObject]@{
                                 FilePath = $resolvedPath
                                 LineEnding = $LineEnding
-                                OriginalLF = if ($LineEnding -eq 'LF') { 1 } else { 0 }
-                                OriginalCRLF = if ($LineEnding -eq 'CRLF') { 1 } else { 0 }
-                                NewLF = if ($LineEnding -eq 'LF') { 1 } else { 0 }
-                                NewCRLF = if ($LineEnding -eq 'CRLF') { 1 } else { 0 }
+                                OriginalLF = 0
+                                OriginalCRLF = 0
+                                NewLF = 0
+                                NewCRLF = 0
                                 SourceEncoding = $sourceEncoding.EncodingName
                                 TargetEncoding = $sourceEncoding.EncodingName
                                 EncodingChanged = $false
