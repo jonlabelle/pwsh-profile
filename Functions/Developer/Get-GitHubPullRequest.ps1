@@ -159,6 +159,13 @@ function Get-GitHubPullRequest
         Retrieves open pull requests authored by octocat in repositories owned by octo-org, using an
         explicit token.
 
+    .EXAMPLE
+        PS > Get-GitHubPullRequest -State Merged -Author 'some-github-username' -Organization 'some-github-org' |
+        Select-Object -ExpandProperty PullRequests |
+        Export-Csv -Path 'merged-pull-requests.csv' -UseQuotes AsNeeded
+
+        Retrieves merged pull requests by author and organization and exports the results to a CSV file.
+
     .OUTPUTS
         GitHub.PullRequestSearch
 
