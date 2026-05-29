@@ -41,7 +41,7 @@ Describe 'Remove-PythonArtifact' {
 
         It 'Should write an error for a non-existent path' {
             $err = $null
-            Remove-PythonArtifact -Path '/nonexistent/path/xyz123' -ErrorVariable err 2>&1 | Out-Null
+            $null = Remove-PythonArtifact -Path '/nonexistent/path/xyz123' -ErrorAction SilentlyContinue -ErrorVariable err
             $err | Should -Not -BeNullOrEmpty
         }
     }
@@ -68,7 +68,7 @@ Describe 'Remove-PythonArtifact' {
         It 'Should remove .mypy_cache directory' {
             $dir = New-Item -Path (Join-Path -Path $script:TestRoot -ChildPath '.mypy_cache') -ItemType Directory -Force
 
-            $result = Remove-PythonArtifact -Path $script:TestRoot
+            Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
             Test-Path -Path $dir.FullName | Should -BeFalse
         }
@@ -76,7 +76,7 @@ Describe 'Remove-PythonArtifact' {
         It 'Should remove .ruff_cache directory' {
             $dir = New-Item -Path (Join-Path -Path $script:TestRoot -ChildPath '.ruff_cache') -ItemType Directory -Force
 
-            $result = Remove-PythonArtifact -Path $script:TestRoot
+            Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
             Test-Path -Path $dir.FullName | Should -BeFalse
         }
@@ -84,7 +84,7 @@ Describe 'Remove-PythonArtifact' {
         It 'Should remove .venv directory' {
             $dir = New-Item -Path (Join-Path -Path $script:TestRoot -ChildPath '.venv') -ItemType Directory -Force
 
-            $result = Remove-PythonArtifact -Path $script:TestRoot
+            Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
             Test-Path -Path $dir.FullName | Should -BeFalse
         }
@@ -92,7 +92,7 @@ Describe 'Remove-PythonArtifact' {
         It 'Should remove venv directory' {
             $dir = New-Item -Path (Join-Path -Path $script:TestRoot -ChildPath 'venv') -ItemType Directory -Force
 
-            $result = Remove-PythonArtifact -Path $script:TestRoot
+            Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
             Test-Path -Path $dir.FullName | Should -BeFalse
         }
@@ -100,7 +100,7 @@ Describe 'Remove-PythonArtifact' {
         It 'Should remove .tox directory' {
             $dir = New-Item -Path (Join-Path -Path $script:TestRoot -ChildPath '.tox') -ItemType Directory -Force
 
-            $result = Remove-PythonArtifact -Path $script:TestRoot
+            Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
             Test-Path -Path $dir.FullName | Should -BeFalse
         }
@@ -108,7 +108,7 @@ Describe 'Remove-PythonArtifact' {
         It 'Should remove .nox directory' {
             $dir = New-Item -Path (Join-Path -Path $script:TestRoot -ChildPath '.nox') -ItemType Directory -Force
 
-            $result = Remove-PythonArtifact -Path $script:TestRoot
+            Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
             Test-Path -Path $dir.FullName | Should -BeFalse
         }
@@ -116,7 +116,7 @@ Describe 'Remove-PythonArtifact' {
         It 'Should remove htmlcov directory' {
             $dir = New-Item -Path (Join-Path -Path $script:TestRoot -ChildPath 'htmlcov') -ItemType Directory -Force
 
-            $result = Remove-PythonArtifact -Path $script:TestRoot
+            Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
             Test-Path -Path $dir.FullName | Should -BeFalse
         }
@@ -124,7 +124,7 @@ Describe 'Remove-PythonArtifact' {
         It 'Should remove dist directory' {
             $dir = New-Item -Path (Join-Path -Path $script:TestRoot -ChildPath 'dist') -ItemType Directory -Force
 
-            $result = Remove-PythonArtifact -Path $script:TestRoot
+            Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
             Test-Path -Path $dir.FullName | Should -BeFalse
         }
@@ -132,7 +132,7 @@ Describe 'Remove-PythonArtifact' {
         It 'Should remove build directory' {
             $dir = New-Item -Path (Join-Path -Path $script:TestRoot -ChildPath 'build') -ItemType Directory -Force
 
-            $result = Remove-PythonArtifact -Path $script:TestRoot
+            Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
             Test-Path -Path $dir.FullName | Should -BeFalse
         }
@@ -178,7 +178,7 @@ Describe 'Remove-PythonArtifact' {
         It 'Should remove .pyo files' {
             $file = New-Item -Path (Join-Path -Path $script:TestRoot -ChildPath 'module.pyo') -ItemType File -Force
 
-            $result = Remove-PythonArtifact -Path $script:TestRoot
+            Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
             Test-Path -Path $file.FullName | Should -BeFalse
         }
@@ -186,7 +186,7 @@ Describe 'Remove-PythonArtifact' {
         It 'Should remove .coverage file' {
             $file = New-Item -Path (Join-Path -Path $script:TestRoot -ChildPath '.coverage') -ItemType File -Force
 
-            $result = Remove-PythonArtifact -Path $script:TestRoot
+            Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
             Test-Path -Path $file.FullName | Should -BeFalse
         }
@@ -194,7 +194,7 @@ Describe 'Remove-PythonArtifact' {
         It 'Should remove .coverage.* parallel-mode files' {
             $file = New-Item -Path (Join-Path -Path $script:TestRoot -ChildPath '.coverage.worker1') -ItemType File -Force
 
-            $result = Remove-PythonArtifact -Path $script:TestRoot
+            Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
             Test-Path -Path $file.FullName | Should -BeFalse
         }
@@ -202,7 +202,7 @@ Describe 'Remove-PythonArtifact' {
         It 'Should remove coverage.xml file' {
             $file = New-Item -Path (Join-Path -Path $script:TestRoot -ChildPath 'coverage.xml') -ItemType File -Force
 
-            $result = Remove-PythonArtifact -Path $script:TestRoot
+            Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
             Test-Path -Path $file.FullName | Should -BeFalse
         }
@@ -210,7 +210,7 @@ Describe 'Remove-PythonArtifact' {
         It 'Should remove .pdm-python file' {
             $file = New-Item -Path (Join-Path -Path $script:TestRoot -ChildPath '.pdm-python') -ItemType File -Force
 
-            $result = Remove-PythonArtifact -Path $script:TestRoot
+            Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
             Test-Path -Path $file.FullName | Should -BeFalse
         }

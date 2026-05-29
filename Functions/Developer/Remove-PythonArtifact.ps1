@@ -174,7 +174,7 @@ function Remove-PythonArtifact
         # Artifact file patterns (glob match on file name)
         $artifactFilePatterns = @(
             '*.pyc',        # compiled Python bytecode
-            '*.pyo',        # optimised bytecode (Python 2 / legacy)
+            '*.pyo',        # optimized bytecode (Python 2 / legacy)
             '*.pyd',        # Python extension module (Windows)
             '.coverage',    # coverage.py data file
             '.coverage.*',  # coverage.py parallel-mode data files
