@@ -32,7 +32,10 @@ function Update-Profile
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [CmdletBinding()]
-    param()
+    param(
+        [Parameter(DontShow = $true)]
+        [String]$ProfileRoot
+    )
 
     begin
     {
@@ -60,8 +63,28 @@ function Update-Profile
             return
         }
 
+        $gitExecutable = if ($gitCommand.Source)
+        {
+            $gitCommand.Source
+        }
+        elseif ($gitCommand.Path)
+        {
+            $gitCommand.Path
+        }
+        else
+        {
+            $gitCommand.Name
+        }
+
         # Resolve the repo root from this script's known location (Functions/ProfileManagement/)
-        $profileDirectory = [System.IO.Path]::GetFullPath((Join-Path -Path $PSScriptRoot -ChildPath (Join-Path -Path '..' -ChildPath '..')))
+        $profileDirectory = if ([String]::IsNullOrWhiteSpace($ProfileRoot))
+        {
+            [System.IO.Path]::GetFullPath((Join-Path -Path $PSScriptRoot -ChildPath (Join-Path -Path '..' -ChildPath '..')))
+        }
+        else
+        {
+            [System.IO.Path]::GetFullPath($ProfileRoot)
+        }
 
         # Verify the directory is a git repository
         $gitDir = Join-Path -Path $profileDirectory -ChildPath '.git'
@@ -73,9 +96,9 @@ function Update-Profile
 
         try
         {
-            $commitBefore = & git -C $profileDirectory rev-parse HEAD 2>$null
+            $commitBefore = & $gitExecutable -C $profileDirectory rev-parse HEAD 2>$null
 
-            $gitOutput = & git -C $profileDirectory pull --rebase 2>&1
+            $gitOutput = & $gitExecutable -C $profileDirectory pull --rebase 2>&1
             if ($LASTEXITCODE -ne 0)
             {
                 $gitOutput | ForEach-Object { Write-Host $_ }
@@ -83,7 +106,7 @@ function Update-Profile
                 return
             }
 
-            $commitAfter = & git -C $profileDirectory rev-parse HEAD 2>$null
+            $commitAfter = & $gitExecutable -C $profileDirectory rev-parse HEAD 2>$null
         }
         catch
         {
@@ -97,7 +120,7 @@ function Update-Profile
         }
         else
         {
-            $gitLog = & git -C $profileDirectory log --oneline "${commitBefore}..${commitAfter}" 2>$null
+            $gitLog = & $gitExecutable -C $profileDirectory log --oneline "${commitBefore}..${commitAfter}" 2>$null
             if ($gitLog)
             {
                 Write-Host ''
