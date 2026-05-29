@@ -47,6 +47,7 @@ Tests/
 │       ├── Convert-LineEnding.Tests.ps1            # Real-world line ending scenarios
 │       └── Sync-Directory.Tests.ps1                # Directory synchronization integration
 ├── TestCleanupUtilities.ps1                        # Robust cleanup functions for tests
+├── Invoke-DockerTests.ps1                          # Docker Compose test workflow wrapper
 ├── Write-TestTimingSummary.ps1                     # GitHub Actions timing summary helper
 ├── PesterConfiguration.psd1                        # Pester configuration file
 └── README.md                                       # This file
@@ -85,7 +86,7 @@ The `ci` workflow runs the full unit and integration suite on PowerShell Core ac
 
 Use `workflow_dispatch` and set **PowerShell Desktop test scope** to `Integration` or `All` when you need an explicit Desktop integration run.
 
-Each CI job appends a timing summary to the GitHub Actions job summary from `testresults.xml`, including the slowest test files and individual test cases. Local runs can print the same Markdown summary by adding `-ShowTimingSummary`; use `-TimingSummaryTop` to change the number of slow files and cases shown.
+Each CI job appends a timing summary to the GitHub Actions job summary from `testresults.xml`, including the slowest test files and individual test cases. Local and Docker runs can print the same Markdown summary by adding `-ShowTimingSummary`; use `-TimingSummaryTop` to change the number of slow files and cases shown.
 
 ### Docker Testing (Linux Containers)
 
@@ -93,30 +94,37 @@ Run tests in a Linux container from the project root using Docker Compose.
 
 **Prerequisites:** Docker Desktop (macOS/Windows) or Docker Engine (Linux)
 
+The Compose service runs `Tests/Invoke-DockerTests.ps1`, which exposes the same test type, output format, and timing-summary options as `Invoke-Tests.ps1`.
+
 #### Quick Start
 
 ```bash
-# Run all tests
+# Run PSScriptAnalyzer and all tests
 docker compose -f Tests/docker-compose.yml run --rm pwsh-tests
 
+# Run PSScriptAnalyzer and all tests with the slow-test Markdown summary
+docker compose -f Tests/docker-compose.yml run --rm pwsh-tests -ShowTimingSummary
+
 # Interactive PowerShell session
-docker compose -f Tests/docker-compose.yml run --rm pwsh-tests pwsh
+docker compose -f Tests/docker-compose.yml run --rm --entrypoint pwsh pwsh-tests
 ```
 
 #### Run Specific Test Types
 
 ```bash
-# Unit tests only
-docker compose -f Tests/docker-compose.yml run --rm pwsh-tests \
-  pwsh -NoProfile -File ./Invoke-Tests.ps1 -TestType Unit
+# PSScriptAnalyzer plus unit tests
+docker compose -f Tests/docker-compose.yml run --rm pwsh-tests -TestType Unit
 
-# Integration tests only
+# PSScriptAnalyzer plus integration tests
+docker compose -f Tests/docker-compose.yml run --rm pwsh-tests -TestType Integration
+
+# Include only the five slowest files and cases in the Markdown summary
 docker compose -f Tests/docker-compose.yml run --rm pwsh-tests \
-  pwsh -NoProfile -File ./Invoke-Tests.ps1 -TestType Integration
+  -ShowTimingSummary -TimingSummaryTop 5
 
 # PSScriptAnalyzer only
-docker compose -f Tests/docker-compose.yml run --rm pwsh-tests \
-  pwsh -NoProfile -Command "Invoke-ScriptAnalyzer -Settings PSScriptAnalyzerSettings.psd1 -Path . -Recurse"
+docker compose -f Tests/docker-compose.yml run --rm --entrypoint pwsh pwsh-tests \
+  -NoProfile -Command "Invoke-ScriptAnalyzer -Settings PSScriptAnalyzerSettings.psd1 -Path . -Recurse"
 ```
 
 #### Container Management

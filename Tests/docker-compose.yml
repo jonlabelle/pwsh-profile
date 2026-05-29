@@ -8,10 +8,9 @@ services:
     volumes:
       - ..:/workspace
     working_dir: /workspace
-    command: >
-      sh -c "
-        echo '=== Running PSScriptAnalyzer ===' &&
-        pwsh -NoProfile -Command \"Invoke-ScriptAnalyzer -Settings PSScriptAnalyzerSettings.psd1 -Path . -Recurse\" &&
-        echo '=== Running Pester tests ===' &&
-        pwsh -NoProfile -File ./Invoke-Tests.ps1 -TestType All -OutputFormat Detailed
-      "
+    entrypoint:
+      - pwsh
+      - -NoProfile
+      - -File
+      - ./Tests/Invoke-DockerTests.ps1
+    command: []
