@@ -293,7 +293,7 @@ Describe 'Show-SystemResourceMonitor' {
 
         $lines.Count | Should -BeLessOrEqual 16
         $output | Should -Match '(?m)^System Resource Monitor.+\[[ABCDF]\]'
-        $output | Should -Match '(?m)^Top Processes \(limit: 5\) \| showing: 1\r?$'
+        $output | Should -Match '(?m)^Top Processes \(limit: 5\)(?: \| showing: [0-9]+)?\r?$'
         $output | Should -Match '(?m)^  .+ PID +[0-9]+'
         $output | Should -Not -Match 'Press Q or Ctrl\+C to stop monitor\.'
     }

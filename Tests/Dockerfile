@@ -3,12 +3,14 @@ FROM mcr.microsoft.com/powershell:lts-alpine-3.20
 # Install required tools for tests
 # - rsync: Required by Sync-Directory function
 # - git: Required by Remove-GitIgnoredFiles and install.ps1 tests
+# - github-cli: Required by GitHub function tests that mock the gh command
 # - xdotool: Required by Start-KeepAlive function on Linux (optional but enables full test coverage)
 # - openssl: Required for some cryptography-related tests
 # - bash: Some test scripts may require bash shell
 RUN apk add --no-cache \
   rsync \
   git \
+  github-cli \
   xdotool \
   openssl \
   bash
