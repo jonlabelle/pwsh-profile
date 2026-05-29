@@ -1,5 +1,8 @@
 services:
   pwsh-tests:
+    # The current PowerShell LTS Alpine base image is amd64-only, so make the
+    # emulated platform explicit on Apple Silicon hosts.
+    platform: linux/amd64
     build:
       # The working directory is the parent directory of Tests/ (or repository root)
       context: ..

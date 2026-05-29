@@ -95,6 +95,7 @@ Run tests in a Linux container from the project root using Docker Compose.
 **Prerequisites:** Docker Desktop (macOS/Windows) or Docker Engine (Linux)
 
 The Compose service runs `Tests/Invoke-DockerTests.ps1`, which exposes the same test type, output format, and timing-summary options as `Invoke-Tests.ps1`.
+The PowerShell LTS Alpine test image is pinned to `linux/amd64`; Docker Desktop runs it under emulation on Apple Silicon Macs.
 
 #### Quick Start
 
@@ -130,7 +131,7 @@ docker compose -f Tests/docker-compose.yml run --rm --entrypoint pwsh pwsh-tests
 #### Container Management
 
 ```bash
-# Build image (first time or after dependency changes)
+# Build image (first time, after dependency changes, or after Compose platform changes)
 docker compose -f Tests/docker-compose.yml build
 
 # Rebuild image without cache
