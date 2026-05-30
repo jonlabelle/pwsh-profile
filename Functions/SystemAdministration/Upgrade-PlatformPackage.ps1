@@ -508,38 +508,25 @@ function Upgrade-PlatformPackage
                 {
                     if ($PreserveConsoleOutput)
                     {
-                        $process = $null
-                        try
-                        {
-                            $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
-                            $startInfo.FileName = $Command
-                            $startInfo.UseShellExecute = $false
-                            $startInfo.RedirectStandardOutput = $false
-                            $startInfo.RedirectStandardError = $false
-                            foreach ($argument in @($Arguments))
-                            {
-                                [void]$startInfo.ArgumentList.Add($argument)
-                            }
-
-                            $process = [System.Diagnostics.Process]::Start($startInfo)
-                            if ($null -eq $process)
-                            {
-                                throw "Failed to start '$Command'."
-                            }
-
-                            $process.WaitForExit()
-
-                            return [PSCustomObject]@{
-                                ExitCode = [Int32]$process.ExitCode
-                                Output = @()
-                            }
+                        # ProcessStartInfo.ArgumentList is .NET Core / .NET 5+ only and is null in
+                        # .NET Framework 4.x (PowerShell 5.1). Use Start-Process which is compatible
+                        # with both PowerShell 5.1 and PowerShell 7+ on Windows.
+                        $startProcessParams = @{
+                            FilePath    = $Command
+                            NoNewWindow = $true
+                            Wait        = $true
+                            PassThru    = $true
+                            ErrorAction = 'Stop'
                         }
-                        finally
+                        if (@($Arguments).Count -gt 0)
                         {
-                            if ($null -ne $process)
-                            {
-                                $process.Dispose()
-                            }
+                            $startProcessParams['ArgumentList'] = @($Arguments)
+                        }
+
+                        $process = Start-Process @startProcessParams
+                        return [PSCustomObject]@{
+                            ExitCode = [Int32]$process.ExitCode
+                            Output   = @()
                         }
                     }
 
