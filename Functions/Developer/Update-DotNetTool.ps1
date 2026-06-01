@@ -632,8 +632,11 @@ function Update-DotNetTool
 
             if ($ListOutdated.IsPresent)
             {
+                Write-Host "No .NET $($effectiveScope.ToLowerInvariant()) tools found to check." -ForegroundColor Yellow
                 return
             }
+
+            Write-Host "No .NET $($effectiveScope.ToLowerInvariant()) tools found to update." -ForegroundColor Yellow
 
             return [PSCustomObject]@{
                 Scope = $effectiveScope
@@ -672,6 +675,11 @@ function Update-DotNetTool
                         -WorkingDirectory $resolvedPath `
                         -ManifestPath $manifestPath
                 }
+            }
+
+            if ($outdatedTools.Count -eq 0)
+            {
+                Write-Host "No outdated .NET $($effectiveScope.ToLowerInvariant()) tools found." -ForegroundColor Green
             }
 
             return $outdatedTools
@@ -760,6 +768,23 @@ function Update-DotNetTool
         }
 
         $exitCode = if ($failedCount -gt 0) { 1 } else { 0 }
+        if ($skippedCount -eq $tools.Count)
+        {
+            Write-Host "No .NET $($effectiveScope.ToLowerInvariant()) tools were updated; $skippedCount skipped." -ForegroundColor Yellow
+        }
+        elseif ($failedCount -eq 0)
+        {
+            Write-Host "Updated $updatedCount of $($tools.Count) .NET $($effectiveScope.ToLowerInvariant()) tool(s)." -ForegroundColor Green
+        }
+        elseif ($updatedCount -gt 0)
+        {
+            Write-Host "Updated $updatedCount of $($tools.Count) .NET $($effectiveScope.ToLowerInvariant()) tool(s); $failedCount failed." -ForegroundColor Yellow
+        }
+        else
+        {
+            Write-Host "No .NET $($effectiveScope.ToLowerInvariant()) tools were updated; $failedCount failed." -ForegroundColor Red
+        }
+
         [PSCustomObject]@{
             Scope = $effectiveScope
             WorkingDirectory = $resolvedPath

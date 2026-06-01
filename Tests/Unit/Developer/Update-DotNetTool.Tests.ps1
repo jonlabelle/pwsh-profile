@@ -115,6 +115,8 @@ Describe 'Update-DotNetTool' {
                 Source = '/usr/local/bin/dotnet'
             }
         }
+
+        Mock -CommandName Write-Host -MockWith {}
     }
 
     AfterEach {
@@ -217,6 +219,9 @@ Describe 'Update-DotNetTool' {
             $result.Updated | Should -Be 0
             $result.Failed | Should -Be 0
             $script:DotNetInvocations | Where-Object { $_[0] -eq 'tool' -and $_[1] -eq 'update' } | Should -BeNullOrEmpty
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter {
+                $Object -eq 'No .NET global tools found to update.'
+            } -Times 1
         }
 
         It 'Updates every package returned by dotnet tool list' {
@@ -232,6 +237,9 @@ Describe 'Update-DotNetTool' {
             $updateCalls.Count | Should -Be 2
             ($updateCalls | ForEach-Object { $_[2] }) | Should -Contain 'dotnetsay'
             ($updateCalls | ForEach-Object { $_[2] }) | Should -Contain 'csharpier'
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter {
+                $Object -eq 'Updated 2 of 2 .NET global tool(s).'
+            } -Times 1
         }
 
         It 'Reports failed updates and continues updating remaining tools' {
@@ -283,6 +291,17 @@ Describe 'Update-DotNetTool' {
     }
 
     Context 'Outdated display' {
+        It 'Writes a message when no tools are installed in list-outdated mode' {
+            $script:DotNetListOutput = @('{"version":1,"data":[]}')
+
+            $result = @(Update-DotNetTool -Path $script:TestDir -Scope Global -ListOutdated)
+
+            $result.Count | Should -Be 0
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter {
+                $Object -eq 'No .NET global tools found to check.'
+            } -Times 1
+        }
+
         It 'Displays only outdated global tools without updating them' {
             $script:DotNetListOutput = @('{"version":1,"data":[{"packageId":"dotnetsay","version":"2.1.7","commands":["dotnetsay"]},{"packageId":"csharpier","version":"1.2.5","commands":["csharpier"]}]}')
             $script:DotNetSearchOutputByPackage = @{
@@ -337,6 +356,23 @@ Describe 'Update-DotNetTool' {
 
             $searchCall = $script:DotNetInvocations | Where-Object { $_[0] -eq 'tool' -and $_[1] -eq 'search' } | Select-Object -First 1
             $searchCall | Should -Contain '--prerelease'
+        }
+
+        It 'Writes a message when no outdated tools are found' {
+            $script:DotNetSearchOutputByPackage = @{
+                dotnetsay = @(
+                    'Package ID      Latest Version      Authors      Downloads      Verified'
+                    '------------------------------------------------------------------------'
+                    'dotnetsay       2.1.7               Tests        1'
+                )
+            }
+
+            $result = @(Update-DotNetTool -Path $script:TestDir -Scope Global -ListOutdated)
+
+            $result.Count | Should -Be 0
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter {
+                $Object -eq 'No outdated .NET global tools found.'
+            } -Times 1
         }
 
         It 'Falls back to NuGet flat-container metadata when dotnet tool search fails' {
