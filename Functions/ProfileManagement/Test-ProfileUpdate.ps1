@@ -82,7 +82,19 @@ function Test-ProfileUpdate
 
         [Parameter()]
         [switch]
-        $Force
+        $Force,
+
+        [Parameter(DontShow = $true)]
+        [String]
+        $ProfileRoot,
+
+        [Parameter(DontShow = $true)]
+        [ScriptBlock]
+        $GitRunner,
+
+        [Parameter(DontShow = $true)]
+        [ScriptBlock]
+        $ConnectivityTest
     )
 
     begin
@@ -92,7 +104,11 @@ function Test-ProfileUpdate
         # Get the profile root directory
         # When dot-sourced, $PSScriptRoot points to the function's directory
         # We need to navigate up to the repository root
-        if ($PSScriptRoot)
+        if (-not [String]::IsNullOrWhiteSpace($ProfileRoot))
+        {
+            $profileRoot = [System.IO.Path]::GetFullPath($ProfileRoot)
+        }
+        elseif ($PSScriptRoot)
         {
             $profileRoot = $PSScriptRoot
 
@@ -136,7 +152,29 @@ function Test-ProfileUpdate
     {
         # Define the update check script block
         $updateCheckScript = {
-            param($ProfileRoot, $ShowChanges)
+            param($ProfileRoot, $ShowChanges, [ScriptBlock]$GitRunner, [ScriptBlock]$ConnectivityTest)
+
+            if (-not $GitRunner)
+            {
+                $GitRunner = {
+                    param(
+                        [Parameter(ValueFromRemainingArguments = $true)]
+                        [Object[]]$Arguments
+                    )
+
+                    & git @Arguments
+                }
+            }
+
+            if (-not $ConnectivityTest)
+            {
+                $ConnectivityTest = {
+                    param([String]$Hostname)
+
+                    $addresses = [System.Net.Dns]::GetHostAddresses($Hostname)
+                    return ($addresses -and $addresses.Count -gt 0)
+                }
+            }
 
             # Save the current location before changing directories
             $originalLocation = Get-Location
@@ -180,7 +218,7 @@ function Test-ProfileUpdate
                 Write-Verbose 'Testing connectivity to remote repository'
 
                 # Get remote URL
-                $remoteUrl = git config --get remote.origin.url 2>$null
+                $remoteUrl = & $GitRunner config --get remote.origin.url 2>$null
                 if (-not $remoteUrl)
                 {
                     Write-Verbose 'No remote origin configured'
@@ -206,11 +244,10 @@ function Test-ProfileUpdate
                 $connected = $false
                 try
                 {
-                    $addresses = [System.Net.Dns]::GetHostAddresses($hostname)
-                    if ($addresses -and $addresses.Count -gt 0)
+                    $connected = [Boolean](& $ConnectivityTest $hostname)
+                    if ($connected)
                     {
                         Write-Verbose "DNS resolution successful for $hostname"
-                        $connected = $true
                     }
                 }
                 catch
@@ -234,7 +271,7 @@ function Test-ProfileUpdate
             try
             {
                 Write-Verbose 'Fetching remote information'
-                $fetchOutput = git fetch origin 2>&1
+                $fetchOutput = & $GitRunner fetch origin 2>&1
                 if ($LASTEXITCODE -ne 0)
                 {
                     Write-Verbose "Git fetch failed with exit code $LASTEXITCODE. Output: $fetchOutput"
@@ -254,8 +291,8 @@ function Test-ProfileUpdate
             # Compare local and remote HEAD
             try
             {
-                $localHead = git rev-parse HEAD 2>$null
-                $remoteHead = git rev-parse origin/main 2>$null
+                $localHead = & $GitRunner rev-parse HEAD 2>$null
+                $remoteHead = & $GitRunner rev-parse origin/main 2>$null
 
                 if (-not $localHead -or -not $remoteHead)
                 {
@@ -270,7 +307,7 @@ function Test-ProfileUpdate
                 if ($localHead -ne $remoteHead)
                 {
                     # Verify that remote has commits that local doesn't have
-                    $behindCommits = git rev-list --count "${localHead}..${remoteHead}" 2>$null
+                    $behindCommits = & $GitRunner rev-list --count "${localHead}..${remoteHead}" 2>$null
                     if ($behindCommits -and $behindCommits -gt 0)
                     {
                         Write-Verbose "Local repository is $behindCommits commits behind remote"
@@ -288,7 +325,7 @@ function Test-ProfileUpdate
                                 $remoteBranch = 'origin/main'
 
                                 # Show available changes
-                                $gitLog = git log --oneline "${localHead}..${remoteBranch}" 2>$null
+                                $gitLog = & $GitRunner log --oneline "${localHead}..${remoteBranch}" 2>$null
                                 if ($gitLog)
                                 {
                                     Write-Host ''
@@ -328,13 +365,13 @@ function Test-ProfileUpdate
         if ($Async)
         {
             Write-Verbose 'Starting background update check job'
-            $job = Start-Job -ScriptBlock $updateCheckScript -ArgumentList $profileRoot, $ShowChanges.IsPresent -Name 'ProfileUpdateCheck'
+            $job = Start-Job -ScriptBlock $updateCheckScript -ArgumentList $profileRoot, $ShowChanges.IsPresent, $GitRunner, $ConnectivityTest -Name 'ProfileUpdateCheck'
             return $job
         }
         else
         {
             Write-Verbose 'Running synchronous update check'
-            return & $updateCheckScript $profileRoot $ShowChanges.IsPresent
+            return & $updateCheckScript $profileRoot $ShowChanges.IsPresent $GitRunner $ConnectivityTest
         }
     }
 
