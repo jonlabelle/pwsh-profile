@@ -14,7 +14,7 @@ function Update-DotNetTool
         Use -Scope Local or -Scope Global to explicitly choose which tool scope to
         inspect or update. Use -ListOutdated to perform a read-only check that displays
         only tools where the installed version differs from the latest version returned
-        by 'dotnet tool search'.
+        by 'dotnet tool search' or the NuGet flat-container metadata fallback.
 
         The function lists installed tools first and updates each package explicitly,
         which provides per-tool status information and keeps behavior consistent across
@@ -34,8 +34,9 @@ function Update-DotNetTool
 
     .PARAMETER ListOutdated
         Displays only outdated tools and does not update anything. Latest versions are
-        resolved with 'dotnet tool search'. Use -Scope to choose Local or Global explicitly,
-        or leave Scope as Auto to use local tools when a manifest exists.
+        resolved with 'dotnet tool search' first, then the NuGet flat-container metadata
+        API when the dotnet search command fails. Use -Scope to choose Local or Global
+        explicitly, or leave Scope as Auto to use local tools when a manifest exists.
 
     .PARAMETER Prerelease
         Includes prerelease packages when updating tools.
@@ -170,7 +171,7 @@ function Update-DotNetTool
         - Requires dotnet CLI in PATH
         - Local tool manifest discovery walks from -Path up to the filesystem root
         - Auto scope uses global tools only when no local .config/dotnet-tools.json manifest is found
-        - Outdated checks use 'dotnet tool search', which searches nuget.org
+        - Outdated checks use 'dotnet tool search' and fall back to NuGet flat-container metadata
         - Respects -WhatIf and -Confirm through SupportsShouldProcess
 
         Author: Jon LaBelle
@@ -435,6 +436,7 @@ function Update-DotNetTool
                 [Switch]$IncludePrerelease
             )
 
+            $searchFailureMessage = $null
             $searchArgs = @('tool', 'search', $PackageId, '--take', '20')
             if ($IncludePrerelease.IsPresent)
             {
@@ -447,23 +449,62 @@ function Update-DotNetTool
             $searchExitCode = $LASTEXITCODE
             if ($searchExitCode -ne 0)
             {
-                $message = ($searchOutput | Where-Object { $_ }) -join ' '
-                Write-Warning "Failed to search latest version for .NET tool '$PackageId': $message"
-                return $null
+                $searchFailureMessage = ($searchOutput | Where-Object { $_ }) -join ' '
+                Write-Verbose "dotnet tool search failed for '$PackageId': $searchFailureMessage"
             }
-
-            $searchResults = @(ConvertFrom-DotNetToolSearchTable -Output $searchOutput)
-            $exactMatch = $searchResults |
-            Where-Object { [String]::Equals($_.PackageId, $PackageId, [StringComparison]::OrdinalIgnoreCase) } |
-            Select-Object -First 1
-
-            if (-not $exactMatch)
+            else
             {
+                $searchResults = @(ConvertFrom-DotNetToolSearchTable -Output $searchOutput)
+                $exactMatch = $searchResults |
+                    Where-Object { [String]::Equals($_.PackageId, $PackageId, [StringComparison]::OrdinalIgnoreCase) } |
+                    Select-Object -First 1
+
+                if ($exactMatch)
+                {
+                    return [String]$exactMatch.LatestVersion
+                }
+
                 Write-Verbose "No exact latest-version search result found for .NET tool '$PackageId'."
-                return $null
             }
 
-            return [String]$exactMatch.LatestVersion
+            $packageIdForUrl = $PackageId.ToLowerInvariant()
+            $packageIndexUri = 'https://api.nuget.org/v3-flatcontainer/{0}/index.json' -f ([System.Uri]::EscapeDataString($packageIdForUrl))
+            $fallbackFailureMessage = $null
+
+            try
+            {
+                Write-Verbose "Searching NuGet flat-container latest .NET tool version: $packageIndexUri"
+                $packageIndex = Invoke-RestMethod -Uri $packageIndexUri -ErrorAction Stop
+                $versions = @($packageIndex.versions | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+
+                if (-not $IncludePrerelease.IsPresent)
+                {
+                    $versions = @($versions | Where-Object { $_ -notmatch '-' })
+                }
+
+                if ($versions.Count -gt 0)
+                {
+                    return [String]$versions[-1]
+                }
+
+                Write-Verbose "NuGet flat-container metadata did not include usable versions for .NET tool '$PackageId'."
+                $fallbackFailureMessage = 'No usable versions were returned.'
+            }
+            catch
+            {
+                $fallbackFailureMessage = $_.Exception.Message
+            }
+
+            if ($searchFailureMessage)
+            {
+                Write-Warning "Failed to determine latest version for .NET tool '$PackageId'. dotnet tool search failed: $searchFailureMessage. NuGet metadata fallback failed: $fallbackFailureMessage"
+            }
+            else
+            {
+                Write-Warning "Failed to determine latest version for .NET tool '$PackageId'. NuGet metadata fallback failed: $fallbackFailureMessage"
+            }
+
+            return $null
         }
 
         function Format-DotNetToolUpdateResult

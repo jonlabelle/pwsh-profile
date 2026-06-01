@@ -20,6 +20,7 @@ BeforeAll {
     $script:DotNetListOutput = @()
     $script:DotNetListExitCode = 0
     $script:DotNetSearchOutputByPackage = @{}
+    $script:DotNetSearchExitCodes = @{}
     $script:DotNetUpdateExitCodes = @{}
 
     function pwshDotNetToolTestShim
@@ -41,10 +42,23 @@ BeforeAll {
         if ($argsArray.Count -ge 3 -and $argsArray[0] -eq 'tool' -and $argsArray[1] -eq 'search')
         {
             $packageId = [String]$argsArray[2]
-            $global:LASTEXITCODE = 0
+            if ($script:DotNetSearchExitCodes.ContainsKey($packageId))
+            {
+                $global:LASTEXITCODE = $script:DotNetSearchExitCodes[$packageId]
+            }
+            else
+            {
+                $global:LASTEXITCODE = 0
+            }
+
             if ($script:DotNetSearchOutputByPackage.ContainsKey($packageId))
             {
                 return $script:DotNetSearchOutputByPackage[$packageId]
+            }
+
+            if ($global:LASTEXITCODE -ne 0)
+            {
+                return 'Unhandled exception: Unable to load the service index for source https://api.nuget.org/v3/index.json.'
             }
 
             return @(
@@ -92,6 +106,7 @@ Describe 'Update-DotNetTool' {
         $script:DotNetListOutput = @('{"version":1,"data":[{"packageId":"dotnetsay","version":"2.1.7","commands":["dotnetsay"]}]}')
         $script:DotNetListExitCode = 0
         $script:DotNetSearchOutputByPackage = @{}
+        $script:DotNetSearchExitCodes = @{}
         $script:DotNetUpdateExitCodes = @{}
 
         Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'dotnet' } -MockWith {
@@ -322,6 +337,31 @@ Describe 'Update-DotNetTool' {
 
             $searchCall = $script:DotNetInvocations | Where-Object { $_[0] -eq 'tool' -and $_[1] -eq 'search' } | Select-Object -First 1
             $searchCall | Should -Contain '--prerelease'
+        }
+
+        It 'Falls back to NuGet flat-container metadata when dotnet tool search fails' {
+            $script:DotNetListOutput = @('{"version":1,"data":[{"packageId":"csharpier","version":"1.2.5","commands":["csharpier"]}]}')
+            $script:DotNetSearchExitCodes = @{
+                csharpier = 1
+            }
+
+            Mock -CommandName Invoke-RestMethod -MockWith {
+                [PSCustomObject]@{
+                    versions = @('1.2.5', '1.2.6')
+                }
+            } -ParameterFilter {
+                $Uri -eq 'https://api.nuget.org/v3-flatcontainer/csharpier/index.json'
+            }
+
+            $result = @(Update-DotNetTool -Path $script:TestDir -Scope Global -ListOutdated -WarningAction Stop)
+
+            $result.Count | Should -Be 1
+            $result[0].PackageId | Should -Be 'csharpier'
+            $result[0].CurrentVersion | Should -Be '1.2.5'
+            $result[0].LatestVersion | Should -Be '1.2.6'
+            Assert-MockCalled -CommandName Invoke-RestMethod -ParameterFilter {
+                $Uri -eq 'https://api.nuget.org/v3-flatcontainer/csharpier/index.json'
+            } -Times 1
         }
     }
 
