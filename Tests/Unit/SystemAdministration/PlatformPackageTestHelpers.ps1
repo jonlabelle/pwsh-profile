@@ -66,6 +66,97 @@ $script:NewPackageCommandRunner = {
     }.GetNewClosure()
 }
 
+$script:NewNativeBrewCommand = {
+    param(
+        [Parameter(Mandatory)]
+        [String]$Directory
+    )
+
+    New-Item -Path $Directory -ItemType Directory -Force | Out-Null
+
+    $isWindowsPlatform = if ($PSVersionTable.PSVersion.Major -lt 6)
+    {
+        $true
+    }
+    else
+    {
+        [Bool]$IsWindows
+    }
+
+    if ($isWindowsPlatform)
+    {
+        $brewPath = Join-Path -Path $Directory -ChildPath 'brew.cmd'
+        $content = @'
+@echo off
+if not "%UPGRADE_TEST_BREW_LOG_PATH%"=="" echo %*>>"%UPGRADE_TEST_BREW_LOG_PATH%"
+
+if "%~1"=="update" if "%~2"=="--quiet" (
+    echo brew update stdout
+    1>&2 echo brew update stderr
+    exit /b 0
+)
+
+if "%~1"=="outdated" if "%~2"=="--json=v2" if "%~3"=="--greedy" (
+    echo {"formulae":[{"name":"git","installed_versions":["2.43.0"],"current_version":"2.44.0","pinned":false,"desc":"Git SCM"}],"casks":[]}
+    exit /b 0
+)
+
+if "%~1"=="upgrade" if "%~2"=="git" (
+    echo brew upgrade stdout
+    1>&2 echo brew upgrade stderr
+    exit /b 0
+)
+
+1>&2 echo Unexpected brew command: %*
+exit /b 64
+'@
+    }
+    else
+    {
+        $brewPath = Join-Path -Path $Directory -ChildPath 'brew'
+        $content = @'
+#!/bin/sh
+if [ -n "$UPGRADE_TEST_BREW_LOG_PATH" ]; then
+    printf '%s\n' "$*" >> "$UPGRADE_TEST_BREW_LOG_PATH"
+fi
+
+if [ "$1" = "update" ] && [ "$2" = "--quiet" ]; then
+    echo "brew update stdout"
+    echo "brew update stderr" >&2
+    exit 0
+fi
+
+if [ "$1" = "outdated" ] && [ "$2" = "--json=v2" ] && [ "$3" = "--greedy" ]; then
+    echo '{"formulae":[{"name":"git","installed_versions":["2.43.0"],"current_version":"2.44.0","pinned":false,"desc":"Git SCM"}],"casks":[]}'
+    exit 0
+fi
+
+if [ "$1" = "upgrade" ] && [ "$2" = "git" ]; then
+    echo "brew upgrade stdout"
+    echo "brew upgrade stderr" >&2
+    exit 0
+fi
+
+echo "Unexpected brew command: $*" >&2
+exit 64
+'@
+    }
+
+    [System.IO.File]::WriteAllText($brewPath, $content, [System.Text.UTF8Encoding]::new($false))
+
+    if (-not $isWindowsPlatform)
+    {
+        $chmodCommand = Get-Command -Name 'chmod' -CommandType Application -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+        if ($chmodCommand)
+        {
+            & $chmodCommand.Source 755 $brewPath
+        }
+    }
+
+    return $brewPath
+}
+
 $script:NewPromptReader = {
     param(
         [Parameter()]

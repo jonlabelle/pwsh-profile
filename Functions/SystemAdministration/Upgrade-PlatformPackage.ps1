@@ -140,6 +140,9 @@ function Upgrade-PlatformPackage
         [ScriptBlock]$CommandRunner,
 
         [Parameter(DontShow = $true)]
+        [Hashtable]$CommandPathOverrides = @{},
+
+        [Parameter(DontShow = $true)]
         [ScriptBlock]$KeyReader,
 
         [Parameter(DontShow = $true)]
@@ -263,6 +266,26 @@ function Upgrade-PlatformPackage
             }
         }
 
+        function Resolve-PackageManagerCommandPath
+        {
+            param(
+                [Parameter(Mandatory)]
+                [ValidateNotNullOrEmpty()]
+                [String]$Name
+            )
+
+            if ($CommandPathOverrides -and $CommandPathOverrides.ContainsKey($Name))
+            {
+                $overridePath = "$($CommandPathOverrides[$Name])"
+                if (-not [String]::IsNullOrWhiteSpace($overridePath))
+                {
+                    return $overridePath
+                }
+            }
+
+            return $Name
+        }
+
         function Test-PackageManagerCommandAvailable
         {
             param(
@@ -276,7 +299,8 @@ function Upgrade-PlatformPackage
                 return $true
             }
 
-            return $null -ne (Get-Command -Name $Name -CommandType Application -ErrorAction SilentlyContinue |
+            $commandPath = Resolve-PackageManagerCommandPath -Name $Name
+            return $null -ne (Get-Command -Name $commandPath -CommandType Application -ErrorAction SilentlyContinue |
                 Select-Object -First 1)
         }
 
@@ -326,7 +350,7 @@ function Upgrade-PlatformPackage
                     [PSCustomObject]@{
                         Name = 'winget'
                         DisplayName = 'Windows Package Manager'
-                        Command = 'winget'
+                        Command = Resolve-PackageManagerCommandPath -Name 'winget'
                         Platform = 'Windows'
                         RefreshArguments = @('source', 'update')
                         NeedsSudo = $false
@@ -337,7 +361,7 @@ function Upgrade-PlatformPackage
                     [PSCustomObject]@{
                         Name = 'brew'
                         DisplayName = 'Homebrew'
-                        Command = 'brew'
+                        Command = Resolve-PackageManagerCommandPath -Name 'brew'
                         Platform = 'macOS'
                         RefreshArguments = @('update', '--quiet')
                         NeedsSudo = $false
@@ -348,7 +372,7 @@ function Upgrade-PlatformPackage
                     [PSCustomObject]@{
                         Name = 'apt'
                         DisplayName = 'APT'
-                        Command = 'apt'
+                        Command = Resolve-PackageManagerCommandPath -Name 'apt'
                         Platform = 'Debian/Ubuntu Linux'
                         RefreshArguments = @('update')
                         NeedsSudo = $true
@@ -359,7 +383,7 @@ function Upgrade-PlatformPackage
                     [PSCustomObject]@{
                         Name = 'apk'
                         DisplayName = 'Alpine Package Keeper'
-                        Command = 'apk'
+                        Command = Resolve-PackageManagerCommandPath -Name 'apk'
                         Platform = 'Alpine Linux'
                         RefreshArguments = @('update')
                         NeedsSudo = $true

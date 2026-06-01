@@ -112,6 +112,110 @@ Describe 'Upgrade-PlatformPackage' {
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew upgrade git output' } -Times 1
         }
 
+        It 'captures Homebrew refresh process output before the picker and streams upgrade process output' {
+            $nativeCommandDirectory = Join-Path -Path $TestDrive -ChildPath "native-brew-$(Get-Random)"
+            $brewPath = & $script:NewNativeBrewCommand -Directory $nativeCommandDirectory
+            $brewLogPath = Join-Path -Path $nativeCommandDirectory -ChildPath 'brew-invocations.log'
+            $childScriptPath = Join-Path -Path $TestDrive -ChildPath 'invoke-upgrade-platform-package.ps1'
+            $functionPath = [System.IO.Path]::GetFullPath((Join-Path -Path $PSScriptRoot -ChildPath '../../../Functions/SystemAdministration/Upgrade-PlatformPackage.ps1'))
+
+            $childScript = @'
+$ErrorActionPreference = 'Stop'
+
+. $env:UPGRADE_TEST_FUNCTION_PATH
+
+$keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+@(
+    [System.ConsoleKeyInfo]::new(' ', [ConsoleKey]::Spacebar, $false, $false, $false)
+    [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+) | ForEach-Object { $keys.Enqueue($_) }
+
+$keyReader = {
+    if ($keys.Count -eq 0)
+    {
+        throw 'Unexpected key read'
+    }
+
+    return $keys.Dequeue()
+}.GetNewClosure()
+
+$result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ brew = $env:UPGRADE_TEST_BREW_PATH } -KeyReader $keyReader -Confirm:$false
+"RESULT Upgraded=$($result.Upgraded) Failed=$($result.Failed) NotSelected=$($result.NotSelected)"
+'@
+            [System.IO.File]::WriteAllText($childScriptPath, $childScript, [System.Text.UTF8Encoding]::new($false))
+
+            $powerShellCommand = Get-Command -Name 'pwsh' -CommandType Application -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+            if (-not $powerShellCommand)
+            {
+                $powerShellCommand = Get-Command -Name 'powershell' -CommandType Application -ErrorAction SilentlyContinue |
+                Select-Object -First 1
+            }
+
+            $powerShellCommand | Should -Not -BeNullOrEmpty
+
+            $previousFunctionPath = $env:UPGRADE_TEST_FUNCTION_PATH
+            $previousBrewPath = $env:UPGRADE_TEST_BREW_PATH
+            $previousBrewLogPath = $env:UPGRADE_TEST_BREW_LOG_PATH
+
+            try
+            {
+                $env:UPGRADE_TEST_FUNCTION_PATH = $functionPath
+                $env:UPGRADE_TEST_BREW_PATH = $brewPath
+                $env:UPGRADE_TEST_BREW_LOG_PATH = $brewLogPath
+
+                $childOutput = @(
+                    & $powerShellCommand.Source -NoLogo -NoProfile -File $childScriptPath 2>&1 |
+                    ForEach-Object { "$_" }
+                )
+                $childExitCode = $LASTEXITCODE
+            }
+            finally
+            {
+                if ($null -eq $previousFunctionPath)
+                {
+                    Remove-Item -Path Env:\UPGRADE_TEST_FUNCTION_PATH -ErrorAction SilentlyContinue
+                }
+                else
+                {
+                    $env:UPGRADE_TEST_FUNCTION_PATH = $previousFunctionPath
+                }
+
+                if ($null -eq $previousBrewPath)
+                {
+                    Remove-Item -Path Env:\UPGRADE_TEST_BREW_PATH -ErrorAction SilentlyContinue
+                }
+                else
+                {
+                    $env:UPGRADE_TEST_BREW_PATH = $previousBrewPath
+                }
+
+                if ($null -eq $previousBrewLogPath)
+                {
+                    Remove-Item -Path Env:\UPGRADE_TEST_BREW_LOG_PATH -ErrorAction SilentlyContinue
+                }
+                else
+                {
+                    $env:UPGRADE_TEST_BREW_LOG_PATH = $previousBrewLogPath
+                }
+            }
+
+            $childExitCode | Should -Be 0
+            $outputText = $childOutput -join "`n"
+            $outputText | Should -Match 'Refreshing Homebrew package metadata'
+            $outputText | Should -Match 'Upgrade-PlatformPackage - Homebrew'
+            $outputText | Should -Not -Match ([Regex]::Escape('brew update stdout'))
+            $outputText | Should -Not -Match ([Regex]::Escape('brew update stderr'))
+            $outputText | Should -Match ([Regex]::Escape('brew upgrade stdout'))
+            $outputText | Should -Match ([Regex]::Escape('brew upgrade stderr'))
+            $outputText | Should -Match 'RESULT Upgraded=1 Failed=0 NotSelected=0'
+
+            $brewInvocations = @(Get-Content -LiteralPath $brewLogPath)
+            $brewInvocations | Should -Contain 'update --quiet'
+            $brewInvocations | Should -Contain 'outdated --json=v2 --greedy'
+            $brewInvocations | Should -Contain 'upgrade git'
+        }
+
         It 'captures post-upgrade instructions in the result object' {
             $brewJson = @{
                 formulae = @(
