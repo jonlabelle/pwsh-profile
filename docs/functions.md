@@ -95,6 +95,7 @@
 - [`Set-GitHubSecret`](../Functions/Developer/Set-GitHubSecret.ps1) - Creates or updates a GitHub secret at repository, environment, organization, or user scope.
 - [`Set-GitHubVariable`](../Functions/Developer/Set-GitHubVariable.ps1) - Creates or updates a GitHub configuration variable at repository, environment, or organization scope.
 - [`Update-DockerImage`](../Functions/Developer/Update-DockerImage.ps1) - Pulls the latest versions of local Docker images from their remote registries.
+- [`Update-DotNetTool`](../Functions/Developer/Update-DotNetTool.ps1) - Updates local or global .NET tools and can list outdated tools without updating.
 
 ## Security
 
