@@ -1673,6 +1673,18 @@ function Upgrade-PlatformPackage
                 return @($sourcePackages | Where-Object { $_.Name -like $namePattern -or $_.Id -like $namePattern })
             }
 
+            function Invoke-PickerClearHost
+            {
+                try
+                {
+                    Clear-Host
+                }
+                catch
+                {
+                    Write-Verbose "Unable to clear package picker host view: $($_.Exception.Message)"
+                }
+            }
+
             function Read-PackageNameFilter
             {
                 param(
@@ -1689,7 +1701,7 @@ function Upgrade-PlatformPackage
                 {
                     while ($true)
                     {
-                        Clear-Host
+                        Invoke-PickerClearHost
                         Write-Host 'Filter upgradable packages' -ForegroundColor Cyan
                         Write-Host 'Type package name text to match Name or Id.' -ForegroundColor DarkGray
                         Write-Host ''
@@ -1741,7 +1753,7 @@ function Upgrade-PlatformPackage
                 }
                 finally
                 {
-                    Clear-Host
+                    Invoke-PickerClearHost
                     $pickerRenderState.UseInPlaceRedraw = $restoreInPlaceRedraw
                     $pickerRenderState.RenderedLineCount = 0
                 }
@@ -2137,7 +2149,7 @@ function Upgrade-PlatformPackage
 
                 if (-not $pickerRenderState.UseInPlaceRedraw)
                 {
-                    Clear-Host
+                    Invoke-PickerClearHost
                     foreach ($line in $Lines)
                     {
                         $lineText = Get-PickerFrameLineText -Line $line
@@ -2229,7 +2241,7 @@ function Upgrade-PlatformPackage
                 catch
                 {
                     $pickerRenderState.UseInPlaceRedraw = $false
-                    Clear-Host
+                    Invoke-PickerClearHost
                     foreach ($fallbackLine in $Lines)
                     {
                         $fallbackLineText = Get-PickerFrameLineText -Line $fallbackLine
@@ -2250,7 +2262,7 @@ function Upgrade-PlatformPackage
             {
                 if (-not $pickerRenderState.UseInPlaceRedraw)
                 {
-                    Clear-Host
+                    Invoke-PickerClearHost
                     return
                 }
 
@@ -2282,7 +2294,7 @@ function Upgrade-PlatformPackage
                 catch
                 {
                     $pickerRenderState.UseInPlaceRedraw = $false
-                    Clear-Host
+                    Invoke-PickerClearHost
                 }
             }
 
@@ -2481,7 +2493,7 @@ function Upgrade-PlatformPackage
                 $pickerRenderState.UseInPlaceRedraw = $false
                 $pickerRenderState.RenderedLineCount = 0
 
-                Clear-Host
+                Invoke-PickerClearHost
                 Write-Host 'Upgrade-PlatformPackage Help' -ForegroundColor Cyan
                 Write-Host ''
                 Write-Host 'Navigation' -ForegroundColor White
@@ -2521,7 +2533,7 @@ function Upgrade-PlatformPackage
                 Write-Host 'Press any key to return to the picker. Q/Esc/Ctrl+C cancels.' -ForegroundColor DarkGray
 
                 $helpKey = & $KeyReader
-                Clear-Host
+                Invoke-PickerClearHost
                 $pickerRenderState.UseInPlaceRedraw = $restoreInPlaceRedraw
                 $pickerRenderState.RenderedLineCount = 0
                 return (Test-PackagePickerCancelKey -KeyInfo $helpKey)
@@ -2540,7 +2552,7 @@ function Upgrade-PlatformPackage
                     {
                         try
                         {
-                            Clear-Host
+                            Invoke-PickerClearHost
                             $pickerRenderState.UseInPlaceRedraw = $true
                         }
                         catch

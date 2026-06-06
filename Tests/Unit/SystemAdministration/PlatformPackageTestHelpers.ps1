@@ -90,18 +90,18 @@ $script:NewNativeBrewCommand = {
 @echo off
 if not "%UPGRADE_TEST_BREW_LOG_PATH%"=="" echo %*>>"%UPGRADE_TEST_BREW_LOG_PATH%"
 
-if "%~1"=="update" if "%~2"=="--quiet" (
+if /I "%*"=="update --quiet" (
     echo brew update stdout
     1>&2 echo brew update stderr
     exit /b 0
 )
 
-if "%~1"=="outdated" if "%~2"=="--json=v2" if "%~3"=="--greedy" (
+if /I "%*"=="outdated --json=v2 --greedy" (
     echo {"formulae":[{"name":"git","installed_versions":["2.43.0"],"current_version":"2.44.0","pinned":false,"desc":"Git SCM"}],"casks":[]}
     exit /b 0
 )
 
-if "%~1"=="upgrade" if "%~2"=="git" (
+if /I "%*"=="upgrade git" (
     echo brew upgrade stdout
     1>&2 echo brew upgrade stderr
     exit /b 0
