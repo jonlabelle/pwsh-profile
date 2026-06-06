@@ -132,7 +132,7 @@ Describe 'Get-PathPermission' {
     It 'writes an error for missing paths and continues processing' {
         $missingPath = Join-Path -Path $script:TestDir -ChildPath 'does-not-exist.txt'
         $errors = $null
-        $results = @($script:RegularFile, $missingPath) | Get-PathPermission -ErrorAction Continue -ErrorVariable errors
+        $results = @($script:RegularFile, $missingPath) | Get-PathPermission -ErrorAction SilentlyContinue -ErrorVariable errors
 
         @($results).Count | Should -Be 1
         @($errors).Count | Should -BeGreaterThan 0
@@ -141,7 +141,7 @@ Describe 'Get-PathPermission' {
 
     It 'writes an error for non-filesystem providers' {
         $errors = $null
-        $result = Get-PathPermission -Path 'Variable:\PSVersionTable' -ErrorAction Continue -ErrorVariable errors
+        $result = Get-PathPermission -Path 'Variable:\PSVersionTable' -ErrorAction SilentlyContinue -ErrorVariable errors
 
         $result | Should -BeNullOrEmpty
         @($errors).Count | Should -BeGreaterThan 0
