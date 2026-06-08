@@ -694,14 +694,153 @@ function Upgrade-PlatformPackage
                 [Object[]]$Output = @()
             )
 
+            $wingetDiagnostic = if (Test-WingetCommand -Command $Command)
+            {
+                Get-WingetExitCodeDiagnostic -ExitCode $ExitCode -Arguments $Arguments
+            }
+            else
+            {
+                ''
+            }
+
             $message = ($Output | Where-Object { -not [String]::IsNullOrWhiteSpace("$($_)") }) -join ' '
             if (-not [String]::IsNullOrWhiteSpace($message))
             {
+                if (-not [String]::IsNullOrWhiteSpace($wingetDiagnostic))
+                {
+                    return "$message $wingetDiagnostic"
+                }
+
                 return $message
             }
 
             $commandText = "$Command $($Arguments -join ' ')".Trim()
-            return "$commandText failed with exit code $ExitCode. Command output was streamed directly to the console above."
+            return "$commandText failed with exit code $ExitCode$wingetDiagnostic. Command output was streamed directly to the console above."
+        }
+
+        function Test-WingetCommand
+        {
+            param(
+                [Parameter()]
+                [String]$Command = ''
+            )
+
+            if ([String]::IsNullOrWhiteSpace($Command))
+            {
+                return $false
+            }
+
+            try
+            {
+                $commandName = [System.IO.Path]::GetFileNameWithoutExtension($Command)
+                return $commandName -ieq 'winget'
+            }
+            catch
+            {
+                return $Command -ieq 'winget'
+            }
+        }
+
+        function ConvertTo-ExitCodeHexString
+        {
+            param(
+                [Parameter(Mandatory)]
+                [Int32]$ExitCode
+            )
+
+            $unsignedExitCode = if ($ExitCode -lt 0)
+            {
+                [UInt32]([Int64]0x100000000 + [Int64]$ExitCode)
+            }
+            else
+            {
+                [UInt32]$ExitCode
+            }
+
+            return ('0x{0:X8}' -f $unsignedExitCode)
+        }
+
+        function Get-WingetArgumentValue
+        {
+            param(
+                [Parameter()]
+                [String[]]$Arguments = @(),
+
+                [Parameter(Mandatory)]
+                [String]$Name
+            )
+
+            for ($i = 0; $i -lt ($Arguments.Count - 1); $i++)
+            {
+                if ($Arguments[$i] -ieq $Name)
+                {
+                    return "$($Arguments[$i + 1])"
+                }
+            }
+
+            return ''
+        }
+
+        function Get-WingetExitCodeDiagnostic
+        {
+            param(
+                [Parameter(Mandatory)]
+                [Int32]$ExitCode,
+
+                [Parameter()]
+                [String[]]$Arguments = @()
+            )
+
+            $exitCodeHex = ConvertTo-ExitCodeHexString -ExitCode $ExitCode
+            $diagnostics = @{
+                '-1978335184' = [PSCustomObject]@{
+                    Hex = '0x8A150030'
+                    Symbol = 'APPINSTALLER_CLI_ERROR_EXEC_UNINSTALL_COMMAND_FAILED'
+                    Description = 'Running uninstall command failed'
+                }
+            }
+
+            $diagnostic = $diagnostics["$ExitCode"]
+            if ($null -eq $diagnostic)
+            {
+                if ($exitCodeHex -like '0x8A15*')
+                {
+                    return " ($exitCodeHex). Run ``winget error $ExitCode`` for the WinGet error name."
+                }
+
+                return ''
+            }
+
+            $guidance = ''
+            if ($diagnostic.Symbol -eq 'APPINSTALLER_CLI_ERROR_EXEC_UNINSTALL_COMMAND_FAILED')
+            {
+                $id = Get-WingetArgumentValue -Arguments $Arguments -Name '--id'
+                $source = Get-WingetArgumentValue -Arguments $Arguments -Name '--source'
+                if (-not [String]::IsNullOrWhiteSpace($id))
+                {
+                    $uninstallArguments = @('uninstall', '--id', $id, '--exact')
+                    if (-not [String]::IsNullOrWhiteSpace($source))
+                    {
+                        $uninstallArguments += @('--source', $source)
+                    }
+
+                    $installArguments = @('install', '--id', $id, '--exact')
+                    if (-not [String]::IsNullOrWhiteSpace($source))
+                    {
+                        $installArguments += @('--source', $source)
+                    }
+
+                    $uninstallCommand = "winget $($uninstallArguments -join ' ')"
+                    $installCommand = "winget $($installArguments -join ' ')"
+                    $guidance = " The existing installation could not be removed. Re-run the upgrade command directly to inspect WinGet output; if appropriate, try ``$uninstallCommand`` followed by ``$installCommand``."
+                }
+                else
+                {
+                    $guidance = ' The existing installation could not be removed. Re-run the upgrade command directly to inspect WinGet output, then uninstall the current package manually if needed.'
+                }
+            }
+
+            return (" ({0}, {1}: {2}).{3}" -f $diagnostic.Hex, $diagnostic.Symbol, $diagnostic.Description, $guidance)
         }
 
         function Get-PackageInformationalOutput

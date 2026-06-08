@@ -869,6 +869,41 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
             $result.Upgraded | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source msstore --accept-package-agreements --accept-source-agreements' }).StreamOutput | Should -BeTrue
         }
+
+        It 'decodes winget uninstall command failures when streamed output is unavailable' {
+            $wingetUpgradeJson = @{
+                Sources = @(
+                    @{
+                        SourceDetails = @{
+                            Name = 'winget'
+                        }
+                        Packages = @(
+                            @{
+                                PackageName = 'Pandoc 3.9.0.2'
+                                PackageIdentifier = 'JohnMacFarlane.Pandoc'
+                                Version = '3.9.0.2'
+                                Available = '3.10'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget upgrade --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetUpgradeJson)
+                'winget upgrade --id JohnMacFarlane.Pandoc --exact --source winget --accept-package-agreements --accept-source-agreements' = Get-TestCommandResponse -ExitCode -1978335184 -Output @()
+            }
+
+            $result = Upgrade-PlatformPackage -PackageManager winget -SkipRefresh -All -CommandRunner $runner -Confirm:$false -WarningAction SilentlyContinue
+
+            $result.Upgraded | Should -Be 0
+            $result.Failed | Should -Be 1
+            $result.Results[0].ExitCode | Should -Be -1978335184
+            $result.Results[0].Message | Should -Match '0x8A150030'
+            $result.Results[0].Message | Should -Match 'APPINSTALLER_CLI_ERROR_EXEC_UNINSTALL_COMMAND_FAILED'
+            $result.Results[0].Message | Should -Match 'Running uninstall command failed'
+            $result.Results[0].Message | Should -Match 'winget uninstall --id JohnMacFarlane\.Pandoc --exact --source winget'
+            $result.Results[0].Message | Should -Match 'winget install --id JohnMacFarlane\.Pandoc --exact --source winget'
+        }
     }
 
     Context 'Filtering and dry runs' {
