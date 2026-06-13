@@ -167,8 +167,8 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: D deps  V details  E export  R remove  U upgrade  F: [all]" } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Nav: Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Nav: Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  filter: all" -and $ForegroundColor -eq 'White' } -Times 1
             @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 2
         }
@@ -191,7 +191,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: D deps  V details  E export  R remove  U upgrade  F: [all]" } -Times 2
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 2
         }
 
         It 'ignores Backspace and Delete as manager navigation when not launched by the manager' {
@@ -213,7 +213,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: D deps  V details  E export  R remove  U upgrade  F: [all]" } -Times 3
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 3
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 0
         }
 
@@ -235,7 +235,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: D deps  V details  E export  R remove  U upgrade  F: [all]" } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
         }
 
@@ -281,7 +281,7 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A toggle all  F: [all]" } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A toggle all  F: [all]' } -Times 1
         }
 
         It 'returns the current package when PassThru is used without a selection' {
@@ -298,8 +298,8 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A toggle all  F: [all]" } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Nav: S: [All]  Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A toggle all  F: [all]' } -Times 1
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Nav: S: [All]  Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit' } -Times 1
         }
 
         It 'shows keyboard help from the picker when question mark is pressed' {
@@ -534,7 +534,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: D deps  V details  E export  R remove  U upgrade  F: [all]" } -Times 2
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 2
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Show-InstalledPlatformPackage Dependencies - Homebrew' } -Times 2
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/Delete/LeftArrow to return to the package list.' } -Times 2
         }
@@ -610,6 +610,65 @@ Describe 'Show-InstalledPlatformPackage' {
                 @($IncludePackage)[0] -eq 'git'
             } -Times 1
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Status: Upgraded: 1, Failed: 0, Skipped: 0' } -Times 1
+        }
+
+        It 'shows winget remediation text after a browser-launched upgrade failure' {
+            $wingetListJson = @{
+                Sources = @(
+                    @{
+                        Packages = @(
+                            @{
+                                PackageName = 'Pandoc 3.9.0.2'
+                                PackageIdentifier = 'JohnMacFarlane.Pandoc'
+                                Version = '3.9.0.2'
+                                Source = 'winget'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $wingetUpgradeJson = @{
+                Sources = @(
+                    @{
+                        SourceDetails = @{
+                            Name = 'winget'
+                        }
+                        Packages = @(
+                            @{
+                                PackageName = 'Pandoc 3.9.0.2'
+                                PackageIdentifier = 'JohnMacFarlane.Pandoc'
+                                Version = '3.9.0.2'
+                                Available = '3.10'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget list --accept-source-agreements --output json' = (& $script:NewTestCommandResponse -Output @($wingetListJson))
+                'winget upgrade --accept-source-agreements --output json' = (& $script:NewTestCommandResponse -Output @($wingetUpgradeJson))
+                'winget upgrade --id JohnMacFarlane.Pandoc --exact --source winget --accept-package-agreements --accept-source-agreements' = (& $script:NewTestCommandResponse -ExitCode -1978335184 -Output @())
+            }
+
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new('u', [ConsoleKey]::U, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new('y', [ConsoleKey]::Y, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = @(Show-InstalledPlatformPackage -PackageManager winget -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey -WarningAction SilentlyContinue)
+
+            $result.Count | Should -Be 0
+            $visibleOutput = ($script:HostOutput | ForEach-Object { "$_" }) -join "`n"
+            $visibleOutput | Should -Match 'Status: Upgraded: 0, Failed: 1, Skipped: 0'
+            $visibleOutput | Should -Match 'APPINSTALLER_CLI_ERROR_EXEC_UNINSTALL_COMMAND_FAILED'
+            $visibleOutput | Should -Match 'Running uninstall command failed'
+            $visibleOutput | Should -Match 'winget uninstall --id JohnMacFarlane\.Pandoc --exact --source winget'
+            $visibleOutput | Should -Match 'winget install --id JohnMacFarlane\.Pandoc --exact --source winget'
         }
 
         It 'exports visible packages to JSON from the picker when E is used' {

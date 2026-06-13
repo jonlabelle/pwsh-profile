@@ -589,6 +589,77 @@ function Show-InstalledPlatformPackage
                 [Switch]$ReturnToPlatformPackageManagerOnBackKey
             )
 
+            function Get-PackageActionFirstFailureMessage
+            {
+                param(
+                    [Parameter()]
+                    [Object]$ActionResult
+                )
+
+                if ($null -eq $ActionResult)
+                {
+                    return ''
+                }
+
+                $resultProperty = $ActionResult.PSObject.Properties['Results']
+                if ($resultProperty)
+                {
+                    foreach ($result in @($resultProperty.Value))
+                    {
+                        if ($null -eq $result)
+                        {
+                            continue
+                        }
+
+                        $status = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $result -PropertyName @('Status'))
+                        if ($status -ne 'Failed')
+                        {
+                            continue
+                        }
+
+                        $message = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $result -PropertyName @('Message', 'ErrorMessage', 'Error'))
+                        if (-not [String]::IsNullOrWhiteSpace($message))
+                        {
+                            return $message
+                        }
+
+                        $informationalOutput = Get-FirstPropertyValue -InputObject $result -PropertyName @('InformationalOutput')
+                        $informationalMessage = ConvertTo-PackageText -Value $informationalOutput
+                        if (-not [String]::IsNullOrWhiteSpace($informationalMessage))
+                        {
+                            return $informationalMessage
+                        }
+                    }
+                }
+
+                $informationalResultsProperty = $ActionResult.PSObject.Properties['InformationalResults']
+                if ($informationalResultsProperty)
+                {
+                    foreach ($informationalResult in @($informationalResultsProperty.Value))
+                    {
+                        if ($null -eq $informationalResult)
+                        {
+                            continue
+                        }
+
+                        $status = ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $informationalResult -PropertyName @('Status'))
+                        if ($status -ne 'Failed')
+                        {
+                            continue
+                        }
+
+                        $lines = Get-FirstPropertyValue -InputObject $informationalResult -PropertyName @('Lines')
+                        $message = ConvertTo-PackageText -Value $lines
+                        if (-not [String]::IsNullOrWhiteSpace($message))
+                        {
+                            return $message
+                        }
+                    }
+                }
+
+                return ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $ActionResult -PropertyName @('Message', 'ErrorMessage', 'Error'))
+            }
+
             if ($InstalledPackages.Count -eq 0)
             {
                 return @()
@@ -2697,6 +2768,14 @@ function Show-InstalledPlatformPackage
 
                                 $upgradeResult = Upgrade-PlatformPackage @upgradeParameters
                                 $actionStatus = "Upgraded: $($upgradeResult.Upgraded), Failed: $($upgradeResult.Failed), Skipped: $($upgradeResult.Skipped)"
+                                if ([Int32]$upgradeResult.Failed -gt 0)
+                                {
+                                    $failureMessage = Get-PackageActionFirstFailureMessage -ActionResult $upgradeResult
+                                    if (-not [String]::IsNullOrWhiteSpace($failureMessage))
+                                    {
+                                        $actionStatus = "$actionStatus; First failure: $failureMessage"
+                                    }
+                                }
                                 $actionStatusColor = if ([Int32]$upgradeResult.Failed -gt 0) { [ConsoleColor]::DarkYellow } else { [ConsoleColor]::Green }
                             }
                         }
