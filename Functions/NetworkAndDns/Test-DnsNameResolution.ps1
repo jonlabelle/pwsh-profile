@@ -12,11 +12,6 @@ function Test-DnsNameResolution
     .PARAMETER Name
         The DNS name to resolve. This parameter is mandatory.
 
-    .PARAMETER Server
-        The DNS server(s) to use for resolution. NOTE: Due to cross-platform limitations with .NET DNS methods,
-        custom DNS servers are currently not supported. The system's default DNS servers will be used regardless.
-        You can specify servers for documentation purposes, but they won't affect resolution.
-
     .PARAMETER Type
         The DNS record type to query. Supported types: 'A' (IPv4), 'AAAA' (IPv6).
         Other types (CNAME, MX, etc.) will fall back to basic host resolution.
@@ -27,13 +22,6 @@ function Test-DnsNameResolution
         True
 
         Tests whether bing.com can be resolved using the system's default DNS servers.
-
-    .EXAMPLE
-        PS > Test-DnsNameResolution -Name 'bing.com' -Server '8.8.8.8','8.8.4.4'
-        True
-
-        Tests whether bing.com can be resolved.
-        Note: Custom DNS servers are specified but system DNS will be used for cross-platform compatibility.
 
     .EXAMPLE
         PS > Test-DnsNameResolution -Name 'bing.com' -Type 'AAAA' -Verbose
@@ -79,20 +67,6 @@ function Test-DnsNameResolution
         $Name,
 
         [Parameter()]
-        [ValidateScript({
-                foreach ($serverAddress in $_)
-                {
-                    if (-not ([System.Net.IPAddress]::TryParse($serverAddress, [ref]$null)))
-                    {
-                        throw "Server '$serverAddress' is not a valid IP address."
-                    }
-                }
-                return $true
-            })]
-        [String[]]
-        $Server,
-
-        [Parameter()]
         [ValidateSet('A', 'AAAA', 'CNAME', 'MX', 'NS', 'PTR', 'SOA', 'SRV', 'TXT')]
         [String]
         $Type = 'A'
@@ -115,18 +89,6 @@ function Test-DnsNameResolution
         try
         {
             Write-Verbose 'Attempting DNS resolution'
-
-            if ($Server -and $Server.Count -gt 0)
-            {
-                Write-Verbose "Using DNS servers: $($Server -join ', ')"
-                # Note: Custom DNS servers require platform-specific implementation
-                # For cross-platform compatibility, we'll use system DNS when custom servers are specified
-                Write-Verbose 'Custom DNS servers specified, but using system DNS for cross-platform compatibility'
-            }
-            else
-            {
-                Write-Verbose 'Using system default DNS servers'
-            }
 
             # Use .NET DNS resolution methods for cross-platform compatibility
             switch ($Type)
