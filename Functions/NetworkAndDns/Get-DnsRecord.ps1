@@ -6,8 +6,10 @@ function Get-DnsRecord
 
     .DESCRIPTION
         Queries DNS records for a domain name supporting all common record types (A, AAAA, MX, TXT, NS, CNAME, SOA, SRV, PTR, CAA).
-        This function provides cross-platform DNS resolution using DNS-over-HTTPS (DoH) APIs for comprehensive record type support,
-        with fallback to native .NET DNS methods for basic A/AAAA queries.
+        This function provides cross-platform DNS resolution using DNS-over-HTTPS (DoH) APIs for comprehensive record type support.
+        The default ANY query fans out to each forward record type included in the expansion because most resolvers restrict direct
+        ANY responses per RFC 8482.
+        Native .NET DNS resolution is also available for A and AAAA queries; native ANY returns both available address families.
 
         Uses Cloudflare's DNS-over-HTTPS API (1.1.1.1) by default for maximum compatibility and privacy.
 
@@ -20,7 +22,7 @@ function Get-DnsRecord
     .PARAMETER Type
         The DNS record type to query.
         Valid values: A, AAAA, MX, TXT, NS, CNAME, SOA, SRV, PTR, CAA, ANY
-        Default is 'A'.
+        Default is 'ANY', which queries each forward record type included in the expansion when using DNS-over-HTTPS.
 
     .PARAMETER Server
         The DNS server to use for queries. Supports standard DNS servers and DNS-over-HTTPS endpoints.
@@ -29,7 +31,8 @@ function Get-DnsRecord
 
     .PARAMETER UseDNS
         Use native DNS resolution instead of DNS-over-HTTPS.
-        Note: Native DNS only supports A and AAAA record types reliably across platforms.
+        Native DNS supports A and AAAA record types reliably across platforms.
+        When Type is ANY, both available address families are returned. Other record types produce a warning and no output.
 
     .PARAMETER Timeout
         Request timeout in seconds for DNS-over-HTTPS queries.
@@ -101,13 +104,14 @@ function Get-DnsRecord
         Retrieves SRV (service) records.
 
     .EXAMPLE
-        PS > Get-DnsRecord -Name 'github.com' -UseDNS
+        PS > Get-DnsRecord -Name 'localhost' -UseDNS
 
-        Name       Type TTL Data
-        ----       ---- --- ----
-        github.com A        140.82.114.3
+        Name      Type TTL Data
+        ----      ---- --- ----
+        localhost AAAA     ::1
+        localhost A        127.0.0.1
 
-        Use native DNS resolution instead of DoH (useful if firewall does not allow DNS-over-HTTPS, but limited to A/AAAA records).
+        Uses native DNS resolution with the default ANY type to return locally resolved A and AAAA addresses.
 
     .EXAMPLE
         PS > Get-DnsRecord -Name 'example.com' -Type MX
@@ -136,9 +140,9 @@ function Get-DnsRecord
 
         Network Requirements:
         - Requires internet connectivity to reach DoH providers
-        - If DoH is blocked, use -UseDNS flag for native DNS resolution (A/AAAA records only)
+        - If DoH is blocked, use -UseDNS for native A or AAAA resolution; the default ANY type returns both
 
-        For air-gapped or restricted environments, use -UseDNS flag with limited record type support.
+        For air-gapped or restricted environments, use -UseDNS with A, AAAA, or ANY.
 
         Author: Jon LaBelle
         License: MIT
@@ -210,7 +214,7 @@ function Get-DnsRecord
 
                 if ($Type -notin @('A', 'AAAA', 'ANY'))
                 {
-                    Write-Warning "Native DNS resolution only supports A and AAAA records. Use DNS-over-HTTPS (default) for $Type records."
+                    Write-Warning "Native DNS resolution only supports A, AAAA, and ANY records. Use DNS-over-HTTPS (default) for $Type records."
                     return
                 }
 
@@ -247,7 +251,7 @@ function Get-DnsRecord
             else
             {
                 # When ANY is requested, expand to individual queries per type since RFC 8482
-                # restricts ANY responses — most DoH resolvers return nothing or HINFO.
+                # restricts ANY responses - most DoH resolvers return nothing or HINFO.
                 if ($Type -eq 'ANY')
                 {
                     Write-Verbose 'ANY type requested - querying all record types individually (RFC 8482)'
