@@ -12,6 +12,12 @@ function Test-DnsPropagation
         Google, Control D), and falls back to direct DNS over UDP for all other providers
         (Quad9, OpenDNS, CleanBrowsing, AdGuard).
 
+        When -IncludeLocal is specified, the local system resolver is also queried and
+        included at the top of the results. For A and AAAA record types, the OS native
+        resolver ([System.Net.Dns]::GetHostAddresses) is used, which correctly honours
+        mDNSResponder, stub resolvers, and system-level DNS filtering. For all other
+        record types, the system's configured DNS server IPs are queried directly via UDP.
+
         This function leverages Get-PublicDnsServer for its resolver list.
 
         Compatible with PowerShell Desktop 5.1+ on Windows, macOS, and Linux.
@@ -27,22 +33,30 @@ function Test-DnsPropagation
         Timeout in seconds for each DNS-over-HTTPS query.
         Default is 5 seconds. Valid range: 1-30.
 
+    .PARAMETER IncludeLocal
+        When specified, the local system resolver is queried and included at the top of
+        the results. For A/AAAA record types, uses the OS native resolver
+        ([System.Net.Dns]::GetHostAddresses) for accuracy. For other record types,
+        queries the system-configured DNS server IPs directly via UDP.
+
     .PARAMETER ExpectedValue
         If specified, each server's response is compared against this expected value.
         The Propagated column indicates whether the expected value was found.
 
     .EXAMPLE
-        PS > Test-DnsPropagation -Name 'bing.com'
+        PS > Test-DnsPropagation bing.com -IncludeLocal | Format-Table -AutoSize
 
-        Server         IPv4Primary      Status    Records               Propagated
-        ------         -----------      ------    -------               ----------
-        Cloudflare     1.1.1.1          Resolved  204.79.197.200, ...   True
-        Google         8.8.8.8          Resolved  204.79.197.200, ...   True
-        Quad9          9.9.9.9          Resolved  204.79.197.200, ...   True
-        OpenDNS        208.67.222.222   Resolved  204.79.197.200, ...   True
-        CleanBrowsing  185.228.168.9    Resolved  204.79.197.200, ...   True
-        AdGuard DNS    94.140.14.14     Resolved  204.79.197.200, ...   True
-        Control D      76.76.2.0        Resolved  204.79.197.200, ...   True
+        Server          IPv4Primary    Status   Records                      Propagated
+        ------          -----------    ------   -------                      ----------
+        System Resolver 1.1.1.1        Resolved 150.171.27.10, 150.171.28.10       True
+        Cloudflare      1.1.1.1        Resolved 150.171.27.10, 150.171.28.10       True
+        Google          8.8.8.8        Resolved 150.171.28.10, 150.171.27.10       True
+        Quad9           9.9.9.9        Resolved 150.171.27.10, 150.171.28.10       True
+        OpenDNS         208.67.222.222 Resolved 150.171.28.10, 150.171.27.10       True
+        Comodo Secure   8.26.56.26     Resolved 150.171.27.10, 150.171.28.10       True
+        CleanBrowsing   185.228.168.9  Resolved 150.171.27.10, 150.171.28.10       True
+        AdGuard DNS     94.140.14.14   Resolved 150.171.28.10, 150.171.27.10       True
+        Control D       76.76.2.0      Resolved 150.171.27.10, 150.171.28.10       True
 
         Checks DNS propagation for bing.com across all public DNS servers.
 
@@ -55,6 +69,12 @@ function Test-DnsPropagation
         PS > Test-DnsPropagation -Name 'example.com' -ExpectedValue '93.184.216.34'
 
         Checks if the expected A record has propagated to all resolvers.
+
+    .EXAMPLE
+        PS > Test-DnsPropagation -Name 'example.com' -IncludeLocal
+
+        Checks propagation and also queries the local system resolver, showing it at
+        the top of the results for comparison with the public resolvers.
 
     .OUTPUTS
         PSCustomObject
@@ -87,6 +107,10 @@ function Test-DnsPropagation
         [ValidateRange(1, 30)]
         [Int32]
         $Timeout = 5,
+
+        [Parameter()]
+        [Switch]
+        $IncludeLocal,
 
         [Parameter()]
         [String]
@@ -139,6 +163,39 @@ function Test-DnsPropagation
         }
 
         Import-DependencyIfNeeded -FunctionName 'Get-PublicDnsServer' -RelativePath 'Get-PublicDnsServer.ps1'
+
+        # Helper: Retrieve the system's configured DNS server IP addresses
+        function Get-LocalDnsServer
+        {
+            $dnsIPs = [System.Collections.Generic.List[string]]::new()
+
+            try
+            {
+                $interfaces = [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()
+                foreach ($iface in $interfaces)
+                {
+                    if ($iface.OperationalStatus -ne 'Up') { continue }
+                    if ($iface.NetworkInterfaceType -eq 'Loopback') { continue }
+
+                    $ipProps = $iface.GetIPProperties()
+                    foreach ($dnsAddr in $ipProps.DnsAddresses)
+                    {
+                        if ($dnsAddr.IsIPv6LinkLocal) { continue }
+                        $ip = $dnsAddr.ToString()
+                        if (-not $dnsIPs.Contains($ip))
+                        {
+                            $dnsIPs.Add($ip)
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                Write-Verbose "Could not retrieve local DNS servers: $($_.Exception.Message)"
+            }
+
+            return $dnsIPs.ToArray()
+        }
 
         # DNS record type numeric codes
         $typeCode = @{
@@ -644,11 +701,112 @@ function Test-DnsPropagation
     {
         Write-Verbose "Checking DNS propagation for '$Name' (type: $Type)"
 
-        # Get all servers that can be queried (have DoH JSON URL or IPv4 address for UDP)
-        $servers = Get-PublicDnsServer | Where-Object { $_.DoHJsonUrl -or $_.IPv4Primary }
-
         $results = @()
         $recordTypeCode = $typeCode[$Type]
+
+        # Query local/system resolver first if requested
+        if ($IncludeLocal)
+        {
+            $localDnsIPs = Get-LocalDnsServer
+
+            if ($Type -eq 'A' -or $Type -eq 'AAAA')
+            {
+                # Use the OS native resolver for address record types — this correctly
+                # honours mDNSResponder, stub resolvers, and system-level DNS filtering.
+                # Direct UDP queries to DNS server IPs can be intercepted on macOS and
+                # return incorrect empty responses.
+                Write-Verbose 'Querying system resolver via [System.Net.Dns]::GetHostAddresses()'
+
+                $sysRecords = @()
+                $sysStatus = 'Error'
+
+                try
+                {
+                    $addressFamily = if ($Type -eq 'AAAA')
+                    {
+                        [System.Net.Sockets.AddressFamily]::InterNetworkV6
+                    }
+                    else
+                    {
+                        [System.Net.Sockets.AddressFamily]::InterNetwork
+                    }
+
+                    $allAddresses = [System.Net.Dns]::GetHostAddresses($Name)
+                    $sysRecords = @($allAddresses |
+                        Where-Object { $_.AddressFamily -eq $addressFamily } |
+                        ForEach-Object { $_.ToString() })
+
+                    $sysStatus = if ($sysRecords.Count -gt 0) { 'Resolved' } else { 'NoRecords' }
+                }
+                catch
+                {
+                    Write-Verbose "System resolver query failed: $($_.Exception.Message)"
+                    $sysStatus = 'Error'
+                }
+
+                $sysPropagated = $false
+                if ($sysStatus -eq 'Resolved' -and $sysRecords.Count -gt 0)
+                {
+                    $sysPropagated = if ($ExpectedValue) { $sysRecords -contains $ExpectedValue } else { $true }
+                }
+
+                $results += [PSCustomObject]@{
+                    Server = 'System Resolver'
+                    IPv4Primary = if ($localDnsIPs.Count -gt 0) { $localDnsIPs[0] } else { '' }
+                    Status = $sysStatus
+                    Records = if ($sysRecords.Count -gt 0) { $sysRecords -join ', ' } else { '' }
+                    Propagated = $sysPropagated
+                }
+            }
+            else
+            {
+                # For non-address record types there is no OS API equivalent;
+                # query each detected local DNS server directly via UDP.
+                Write-Verbose "Found $($localDnsIPs.Count) local DNS server(s): $($localDnsIPs -join ', ')"
+
+                foreach ($localIP in $localDnsIPs)
+                {
+                    $localStatus = 'Error'
+                    $localRecords = @()
+
+                    Write-Verbose "Querying local DNS server $localIP via UDP"
+
+                    try
+                    {
+                        $localRecords = @(Invoke-DnsUdpQuery `
+                                -ServerIP $localIP `
+                                -DomainName $Name `
+                                -RecordTypeCode $recordTypeCode `
+                                -RecordTypeName $Type `
+                                -TimeoutMs ($Timeout * 1000))
+
+                        $localStatus = if ($localRecords.Count -gt 0) { 'Resolved' } else { 'NoRecords' }
+                    }
+                    catch
+                    {
+                        Write-Verbose "UDP DNS query failed for local server $localIP`: $($_.Exception.Message)"
+                        $localStatus = 'Error'
+                    }
+
+                    $localPropagated = $false
+                    if ($localStatus -eq 'Resolved' -and $localRecords.Count -gt 0)
+                    {
+                        $localPropagated = if ($ExpectedValue) { $localRecords -contains $ExpectedValue } else { $true }
+                    }
+
+                    $results += [PSCustomObject]@{
+                        Server = "Local ($localIP)"
+                        IPv4Primary = $localIP
+                        Status = $localStatus
+                        Records = if ($localRecords.Count -gt 0) { $localRecords -join ', ' } else { '' }
+                        Propagated = $localPropagated
+                    }
+                }
+            }
+        }
+
+        # Get all public servers that can be queried (have DoH JSON URL or IPv4 address for UDP)
+        $servers = Get-PublicDnsServer | Where-Object { $_.DoHJsonUrl -or $_.IPv4Primary }
 
         foreach ($server in $servers)
         {
