@@ -38,16 +38,16 @@ function Get-DnsRecord
     .EXAMPLE
         PS > Get-DnsRecord -Name 'bing.com'
 
-        Name       Type TTL Data
-        ----       ---- --- ----
-        bing.com A     29 142.251.167.139
-        bing.com A     29 142.251.167.101
-        bing.com A     29 142.251.167.100
-        bing.com A     29 142.251.167.102
-        bing.com A     29 142.251.167.138
-        bing.com A     29 142.251.167.113
+        Name       Type TTL  Data
+        ----       ---- ---  ----
+        bing.com   A    29   142.251.167.139
+        bing.com   A    29   142.251.167.101
+        bing.com   NS   3599 ns1.msft.net.
+        bing.com   MX   85   10 smtp.bing.com.
+        bing.com   TXT  201  v=spf1 include:_spf.bing.com ~all
+        ...
 
-        Retrieves A records for bing.com using Cloudflare DoH.
+        Retrieves all available DNS records for bing.com using Cloudflare DoH.
 
     .EXAMPLE
         PS > Get-DnsRecord -Name 'bing.com' -Type MX
@@ -157,7 +157,7 @@ function Get-DnsRecord
 
         [Parameter(Position = 1)]
         [ValidateSet('A', 'AAAA', 'MX', 'TXT', 'NS', 'CNAME', 'SOA', 'SRV', 'PTR', 'CAA', 'ANY')]
-        [String]$Type = 'A',
+        [String]$Type = 'ANY',
 
         [Parameter(ParameterSetName = 'DoH')]
         [ValidateSet('cloudflare', 'google')]
@@ -208,7 +208,7 @@ function Get-DnsRecord
                 # Use native .NET DNS resolution (limited to A/AAAA)
                 Write-Verbose 'Using native DNS resolution'
 
-                if ($Type -notin @('A', 'AAAA'))
+                if ($Type -notin @('A', 'AAAA', 'ANY'))
                 {
                     Write-Warning "Native DNS resolution only supports A and AAAA records. Use DNS-over-HTTPS (default) for $Type records."
                     return
@@ -227,9 +227,18 @@ function Get-DnsRecord
 
                 foreach ($addr in $addresses)
                 {
+                    $resolvedType = if ($Type -eq 'ANY')
+                    {
+                        if ($addr.AddressFamily -eq 'InterNetwork') { 'A' } else { 'AAAA' }
+                    }
+                    else
+                    {
+                        $Type
+                    }
+
                     [PSCustomObject]@{
                         Name = $Name
-                        Type = $Type
+                        Type = $resolvedType
                         TTL = $null
                         Data = $addr.ToString()
                     }
@@ -237,6 +246,19 @@ function Get-DnsRecord
             }
             else
             {
+                # When ANY is requested, expand to individual queries per type since RFC 8482
+                # restricts ANY responses — most DoH resolvers return nothing or HINFO.
+                if ($Type -eq 'ANY')
+                {
+                    Write-Verbose 'ANY type requested - querying all record types individually (RFC 8482)'
+                    $allTypes = @('A', 'AAAA', 'MX', 'TXT', 'NS', 'CNAME', 'SOA', 'SRV', 'CAA')
+                    foreach ($queryType in $allTypes)
+                    {
+                        Get-DnsRecord -Name $Name -Type $queryType -Server $Server -Timeout $Timeout -WarningAction SilentlyContinue
+                    }
+                    return
+                }
+
                 # Use DNS-over-HTTPS
                 $dohUrl = $dohEndpoints[$Server]
                 Write-Verbose "Using DNS-over-HTTPS: $dohUrl"
