@@ -2745,6 +2745,14 @@ function Show-InstalledPlatformPackage
 
                                 $removeResult = Remove-PlatformPackage @removeParameters
                                 $actionStatus = "Removed: $($removeResult.Removed), Failed: $($removeResult.Failed), Skipped: $($removeResult.Skipped)"
+                                if ([Int32]$removeResult.Failed -gt 0)
+                                {
+                                    $failureMessage = Get-PackageActionFirstFailureMessage -ActionResult $removeResult
+                                    if (-not [String]::IsNullOrWhiteSpace($failureMessage))
+                                    {
+                                        $actionStatus = "$actionStatus; First failure: $failureMessage"
+                                    }
+                                }
                                 $actionStatusColor = if ([Int32]$removeResult.Failed -gt 0) { [ConsoleColor]::DarkYellow } else { [ConsoleColor]::Green }
                             }
                         }

@@ -575,6 +575,48 @@ Describe 'Show-InstalledPlatformPackage' {
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Status: Removed: 1, Failed: 0, Skipped: 0' } -Times 1
         }
 
+        It 'shows winget remediation text after a browser-launched remove failure' {
+            $wingetListJson = @{
+                Sources = @(
+                    @{
+                        SourceDetails = @{
+                            Name = 'winget'
+                        }
+                        Packages = @(
+                            @{
+                                PackageName = 'Pandoc'
+                                PackageIdentifier = 'JohnMacFarlane.Pandoc'
+                                Version = '3.9.0.2'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $removeFailureMessage = 'winget uninstall --id JohnMacFarlane.Pandoc --exact --source winget --accept-source-agreements failed. Remediation: close running Pandoc processes and retry the uninstall.'
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget list --accept-source-agreements --output json' = (& $script:NewTestCommandResponse -Output @($wingetListJson))
+                'winget uninstall --id JohnMacFarlane.Pandoc --exact --source winget --accept-source-agreements' = (& $script:NewTestCommandResponse -ExitCode 1603 -Output @($removeFailureMessage))
+            }
+
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new('r', [ConsoleKey]::R, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new('y', [ConsoleKey]::Y, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = @(Show-InstalledPlatformPackage -PackageManager winget -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey -WarningAction SilentlyContinue)
+
+            $result.Count | Should -Be 0
+            $visibleOutput = ($script:HostOutput | ForEach-Object { "$_" }) -join "`n"
+            $visibleOutput | Should -Match 'Status: Removed: 0, Failed: 1, Skipped: 0'
+            $visibleOutput | Should -Match 'winget uninstall --id JohnMacFarlane\.Pandoc --exact --source winget --accept-source-agreements'
+            $visibleOutput | Should -Match 'Remediation: close running Pandoc processes and retry the uninstall'
+        }
+
         It 'invokes Upgrade-PlatformPackage from the picker when U is confirmed' {
             $runner = & $script:NewPackageCommandRunner @{
                 'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0'))
