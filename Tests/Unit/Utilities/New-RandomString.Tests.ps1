@@ -268,21 +268,10 @@ Describe 'New-RandomString' {
     Context 'IncludeCharacters parameter' {
         It 'Should include custom characters when IncludeCharacters is specified' {
             $customChars = @('-', '_', '.')
-            $result = New-RandomString -Length 200 -IncludeCharacters $customChars
+            $result = New-RandomString -Length 200 -IncludeCharacters $customChars -ExcludeCharacters $script:DefaultRandomStringCharacters
             $result | Should -Not -BeNullOrEmpty
             $result.Length | Should -Be 200
-
-            # At least one custom character should appear in a large sample
-            $foundCustomChar = $false
-            foreach ($char in $customChars)
-            {
-                if ($result -match [regex]::Escape($char))
-                {
-                    $foundCustomChar = $true
-                    break
-                }
-            }
-            $foundCustomChar | Should -Be $true
+            $result | Should -MatchExactly '^[-_.]+$'
         }
 
         It 'Should work with special ASCII characters' {
