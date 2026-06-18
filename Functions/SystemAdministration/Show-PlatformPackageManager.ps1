@@ -912,7 +912,19 @@ function Show-PlatformPackageManager
             )
 
             $ruleWidth = 78
-            try { $w = [Console]::BufferWidth; if ($w -gt 0) { $ruleWidth = [Math]::Max(40, $w - 1) } } catch {}
+            try
+            {
+                $w = [Console]::BufferWidth
+                if ($w -gt 0)
+                {
+                    $ruleWidth = [Math]::Max(40, $w - 1)
+                }
+            }
+            catch
+            {
+                Write-Verbose "Unable to determine the console buffer width; using $ruleWidth characters. $($_.Exception.Message)"
+            }
+
             $rule = '=' * $ruleWidth
             Write-Host $rule -ForegroundColor DarkGray
             Write-Host $Title -ForegroundColor Cyan
@@ -1153,7 +1165,19 @@ function Show-PlatformPackageManager
                     {
                         Write-Host 'Details' -ForegroundColor Cyan
                         $sepWidth = 78
-                        try { $w = [Console]::BufferWidth; if ($w -gt 0) { $sepWidth = [Math]::Max(40, $w - 1) } } catch {}
+                        try
+                        {
+                            $w = [Console]::BufferWidth
+                            if ($w -gt 0)
+                            {
+                                $sepWidth = [Math]::Max(40, $w - 1)
+                            }
+                        }
+                        catch
+                        {
+                            Write-Verbose "Unable to determine the console buffer width; using $sepWidth characters. $($_.Exception.Message)"
+                        }
+
                         Write-Host ('-' * $sepWidth) -ForegroundColor DarkGray
                         $detailTable = Format-PlatformPackageManagerResultTable -InputObject $detailRecords
                         if (-not [String]::IsNullOrWhiteSpace($detailTable))
@@ -1168,7 +1192,19 @@ function Show-PlatformPackageManager
                     {
                         Write-Host 'Additional output' -ForegroundColor Cyan
                         $sepWidth = 78
-                        try { $w = [Console]::BufferWidth; if ($w -gt 0) { $sepWidth = [Math]::Max(40, $w - 1) } } catch {}
+                        try
+                        {
+                            $w = [Console]::BufferWidth
+                            if ($w -gt 0)
+                            {
+                                $sepWidth = [Math]::Max(40, $w - 1)
+                            }
+                        }
+                        catch
+                        {
+                            Write-Verbose "Unable to determine the console buffer width; using $sepWidth characters. $($_.Exception.Message)"
+                        }
+
                         Write-Host ('-' * $sepWidth) -ForegroundColor DarkGray
 
                         foreach ($informationalResult in $informationalResults)

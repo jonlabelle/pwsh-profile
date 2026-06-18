@@ -2952,7 +2952,6 @@ function Remove-PlatformPackage
 
                     $sourceHint = if ($hasSourceFilter) { "S: [$($availableSources[$sourceFilterIndex])]  " } else { '' }
                     $nameFilterHintValue = if ([String]::IsNullOrWhiteSpace($nameFilterText)) { 'all' } else { $nameFilterText }
-                    $nameFilterHint = "F: [$nameFilterHintValue]  "
 
                     if ($showDependencyPanel -and $dependencyPanelPackageKey -ne $currentPackageLookupKey)
                     {
