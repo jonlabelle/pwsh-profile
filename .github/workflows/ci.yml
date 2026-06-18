@@ -2,14 +2,14 @@ name: ci
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths-ignore:
       - "**.md"
       - ".vscode/**"
       - "resources/**"
   pull_request:
-    branches: [ main ]
-    types: [ opened, reopened, synchronize ]
+    branches: [main]
+    types: [opened, reopened, synchronize]
     paths-ignore:
       - "**.md"
       - ".vscode/**"
@@ -45,6 +45,32 @@ permissions:
   contents: read
 
 jobs:
+  psscriptanalyzer-sarif:
+    name: Publish PSScriptAnalyzer results
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout Git repository
+        uses: actions/checkout@main
+
+      - name: Run PSScriptAnalyzer and generate SARIF
+        uses: microsoft/psscriptanalyzer-action@main
+        with:
+          path: .
+          recurse: true
+          settings: PSScriptAnalyzerSettings.psd1
+          output: results.sarif
+
+      - name: Upload PSScriptAnalyzer results
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: github/codeql-action/upload-sarif@main
+        with:
+          sarif_file: results.sarif
+          category: /tool:PSScriptAnalyzer
+
   powershell-core:
     name: Build on ${{ matrix.platform }} (pwsh)
     if: github.event_name != 'workflow_dispatch' || inputs.powershell-core
@@ -52,7 +78,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ macos-latest, ubuntu-latest, windows-latest ]
+        platform: [macos-latest, ubuntu-latest, windows-latest]
 
     steps:
       - name: Checkout Git repository
