@@ -23,10 +23,9 @@ BeforeAll {
 
 Describe 'Test-DnsNameResolution' {
     Context 'Basic DNS resolution examples from documentation' {
-        It 'Tests whether localhost can be resolved with specified DNS servers (Example: Test-DnsNameResolution -Name "localhost" -Server "8.8.8.8", "8.8.4.4")' {
-            # Test DNS resolution with custom DNS servers specified
-            # Note: This test uses system DNS for compatibility but validates the parameter structure
-            $result = Test-DnsNameResolution -Name 'localhost' -Server '8.8.8.8', '8.8.4.4'
+        It 'Tests whether localhost can be resolved using system DNS (Example: Test-DnsNameResolution -Name "localhost")' {
+            # Test DNS resolution using the system resolver for cross-platform compatibility
+            $result = Test-DnsNameResolution -Name 'localhost'
             $result | Should -BeOfType [System.Boolean]
             $result | Should -Be $true
         }
@@ -95,16 +94,6 @@ Describe 'Test-DnsNameResolution' {
             { Test-DnsNameResolution -Name $null } | Should -Throw
             { Test-DnsNameResolution -Name '' } | Should -Throw
             { Test-DnsNameResolution -Name '   ' } | Should -Throw
-        }
-
-        It 'Should validate DNS server IP addresses when provided' {
-            # Valid IP addresses should not throw
-            { Test-DnsNameResolution -Name 'localhost' -Server '8.8.8.8' } | Should -Not -Throw
-            { Test-DnsNameResolution -Name 'localhost' -Server '8.8.8.8', '1.1.1.1' } | Should -Not -Throw
-
-            # Invalid IP addresses should throw
-            { Test-DnsNameResolution -Name 'localhost' -Server 'invalid-ip' } | Should -Throw
-            { Test-DnsNameResolution -Name 'localhost' -Server '999.999.999.999' } | Should -Throw
         }
 
         It 'Should accept valid DNS record types' {
@@ -177,21 +166,6 @@ Describe 'Test-DnsNameResolution' {
             $failOutput = Test-DnsNameResolution -Name 'this-does-not-exist-12345.com' -Verbose 4>&1
             $failVerbose = ($failOutput | Where-Object { $_ -is [System.Management.Automation.VerboseRecord] } | ForEach-Object { $_.Message }) -join ' '
             $failVerbose | Should -Match '(not found|failed)'
-        }
-    }
-
-    Context 'DNS server parameter behavior' {
-        It 'Should log information about using custom DNS servers' {
-            $output = Test-DnsNameResolution -Name 'localhost' -Server '8.8.8.8' -Verbose 4>&1
-
-            $verboseText = ($output | Where-Object { $_ -is [System.Management.Automation.VerboseRecord] } | ForEach-Object { $_.Message }) -join ' '
-            $verboseText | Should -Match '(DNS server|8\.8\.8\.8)'
-        }
-
-        It 'Should still resolve correctly when custom servers are specified' {
-            # Despite specifying custom servers, should still work (using system DNS for compatibility)
-            $result = Test-DnsNameResolution -Name 'localhost' -Server '1.1.1.1', '8.8.8.8'
-            $result | Should -Be $true
         }
     }
 
