@@ -138,7 +138,7 @@ Everything you need to know about installation, functions, troubleshooting, remo
 | [Network and DNS](docs/functions.md#network-and-dns)                | DNS, ports, TLS checks, ping, traceroute, WHOIS, GeoIP, latency graphs                        |
 | [System Administration](docs/functions.md#system-administration)    | permissions, elevation, TLS session settings, system info, package managers, resource monitor |
 | [Developer](docs/functions.md#developer)                            | .NET, .NET tools, dotenv, Git, GitHub pull requests/secrets/variables/topics, Docker, SQLFluff, Magika |
-| [Utilities](docs/functions.md#utilities)                            | Base64, Markdown, slugs, encodings, file search, symbolic links, sync, archive extraction     |
+| [Utilities](docs/functions.md#utilities)                            | Base64, Markdown, time zones, slugs, encodings, file search, symbolic links, sync, archives   |
 | [Security](docs/functions.md#security)                              | JWT decoding, certificate inspection, password-based file protection                          |
 | [Active Directory](docs/functions.md#active-directory)              | credentials, account lockout checks, group policy update                                      |
 | [Module Management](docs/functions.md#powershell-module-management) | module update checks and cleanup                                                              |

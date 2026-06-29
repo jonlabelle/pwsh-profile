@@ -139,7 +139,8 @@
 - [`ConvertTo-Base64`](../Functions/Utilities/ConvertTo-Base64.ps1) - Converts a string or file content to Base64 encoding.
 - [`ConvertTo-Markdown`](../Functions/Utilities/ConvertTo-Markdown.ps1) - Converts a URL or local file path to Markdown using Pandoc.
 - [`ConvertTo-MarkdownObject`](../Functions/Utilities/ConvertTo-MarkdownObject.ps1) - Converts arbitrary PowerShell objects into Markdown text.
-- [`ConvertTo-USDateTime`](../Functions/Utilities/ConvertTo-USDateTime.ps1) - Converts a local, UTC, or offset-aware date/time into major US time zones.
+- [`ConvertTo-TimeZone`](../Functions/Utilities/ConvertTo-TimeZone.ps1) - Converts date/time values between arbitrary time zones using formal ids, common aliases, or `TimeZoneInfo` objects.
+- [`ConvertTo-USDateTime`](../Functions/Utilities/ConvertTo-USDateTime.ps1) - Compatibility wrapper that converts date/time values into the original default set of US time zones.
 - [`ConvertTo-UrlSlug`](../Functions/Utilities/ConvertTo-UrlSlug.ps1) - Converts text to URL-friendly slugs or renames paths using slugified names.
 - [`Copy-Directory`](../Functions/Utilities/Copy-Directory.ps1) - Copies directories with recursion, exclusions, and parallel processing options.
 - [`Extract-Archive`](../Functions/Utilities/Extract-Archive.ps1) - Extracts archive files and can optionally process nested archives.
