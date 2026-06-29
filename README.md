@@ -12,8 +12,7 @@ This profile turns the PowerShell profile directory into a small, portable toolk
 - Works with Windows PowerShell Desktop 5.1+ and PowerShell 6+ (`pwsh`).
 - Auto-loads public functions from categorized folders under [`Functions`](./Functions/).
 - Preserves local-only profile content during install and update workflows.
-- Includes focused tools for DNS, networking, TLS, package management, GitHub, Docker, media files, encoding, and everyday shell utilities.
-- Keeps helper functions standalone-friendly, so individual `.ps1` files can be dot-sourced without loading the whole profile.
+- Includes focused tools for networking, security, package management, GitHub, Docker, encoding, and more.
 
 ## Install
 
@@ -122,7 +121,7 @@ PS > Show-ProfileFunction
 
 ## Documentation
 
-Everything you need to know about installation, functions, troubleshooting, remoting, and contribution lives in the [docs](./docs/) folder:
+Everything you need to know about installation, functions, troubleshooting, and remoting lives in the [docs](./docs/) folder:
 
 - [Installation guide](docs/installation.md) - installer options, restore workflows, and manual fallback steps.
 - [Function catalog](docs/functions.md) - every public function grouped by category.
@@ -133,17 +132,17 @@ Everything you need to know about installation, functions, troubleshooting, remo
 
 ## Function Areas
 
-| Area                                                                | Includes                                                                                      |
-| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| [Network and DNS](docs/functions.md#network-and-dns)                | DNS, ports, TLS checks, ping, traceroute, WHOIS, GeoIP, latency graphs                        |
-| [System Administration](docs/functions.md#system-administration)    | permissions, elevation, TLS session settings, system info, package managers, resource monitor |
-| [Developer](docs/functions.md#developer)                            | .NET, .NET tools, dotenv, Git, GitHub pull requests/secrets/variables/topics, Docker, SQLFluff, Magika |
-| [Utilities](docs/functions.md#utilities)                            | Base64, Markdown, time zones, slugs, encodings, file search, symbolic links, sync, archives   |
-| [Security](docs/functions.md#security)                              | JWT decoding, certificate inspection, password-based file protection                          |
-| [Active Directory](docs/functions.md#active-directory)              | credentials, account lockout checks, group policy update                                      |
-| [Module Management](docs/functions.md#powershell-module-management) | module update checks and cleanup                                                              |
-| [Profile Management](docs/functions.md#profile-management)          | function discovery and profile update checks                                                  |
-| [Media Processing](docs/functions.md#media-processing)              | ffprobe, FFmpeg conversion, image metadata inspection and stripping, season file renaming     |
+| Area                                                                | Includes                                                                 |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| [Network and DNS](docs/functions.md#network-and-dns)                | DNS, ports, TLS checks, ping, traceroute, WHOIS, GeoIP, latency graphs   |
+| [System Administration](docs/functions.md#system-administration)    | permissions, elevation, system info, package managers, resource monitor  |
+| [Developer](docs/functions.md#developer)                            | .NET, dotenv, Git, GitHub, Docker, SQLFluff, Magika                      |
+| [Utilities](docs/functions.md#utilities)                            | Base64, Markdown, time zones, copy/sync, file search, symlinks, archives |
+| [Security](docs/functions.md#security)                              | JWT decoding, certificate inspection, password-based file protection     |
+| [Active Directory](docs/functions.md#active-directory)              | credentials, account lockout checks, group policy update                 |
+| [Module Management](docs/functions.md#powershell-module-management) | module update checks and cleanup                                         |
+| [Profile Management](docs/functions.md#profile-management)          | function discovery and profile update checks                             |
+| [Media Processing](docs/functions.md#media-processing)              | Encoding wrappers w/ ffmpeg, image metadata and privacy cleansing        |
 
 ## Local Functions
 
