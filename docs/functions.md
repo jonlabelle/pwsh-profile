@@ -129,7 +129,7 @@
 - [`Get-ImageMetadata`](../Functions/MediaProcessing/Get-ImageMetadata.ps1) - Retrieves embedded metadata from image files using ExifTool.
 - [`Get-MediaInfo`](../Functions/MediaProcessing/Get-MediaInfo.ps1) - Retrieves detailed information about media files.
 - [`Invoke-FFmpeg`](../Functions/MediaProcessing/Invoke-FFmpeg.ps1) - Converts video files using Samsung-friendly H.264 or H.265 settings.
-- [`Remove-ImageMetadata`](../Functions/MediaProcessing/Remove-ImageMetadata.ps1) - Removes metadata and privacy-sensitive information from images, with `-Verify` reporting any remaining watched tags and values.
+- [`Remove-ImageMetadata`](../Functions/MediaProcessing/Remove-ImageMetadata.ps1) - Removes metadata and privacy-sensitive information from images.
 - [`Rename-VideoSeasonFile`](../Functions/MediaProcessing/Rename-VideoSeasonFile.ps1) - Renames files into a consistent season sequence format.
 
 ## Utilities
@@ -139,7 +139,7 @@
 - [`ConvertTo-Base64`](../Functions/Utilities/ConvertTo-Base64.ps1) - Converts a string or file content to Base64 encoding.
 - [`ConvertTo-Markdown`](../Functions/Utilities/ConvertTo-Markdown.ps1) - Converts a URL or local file path to Markdown using Pandoc.
 - [`ConvertTo-MarkdownObject`](../Functions/Utilities/ConvertTo-MarkdownObject.ps1) - Converts arbitrary PowerShell objects into Markdown text.
-- [`ConvertTo-TimeZone`](../Functions/Utilities/ConvertTo-TimeZone.ps1) - Converts date/time values between arbitrary time zones using formal ids, common aliases, or `TimeZoneInfo` objects.
+- [`ConvertTo-TimeZone`](../Functions/Utilities/ConvertTo-TimeZone.ps1) - Converts date/time values between arbitrary time zones.
 - [`ConvertTo-USDateTime`](../Functions/Utilities/ConvertTo-USDateTime.ps1) - Compatibility wrapper that converts date/time values into the original default set of US time zones.
 - [`ConvertTo-UrlSlug`](../Functions/Utilities/ConvertTo-UrlSlug.ps1) - Converts text to URL-friendly slugs or renames paths using slugified names.
 - [`Copy-Directory`](../Functions/Utilities/Copy-Directory.ps1) - Copies directories with recursion, exclusions, and parallel processing options.
