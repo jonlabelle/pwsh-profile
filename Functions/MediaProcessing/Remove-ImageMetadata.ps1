@@ -599,9 +599,10 @@ function Remove-ImageMetadata
                     if ($script:IsWindowsPlatform)
                     {
                         $commonPaths = @(
+                            "$env:LocalAppData\Programs\ExifTool\ExifTool.exe",
+                            "$env:ProgramFiles\ExifTool\ExifTool.exe",
+                            "${env:ProgramFiles(x86)}\ExifTool\ExifTool.exe",
                             'C:\Windows\exiftool.exe',
-                            'C:\Program Files\ExifTool\exiftool.exe',
-                            'C:\Program Files (x86)\ExifTool\exiftool.exe',
                             "$env:USERPROFILE\scoop\apps\exiftool\current\exiftool.exe",
                             "$env:ProgramData\chocolatey\bin\exiftool.exe"
                         )
@@ -686,12 +687,21 @@ function Remove-ImageMetadata
                 {
                     if ($script:IsWindowsPlatform)
                     {
-                        $commonPaths = @(
-                            'C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\magick.exe',
-                            'C:\Program Files\ImageMagick-7.1.0-Q16-HDRI\magick.exe',
-                            "$env:ProgramData\chocolatey\bin\magick.exe",
-                            "$env:USERPROFILE\scoop\apps\imagemagick\current\magick.exe"
-                        )
+                        # Discover versioned ImageMagick installs under Program Files (covers winget ImageMagick.ImageMagick and manual installer)
+                        $winMagickPaths = [System.Collections.Generic.List[String]]::new()
+                        foreach ($pfRoot in @($env:ProgramFiles, ${env:ProgramFiles(x86)}))
+                        {
+                            if (-not [String]::IsNullOrEmpty($pfRoot) -and (Test-Path -LiteralPath $pfRoot -PathType Container))
+                            {
+                                foreach ($dir in @(Get-ChildItem -LiteralPath $pfRoot -Directory -Filter 'ImageMagick-*' -ErrorAction SilentlyContinue | Sort-Object Name -Descending))
+                                {
+                                    $winMagickPaths.Add((Join-Path -Path $dir.FullName -ChildPath 'magick.exe'))
+                                }
+                            }
+                        }
+                        $winMagickPaths.Add("$env:ProgramData\chocolatey\bin\magick.exe")
+                        $winMagickPaths.Add("$env:USERPROFILE\scoop\apps\imagemagick\current\magick.exe")
+                        $commonPaths = $winMagickPaths.ToArray()
                     }
                     elseif ($script:IsMacOSPlatform)
                     {

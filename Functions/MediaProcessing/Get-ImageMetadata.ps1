@@ -417,9 +417,10 @@ function Get-ImageMetadata
                     if ($script:IsWindowsPlatform)
                     {
                         $commonPaths = @(
+                            "$env:LocalAppData\Programs\ExifTool\ExifTool.exe",
+                            "$env:ProgramFiles\ExifTool\ExifTool.exe",
+                            "${env:ProgramFiles(x86)}\ExifTool\ExifTool.exe",
                             'C:\Windows\exiftool.exe',
-                            'C:\Program Files\ExifTool\exiftool.exe',
-                            'C:\Program Files (x86)\ExifTool\exiftool.exe',
                             "$env:USERPROFILE\scoop\apps\exiftool\current\exiftool.exe",
                             "$env:ProgramData\chocolatey\bin\exiftool.exe"
                         )
