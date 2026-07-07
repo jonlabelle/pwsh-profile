@@ -42,6 +42,31 @@ function Invoke-GitPull
     .PARAMETER Prune
         Adds the --prune flag to remove remote-tracking references that no longer exist on the remote.
 
+    .PARAMETER Branch
+        The remote branch to pull from. When specified, runs 'git pull [options] origin <Branch>'.
+        When omitted, Git uses the configured tracking branch.
+        Cannot be combined with -DefaultBranch.
+
+    .PARAMETER DefaultBranch
+        Auto-detects the remote's default branch (e.g. main, master, develop) and pulls from it.
+        First queries 'git symbolic-ref refs/remotes/origin/HEAD' (fast, no network);
+        falls back to 'git remote show origin' if that is unavailable.
+        Cannot be combined with -Branch.
+
+    .PARAMETER Checkout
+        When combined with -Branch or -DefaultBranch, switches to the target branch before pulling.
+        If the working tree has uncommitted changes that would block the switch, the repository is
+        marked as failed and (without -Force) processing stops.
+        Requires -Branch or -DefaultBranch.
+
+        -Checkout is opt-in.
+        -Branch/-DefaultBranch alone just runs git pull origin <branch> from whatever
+        branch is checked out (useful if you intentionally want to merge a remote branch into your working branch).
+        Adding -Checkout enables the switch-first behavior.
+
+        If the checkout fails (e.g. uncommitted changes blocking the switch) → returns a failure result immediately,
+        pull is skipped; -Force controls whether processing continues on other repos.
+
     .PARAMETER Force
         Continue processing remaining repositories even if one fails.
         Without this, the function stops on the first error.
@@ -90,6 +115,31 @@ function Invoke-GitPull
         PS > Invoke-GitPull -Path ~/Projects -Recurse -Force
 
         Updates all repositories, continuing even if some fail.
+
+    .EXAMPLE
+        PS > Invoke-GitPull -Branch main
+
+        Pulls from the 'main' branch on the origin remote in the current directory.
+
+    .EXAMPLE
+        PS > Invoke-GitPull -DefaultBranch
+
+        Auto-detects the remote default branch and pulls from it in the current directory.
+
+    .EXAMPLE
+        PS > Invoke-GitPull -Path ~/Projects -Recurse -DefaultBranch
+
+        Updates all repositories under ~/Projects, pulling each repo's remote default branch.
+
+    .EXAMPLE
+        PS > Invoke-GitPull -DefaultBranch -Checkout
+
+        Auto-detects the remote default branch, switches to it if not already there, then pulls.
+
+    .EXAMPLE
+        PS > Invoke-GitPull -Path ~/Projects -Recurse -DefaultBranch -Checkout
+
+        Updates all repositories to their remote default branch, switching branches as needed.
 
     .EXAMPLE
         PS > Invoke-GitPull -Verbose
@@ -144,12 +194,32 @@ function Invoke-GitPull
         [Switch]$Prune,
 
         [Parameter()]
-        [Switch]$Force
+        [Switch]$Force,
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [String]$Branch,
+
+        [Parameter()]
+        [Switch]$DefaultBranch,
+
+        [Parameter()]
+        [Switch]$Checkout
     )
 
     begin
     {
         Write-Verbose 'Starting Invoke-GitPull'
+
+        if ($Branch -and $DefaultBranch)
+        {
+            throw 'Cannot use -Branch and -DefaultBranch together. Specify one or the other.'
+        }
+
+        if ($Checkout -and -not $Branch -and -not $DefaultBranch)
+        {
+            throw '-Checkout requires -Branch or -DefaultBranch to specify a target branch.'
+        }
 
         # Check if Git is available
         $gitCommand = Get-Command -Name 'git' -ErrorAction SilentlyContinue
@@ -185,11 +255,62 @@ function Invoke-GitPull
                 [String]$RepoPath,
                 [Bool]$UseRebase,
                 [Bool]$UsePrune,
-                [Bool]$IsWhatIf
+                [Bool]$IsWhatIf,
+                [String]$BranchName,
+                [Bool]$DoCheckout
             )
 
             $repoName = Split-Path -Path $RepoPath -Leaf
             Write-Verbose "Processing repository: $RepoPath"
+
+            # Switch to the target branch before pulling if requested
+            if ($DoCheckout -and $BranchName -and -not $IsWhatIf)
+            {
+                $checkPsi = New-Object System.Diagnostics.ProcessStartInfo
+                $checkPsi.FileName = 'git'
+                $checkPsi.Arguments = 'rev-parse --abbrev-ref HEAD'
+                $checkPsi.WorkingDirectory = $RepoPath
+                $checkPsi.UseShellExecute = $false
+                $checkPsi.RedirectStandardOutput = $true
+                $checkPsi.RedirectStandardError = $true
+                $checkPsi.CreateNoWindow = $true
+
+                $currentBranchProc = New-Object System.Diagnostics.Process
+                $currentBranchProc.StartInfo = $checkPsi
+                $null = $currentBranchProc.Start()
+                $currentBranch = $currentBranchProc.StandardOutput.ReadToEnd().Trim()
+                $currentBranchProc.WaitForExit()
+
+                if ($currentBranch -ne $BranchName)
+                {
+                    Write-Verbose "Switching from '$currentBranch' to '$BranchName'"
+
+                    $checkPsi.Arguments = "checkout -q $BranchName"
+                    $checkoutProc = New-Object System.Diagnostics.Process
+                    $checkoutProc.StartInfo = $checkPsi
+                    $null = $checkoutProc.Start()
+                    $checkoutErr = $checkoutProc.StandardError.ReadToEnd().Trim()
+                    $checkoutProc.WaitForExit()
+
+                    if ($checkoutProc.ExitCode -ne 0)
+                    {
+                        $errMsg = if ($checkoutErr) { $checkoutErr } else { "exit code $($checkoutProc.ExitCode)" }
+                        Write-Host "  [FAILED] $repoName - cannot switch to '$BranchName': $errMsg" -ForegroundColor Red
+                        return [PSCustomObject]@{
+                            Path = $RepoPath
+                            Name = $repoName
+                            Success = $false
+                            HadUpdates = $false
+                            Message = "Cannot switch to branch '$BranchName': $errMsg"
+                            Output = $checkoutErr
+                        }
+                    }
+                }
+                else
+                {
+                    Write-Verbose "Already on branch '$BranchName'"
+                }
+            }
 
             # Build git arguments
             $gitArgs = @('pull')
@@ -202,6 +323,12 @@ function Invoke-GitPull
             if ($UsePrune)
             {
                 $gitArgs += '--prune'
+            }
+
+            if ($BranchName)
+            {
+                $gitArgs += 'origin'
+                $gitArgs += $BranchName
             }
 
             $resultObj = [PSCustomObject]@{
@@ -279,6 +406,51 @@ function Invoke-GitPull
             }
 
             return $resultObj
+        }
+
+        # Helper function to detect the remote's default branch
+        function Get-RemoteDefaultBranch
+        {
+            param([String]$RepoPath)
+
+            # Try symbolic-ref first — fast and requires no network
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = 'git'
+            $psi.Arguments = 'symbolic-ref refs/remotes/origin/HEAD --short'
+            $psi.WorkingDirectory = $RepoPath
+            $psi.UseShellExecute = $false
+            $psi.RedirectStandardOutput = $true
+            $psi.RedirectStandardError = $true
+            $psi.CreateNoWindow = $true
+
+            $proc = New-Object System.Diagnostics.Process
+            $proc.StartInfo = $psi
+            $null = $proc.Start()
+            $refOutput = $proc.StandardOutput.ReadToEnd().Trim()
+            $proc.WaitForExit()
+
+            if ($proc.ExitCode -eq 0 -and $refOutput)
+            {
+                # Output is 'origin/main' — strip the remote prefix
+                return ($refOutput -replace '^[^/]+/', '')
+            }
+
+            # Fall back to 'git remote show origin' (requires network)
+            Write-Verbose "symbolic-ref unavailable; falling back to 'git remote show origin' for: $RepoPath"
+
+            $psi.Arguments = 'remote show origin'
+            $proc2 = New-Object System.Diagnostics.Process
+            $proc2.StartInfo = $psi
+            $null = $proc2.Start()
+            $showOutput = $proc2.StandardOutput.ReadToEnd().Trim()
+            $proc2.WaitForExit()
+
+            if ($proc2.ExitCode -eq 0 -and $showOutput -match 'HEAD branch:\s*(.+)')
+            {
+                return $Matches[1].Trim()
+            }
+
+            return $null
         }
 
         # Helper function to find Git repositories recursively
@@ -382,7 +554,21 @@ function Invoke-GitPull
                 {
                     if ($PSCmdlet.ShouldProcess($repoPath, 'git pull'))
                     {
-                        $result = Invoke-GitPullOnRepository -RepoPath $repoPath -UseRebase $useRebase -UsePrune $Prune.IsPresent -IsWhatIf $WhatIfPreference
+                        $effectiveBranch = $Branch
+                        if ($DefaultBranch)
+                        {
+                            $effectiveBranch = Get-RemoteDefaultBranch -RepoPath $repoPath
+                            if ($effectiveBranch)
+                            {
+                                Write-Verbose "Detected default branch '$effectiveBranch' for: $repoPath"
+                            }
+                            else
+                            {
+                                Write-Warning "Could not detect default branch for: $repoPath"
+                            }
+                        }
+
+                        $result = Invoke-GitPullOnRepository -RepoPath $repoPath -UseRebase $useRebase -UsePrune $Prune.IsPresent -IsWhatIf $WhatIfPreference -BranchName $effectiveBranch -DoCheckout $Checkout.IsPresent
 
                         $stats.RepositoriesProcessed++
 
@@ -421,7 +607,21 @@ function Invoke-GitPull
 
                 if ($PSCmdlet.ShouldProcess($resolvedPath, 'git pull'))
                 {
-                    $result = Invoke-GitPullOnRepository -RepoPath $resolvedPath -UseRebase $useRebase -UsePrune $Prune.IsPresent -IsWhatIf $WhatIfPreference
+                    $effectiveBranch = $Branch
+                    if ($DefaultBranch)
+                    {
+                        $effectiveBranch = Get-RemoteDefaultBranch -RepoPath $resolvedPath
+                        if ($effectiveBranch)
+                        {
+                            Write-Verbose "Detected default branch '$effectiveBranch' for: $resolvedPath"
+                        }
+                        else
+                        {
+                            Write-Warning "Could not detect default branch for: $resolvedPath"
+                        }
+                    }
+
+                    $result = Invoke-GitPullOnRepository -RepoPath $resolvedPath -UseRebase $useRebase -UsePrune $Prune.IsPresent -IsWhatIf $WhatIfPreference -BranchName $effectiveBranch -DoCheckout $Checkout.IsPresent
 
                     $stats.RepositoriesProcessed++
 

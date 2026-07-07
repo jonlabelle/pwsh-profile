@@ -401,4 +401,97 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
             $result.RepositoriesSkipped | Should -Be 1
         }
     }
+
+    Context 'Branch Parameters' -Skip:(-not $script:GitAvailable) {
+        BeforeEach {
+            $script:TestWorkspace = Join-Path -Path $script:TestDir -ChildPath "branch-$(Get-Random)"
+            New-Item -Path $script:TestWorkspace -ItemType Directory -Force | Out-Null
+        }
+
+        AfterEach {
+            if (Test-Path $script:TestWorkspace)
+            {
+                Remove-Item -Path $script:TestWorkspace -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'Should pull from a specified branch with -Branch' {
+            $repos = NewTestGitRepository -Path $script:TestWorkspace -Name 'branch-repo' -WithRemote
+
+            $result = Invoke-GitPull -Path $repos.RepoPath -Branch $repos.BranchName
+
+            $result.RepositoriesProcessed | Should -Be 1
+            $result.RepositoriesUpdated | Should -Be 1
+            $result.RepositoriesFailed | Should -Be 0
+        }
+
+        It 'Should auto-detect the default branch with -DefaultBranch' {
+            $repos = NewTestGitRepository -Path $script:TestWorkspace -Name 'default-branch-repo' -WithRemote
+
+            # Ensure origin/HEAD is set so symbolic-ref detection works without a network fallback
+            Invoke-GitSilent -WorkingDirectory $repos.RepoPath -Arguments @('remote', 'set-head', 'origin', '-a')
+
+            $result = Invoke-GitPull -Path $repos.RepoPath -DefaultBranch
+
+            $result.RepositoriesProcessed | Should -Be 1
+            $result.RepositoriesUpdated | Should -Be 1
+            $result.RepositoriesFailed | Should -Be 0
+        }
+
+        It 'Should auto-detect default branch for each repository in recursive mode' {
+            $repos1 = NewTestGitRepository -Path $script:TestWorkspace -Name 'default-recurse-repo1' -WithRemote
+            $repos2 = NewTestGitRepository -Path $script:TestWorkspace -Name 'default-recurse-repo2' -WithRemote
+
+            Invoke-GitSilent -WorkingDirectory $repos1.RepoPath -Arguments @('remote', 'set-head', 'origin', '-a')
+            Invoke-GitSilent -WorkingDirectory $repos2.RepoPath -Arguments @('remote', 'set-head', 'origin', '-a')
+
+            $result = Invoke-GitPull -Path $script:TestWorkspace -Recurse -DefaultBranch
+
+            $result.RepositoriesProcessed | Should -Be 2
+            $result.RepositoriesUpdated | Should -Be 2
+        }
+
+        It 'Should throw when -Branch and -DefaultBranch are both specified' {
+            { Invoke-GitPull -Branch 'main' -DefaultBranch } | Should -Throw '*Cannot use*'
+        }
+
+        It 'Should throw when -Checkout is used without -Branch or -DefaultBranch' {
+            { Invoke-GitPull -Checkout } | Should -Throw '*Checkout*requires*'
+        }
+
+        It 'Should switch to the specified branch before pulling with -Checkout' {
+            $repos = NewTestGitRepository -Path $script:TestWorkspace -Name 'checkout-repo' -WithRemote
+
+            # Create and switch to a secondary branch so we are NOT on the default branch
+            Invoke-GitSilent -WorkingDirectory $repos.RepoPath -Arguments @('checkout', '-b', 'feature/test')
+
+            $result = Invoke-GitPull -Path $repos.RepoPath -Branch $repos.BranchName -Checkout
+
+            $result.RepositoriesProcessed | Should -Be 1
+            $result.RepositoriesUpdated | Should -Be 1
+            $result.RepositoriesFailed | Should -Be 0
+
+            # Verify we are now on the target branch
+            $currentBranch = Invoke-GitWithOutput -WorkingDirectory $repos.RepoPath -Arguments @('rev-parse', '--abbrev-ref', 'HEAD')
+            $currentBranch | Should -Be $repos.BranchName
+        }
+
+        It 'Should switch to the auto-detected default branch with -DefaultBranch -Checkout' {
+            $repos = NewTestGitRepository -Path $script:TestWorkspace -Name 'checkout-default-repo' -WithRemote
+            Invoke-GitSilent -WorkingDirectory $repos.RepoPath -Arguments @('remote', 'set-head', 'origin', '-a')
+
+            # Switch to a feature branch so we are NOT on the default branch
+            Invoke-GitSilent -WorkingDirectory $repos.RepoPath -Arguments @('checkout', '-b', 'feature/other')
+
+            $result = Invoke-GitPull -Path $repos.RepoPath -DefaultBranch -Checkout
+
+            $result.RepositoriesProcessed | Should -Be 1
+            $result.RepositoriesUpdated | Should -Be 1
+            $result.RepositoriesFailed | Should -Be 0
+
+            # Verify we are now on the default branch
+            $currentBranch = Invoke-GitWithOutput -WorkingDirectory $repos.RepoPath -Arguments @('rev-parse', '--abbrev-ref', 'HEAD')
+            $currentBranch | Should -Be $repos.BranchName
+        }
+    }
 }

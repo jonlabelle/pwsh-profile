@@ -83,6 +83,22 @@ Describe 'Invoke-GitPull' {
             $command.Parameters['Force'].SwitchParameter | Should -BeTrue
         }
 
+        It 'Should have Branch string parameter' {
+            $command = Get-Command -Name 'Invoke-GitPull'
+            $command.Parameters['Branch'] | Should -Not -BeNullOrEmpty
+            $command.Parameters['Branch'].ParameterType | Should -Be ([String])
+        }
+
+        It 'Should have DefaultBranch switch parameter' {
+            $command = Get-Command -Name 'Invoke-GitPull'
+            $command.Parameters['DefaultBranch'].SwitchParameter | Should -BeTrue
+        }
+
+        It 'Should have Checkout switch parameter' {
+            $command = Get-Command -Name 'Invoke-GitPull'
+            $command.Parameters['Checkout'].SwitchParameter | Should -BeTrue
+        }
+
         It 'Should support ShouldProcess (WhatIf/Confirm)' {
             $command = Get-Command -Name 'Invoke-GitPull'
             $command.Parameters.ContainsKey('WhatIf') | Should -BeTrue
@@ -245,6 +261,16 @@ Describe 'Invoke-GitPull' {
             {
                 Remove-Item -Path $emptyDir -Recurse -Force -ErrorAction SilentlyContinue
             }
+        }
+    }
+
+    Context 'Branch Parameters' {
+        It 'Should throw when -Branch and -DefaultBranch are both specified' {
+            { Invoke-GitPull -Branch 'main' -DefaultBranch } | Should -Throw '*Cannot use*'
+        }
+
+        It 'Should throw when -Checkout is used without -Branch or -DefaultBranch' {
+            { Invoke-GitPull -Checkout } | Should -Throw '*Checkout*requires*'
         }
     }
 
