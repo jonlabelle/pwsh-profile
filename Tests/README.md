@@ -148,12 +148,8 @@ docker compose -f Tests/docker-compose.yml down
 Run tests manually with Pester:
 
 ```powershell
-# Install Pester if not available. Windows PowerShell Desktop 5.1 should use Pester 5.x.
-if ($PSVersionTable.PSEdition -eq 'Desktop' -and $PSVersionTable.PSVersion.Major -eq 5) {
-    Install-Module Pester -MinimumVersion '5.0.0' -MaximumVersion '5.99.99' -Force -SkipPublisherCheck
-} else {
-    Install-Module Pester -Force -SkipPublisherCheck
-}
+# Install supported Pester 5.x if not available
+Install-Module Pester -MinimumVersion '5.0.0' -MaximumVersion '5.99.99' -Force -SkipPublisherCheck
 
 # Run specific test file
 Invoke-Pester -Path Tests/Unit/New-RandomString.Tests.ps1

@@ -6,12 +6,10 @@
 .DESCRIPTION
     This script runs unit and integration tests using Pester, automatically detecting
     the installed Pester version and using the appropriate syntax for compatibility
-    with Pester 4.x and later. Windows PowerShell Desktop 5.1 is capped to Pester
-    4.x/5.x because Pester 6.x has compatibility issues in that host.
+    with Pester 4.x and 5.x.
 
     Requirements:
-    - Pester 4.0 or higher (Pester 3.x is not supported)
-    - Windows PowerShell Desktop 5.1 uses Pester 4.x/5.x only
+    - Pester 4.0 through 5.x (Pester 3.x and 6.x are not supported)
     - Test files must be compatible with the installed Pester version
 
     Features:
@@ -83,7 +81,7 @@
 .NOTES
     Requires Pester module to be installed. The script will automatically detect
     the Pester version and use the appropriate syntax:
-    - Pester 5+: Uses PesterConfiguration object
+    - Pester 5.x: Uses PesterConfiguration object
     - Pester 4.x: Uses parameter-based syntax
 #>
 
@@ -142,44 +140,26 @@ $UnitTestsPath = Join-Parts -BasePath $ScriptDirectory -PathSegments @('Tests', 
 $IntegrationTestsPath = Join-Parts -BasePath $ScriptDirectory -PathSegments @('Tests', 'Integration')
 $NUnitResultsPath = Join-Path -Path $ScriptDirectory -ChildPath 'testresults.xml'
 $TestTimingSummaryScriptPath = Join-Parts -BasePath $ScriptDirectory -PathSegments @('Tests', 'Write-TestTimingSummary.ps1')
-$isWindowsPowerShellDesktop = $PSVersionTable.PSEdition -eq 'Desktop' -and $PSVersionTable.PSVersion.Major -eq 5
 
 # Import Pester if not already loaded
 if (-not (Get-Module Pester -ListAvailable))
 {
-    if ($isWindowsPowerShellDesktop)
-    {
-        Write-Error 'Pester module is not installed. Please install Pester 5.x first: Install-Module -Name Pester -MinimumVersion 5.0.0 -MaximumVersion 5.99.99 -Force -SkipPublisherCheck'
-    }
-    else
-    {
-        Write-Error 'Pester module is not installed. Please install Pester first: Install-Module -Name Pester -Force -SkipPublisherCheck'
-    }
-
+    Write-Error 'Pester module is not installed. Please install Pester 5.x first: Install-Module -Name Pester -MinimumVersion 5.0.0 -MaximumVersion 5.99.99 -Force -SkipPublisherCheck'
     exit 1
 }
 
-# Pester 6 currently breaks mock/assertion behavior under Windows PowerShell Desktop 5.1.
-# PowerShell Core jobs can use the latest available Pester version.
+# Pester 6 changed mock/assertion behavior used throughout the test suite, so stay
+# on the supported 4.x/5.x range until the tests are migrated intentionally.
 $availablePesterModules = Get-Module Pester -ListAvailable | Sort-Object Version -Descending
-$compatiblePesterModules = if ($isWindowsPowerShellDesktop)
-{
-    $availablePesterModules | Where-Object { $_.Version.Major -ge 4 -and $_.Version.Major -lt 6 }
-}
-else
-{
-    $availablePesterModules | Where-Object { $_.Version.Major -ge 4 }
-}
+$compatiblePesterModules = $availablePesterModules | Where-Object { $_.Version.Major -ge 4 -and $_.Version.Major -lt 6 }
 $selectedPesterModule = $compatiblePesterModules | Select-Object -First 1
 
 if (-not $selectedPesterModule)
 {
-    if ($isWindowsPowerShellDesktop)
-    {
-        Write-Error @"
+    Write-Error @"
 No compatible Pester version is available.
 
-Windows PowerShell Desktop 5.1 currently supports Pester 4.x and 5.x for this test suite. Pester 6.x introduced mock/assertion behavior changes that are not compatible with this host.
+This test suite currently supports Pester 4.x and 5.x. Pester 6.x introduced mock/assertion behavior changes that are not compatible with these tests.
 
 Please install Pester 5.x:
     Install-Module -Name Pester -MinimumVersion 5.0.0 -MaximumVersion 5.99.99 -Force -SkipPublisherCheck
@@ -187,22 +167,6 @@ Please install Pester 5.x:
 Available Pester versions:
 $($availablePesterModules | ForEach-Object { "  - $($_.Version.ToString()) at $($_.ModuleBase)" } | Out-String)
 "@
-    }
-    else
-    {
-        Write-Error @"
-No compatible Pester version is available.
-
-This test suite requires Pester 4.0 or higher.
-
-Please install Pester:
-    Install-Module -Name Pester -Force -SkipPublisherCheck
-
-Available Pester versions:
-$($availablePesterModules | ForEach-Object { "  - $($_.Version.ToString()) at $($_.ModuleBase)" } | Out-String)
-"@
-    }
-
     exit 1
 }
 
@@ -230,22 +194,20 @@ Write-Host "Running $TestType tests from: $($testPathsToRun -join ', ')" -Foregr
 
 # Check Pester version and configure accordingly
 $installedPesterVersion = (Get-Module Pester).Version
-$isPesterVersion5OrHigher = $installedPesterVersion -and $installedPesterVersion.Major -ge 5
+$isPesterVersion5 = $installedPesterVersion -and $installedPesterVersion.Major -eq 5
 
 # Check for unsupported Pester versions
-if ($installedPesterVersion -and ($installedPesterVersion.Major -lt 4 -or ($isWindowsPowerShellDesktop -and $installedPesterVersion.Major -ge 6)))
+if ($installedPesterVersion -and ($installedPesterVersion.Major -lt 4 -or $installedPesterVersion.Major -ge 6))
 {
-    if ($isWindowsPowerShellDesktop)
-    {
-        Write-Error @"
+    Write-Error @"
 Pester version $($installedPesterVersion.ToString()) is not supported.
 
-Windows PowerShell Desktop 5.1 supports Pester 4.x and 5.x for this test suite due to the following compatibility requirements:
+This test suite supports Pester 4.x and 5.x due to the following features and compatibility requirements:
 
 - BeforeAll/BeforeEach blocks (introduced in Pester 4.0)
 - Improved parameter validation
 - Better cross-platform support
-- Pester 4.x/5.x mock/assertion semantics
+- Pester 4.x/5.x mock/assertion semantics used by the current tests
 
 The script attempted to use the latest compatible available version, but an unsupported version was imported.
 
@@ -255,27 +217,11 @@ Please install Pester 5.x:
 
 Current Pester installation: $($selectedPesterModule.ModuleBase)
 "@
-    }
-    else
-    {
-        Write-Error @"
-Pester version $($installedPesterVersion.ToString()) is not supported.
-
-This test suite requires Pester 4.0 or higher.
-
-Please update Pester:
-
-    Install-Module -Name Pester -Force -SkipPublisherCheck
-
-Current Pester installation: $($selectedPesterModule.ModuleBase)
-"@
-    }
-
     exit 1
 }
 
 # Validate and map OutputFormat based on Pester version capabilities
-$ValidOutputFormats = if ($isPesterVersion5OrHigher)
+$ValidOutputFormats = if ($isPesterVersion5)
 {
     @('Normal', 'Detailed', 'Diagnostic')
 }
@@ -291,9 +237,9 @@ if ($OutputFormat -notin $ValidOutputFormats)
 }
 
 # Determine which Pester syntax to use based on version and available types
-if ($isPesterVersion5OrHigher -and ([System.Management.Automation.PSTypeName]'PesterConfiguration').Type)
+if ($isPesterVersion5 -and ([System.Management.Automation.PSTypeName]'PesterConfiguration').Type)
 {
-    # Pester 5+ syntax
+    # Pester 5.x syntax
     Write-Verbose "Using Pester $($installedPesterVersion.ToString()) with configuration object syntax"
     $PesterConfiguration = [PesterConfiguration]::Default
     $PesterConfiguration.Run.Path = $testPathsToRun
