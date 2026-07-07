@@ -6,10 +6,12 @@
 .DESCRIPTION
     This script runs unit and integration tests using Pester, automatically detecting
     the installed Pester version and using the appropriate syntax for compatibility
-    with both Pester 4.x and Pester 5+.
+    with Pester 4.x and later. Windows PowerShell Desktop 5.1 is capped to Pester
+    4.x/5.x because Pester 6.x has compatibility issues in that host.
 
     Requirements:
     - Pester 4.0 or higher (Pester 3.x is not supported)
+    - Windows PowerShell Desktop 5.1 uses Pester 4.x/5.x only
     - Test files must be compatible with the installed Pester version
 
     Features:
@@ -140,34 +142,72 @@ $UnitTestsPath = Join-Parts -BasePath $ScriptDirectory -PathSegments @('Tests', 
 $IntegrationTestsPath = Join-Parts -BasePath $ScriptDirectory -PathSegments @('Tests', 'Integration')
 $NUnitResultsPath = Join-Path -Path $ScriptDirectory -ChildPath 'testresults.xml'
 $TestTimingSummaryScriptPath = Join-Parts -BasePath $ScriptDirectory -PathSegments @('Tests', 'Write-TestTimingSummary.ps1')
+$isWindowsPowerShellDesktop = $PSVersionTable.PSEdition -eq 'Desktop' -and $PSVersionTable.PSVersion.Major -eq 5
 
 # Import Pester if not already loaded
 if (-not (Get-Module Pester -ListAvailable))
 {
-    Write-Error 'Pester module is not installed. Please install Pester 5.x first: Install-Module Pester -Force'
+    if ($isWindowsPowerShellDesktop)
+    {
+        Write-Error 'Pester module is not installed. Please install Pester 5.x first: Install-Module -Name Pester -MinimumVersion 5.0.0 -MaximumVersion 5.99.99 -Force -SkipPublisherCheck'
+    }
+    else
+    {
+        Write-Error 'Pester module is not installed. Please install Pester first: Install-Module -Name Pester -Force -SkipPublisherCheck'
+    }
+
     exit 1
 }
 
-# Ensure we're using Pester 4+ by importing the latest available version
+# Pester 6 currently breaks mock/assertion behavior under Windows PowerShell Desktop 5.1.
+# PowerShell Core jobs can use the latest available Pester version.
 $availablePesterModules = Get-Module Pester -ListAvailable | Sort-Object Version -Descending
-$latestPesterModule = $availablePesterModules[0]
-
-if ($latestPesterModule.Version.Major -lt 4)
+$compatiblePesterModules = if ($isWindowsPowerShellDesktop)
 {
-    Write-Error @"
-The latest available Pester version ($($latestPesterModule.Version.ToString())) is too old.
+    $availablePesterModules | Where-Object { $_.Version.Major -ge 4 -and $_.Version.Major -lt 6 }
+}
+else
+{
+    $availablePesterModules | Where-Object { $_.Version.Major -ge 4 }
+}
+$selectedPesterModule = $compatiblePesterModules | Select-Object -First 1
 
-This test suite requires Pester 4.0 or higher. Please update Pester:
+if (-not $selectedPesterModule)
+{
+    if ($isWindowsPowerShellDesktop)
+    {
+        Write-Error @"
+No compatible Pester version is available.
+
+Windows PowerShell Desktop 5.1 currently supports Pester 4.x and 5.x for this test suite. Pester 6.x introduced mock/assertion behavior changes that are not compatible with this host.
+
+Please install Pester 5.x:
+    Install-Module -Name Pester -MinimumVersion 5.0.0 -MaximumVersion 5.99.99 -Force -SkipPublisherCheck
+
+Available Pester versions:
+$($availablePesterModules | ForEach-Object { "  - $($_.Version.ToString()) at $($_.ModuleBase)" } | Out-String)
+"@
+    }
+    else
+    {
+        Write-Error @"
+No compatible Pester version is available.
+
+This test suite requires Pester 4.0 or higher.
+
+Please install Pester:
     Install-Module -Name Pester -Force -SkipPublisherCheck
 
 Available Pester versions:
 $($availablePesterModules | ForEach-Object { "  - $($_.Version.ToString()) at $($_.ModuleBase)" } | Out-String)
 "@
+    }
+
     exit 1
 }
 
 # Import the latest compatible Pester version
-Import-Module Pester -RequiredVersion $latestPesterModule.Version -Force
+Import-Module Pester -RequiredVersion $selectedPesterModule.Version -Force
 
 # Determine which tests to run based on TestType parameter
 $testPathsToRun = switch ($TestType)
@@ -192,26 +232,45 @@ Write-Host "Running $TestType tests from: $($testPathsToRun -join ', ')" -Foregr
 $installedPesterVersion = (Get-Module Pester).Version
 $isPesterVersion5OrHigher = $installedPesterVersion -and $installedPesterVersion.Major -ge 5
 
-# Check for Pester 3.x which is not supported
-if ($installedPesterVersion -and $installedPesterVersion.Major -lt 4)
+# Check for unsupported Pester versions
+if ($installedPesterVersion -and ($installedPesterVersion.Major -lt 4 -or ($isWindowsPowerShellDesktop -and $installedPesterVersion.Major -ge 6)))
 {
-    Write-Error @"
+    if ($isWindowsPowerShellDesktop)
+    {
+        Write-Error @"
 Pester version $($installedPesterVersion.ToString()) is not supported.
 
-This test suite requires Pester 4.0 or higher due to the following features:
+Windows PowerShell Desktop 5.1 supports Pester 4.x and 5.x for this test suite due to the following compatibility requirements:
 
 - BeforeAll/BeforeEach blocks (introduced in Pester 4.0)
 - Improved parameter validation
 - Better cross-platform support
+- Pester 4.x/5.x mock/assertion semantics
 
-The script attempted to use the latest available version but it's still too old.
+The script attempted to use the latest compatible available version, but an unsupported version was imported.
+
+Please install Pester 5.x:
+
+    Install-Module -Name Pester -MinimumVersion 5.0.0 -MaximumVersion 5.99.99 -Force -SkipPublisherCheck
+
+Current Pester installation: $($selectedPesterModule.ModuleBase)
+"@
+    }
+    else
+    {
+        Write-Error @"
+Pester version $($installedPesterVersion.ToString()) is not supported.
+
+This test suite requires Pester 4.0 or higher.
 
 Please update Pester:
 
     Install-Module -Name Pester -Force -SkipPublisherCheck
 
-Current Pester installation: $($latestPesterModule.ModuleBase)
+Current Pester installation: $($selectedPesterModule.ModuleBase)
 "@
+    }
+
     exit 1
 }
 

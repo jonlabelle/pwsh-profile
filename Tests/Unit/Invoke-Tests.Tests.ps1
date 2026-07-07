@@ -19,21 +19,21 @@ BeforeAll {
             [string]$RootPath
         )
 
-    $testsPath = Join-Path -Path $RootPath -ChildPath 'Tests'
-    $unitTestsPath = Join-Path -Path $testsPath -ChildPath 'Unit'
-    $moduleRootPath = Join-Path -Path $RootPath -ChildPath 'Modules'
-    $pesterModulePath = Join-Path -Path $moduleRootPath -ChildPath 'Pester'
+        $testsPath = Join-Path -Path $RootPath -ChildPath 'Tests'
+        $unitTestsPath = Join-Path -Path $testsPath -ChildPath 'Unit'
+        $moduleRootPath = Join-Path -Path $RootPath -ChildPath 'Modules'
+        $pesterModulePath = Join-Path -Path $moduleRootPath -ChildPath 'Pester'
 
-    New-Item -Path $unitTestsPath -ItemType Directory -Force | Out-Null
-    New-Item -Path $pesterModulePath -ItemType Directory -Force | Out-Null
+        New-Item -Path $unitTestsPath -ItemType Directory -Force | Out-Null
+        New-Item -Path $pesterModulePath -ItemType Directory -Force | Out-Null
 
-    Copy-Item -LiteralPath $script:InvokeTestsSourcePath -Destination (Join-Path -Path $RootPath -ChildPath 'Invoke-Tests.ps1')
-    Copy-Item -LiteralPath $script:TimingSummarySourcePath -Destination (Join-Path -Path $testsPath -ChildPath 'Write-TestTimingSummary.ps1')
+        Copy-Item -LiteralPath $script:InvokeTestsSourcePath -Destination (Join-Path -Path $RootPath -ChildPath 'Invoke-Tests.ps1')
+        Copy-Item -LiteralPath $script:TimingSummarySourcePath -Destination (Join-Path -Path $testsPath -ChildPath 'Write-TestTimingSummary.ps1')
 
-    $moduleManifest = @'
+        $moduleManifest = @'
 @{
     RootModule = 'Pester.psm1'
-    ModuleVersion = '99.99.0'
+    ModuleVersion = '5.99.0'
     GUID = '8f60f7c8-ef86-4f89-b46d-d1cc5b3a1111'
     Author = 'Invoke-Tests unit test'
     Description = 'Minimal fake Pester module for Invoke-Tests.ps1 tests.'
@@ -41,7 +41,7 @@ BeforeAll {
 }
 '@
 
-    $moduleBody = @'
+        $moduleBody = @'
 function Invoke-Pester
 {
     [CmdletBinding()]
@@ -97,14 +97,14 @@ function Invoke-Pester
 Export-ModuleMember -Function Invoke-Pester
 '@
 
-    Set-Content -LiteralPath (Join-Path -Path $pesterModulePath -ChildPath 'Pester.psd1') -Value $moduleManifest -Encoding UTF8
-    Set-Content -LiteralPath (Join-Path -Path $pesterModulePath -ChildPath 'Pester.psm1') -Value $moduleBody -Encoding UTF8
+        Set-Content -LiteralPath (Join-Path -Path $pesterModulePath -ChildPath 'Pester.psd1') -Value $moduleManifest -Encoding UTF8
+        Set-Content -LiteralPath (Join-Path -Path $pesterModulePath -ChildPath 'Pester.psm1') -Value $moduleBody -Encoding UTF8
 
-    return [PSCustomObject]@{
-        RootPath = $RootPath
-        InvokeTestsPath = Join-Path -Path $RootPath -ChildPath 'Invoke-Tests.ps1'
-        ModuleRootPath = $moduleRootPath
-    }
+        return [PSCustomObject]@{
+            RootPath = $RootPath
+            InvokeTestsPath = Join-Path -Path $RootPath -ChildPath 'Invoke-Tests.ps1'
+            ModuleRootPath = $moduleRootPath
+        }
     }
 }
 
