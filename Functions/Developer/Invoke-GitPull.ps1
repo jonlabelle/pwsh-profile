@@ -248,6 +248,33 @@ function Invoke-GitPull
             return Test-Path -Path $gitDir
         }
 
+        # Helper function to check if a Git remote is configured
+        function Test-GitRemote
+        {
+            param(
+                [String]$RepoPath,
+                [String]$RemoteName = 'origin'
+            )
+
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = 'git'
+            $psi.Arguments = "remote get-url $RemoteName"
+            $psi.WorkingDirectory = $RepoPath
+            $psi.UseShellExecute = $false
+            $psi.RedirectStandardOutput = $true
+            $psi.RedirectStandardError = $true
+            $psi.CreateNoWindow = $true
+
+            $proc = New-Object System.Diagnostics.Process
+            $proc.StartInfo = $psi
+            $null = $proc.Start()
+            $null = $proc.StandardOutput.ReadToEnd()
+            $null = $proc.StandardError.ReadToEnd()
+            $proc.WaitForExit()
+
+            return $proc.ExitCode -eq 0
+        }
+
         # Helper function to perform git pull on a repository
         function Invoke-GitPullOnRepository
         {
@@ -552,6 +579,14 @@ function Invoke-GitPull
 
                 foreach ($repoPath in $repositories)
                 {
+                    if (-not (Test-GitRemote -RepoPath $repoPath))
+                    {
+                        $repoName = Split-Path -Path $repoPath -Leaf
+                        Write-Warning "Skipping '$repoName' - no remote 'origin' configured"
+                        $stats.RepositoriesSkipped++
+                        continue
+                    }
+
                     if ($PSCmdlet.ShouldProcess($repoPath, 'git pull'))
                     {
                         $effectiveBranch = $Branch
@@ -601,6 +636,14 @@ function Invoke-GitPull
                 if (-not (Test-GitRepository -TestPath $resolvedPath))
                 {
                     Write-Verbose "Skipping non-Git directory: $resolvedPath"
+                    $stats.RepositoriesSkipped++
+                    continue
+                }
+
+                if (-not (Test-GitRemote -RepoPath $resolvedPath))
+                {
+                    $repoName = Split-Path -Path $resolvedPath -Leaf
+                    Write-Warning "Skipping '$repoName' - no remote 'origin' configured"
                     $stats.RepositoriesSkipped++
                     continue
                 }

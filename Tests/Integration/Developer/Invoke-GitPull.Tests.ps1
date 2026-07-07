@@ -177,14 +177,14 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
             $result.RepositoriesProcessed | Should -Be 0
         }
 
-        It 'Should handle repository without remote gracefully' {
+        It 'Should skip repository without remote origin configured' {
             $repos = NewTestGitRepository -Path $script:TestWorkspace -Name 'no-remote-repo'
 
-            # This should fail but not throw (no remote configured)
-            $result = Invoke-GitPull -Path $repos.RepoPath -Force -ErrorAction SilentlyContinue
+            $result = Invoke-GitPull -Path $repos.RepoPath -WarningAction SilentlyContinue
 
-            $result.RepositoriesProcessed | Should -Be 1
-            $result.RepositoriesFailed | Should -Be 1
+            $result.RepositoriesProcessed | Should -Be 0
+            $result.RepositoriesSkipped | Should -Be 1
+            $result.RepositoriesFailed | Should -Be 0
         }
 
         It 'Should respect -WhatIf and not make changes' {
@@ -259,15 +259,16 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
             $result.RepositoriesUpdated | Should -Be 2
         }
 
-        It 'Should continue with -Force when one repository fails' {
+        It 'Should skip repository without remote and continue processing remaining' {
             $repos1 = NewTestGitRepository -Path $script:TestWorkspace -Name 'force-repo1' -WithRemote
-            $repos2 = NewTestGitRepository -Path $script:TestWorkspace -Name 'force-repo2'  # No remote - will fail
+            $repos2 = NewTestGitRepository -Path $script:TestWorkspace -Name 'force-repo2'  # No remote - will be skipped
 
-            $result = Invoke-GitPull -Path @($repos1.RepoPath, $repos2.RepoPath) -Force -ErrorAction SilentlyContinue
+            $result = Invoke-GitPull -Path @($repos1.RepoPath, $repos2.RepoPath) -WarningAction SilentlyContinue
 
-            $result.RepositoriesProcessed | Should -Be 2
-            $result.RepositoriesUpdated | Should -BeGreaterOrEqual 1
-            $result.RepositoriesFailed | Should -BeGreaterOrEqual 1
+            $result.RepositoriesProcessed | Should -Be 1
+            $result.RepositoriesUpdated | Should -Be 1
+            $result.RepositoriesSkipped | Should -Be 1
+            $result.RepositoriesFailed | Should -Be 0
         }
     }
 
