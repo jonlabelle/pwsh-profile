@@ -359,10 +359,11 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
             $result.Results[0].Message | Should -Not -BeNullOrEmpty
         }
 
-        It 'Should include error message in results when pull fails' {
-            $repos = NewTestGitRepository -Path $script:TestWorkspace -Name 'error-repo'  # No remote
+        It 'Should include error message in Results when pull fails' {
+            $repos = NewTestGitRepository -Path $script:TestWorkspace -Name 'error-repo' -WithRemote
 
-            $result = Invoke-GitPull -Path $repos.RepoPath -Force -ErrorAction SilentlyContinue
+            # Pulling a non-existent branch forces a real failure with an error message
+            $result = Invoke-GitPull -Path $repos.RepoPath -Branch 'branch-does-not-exist' -Force -ErrorAction SilentlyContinue
 
             $result.Results[0].Success | Should -BeFalse
             $result.Results[0].Message | Should -Not -BeNullOrEmpty
