@@ -89,7 +89,7 @@
 - [`Remove-GitHubSecret`](../Functions/Developer/Remove-GitHubSecret.ps1) - Removes a GitHub secret from repository, environment, organization, or user scope.
 - [`Remove-GitHubVariable`](../Functions/Developer/Remove-GitHubVariable.ps1) - Removes a GitHub configuration variable from repository, environment, or organization scope.
 - [`Remove-GitIgnoredFile`](../Functions/Developer/Remove-GitIgnoredFile.ps1) - Removes ignored and optionally untracked files from a Git repository.
-- [`Remove-NodeModule`](../Functions/Developer/Remove-NodeModule.ps1) - Removes `node_modules` folders from Node.js project directories.
+- [`Remove-NodeModules`](../Functions/Developer/Remove-NodeModules.ps1) - Removes `node_modules` folders from Node.js project directories.
 - [`Remove-PythonArtifact`](../Functions/Developer/Remove-PythonArtifact.ps1) - Removes Python build, test, environment, and cache artifacts from project directories.
 - [`Set-GitHubRepositoryTopic`](../Functions/Developer/Set-GitHubRepositoryTopic.ps1) - Ensures one or more GitHub repository topics are present.
 - [`Set-GitHubSecret`](../Functions/Developer/Set-GitHubSecret.ps1) - Creates or updates a GitHub secret at repository, environment, organization, or user scope.

@@ -35,7 +35,7 @@ Tests/
 │   ├── Developer/                                  # Developer utility integration tests
 │   │   ├── Remove-DotNetBuildArtifact.Tests.ps1   # .NET build cleanup integration tests
 │   │   ├── Remove-GitIgnoredFile.Tests.ps1        # Git cleanup integration tests
-│   │   └── Remove-NodeModule.Tests.ps1            # Node.js cleanup integration tests
+│   │   └── Remove-NodeModules.Tests.ps1            # Node.js cleanup integration tests
 │   ├── NetworkAndDns/                              # Network and DNS integration tests
 │   │   ├── Test-Port.Tests.ps1                     # Real-world port testing scenarios
 │   │   └── Test-TlsProtocol.Tests.ps1              # Real TLS endpoint coverage
