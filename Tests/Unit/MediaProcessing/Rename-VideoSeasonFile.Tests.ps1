@@ -36,10 +36,10 @@ Describe 'Rename-VideoSeasonFile' -Tag 'Unit' {
             $excludeParam.ParameterType.Name | Should -Be 'String[]'
         }
 
-        It 'Should have Filters as String array parameter' {
+        It 'Should have Filter as String array parameter' {
             $command = Get-Command Rename-VideoSeasonFile
-            $filtersParam = $command.Parameters['Filters']
-            $filtersParam.ParameterType.Name | Should -Be 'String[]'
+            $filterParam = $command.Parameters['Filter']
+            $filterParam.ParameterType.Name | Should -Be 'String[]'
         }
     }
 

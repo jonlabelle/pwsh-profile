@@ -22,8 +22,8 @@ function Get-ImageMetadata
         One or more image file or directory paths to inspect. Accepts pipeline
         input and wildcard patterns. Defaults to the current working directory.
 
-    .PARAMETER Filters
-        File name filters to use when searching directories. Defaults to common
+    .PARAMETER Filter
+        File name filter patterns to use when searching directories. Defaults to common
         image extensions including JPEG, PNG, TIFF, WebP, HEIC, AVIF, GIF, and BMP.
 
     .PARAMETER Exclude
@@ -105,7 +105,7 @@ function Get-ImageMetadata
         Recursively retrieves image metadata while skipping .git and raw directories.
 
     .EXAMPLE
-        PS > Get-ImageMetadata -Path '.\Images' -Filters '*.jpg', '*.png'
+        PS > Get-ImageMetadata -Path '.\Images' -Filter '*.jpg', '*.png'
 
         Retrieves metadata only from JPEG and PNG files in the Images folder.
 
@@ -188,7 +188,7 @@ function Get-ImageMetadata
         [Parameter()]
         [ValidateNotNullOrEmpty()]
         [String[]]
-        $Filters = @('*.jpg', '*.jpeg', '*.png', '*.tif', '*.tiff', '*.webp', '*.heic', '*.heif', '*.avif', '*.gif', '*.bmp'),
+        $Filter = @('*.jpg', '*.jpeg', '*.png', '*.tif', '*.tiff', '*.webp', '*.heic', '*.heif', '*.avif', '*.gif', '*.bmp'),
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
@@ -470,9 +470,9 @@ function Get-ImageMetadata
         {
             param([System.IO.FileInfo]$FileInfo)
 
-            foreach ($filter in $Filters)
+            foreach ($filterPattern in $Filter)
             {
-                if ($FileInfo.Name -like $filter)
+                if ($FileInfo.Name -like $filterPattern)
                 {
                     return $true
                 }
@@ -568,11 +568,11 @@ function Get-ImageMetadata
 
                 if ($pathItem.PSIsContainer)
                 {
-                    foreach ($filter in $Filters)
+                    foreach ($filterPattern in $Filter)
                     {
                         $childItemParams = @{
                             LiteralPath = $pathItem.FullName
-                            Filter = $filter
+                            Filter = $filterPattern
                             File = $true
                             ErrorAction = 'Stop'
                         }

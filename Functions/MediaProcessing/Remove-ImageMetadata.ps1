@@ -33,8 +33,8 @@ function Remove-ImageMetadata
         One or more image file or directory paths to process. Accepts pipeline
         input and wildcard patterns. Defaults to the current working directory.
 
-    .PARAMETER Filters
-        File name filters to use when searching directories.
+    .PARAMETER Filter
+        File name filter patterns to use when searching directories.
         Defaults to common image extensions including JPEG, PNG, TIFF, WebP, HEIC, AVIF, GIF, and BMP.
 
     .PARAMETER Exclude
@@ -112,12 +112,12 @@ function Remove-ImageMetadata
         Recursively removes image metadata while skipping .git and raw directories.
 
     .EXAMPLE
-        PS > Remove-ImageMetadata -Path '.\Images' -Filters '*.jpg', '*.png'
+        PS > Remove-ImageMetadata -Path '.\Images' -Filter '*.jpg', '*.png'
 
         Removes metadata only from JPEG and PNG files in the Images folder.
 
     .EXAMPLE
-        PS > Get-ChildItem -Path '.\Uploads' -Filters '*.jpg' | Remove-ImageMetadata
+        PS > Get-ChildItem -Path '.\Uploads' -Filter '*.jpg' | Remove-ImageMetadata
 
         Removes metadata from JPEG files provided through the pipeline.
 
@@ -187,12 +187,12 @@ function Remove-ImageMetadata
         Runs a strong privacy cleanup by re-encoding images, writing clean copies, verifying watched metadata, and resetting timestamps.
 
     .EXAMPLE
-        PS > Remove-ImageMetadata -Path '.\Screenshots' -OutputPath '.\CleanScreenshots' -Filters '*.png' -Verify
+        PS > Remove-ImageMetadata -Path '.\Screenshots' -OutputPath '.\CleanScreenshots' -Filter '*.png' -Verify
 
         Removes textual PNG metadata from screenshots and verifies watched metadata tags in the clean copies.
 
     .EXAMPLE
-        PS > Remove-ImageMetadata -Path '.\DCIM' -Filters '*.heic', '*.heif' -OutputPath '.\CleanDCIM' -Recurse -Paranoid
+        PS > Remove-ImageMetadata -Path '.\DCIM' -Filter '*.heic', '*.heif' -OutputPath '.\CleanDCIM' -Recurse -Paranoid
 
         Re-encodes HEIC/HEIF images into sanitized copies under CleanDCIM using paranoid mode.
 
@@ -247,7 +247,7 @@ function Remove-ImageMetadata
         Uses a specific Windows ExifTool path and verifies the result.
 
     .EXAMPLE
-        PS > Remove-ImageMetadata -Path '.\Album' -Filters '*.jpg', '*.jpeg', '*.png', '*.webp' -Recurse -PassThru
+        PS > Remove-ImageMetadata -Path '.\Album' -Filter '*.jpg', '*.jpeg', '*.png', '*.webp' -Recurse -PassThru
 
         Removes metadata from common web image formats in an album and returns one result object per image.
 
@@ -262,12 +262,12 @@ function Remove-ImageMetadata
         Writes a sanitized copy and allows ExifTool to keep an *_original backup of that clean-copy target.
 
     .EXAMPLE
-        PS > Remove-ImageMetadata -Path '.\Scans' -OutputPath '.\Scans-Clean' -Filters '*.tif', '*.tiff' -PreserveFileTimestamp
+        PS > Remove-ImageMetadata -Path '.\Scans' -OutputPath '.\Scans-Clean' -Filter '*.tif', '*.tiff' -PreserveFileTimestamp
 
         Removes metadata from scanned TIFF files while preserving their modified timestamps.
 
     .EXAMPLE
-        PS > Remove-ImageMetadata -Path '.\Export' -OutputPath '.\Export-Clean' -Filters '*.avif', '*.webp' -Recurse -Verify -PassThru
+        PS > Remove-ImageMetadata -Path '.\Export' -OutputPath '.\Export-Clean' -Filter '*.avif', '*.webp' -Recurse -Verify -PassThru
 
         Sanitizes modern web image exports and returns verification details for each clean file.
 
@@ -311,7 +311,7 @@ function Remove-ImageMetadata
         [Parameter()]
         [ValidateNotNullOrEmpty()]
         [String[]]
-        $Filters = @('*.jpg', '*.jpeg', '*.png', '*.tif', '*.tiff', '*.webp', '*.heic', '*.heif', '*.avif', '*.gif', '*.bmp'),
+        $Filter = @('*.jpg', '*.jpeg', '*.png', '*.tif', '*.tiff', '*.webp', '*.heic', '*.heif', '*.avif', '*.gif', '*.bmp'),
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
@@ -752,9 +752,9 @@ function Remove-ImageMetadata
         {
             param([System.IO.FileInfo]$FileInfo)
 
-            foreach ($filter in $Filters)
+            foreach ($filterPattern in $Filter)
             {
-                if ($FileInfo.Name -like $filter)
+                if ($FileInfo.Name -like $filterPattern)
                 {
                     return $true
                 }
@@ -828,11 +828,11 @@ function Remove-ImageMetadata
 
                 if ($pathItem.PSIsContainer)
                 {
-                    foreach ($filter in $Filters)
+                    foreach ($filterPattern in $Filter)
                     {
                         $childItemParams = @{
                             LiteralPath = $pathItem.FullName
-                            Filter = $filter
+                            Filter = $filterPattern
                             File = $true
                             ErrorAction = 'Stop'
                         }

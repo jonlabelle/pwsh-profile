@@ -54,9 +54,9 @@ Describe 'Get-ImageMetadata' -Tag 'Unit' {
             $command.Parameters.ContainsKey('Exclude') | Should -Be $true
         }
 
-        It 'Should have Filters parameter' {
+        It 'Should have Filter parameter' {
             $command = Get-Command Get-ImageMetadata
-            $command.Parameters.ContainsKey('Filters') | Should -Be $true
+            $command.Parameters.ContainsKey('Filter') | Should -Be $true
         }
 
         It 'Should have ExifToolPath parameter' {
@@ -124,9 +124,9 @@ Describe 'Get-ImageMetadata' -Tag 'Unit' {
             $command.Parameters['Exclude'].ParameterType.Name | Should -Be 'String[]'
         }
 
-        It 'Should have Filters as String array parameter' {
+        It 'Should have Filter as String array parameter' {
             $command = Get-Command Get-ImageMetadata
-            $command.Parameters['Filters'].ParameterType.Name | Should -Be 'String[]'
+            $command.Parameters['Filter'].ParameterType.Name | Should -Be 'String[]'
         }
 
         It 'Should have Tag as String array parameter' {
@@ -215,8 +215,8 @@ Describe 'Get-ImageMetadata' -Tag 'Unit' {
             $results.Name | Should -Not -Contain 'hidden.jpg'
         }
 
-        It 'Should honor custom Filters' {
-            $results = @(Get-ImageMetadata -Path $script:TestRoot -Filters '*.png' -ExifToolPath $script:FakeExifTool.Path)
+        It 'Should honor custom Filter' {
+            $results = @(Get-ImageMetadata -Path $script:TestRoot -Filter '*.png' -ExifToolPath $script:FakeExifTool.Path)
 
             $results.Count | Should -Be 1
             $results.Name | Should -Contain 'photo2.png'

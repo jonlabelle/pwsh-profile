@@ -25,9 +25,9 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
             $command.Parameters.ContainsKey('Exclude') | Should -Be $true
         }
 
-        It 'Should have Filters parameter' {
+        It 'Should have Filter parameter' {
             $command = Get-Command Invoke-FFmpeg
-            $command.Parameters.ContainsKey('Filters') | Should -Be $true
+            $command.Parameters.ContainsKey('Filter') | Should -Be $true
         }
 
         It 'Should not have Extension parameter' {
@@ -55,20 +55,20 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
             $excludeParam.ParameterType.Name | Should -Be 'String[]'
         }
 
-        It 'Should have Filters as String array parameter' {
+        It 'Should have Filter as String array parameter' {
             $command = Get-Command Invoke-FFmpeg
-            $filtersParam = $command.Parameters['Filters']
-            $filtersParam.ParameterType.Name | Should -Be 'String[]'
+            $filterParam = $command.Parameters['Filter']
+            $filterParam.ParameterType.Name | Should -Be 'String[]'
         }
     }
 
     Context 'Default Parameter Values' {
-        It 'Should default Filters to *.mkv' {
+        It 'Should default Filter to *.mkv' {
             $command = Get-Command Invoke-FFmpeg
             $parameterAst = $command.ScriptBlock.Ast.Find({
                     param($node)
                     $node -is [System.Management.Automation.Language.ParameterAst] -and
-                    $node.Name.VariablePath.UserPath -eq 'Filters'
+                    $node.Name.VariablePath.UserPath -eq 'Filter'
                 }, $true)
 
             $parameterAst.DefaultValue.Extent.Text | Should -Be "@('*.mkv')"
@@ -89,9 +89,9 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
             New-Item -Path $script:fakeFFmpegPath -ItemType File -Force | Out-Null
         }
 
-        It 'Should use all supplied Filters when scanning directories' {
+        It 'Should use all supplied Filter values when scanning directories' {
             $information = @()
-            $null = Invoke-FFmpeg -Path $script:filterTestRoot -Filters '*.avi', '*.mov' -FFmpegPath $script:fakeFFmpegPath -WhatIf -InformationVariable information
+            $null = Invoke-FFmpeg -Path $script:filterTestRoot -Filter '*.avi', '*.mov' -FFmpegPath $script:fakeFFmpegPath -WhatIf -InformationVariable information
             $messages = ($information | ForEach-Object { $_.MessageData }) -join [Environment]::NewLine
 
             $messages | Should -Match "Processing: 'filtered-video.avi'"
@@ -169,7 +169,7 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
                 return
             }
 
-            { Invoke-FFmpeg -Path $script:testNonVideoFile -Filters '*.mkv' -WhatIf } | Should -Not -Throw
+            { Invoke-FFmpeg -Path $script:testNonVideoFile -Filter '*.mkv' -WhatIf } | Should -Not -Throw
         }
 
         It 'Should handle non-existent file paths gracefully' -Skip:(-not $script:HasFFmpeg) {

@@ -20,9 +20,9 @@ function Rename-VideoSeasonFile
         Default is the current working directory.
         Supports both files and directories.
 
-    .PARAMETER Filters
+    .PARAMETER Filter
         The file extensions to search for.
-        Default filters are @('*.mkv', '*.mp4', '*.mov', '*.avi', '*.m4v', '*.wmv').
+        Default filter patterns are @('*.mkv', '*.mp4', '*.mov', '*.avi', '*.m4v', '*.wmv').
 
     .PARAMETER Exclude
         Specifies directory names to exclude from the search.
@@ -42,7 +42,7 @@ function Rename-VideoSeasonFile
         Displays what would happen if the function ran with the default options, showing which files would be renamed.
 
     .EXAMPLE
-        PS > Rename-VideoSeasonFile -Path 'D:\TV Shows\Breaking Bad' -Filters '*.mp4' -Verbose
+        PS > Rename-VideoSeasonFile -Path 'D:\TV Shows\Breaking Bad' -Filter '*.mp4' -Verbose
 
         Renames all MP4 files in the specified directory (non-recursive) that contain season identifiers to clean S##E##.mp4 format.
         For example: "Breaking.Bad.S01E01.1080p.BluRay.x264-DEMAND.mp4" becomes "S01E01.mp4"
@@ -58,7 +58,7 @@ function Rename-VideoSeasonFile
         Recursively renames all video files in the TV Shows folder and all subdirectories that contain season identifiers.
 
     .EXAMPLE
-        PS > Rename-VideoSeasonFile -Path @('D:\TV Shows\Breaking Bad', 'D:\TV Shows\Better Call Saul') -Filters '*.mp4' -Verbose
+        PS > Rename-VideoSeasonFile -Path @('D:\TV Shows\Breaking Bad', 'D:\TV Shows\Better Call Saul') -Filter '*.mp4' -Verbose
 
         Renames all MP4 files in multiple specified directories that contain season identifiers.
 
@@ -108,7 +108,7 @@ function Rename-VideoSeasonFile
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
-        [String[]]$Filters = @('*.mkv', '*.mp4', '*.mov', '*.avi', '*.m4v', '*.wmv'),
+        [String[]]$Filter = @('*.mkv', '*.mp4', '*.mov', '*.avi', '*.m4v', '*.wmv'),
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
@@ -184,17 +184,17 @@ function Rename-VideoSeasonFile
 
                 # Get all video files for current path
                 $allVideoFiles = @()
-                foreach ($filter in $Filters)
+                foreach ($filterPattern in $Filter)
                 {
                     try
                     {
                         if ($Recurse)
                         {
-                            $filesForFilter = Get-ChildItem -Path $normalizedPath -Filter $filter -Recurse -File -ErrorAction Stop
+                            $filesForFilter = Get-ChildItem -Path $normalizedPath -Filter $filterPattern -Recurse -File -ErrorAction Stop
                         }
                         else
                         {
-                            $filesForFilter = Get-ChildItem -Path $normalizedPath -Filter $filter -File -ErrorAction Stop
+                            $filesForFilter = Get-ChildItem -Path $normalizedPath -Filter $filterPattern -File -ErrorAction Stop
                         }
 
                         # Apply exclusion filter if needed (only for recursive searches)
@@ -216,12 +216,12 @@ function Rename-VideoSeasonFile
                             }
                         }
 
-                        Write-Verbose "Found $($filesForFilter.Count) files with filter '$filter'"
+                        Write-Verbose "Found $($filesForFilter.Count) files with filter '$filterPattern'"
                         $allVideoFiles += $filesForFilter
                     }
                     catch
                     {
-                        Write-Error "Error searching for files with filter '$filter' in path '$normalizedPath': $($_.Exception.Message)"
+                        Write-Error "Error searching for files with filter '$filterPattern' in path '$normalizedPath': $($_.Exception.Message)"
                         continue
                     }
                 }
@@ -242,10 +242,10 @@ function Rename-VideoSeasonFile
                 # Check if file extension matches any of the filters
                 $fileExtension = $pathItem.Extension
                 $matchesFilter = $false
-                foreach ($filter in $Filters)
+                foreach ($filterPattern in $Filter)
                 {
-                    $filterPattern = $filter.Replace('*', '')
-                    if ($fileExtension -eq $filterPattern)
+                    $filterPatternText = $filterPattern.Replace('*', '')
+                    if ($fileExtension -eq $filterPatternText)
                     {
                         $matchesFilter = $true
                         break
@@ -254,7 +254,7 @@ function Rename-VideoSeasonFile
 
                 if (-not $matchesFilter)
                 {
-                    Write-Warning "File '$($pathItem.Name)' does not match any of the supported extensions: $($Filters -join ', '). Skipping."
+                    Write-Warning "File '$($pathItem.Name)' does not match any of the supported extensions: $($Filter -join ', '). Skipping."
                     continue
                 }
 

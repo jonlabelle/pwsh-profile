@@ -25,9 +25,9 @@ Describe 'Get-MediaInfo' -Tag 'Unit' {
             $command.Parameters.ContainsKey('Exclude') | Should -Be $true
         }
 
-        It 'Should have Filters parameter' {
+        It 'Should have Filter parameter' {
             $command = Get-Command Get-MediaInfo
-            $command.Parameters.ContainsKey('Filters') | Should -Be $true
+            $command.Parameters.ContainsKey('Filter') | Should -Be $true
         }
 
         It 'Should have default Path value' {
@@ -45,18 +45,18 @@ Describe 'Get-MediaInfo' -Tag 'Unit' {
             $excludeParam.ParameterType.Name | Should -Be 'String[]'
         }
 
-        It 'Should have Filters as String array parameter' {
+        It 'Should have Filter as String array parameter' {
             $command = Get-Command Get-MediaInfo
-            $filtersParam = $command.Parameters['Filters']
-            $filtersParam.ParameterType.Name | Should -Be 'String[]'
+            $filterParam = $command.Parameters['Filter']
+            $filterParam.ParameterType.Name | Should -Be 'String[]'
         }
 
-        It 'Should default Filters to the supported media file patterns' {
+        It 'Should default Filter to the supported media file patterns' {
             $command = Get-Command Get-MediaInfo
             $parameterAst = $command.ScriptBlock.Ast.Find({
                     param($node)
                     $node -is [System.Management.Automation.Language.ParameterAst] -and
-                    $node.Name.VariablePath.UserPath -eq 'Filters'
+                    $node.Name.VariablePath.UserPath -eq 'Filter'
                 }, $true)
             $defaultValueText = $parameterAst.DefaultValue.Extent.Text
             $expectedFilters = @(
@@ -105,8 +105,8 @@ Describe 'Get-MediaInfo' -Tag 'Unit' {
             Set-Content -Path $script:fakeFFprobePath -Value $fakeFFprobeContent -Encoding UTF8
         }
 
-        It 'Should use all supplied Filters when searching directories' {
-            $results = @(Get-MediaInfo -Path $testRoot -Filters '*.avi', '*.mp4' -FFprobePath $script:fakeFFprobePath)
+        It 'Should use all supplied Filter values when searching directories' {
+            $results = @(Get-MediaInfo -Path $testRoot -Filter '*.avi', '*.mp4' -FFprobePath $script:fakeFFprobePath)
             $resultNames = @($results.Name)
 
             $resultNames.Count | Should -Be 2

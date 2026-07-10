@@ -18,9 +18,9 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $command.Parameters.ContainsKey('Exclude') | Should -Be $true
         }
 
-        It 'Should have Filters parameter' {
+        It 'Should have Filter parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters.ContainsKey('Filters') | Should -Be $true
+            $command.Parameters.ContainsKey('Filter') | Should -Be $true
         }
 
         It 'Should have ExifToolPath parameter' {
@@ -126,9 +126,9 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $command.Parameters['Exclude'].ParameterType.Name | Should -Be 'String[]'
         }
 
-        It 'Should have Filters as String array parameter' {
+        It 'Should have Filter as String array parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters['Filters'].ParameterType.Name | Should -Be 'String[]'
+            $command.Parameters['Filter'].ParameterType.Name | Should -Be 'String[]'
         }
 
         It 'Should have OutputPath as String parameter' {
@@ -267,8 +267,8 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $results.Name | Should -Not -Contain 'hidden.jpg'
         }
 
-        It 'Should honor custom Filters with -WhatIf' {
-            $results = @(Remove-ImageMetadata -Path $script:TestRoot -Filters '*.png' -WhatIf -PassThru)
+        It 'Should honor custom Filter with -WhatIf' {
+            $results = @(Remove-ImageMetadata -Path $script:TestRoot -Filter '*.png' -WhatIf -PassThru)
 
             $results.Count | Should -Be 1
             $results.Name | Should -Contain 'photo2.png'

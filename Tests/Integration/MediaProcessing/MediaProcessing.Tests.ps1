@@ -74,25 +74,25 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
         }
     }
 
-    Context 'Filters Parameter Consistency' {
-        It 'All functions should have Filters parameter' {
+    Context 'Filter Parameter Consistency' {
+        It 'All functions should have Filter parameter' {
             $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Remove-ImageMetadata', 'Rename-VideoSeasonFile')
 
             foreach ($funcName in $functions)
             {
                 $command = Get-Command $funcName
-                $command.Parameters.ContainsKey('Filters') | Should -Be $true -Because "$funcName should have Filters parameter"
+                $command.Parameters.ContainsKey('Filter') | Should -Be $true -Because "$funcName should have Filter parameter"
             }
         }
 
-        It 'All Filters parameters should be String array type' {
+        It 'All Filter parameters should be String array type' {
             $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Remove-ImageMetadata', 'Rename-VideoSeasonFile')
 
             foreach ($funcName in $functions)
             {
                 $command = Get-Command $funcName
-                $filtersParam = $command.Parameters['Filters']
-                $filtersParam.ParameterType.Name | Should -Be 'String[]' -Because "$funcName Filters parameter should be String array type"
+                $filterParam = $command.Parameters['Filter']
+                $filterParam.ParameterType.Name | Should -Be 'String[]' -Because "$funcName Filter parameter should be String array type"
             }
         }
     }

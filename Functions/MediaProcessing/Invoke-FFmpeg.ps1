@@ -17,9 +17,9 @@ function Invoke-FFmpeg
         The directory containing the video files to be processed, or individual video file paths.
         Accepts an array of paths and supports pipeline input.
 
-    .PARAMETER Filters
-        File name filters to use when searching directories. Supports multiple filters and
-        defaults to @('*.mkv').
+    .PARAMETER Filter
+        File name filter patterns to use when searching directories. Supports multiple
+        filter patterns and defaults to @('*.mkv').
 
     .PARAMETER FFmpegPath
         Path to the FFmpeg executable. If not specified, attempts to use 'ffmpeg' from PATH,
@@ -95,7 +95,7 @@ function Invoke-FFmpeg
         Useful for previewing the conversion process before running it.
 
     .EXAMPLE
-        PS > Invoke-FFmpeg -Path "C:\Videos" -Filters '*.mkv'
+        PS > Invoke-FFmpeg -Path "C:\Videos" -Filter '*.mkv'
 
         Processes all .mkv files in C:\Videos using H.264 encoding (default) with Samsung-friendly settings.
 
@@ -105,7 +105,7 @@ function Invoke-FFmpeg
         Processes videos using H.265 encoding for better compression and overwrites existing output files.
 
     .EXAMPLE
-        PS > Invoke-FFmpeg -Path "D:\Movies" -Filters '*.avi' -VideoEncoder "H.264"
+        PS > Invoke-FFmpeg -Path "D:\Movies" -Filter '*.avi' -VideoEncoder "H.264"
 
         Processes all .avi files using H.264 encoding and preserves the input files.
 
@@ -145,12 +145,12 @@ function Invoke-FFmpeg
         Processes videos with passthrough for video/audio and attempts to include all subtitle types (may fail with bitmap subtitles in MP4).
 
     .EXAMPLE
-        PS > Invoke-FFmpeg -Path @("C:\Videos", "D:\Movies") -Filters '*.mkv', '*.avi'
+        PS > Invoke-FFmpeg -Path @("C:\Videos", "D:\Movies") -Filter '*.mkv', '*.avi'
 
         Processes all .mkv and .avi files in multiple directories by passing an array to the Path parameter.
 
     .EXAMPLE
-        PS > @("C:\Videos", "D:\Movies") | Invoke-FFmpeg -Filters '*.mkv', '*.avi'
+        PS > @("C:\Videos", "D:\Movies") | Invoke-FFmpeg -Filter '*.mkv', '*.avi'
 
         Processes all .mkv and .avi files in multiple directories using pipeline input.
 
@@ -259,7 +259,7 @@ function Invoke-FFmpeg
         [Parameter()]
         [ValidateNotNullOrEmpty()]
         [string[]]
-        $Filters = @('*.mkv'),
+        $Filter = @('*.mkv'),
 
         [Parameter(Position = 1)]
         [ValidateNotNullOrEmpty()]
@@ -988,7 +988,7 @@ function Invoke-FFmpeg
 
                 # Find files to process
                 $filesToProcess = @()
-                $filterDescription = $Filters -join ', '
+                $filterDescription = $Filter -join ', '
                 if ($Recurse)
                 {
                     Write-VerboseMessage "Searching recursively for files matching: $filterDescription (excluding $($Exclude -join ', '))"
@@ -998,18 +998,18 @@ function Invoke-FFmpeg
                     Write-VerboseMessage "Searching for files matching: $filterDescription in current directory only"
                 }
 
-                foreach ($filter in $Filters)
+                foreach ($filterPattern in $Filter)
                 {
                     if ($Recurse)
                     {
-                        $filesToProcess += Get-ChildItem -Path $normalizedPath -Recurse -Filter $filter -File | Where-Object {
+                        $filesToProcess += Get-ChildItem -Path $normalizedPath -Recurse -Filter $filterPattern -File | Where-Object {
                             $fullPath = $_.FullName
                             -not ($Exclude | Where-Object { $fullPath -like "*$_*" })
                         }
                     }
                     else
                     {
-                        $filesToProcess += Get-ChildItem -Path $normalizedPath -Filter $filter -File
+                        $filesToProcess += Get-ChildItem -Path $normalizedPath -Filter $filterPattern -File
                     }
                 }
 
@@ -1042,7 +1042,7 @@ function Invoke-FFmpeg
 
         if ($script:totalFilesAcrossAllPaths -eq 0)
         {
-            Write-Warning "No files matching filters ($($Filters -join ', ')) found in any of the specified paths"
+            Write-Warning "No files matching filter patterns ($($Filter -join ', ')) found in any of the specified paths"
             return $true
         }
 

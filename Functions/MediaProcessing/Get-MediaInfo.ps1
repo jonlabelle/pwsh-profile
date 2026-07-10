@@ -16,9 +16,9 @@ function Get-MediaInfo
         Supports both absolute and relative paths. If not specified, searches non-recursively
         in the current working directory for media files matching the default filters.
 
-    .PARAMETER Filters
-        File name filters to use when searching directories. Supports multiple filters and
-        defaults to common video and audio file formats.
+    .PARAMETER Filter
+        File name filter patterns to use when searching directories. Supports multiple
+        filter patterns and defaults to common video and audio file formats.
 
     .PARAMETER Extended
         If specified, includes additional metadata such as aspect ratio, color space,
@@ -77,7 +77,7 @@ function Get-MediaInfo
         detailed information for each found media file.
 
     .EXAMPLE
-        PS > Get-MediaInfo -Path "C:\Videos" -Filters '*.mkv', '*.mp4'
+        PS > Get-MediaInfo -Path "C:\Videos" -Filter '*.mkv', '*.mp4'
 
         Retrieves detailed information for all .mkv and .mp4 files in the specified directory.
 
@@ -198,7 +198,7 @@ function Get-MediaInfo
         [Parameter()]
         [ValidateNotNullOrEmpty()]
         [string[]]
-        $Filters = @(
+        $Filter = @(
             # Video formats
             '*.mp4', '*.mkv', '*.avi', '*.mov', '*.wmv', '*.flv', '*.webm', '*.m4v',
             '*.mpg', '*.mpeg', '*.3gp', '*.ts', '*.mts', '*.m2ts', '*.vob', '*.ogv',
@@ -813,11 +813,11 @@ function Get-MediaInfo
                     }
 
                     $mediaFiles = @()
-                    foreach ($filter in $Filters)
+                    foreach ($filterPattern in $Filter)
                     {
                         if ($Recurse)
                         {
-                            $foundFiles = Get-ChildItem -Path $resolvedPath -Recurse -Filter $filter -File -ErrorAction SilentlyContinue
+                            $foundFiles = Get-ChildItem -Path $resolvedPath -Recurse -Filter $filterPattern -File -ErrorAction SilentlyContinue
                             # Apply exclusion filters for recursive search
                             $filteredFiles = $foundFiles | Where-Object {
                                 $fullPath = $_.FullName
@@ -827,7 +827,7 @@ function Get-MediaInfo
                         }
                         else
                         {
-                            $mediaFiles += Get-ChildItem -Path $resolvedPath -Filter $filter -File -ErrorAction SilentlyContinue
+                            $mediaFiles += Get-ChildItem -Path $resolvedPath -Filter $filterPattern -File -ErrorAction SilentlyContinue
                         }
                     }
 
