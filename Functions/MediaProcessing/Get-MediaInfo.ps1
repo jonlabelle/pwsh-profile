@@ -12,9 +12,13 @@ function Get-MediaInfo
         Requires ffprobe to be installed and available in PATH or specified via -FFprobePath.
 
     .PARAMETER Path
-        The path to the media file(s) to analyze. Accepts wildcards and pipeline input.
-        Supports both absolute and relative paths. If not specified, searches recursively
-        in the current working directory for common media file extensions (video and audio).
+        The path to the media file(s) to analyze. Accepts pipeline input.
+        Supports both absolute and relative paths. If not specified, searches non-recursively
+        in the current working directory for media files matching the default filters.
+
+    .PARAMETER Filters
+        File name filters to use when searching directories. Supports multiple filters and
+        defaults to common video and audio file formats.
 
     .PARAMETER Extended
         If specified, includes additional metadata such as aspect ratio, color space,
@@ -73,9 +77,9 @@ function Get-MediaInfo
         detailed information for each found media file.
 
     .EXAMPLE
-        PS > Get-MediaInfo -Path "C:\Videos\*.mkv"
+        PS > Get-MediaInfo -Path "C:\Videos" -Filters '*.mkv', '*.mp4'
 
-        Retrieves detailed information for all .mkv files in the specified directory.
+        Retrieves detailed information for all .mkv and .mp4 files in the specified directory.
 
     .EXAMPLE
         PS > Get-ChildItem -Path "C:\Videos" -Filter "*.mp4" | Get-MediaInfo
@@ -190,6 +194,18 @@ function Get-MediaInfo
         [ValidateNotNullOrEmpty()]
         [string[]]
         $Path = (Get-Location),
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string[]]
+        $Filters = @(
+            # Video formats
+            '*.mp4', '*.mkv', '*.avi', '*.mov', '*.wmv', '*.flv', '*.webm', '*.m4v',
+            '*.mpg', '*.mpeg', '*.3gp', '*.ts', '*.mts', '*.m2ts', '*.vob', '*.ogv',
+            # Audio formats
+            '*.mp3', '*.m4a', '*.aac', '*.flac', '*.wav', '*.ogg', '*.opus',
+            '*.wma', '*.alac', '*.ape', '*.ac3', '*.dts', '*.aiff', '*.oga'
+        ),
 
         [Parameter()]
         [switch]
@@ -796,22 +812,12 @@ function Get-MediaInfo
                         Write-Verbose "Searching directory (non-recursive): $resolvedPath"
                     }
 
-                    # Common video and audio file extensions
-                    $mediaExtensions = @(
-                        # Video formats
-                        '*.mp4', '*.mkv', '*.avi', '*.mov', '*.wmv', '*.flv', '*.webm', '*.m4v',
-                        '*.mpg', '*.mpeg', '*.3gp', '*.ts', '*.mts', '*.m2ts', '*.vob', '*.ogv',
-                        # Audio formats
-                        '*.mp3', '*.m4a', '*.aac', '*.flac', '*.wav', '*.ogg', '*.opus',
-                        '*.wma', '*.alac', '*.ape', '*.ac3', '*.dts', '*.aiff', '*.oga'
-                    )
-
                     $mediaFiles = @()
-                    foreach ($ext in $mediaExtensions)
+                    foreach ($filter in $Filters)
                     {
                         if ($Recurse)
                         {
-                            $foundFiles = Get-ChildItem -Path $resolvedPath -Recurse -Filter $ext -File -ErrorAction SilentlyContinue
+                            $foundFiles = Get-ChildItem -Path $resolvedPath -Recurse -Filter $filter -File -ErrorAction SilentlyContinue
                             # Apply exclusion filters for recursive search
                             $filteredFiles = $foundFiles | Where-Object {
                                 $fullPath = $_.FullName
@@ -821,9 +827,12 @@ function Get-MediaInfo
                         }
                         else
                         {
-                            $mediaFiles += Get-ChildItem -Path $resolvedPath -Filter $ext -File -ErrorAction SilentlyContinue
+                            $mediaFiles += Get-ChildItem -Path $resolvedPath -Filter $filter -File -ErrorAction SilentlyContinue
                         }
                     }
+
+                    # A file can match more than one supplied filter; process it only once.
+                    $mediaFiles = @($mediaFiles | Sort-Object -Property FullName -Unique)
 
                     if ($mediaFiles.Count -eq 0)
                     {

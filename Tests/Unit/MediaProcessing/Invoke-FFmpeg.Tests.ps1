@@ -25,6 +25,16 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
             $command.Parameters.ContainsKey('Exclude') | Should -Be $true
         }
 
+        It 'Should have Filters parameter' {
+            $command = Get-Command Invoke-FFmpeg
+            $command.Parameters.ContainsKey('Filters') | Should -Be $true
+        }
+
+        It 'Should not have Extension parameter' {
+            $command = Get-Command Invoke-FFmpeg
+            $command.Parameters.ContainsKey('Extension') | Should -Be $false
+        }
+
         It 'Should have default Path value' {
             $command = Get-Command Invoke-FFmpeg
             $pathParam = $command.Parameters['Path']
@@ -43,6 +53,50 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
             $command = Get-Command Invoke-FFmpeg
             $excludeParam = $command.Parameters['Exclude']
             $excludeParam.ParameterType.Name | Should -Be 'String[]'
+        }
+
+        It 'Should have Filters as String array parameter' {
+            $command = Get-Command Invoke-FFmpeg
+            $filtersParam = $command.Parameters['Filters']
+            $filtersParam.ParameterType.Name | Should -Be 'String[]'
+        }
+    }
+
+    Context 'Default Parameter Values' {
+        It 'Should default Filters to *.mkv' {
+            $command = Get-Command Invoke-FFmpeg
+            $parameterAst = $command.ScriptBlock.Ast.Find({
+                    param($node)
+                    $node -is [System.Management.Automation.Language.ParameterAst] -and
+                    $node.Name.VariablePath.UserPath -eq 'Filters'
+                }, $true)
+
+            $parameterAst.DefaultValue.Extent.Text | Should -Be "@('*.mkv')"
+        }
+    }
+
+    Context 'Filter Behavior' {
+        BeforeAll {
+            $script:filterTestRoot = Join-Path -Path $TestDrive -ChildPath 'FFmpegFilterTest'
+            New-Item -Path $script:filterTestRoot -ItemType Directory -Force | Out-Null
+
+            New-Item -Path (Join-Path -Path $script:filterTestRoot -ChildPath 'default-video.mkv') -ItemType File -Force | Out-Null
+            New-Item -Path (Join-Path -Path $script:filterTestRoot -ChildPath 'filtered-video.avi') -ItemType File -Force | Out-Null
+            New-Item -Path (Join-Path -Path $script:filterTestRoot -ChildPath 'secondary-video.mov') -ItemType File -Force | Out-Null
+
+            # A leaf path is sufficient because -WhatIf prevents execution.
+            $script:fakeFFmpegPath = Join-Path -Path $script:filterTestRoot -ChildPath 'fake-ffmpeg'
+            New-Item -Path $script:fakeFFmpegPath -ItemType File -Force | Out-Null
+        }
+
+        It 'Should use all supplied Filters when scanning directories' {
+            $information = @()
+            $null = Invoke-FFmpeg -Path $script:filterTestRoot -Filters '*.avi', '*.mov' -FFmpegPath $script:fakeFFmpegPath -WhatIf -InformationVariable information
+            $messages = ($information | ForEach-Object { $_.MessageData }) -join [Environment]::NewLine
+
+            $messages | Should -Match "Processing: 'filtered-video.avi'"
+            $messages | Should -Match "Processing: 'secondary-video.mov'"
+            $messages | Should -Not -Match 'default-video.mkv'
         }
     }
 
@@ -108,16 +162,14 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
             { Invoke-FFmpeg -Path $script:testVideoFile -WhatIf } | Should -Not -Throw
         }
 
-        It 'Should validate file extension for individual files' -Skip:(-not $script:HasFFmpeg) {
+        It 'Should process explicitly specified files regardless of Filters with -WhatIf' -Skip:(-not $script:HasFFmpeg) {
             if (-not $script:HasFFmpeg)
             {
                 Set-ItResult -Skipped -Because 'ffmpeg is not available on this system'
                 return
             }
 
-            # Should warn when file extension doesn't match expected extension
-            Invoke-FFmpeg -Path $script:testNonVideoFile -WhatIf -WarningVariable warnings 2>&1 | Out-Null
-            $warnings | Should -Not -BeNullOrEmpty
+            { Invoke-FFmpeg -Path $script:testNonVideoFile -Filters '*.mkv' -WhatIf } | Should -Not -Throw
         }
 
         It 'Should handle non-existent file paths gracefully' -Skip:(-not $script:HasFFmpeg) {

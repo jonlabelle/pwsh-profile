@@ -74,6 +74,29 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
         }
     }
 
+    Context 'Filters Parameter Consistency' {
+        It 'All functions should have Filters parameter' {
+            $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Remove-ImageMetadata', 'Rename-VideoSeasonFile')
+
+            foreach ($funcName in $functions)
+            {
+                $command = Get-Command $funcName
+                $command.Parameters.ContainsKey('Filters') | Should -Be $true -Because "$funcName should have Filters parameter"
+            }
+        }
+
+        It 'All Filters parameters should be String array type' {
+            $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Remove-ImageMetadata', 'Rename-VideoSeasonFile')
+
+            foreach ($funcName in $functions)
+            {
+                $command = Get-Command $funcName
+                $filtersParam = $command.Parameters['Filters']
+                $filtersParam.ParameterType.Name | Should -Be 'String[]' -Because "$funcName Filters parameter should be String array type"
+            }
+        }
+    }
+
     Context 'Default Behavior Verification' {
         BeforeAll {
             # Create test directory structure

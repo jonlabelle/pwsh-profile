@@ -17,8 +17,9 @@ function Invoke-FFmpeg
         The directory containing the video files to be processed, or individual video file paths.
         Accepts an array of paths and supports pipeline input.
 
-    .PARAMETER Extension
-        The file extension of input video files. Defaults to 'mkv'.
+    .PARAMETER Filters
+        File name filters to use when searching directories. Supports multiple filters and
+        defaults to @('*.mkv').
 
     .PARAMETER FFmpegPath
         Path to the FFmpeg executable. If not specified, attempts to use 'ffmpeg' from PATH,
@@ -94,7 +95,7 @@ function Invoke-FFmpeg
         Useful for previewing the conversion process before running it.
 
     .EXAMPLE
-        PS > Invoke-FFmpeg -Path "C:\Videos" -Extension "mkv"
+        PS > Invoke-FFmpeg -Path "C:\Videos" -Filters '*.mkv'
 
         Processes all .mkv files in C:\Videos using H.264 encoding (default) with Samsung-friendly settings.
 
@@ -104,7 +105,7 @@ function Invoke-FFmpeg
         Processes videos using H.265 encoding for better compression and overwrites existing output files.
 
     .EXAMPLE
-        PS > Invoke-FFmpeg -Path "D:\Movies" -Extension "avi" -VideoEncoder "H.264"
+        PS > Invoke-FFmpeg -Path "D:\Movies" -Filters '*.avi' -VideoEncoder "H.264"
 
         Processes all .avi files using H.264 encoding and preserves the input files.
 
@@ -144,14 +145,14 @@ function Invoke-FFmpeg
         Processes videos with passthrough for video/audio and attempts to include all subtitle types (may fail with bitmap subtitles in MP4).
 
     .EXAMPLE
-        PS > Invoke-FFmpeg -Path @("C:\Videos", "D:\Movies") -Extension "mkv"
+        PS > Invoke-FFmpeg -Path @("C:\Videos", "D:\Movies") -Filters '*.mkv', '*.avi'
 
-        Processes all .mkv files in multiple directories by passing an array to the Path parameter.
+        Processes all .mkv and .avi files in multiple directories by passing an array to the Path parameter.
 
     .EXAMPLE
-        PS > @("C:\Videos", "D:\Movies") | Invoke-FFmpeg -Extension "mkv"
+        PS > @("C:\Videos", "D:\Movies") | Invoke-FFmpeg -Filters '*.mkv', '*.avi'
 
-        Processes all .mkv files in multiple directories using pipeline input.
+        Processes all .mkv and .avi files in multiple directories using pipeline input.
 
     .EXAMPLE
         PS > Invoke-FFmpeg -Path ".\Blazing Saddles.mkv" -PassthroughVideo -PassthroughAudio
@@ -192,7 +193,7 @@ function Invoke-FFmpeg
         - Preserves original sample rates ≥48kHz and channel layouts
 
     .EXAMPLE
-        PS > Invoke-FFmpeg -Path "D:\TV Shows" -Extension "mkv" -Recurse -VideoEncoder "H.265"
+        PS > Invoke-FFmpeg -Path "D:\TV Shows" -Recurse -VideoEncoder "H.265"
 
         Recursively processes TV show files with H.265 encoding and intelligent audio optimization:
         - Multichannel episodes: Converted to E-AC-3 for surround sound preservation
@@ -255,12 +256,12 @@ function Invoke-FFmpeg
         [string[]]
         $Path = (Get-Location),
 
-        [Parameter(Position = 1)]
+        [Parameter()]
         [ValidateNotNullOrEmpty()]
-        [string]
-        $Extension = 'mkv',
+        [string[]]
+        $Filters = @('*.mkv'),
 
-        [Parameter(Position = 2)]
+        [Parameter(Position = 1)]
         [ValidateNotNullOrEmpty()]
         [string]
         $FFmpegPath,
@@ -957,9 +958,6 @@ function Invoke-FFmpeg
         $script:scriptStartTime = Get-Date
         $script:globalFileCounter = 0
         $script:totalFilesAcrossAllPaths = 0
-
-        # Normalize file extension (ensure it has no leading dot)
-        $Extension = $Extension.TrimStart('.')
     }
 
     process
@@ -989,19 +987,34 @@ function Invoke-FFmpeg
                 Write-VerboseMessage "Processing directory: $normalizedPath"
 
                 # Find files to process
+                $filesToProcess = @()
+                $filterDescription = $Filters -join ', '
                 if ($Recurse)
                 {
-                    Write-VerboseMessage "Searching recursively for *.$Extension files (excluding $($Exclude -join ', '))"
-                    $filesToProcess = Get-ChildItem -Path $normalizedPath -Recurse -Filter "*.$Extension" -File | Where-Object {
-                        $fullPath = $_.FullName
-                        -not ($Exclude | Where-Object { $fullPath -like "*$_*" })
-                    }
+                    Write-VerboseMessage "Searching recursively for files matching: $filterDescription (excluding $($Exclude -join ', '))"
                 }
                 else
                 {
-                    Write-VerboseMessage "Searching for *.$Extension files in current directory only"
-                    $filesToProcess = Get-ChildItem -Path $normalizedPath -Filter "*.$Extension" -File
+                    Write-VerboseMessage "Searching for files matching: $filterDescription in current directory only"
                 }
+
+                foreach ($filter in $Filters)
+                {
+                    if ($Recurse)
+                    {
+                        $filesToProcess += Get-ChildItem -Path $normalizedPath -Recurse -Filter $filter -File | Where-Object {
+                            $fullPath = $_.FullName
+                            -not ($Exclude | Where-Object { $fullPath -like "*$_*" })
+                        }
+                    }
+                    else
+                    {
+                        $filesToProcess += Get-ChildItem -Path $normalizedPath -Filter $filter -File
+                    }
+                }
+
+                # A file can match more than one supplied filter; process it only once.
+                $filesToProcess = @($filesToProcess | Sort-Object -Property FullName -Unique)
 
                 foreach ($file in $filesToProcess)
                 {
@@ -1016,8 +1029,7 @@ function Invoke-FFmpeg
                 # Handle individual file
                 Write-VerboseMessage "Processing individual file: $normalizedPath"
 
-                # For individual files, process regardless of extension (user explicitly specified the file)
-                # Extension parameter only applies to directory scanning
+                # Filters only apply to directory searches; explicitly specified files are processed as-is.
                 $allFilesToProcess += [PSCustomObject]@{
                     File = $pathItem
                     SourcePath = $pathItem.DirectoryName
@@ -1030,7 +1042,7 @@ function Invoke-FFmpeg
 
         if ($script:totalFilesAcrossAllPaths -eq 0)
         {
-            Write-Warning "No '$Extension' files found in any of the specified paths"
+            Write-Warning "No files matching filters ($($Filters -join ', ')) found in any of the specified paths"
             return $true
         }
 

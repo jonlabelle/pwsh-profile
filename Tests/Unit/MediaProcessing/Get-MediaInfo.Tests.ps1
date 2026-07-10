@@ -25,6 +25,11 @@ Describe 'Get-MediaInfo' -Tag 'Unit' {
             $command.Parameters.ContainsKey('Exclude') | Should -Be $true
         }
 
+        It 'Should have Filters parameter' {
+            $command = Get-Command Get-MediaInfo
+            $command.Parameters.ContainsKey('Filters') | Should -Be $true
+        }
+
         It 'Should have default Path value' {
             $command = Get-Command Get-MediaInfo
             $pathParam = $command.Parameters['Path']
@@ -38,6 +43,33 @@ Describe 'Get-MediaInfo' -Tag 'Unit' {
             $excludeParam = $command.Parameters['Exclude']
             # The default value should be set in the param block
             $excludeParam.ParameterType.Name | Should -Be 'String[]'
+        }
+
+        It 'Should have Filters as String array parameter' {
+            $command = Get-Command Get-MediaInfo
+            $filtersParam = $command.Parameters['Filters']
+            $filtersParam.ParameterType.Name | Should -Be 'String[]'
+        }
+
+        It 'Should default Filters to the supported media file patterns' {
+            $command = Get-Command Get-MediaInfo
+            $parameterAst = $command.ScriptBlock.Ast.Find({
+                    param($node)
+                    $node -is [System.Management.Automation.Language.ParameterAst] -and
+                    $node.Name.VariablePath.UserPath -eq 'Filters'
+                }, $true)
+            $defaultValueText = $parameterAst.DefaultValue.Extent.Text
+            $expectedFilters = @(
+                '*.mp4', '*.mkv', '*.avi', '*.mov', '*.wmv', '*.flv', '*.webm', '*.m4v',
+                '*.mpg', '*.mpeg', '*.3gp', '*.ts', '*.mts', '*.m2ts', '*.vob', '*.ogv',
+                '*.mp3', '*.m4a', '*.aac', '*.flac', '*.wav', '*.ogg', '*.opus',
+                '*.wma', '*.alac', '*.ape', '*.ac3', '*.dts', '*.aiff', '*.oga'
+            )
+
+            foreach ($filter in $expectedFilters)
+            {
+                $defaultValueText | Should -Match ([regex]::Escape("'$filter'"))
+            }
         }
 
         It 'Should accept Path parameter from pipeline' {
@@ -58,7 +90,29 @@ Describe 'Get-MediaInfo' -Tag 'Unit' {
 
             # Create mock media files (empty files for testing)
             New-Item -Path (Join-Path -Path $testRoot -ChildPath 'video1.mp4') -ItemType File -Force | Out-Null
+            New-Item -Path (Join-Path -Path $testRoot -ChildPath 'video2.avi') -ItemType File -Force | Out-Null
             New-Item -Path (Join-Path -Path $subDir -ChildPath 'video2.mkv') -ItemType File -Force | Out-Null
+
+            # Return minimal valid ffprobe JSON so filter behavior can be tested without ffprobe installed.
+            $script:fakeFFprobePath = Join-Path -Path $testRoot -ChildPath 'fake-ffprobe.ps1'
+            $fakeFFprobeContent = @(
+                '$metadata = @{'
+                '    streams = @()'
+                "    format = @{ duration = '1'; bit_rate = '1000'; format_long_name = 'Test format' }"
+                '}'
+                '$metadata | ConvertTo-Json -Depth 4'
+            ) -join [Environment]::NewLine
+            Set-Content -Path $script:fakeFFprobePath -Value $fakeFFprobeContent -Encoding UTF8
+        }
+
+        It 'Should use all supplied Filters when searching directories' {
+            $results = @(Get-MediaInfo -Path $testRoot -Filters '*.avi', '*.mp4' -FFprobePath $script:fakeFFprobePath)
+            $resultNames = @($results.Name)
+
+            $resultNames.Count | Should -Be 2
+            $resultNames | Should -Contain 'video1.mp4'
+            $resultNames | Should -Contain 'video2.avi'
+            $resultNames | Should -Not -Contain 'video2.mkv'
         }
 
         It 'Should search non-recursively by default' -Skip:(-not $script:HasFFprobe) {
