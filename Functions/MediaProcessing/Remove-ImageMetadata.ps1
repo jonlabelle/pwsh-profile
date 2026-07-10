@@ -34,8 +34,8 @@ function Remove-ImageMetadata
         input and wildcard patterns. Defaults to the current working directory.
 
     .PARAMETER Filters
-        File name filters to use when searching directories. Defaults to common
-        image extensions including JPEG, PNG, TIFF, WebP, HEIC, AVIF, GIF, and BMP.
+        File name filters to use when searching directories.
+        Defaults to common image extensions including JPEG, PNG, TIFF, WebP, HEIC, AVIF, GIF, and BMP.
 
     .PARAMETER Exclude
         Directory names to exclude when -Recurse is specified. Defaults to
@@ -117,7 +117,7 @@ function Remove-ImageMetadata
         Removes metadata only from JPEG and PNG files in the Images folder.
 
     .EXAMPLE
-        PS > Get-ChildItem -Path '.\Uploads' -Filter '*.jpg' | Remove-ImageMetadata
+        PS > Get-ChildItem -Path '.\Uploads' -Filters '*.jpg' | Remove-ImageMetadata
 
         Removes metadata from JPEG files provided through the pipeline.
 
