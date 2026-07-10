@@ -49,8 +49,9 @@ function Search-DelimitedFile
         non-recursive by default.
 
     .PARAMETER Exclude
-        Directory-name wildcard patterns to exclude from recursive searches. The defaults are
-        .git and node_modules. This parameter has no effect unless -Recurse is specified.
+        Directory-name wildcard patterns to exclude from recursive searches. The default
+        exclusions are node_modules and the .git directory. This parameter has no effect unless
+        -Recurse is specified.
 
     .PARAMETER NoHeader
         Indicates that the first record contains data rather than column names. Generated column
@@ -111,6 +112,12 @@ function Search-DelimitedFile
         PS > Search-DelimitedFile './data.txt' @{ 0 = '^A'; 2 = 'done' } -Delimiter '|' -NoHeader
 
         Searches a headerless pipe-delimited file by zero-based column index.
+
+    .EXAMPLE
+        PS > Search-DelimitedFile './duplicate-headers.tsv' @{ 1 = 'Some Value'; 5 = 'Passed' } -NoHeader -Literal
+
+        Searches a file with duplicate header names by treating its header row as data and using
+        zero-based column indexes. The original header row normally does not match the criteria.
 
     .EXAMPLE
         PS > Search-DelimitedFile './data.txt' @{ Name = 'Alice'; State = 'NY' } -Delimiter ';' -Header Name,Age,State -Literal
@@ -502,8 +509,7 @@ function Search-DelimitedFile
             }
         }
 
-        if (($NoHeader -or $PSBoundParameters.ContainsKey('Header')) -and
-            -not ('Microsoft.VisualBasic.FileIO.TextFieldParser' -as [Type]))
+        if (-not ('Microsoft.VisualBasic.FileIO.TextFieldParser' -as [Type]))
         {
             try
             {
@@ -517,7 +523,7 @@ function Search-DelimitedFile
                 }
                 catch
                 {
-                    throw 'Headerless file support requires the Microsoft.VisualBasic TextFieldParser type, which could not be loaded.'
+                    throw 'Delimited-file header preflight requires the Microsoft.VisualBasic TextFieldParser type, which could not be loaded.'
                 }
             }
         }
@@ -581,8 +587,8 @@ function Search-DelimitedFile
                     continue
                 }
 
-               foreach ($inputFile in $inputFiles)
-               {
+                foreach ($inputFile in $inputFiles)
+                {
                     $filePath = $inputFile.FullName
                     if ($directoryRoot -and (Test-IsExcludedFile -File $inputFile -RootPath $directoryRoot))
                     {
@@ -615,10 +621,8 @@ function Search-DelimitedFile
                         Delimiter = $fileDelimiter
                         Encoding = $Encoding
                         ErrorAction = 'Stop'
-               }
+                    }
 
-                if ($NoHeader -or $PSBoundParameters.ContainsKey('Header'))
-                {
                     try
                     {
                         $firstFields = @(Get-FirstRecordFields -FilePath $filePath -FieldDelimiter $fileDelimiter -TextEncoding $textEncoding)
@@ -644,7 +648,7 @@ function Search-DelimitedFile
                         }
                         $importParameters.Header = $Header
                     }
-                    else
+                    elseif ($NoHeader)
                     {
                         $generatedHeader = for ($columnIndex = 0; $columnIndex -lt $firstFields.Count; $columnIndex++)
                         {
@@ -652,77 +656,112 @@ function Search-DelimitedFile
                         }
                         $importParameters.Header = [String[]]$generatedHeader
                     }
-                }
+                    else
+                    {
+                        $uniqueHeaders = New-Object 'System.Collections.Generic.HashSet[String]' ([StringComparer]::OrdinalIgnoreCase)
+                        $duplicateHeaders = New-Object 'System.Collections.Generic.HashSet[String]' ([StringComparer]::OrdinalIgnoreCase)
 
-                $resolvedCriteria = $null
-                $selectedColumns = $null
-                try
-                {
-                    Import-Csv @importParameters | ForEach-Object {
-                        $row = $_
-                        $columnNames = @($row.PSObject.Properties.Name)
-
-                        if ($null -eq $resolvedCriteria)
+                        foreach ($headerName in $firstFields)
                         {
-                            $resolvedCriteria = @(Resolve-SearchCriteria -ColumnNames $columnNames)
-                            $criteriaColumnNames = @($resolvedCriteria | ForEach-Object { $_.ColumnName })
-                            $selectedColumns = if ($MatchColumnsOnly)
+                            if (-not $uniqueHeaders.Add($headerName))
                             {
-                                @($columnNames | Where-Object { $criteriaColumnNames -icontains $_ })
+                                [void]$duplicateHeaders.Add($headerName)
+                            }
+                        }
+
+                        if ($duplicateHeaders.Count -gt 0)
+                        {
+                            $duplicateDetails = foreach ($duplicateHeader in $duplicateHeaders)
+                            {
+                                $duplicateIndexes = for ($headerIndex = 0; $headerIndex -lt $firstFields.Count; $headerIndex++)
+                                {
+                                    if ([String]::Equals($firstFields[$headerIndex], $duplicateHeader, [StringComparison]::OrdinalIgnoreCase))
+                                    {
+                                        $headerIndex
+                                    }
+                                }
+                                "'$duplicateHeader' (zero-based indexes: $($duplicateIndexes -join ', '))"
+                            }
+
+                            Write-Error (
+                                "File '$filePath' contains duplicate column headers: $($duplicateDetails -join '; '). " +
+                                'Search-DelimitedFile requires unique headers when header parsing is enabled. ' +
+                                'Re-run the search with -NoHeader and integer Criteria keys to search by zero-based column index. ' +
+                                "Run 'Get-Help Search-DelimitedFile -Examples' for examples."
+                            )
+                            continue
+                        }
+                    }
+
+                    $resolvedCriteria = $null
+                    $selectedColumns = $null
+                    try
+                    {
+                        Import-Csv @importParameters | ForEach-Object {
+                            $row = $_
+                            $columnNames = @($row.PSObject.Properties.Name)
+
+                            if ($null -eq $resolvedCriteria)
+                            {
+                                $resolvedCriteria = @(Resolve-SearchCriteria -ColumnNames $columnNames)
+                                $criteriaColumnNames = @($resolvedCriteria | ForEach-Object { $_.ColumnName })
+                                $selectedColumns = if ($MatchColumnsOnly)
+                                {
+                                    @($columnNames | Where-Object { $criteriaColumnNames -icontains $_ })
+                                }
+                                else
+                                {
+                                    $columnNames
+                                }
+
+                                if ($IncludeFileName -and $columnNames -icontains 'FileName')
+                                {
+                                    throw "Input file '$filePath' already contains a FileName column. Omit IncludeFileName or rename the input column."
+                                }
+                                if ($IncludeFilePath -and $columnNames -icontains 'FilePath')
+                                {
+                                    throw "Input file '$filePath' already contains a FilePath column. Omit IncludeFilePath or rename the input column."
+                                }
+                            }
+
+                            $criterionMatches = foreach ($criterion in $resolvedCriteria)
+                            {
+                                Test-FieldValue -Value $row.($criterion.ColumnName) -Patterns $criterion.Patterns
+                            }
+
+                            $isMatch = if ($Any)
+                            {
+                                $criterionMatches -contains $true
                             }
                             else
                             {
-                                $columnNames
+                                $criterionMatches -notcontains $false
                             }
 
-                            if ($IncludeFileName -and $columnNames -icontains 'FileName')
+                            if ($isMatch)
                             {
-                                throw "Input file '$filePath' already contains a FileName column. Omit IncludeFileName or rename the input column."
-                            }
-                            if ($IncludeFilePath -and $columnNames -icontains 'FilePath')
-                            {
-                                throw "Input file '$filePath' already contains a FilePath column. Omit IncludeFilePath or rename the input column."
-                            }
-                        }
+                                $outputRow = [Ordered]@{}
+                                if ($IncludeFileName)
+                                {
+                                    $outputRow.FileName = [System.IO.Path]::GetFileName($filePath)
+                                }
+                                if ($IncludeFilePath)
+                                {
+                                    $outputRow.FilePath = $filePath
+                                }
+                                foreach ($columnName in $selectedColumns)
+                                {
+                                    $outputRow[$columnName] = $row.$columnName
+                                }
 
-                        $criterionMatches = foreach ($criterion in $resolvedCriteria)
-                        {
-                            Test-FieldValue -Value $row.($criterion.ColumnName) -Patterns $criterion.Patterns
-                        }
-
-                        $isMatch = if ($Any)
-                        {
-                            $criterionMatches -contains $true
-                        }
-                        else
-                        {
-                            $criterionMatches -notcontains $false
-                        }
-
-                        if ($isMatch)
-                        {
-                            $outputRow = [Ordered]@{}
-                            if ($IncludeFileName)
-                            {
-                                $outputRow.FileName = [System.IO.Path]::GetFileName($filePath)
+                                [PSCustomObject]$outputRow
                             }
-                            if ($IncludeFilePath)
-                            {
-                                $outputRow.FilePath = $filePath
-                            }
-                            foreach ($columnName in $selectedColumns)
-                            {
-                                $outputRow[$columnName] = $row.$columnName
-                            }
-
-                            [PSCustomObject]$outputRow
                         }
                     }
-                }
-                catch
-                {
-                    Write-Error -ErrorRecord $_
-                }
+                    catch
+                    {
+                        Write-Error -ErrorRecord $_
+                    }
                 }
             }
         }

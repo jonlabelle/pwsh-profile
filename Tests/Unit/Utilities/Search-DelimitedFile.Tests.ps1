@@ -66,6 +66,13 @@ Describe 'Search-DelimitedFile' {
             $command.Parameters.Filter.ParameterType | Should -Be ([String[]])
             $command.Parameters.Filter.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateNotNullOrEmptyAttribute] } | Should -Not -BeNullOrEmpty
         }
+
+        It 'documents the duplicate-header index workaround in command examples' {
+            $examples = Get-Help -Name Search-DelimitedFile -Examples | Out-String
+
+            $examples | Should -Match 'duplicate-headers\.tsv'
+            $examples | Should -Match '\-NoHeader'
+        }
     }
 
     Context 'CSV matching with headers' {
@@ -191,6 +198,30 @@ Describe 'Search-DelimitedFile' {
 
             $result.Count | Should -Be 1
             $result[0].Note | Should -Be 'one,two'
+        }
+
+        It 'rejects duplicate file headers with index-search guidance' {
+            $path = Initialize-DelimitedTestFile -Name 'duplicate-headers.tsv' -Content "Name`tStatus`tname`nAlice`tPassed`tAlias"
+            $searchErrors = @()
+
+            $result = @(Search-DelimitedFile -Path $path -Criteria @{ Name = 'Alice' } -Literal -ErrorAction SilentlyContinue -ErrorVariable searchErrors)
+
+            $result.Count | Should -Be 0
+            $searchErrors.Count | Should -Be 1
+            $searchErrors[0].ToString() | Should -Match 'duplicate column headers'
+            $searchErrors[0].ToString() | Should -Match "'name' \(zero-based indexes: 0, 2\)"
+            $searchErrors[0].ToString() | Should -Match '\-NoHeader and integer Criteria keys'
+            $searchErrors[0].ToString() | Should -Match 'Get-Help Search-DelimitedFile -Examples'
+        }
+
+        It 'searches a duplicate-header file by index when NoHeader is used' {
+            $path = Initialize-DelimitedTestFile -Name 'duplicate-headers-index.tsv' -Content "Name`tStatus`tName`nAlice`tPassed`tAlias`nBob`tFailed`tOther"
+
+            $result = @(Search-DelimitedFile -Path $path -Criteria @{ 0 = 'Alice'; 1 = 'Passed' } -NoHeader -Literal -Exact)
+
+            $result.Count | Should -Be 1
+            $result[0].Column0 | Should -Be 'Alice'
+            $result[0].Column2 | Should -Be 'Alias'
         }
     }
 
