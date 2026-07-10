@@ -73,6 +73,13 @@ Describe 'Search-DelimitedFile' {
             $examples | Should -Match 'duplicate-headers\.tsv'
             $examples | Should -Match '\-NoHeader'
         }
+
+        It 'exposes OutputFile as a string parameter with an OutFile alias' {
+            $outputParameter = (Get-Command -Name Search-DelimitedFile).Parameters.OutputFile
+
+            $outputParameter.ParameterType | Should -Be ([String])
+            $outputParameter.Aliases | Should -Contain 'OutFile'
+        }
     }
 
     Context 'CSV matching with headers' {
@@ -318,6 +325,120 @@ Describe 'Search-DelimitedFile' {
             $result = @(Search-DelimitedFile -Path $directory -Criteria @{ Name = '^Alice$' } -Filter '*.csv', 'people.csv')
 
             $result.Count | Should -Be 1
+        }
+    }
+
+    Context 'Output file export' {
+        It 'writes matching rows to CSV instead of the pipeline' {
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'matches.csv'
+
+            $result = @(Search-DelimitedFile -Path $script:csvPath -Criteria @{ City = '^Boston$' } -OutputFile $outputPath)
+
+            $result.Count | Should -Be 0
+            $exportedRows = @(Import-Csv -LiteralPath $outputPath)
+            $exportedRows.Count | Should -Be 2
+            $exportedRows.Name | Should -Contain 'Alice'
+            $exportedRows.Name | Should -Contain 'Carol'
+        }
+
+        It 'writes matching rows to a JSON array' {
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'matches.JSON'
+
+            $result = @(Search-DelimitedFile -Path $script:csvPath -Criteria @{ Status = '^Active$' } -MatchColumnsOnly -IncludeFileName -OutputFile $outputPath)
+
+            $result.Count | Should -Be 0
+            $jsonText = Get-Content -LiteralPath $outputPath -Raw
+            $jsonText.TrimStart() | Should -Match '^\['
+            $exportedRows = @($jsonText | ConvertFrom-Json)
+            $exportedRows.Count | Should -Be 1
+            @($exportedRows[0].PSObject.Properties.Name) | Should -Be @('FileName', 'Status')
+        }
+
+        It 'aggregates results from multiple input files into one output file' {
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'combined.json'
+
+            Search-DelimitedFile -Path $script:csvPath, $script:archivePath -Criteria @{ Status = '^Active$' } -OutputFile $outputPath
+
+            $exportedRows = @(Get-Content -LiteralPath $outputPath -Raw | ConvertFrom-Json)
+            $exportedRows.Count | Should -Be 2
+            $exportedRows.Name | Should -Contain 'Alice'
+            $exportedRows.Name | Should -Contain 'Dave'
+        }
+
+        It 'writes an empty JSON array when no rows match' {
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'empty.json'
+
+            Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Missing$' } -OutputFile $outputPath
+
+            (Get-Content -LiteralPath $outputPath -Raw).Trim() | Should -Be '[]'
+        }
+
+        It 'creates an empty CSV file when no rows match' {
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'empty.csv'
+
+            Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Missing$' } -OutputFile $outputPath
+
+            Test-Path -LiteralPath $outputPath -PathType Leaf | Should -BeTrue
+            (Get-Item -LiteralPath $outputPath).Length | Should -Be 0
+        }
+
+        It 'overwrites an existing output file' {
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'overwrite.json'
+            'old content' | Set-Content -LiteralPath $outputPath
+
+            Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Alice$' } -OutputFile $outputPath
+
+            $exportedRows = @(Get-Content -LiteralPath $outputPath -Raw | ConvertFrom-Json)
+            $exportedRows.Count | Should -Be 1
+            $exportedRows[0].Name | Should -Be 'Alice'
+        }
+
+        It 'skips an existing output file found during directory discovery' {
+            $directory = Join-Path -Path $TestDrive -ChildPath 'output-discovery'
+            New-Item -ItemType Directory -Path $directory | Out-Null
+            Set-Content -LiteralPath (Join-Path $directory 'input.csv') -Value "Name,Status`nAlice,Active" -Encoding UTF8
+            $outputPath = Join-Path -Path $directory -ChildPath 'results.csv'
+            Set-Content -LiteralPath $outputPath -Value "unrelated,columns`nold,data" -Encoding UTF8
+
+            Search-DelimitedFile -Path $directory -Criteria @{ Status = '^Active$' } -OutputFile $outputPath
+
+            $exportedRows = @(Import-Csv -LiteralPath $outputPath)
+            $exportedRows.Count | Should -Be 1
+            $exportedRows[0].Name | Should -Be 'Alice'
+        }
+
+        It 'skips an existing output file matched by an input wildcard' {
+            $directory = Join-Path -Path $TestDrive -ChildPath 'output-wildcard'
+            New-Item -ItemType Directory -Path $directory | Out-Null
+            Set-Content -LiteralPath (Join-Path $directory 'input.csv') -Value "Name,Status`nAlice,Active" -Encoding UTF8
+            $outputPath = Join-Path -Path $directory -ChildPath 'results.csv'
+            Set-Content -LiteralPath $outputPath -Value "unrelated,columns`nold,data" -Encoding UTF8
+            $inputPattern = Join-Path -Path $directory -ChildPath '*.csv'
+
+            Search-DelimitedFile -Path $inputPattern -Criteria @{ Status = '^Active$' } -OutputFile $outputPath
+
+            $exportedRows = @(Import-Csv -LiteralPath $outputPath)
+            $exportedRows.Count | Should -Be 1
+            $exportedRows[0].Name | Should -Be 'Alice'
+        }
+
+        It 'rejects unsupported output file extensions' {
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'matches.txt'
+
+            { Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Alice$' } -OutputFile $outputPath } |
+            Should -Throw '*must use a .csv or .json extension*'
+        }
+
+        It 'rejects an output path whose parent directory does not exist' {
+            $outputPath = Join-Path -Path (Join-Path -Path $TestDrive -ChildPath 'missing') -ChildPath 'matches.json'
+
+            { Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Alice$' } -OutputFile $outputPath } |
+            Should -Throw '*directory does not exist*'
+        }
+
+        It 'rejects using the same explicit file as input and output' {
+            { Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Alice$' } -OutputFile $script:csvPath } |
+            Should -Throw '*cannot also be an explicit input file*'
         }
     }
 

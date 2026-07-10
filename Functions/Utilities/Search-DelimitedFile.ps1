@@ -88,6 +88,11 @@ function Search-DelimitedFile
         Specifies the input file encoding. The default is UTF8. Accepted values are compatible
         with both Windows PowerShell 5.1 and PowerShell Core.
 
+    .PARAMETER OutputFile
+        Writes all matching rows to one output file instead of returning them to the pipeline.
+        Only the .csv and .json file extensions are supported, and the extension determines the
+        serialization format. Existing files are overwritten. JSON output is always an array.
+
     .EXAMPLE
         PS > Search-DelimitedFile -Path './users.csv' -Criteria @{ Status = '^Active$'; City = '^Boston$' }
 
@@ -164,10 +169,21 @@ function Search-DelimitedFile
 
         Recursively searches pipe-delimited text and log files by zero-based column index.
 
+    .EXAMPLE
+        PS > Search-DelimitedFile './exports' @{ Status = '^Active$' } -Recurse -OutputFile './active-records.csv'
+
+        Writes all matching rows from the directory tree to one CSV file.
+
+    .EXAMPLE
+        PS > Search-DelimitedFile './events.tsv' @{ Level = 'error|critical' } -IncludeFileName -OutputFile './events.json'
+
+        Writes matching rows, including their source file name, to a JSON array.
+
     .OUTPUTS
         System.Management.Automation.PSCustomObject
             A new object containing each matched row, optionally limited to searched columns and
-            augmented with source file information.
+            augmented with source file information. No objects are returned when OutputFile is
+            specified.
 
     .NOTES
         The parser follows Import-Csv quoting rules, including escaped quotes and delimiters inside
@@ -235,7 +251,12 @@ function Search-DelimitedFile
 
         [Parameter()]
         [ValidateSet('ASCII', 'BigEndianUnicode', 'Default', 'OEM', 'Unicode', 'UTF7', 'UTF8', 'UTF32')]
-        [String]$Encoding = 'UTF8'
+        [String]$Encoding = 'UTF8',
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [Alias('OutFile')]
+        [String]$OutputFile
     )
 
     begin
@@ -469,6 +490,52 @@ function Search-DelimitedFile
             throw 'Exact requires Literal.'
         }
 
+        $writeOutputFile = $PSBoundParameters.ContainsKey('OutputFile')
+        $resolvedOutputFile = $null
+        $outputFormat = $null
+        $outputRecords = New-Object 'System.Collections.Generic.List[Object]'
+
+        if ($writeOutputFile)
+        {
+            if ([String]::IsNullOrWhiteSpace($OutputFile))
+            {
+                throw 'OutputFile cannot be empty or whitespace.'
+            }
+
+            try
+            {
+                $resolvedOutputFile = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputFile.Trim())
+            }
+            catch
+            {
+                throw "Invalid OutputFile path '$OutputFile': $($_.Exception.Message)"
+            }
+
+            $outputExtension = [System.IO.Path]::GetExtension($resolvedOutputFile).ToLowerInvariant()
+            $outputFormat = switch ($outputExtension)
+            {
+                '.csv' { 'Csv' }
+                '.json' { 'Json' }
+                default { $null }
+            }
+
+            if ($null -eq $outputFormat)
+            {
+                throw "OutputFile must use a .csv or .json extension: $OutputFile"
+            }
+            if (Test-Path -LiteralPath $resolvedOutputFile -PathType Container)
+            {
+                throw "OutputFile points to a directory: $resolvedOutputFile"
+            }
+
+            $outputDirectory = Split-Path -Path $resolvedOutputFile -Parent
+            if (-not [String]::IsNullOrWhiteSpace($outputDirectory) -and
+                -not (Test-Path -LiteralPath $outputDirectory -PathType Container))
+            {
+                throw "OutputFile directory does not exist: $outputDirectory"
+            }
+        }
+
         $criteriaEntries = @($Criteria.GetEnumerator())
         if (-not $Literal)
         {
@@ -536,6 +603,7 @@ function Search-DelimitedFile
     {
         foreach ($pathItem in $Path)
         {
+            $pathUsesWildcard = [System.Management.Automation.WildcardPattern]::ContainsWildcardCharacters($pathItem)
             try
             {
                 $resolvedPaths = @($PSCmdlet.SessionState.Path.GetResolvedPSPathFromPSPath($pathItem))
@@ -590,6 +658,20 @@ function Search-DelimitedFile
                 foreach ($inputFile in $inputFiles)
                 {
                     $filePath = $inputFile.FullName
+                    if ($writeOutputFile -and [String]::Equals(
+                            [System.IO.Path]::GetFullPath($filePath),
+                            [System.IO.Path]::GetFullPath($resolvedOutputFile),
+                            [StringComparison]::OrdinalIgnoreCase
+                        ))
+                    {
+                        if ($directoryRoot -or $pathUsesWildcard)
+                        {
+                            Write-Verbose "Skipping existing output file during input discovery: $filePath"
+                            continue
+                        }
+
+                        throw "OutputFile cannot also be an explicit input file: $filePath"
+                    }
                     if ($directoryRoot -and (Test-IsExcludedFile -File $inputFile -RootPath $directoryRoot))
                     {
                         Write-Verbose "Skipping file in excluded directory: $filePath"
@@ -754,7 +836,15 @@ function Search-DelimitedFile
                                     $outputRow[$columnName] = $row.$columnName
                                 }
 
-                                [PSCustomObject]$outputRow
+                                $resultObject = [PSCustomObject]$outputRow
+                                if ($writeOutputFile)
+                                {
+                                    $outputRecords.Add($resultObject)
+                                }
+                                else
+                                {
+                                    $resultObject
+                                }
                             }
                         }
                     }
@@ -765,5 +855,42 @@ function Search-DelimitedFile
                 }
             }
         }
+    }
+
+    end
+    {
+        if (-not $writeOutputFile)
+        {
+            return
+        }
+
+        try
+        {
+            switch ($outputFormat)
+            {
+                'Json'
+                {
+                    $jsonText = ConvertTo-Json -InputObject @($outputRecords.ToArray()) -Depth 10
+                    Set-Content -LiteralPath $resolvedOutputFile -Value $jsonText -Encoding UTF8 -ErrorAction Stop
+                }
+                'Csv'
+                {
+                    if ($outputRecords.Count -gt 0)
+                    {
+                        $outputRecords.ToArray() | Export-Csv -LiteralPath $resolvedOutputFile -NoTypeInformation -Encoding UTF8 -ErrorAction Stop
+                    }
+                    else
+                    {
+                        Set-Content -LiteralPath $resolvedOutputFile -Value '' -NoNewline -Encoding UTF8 -ErrorAction Stop
+                    }
+                }
+            }
+        }
+        catch
+        {
+            throw "Unable to write search results to '$resolvedOutputFile': $($_.Exception.Message)"
+        }
+
+        Write-Verbose "Wrote $($outputRecords.Count) matching row(s) to '$resolvedOutputFile'."
     }
 }
