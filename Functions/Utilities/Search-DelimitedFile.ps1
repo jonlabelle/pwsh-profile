@@ -22,8 +22,9 @@ function Search-DelimitedFile
         other files. An explicit delimiter applies to every input file.
 
     .PARAMETER Path
-        One or more file paths or wildcard patterns. File paths can also be supplied through
-        the pipeline or by property name. Only FileSystem provider files are supported.
+        One or more file paths, directory paths, or wildcard patterns. Paths can also be supplied
+        through the pipeline or by property name. Directory searches are non-recursive unless
+        -Recurse is specified. Only FileSystem provider paths are supported.
 
     .PARAMETER Criteria
         A dictionary that maps column names or zero-based integer column indexes to patterns.
@@ -34,9 +35,22 @@ function Search-DelimitedFile
         String keys are treated as column names, even when the string contains only digits.
 
     .PARAMETER Delimiter
-        The character separating fields. When omitted, .tsv files use a tab and all other files
-        use a comma. Supply this parameter for pipe-delimited, semicolon-delimited, or other
-        character-delimited formats.
+        The character separating fields. When omitted, .tsv and .tab files use a tab and all
+        other files use a comma. Supply this parameter for pipe-delimited, semicolon-delimited,
+        or other character-delimited formats.
+
+    .PARAMETER Filter
+        One or more wildcard file-name patterns used when Path identifies a directory. The
+        default patterns are *.csv, *.tsv, and *.tab. Explicit file paths are not restricted
+        by Filter.
+
+    .PARAMETER Recurse
+        Searches all subdirectories when Path identifies a directory. Directory searches are
+        non-recursive by default.
+
+    .PARAMETER Exclude
+        Directory-name wildcard patterns to exclude from recursive searches. The defaults are
+        .git and node_modules. This parameter has no effect unless -Recurse is specified.
 
     .PARAMETER NoHeader
         Indicates that the first record contains data rather than column names. Generated column
@@ -133,6 +147,16 @@ function Search-DelimitedFile
 
         Searches more than one file using the same regular expression criterion.
 
+    .EXAMPLE
+        PS > Search-DelimitedFile './exports' @{ Status = '^Active$' } -Recurse -Filter '*.csv', '*.tsv' -IncludeFileName
+
+        Recursively searches CSV and TSV files beneath exports and adds each matching file name.
+
+    .EXAMPLE
+        PS > Search-DelimitedFile './logs' @{ 0 = 'error'; 3 = 'timeout' } -Recurse -Filter '*.txt', '*.log' -Delimiter '|' -NoHeader -Literal
+
+        Recursively searches pipe-delimited text and log files by zero-based column index.
+
     .OUTPUTS
         System.Management.Automation.PSCustomObject
             A new object containing each matched row, optionally limited to searched columns and
@@ -163,6 +187,16 @@ function Search-DelimitedFile
 
         [Parameter()]
         [Char]$Delimiter,
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [String[]]$Filter = @('*.csv', '*.tsv', '*.tab'),
+
+        [Parameter()]
+        [Switch]$Recurse,
+
+        [Parameter()]
+        [String[]]$Exclude = @('.git', 'node_modules'),
 
         [Parameter()]
         [Switch]$NoHeader,
@@ -379,6 +413,42 @@ function Search-DelimitedFile
             return $false
         }
 
+        function Test-IsExcludedFile
+        {
+            param(
+                [Parameter(Mandatory)]
+                [System.IO.FileInfo]$File,
+
+                [Parameter(Mandatory)]
+                [String]$RootPath
+            )
+
+            if (-not $Recurse -or -not $Exclude)
+            {
+                return $false
+            }
+
+            $trimmedRoot = $RootPath.TrimEnd(
+                [System.IO.Path]::DirectorySeparatorChar,
+                [System.IO.Path]::AltDirectorySeparatorChar
+            )
+            $relativeDirectory = $File.DirectoryName.Substring($trimmedRoot.Length)
+            $directorySegments = @($relativeDirectory -split '[\\/]' | Where-Object { $_ })
+
+            foreach ($directorySegment in $directorySegments)
+            {
+                foreach ($excludePattern in $Exclude)
+                {
+                    if ($directorySegment -like $excludePattern)
+                    {
+                        return $true
+                    }
+                }
+            }
+
+            return $false
+        }
+
         if ($Criteria.Count -eq 0)
         {
             throw 'Criteria must contain at least one column and pattern.'
@@ -478,39 +548,74 @@ function Search-DelimitedFile
                     continue
                 }
 
-                $filePath = $resolvedPath.ProviderPath
-                if (-not (Test-Path -LiteralPath $filePath -PathType Leaf))
-                {
-                    Write-Error "Path '$filePath' is not a file."
-                    continue
-                }
-                if (-not $processedFiles.Add($filePath))
-                {
-                    Write-Verbose "Skipping duplicate input file: $filePath"
-                    continue
-                }
+                $inputPath = $resolvedPath.ProviderPath
+                $directoryRoot = $null
+                $inputFiles = @()
 
-                $fileDelimiter = if ($PSBoundParameters.ContainsKey('Delimiter'))
+                if (Test-Path -LiteralPath $inputPath -PathType Leaf)
                 {
-                    $Delimiter
+                    $inputFiles = @(Get-Item -LiteralPath $inputPath -ErrorAction Stop)
                 }
-                elseif ([System.IO.Path]::GetExtension($filePath) -ieq '.tsv')
+                elseif (Test-Path -LiteralPath $inputPath -PathType Container)
                 {
-                    [Char]9
+                    $directoryRoot = $inputPath
+                    foreach ($filterPattern in $Filter)
+                    {
+                        $childItemParameters = @{
+                            LiteralPath = $inputPath
+                            Filter = $filterPattern
+                            File = $true
+                            ErrorAction = 'SilentlyContinue'
+                        }
+                        if ($Recurse)
+                        {
+                            $childItemParameters.Recurse = $true
+                        }
+
+                        $inputFiles += @(Get-ChildItem @childItemParameters)
+                    }
                 }
                 else
                 {
-                    [Char]','
+                    Write-Error "Path '$inputPath' is not a file or directory."
+                    continue
                 }
 
-                Write-Verbose "Searching '$filePath' with delimiter '$fileDelimiter'."
+               foreach ($inputFile in $inputFiles)
+               {
+                    $filePath = $inputFile.FullName
+                    if ($directoryRoot -and (Test-IsExcludedFile -File $inputFile -RootPath $directoryRoot))
+                    {
+                        Write-Verbose "Skipping file in excluded directory: $filePath"
+                        continue
+                    }
+                    if (-not $processedFiles.Add($filePath))
+                    {
+                        Write-Verbose "Skipping duplicate input file: $filePath"
+                        continue
+                    }
 
-                $importParameters = @{
-                    LiteralPath = $filePath
-                    Delimiter = $fileDelimiter
-                    Encoding = $Encoding
-                    ErrorAction = 'Stop'
-                }
+                    $fileDelimiter = if ($PSBoundParameters.ContainsKey('Delimiter'))
+                    {
+                        $Delimiter
+                    }
+                    elseif ([System.IO.Path]::GetExtension($filePath) -iin @('.tsv', '.tab'))
+                    {
+                        [Char]9
+                    }
+                    else
+                    {
+                        [Char]','
+                    }
+
+                    Write-Verbose "Searching '$filePath' with delimiter '$fileDelimiter'."
+
+                    $importParameters = @{
+                        LiteralPath = $filePath
+                        Delimiter = $fileDelimiter
+                        Encoding = $Encoding
+                        ErrorAction = 'Stop'
+               }
 
                 if ($NoHeader -or $PSBoundParameters.ContainsKey('Header'))
                 {
@@ -617,6 +722,7 @@ function Search-DelimitedFile
                 catch
                 {
                     Write-Error -ErrorRecord $_
+                }
                 }
             }
         }

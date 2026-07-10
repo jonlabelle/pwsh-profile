@@ -58,6 +58,14 @@ Describe 'Search-DelimitedFile' {
         It 'Declares object output' {
             (Get-Command -Name Search-DelimitedFile).OutputType.Name | Should -Contain 'System.Management.Automation.PSObject'
         }
+
+        It 'exposes recursive directory search and multiple filters' {
+            $command = Get-Command -Name Search-DelimitedFile
+
+            $command.Parameters.ContainsKey('Recurse') | Should -BeTrue
+            $command.Parameters.Filter.ParameterType | Should -Be ([String[]])
+            $command.Parameters.Filter.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateNotNullOrEmptyAttribute] } | Should -Not -BeNullOrEmpty
+        }
     }
 
     Context 'CSV matching with headers' {
@@ -215,6 +223,70 @@ Describe 'Search-DelimitedFile' {
             @($result[0].PSObject.Properties.Name) | Should -Be @('FileName', 'FilePath', 'Name')
             $result[0].FileName | Should -Be 'people.csv'
             $result[0].FilePath | Should -Be $script:csvPath
+        }
+
+        It 'searches a directory non-recursively using the default filters' {
+            $directory = Join-Path -Path $TestDrive -ChildPath 'directory-default'
+            $nestedDirectory = Join-Path -Path $directory -ChildPath 'nested'
+            New-Item -ItemType Directory -Path $directory | Out-Null
+            New-Item -ItemType Directory -Path $nestedDirectory | Out-Null
+            Set-Content -LiteralPath (Join-Path $directory 'people.csv') -Value "Name,Status`nRoot,Active" -Encoding UTF8
+            Set-Content -LiteralPath (Join-Path $directory 'ignored.txt') -Value "Name,Status`nText,Active" -Encoding UTF8
+            Set-Content -LiteralPath (Join-Path $nestedDirectory 'nested.csv') -Value "Name,Status`nNested,Active" -Encoding UTF8
+
+            $result = @(Search-DelimitedFile -Path $directory -Criteria @{ Status = '^Active$' } -IncludeFileName)
+
+            $result.FileName | Should -Contain 'people.csv'
+            $result.FileName | Should -Not -Contain 'ignored.txt'
+            $result.FileName | Should -Not -Contain 'nested.csv'
+        }
+
+        It 'searches directories recursively with multiple filters' {
+            $directory = Join-Path -Path $TestDrive -ChildPath 'directory-filters'
+            $nestedDirectory = Join-Path -Path $directory -ChildPath 'nested'
+            New-Item -ItemType Directory -Path $directory | Out-Null
+            New-Item -ItemType Directory -Path $nestedDirectory | Out-Null
+            Set-Content -LiteralPath (Join-Path $nestedDirectory 'first.txt') -Value "Name|Status`nText|Active" -Encoding UTF8
+            Set-Content -LiteralPath (Join-Path $nestedDirectory 'second.log') -Value "Name|Status`nLog|Active" -Encoding UTF8
+            Set-Content -LiteralPath (Join-Path $nestedDirectory 'ignored.csv') -Value "Name|Status`nCsv|Active" -Encoding UTF8
+
+            $result = @(Search-DelimitedFile -Path $directory -Criteria @{ Status = 'Active' } -Filter '*.txt', '*.log' -Delimiter '|' -Literal -Exact -Recurse -IncludeFileName)
+
+            $result.Count | Should -Be 2
+            $result.FileName | Should -Contain 'first.txt'
+            $result.FileName | Should -Contain 'second.log'
+        }
+
+        It 'excludes matching directory names during recursive searches' {
+            $directory = Join-Path -Path $TestDrive -ChildPath 'directory-exclude'
+            $excludedDirectory = Join-Path -Path $directory -ChildPath 'node_modules'
+            $includedDirectory = Join-Path -Path $directory -ChildPath 'included'
+            New-Item -ItemType Directory -Path $directory | Out-Null
+            New-Item -ItemType Directory -Path $excludedDirectory | Out-Null
+            New-Item -ItemType Directory -Path $includedDirectory | Out-Null
+            Set-Content -LiteralPath (Join-Path $excludedDirectory 'excluded.csv') -Value "Name,Status`nExcluded,Active" -Encoding UTF8
+            Set-Content -LiteralPath (Join-Path $includedDirectory 'included.csv') -Value "Name,Status`nIncluded,Active" -Encoding UTF8
+
+            $result = @(Search-DelimitedFile -Path $directory -Criteria @{ Name = 'Included|Excluded' } -Recurse -IncludeFileName)
+
+            $result.FileName | Should -Contain 'included.csv'
+            $result.FileName | Should -Not -Contain 'excluded.csv'
+        }
+
+        It 'does not apply Filter to explicit file paths' {
+            $result = @(Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Alice$' } -Filter '*.tsv')
+
+            $result.Count | Should -Be 1
+        }
+
+        It 'does not return duplicates from overlapping filters' {
+            $directory = Join-Path -Path $TestDrive -ChildPath 'directory-overlap'
+            New-Item -ItemType Directory -Path $directory | Out-Null
+            Set-Content -LiteralPath (Join-Path $directory 'people.csv') -Value "Name,Status`nAlice,Active" -Encoding UTF8
+
+            $result = @(Search-DelimitedFile -Path $directory -Criteria @{ Name = '^Alice$' } -Filter '*.csv', 'people.csv')
+
+            $result.Count | Should -Be 1
         }
     }
 
