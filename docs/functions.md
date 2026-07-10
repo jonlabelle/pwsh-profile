@@ -156,6 +156,7 @@
 - [`Remove-SymbolicLink`](../Functions/Utilities/Remove-SymbolicLink.ps1) - Removes a symbolic link without deleting the target.
 - [`Rename-File`](../Functions/Utilities/Rename-File.ps1) - Renames files with transformations such as case conversion, normalization, replacement, and batch numbering.
 - [`Replace-StringInFile`](../Functions/Utilities/Replace-StringInFile.ps1) - Finds and replaces text in files.
+- [`Search-DelimitedFile`](../Functions/Utilities/Search-DelimitedFile.ps1) - Searches CSV, TSV, and other character-delimited files using multi-column criteria.
 - [`Search-FileContent`](../Functions/Utilities/Search-FileContent.ps1) - Searches file contents with context, filtering, and colorized output.
 - [`Set-FileEncoding`](../Functions/Utilities/Set-FileEncoding.ps1) - Converts one or more text files to a specified encoding.
 - [`Sync-Directory`](../Functions/Utilities/Sync-Directory.ps1) - Synchronizes directories using `rsync` on macOS/Linux or `robocopy` on Windows.

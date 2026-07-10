@@ -132,17 +132,17 @@ Everything you need to know about installation, functions, troubleshooting, and 
 
 ## Function Areas
 
-| Area                                                                | Includes                                                                 |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| [Network and DNS](docs/functions.md#network-and-dns)                | DNS, ports, TLS checks, ping, traceroute, WHOIS, GeoIP, latency graphs   |
-| [System Administration](docs/functions.md#system-administration)    | permissions, elevation, system info, package managers, resource monitor  |
-| [Developer](docs/functions.md#developer)                            | .NET, dotenv, Git, GitHub, Docker, SQLFluff, Magika                      |
-| [Utilities](docs/functions.md#utilities)                            | Base64, Markdown, time zones, copy/sync, file search, symlinks, archives |
-| [Security](docs/functions.md#security)                              | JWT decoding, certificate inspection, password-based file protection     |
-| [Active Directory](docs/functions.md#active-directory)              | credentials, account lockout checks, group policy update                 |
-| [Module Management](docs/functions.md#powershell-module-management) | module update checks and cleanup                                         |
-| [Profile Management](docs/functions.md#profile-management)          | function discovery and profile update checks                             |
-| [Media Processing](docs/functions.md#media-processing)              | Encoding wrappers w/ ffmpeg, image metadata and privacy cleansing        |
+| Area                                                                | Includes                                                                      |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [Network and DNS](docs/functions.md#network-and-dns)                | DNS, ports, TLS checks, ping, traceroute, WHOIS, GeoIP, latency graphs        |
+| [System Administration](docs/functions.md#system-administration)    | permissions, elevation, system info, package managers, resource monitor       |
+| [Developer](docs/functions.md#developer)                            | .NET, dotenv, Git, GitHub, Docker, SQLFluff, Magika                           |
+| [Utilities](docs/functions.md#utilities)                            | Base64, Markdown, time zones, copy/sync, delimited search, symlinks, archives |
+| [Security](docs/functions.md#security)                              | JWT decoding, certificate inspection, password-based file protection          |
+| [Active Directory](docs/functions.md#active-directory)              | credentials, account lockout checks, group policy update                      |
+| [Module Management](docs/functions.md#powershell-module-management) | module update checks and cleanup                                              |
+| [Profile Management](docs/functions.md#profile-management)          | function discovery and profile update checks                                  |
+| [Media Processing](docs/functions.md#media-processing)              | Encoding wrappers w/ ffmpeg, image metadata and privacy cleansing             |
 
 ## Local Functions
 
