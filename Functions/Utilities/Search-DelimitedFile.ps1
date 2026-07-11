@@ -892,9 +892,12 @@ function Search-DelimitedFile
             {
                 'Json'
                 {
-                    $jsonItems = foreach ($outputRecord in $outputRecords.ToArray())
+                    # Index the generic list explicitly. Windows PowerShell 5.1 can treat the
+                    # Object[] returned by ToArray() as one pipeline object in this expression,
+                    # causing ConvertTo-Json to serialize array metadata instead of each row.
+                    $jsonItems = for ($outputIndex = 0; $outputIndex -lt $outputRecords.Count; $outputIndex++)
                     {
-                        $outputRecord | ConvertTo-Json -Depth 10
+                        $outputRecords[$outputIndex] | ConvertTo-Json -Depth 10
                     }
 
                     if ($jsonItems.Count -eq 0)
