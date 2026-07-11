@@ -117,6 +117,11 @@ Describe 'Remove-PlatformPackage' {
             $result.Skipped | Should -Be 0
             $result.Results[0].Message | Should -Match 'brew uninstall git failed with exit code 41'
             $result.Results[0].Message | Should -Match 'streamed directly to the console'
+            $result.Results[0].InformationalOutput | Should -HaveCount 1
+            $result.Results[0].InformationalOutput[0] | Should -BeExactly $result.Results[0].Message
+            $result.InformationalResults | Should -HaveCount 1
+            $result.InformationalResults[0].Lines | Should -HaveCount 1
+            $result.InformationalResults[0].Lines[0] | Should -BeExactly $result.Results[0].Message
         }
 
         It 'does not read stale LASTEXITCODE for unstructured command runner output' {

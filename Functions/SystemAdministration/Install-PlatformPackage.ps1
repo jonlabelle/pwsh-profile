@@ -2200,7 +2200,7 @@ function Install-PlatformPackage
                 ExitCode = $result.ExitCode
                 Message = $message
                 CapturedOutput = @($result.Output)
-                InformationalOutput = @()
+                InformationalOutput = @($message)
             }
         }
     }

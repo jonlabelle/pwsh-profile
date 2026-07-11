@@ -466,6 +466,59 @@ Describe 'Show-PlatformPackageManager' {
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq '  ==> Caveats' -and $ForegroundColor -eq 'DarkGray' } -Times 1
     }
 
+    It 'truncates long detail messages while retaining the full additional output' {
+        $script:FullFailureMessage = 'winget upgrade --id Microsoft.Edge --exact --source winget --accept-package-agreements --accept-source-agreements failed with exit code -1978335090 (0x8A15008E). Run winget error -1978335090 for the WinGet error name. Full diagnostic sentinel.'
+        $script:TruncatedFailureMessage = "$($script:FullFailureMessage.Substring(0, 77))..."
+        $script:TruncatedFailureMessage.Length | Should -Be 80
+
+        Mock -CommandName Upgrade-PlatformPackage -MockWith {
+            [PSCustomObject]@{
+                PackageManager = 'winget'
+                PackageManagerDisplayName = 'WinGet'
+                TotalAvailable = 1
+                Selected = 1
+                NotSelected = 0
+                Upgraded = 0
+                Skipped = 0
+                Failed = 1
+                InformationalResults = @(
+                    [PSCustomObject]@{
+                        Name = 'Microsoft Edge'
+                        Id = 'Microsoft.Edge'
+                        Status = 'Failed'
+                        Lines = @($script:FullFailureMessage)
+                    }
+                )
+                Results = @(
+                    [PSCustomObject]@{
+                        Name = 'Microsoft Edge'
+                        Id = 'Microsoft.Edge'
+                        InstalledVersion = '150.0.4078.48'
+                        LatestVersion = '150.0.4078.65'
+                        Status = 'Failed'
+                        ExitCode = -1978335090
+                        Message = $script:FullFailureMessage
+                        CapturedOutput = @()
+                        InformationalOutput = @($script:FullFailureMessage)
+                    }
+                )
+            }
+        }
+        $promptReader = & $script:NewPromptReader @('3', 'q')
+
+        $result = @(Show-PlatformPackageManager -PackageManager winget -SkipRefresh -PromptReader $promptReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter {
+            $Object -match 'Name\s+Id\s+InstalledVersion\s+LatestVersion\s+Status\s+ExitCode\s+Message' -and
+            $Object -match [Regex]::Escape($script:TruncatedFailureMessage) -and
+            $Object -notmatch [Regex]::Escape($script:FullFailureMessage)
+        } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter {
+            $Object -eq "  $script:FullFailureMessage" -and $ForegroundColor -eq 'DarkGray'
+        } -Times 1
+    }
+
     It 'shows a red status indicator when an operation has failures' {
         Mock -CommandName Install-PlatformPackage -MockWith {
             [PSCustomObject]@{

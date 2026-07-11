@@ -28,6 +28,24 @@ Describe 'Install-PlatformPackage' {
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'winget install output' } -Times 1
         }
 
+        It 'promotes the full failure message into informational results' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget install --id Microsoft.Edge --exact --accept-source-agreements --accept-package-agreements' = Get-TestCommandResponse -ExitCode -1978335090 -Output @()
+            }
+
+            $result = Install-PlatformPackage -PackageManager winget -Name Microsoft.Edge -CommandRunner $runner -Confirm:$false -WarningAction SilentlyContinue
+
+            $result.Installed | Should -Be 0
+            $result.Failed | Should -Be 1
+            $result.Results[0].Message | Should -Match 'winget install --id Microsoft.Edge --exact'
+            $result.Results[0].Message | Should -Match 'failed with exit code -1978335090'
+            $result.Results[0].InformationalOutput | Should -HaveCount 1
+            $result.Results[0].InformationalOutput[0] | Should -BeExactly $result.Results[0].Message
+            $result.InformationalResults | Should -HaveCount 1
+            $result.InformationalResults[0].Lines | Should -HaveCount 1
+            $result.InformationalResults[0].Lines[0] | Should -BeExactly $result.Results[0].Message
+        }
+
         It 'does not expose a separate Id parameter' {
             $command = Get-Command Install-PlatformPackage
 

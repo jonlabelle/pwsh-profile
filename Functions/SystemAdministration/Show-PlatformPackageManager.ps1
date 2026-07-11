@@ -938,6 +938,26 @@ function Show-PlatformPackageManager
             Write-Host ''
         }
 
+        function Format-PlatformPackageManagerTableMessage
+        {
+            param(
+                [Parameter()]
+                [AllowEmptyString()]
+                [String]$Text = '',
+
+                [Parameter()]
+                [ValidateRange(4, 4096)]
+                [Int32]$MaximumLength = 80
+            )
+
+            if ($Text.Length -le $MaximumLength)
+            {
+                return $Text
+            }
+
+            return $Text.Substring(0, $MaximumLength - 3) + '...'
+        }
+
         function Format-PlatformPackageManagerResultTable
         {
             param(
@@ -955,7 +975,13 @@ function Show-PlatformPackageManager
                 foreach ($record in $records)
                 {
                     $excludeProperties = @('Results', 'CapturedOutput', 'InformationalOutput', 'InformationalResults')
-                    $record | Select-Object -Property * -ExcludeProperty $excludeProperties
+                    $displayRecord = $record | Select-Object -Property * -ExcludeProperty $excludeProperties
+                    if ($displayRecord.PSObject.Properties['Message'])
+                    {
+                        $displayRecord.Message = Format-PlatformPackageManagerTableMessage -Text "$($displayRecord.Message)"
+                    }
+
+                    $displayRecord
                 }
             )
 

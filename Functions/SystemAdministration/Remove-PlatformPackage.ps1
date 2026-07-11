@@ -3543,7 +3543,7 @@ function Remove-PlatformPackage
                     ExitCode = $result.ExitCode
                     Message = $message
                     CapturedOutput = @($result.Output)
-                    InformationalOutput = @()
+                    InformationalOutput = @($message)
                     RequiredByCount = $requiredByProperties.RequiredByCount
                     RequiredByPackages = @($requiredByProperties.RequiredByPackages)
                 }
