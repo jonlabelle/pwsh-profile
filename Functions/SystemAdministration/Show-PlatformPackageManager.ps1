@@ -1581,8 +1581,8 @@ function Show-PlatformPackageManager
             @(
                 [PSCustomObject]@{
                     Choice = '1'
-                    Workflow = 'Installed packages'
-                    Purpose = 'Browse or filter installed package records'
+                    Workflow = 'Upgrade packages'
+                    Purpose = 'Review or upgrade outdated packages'
                 }
                 [PSCustomObject]@{
                     Choice = '2'
@@ -1591,8 +1591,8 @@ function Show-PlatformPackageManager
                 }
                 [PSCustomObject]@{
                     Choice = '3'
-                    Workflow = 'Upgrade packages'
-                    Purpose = 'Review or upgrade outdated packages'
+                    Workflow = 'Installed packages'
+                    Purpose = 'Browse or filter installed package records'
                 }
                 [PSCustomObject]@{
                     Choice = '4'
@@ -1751,11 +1751,11 @@ function Show-PlatformPackageManager
 
                         switch ($keyChar.ToLowerInvariant())
                         {
-                            'b' { return '1' }
+                            'b' { return '3' }
                             'e' { return '6' }
                             's' { return '2' }
                             'i' { return '2' }
-                            'u' { return '3' }
+                            'u' { return '1' }
                             'r' { return '4' }
                             'd' { return '5' }
                         }
@@ -1774,9 +1774,9 @@ function Show-PlatformPackageManager
 
             switch ($Choice.Trim().ToLowerInvariant())
             {
-                { $_ -in @('1', 'installed', 'browse') } { Invoke-PlatformPackageManagerInstalledBrowser; break }
+                { $_ -in @('1', 'upgrade', 'update') } { Invoke-PlatformPackageManagerUpgrade; break }
                 { $_ -in @('2', 'search', 'find', 'install') } { Invoke-PlatformPackageManagerSearch; break }
-                { $_ -in @('3', 'upgrade', 'update') } { Invoke-PlatformPackageManagerUpgrade; break }
+                { $_ -in @('3', 'installed', 'browse') } { Invoke-PlatformPackageManagerInstalledBrowser; break }
                 { $_ -in @('4', 'remove', 'uninstall') } { Invoke-PlatformPackageManagerRemoval; break }
                 { $_ -in @('5', 'deps', 'dependencies', 'dependency') } { Invoke-PlatformPackageManagerDependencyView; break }
                 { $_ -in @('6', 'export') } { Invoke-PlatformPackageManagerExport; break }

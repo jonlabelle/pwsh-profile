@@ -33,6 +33,24 @@ Describe 'Show-PlatformPackageManager' {
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Dependencies*' } -Times 1
     }
 
+    It 'selects the upgrade workflow by default' {
+        Mock -CommandName Upgrade-PlatformPackage -MockWith {}
+        Mock -CommandName Install-PlatformPackage -MockWith {}
+        Mock -CommandName Show-InstalledPlatformPackage -MockWith {}
+        $promptReader = & $script:NewPromptReader @()
+        $keyReader = & $script:NewKeyReader @(
+            [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
+        )
+
+        $result = @(Show-PlatformPackageManager -PackageManager brew -PromptReader $promptReader -KeyReader $keyReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Upgrade-PlatformPackage -Times 1
+        Assert-MockCalled -CommandName Install-PlatformPackage -Times 0
+        Assert-MockCalled -CommandName Show-InstalledPlatformPackage -Times 0
+    }
+
     It 'exposes ShouldProcess safety switches for delegated operations' {
         $command = Get-Command -Name Show-PlatformPackageManager
 
@@ -67,7 +85,7 @@ Describe 'Show-PlatformPackageManager' {
         }
         $promptReader = & $script:NewPromptReader @()
         $keyReader = & $script:NewKeyReader @(
-            [System.ConsoleKeyInfo]::new('1', [ConsoleKey]::D1, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new('3', [ConsoleKey]::D3, $false, $false, $false)
             [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
         )
 
@@ -92,7 +110,7 @@ Describe 'Show-PlatformPackageManager' {
         }
         $promptReader = & $script:NewPromptReader @()
         $keyReader = & $script:NewKeyReader @(
-            [System.ConsoleKeyInfo]::new('1', [ConsoleKey]::D1, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new('3', [ConsoleKey]::D3, $false, $false, $false)
             [System.ConsoleKeyInfo]::new([Char]8, [ConsoleKey]::Backspace, $false, $false, $false)
             [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
         )
@@ -217,7 +235,7 @@ Describe 'Show-PlatformPackageManager' {
         }
         $promptReader = & $script:NewPromptReader @()
         $keyReader = & $script:NewKeyReader @(
-            [System.ConsoleKeyInfo]::new('3', [ConsoleKey]::D3, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new('1', [ConsoleKey]::D1, $false, $false, $false)
             [System.ConsoleKeyInfo]::new('?', [ConsoleKey]::Oem2, $true, $false, $false)
             [System.ConsoleKeyInfo]::new('x', [ConsoleKey]::X, $false, $false, $false)
             [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
@@ -286,7 +304,7 @@ Describe 'Show-PlatformPackageManager' {
                 Results = @()
             }
         }
-        $promptReader = & $script:NewPromptReader @('2', 'git', '3', 'q')
+        $promptReader = & $script:NewPromptReader @('2', 'git', '1', 'q')
 
         $result = @(Show-PlatformPackageManager -PackageManager winget -FilterSource msstore -SkipRefresh -PromptReader $promptReader)
 
@@ -317,7 +335,7 @@ Describe 'Show-PlatformPackageManager' {
         }
         $promptReader = & $script:NewPromptReader @()
         $keyReader = & $script:NewKeyReader @(
-            [System.ConsoleKeyInfo]::new('3', [ConsoleKey]::D3, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new('1', [ConsoleKey]::D1, $false, $false, $false)
             [System.ConsoleKeyInfo]::new(' ', [ConsoleKey]::Spacebar, $false, $false, $false)
             [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
             [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
@@ -396,7 +414,7 @@ Describe 'Show-PlatformPackageManager' {
         }
         $promptReader = & $script:NewPromptReader @()
         $keyReader = & $script:NewKeyReader @(
-            [System.ConsoleKeyInfo]::new('3', [ConsoleKey]::D3, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new('1', [ConsoleKey]::D1, $false, $false, $false)
             [System.ConsoleKeyInfo]::new(' ', [ConsoleKey]::Spacebar, $false, $false, $false)
             [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
             [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
@@ -504,7 +522,7 @@ Describe 'Show-PlatformPackageManager' {
                 )
             }
         }
-        $promptReader = & $script:NewPromptReader @('3', 'q')
+        $promptReader = & $script:NewPromptReader @('1', 'q')
 
         $result = @(Show-PlatformPackageManager -PackageManager winget -SkipRefresh -PromptReader $promptReader)
 
@@ -663,7 +681,7 @@ Describe 'Show-PlatformPackageManager' {
                 Results = @()
             }
         }
-        $promptReader = & $script:NewPromptReader @('3', 'q')
+        $promptReader = & $script:NewPromptReader @('1', 'q')
 
         $result = @(Show-PlatformPackageManager -PackageManager brew -SkipRefresh -PromptReader $promptReader)
 
@@ -717,7 +735,7 @@ Describe 'Show-PlatformPackageManager' {
                 Results = @()
             }
         }
-        $promptReader = & $script:NewPromptReader @('3', 'q')
+        $promptReader = & $script:NewPromptReader @('1', 'q')
 
         $result = @(Show-PlatformPackageManager -PackageManager brew -SkipRefresh -PromptReader $promptReader)
 
