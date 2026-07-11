@@ -40,10 +40,10 @@ Dave,Denver,Active,archived
 
 Describe 'Search-DelimitedFile' {
     Context 'Parameter metadata' {
-        It 'Declares Path and Criteria as mandatory parameters' {
+        It 'Declares Criteria as mandatory and Path as optional' {
             $command = Get-Command -Name Search-DelimitedFile
 
-            $command.Parameters.Path.Attributes.Mandatory | Should -Contain $true
+            $command.Parameters.Path.Attributes.Mandatory | Should -Not -Contain $true
             $command.Parameters.Criteria.Attributes.Mandatory | Should -Contain $true
         }
 

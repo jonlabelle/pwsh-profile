@@ -25,6 +25,7 @@ function Search-DelimitedFile
         One or more file paths, directory paths, or wildcard patterns. Paths can also be supplied
         through the pipeline or by property name. Directory searches are non-recursive unless
         -Recurse is specified. Only FileSystem provider paths are supported.
+        The default path if not provided is the current working directory.
 
     .PARAMETER Criteria
         A dictionary that maps column names or zero-based integer column indexes to patterns.
@@ -199,10 +200,10 @@ function Search-DelimitedFile
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
     param(
-        [Parameter(Mandatory, Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Parameter(Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [Alias('FullName')]
         [ValidateNotNullOrEmpty()]
-        [String[]]$Path,
+        [String[]]$Path = (Get-Location),
 
         [Parameter(Mandatory, Position = 1)]
         [ValidateNotNull()]
