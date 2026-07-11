@@ -349,7 +349,7 @@ Describe 'Search-DelimitedFile' {
             $result.Count | Should -Be 0
             $jsonText = Get-Content -LiteralPath $outputPath -Raw
             $jsonText.TrimStart() | Should -Match '^\['
-            $exportedRows = @($jsonText | ConvertFrom-Json)
+            [Array]$exportedRows = $jsonText | ConvertFrom-Json
             $exportedRows.Count | Should -Be 1
             @($exportedRows[0].PSObject.Properties.Name) | Should -Be @('FileName', 'Status')
         }
@@ -359,7 +359,7 @@ Describe 'Search-DelimitedFile' {
 
             Search-DelimitedFile -Path $script:csvPath, $script:archivePath -Criteria @{ Status = '^Active$' } -OutputFile $outputPath
 
-            $exportedRows = @(Get-Content -LiteralPath $outputPath -Raw | ConvertFrom-Json)
+            [Array]$exportedRows = Get-Content -LiteralPath $outputPath -Raw | ConvertFrom-Json
             $exportedRows.Count | Should -Be 2
             $exportedRows.Name | Should -Contain 'Alice'
             $exportedRows.Name | Should -Contain 'Dave'
@@ -388,7 +388,7 @@ Describe 'Search-DelimitedFile' {
 
             Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Alice$' } -OutputFile $outputPath
 
-            $exportedRows = @(Get-Content -LiteralPath $outputPath -Raw | ConvertFrom-Json)
+            [Array]$exportedRows = Get-Content -LiteralPath $outputPath -Raw | ConvertFrom-Json
             $exportedRows.Count | Should -Be 1
             $exportedRows[0].Name | Should -Be 'Alice'
         }
