@@ -297,6 +297,23 @@ if ($Scope -eq 'Machine' -and $script:IsWindowsPlatform)
 
 ## Testing and Quality
 
+### Test execution
+
+Don't run the _full_ test suite locally unless absolutely necessary; or explicitly asked to do so.
+
+Targeted testing examples:
+
+```powershell
+# Run a single test file
+Invoke-Pester -Path .\Tests\Unit\Utilities\Search-DelimitedFile.Tests.ps1
+
+# Run tests in a specific Describe/Context block
+Invoke-Pester -Path .\Tests\Unit\Utilities\Search-DelimitedFile.Tests.ps1 -FullNameFilter '*Parameter metadata*'
+
+# Run a single test case (It block)
+Invoke-Pester -Path .\Tests\Unit\Utilities\Search-DelimitedFile.Tests.ps1 -FullNameFilter '*Declares Criteria as mandatory and Path as optional*'
+```
+
 ### Suppressing Progress Bars in Tests
 
 All Pester test files must suppress progress indicators in the top-level `BeforeAll` block to prevent freezing in non-interactive environments (CI, background terminals):
