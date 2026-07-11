@@ -99,6 +99,10 @@ function Search-DelimitedFile
 
         Returns complete rows where both Status and City match the regular expressions.
 
+        Name    Status  Department  City
+        ----    ------  ----------  ------
+        Alice   Active  Engineering Boston
+
     .EXAMPLE
         PS > Search-DelimitedFile './users.csv' @{ Name = 'Smith'; Department = 'Sales' } -Literal
 
@@ -108,6 +112,11 @@ function Search-DelimitedFile
         PS > Search-DelimitedFile './users.csv' @{ Status = 'Active' } -Literal -Exact -CaseSensitive
 
         Returns rows whose Status field is exactly Active, including case.
+
+        Name    Status  Department  City
+        ----    ------  ----------  -------
+        Alice   Active  Engineering Boston
+        Bob     Active  Marketing   Seattle
 
     .EXAMPLE
         PS > Search-DelimitedFile './events.tsv' @{ Level = 'error|critical'; Message = 'timeout' }
@@ -139,6 +148,12 @@ function Search-DelimitedFile
         PS > Search-DelimitedFile './audit.csv' @{ User = '^admin'; Action = 'delete' } -Any
 
         Returns rows where either the User or Action regular expression matches.
+
+        User    Action  Timestamp
+        ----    ------  -------------------
+        admin   login   2024-01-15 09:12:44
+        jsmith  delete  2024-01-15 10:05:22
+        admin   delete  2024-01-15 11:33:01
 
     .EXAMPLE
         PS > Search-DelimitedFile './logs/*.csv' @{ Severity = 'warning|error'; Host = '^web-' } -MatchColumnsOnly
@@ -189,6 +204,10 @@ function Search-DelimitedFile
     .NOTES
         The parser follows Import-Csv quoting rules, including escaped quotes and delimiters inside
         quoted fields. Delimiters are limited to a single character.
+
+        If you experience criteria not matching issues in TSV files, ensure there's only 'one' tab character between fields.
+        You cam fix this by using the following command to replace multiple tabs with a single tab:
+        PS > (Get-Content './file.tsv') -replace "`t{2,}","`t" | Set-Content './file.tsv'
 
         Author: Jon LaBelle
         License: MIT
