@@ -466,10 +466,10 @@ Describe 'Show-PlatformPackageManager' {
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq '  ==> Caveats' -and $ForegroundColor -eq 'DarkGray' } -Times 1
     }
 
-    It 'truncates long detail messages while retaining the full additional output' {
+    It 'keeps detail rows within the separator width while retaining the full additional output' {
         $script:FullFailureMessage = 'winget upgrade --id Microsoft.Edge --exact --source winget --accept-package-agreements --accept-source-agreements failed with exit code -1978335090 (0x8A15008E). Run winget error -1978335090 for the WinGet error name. Full diagnostic sentinel.'
-        $script:TruncatedFailureMessage = "$($script:FullFailureMessage.Substring(0, 77))..."
-        $script:TruncatedFailureMessage.Length | Should -Be 80
+        $script:RenderedOutput = New-Object 'System.Collections.Generic.List[Object]'
+        Mock -CommandName Write-Host -MockWith { [void]$script:RenderedOutput.Add($Object) }
 
         Mock -CommandName Upgrade-PlatformPackage -MockWith {
             [PSCustomObject]@{
@@ -509,11 +509,15 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager winget -SkipRefresh -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter {
-            $Object -match 'Name\s+Id\s+InstalledVersion\s+LatestVersion\s+Status\s+ExitCode\s+Message' -and
-            $Object -match [Regex]::Escape($script:TruncatedFailureMessage) -and
-            $Object -notmatch [Regex]::Escape($script:FullFailureMessage)
-        } -Times 1
+        $detailSeparator = @($script:RenderedOutput | Where-Object { "$_" -match '^-{40,}$' })[0]
+        $detailTable = @($script:RenderedOutput | Where-Object { "$_" -match 'InstalledVersion' })[0]
+        $detailSeparator | Should -Not -BeNullOrEmpty
+        $detailTable | Should -Not -BeNullOrEmpty
+        @(
+            "$detailTable" -split "`r?`n" |
+            Where-Object { -not [String]::IsNullOrWhiteSpace($_) -and $_.Length -gt $detailSeparator.Length }
+        ) | Should -HaveCount 0
+        $detailTable | Should -Not -Match ([Regex]::Escape($script:FullFailureMessage))
         Assert-MockCalled -CommandName Write-Host -ParameterFilter {
             $Object -eq "  $script:FullFailureMessage" -and $ForegroundColor -eq 'DarkGray'
         } -Times 1

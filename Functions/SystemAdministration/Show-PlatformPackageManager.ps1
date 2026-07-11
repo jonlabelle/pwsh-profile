@@ -962,7 +962,11 @@ function Show-PlatformPackageManager
         {
             param(
                 [Parameter()]
-                [Object[]]$InputObject = @()
+                [Object[]]$InputObject = @(),
+
+                [Parameter()]
+                [ValidateRange(40, 32767)]
+                [Int32]$MaximumWidth = 4096
             )
 
             $records = @($InputObject | Where-Object { $null -ne $_ })
@@ -985,7 +989,7 @@ function Show-PlatformPackageManager
                 }
             )
 
-            return ($displayRecords | Format-Table -AutoSize | Out-String -Width 4096).TrimEnd()
+            return ($displayRecords | Format-Table -AutoSize | Out-String -Width $MaximumWidth).TrimEnd()
         }
 
         function Get-PlatformPackageManagerNestedResults
@@ -1205,7 +1209,7 @@ function Show-PlatformPackageManager
                         }
 
                         Write-Host ('-' * $sepWidth) -ForegroundColor DarkGray
-                        $detailTable = Format-PlatformPackageManagerResultTable -InputObject $detailRecords
+                        $detailTable = Format-PlatformPackageManagerResultTable -InputObject $detailRecords -MaximumWidth $sepWidth
                         if (-not [String]::IsNullOrWhiteSpace($detailTable))
                         {
                             Write-Host $detailTable
