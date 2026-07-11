@@ -866,12 +866,27 @@ function Search-DelimitedFile
 
         try
         {
+            $utf8Encoding = New-Object System.Text.UTF8Encoding($false)
+
             switch ($outputFormat)
             {
                 'Json'
                 {
-                    $jsonText = ConvertTo-Json -InputObject @($outputRecords.ToArray()) -Depth 10
-                    Set-Content -LiteralPath $resolvedOutputFile -Value $jsonText -Encoding UTF8 -ErrorAction Stop
+                    $jsonItems = foreach ($outputRecord in $outputRecords.ToArray())
+                    {
+                        $outputRecord | ConvertTo-Json -Depth 10
+                    }
+
+                    if ($jsonItems.Count -eq 0)
+                    {
+                        $jsonText = '[]'
+                    }
+                    else
+                    {
+                        $jsonText = "[`n$($jsonItems -join ",`n")`n]"
+                    }
+
+                    [System.IO.File]::WriteAllText($resolvedOutputFile, $jsonText, $utf8Encoding)
                 }
                 'Csv'
                 {
@@ -881,7 +896,7 @@ function Search-DelimitedFile
                     }
                     else
                     {
-                        Set-Content -LiteralPath $resolvedOutputFile -Value '' -NoNewline -Encoding UTF8 -ErrorAction Stop
+                        [System.IO.File]::WriteAllText($resolvedOutputFile, [String]::Empty, $utf8Encoding)
                     }
                 }
             }
