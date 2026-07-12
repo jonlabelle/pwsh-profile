@@ -156,6 +156,8 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
             $cleanupResult = Remove-ImageMetadata -Path $sampleImage -ExifToolPath $exifToolPath -Verify -PassThru
 
             $cleanupResult.MetadataRemoved | Should -Be $true
+            $cleanupResult.RemovedMetadataTagCount | Should -BeGreaterThan 0
+            $cleanupResult.RemovedMetadataTags | Should -Contain 'File:Comment'
             $cleanupResult.Verified | Should -Be $true
             $cleanupResult.RemainingMetadataTags | Should -BeNullOrEmpty
 

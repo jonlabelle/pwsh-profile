@@ -291,6 +291,9 @@ Describe 'Get-ImageMetadata' -Tag 'Unit' {
             $loggedArgs | Should -Contain $script:SampleImage
             $result.Metadata.Keys | Should -Contain 'EXIF:Make'
             $result.Metadata['EXIF:Make'] | Should -Be 'Test Camera'
+            $result.MetadataTags | Should -Contain 'EXIF:Make'
+            $result.MetadataTags | Should -Contain 'XMP:Title'
+            $result.TagCount | Should -Be $result.MetadataTags.Count
         }
 
         It 'Should call ExifTool with selected tags and numeric output' {

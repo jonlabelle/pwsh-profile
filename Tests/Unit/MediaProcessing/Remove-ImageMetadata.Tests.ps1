@@ -320,17 +320,40 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
 
             $script:SampleImage = Join-Path -Path $script:InvokeTestRoot -ChildPath 'metadata-photo.jpg'
             $script:ExifToolLogPath = Join-Path -Path $script:InvokeTestRoot -ChildPath 'exiftool-args.log'
+            $script:ExifToolStatePath = Join-Path -Path $script:InvokeTestRoot -ChildPath 'metadata-removed.state'
             $script:FakeExifToolPath = Join-Path -Path $script:InvokeTestRoot -ChildPath 'exiftool.ps1'
 
             'fake image bytes' | Set-Content -LiteralPath $script:SampleImage -Encoding UTF8
 
             $escapedLogPath = $script:ExifToolLogPath.Replace("'", "''")
+            $escapedStatePath = $script:ExifToolStatePath.Replace("'", "''")
             $fakeExifToolContent = @(
                 'param(',
                 '    [Parameter(ValueFromRemainingArguments = $true)]',
                 '    [Object[]]$RemainingArgs',
                 ')',
-                ("`$RemainingArgs -join [Environment]::NewLine | Set-Content -LiteralPath '{0}' -Encoding UTF8" -f $escapedLogPath),
+                ("`$RemainingArgs -join [Environment]::NewLine | Add-Content -LiteralPath '{0}' -Encoding UTF8" -f $escapedLogPath),
+                ("Add-Content -LiteralPath '{0}' -Value '---' -Encoding UTF8" -f $escapedLogPath),
+                ("`$statePath = '{0}'" -f $escapedStatePath),
+                'if ($RemainingArgs -contains ''-j'') {',
+                '    $filePath = [String]$RemainingArgs[$RemainingArgs.Count - 1]',
+                '    $metadata = [ordered]@{}',
+                '    $metadata[''SourceFile''] = $filePath',
+                '    $metadata[''File:FileName''] = [System.IO.Path]::GetFileName($filePath)',
+                '    if (-not (Test-Path -LiteralPath $statePath)) {',
+                '        $metadata[''EXIF:Make''] = ''Test Camera''',
+                '        $metadata[''XMP:Title''] = ''Private Album''',
+                '    }',
+                '    $global:LASTEXITCODE = 0',
+                '    [PSCustomObject]$metadata | ConvertTo-Json -Depth 8',
+                '    return',
+                '}',
+                'if ($RemainingArgs -contains ''-all='') {',
+                "    Set-Content -LiteralPath `$statePath -Value 'removed' -Encoding UTF8",
+                '    $global:LASTEXITCODE = 0',
+                "    '1 image files updated'",
+                '    return',
+                '}',
                 '$global:LASTEXITCODE = 0',
                 "'1 image files updated'"
             ) -join [Environment]::NewLine
@@ -347,6 +370,9 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $loggedArgs | Should -Contain $script:SampleImage
             $result.MetadataRemoved | Should -Be $true
             $result.ExitCode | Should -Be 0
+            $result.RemovedMetadataTagCount | Should -Be 2
+            $result.RemovedMetadataTags | Should -Contain 'EXIF:Make'
+            $result.RemovedMetadataTags | Should -Contain 'XMP:Title'
         }
 
         It 'Should omit overwrite_original when KeepBackup is specified' {
@@ -508,7 +534,8 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $result.OutputCopied | Should -Be $true
             $result.RemainingMetadataTags | Should -Contain '[EXIF] Make = Test Camera'
             $result.RemainingMetadataTags | Should -Contain '[XMP] Title = Private Album'
-            Assert-MockCalled -CommandName Get-ImageMetadata -Times 1 -Exactly -ParameterFilter { $Path -eq $script:PrivacyOutputImage }
+            Assert-MockCalled -CommandName Get-ImageMetadata -Times 1 -Exactly -ParameterFilter { $Path -eq $script:PrivacySourceImage }
+            Assert-MockCalled -CommandName Get-ImageMetadata -Times 2 -Exactly -ParameterFilter { $Path -eq $script:PrivacyOutputImage }
         }
 
         It 'Should surface remaining metadata tag values when in-place verification is incomplete' {
@@ -531,7 +558,7 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $result.OutputCopied | Should -Be $false
             $result.RemainingMetadataTags | Should -Contain '[GPS] GPSLatitude = 41.88'
             $result.RemainingMetadataTags | Should -Contain '[IPTC] Keywords = private, home'
-            Assert-MockCalled -CommandName Get-ImageMetadata -Times 1 -Exactly -ParameterFilter { $Path -eq $script:PrivacySourceImage }
+            Assert-MockCalled -CommandName Get-ImageMetadata -Times 3 -Exactly -ParameterFilter { $Path -eq $script:PrivacySourceImage }
         }
     }
 }

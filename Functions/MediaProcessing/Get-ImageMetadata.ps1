@@ -11,9 +11,9 @@ function Get-ImageMetadata
         -Recurse to include subdirectories.
 
         By default, all available ExifTool tag groups are requested with group
-        names included in the returned metadata keys, such as EXIF:Make,
-        GPS:GPSLatitude, XMP:Title, or File:ImageSize. Use -Tag to request a
-        smaller set of ExifTool tags or tag groups.
+        names included in the returned metadata keys and MetadataTags list, such
+        as EXIF:Make, GPS:GPSLatitude, XMP:Title, or File:ImageSize. Use -Tag to
+        request a smaller set of ExifTool tags or tag groups.
 
         Dependencies:
         - `exiftool` must be available in PATH or specified via -ExifToolPath.
@@ -839,6 +839,7 @@ function Get-ImageMetadata
                     CreatedDate = $imageFile.CreationTime
                     ModifiedDate = $imageFile.LastWriteTime
                     TagCount = $metadata.Count
+                    MetadataTags = @($metadata.Keys | ForEach-Object { [String]$_ })
                     Metadata = $metadata
                 }
 

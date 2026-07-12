@@ -90,6 +90,9 @@ function Remove-ImageMetadata
 
     .PARAMETER PassThru
         Returns a result object for each image file considered for processing.
+        Successful cleanup results include RemovedMetadataTagCount and
+        RemovedMetadataTags, whose tag names match the Group:Tag names returned
+        by Get-ImageMetadata.
 
     .EXAMPLE
         PS > Remove-ImageMetadata -Path '.\photo.jpg'
@@ -227,7 +230,7 @@ function Remove-ImageMetadata
         Previews the files that would be sanitized before uploading or publishing images.
 
     .EXAMPLE
-        PS > Remove-ImageMetadata -Path '.\BeforeUpload' -OutputPath '.\ReadyToUpload' -Recurse -PassThru | Format-Table Path, MetadataRemoved, ExitCode
+        PS > Remove-ImageMetadata -Path '.\BeforeUpload' -OutputPath '.\ReadyToUpload' -Recurse -PassThru | Format-Table Path, MetadataRemoved, RemovedMetadataTagCount, ExitCode
 
         Sanitizes images and displays a concise processing summary table.
 
@@ -284,7 +287,8 @@ function Remove-ImageMetadata
     .OUTPUTS
         System.Management.Automation.PSCustomObject
         When PassThru is specified, returns one object per file with Path,
-        MetadataRemoved, ExitCode, Message, and related processing details.
+        MetadataRemoved, RemovedMetadataTagCount, RemovedMetadataTags, ExitCode,
+        Message, and related processing details.
 
     .NOTES
         Author: Jon LaBelle
@@ -1039,10 +1043,8 @@ function Remove-ImageMetadata
             }
         }
 
-        function Get-RemainingImageMetadataTag
+        function Import-ImageMetadataReader
         {
-            param([String]$FilePath)
-
             if (-not (Get-Command -Name 'Get-ImageMetadata' -CommandType Function -ErrorAction SilentlyContinue))
             {
                 if (-not [String]::IsNullOrWhiteSpace($PSScriptRoot))
@@ -1055,7 +1057,143 @@ function Remove-ImageMetadata
                 }
             }
 
-            if (-not (Get-Command -Name 'Get-ImageMetadata' -CommandType Function -ErrorAction SilentlyContinue))
+            return [Boolean](Get-Command -Name 'Get-ImageMetadata' -CommandType Function -ErrorAction SilentlyContinue)
+        }
+
+        function Format-ImageMetadataTagLabel
+        {
+            param([String]$MetadataName)
+
+            $nameMatch = [regex]::Match($MetadataName, '^(?<Group>[^:]+):(?<Tag>.+)$')
+            if ($nameMatch.Success)
+            {
+                return '[{0}] {1}' -f $nameMatch.Groups['Group'].Value.Trim(), $nameMatch.Groups['Tag'].Value.Trim()
+            }
+
+            return $MetadataName.Trim()
+        }
+
+        function Format-ImageMetadataTagValue
+        {
+            param(
+                [String]$MetadataName,
+                [Object]$Value
+            )
+
+            $label = Format-ImageMetadataTagLabel -MetadataName $MetadataName
+
+            if ($Value -is [System.Array])
+            {
+                $valueText = @($Value | ForEach-Object { "$_" }) -join ', '
+            }
+            else
+            {
+                $valueText = "$Value"
+            }
+
+            if ([String]::IsNullOrWhiteSpace($valueText))
+            {
+                return $null
+            }
+
+            return "$label = $valueText"
+        }
+
+        function Get-ImageMetadataTagSnapshot
+        {
+            param([String]$FilePath)
+
+            if (-not (Import-ImageMetadataReader))
+            {
+                return [PSCustomObject]@{
+                    Success = $false
+                    Tags = @()
+                    Message = 'Get-ImageMetadata is not available in the current session.'
+                }
+            }
+
+            $metadataTags = [System.Collections.Generic.List[String]]::new()
+
+            try
+            {
+                Write-Verbose "Get-ImageMetadata tag snapshot target: $FilePath"
+                $metadataResult = @(Get-ImageMetadata -Path $FilePath -ExifToolPath $exifToolExecutable -NoEmptyProperties -ErrorAction Stop)
+
+                foreach ($item in $metadataResult)
+                {
+                    if ($null -ne $item.MetadataTags)
+                    {
+                        foreach ($tagName in @($item.MetadataTags))
+                        {
+                            if (-not [String]::IsNullOrWhiteSpace($tagName))
+                            {
+                                $metadataTags.Add([String]$tagName)
+                            }
+                        }
+
+                        continue
+                    }
+
+                    if ($null -eq $item.Metadata)
+                    {
+                        continue
+                    }
+
+                    foreach ($metadataName in $item.Metadata.Keys)
+                    {
+                        if (-not [String]::IsNullOrWhiteSpace($metadataName))
+                        {
+                            $metadataTags.Add([String]$metadataName)
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                return [PSCustomObject]@{
+                    Success = $false
+                    Tags = @()
+                    Message = $_.Exception.Message
+                }
+            }
+
+            return [PSCustomObject]@{
+                Success = $true
+                Tags = @($metadataTags | Sort-Object -Unique)
+                Message = ''
+            }
+        }
+
+        function Compare-ImageMetadataTagSnapshot
+        {
+            param(
+                [PSCustomObject]$Before,
+                [PSCustomObject]$After
+            )
+
+            if (-not $Before -or -not $After -or -not $Before.Success -or -not $After.Success)
+            {
+                return @()
+            }
+
+            $afterTagsByName = @{}
+            foreach ($tagName in @($After.Tags))
+            {
+                $afterTagsByName[$tagName] = $true
+            }
+
+            return @(
+                @($Before.Tags) |
+                Where-Object { -not $afterTagsByName.ContainsKey($_) } |
+                Sort-Object -Unique
+            )
+        }
+
+        function Get-RemainingImageMetadataTag
+        {
+            param([String]$FilePath)
+
+            if (-not (Import-ImageMetadataReader))
             {
                 return [PSCustomObject]@{
                     Success = $false
@@ -1114,28 +1252,11 @@ function Remove-ImageMetadata
                     {
                         $metadataName = [String]$entry.Key
                         $value = $entry.Value
-                        $nameMatch = [regex]::Match($metadataName, '^(?<Group>[^:]+):(?<Tag>.+)$')
-                        if ($nameMatch.Success)
-                        {
-                            $label = '[{0}] {1}' -f $nameMatch.Groups['Group'].Value.Trim(), $nameMatch.Groups['Tag'].Value.Trim()
-                        }
-                        else
-                        {
-                            $label = $metadataName.Trim()
-                        }
+                        $tagValueText = Format-ImageMetadataTagValue -MetadataName $metadataName -Value $value
 
-                        if ($value -is [System.Array])
+                        if (-not [String]::IsNullOrWhiteSpace($tagValueText))
                         {
-                            $valueText = @($value | ForEach-Object { "$_" }) -join ', '
-                        }
-                        else
-                        {
-                            $valueText = "$value"
-                        }
-
-                        if (-not [String]::IsNullOrWhiteSpace($valueText))
-                        {
-                            $remainingTags.Add("$label = $valueText")
+                            $remainingTags.Add($tagValueText)
                         }
                     }
                 }
@@ -1222,6 +1343,7 @@ function Remove-ImageMetadata
             $timestampReset = $false
             $verified = $null
             $remainingMetadataTags = @()
+            $removedMetadataTags = @()
             $exitCode = $null
             $messageParts = [System.Collections.Generic.List[String]]::new()
             $targetDescription = 'Remove all writable embedded metadata, including GPS and text tags'
@@ -1239,6 +1361,8 @@ function Remove-ImageMetadata
                         Path = $targetPath
                         Name = [System.IO.Path]::GetFileName($targetPath)
                         MetadataRemoved = $false
+                        RemovedMetadataTagCount = 0
+                        RemovedMetadataTags = @()
                         OutputCopied = $false
                         Paranoid = [Boolean]$Paranoid
                         BackupKept = [Boolean]$KeepBackup
@@ -1267,6 +1391,8 @@ function Remove-ImageMetadata
                         Path = $targetPath
                         Name = [System.IO.Path]::GetFileName($targetPath)
                         MetadataRemoved = $false
+                        RemovedMetadataTagCount = 0
+                        RemovedMetadataTags = @()
                         OutputCopied = $false
                         Paranoid = [Boolean]$Paranoid
                         BackupKept = [Boolean]$KeepBackup
@@ -1288,6 +1414,16 @@ function Remove-ImageMetadata
 
                 try
                 {
+                    $metadataTagsBeforeRemoval = $null
+                    if ($PassThru -or $Verify)
+                    {
+                        $metadataTagsBeforeRemoval = Get-ImageMetadataTagSnapshot -FilePath $sourcePath
+                        if (-not $metadataTagsBeforeRemoval.Success)
+                        {
+                            $messageParts.Add("Metadata tag snapshot before cleanup failed: $($metadataTagsBeforeRemoval.Message)")
+                        }
+                    }
+
                     $targetDirectory = Split-Path -Path $targetPath -Parent
                     if (-not (Test-Path -LiteralPath $targetDirectory -PathType Container))
                     {
@@ -1337,6 +1473,19 @@ function Remove-ImageMetadata
                         $timestampReset = Invoke-ImageFileTimestampReset -FilePath $targetPath
                     }
 
+                    if ($PassThru -or $Verify)
+                    {
+                        $metadataTagsAfterRemoval = Get-ImageMetadataTagSnapshot -FilePath $targetPath
+                        if ($metadataTagsAfterRemoval.Success)
+                        {
+                            $removedMetadataTags = @(Compare-ImageMetadataTagSnapshot -Before $metadataTagsBeforeRemoval -After $metadataTagsAfterRemoval)
+                        }
+                        else
+                        {
+                            $messageParts.Add("Metadata tag snapshot after cleanup failed: $($metadataTagsAfterRemoval.Message)")
+                        }
+                    }
+
                     if ($Verify)
                     {
                         $verifyResult = Get-RemainingImageMetadataTag -FilePath $targetPath
@@ -1377,6 +1526,8 @@ function Remove-ImageMetadata
                         Path = $targetPath
                         Name = [System.IO.Path]::GetFileName($targetPath)
                         MetadataRemoved = ($exitCode -eq 0)
+                        RemovedMetadataTagCount = $removedMetadataTags.Count
+                        RemovedMetadataTags = @($removedMetadataTags)
                         OutputCopied = $outputCopied
                         Paranoid = [Boolean]$Paranoid
                         BackupKept = [Boolean]$KeepBackup
@@ -1400,6 +1551,8 @@ function Remove-ImageMetadata
                         Path = $targetPath
                         Name = [System.IO.Path]::GetFileName($targetPath)
                         MetadataRemoved = $false
+                        RemovedMetadataTagCount = 0
+                        RemovedMetadataTags = @()
                         OutputCopied = $false
                         Paranoid = [Boolean]$Paranoid
                         BackupKept = [Boolean]$KeepBackup
