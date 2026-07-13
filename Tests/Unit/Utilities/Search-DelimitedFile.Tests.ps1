@@ -446,6 +446,21 @@ Describe 'Search-DelimitedFile' {
             $exportedRows.Name | Should -Contain 'Carol'
         }
 
+        It 'writes matching rows to TSV instead of the pipeline' {
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'matches.tsv'
+
+            $result = @(Search-DelimitedFile -Path $script:csvPath -Criteria @{ City = '^Boston$' } -OutputFile $outputPath)
+
+            $result.Count | Should -Be 0
+            (Get-Content -LiteralPath $outputPath -Raw) | Should -Match "`t"
+            $exportedRows = @(Import-Csv -LiteralPath $outputPath -Delimiter ([Char]9))
+            $exportedRows.Count | Should -Be 2
+            @($exportedRows[0].PSObject.Properties.Name) | Should -Be @('Name', 'City', 'Status', 'Note')
+            $exportedRows.Name | Should -Contain 'Alice'
+            $exportedRows.Name | Should -Contain 'Carol'
+            $exportedRows.City | Should -Contain 'Boston'
+        }
+
         It 'writes matching rows to a JSON array' {
             $outputPath = Join-Path -Path $TestDrive -ChildPath 'matches.JSON'
 
@@ -480,6 +495,15 @@ Describe 'Search-DelimitedFile' {
 
         It 'creates an empty CSV file when no rows match' {
             $outputPath = Join-Path -Path $TestDrive -ChildPath 'empty.csv'
+
+            Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Missing$' } -OutputFile $outputPath
+
+            Test-Path -LiteralPath $outputPath -PathType Leaf | Should -BeTrue
+            (Get-Item -LiteralPath $outputPath).Length | Should -Be 0
+        }
+
+        It 'creates an empty TSV file when no rows match' {
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'empty.tsv'
 
             Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Missing$' } -OutputFile $outputPath
 
@@ -531,7 +555,7 @@ Describe 'Search-DelimitedFile' {
             $outputPath = Join-Path -Path $TestDrive -ChildPath 'matches.txt'
 
             { Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Alice$' } -OutputFile $outputPath } |
-            Should -Throw '*must use a .csv or .json extension*'
+            Should -Throw '*must use a .csv, .tsv, or .json extension*'
         }
 
         It 'rejects an output path whose parent directory does not exist' {

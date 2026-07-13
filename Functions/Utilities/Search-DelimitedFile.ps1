@@ -102,11 +102,11 @@ function Search-DelimitedFile
 
     .PARAMETER OutputFile
         Writes all matching rows to one output file instead of returning them to the pipeline.
-        Only the .csv and .json file extensions are supported, and the extension determines the
-        serialization format. Existing files are overwritten. JSON output is always an array; CSV
-        output is an empty file when no rows match. The output file cannot also be an explicit
-        input file, and an existing output file discovered through a directory or wildcard search
-        is skipped as input before it is overwritten.
+        Only the .csv, .tsv, and .json file extensions are supported, and the extension determines
+        the serialization format. Existing files are overwritten. JSON output is always an array;
+        CSV and TSV output is an empty file when no rows match. The output file cannot also be an
+        explicit input file, and an existing output file discovered through a directory or wildcard
+        search is skipped as input before it is overwritten.
 
     .EXAMPLE
         PS > Search-DelimitedFile -Path './users.csv' -Criteria @{ Status = '^Active$'; City = '^Boston$' }
@@ -207,6 +207,11 @@ function Search-DelimitedFile
         PS > Search-DelimitedFile './events.tsv' @{ Level = 'error|critical' } -IncludeFileName -OutputFile './events.json'
 
         Writes matching rows, including their source file name, to a JSON array.
+
+    .EXAMPLE
+        PS > Search-DelimitedFile './events.tsv' @{ Level = 'error|critical' } -OutputFile './errors.tsv'
+
+        Writes matching rows to a tab-separated output file.
 
     .OUTPUTS
         System.Management.Automation.PSCustomObject
@@ -617,13 +622,14 @@ function Search-DelimitedFile
             $outputFormat = switch ($outputExtension)
             {
                 '.csv' { 'Csv' }
+                '.tsv' { 'Tsv' }
                 '.json' { 'Json' }
                 default { $null }
             }
 
             if ($null -eq $outputFormat)
             {
-                throw "OutputFile must use a .csv or .json extension: $OutputFile"
+                throw "OutputFile must use a .csv, .tsv, or .json extension: $OutputFile"
             }
             if (Test-Path -LiteralPath $resolvedOutputFile -PathType Container)
             {
@@ -1026,6 +1032,17 @@ function Search-DelimitedFile
                     if ($outputRecords.Count -gt 0)
                     {
                         $outputRecords.ToArray() | Export-Csv -LiteralPath $resolvedOutputFile -NoTypeInformation -Encoding UTF8 -ErrorAction Stop
+                    }
+                    else
+                    {
+                        [System.IO.File]::WriteAllText($resolvedOutputFile, [String]::Empty, $utf8Encoding)
+                    }
+                }
+                'Tsv'
+                {
+                    if ($outputRecords.Count -gt 0)
+                    {
+                        $outputRecords.ToArray() | Export-Csv -LiteralPath $resolvedOutputFile -NoTypeInformation -Delimiter ([Char]9) -Encoding UTF8 -ErrorAction Stop
                     }
                     else
                     {
