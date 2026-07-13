@@ -14,10 +14,11 @@ function Search-DelimitedFile
         regular expression interpretation, and combine -Literal with -Exact to require an
         exact field value. Matching is case-insensitive unless -CaseSensitive is specified.
 
-        Files with headers retain their original column names, which must be non-empty and unique
-        when header parsing is enabled. For files without headers, use -NoHeader to generate
-        Column0, Column1, and so on, or use -Header to assign custom names. Use -MatchColumnsOnly
-        to return only the columns referenced by the criteria.
+        Files with headers retain their original column names, which must be non-empty. Duplicate
+        header names are made unique by appending numeric suffixes to each duplicate group, such as
+        File1 and File2. For files without headers, use -NoHeader to generate Column0, Column1,
+        and so on, or use -Header to assign custom names. Use -MatchColumnsOnly to return only the
+        columns referenced by the criteria.
 
         When -Delimiter is omitted, tab is inferred for .tsv and .tab files and comma is used for
         all other files. If the default comma delimiter leaves a tab-containing first record as one
@@ -37,7 +38,9 @@ function Search-DelimitedFile
         column's criterion.
 
         Use integer keys for index-based criteria, for example @{ 0 = 'Alice'; 2 = '^Open$' }.
-        String keys are treated as column names, even when the string contains only digits.
+        String keys are treated as column names, even when the string contains only digits. When
+        file headers are duplicated, use the generated suffixed names, such as File1 and File2, or
+        use integer keys.
 
     .PARAMETER Delimiter
         The character separating fields. When omitted, .tsv and .tab files use a tab and all
@@ -60,8 +63,7 @@ function Search-DelimitedFile
 
     .PARAMETER NoHeader
         Indicates that the first record contains data rather than column names. Generated column
-        names are zero-based: Column0, Column1, and so on. Use this with integer Criteria keys to
-        search files with duplicate header names. Cannot be combined with -Header.
+        names are zero-based: Column0, Column1, and so on. Cannot be combined with -Header.
 
     .PARAMETER Header
         Custom column names for a file whose first record contains data. The number of names must
@@ -141,10 +143,9 @@ function Search-DelimitedFile
         Searches a headerless pipe-delimited file by zero-based column index.
 
     .EXAMPLE
-        PS > Search-DelimitedFile './duplicate-headers.tsv' @{ 1 = 'Some Value'; 5 = 'Passed' } -NoHeader -Literal
+        PS > Search-DelimitedFile './duplicate-headers.tsv' @{ File1 = 'Before'; File2 = 'After' } -Literal
 
-        Searches a file with duplicate header names by treating its header row as data and using
-        zero-based column indexes. The original header row normally does not match the criteria.
+        Searches a file with duplicate File headers using the generated File1 and File2 column names.
 
     .EXAMPLE
         PS > Search-DelimitedFile './data.txt' @{ Name = 'Alice'; State = 'NY' } -Delimiter ';' -Header Name,Age,State -Literal
@@ -366,6 +367,75 @@ function Search-DelimitedFile
             $Key -is [UInt32] -or
             $Key -is [Int64] -or
             $Key -is [UInt64]
+        }
+
+        function Resolve-DuplicateColumnNames
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String[]]$ColumnNames
+            )
+
+            $nameCounts = New-Object 'System.Collections.Generic.Dictionary[String,Int32]' ([StringComparer]::OrdinalIgnoreCase)
+            foreach ($columnName in $ColumnNames)
+            {
+                if ($nameCounts.ContainsKey($columnName))
+                {
+                    $nameCounts[$columnName]++
+                }
+                else
+                {
+                    $nameCounts[$columnName] = 1
+                }
+            }
+
+            $reservedNames = New-Object 'System.Collections.Generic.HashSet[String]' ([StringComparer]::OrdinalIgnoreCase)
+            foreach ($columnName in $ColumnNames)
+            {
+                if ($nameCounts[$columnName] -eq 1)
+                {
+                    [void]$reservedNames.Add($columnName)
+                }
+            }
+
+            $usedNames = New-Object 'System.Collections.Generic.HashSet[String]' ([StringComparer]::OrdinalIgnoreCase)
+            $duplicateIndexes = New-Object 'System.Collections.Generic.Dictionary[String,Int32]' ([StringComparer]::OrdinalIgnoreCase)
+            $resolvedColumnNames = New-Object System.Collections.ArrayList
+
+            foreach ($columnName in $ColumnNames)
+            {
+                if ($nameCounts[$columnName] -eq 1)
+                {
+                    $candidateName = $columnName
+                    $suffix = 1
+                    while ($usedNames.Contains($candidateName))
+                    {
+                        $candidateName = "$columnName$suffix"
+                        $suffix++
+                    }
+
+                    [void]$usedNames.Add($candidateName)
+                    [void]$resolvedColumnNames.Add($candidateName)
+                    continue
+                }
+
+                if (-not $duplicateIndexes.ContainsKey($columnName))
+                {
+                    $duplicateIndexes[$columnName] = 0
+                }
+
+                do
+                {
+                    $duplicateIndexes[$columnName]++
+                    $candidateName = "$columnName$($duplicateIndexes[$columnName])"
+                }
+                while ($reservedNames.Contains($candidateName) -or $usedNames.Contains($candidateName))
+
+                [void]$usedNames.Add($candidateName)
+                [void]$resolvedColumnNames.Add($candidateName)
+            }
+
+            return [String[]]$resolvedColumnNames.ToArray([String])
         }
 
         function Resolve-SearchCriteria
@@ -775,6 +845,7 @@ function Search-DelimitedFile
                     }
 
                     $columnNames = $null
+                    $skipFirstImportedRow = $false
                     if ($PSBoundParameters.ContainsKey('Header'))
                     {
                         if ($Header.Count -ne $firstFields.Count)
@@ -814,41 +885,16 @@ function Search-DelimitedFile
                             continue
                         }
 
-                        $uniqueHeaders = New-Object 'System.Collections.Generic.HashSet[String]' ([StringComparer]::OrdinalIgnoreCase)
-                        $duplicateHeaders = New-Object 'System.Collections.Generic.HashSet[String]' ([StringComparer]::OrdinalIgnoreCase)
-
-                        foreach ($headerName in $firstFields)
+                        $columnNames = Resolve-DuplicateColumnNames -ColumnNames $firstFields
+                        for ($headerIndex = 0; $headerIndex -lt $firstFields.Count; $headerIndex++)
                         {
-                            if (-not $uniqueHeaders.Add($headerName))
+                            if (-not [String]::Equals($firstFields[$headerIndex], $columnNames[$headerIndex], [StringComparison]::Ordinal))
                             {
-                                [void]$duplicateHeaders.Add($headerName)
+                                $importParameters.Header = $columnNames
+                                $skipFirstImportedRow = $true
+                                break
                             }
                         }
-
-                        if ($duplicateHeaders.Count -gt 0)
-                        {
-                            $duplicateDetails = foreach ($duplicateHeader in $duplicateHeaders)
-                            {
-                                $duplicateIndexes = for ($headerIndex = 0; $headerIndex -lt $firstFields.Count; $headerIndex++)
-                                {
-                                    if ([String]::Equals($firstFields[$headerIndex], $duplicateHeader, [StringComparison]::OrdinalIgnoreCase))
-                                    {
-                                        $headerIndex
-                                    }
-                                }
-                                "'$duplicateHeader' (zero-based indexes: $($duplicateIndexes -join ', '))"
-                            }
-
-                            Write-Error (
-                                "File '$filePath' contains duplicate column headers: $($duplicateDetails -join '; '). " +
-                                'Search-DelimitedFile requires unique headers when header parsing is enabled. ' +
-                                'Re-run the search with -NoHeader and integer Criteria keys to search by zero-based column index. ' +
-                                "Run 'Get-Help Search-DelimitedFile -Examples' for examples."
-                            )
-                            continue
-                        }
-
-                        $columnNames = [String[]]$firstFields
                     }
 
                     try
@@ -881,47 +927,53 @@ function Search-DelimitedFile
 
                     try
                     {
+                        $importedRowIndex = 0
                         Import-Csv @importParameters | ForEach-Object {
                             $row = $_
+                            $shouldSkipRow = $skipFirstImportedRow -and $importedRowIndex -eq 0
+                            $importedRowIndex++
 
-                            $criterionMatches = foreach ($criterion in $resolvedCriteria)
+                            if (-not $shouldSkipRow)
                             {
-                                Test-FieldValue -Value $row.($criterion.ColumnName) -Patterns $criterion.Patterns
-                            }
-
-                            $isMatch = if ($Any)
-                            {
-                                $criterionMatches -contains $true
-                            }
-                            else
-                            {
-                                $criterionMatches -notcontains $false
-                            }
-
-                            if ($isMatch)
-                            {
-                                $outputRow = [Ordered]@{}
-                                if ($IncludeFileName)
+                                $criterionMatches = foreach ($criterion in $resolvedCriteria)
                                 {
-                                    $outputRow.FileName = [System.IO.Path]::GetFileName($filePath)
-                                }
-                                if ($IncludeFilePath)
-                                {
-                                    $outputRow.FilePath = $filePath
-                                }
-                                foreach ($columnName in $selectedColumns)
-                                {
-                                    $outputRow[$columnName] = $row.$columnName
+                                    Test-FieldValue -Value $row.($criterion.ColumnName) -Patterns $criterion.Patterns
                                 }
 
-                                $resultObject = [PSCustomObject]$outputRow
-                                if ($writeOutputFile)
+                                $isMatch = if ($Any)
                                 {
-                                    $outputRecords.Add($resultObject)
+                                    $criterionMatches -contains $true
                                 }
                                 else
                                 {
-                                    $resultObject
+                                    $criterionMatches -notcontains $false
+                                }
+
+                                if ($isMatch)
+                                {
+                                    $outputRow = [Ordered]@{}
+                                    if ($IncludeFileName)
+                                    {
+                                        $outputRow.FileName = [System.IO.Path]::GetFileName($filePath)
+                                    }
+                                    if ($IncludeFilePath)
+                                    {
+                                        $outputRow.FilePath = $filePath
+                                    }
+                                    foreach ($columnName in $selectedColumns)
+                                    {
+                                        $outputRow[$columnName] = $row.$columnName
+                                    }
+
+                                    $resultObject = [PSCustomObject]$outputRow
+                                    if ($writeOutputFile)
+                                    {
+                                        $outputRecords.Add($resultObject)
+                                    }
+                                    else
+                                    {
+                                        $resultObject
+                                    }
                                 }
                             }
                         }

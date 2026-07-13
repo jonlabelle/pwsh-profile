@@ -67,11 +67,12 @@ Describe 'Search-DelimitedFile' {
             $command.Parameters.Filter.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateNotNullOrEmptyAttribute] } | Should -Not -BeNullOrEmpty
         }
 
-        It 'documents the duplicate-header index workaround in command examples' {
+        It 'documents generated names for duplicate headers in command examples' {
             $examples = Get-Help -Name Search-DelimitedFile -Examples | Out-String
 
             $examples | Should -Match 'duplicate-headers\.tsv'
-            $examples | Should -Match '\-NoHeader'
+            $examples | Should -Match 'File1'
+            $examples | Should -Match 'File2'
         }
 
         It 'exposes OutputFile as a string parameter with an OutFile alias' {
@@ -302,18 +303,27 @@ Describe 'Search-DelimitedFile' {
             $searchErrors[0].ToString() | Should -Match '\-NoHeader and integer Criteria keys'
         }
 
-        It 'rejects duplicate file headers with index-search guidance' {
-            $path = Initialize-DelimitedTestFile -Name 'duplicate-headers.tsv' -Content "Name`tStatus`tname`nAlice`tPassed`tAlias"
-            $searchErrors = @()
+        It 'suffixes duplicate file headers and searches by generated names' {
+            $path = Initialize-DelimitedTestFile -Name 'duplicate-headers.tsv' -Content "File`tStatus`tFile`nBefore`tPassed`tAfter`nOther`tFailed`tFinal"
 
-            $result = @(Search-DelimitedFile -Path $path -Criteria @{ Name = 'Alice' } -Literal -ErrorAction SilentlyContinue -ErrorVariable searchErrors)
+            $result = @(Search-DelimitedFile -Path $path -Criteria @{ File1 = 'Before'; File2 = 'After' } -Literal -Exact)
 
-            $result.Count | Should -Be 0
-            $searchErrors.Count | Should -Be 1
-            $searchErrors[0].ToString() | Should -Match 'duplicate column headers'
-            $searchErrors[0].ToString() | Should -Match "'name' \(zero-based indexes: 0, 2\)"
-            $searchErrors[0].ToString() | Should -Match '\-NoHeader and integer Criteria keys'
-            $searchErrors[0].ToString() | Should -Match 'Get-Help Search-DelimitedFile -Examples'
+            $result.Count | Should -Be 1
+            @($result[0].PSObject.Properties.Name) | Should -Be @('File1', 'Status', 'File2')
+            $result[0].File1 | Should -Be 'Before'
+            $result[0].File2 | Should -Be 'After'
+        }
+
+        It 'avoids collisions between generated duplicate names and existing headers' {
+            $path = Initialize-DelimitedTestFile -Name 'duplicate-header-collision.tsv' -Content "File`tFile1`tFile`nBefore`tExisting`tAfter"
+
+            $result = @(Search-DelimitedFile -Path $path -Criteria @{ File2 = 'Before'; File3 = 'After' } -Literal -Exact)
+
+            $result.Count | Should -Be 1
+            @($result[0].PSObject.Properties.Name) | Should -Be @('File2', 'File1', 'File3')
+            $result[0].File1 | Should -Be 'Existing'
+            $result[0].File2 | Should -Be 'Before'
+            $result[0].File3 | Should -Be 'After'
         }
 
         It 'searches a duplicate-header file by index when NoHeader is used' {
