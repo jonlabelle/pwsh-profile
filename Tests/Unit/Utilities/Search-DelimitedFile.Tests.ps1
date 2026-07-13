@@ -167,6 +167,18 @@ Describe 'Search-DelimitedFile' {
             $result[0].Id | Should -Be '1'
         }
 
+        It 'infers a tab delimiter for TSV files discovered by directory filter' {
+            $directory = Join-Path -Path $TestDrive -ChildPath 'filtered-tsv'
+            New-Item -ItemType Directory -Path $directory | Out-Null
+            Set-Content -LiteralPath (Join-Path $directory 'connections.tsv') -Value "Connection`tName`tData`nA`tWest`t1" -Encoding UTF8
+
+            $result = @(Search-DelimitedFile -Path $directory -Filter '*.tsv' -Criteria @{ Name = @('West') })
+
+            $result.Count | Should -Be 1
+            $result[0].Connection | Should -Be 'A'
+            $result[0].Name | Should -Be 'West'
+        }
+
         It 'infers a tab delimiter for .tab files' {
             $tabPath = Initialize-DelimitedTestFile -Name 'events.tab' -Content "Id`tLevel`tMessage`n1`tError`tTimed out`n2`tInfo`tStarted"
 
@@ -174,6 +186,36 @@ Describe 'Search-DelimitedFile' {
 
             $result.Count | Should -Be 1
             $result[0].Id | Should -Be '1'
+        }
+
+        It 'detects tab-delimited headers when delimiter inference would otherwise choose comma' {
+            $path = Initialize-DelimitedTestFile -Name 'connections.txt' -Content "Connection`tName`tData`nA`tWest`t1"
+
+            $result = @(Search-DelimitedFile -Path $path -Criteria @{ Name = @('West') })
+
+            $result.Count | Should -Be 1
+            $result[0].Connection | Should -Be 'A'
+            $result[0].Name | Should -Be 'West'
+        }
+
+        It 'detects tab-delimited headers in TXT files discovered by wildcard path' {
+            $directory = Join-Path -Path $TestDrive -ChildPath 'wildcard-txt'
+            New-Item -ItemType Directory -Path $directory | Out-Null
+            Set-Content -LiteralPath (Join-Path $directory 'connections.txt') -Value "Connection`tName`tData`nA`tWest`t1" -Encoding UTF8
+            $pathPattern = Join-Path -Path $directory -ChildPath '*.txt'
+
+            $result = @(Search-DelimitedFile -Path $pathPattern -Criteria @{ Name = @('West') })
+
+            $result.Count | Should -Be 1
+            $result[0].Connection | Should -Be 'A'
+            $result[0].Name | Should -Be 'West'
+        }
+
+        It 'honors an explicit comma delimiter even when the first record contains tabs' {
+            $path = Initialize-DelimitedTestFile -Name 'explicit-comma.tsv' -Content "Connection`tName`tData`nA`tWest`t1"
+
+            { Search-DelimitedFile -Path $path -Delimiter ',' -Criteria @{ Name = @('West') } -ErrorAction Stop } |
+            Should -Throw "*Available columns: Connection`tName`tData*"
         }
 
         It 'preserves empty TSV fields from adjacent and trailing tabs' {

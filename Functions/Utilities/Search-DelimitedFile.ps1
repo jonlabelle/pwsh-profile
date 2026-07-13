@@ -20,7 +20,9 @@ function Search-DelimitedFile
         to return only the columns referenced by the criteria.
 
         When -Delimiter is omitted, tab is inferred for .tsv and .tab files and comma is used for
-        all other files. An explicit delimiter applies to every input file.
+        all other files. If the default comma delimiter leaves a tab-containing first record as one
+        column, the file is retried as tab-delimited. An explicit delimiter applies to every input
+        file and disables delimiter inference.
 
     .PARAMETER Path
         One or more file paths, directory paths, or wildcard patterns. Paths can also be supplied
@@ -713,7 +715,8 @@ function Search-DelimitedFile
                         continue
                     }
 
-                    $fileDelimiter = if ($PSBoundParameters.ContainsKey('Delimiter'))
+                    $delimiterWasExplicit = $PSBoundParameters.ContainsKey('Delimiter')
+                    $fileDelimiter = if ($delimiterWasExplicit)
                     {
                         $Delimiter
                     }
@@ -743,6 +746,26 @@ function Search-DelimitedFile
                     {
                         Write-Error "Unable to read the first record from '$filePath': $($_.Exception.Message)"
                         continue
+                    }
+
+                    if (-not $delimiterWasExplicit -and
+                        $fileDelimiter -ne [Char]9 -and
+                        $firstFields.Count -eq 1 -and
+                        [String]$firstFields[0] -like "*`t*")
+                    {
+                        $fileDelimiter = [Char]9
+                        $importParameters.Delimiter = $fileDelimiter
+                        Write-Verbose "Detected tab-delimited header in '$filePath'; retrying with tab delimiter."
+
+                        try
+                        {
+                            $firstFields = @(Get-FirstRecordFields -FilePath $filePath -FieldDelimiter $fileDelimiter -TextEncoding $textEncoding)
+                        }
+                        catch
+                        {
+                            Write-Error "Unable to read the first record from '$filePath' using the detected tab delimiter: $($_.Exception.Message)"
+                            continue
+                        }
                     }
 
                     if ($firstFields.Count -eq 0)
