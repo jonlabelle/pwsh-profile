@@ -656,6 +656,18 @@ Alice,Active,"one,two"
             (Get-Item -LiteralPath $outputPath).Length | Should -Be 0
         }
 
+        It 'creates the per-source output directory when it does not exist' {
+            $outputDirectory = Join-Path -Path (Join-Path -Path $TestDrive -ChildPath 'missing-source-outputs') -ChildPath 'nested'
+
+            Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Alice$' } -OutputPath $outputDirectory -OutputBySourceFile
+
+            Test-Path -LiteralPath $outputDirectory -PathType Container | Should -BeTrue
+            $outputPath = Join-Path -Path $outputDirectory -ChildPath 'people.csv'
+            $exportedRows = @(Import-Csv -LiteralPath $outputPath)
+            $exportedRows.Count | Should -Be 1
+            $exportedRows[0].Name | Should -Be 'Alice'
+        }
+
         It 'skips existing per-source output files discovered during recursive input discovery' {
             $directory = Join-Path -Path $TestDrive -ChildPath 'source-output-discovery'
             $outputDirectory = Join-Path -Path $directory -ChildPath 'matches'
@@ -764,11 +776,12 @@ Alice,Active,"one,two"
             Should -Throw '*requires OutputPath*'
         }
 
-        It 'rejects OutputBySourceFile when OutputPath is not a directory' {
+        It 'rejects OutputBySourceFile when OutputPath is an existing file' {
             $outputPath = Join-Path -Path $TestDrive -ChildPath 'matches.csv'
+            Set-Content -LiteralPath $outputPath -Value 'existing file' -Encoding UTF8
 
             { Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Alice$' } -OutputPath $outputPath -OutputBySourceFile } |
-            Should -Throw '*existing directory*'
+            Should -Throw '*must identify a directory*'
         }
 
         It 'rejects UseQuotes with JSON output' {

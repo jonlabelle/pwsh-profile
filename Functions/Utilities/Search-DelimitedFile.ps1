@@ -115,14 +115,16 @@ function Search-DelimitedFile
         file discovered through a directory or wildcard search is skipped as input before it is
         overwritten.
 
-        When OutputBySourceFile is supplied, OutputPath must identify an existing directory. Each
-        valid source file writes one delimited output file in that directory using the source file's
-        leaf name. Source files with no matches write empty output files.
+        When OutputBySourceFile is supplied, OutputPath identifies the target directory. The
+        directory is created when it does not exist. Each valid source file writes one delimited
+        output file in that directory using the source file's leaf name. Source files with no
+        matches write empty output files.
 
     .PARAMETER OutputBySourceFile
         Writes matched rows to separate files by source file instead of aggregating all matches into
-        one output file. Requires OutputPath, and OutputPath must identify an existing directory.
-        Output files use each source file's leaf name and the delimiter used to read that source.
+        one output file. Requires OutputPath. OutputPath identifies the target directory, which is
+        created when needed. Output files use each source file's leaf name and the delimiter used to
+        read that source.
 
     .PARAMETER UseQuotes
         Controls quoting for CSV and TSV output files. AsNeeded quotes only fields that contain
@@ -821,9 +823,20 @@ function Search-DelimitedFile
 
             if ($OutputBySourceFile)
             {
+                if (Test-Path -LiteralPath $resolvedOutputPath -PathType Leaf)
+                {
+                    throw "OutputPath must identify a directory when OutputBySourceFile is used: $resolvedOutputPath"
+                }
                 if (-not (Test-Path -LiteralPath $resolvedOutputPath -PathType Container))
                 {
-                    throw "OutputPath must identify an existing directory when OutputBySourceFile is used: $resolvedOutputPath"
+                    try
+                    {
+                        [void](New-Item -ItemType Directory -Path $resolvedOutputPath -Force -ErrorAction Stop)
+                    }
+                    catch
+                    {
+                        throw "Unable to create OutputPath directory '$resolvedOutputPath': $($_.Exception.Message)"
+                    }
                 }
 
                 $resolvedOutputDirectory = $resolvedOutputPath
