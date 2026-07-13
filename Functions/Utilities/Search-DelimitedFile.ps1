@@ -108,6 +108,12 @@ function Search-DelimitedFile
         explicit input file, and an existing output file discovered through a directory or wildcard
         search is skipped as input before it is overwritten.
 
+    .PARAMETER UseQuotes
+        Controls quoting for CSV and TSV output files. AsNeeded quotes only fields that contain
+        the output delimiter, double quotes, or line breaks. Always quotes every header and field.
+        Never writes headers and fields without quoting or escaping. The default is AsNeeded.
+        This parameter requires OutputFile and does not apply to JSON output.
+
     .EXAMPLE
         PS > Search-DelimitedFile -Path './users.csv' -Criteria @{ Status = '^Active$'; City = '^Boston$' }
 
@@ -213,6 +219,11 @@ function Search-DelimitedFile
 
         Writes matching rows to a tab-separated output file.
 
+    .EXAMPLE
+        PS > Search-DelimitedFile './users.csv' @{ Status = '^Active$' } -OutputFile './active.csv' -UseQuotes Never
+
+        Writes matching rows to a CSV file without wrapping output headers or values in quotes.
+
     .OUTPUTS
         System.Management.Automation.PSCustomObject
             A new object containing each matched row, optionally limited to searched columns and
@@ -294,7 +305,11 @@ function Search-DelimitedFile
         [Parameter()]
         [ValidateNotNullOrEmpty()]
         [Alias('OutFile')]
-        [String]$OutputFile
+        [String]$OutputFile,
+
+        [Parameter()]
+        [ValidateSet('AsNeeded', 'Always', 'Never')]
+        [String]$UseQuotes = 'AsNeeded'
     )
 
     begin
@@ -548,6 +563,116 @@ function Search-DelimitedFile
             return $false
         }
 
+        function ConvertTo-DelimitedField
+        {
+            param(
+                [AllowNull()]
+                [Object]$Value,
+
+                [Parameter(Mandatory)]
+                [Char]$FieldDelimiter,
+
+                [Parameter(Mandatory)]
+                [ValidateSet('AsNeeded', 'Always', 'Never')]
+                [String]$QuoteMode
+            )
+
+            $text = if ($null -eq $Value) { [String]::Empty } else { [String]$Value }
+            if ($QuoteMode -eq 'Never')
+            {
+                return $text
+            }
+
+            $requiresQuotes = $QuoteMode -eq 'Always' -or
+            $text.IndexOf($FieldDelimiter) -ge 0 -or
+            $text.IndexOf('"') -ge 0 -or
+            $text.IndexOf("`r") -ge 0 -or
+            $text.IndexOf("`n") -ge 0
+
+            if (-not $requiresQuotes)
+            {
+                return $text
+            }
+
+            return '"' + $text.Replace('"', '""') + '"'
+        }
+
+        function ConvertTo-DelimitedRecord
+        {
+            param(
+                [Parameter(Mandatory)]
+                [AllowEmptyCollection()]
+                [Object[]]$Fields,
+
+                [Parameter(Mandatory)]
+                [Char]$FieldDelimiter,
+
+                [Parameter(Mandatory)]
+                [ValidateSet('AsNeeded', 'Always', 'Never')]
+                [String]$QuoteMode
+            )
+
+            $escapedFields = foreach ($field in $Fields)
+            {
+                ConvertTo-DelimitedField -Value $field -FieldDelimiter $FieldDelimiter -QuoteMode $QuoteMode
+            }
+
+            return $escapedFields -join ([String]$FieldDelimiter)
+        }
+
+        function Write-DelimitedOutputFile
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$FilePath,
+
+                [Parameter(Mandatory)]
+                [AllowEmptyCollection()]
+                [System.Collections.Generic.List[Object]]$Records,
+
+                [Parameter(Mandatory)]
+                [Char]$FieldDelimiter,
+
+                [Parameter(Mandatory)]
+                [ValidateSet('AsNeeded', 'Always', 'Never')]
+                [String]$QuoteMode,
+
+                [Parameter(Mandatory)]
+                [System.Text.Encoding]$TextEncoding
+            )
+
+            if ($Records.Count -eq 0)
+            {
+                [System.IO.File]::WriteAllText($FilePath, [String]::Empty, $TextEncoding)
+                return
+            }
+
+            $propertyNames = [String[]]@($Records[0].PSObject.Properties | ForEach-Object { $_.Name })
+            $lines = New-Object 'System.Collections.Generic.List[String]'
+            $lines.Add((ConvertTo-DelimitedRecord -Fields $propertyNames -FieldDelimiter $FieldDelimiter -QuoteMode $QuoteMode))
+
+            for ($recordIndex = 0; $recordIndex -lt $Records.Count; $recordIndex++)
+            {
+                $record = $Records[$recordIndex]
+                $fields = foreach ($propertyName in $propertyNames)
+                {
+                    $property = $record.PSObject.Properties[$propertyName]
+                    if ($null -eq $property)
+                    {
+                        $null
+                    }
+                    else
+                    {
+                        $property.Value
+                    }
+                }
+
+                $lines.Add((ConvertTo-DelimitedRecord -Fields $fields -FieldDelimiter $FieldDelimiter -QuoteMode $QuoteMode))
+            }
+
+            [System.IO.File]::WriteAllText($FilePath, (($lines.ToArray() -join [Environment]::NewLine) + [Environment]::NewLine), $TextEncoding)
+        }
+
         function Test-IsExcludedFile
         {
             param(
@@ -598,9 +723,15 @@ function Search-DelimitedFile
         }
 
         $writeOutputFile = $PSBoundParameters.ContainsKey('OutputFile')
+        $useQuotesWasSpecified = $PSBoundParameters.ContainsKey('UseQuotes')
         $resolvedOutputFile = $null
         $outputFormat = $null
         $outputRecords = New-Object 'System.Collections.Generic.List[Object]'
+
+        if ($useQuotesWasSpecified -and -not $writeOutputFile)
+        {
+            throw 'UseQuotes requires OutputFile.'
+        }
 
         if ($writeOutputFile)
         {
@@ -630,6 +761,10 @@ function Search-DelimitedFile
             if ($null -eq $outputFormat)
             {
                 throw "OutputFile must use a .csv, .tsv, or .json extension: $OutputFile"
+            }
+            if ($useQuotesWasSpecified -and $outputFormat -eq 'Json')
+            {
+                throw 'UseQuotes applies only to CSV and TSV output files.'
             }
             if (Test-Path -LiteralPath $resolvedOutputFile -PathType Container)
             {
@@ -1029,25 +1164,11 @@ function Search-DelimitedFile
                 }
                 'Csv'
                 {
-                    if ($outputRecords.Count -gt 0)
-                    {
-                        $outputRecords.ToArray() | Export-Csv -LiteralPath $resolvedOutputFile -NoTypeInformation -Encoding UTF8 -ErrorAction Stop
-                    }
-                    else
-                    {
-                        [System.IO.File]::WriteAllText($resolvedOutputFile, [String]::Empty, $utf8Encoding)
-                    }
+                    Write-DelimitedOutputFile -FilePath $resolvedOutputFile -Records $outputRecords -FieldDelimiter ',' -QuoteMode $UseQuotes -TextEncoding $utf8Encoding
                 }
                 'Tsv'
                 {
-                    if ($outputRecords.Count -gt 0)
-                    {
-                        $outputRecords.ToArray() | Export-Csv -LiteralPath $resolvedOutputFile -NoTypeInformation -Delimiter ([Char]9) -Encoding UTF8 -ErrorAction Stop
-                    }
-                    else
-                    {
-                        [System.IO.File]::WriteAllText($resolvedOutputFile, [String]::Empty, $utf8Encoding)
-                    }
+                    Write-DelimitedOutputFile -FilePath $resolvedOutputFile -Records $outputRecords -FieldDelimiter ([Char]9) -QuoteMode $UseQuotes -TextEncoding $utf8Encoding
                 }
             }
         }

@@ -81,6 +81,14 @@ Describe 'Search-DelimitedFile' {
             $outputParameter.ParameterType | Should -Be ([String])
             $outputParameter.Aliases | Should -Contain 'OutFile'
         }
+
+        It 'exposes UseQuotes with CSV-style quote modes' {
+            $useQuotesParameter = (Get-Command -Name Search-DelimitedFile).Parameters.UseQuotes
+
+            $useQuotesParameter.ParameterType | Should -Be ([String])
+            $validateSet = $useQuotesParameter.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }
+            $validateSet.ValidValues | Should -Be @('AsNeeded', 'Always', 'Never')
+        }
     }
 
     Context 'CSV matching with headers' {
@@ -461,6 +469,57 @@ Describe 'Search-DelimitedFile' {
             $exportedRows.City | Should -Contain 'Boston'
         }
 
+        It 'uses as-needed quotes for CSV output by default' {
+            $inputPath = Initialize-DelimitedTestFile -Name 'needs-quotes.csv' -Content @'
+Name,Status,Note
+Alice,Active,"one,two"
+Bob,Active,"say ""hi"""
+'@
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'needs-quotes-output.csv'
+
+            Search-DelimitedFile -Path $inputPath -Criteria @{ Status = '^Active$' } -OutputFile $outputPath
+
+            $lines = (Get-Content -LiteralPath $outputPath -Raw) -split '\r?\n' | Where-Object { $_ }
+            $lines[0] | Should -Be 'Name,Status,Note'
+            $lines[1] | Should -Be 'Alice,Active,"one,two"'
+            $lines[2] | Should -Be 'Bob,Active,"say ""hi"""'
+        }
+
+        It 'quotes every CSV header and field when requested' {
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'always-quoted.csv'
+
+            Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Alice$' } -OutputFile $outputPath -UseQuotes Always
+
+            $lines = (Get-Content -LiteralPath $outputPath -Raw) -split '\r?\n' | Where-Object { $_ }
+            $lines[0] | Should -Be '"Name","City","Status","Note"'
+            $lines[1] | Should -Be '"Alice","Boston","Active","a+b"'
+        }
+
+        It 'suppresses all CSV quoting when requested' {
+            $inputPath = Initialize-DelimitedTestFile -Name 'never-quoted.csv' -Content @'
+Name,Status,Note
+Alice,Active,"one,two"
+'@
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'never-quoted-output.csv'
+
+            Search-DelimitedFile -Path $inputPath -Criteria @{ Name = '^Alice$' } -OutputFile $outputPath -UseQuotes Never
+
+            $lines = (Get-Content -LiteralPath $outputPath -Raw) -split '\r?\n' | Where-Object { $_ }
+            $lines[0] | Should -Be 'Name,Status,Note'
+            $lines[1] | Should -Be 'Alice,Active,one,two'
+        }
+
+        It 'applies as-needed quotes to TSV output' {
+            $inputPath = Initialize-DelimitedTestFile -Name 'needs-quotes.tsv' -Content "Name`tStatus`tNote`nAlice`tActive`t`"one`ttwo`""
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'needs-quotes-output.tsv'
+
+            Search-DelimitedFile -Path $inputPath -Criteria @{ Name = '^Alice$' } -OutputFile $outputPath
+
+            $lines = (Get-Content -LiteralPath $outputPath -Raw) -split '\r?\n' | Where-Object { $_ }
+            $lines[0] | Should -Be "Name`tStatus`tNote"
+            $lines[1] | Should -Be "Alice`tActive`t`"one`ttwo`""
+        }
+
         It 'writes matching rows to a JSON array' {
             $outputPath = Join-Path -Path $TestDrive -ChildPath 'matches.JSON'
 
@@ -556,6 +615,18 @@ Describe 'Search-DelimitedFile' {
 
             { Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Alice$' } -OutputFile $outputPath } |
             Should -Throw '*must use a .csv, .tsv, or .json extension*'
+        }
+
+        It 'rejects UseQuotes without OutputFile' {
+            { Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Alice$' } -UseQuotes Never } |
+            Should -Throw '*requires OutputFile*'
+        }
+
+        It 'rejects UseQuotes with JSON output' {
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'matches.json'
+
+            { Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Alice$' } -OutputFile $outputPath -UseQuotes Always } |
+            Should -Throw '*only to CSV and TSV*'
         }
 
         It 'rejects an output path whose parent directory does not exist' {
