@@ -103,22 +103,32 @@ function Search-DelimitedFile
 
     .PARAMETER Encoding
         Specifies the input file encoding. The default is UTF8. Accepted values are compatible
-        with both Windows PowerShell 5.1 and PowerShell Core. OutputFile writes UTF-8 regardless
-        of this setting.
+        with both Windows PowerShell 5.1 and PowerShell Core. Output written through OutputPath
+        uses UTF-8 regardless of this setting.
 
-    .PARAMETER OutputFile
+    .PARAMETER OutputPath
         Writes all matching rows to one output file instead of returning them to the pipeline.
-        Only the .csv, .tsv, and .json file extensions are supported, and the extension determines
-        the serialization format. Existing files are overwritten. JSON output is always an array;
-        CSV and TSV output is an empty file when no rows match. The output file cannot also be an
-        explicit input file, and an existing output file discovered through a directory or wildcard
-        search is skipped as input before it is overwritten.
+        Unless OutputBySourceFile is supplied, only the .csv, .tsv, and .json file extensions are
+        supported, and the extension determines the serialization format. Existing files are
+        overwritten. JSON output is always an array; CSV and TSV output is an empty file when no
+        rows match. The output file cannot also be an explicit input file, and an existing output
+        file discovered through a directory or wildcard search is skipped as input before it is
+        overwritten.
+
+        When OutputBySourceFile is supplied, OutputPath must identify an existing directory. Each
+        valid source file writes one delimited output file in that directory using the source file's
+        leaf name. Source files with no matches write empty output files.
+
+    .PARAMETER OutputBySourceFile
+        Writes matched rows to separate files by source file instead of aggregating all matches into
+        one output file. Requires OutputPath, and OutputPath must identify an existing directory.
+        Output files use each source file's leaf name and the delimiter used to read that source.
 
     .PARAMETER UseQuotes
         Controls quoting for CSV and TSV output files. AsNeeded quotes only fields that contain
         the output delimiter, double quotes, or line breaks. Always quotes every header and field.
         Never writes headers and fields without quoting or escaping. The default is AsNeeded.
-        This parameter requires OutputFile and does not apply to JSON output.
+        This parameter requires OutputPath and does not apply to JSON output.
 
     .EXAMPLE
         PS > Search-DelimitedFile -Path './users.csv' -Criteria @{ Status = '^Active$'; City = '^Boston$' }
@@ -216,29 +226,35 @@ function Search-DelimitedFile
         Recursively searches pipe-delimited text and log files by zero-based column index.
 
     .EXAMPLE
-        PS > Search-DelimitedFile './exports' @{ Status = '^Active$' } -Recurse -OutputFile './active-records.csv'
+        PS > Search-DelimitedFile './exports' @{ Status = '^Active$' } -Recurse -OutputPath './active-records.csv'
 
         Writes all matching rows from the directory tree to one CSV file.
 
     .EXAMPLE
-        PS > Search-DelimitedFile './events.tsv' @{ Level = 'error|critical' } -IncludeFileName -OutputFile './events.json'
+        PS > Search-DelimitedFile './events.tsv' @{ Level = 'error|critical' } -IncludeFileName -OutputPath './events.json'
 
         Writes matching rows, including their source file name, to a JSON array.
 
     .EXAMPLE
-        PS > Search-DelimitedFile './events.tsv' @{ Level = 'error|critical' } -OutputFile './errors.tsv'
+        PS > Search-DelimitedFile './events.tsv' @{ Level = 'error|critical' } -OutputPath './errors.tsv'
 
         Writes matching rows to a tab-separated output file.
 
     .EXAMPLE
-        PS > Search-DelimitedFile './users.csv' @{ Status = '^Active$' } -OutputFile './active.csv' -UseQuotes Never
+        PS > Search-DelimitedFile './exports' @{ Status = '^Active$' } -Recurse -OutputPath './matches' -OutputBySourceFile
+
+        Writes one output file per source file in the matches directory, preserving each source
+        file name.
+
+    .EXAMPLE
+        PS > Search-DelimitedFile './users.csv' @{ Status = '^Active$' } -OutputPath './active.csv' -UseQuotes Never
 
         Writes matching rows to a CSV file without wrapping output headers or values in quotes.
 
     .OUTPUTS
         System.Management.Automation.PSCustomObject
             A new object containing each matched row, optionally limited to searched columns and
-            augmented with source file information. No objects are returned when OutputFile is
+            augmented with source file information. No objects are returned when OutputPath is
             specified.
 
     .NOTES
@@ -318,8 +334,10 @@ function Search-DelimitedFile
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
-        [Alias('OutFile')]
-        [String]$OutputFile,
+        [String]$OutputPath,
+
+        [Parameter()]
+        [Switch]$OutputBySourceFile,
 
         [Parameter()]
         [ValidateSet('AsNeeded', 'Always', 'Never')]
@@ -666,7 +684,7 @@ function Search-DelimitedFile
             return $escapedFields -join ([String]$FieldDelimiter)
         }
 
-        function Write-DelimitedOutputFile
+        function Write-DelimitedOutputPath
         {
             param(
                 [Parameter(Mandatory)]
@@ -768,60 +786,78 @@ function Search-DelimitedFile
             throw 'Exact requires Literal.'
         }
 
-        $writeOutputFile = $PSBoundParameters.ContainsKey('OutputFile')
+        $writeOutputPath = $PSBoundParameters.ContainsKey('OutputPath')
         $useQuotesWasSpecified = $PSBoundParameters.ContainsKey('UseQuotes')
-        $resolvedOutputFile = $null
+        $resolvedOutputPath = $null
+        $resolvedOutputDirectory = $null
         $outputFormat = $null
         $outputRecords = New-Object 'System.Collections.Generic.List[Object]'
+        $sourceOutputGroups = New-Object 'System.Collections.Generic.Dictionary[String,Object]' ([StringComparer]::OrdinalIgnoreCase)
 
-        if ($useQuotesWasSpecified -and -not $writeOutputFile)
+        if ($useQuotesWasSpecified -and -not $writeOutputPath)
         {
-            throw 'UseQuotes requires OutputFile.'
+            throw 'UseQuotes requires OutputPath.'
+        }
+        if ($OutputBySourceFile -and -not $writeOutputPath)
+        {
+            throw 'OutputBySourceFile requires OutputPath.'
         }
 
-        if ($writeOutputFile)
+        if ($writeOutputPath)
         {
-            if ([String]::IsNullOrWhiteSpace($OutputFile))
+            if ([String]::IsNullOrWhiteSpace($OutputPath))
             {
-                throw 'OutputFile cannot be empty or whitespace.'
+                throw 'OutputPath cannot be empty or whitespace.'
             }
 
             try
             {
-                $resolvedOutputFile = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputFile.Trim())
+                $resolvedOutputPath = $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath.Trim())
             }
             catch
             {
-                throw "Invalid OutputFile path '$OutputFile': $($_.Exception.Message)"
+                throw "Invalid OutputPath '$OutputPath': $($_.Exception.Message)"
             }
 
-            $outputExtension = [System.IO.Path]::GetExtension($resolvedOutputFile).ToLowerInvariant()
-            $outputFormat = switch ($outputExtension)
+            if ($OutputBySourceFile)
             {
-                '.csv' { 'Csv' }
-                '.tsv' { 'Tsv' }
-                '.json' { 'Json' }
-                default { $null }
-            }
+                if (-not (Test-Path -LiteralPath $resolvedOutputPath -PathType Container))
+                {
+                    throw "OutputPath must identify an existing directory when OutputBySourceFile is used: $resolvedOutputPath"
+                }
 
-            if ($null -eq $outputFormat)
-            {
-                throw "OutputFile must use a .csv, .tsv, or .json extension: $OutputFile"
+                $resolvedOutputDirectory = $resolvedOutputPath
             }
-            if ($useQuotesWasSpecified -and $outputFormat -eq 'Json')
+            else
             {
-                throw 'UseQuotes applies only to CSV and TSV output files.'
-            }
-            if (Test-Path -LiteralPath $resolvedOutputFile -PathType Container)
-            {
-                throw "OutputFile points to a directory: $resolvedOutputFile"
-            }
+                $outputExtension = [System.IO.Path]::GetExtension($resolvedOutputPath).ToLowerInvariant()
+                $outputFormat = switch ($outputExtension)
+                {
+                    '.csv' { 'Csv' }
+                    '.tsv' { 'Tsv' }
+                    '.json' { 'Json' }
+                    default { $null }
+                }
 
-            $outputDirectory = Split-Path -Path $resolvedOutputFile -Parent
-            if (-not [String]::IsNullOrWhiteSpace($outputDirectory) -and
-                -not (Test-Path -LiteralPath $outputDirectory -PathType Container))
-            {
-                throw "OutputFile directory does not exist: $outputDirectory"
+                if ($null -eq $outputFormat)
+                {
+                    throw "OutputPath must use a .csv, .tsv, or .json extension: $OutputPath"
+                }
+                if ($useQuotesWasSpecified -and $outputFormat -eq 'Json')
+                {
+                    throw 'UseQuotes applies only to CSV and TSV output files.'
+                }
+                if (Test-Path -LiteralPath $resolvedOutputPath -PathType Container)
+                {
+                    throw "OutputPath must identify a file unless OutputBySourceFile is used: $resolvedOutputPath"
+                }
+
+                $outputDirectory = Split-Path -Path $resolvedOutputPath -Parent
+                if (-not [String]::IsNullOrWhiteSpace($outputDirectory) -and
+                    -not (Test-Path -LiteralPath $outputDirectory -PathType Container))
+                {
+                    throw "OutputPath directory does not exist: $outputDirectory"
+                }
             }
         }
 
@@ -947,19 +983,51 @@ function Search-DelimitedFile
                 foreach ($inputFile in $inputFiles)
                 {
                     $filePath = $inputFile.FullName
-                    if ($writeOutputFile -and [String]::Equals(
-                            [System.IO.Path]::GetFullPath($filePath),
-                            [System.IO.Path]::GetFullPath($resolvedOutputFile),
-                            [StringComparison]::OrdinalIgnoreCase
-                        ))
+                    $sourceOutputPath = $null
+                    if ($writeOutputPath)
                     {
-                        if ($directoryRoot -or $pathUsesWildcard)
+                        if ($OutputBySourceFile)
                         {
-                            Write-Verbose "Skipping existing output file during input discovery: $filePath"
-                            continue
-                        }
+                            $sourceOutputPath = Join-Path -Path $resolvedOutputDirectory -ChildPath ([System.IO.Path]::GetFileName($filePath))
 
-                        throw "OutputFile cannot also be an explicit input file: $filePath"
+                            if ([String]::Equals(
+                                    [System.IO.Path]::GetFullPath($filePath),
+                                    [System.IO.Path]::GetFullPath($sourceOutputPath),
+                                    [StringComparison]::OrdinalIgnoreCase
+                                ))
+                            {
+                                if ($directoryRoot -or $pathUsesWildcard)
+                                {
+                                    Write-Verbose "Skipping existing per-source output file during input discovery: $filePath"
+                                    continue
+                                }
+
+                                throw "OutputBySourceFile would overwrite the explicit input file: $filePath"
+                            }
+
+                            if ($sourceOutputGroups.ContainsKey($sourceOutputPath))
+                            {
+                                Write-Error (
+                                    "Multiple input files resolve to the same per-source output file '$sourceOutputPath'. " +
+                                    "Conflicting source files: '$($sourceOutputGroups[$sourceOutputPath].SourceFile)' and '$filePath'."
+                                )
+                                continue
+                            }
+                        }
+                        elseif ([String]::Equals(
+                                [System.IO.Path]::GetFullPath($filePath),
+                                [System.IO.Path]::GetFullPath($resolvedOutputPath),
+                                [StringComparison]::OrdinalIgnoreCase
+                            ))
+                        {
+                            if ($directoryRoot -or $pathUsesWildcard)
+                            {
+                                Write-Verbose "Skipping existing output file during input discovery: $filePath"
+                                continue
+                            }
+
+                            throw "OutputPath cannot also be an explicit input file: $filePath"
+                        }
                     }
                     if ($directoryRoot -and (Test-IsExcludedFile -File $inputFile -RootPath $directoryRoot))
                     {
@@ -1109,6 +1177,19 @@ function Search-DelimitedFile
                         {
                             Resolve-UniqueColumnName -ColumnName 'RowNumber' -ExistingColumnNames $columnNames
                         }
+                        $sourceOutputGroup = if ($OutputBySourceFile)
+                        {
+                            [PSCustomObject]@{
+                                SourceFile = $filePath
+                                OutputPath = $sourceOutputPath
+                                Delimiter = $fileDelimiter
+                                Records = New-Object 'System.Collections.Generic.List[Object]'
+                            }
+                        }
+                        if ($null -ne $sourceOutputGroup)
+                        {
+                            $sourceOutputGroups[$sourceOutputPath] = $sourceOutputGroup
+                        }
                     }
                     catch
                     {
@@ -1171,9 +1252,16 @@ function Search-DelimitedFile
                                     }
 
                                     $resultObject = [PSCustomObject]$outputRow
-                                    if ($writeOutputFile)
+                                    if ($writeOutputPath)
                                     {
-                                        $outputRecords.Add($resultObject)
+                                        if ($OutputBySourceFile)
+                                        {
+                                            $sourceOutputGroup.Records.Add($resultObject)
+                                        }
+                                        else
+                                        {
+                                            $outputRecords.Add($resultObject)
+                                        }
                                     }
                                     else
                                     {
@@ -1194,7 +1282,7 @@ function Search-DelimitedFile
 
     end
     {
-        if (-not $writeOutputFile)
+        if (-not $writeOutputPath)
         {
             return
         }
@@ -1203,44 +1291,59 @@ function Search-DelimitedFile
         {
             $utf8Encoding = New-Object System.Text.UTF8Encoding($false)
 
-            switch ($outputFormat)
+            if ($OutputBySourceFile)
             {
-                'Json'
+                $sourceOutputRecordCount = 0
+                foreach ($sourceOutputGroup in $sourceOutputGroups.Values)
                 {
-                    # Index the generic list explicitly. Windows PowerShell 5.1 can treat the
-                    # Object[] returned by ToArray() as one pipeline object in this expression,
-                    # causing ConvertTo-Json to serialize array metadata instead of each row.
-                    $jsonItems = for ($outputIndex = 0; $outputIndex -lt $outputRecords.Count; $outputIndex++)
-                    {
-                        $outputRecords[$outputIndex] | ConvertTo-Json -Depth 10
-                    }
+                    $sourceOutputRecordCount += $sourceOutputGroup.Records.Count
+                    Write-DelimitedOutputPath -FilePath $sourceOutputGroup.OutputPath -Records $sourceOutputGroup.Records -FieldDelimiter $sourceOutputGroup.Delimiter -QuoteMode $UseQuotes -TextEncoding $utf8Encoding
+                }
 
-                    if ($jsonItems.Count -eq 0)
+                Write-Verbose "Wrote $sourceOutputRecordCount matching row(s) to $($sourceOutputGroups.Count) per-source output file(s) in '$resolvedOutputDirectory'."
+            }
+            else
+            {
+                switch ($outputFormat)
+                {
+                    'Json'
                     {
-                        $jsonText = '[]'
-                    }
-                    else
-                    {
-                        $jsonText = "[`n$($jsonItems -join ",`n")`n]"
-                    }
+                        # Index the generic list explicitly. Windows PowerShell 5.1 can treat the
+                        # Object[] returned by ToArray() as one pipeline object in this expression,
+                        # causing ConvertTo-Json to serialize array metadata instead of each row.
+                        $jsonItems = for ($outputIndex = 0; $outputIndex -lt $outputRecords.Count; $outputIndex++)
+                        {
+                            $outputRecords[$outputIndex] | ConvertTo-Json -Depth 10
+                        }
 
-                    [System.IO.File]::WriteAllText($resolvedOutputFile, $jsonText, $utf8Encoding)
+                        if ($jsonItems.Count -eq 0)
+                        {
+                            $jsonText = '[]'
+                        }
+                        else
+                        {
+                            $jsonText = "[`n$($jsonItems -join ",`n")`n]"
+                        }
+
+                        [System.IO.File]::WriteAllText($resolvedOutputPath, $jsonText, $utf8Encoding)
+                    }
+                    'Csv'
+                    {
+                        Write-DelimitedOutputPath -FilePath $resolvedOutputPath -Records $outputRecords -FieldDelimiter ',' -QuoteMode $UseQuotes -TextEncoding $utf8Encoding
+                    }
+                    'Tsv'
+                    {
+                        Write-DelimitedOutputPath -FilePath $resolvedOutputPath -Records $outputRecords -FieldDelimiter ([Char]9) -QuoteMode $UseQuotes -TextEncoding $utf8Encoding
+                    }
                 }
-                'Csv'
-                {
-                    Write-DelimitedOutputFile -FilePath $resolvedOutputFile -Records $outputRecords -FieldDelimiter ',' -QuoteMode $UseQuotes -TextEncoding $utf8Encoding
-                }
-                'Tsv'
-                {
-                    Write-DelimitedOutputFile -FilePath $resolvedOutputFile -Records $outputRecords -FieldDelimiter ([Char]9) -QuoteMode $UseQuotes -TextEncoding $utf8Encoding
-                }
+
+                Write-Verbose "Wrote $($outputRecords.Count) matching row(s) to '$resolvedOutputPath'."
             }
         }
         catch
         {
-            throw "Unable to write search results to '$resolvedOutputFile': $($_.Exception.Message)"
+            throw "Unable to write search results to '$resolvedOutputPath': $($_.Exception.Message)"
         }
 
-        Write-Verbose "Wrote $($outputRecords.Count) matching row(s) to '$resolvedOutputFile'."
     }
 }
