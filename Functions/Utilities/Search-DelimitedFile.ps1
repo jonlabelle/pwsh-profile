@@ -123,6 +123,11 @@ function Search-DelimitedFile
         CSV and TSV output preserve source header text, including duplicate header names. Pipeline
         and JSON output continue to use generated unique property names for duplicate headers.
 
+    .PARAMETER OutputFileNameSuffix
+        Appends text to output file names before the file extension. Requires OutputPath. For
+        aggregate output, the suffix is applied to the OutputPath file name. With OutputBySourceFile,
+        the suffix is applied to each source file's leaf name.
+
     .PARAMETER OutputBySourceFile
         Writes matched rows to separate files by source file instead of aggregating all matches into
         one output file. Requires OutputPath. OutputPath identifies the target directory, which is
@@ -258,6 +263,12 @@ function Search-DelimitedFile
         file name.
 
     .EXAMPLE
+        PS > Search-DelimitedFile './exports' @{ Status = '^Active$' } -Recurse -OutputPath './matches' -OutputBySourceFile -OutputFileNameSuffix '-active'
+
+        Writes one output file per source file in the matches directory, appending -active to
+        each output file name before the extension.
+
+    .EXAMPLE
         PS > Search-DelimitedFile './users.csv' @{ Status = '^Disabled$' } -OutputPath './disabled.csv' -NoEmptyOutputFiles
 
         Writes disabled.csv only when at least one row matches.
@@ -351,6 +362,10 @@ function Search-DelimitedFile
         [Parameter()]
         [ValidateNotNullOrEmpty()]
         [String]$OutputPath,
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [String]$OutputFileNameSuffix,
 
         [Parameter()]
         [Switch]$OutputBySourceFile,
@@ -808,6 +823,59 @@ function Search-DelimitedFile
             [System.IO.File]::WriteAllText($FilePath, (($lines.ToArray() -join [Environment]::NewLine) + [Environment]::NewLine), $TextEncoding)
         }
 
+        function Add-OutputFileNameSuffix
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$FilePath,
+
+                [Parameter(Mandatory)]
+                [String]$Suffix
+            )
+
+            $directoryPath = Split-Path -Path $FilePath -Parent
+            $fileName = Split-Path -Path $FilePath -Leaf
+            $extension = [System.IO.Path]::GetExtension($fileName)
+            $nameWithoutExtension = if ([String]::IsNullOrEmpty($extension))
+            {
+                $fileName
+            }
+            else
+            {
+                $fileName.Substring(0, $fileName.Length - $extension.Length)
+            }
+
+            $suffixedFileName = "${nameWithoutExtension}${Suffix}${extension}"
+            if ([String]::IsNullOrEmpty($directoryPath))
+            {
+                return $suffixedFileName
+            }
+
+            return Join-Path -Path $directoryPath -ChildPath $suffixedFileName
+        }
+
+        function Test-OutputFileNameSuffix
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$Suffix
+            )
+
+            if ([String]::IsNullOrWhiteSpace($Suffix))
+            {
+                throw 'OutputFileNameSuffix cannot be empty or whitespace.'
+            }
+
+            $invalidCharacters = @([Char]'/', [Char]'\') + [System.IO.Path]::GetInvalidFileNameChars()
+            foreach ($invalidCharacter in $invalidCharacters)
+            {
+                if ($Suffix.IndexOf($invalidCharacter) -ge 0)
+                {
+                    throw "OutputFileNameSuffix cannot contain path separator or invalid file-name characters: $Suffix"
+                }
+            }
+        }
+
         function Test-IsExcludedFile
         {
             param(
@@ -858,6 +926,7 @@ function Search-DelimitedFile
         }
 
         $writeOutputPath = $PSBoundParameters.ContainsKey('OutputPath')
+        $outputFileNameSuffixWasSpecified = $PSBoundParameters.ContainsKey('OutputFileNameSuffix')
         $useQuotesWasSpecified = $PSBoundParameters.ContainsKey('UseQuotes')
         $resolvedOutputPath = $null
         $resolvedOutputDirectory = $null
@@ -869,6 +938,10 @@ function Search-DelimitedFile
         if ($useQuotesWasSpecified -and -not $writeOutputPath)
         {
             throw 'UseQuotes requires OutputPath.'
+        }
+        if ($outputFileNameSuffixWasSpecified -and -not $writeOutputPath)
+        {
+            throw 'OutputFileNameSuffix requires OutputPath.'
         }
         if ($OutputBySourceFile -and -not $writeOutputPath)
         {
@@ -884,6 +957,10 @@ function Search-DelimitedFile
             if ([String]::IsNullOrWhiteSpace($OutputPath))
             {
                 throw 'OutputPath cannot be empty or whitespace.'
+            }
+            if ($outputFileNameSuffixWasSpecified)
+            {
+                Test-OutputFileNameSuffix -Suffix $OutputFileNameSuffix
             }
 
             try
@@ -917,6 +994,11 @@ function Search-DelimitedFile
             }
             else
             {
+                if ($outputFileNameSuffixWasSpecified)
+                {
+                    $resolvedOutputPath = Add-OutputFileNameSuffix -FilePath $resolvedOutputPath -Suffix $OutputFileNameSuffix
+                }
+
                 $outputExtension = [System.IO.Path]::GetExtension($resolvedOutputPath).ToLowerInvariant()
                 $outputFormat = switch ($outputExtension)
                 {
@@ -1075,7 +1157,13 @@ function Search-DelimitedFile
                     {
                         if ($OutputBySourceFile)
                         {
-                            $sourceOutputPath = Join-Path -Path $resolvedOutputDirectory -ChildPath ([System.IO.Path]::GetFileName($filePath))
+                            $sourceOutputFileName = [System.IO.Path]::GetFileName($filePath)
+                            if ($outputFileNameSuffixWasSpecified)
+                            {
+                                $sourceOutputFileName = Add-OutputFileNameSuffix -FilePath $sourceOutputFileName -Suffix $OutputFileNameSuffix
+                            }
+
+                            $sourceOutputPath = Join-Path -Path $resolvedOutputDirectory -ChildPath $sourceOutputFileName
 
                             if ([String]::Equals(
                                     [System.IO.Path]::GetFullPath($filePath),

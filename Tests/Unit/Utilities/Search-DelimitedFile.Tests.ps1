@@ -83,6 +83,12 @@ Describe 'Search-DelimitedFile' {
             $outputParameter.ParameterType | Should -Be ([String])
         }
 
+        It 'exposes OutputFileNameSuffix as a string parameter' {
+            $outputFileNameSuffixParameter = (Get-Command -Name Search-DelimitedFile).Parameters.OutputFileNameSuffix
+
+            $outputFileNameSuffixParameter.ParameterType | Should -Be ([String])
+        }
+
         It 'exposes UseQuotes with CSV-style quote modes' {
             $useQuotesParameter = (Get-Command -Name Search-DelimitedFile).Parameters.UseQuotes
 
@@ -514,6 +520,31 @@ Describe 'Search-DelimitedFile' {
             $exportedRows.Name | Should -Contain 'Carol'
         }
 
+        It 'appends a suffix to aggregate output file names before the extension' {
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'aggregate-suffix.csv'
+            $suffixedOutputPath = Join-Path -Path $TestDrive -ChildPath 'aggregate-suffix-active.csv'
+
+            Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Alice$' } -OutputPath $outputPath -OutputFileNameSuffix '-active'
+
+            Test-Path -LiteralPath $outputPath | Should -BeFalse
+            Test-Path -LiteralPath $suffixedOutputPath -PathType Leaf | Should -BeTrue
+            $exportedRows = @(Import-Csv -LiteralPath $suffixedOutputPath)
+            $exportedRows.Count | Should -Be 1
+            $exportedRows[0].Name | Should -Be 'Alice'
+        }
+
+        It 'uses the suffixed aggregate output path when checking explicit input conflicts' {
+            $outputPath = $script:csvPath
+            $suffixedOutputPath = Join-Path -Path (Split-Path -Path $script:csvPath -Parent) -ChildPath 'people-matches.csv'
+
+            Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Alice$' } -OutputPath $outputPath -OutputFileNameSuffix '-matches'
+
+            Test-Path -LiteralPath $suffixedOutputPath -PathType Leaf | Should -BeTrue
+            $exportedRows = @(Import-Csv -LiteralPath $suffixedOutputPath)
+            $exportedRows.Count | Should -Be 1
+            $exportedRows[0].Name | Should -Be 'Alice'
+        }
+
         It 'writes matching rows to TSV instead of the pipeline' {
             $outputPath = Join-Path -Path $TestDrive -ChildPath 'matches.tsv'
 
@@ -660,6 +691,26 @@ Alice,Active,"one,two"
             $result.Count | Should -Be 0
             $peopleOutputPath = Join-Path -Path $outputDirectory -ChildPath 'people.csv'
             $archiveOutputPath = Join-Path -Path $outputDirectory -ChildPath 'people-archive.csv'
+            Test-Path -LiteralPath $peopleOutputPath -PathType Leaf | Should -BeTrue
+            Test-Path -LiteralPath $archiveOutputPath -PathType Leaf | Should -BeTrue
+
+            $peopleRows = @(Import-Csv -LiteralPath $peopleOutputPath)
+            $archiveRows = @(Import-Csv -LiteralPath $archiveOutputPath)
+            $peopleRows.Count | Should -Be 1
+            $peopleRows[0].Name | Should -Be 'Alice'
+            $archiveRows.Count | Should -Be 1
+            $archiveRows[0].Name | Should -Be 'Dave'
+        }
+
+        It 'appends a suffix to per-source output file names before the extension' {
+            $outputDirectory = Join-Path -Path $TestDrive -ChildPath 'source-suffixed-outputs'
+            New-Item -ItemType Directory -Path $outputDirectory | Out-Null
+
+            Search-DelimitedFile -Path $script:csvPath, $script:archivePath -Criteria @{ Status = '^Active$' } -OutputPath $outputDirectory -OutputBySourceFile -OutputFileNameSuffix '-active'
+
+            $peopleOutputPath = Join-Path -Path $outputDirectory -ChildPath 'people-active.csv'
+            $archiveOutputPath = Join-Path -Path $outputDirectory -ChildPath 'people-archive-active.csv'
+            Test-Path -LiteralPath (Join-Path -Path $outputDirectory -ChildPath 'people.csv') | Should -BeFalse
             Test-Path -LiteralPath $peopleOutputPath -PathType Leaf | Should -BeTrue
             Test-Path -LiteralPath $archiveOutputPath -PathType Leaf | Should -BeTrue
 
@@ -892,6 +943,18 @@ Alice,Active,"one,two"
         It 'rejects UseQuotes without OutputPath' {
             { Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Alice$' } -UseQuotes Never } |
             Should -Throw '*requires OutputPath*'
+        }
+
+        It 'rejects OutputFileNameSuffix without OutputPath' {
+            { Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Alice$' } -OutputFileNameSuffix '-matches' } |
+            Should -Throw '*requires OutputPath*'
+        }
+
+        It 'rejects an output file name suffix that contains a path separator' {
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'matches.csv'
+
+            { Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Alice$' } -OutputPath $outputPath -OutputFileNameSuffix 'nested/name' } |
+            Should -Throw '*cannot contain path separator*'
         }
 
         It 'rejects OutputBySourceFile without OutputPath' {
