@@ -14,12 +14,13 @@ function Search-DelimitedFile
         regular expression interpretation, and combine -Literal with -Exact to require an
         exact field value. Matching is case-insensitive unless -CaseSensitive is specified.
 
-        Files with headers retain their original column names. For files without headers, use
-        -NoHeader to generate Column0, Column1, and so on, or use -Header to assign custom names.
-        Use -MatchColumnsOnly to return only the columns referenced by the criteria.
+        Files with headers retain their original column names, which must be non-empty and unique
+        when header parsing is enabled. For files without headers, use -NoHeader to generate
+        Column0, Column1, and so on, or use -Header to assign custom names. Use -MatchColumnsOnly
+        to return only the columns referenced by the criteria.
 
-        When -Delimiter is omitted, tab is inferred for .tsv files and comma is used for all
-        other files. An explicit delimiter applies to every input file.
+        When -Delimiter is omitted, tab is inferred for .tsv and .tab files and comma is used for
+        all other files. An explicit delimiter applies to every input file.
 
     .PARAMETER Path
         One or more file paths, directory paths, or wildcard patterns. Paths can also be supplied
@@ -29,8 +30,9 @@ function Search-DelimitedFile
 
     .PARAMETER Criteria
         A dictionary that maps column names or zero-based integer column indexes to patterns.
-        A criterion value can be one string or an array of alternative strings. When an array
-        is supplied, any pattern in that array can satisfy that column's criterion.
+        Column-name lookup is case-insensitive. A criterion value can be one value or an array of
+        alternative values. When an array is supplied, any pattern in that array can satisfy that
+        column's criterion.
 
         Use integer keys for index-based criteria, for example @{ 0 = 'Alice'; 2 = '^Open$' }.
         String keys are treated as column names, even when the string contains only digits.
@@ -56,11 +58,13 @@ function Search-DelimitedFile
 
     .PARAMETER NoHeader
         Indicates that the first record contains data rather than column names. Generated column
-        names are zero-based: Column0, Column1, and so on. Cannot be combined with -Header.
+        names are zero-based: Column0, Column1, and so on. Use this with integer Criteria keys to
+        search files with duplicate header names. Cannot be combined with -Header.
 
     .PARAMETER Header
         Custom column names for a file whose first record contains data. The number of names must
-        match the number of fields in the first record. Cannot be combined with -NoHeader.
+        match the number of fields in the first record. Header names must be non-empty and unique
+        case-insensitively. Cannot be combined with -NoHeader.
 
     .PARAMETER Literal
         Treats every criterion pattern as a literal substring instead of a regular expression.
@@ -81,18 +85,24 @@ function Search-DelimitedFile
 
     .PARAMETER IncludeFileName
         Adds a FileName property containing the leaf name of the source file to every result.
+        The command rejects this option when an input file already contains a FileName column.
 
     .PARAMETER IncludeFilePath
         Adds a FilePath property containing the absolute source file path to every result.
+        The command rejects this option when an input file already contains a FilePath column.
 
     .PARAMETER Encoding
         Specifies the input file encoding. The default is UTF8. Accepted values are compatible
-        with both Windows PowerShell 5.1 and PowerShell Core.
+        with both Windows PowerShell 5.1 and PowerShell Core. OutputFile writes UTF-8 regardless
+        of this setting.
 
     .PARAMETER OutputFile
         Writes all matching rows to one output file instead of returning them to the pipeline.
         Only the .csv and .json file extensions are supported, and the extension determines the
-        serialization format. Existing files are overwritten. JSON output is always an array.
+        serialization format. Existing files are overwritten. JSON output is always an array; CSV
+        output is an empty file when no rows match. The output file cannot also be an explicit
+        input file, and an existing output file discovered through a directory or wildcard search
+        is skipped as input before it is overwritten.
 
     .EXAMPLE
         PS > Search-DelimitedFile -Path './users.csv' -Criteria @{ Status = '^Active$'; City = '^Boston$' }
@@ -205,9 +215,9 @@ function Search-DelimitedFile
         The parser follows Import-Csv quoting rules, including escaped quotes and delimiters inside
         quoted fields. Delimiters are limited to a single character.
 
-        If you experience criteria not matching issues in TSV files, ensure there's only 'one' tab character between fields.
-        You cam fix this by using the following command to replace multiple tabs with a single tab:
-        PS > (Get-Content './file.tsv') -replace "`t{2,}","`t" | Set-Content './file.tsv'
+        TSV files use tabs as delimiters. Adjacent tabs are valid when they represent empty fields;
+        collapse repeated tabs only when you know they are accidental padding, because doing so
+        changes column positions.
 
         Author: Jon LaBelle
         License: MIT
@@ -741,6 +751,7 @@ function Search-DelimitedFile
                         continue
                     }
 
+                    $columnNames = $null
                     if ($PSBoundParameters.ContainsKey('Header'))
                     {
                         if ($Header.Count -ne $firstFields.Count)
@@ -749,6 +760,7 @@ function Search-DelimitedFile
                             continue
                         }
                         $importParameters.Header = $Header
+                        $columnNames = [String[]]$Header
                     }
                     elseif ($NoHeader)
                     {
@@ -757,9 +769,28 @@ function Search-DelimitedFile
                             "Column$columnIndex"
                         }
                         $importParameters.Header = [String[]]$generatedHeader
+                        $columnNames = [String[]]$generatedHeader
                     }
                     else
                     {
+                        $blankHeaderIndexes = for ($headerIndex = 0; $headerIndex -lt $firstFields.Count; $headerIndex++)
+                        {
+                            if ([String]::IsNullOrWhiteSpace($firstFields[$headerIndex]))
+                            {
+                                $headerIndex
+                            }
+                        }
+
+                        if ($blankHeaderIndexes.Count -gt 0)
+                        {
+                            Write-Error (
+                                "File '$filePath' contains empty column headers at zero-based indexes: $($blankHeaderIndexes -join ', '). " +
+                                'Search-DelimitedFile requires non-empty headers when header parsing is enabled. ' +
+                                'Re-run the search with -NoHeader and integer Criteria keys to search by zero-based column index.'
+                            )
+                            continue
+                        }
+
                         $uniqueHeaders = New-Object 'System.Collections.Generic.HashSet[String]' ([StringComparer]::OrdinalIgnoreCase)
                         $duplicateHeaders = New-Object 'System.Collections.Generic.HashSet[String]' ([StringComparer]::OrdinalIgnoreCase)
 
@@ -793,38 +824,42 @@ function Search-DelimitedFile
                             )
                             continue
                         }
+
+                        $columnNames = [String[]]$firstFields
                     }
 
-                    $resolvedCriteria = $null
-                    $selectedColumns = $null
+                    try
+                    {
+                        $resolvedCriteria = @(Resolve-SearchCriteria -ColumnNames $columnNames)
+                        $criteriaColumnNames = @($resolvedCriteria | ForEach-Object { $_.ColumnName })
+                        $selectedColumns = if ($MatchColumnsOnly)
+                        {
+                            @($columnNames | Where-Object { $criteriaColumnNames -icontains $_ })
+                        }
+                        else
+                        {
+                            $columnNames
+                        }
+
+                        if ($IncludeFileName -and $columnNames -icontains 'FileName')
+                        {
+                            throw "Input file '$filePath' already contains a FileName column. Omit IncludeFileName or rename the input column."
+                        }
+                        if ($IncludeFilePath -and $columnNames -icontains 'FilePath')
+                        {
+                            throw "Input file '$filePath' already contains a FilePath column. Omit IncludeFilePath or rename the input column."
+                        }
+                    }
+                    catch
+                    {
+                        Write-Error -ErrorRecord $_
+                        continue
+                    }
+
                     try
                     {
                         Import-Csv @importParameters | ForEach-Object {
                             $row = $_
-                            $columnNames = @($row.PSObject.Properties.Name)
-
-                            if ($null -eq $resolvedCriteria)
-                            {
-                                $resolvedCriteria = @(Resolve-SearchCriteria -ColumnNames $columnNames)
-                                $criteriaColumnNames = @($resolvedCriteria | ForEach-Object { $_.ColumnName })
-                                $selectedColumns = if ($MatchColumnsOnly)
-                                {
-                                    @($columnNames | Where-Object { $criteriaColumnNames -icontains $_ })
-                                }
-                                else
-                                {
-                                    $columnNames
-                                }
-
-                                if ($IncludeFileName -and $columnNames -icontains 'FileName')
-                                {
-                                    throw "Input file '$filePath' already contains a FileName column. Omit IncludeFileName or rename the input column."
-                                }
-                                if ($IncludeFilePath -and $columnNames -icontains 'FilePath')
-                                {
-                                    throw "Input file '$filePath' already contains a FilePath column. Omit IncludeFilePath or rename the input column."
-                                }
-                            }
 
                             $criterionMatches = foreach ($criterion in $resolvedCriteria)
                             {

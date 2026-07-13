@@ -167,6 +167,46 @@ Describe 'Search-DelimitedFile' {
             $result[0].Id | Should -Be '1'
         }
 
+        It 'infers a tab delimiter for .tab files' {
+            $tabPath = Initialize-DelimitedTestFile -Name 'events.tab' -Content "Id`tLevel`tMessage`n1`tError`tTimed out`n2`tInfo`tStarted"
+
+            $result = @(Search-DelimitedFile -Path $tabPath -Criteria @{ Level = '^Error$'; Message = 'out$' })
+
+            $result.Count | Should -Be 1
+            $result[0].Id | Should -Be '1'
+        }
+
+        It 'preserves empty TSV fields from adjacent and trailing tabs' {
+            $tsvPath = Initialize-DelimitedTestFile -Name 'empty-fields.tsv' -Content "Name`tMiddle`tStatus`tNote`nAlice`t`tActive`t`nBob`tQ`tPending`tDone"
+
+            $result = @(Search-DelimitedFile -Path $tsvPath -Criteria @{
+                    Middle = '^$'
+                    Status = '^Active$'
+                    Note = '^$'
+                })
+
+            $result.Count | Should -Be 1
+            $result[0].Name | Should -Be 'Alice'
+            $result[0].Middle | Should -Be ''
+            $result[0].Note | Should -Be ''
+        }
+
+        It 'preserves tabs inside quoted TSV fields' {
+            $tsvPath = Initialize-DelimitedTestFile -Name 'quoted-tab.tsv' -Content "Name`tNote`nAlice`t`"one`ttwo`""
+
+            $result = @(Search-DelimitedFile -Path $tsvPath -Criteria @{ Note = "one`ttwo" } -Literal -Exact)
+
+            $result.Count | Should -Be 1
+            $result[0].Note | Should -Be "one`ttwo"
+        }
+
+        It 'validates criteria against header-only TSV files' {
+            $tsvPath = Initialize-DelimitedTestFile -Name 'header-only.tsv' -Content "Name`tStatus"
+
+            { Search-DelimitedFile -Path $tsvPath -Criteria @{ Missing = 'value' } -ErrorAction Stop } |
+            Should -Throw "*Column 'Missing' was not found*"
+        }
+
         It 'supports an arbitrary delimiter character' {
             $pipePath = Initialize-DelimitedTestFile -Name 'items.txt' -Content "Name|State|Count`nAlice|NY|2`nBob|WA|3"
 
@@ -205,6 +245,19 @@ Describe 'Search-DelimitedFile' {
 
             $result.Count | Should -Be 1
             $result[0].Note | Should -Be 'one,two'
+        }
+
+        It 'rejects blank TSV headers with index-search guidance' {
+            $path = Initialize-DelimitedTestFile -Name 'blank-headers.tsv' -Content "Name`t`tStatus`nAlice`tmiddle`tActive"
+            $searchErrors = @()
+
+            $result = @(Search-DelimitedFile -Path $path -Criteria @{ Status = 'Active' } -Literal -ErrorAction SilentlyContinue -ErrorVariable searchErrors)
+
+            $result.Count | Should -Be 0
+            $searchErrors.Count | Should -Be 1
+            $searchErrors[0].ToString() | Should -Match 'empty column headers'
+            $searchErrors[0].ToString() | Should -Match 'zero-based indexes: 1'
+            $searchErrors[0].ToString() | Should -Match '\-NoHeader and integer Criteria keys'
         }
 
         It 'rejects duplicate file headers with index-search guidance' {
