@@ -739,6 +739,21 @@ Alice,Active,"one,two"
             Test-Path -LiteralPath (Join-Path -Path $outputDirectory -ChildPath 'people-archive.csv') | Should -BeFalse
         }
 
+        It 'continues writing other per-source outputs when one output path cannot be written' {
+            $outputDirectory = Join-Path -Path $TestDrive -ChildPath 'source-partial-write-outputs'
+            New-Item -ItemType Directory -Path $outputDirectory | Out-Null
+            New-Item -ItemType Directory -Path (Join-Path -Path $outputDirectory -ChildPath 'people.csv') | Out-Null
+            $writeErrors = @()
+
+            Search-DelimitedFile -Path $script:csvPath, $script:archivePath -Criteria @{ Status = '^Active$' } -OutputPath $outputDirectory -OutputBySourceFile -ErrorAction SilentlyContinue -ErrorVariable writeErrors
+
+            $writeErrors.Count | Should -BeGreaterThan 0
+            ($writeErrors | ForEach-Object { $_.ToString() }) -join [Environment]::NewLine | Should -Match 'people\.csv'
+            $archiveRows = @(Import-Csv -LiteralPath (Join-Path -Path $outputDirectory -ChildPath 'people-archive.csv'))
+            $archiveRows.Count | Should -Be 1
+            $archiveRows[0].Name | Should -Be 'Dave'
+        }
+
         It 'creates the per-source output directory when it does not exist' {
             $outputDirectory = Join-Path -Path (Join-Path -Path $TestDrive -ChildPath 'missing-source-outputs') -ChildPath 'nested'
 

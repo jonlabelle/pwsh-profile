@@ -766,6 +766,11 @@ function Search-DelimitedFile
                 [System.Text.Encoding]$TextEncoding
             )
 
+            if (Test-Path -LiteralPath $FilePath -PathType Container)
+            {
+                throw "Output path points to a directory: $FilePath"
+            }
+
             if ($Records.Count -eq 0)
             {
                 [System.IO.File]::WriteAllText($FilePath, [String]::Empty, $TextEncoding)
@@ -1408,19 +1413,26 @@ function Search-DelimitedFile
                 $sourceOutputFileCount = 0
                 foreach ($sourceOutputGroup in $sourceOutputGroups.Values)
                 {
-                    if ($NoEmptyOutputFiles -and $sourceOutputGroup.Records.Count -eq 0)
+                    try
                     {
-                        if (Test-Path -LiteralPath $sourceOutputGroup.OutputPath -PathType Leaf)
+                        if ($NoEmptyOutputFiles -and $sourceOutputGroup.Records.Count -eq 0)
                         {
-                            Remove-Item -LiteralPath $sourceOutputGroup.OutputPath -Force -ErrorAction Stop
+                            if (Test-Path -LiteralPath $sourceOutputGroup.OutputPath -PathType Leaf)
+                            {
+                                Remove-Item -LiteralPath $sourceOutputGroup.OutputPath -Force -ErrorAction Stop
+                            }
+
+                            continue
                         }
 
-                        continue
+                        Write-DelimitedOutputPath -FilePath $sourceOutputGroup.OutputPath -Records $sourceOutputGroup.Records -HeaderNames $sourceOutputGroup.HeaderNames -FieldDelimiter $sourceOutputGroup.Delimiter -QuoteMode $UseQuotes -TextEncoding $utf8Encoding
+                        $sourceOutputRecordCount += $sourceOutputGroup.Records.Count
+                        $sourceOutputFileCount++
                     }
-
-                    $sourceOutputRecordCount += $sourceOutputGroup.Records.Count
-                    $sourceOutputFileCount++
-                    Write-DelimitedOutputPath -FilePath $sourceOutputGroup.OutputPath -Records $sourceOutputGroup.Records -HeaderNames $sourceOutputGroup.HeaderNames -FieldDelimiter $sourceOutputGroup.Delimiter -QuoteMode $UseQuotes -TextEncoding $utf8Encoding
+                    catch
+                    {
+                        Write-Error "Unable to write per-source search results to '$($sourceOutputGroup.OutputPath)': $($_.Exception.Message)"
+                    }
                 }
 
                 Write-Verbose "Wrote $sourceOutputRecordCount matching row(s) to $sourceOutputFileCount per-source output file(s) in '$resolvedOutputDirectory'."
