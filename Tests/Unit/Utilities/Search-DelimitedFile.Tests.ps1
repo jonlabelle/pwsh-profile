@@ -611,6 +611,40 @@ Alice,Active,"one,two"
             $exportedRows[0].RowNumber | Should -Be '100'
         }
 
+        It 'preserves duplicate source headers in CSV output' {
+            $path = Initialize-DelimitedTestFile -Name 'duplicate-output-headers.tsv' -Content "File`tStatus`tFile`nBefore`tPassed`tAfter"
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'duplicate-output-headers.csv'
+
+            Search-DelimitedFile -Path $path -Criteria @{ File1 = '^Before$'; File2 = '^After$' } -OutputPath $outputPath
+
+            $lines = (Get-Content -LiteralPath $outputPath -Raw) -split '\r?\n' | Where-Object { $_ }
+            $lines[0] | Should -Be 'File,Status,File'
+            $lines[1] | Should -Be 'Before,Passed,After'
+        }
+
+        It 'preserves duplicate source headers for matched-column CSV output' {
+            $path = Initialize-DelimitedTestFile -Name 'duplicate-output-selected-headers.tsv' -Content "File`tStatus`tFile`nBefore`tPassed`tAfter"
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'duplicate-output-selected-headers.csv'
+
+            Search-DelimitedFile -Path $path -Criteria @{ File1 = '^Before$'; File2 = '^After$' } -MatchColumnsOnly -OutputPath $outputPath
+
+            $lines = (Get-Content -LiteralPath $outputPath -Raw) -split '\r?\n' | Where-Object { $_ }
+            $lines[0] | Should -Be 'File,File'
+            $lines[1] | Should -Be 'Before,After'
+        }
+
+        It 'keeps generated duplicate header names in JSON output' {
+            $path = Initialize-DelimitedTestFile -Name 'duplicate-output-headers-json.tsv' -Content "File`tStatus`tFile`nBefore`tPassed`tAfter"
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'duplicate-output-headers.json'
+
+            Search-DelimitedFile -Path $path -Criteria @{ File1 = '^Before$'; File2 = '^After$' } -OutputPath $outputPath
+
+            [Array]$exportedRows = Get-Content -LiteralPath $outputPath -Raw | ConvertFrom-Json
+            @($exportedRows[0].PSObject.Properties.Name) | Should -Be @('File1', 'Status', 'File2')
+            $exportedRows[0].File1 | Should -Be 'Before'
+            $exportedRows[0].File2 | Should -Be 'After'
+        }
+
         It 'writes matching rows to per-source output files in the output directory' {
             $outputDirectory = Join-Path -Path $TestDrive -ChildPath 'source-outputs'
             New-Item -ItemType Directory -Path $outputDirectory | Out-Null
@@ -643,6 +677,19 @@ Alice,Active,"one,two"
             $exportedRows = @(Import-Csv -LiteralPath $outputPath -Delimiter ([Char]9))
             $exportedRows.Count | Should -Be 1
             $exportedRows[0].Id | Should -Be '1'
+        }
+
+        It 'preserves duplicate source headers in per-source output files' {
+            $inputPath = Initialize-DelimitedTestFile -Name 'duplicate-per-source-headers.tsv' -Content "File`tStatus`tFile`nBefore`tPassed`tAfter"
+            $outputDirectory = Join-Path -Path $TestDrive -ChildPath 'duplicate-per-source-outputs'
+            New-Item -ItemType Directory -Path $outputDirectory | Out-Null
+
+            Search-DelimitedFile -Path $inputPath -Criteria @{ File1 = '^Before$'; File2 = '^After$' } -OutputPath $outputDirectory -OutputBySourceFile
+
+            $outputPath = Join-Path -Path $outputDirectory -ChildPath 'duplicate-per-source-headers.tsv'
+            $lines = (Get-Content -LiteralPath $outputPath -Raw) -split '\r?\n' | Where-Object { $_ }
+            $lines[0] | Should -Be "File`tStatus`tFile"
+            $lines[1] | Should -Be "Before`tPassed`tAfter"
         }
 
         It 'creates an empty per-source output file when a valid source has no matches' {

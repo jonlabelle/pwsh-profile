@@ -120,6 +120,9 @@ function Search-DelimitedFile
         output file in that directory using the source file's leaf name. Source files with no
         matches write empty output files.
 
+        CSV and TSV output preserve source header text, including duplicate header names. Pipeline
+        and JSON output continue to use generated unique property names for duplicate headers.
+
     .PARAMETER OutputBySourceFile
         Writes matched rows to separate files by source file instead of aggregating all matches into
         one output file. Requires OutputPath. OutputPath identifies the target directory, which is
@@ -524,6 +527,45 @@ function Search-DelimitedFile
             return $candidateName
         }
 
+        function Resolve-OutputHeaderNames
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String[]]$PropertyNames,
+
+                [Parameter(Mandatory)]
+                [String[]]$ColumnNames,
+
+                [Parameter(Mandatory)]
+                [String[]]$SourceColumnNames
+            )
+
+            $headerNames = New-Object System.Collections.ArrayList
+            foreach ($propertyName in $PropertyNames)
+            {
+                $matchedColumnIndex = -1
+                for ($columnIndex = 0; $columnIndex -lt $ColumnNames.Count; $columnIndex++)
+                {
+                    if ([String]::Equals($ColumnNames[$columnIndex], $propertyName, [StringComparison]::Ordinal))
+                    {
+                        $matchedColumnIndex = $columnIndex
+                        break
+                    }
+                }
+
+                if ($matchedColumnIndex -ge 0)
+                {
+                    [void]$headerNames.Add($SourceColumnNames[$matchedColumnIndex])
+                }
+                else
+                {
+                    [void]$headerNames.Add($propertyName)
+                }
+            }
+
+            return [String[]]$headerNames.ToArray([String])
+        }
+
         function Resolve-SearchCriteria
         {
             param(
@@ -696,6 +738,9 @@ function Search-DelimitedFile
                 [AllowEmptyCollection()]
                 [System.Collections.Generic.List[Object]]$Records,
 
+                [Parameter()]
+                [String[]]$HeaderNames,
+
                 [Parameter(Mandatory)]
                 [Char]$FieldDelimiter,
 
@@ -714,8 +759,13 @@ function Search-DelimitedFile
             }
 
             $propertyNames = [String[]]@($Records[0].PSObject.Properties | ForEach-Object { $_.Name })
+            if ($null -eq $HeaderNames -or $HeaderNames.Count -ne $propertyNames.Count)
+            {
+                $HeaderNames = $propertyNames
+            }
+
             $lines = New-Object 'System.Collections.Generic.List[String]'
-            $lines.Add((ConvertTo-DelimitedRecord -Fields $propertyNames -FieldDelimiter $FieldDelimiter -QuoteMode $QuoteMode))
+            $lines.Add((ConvertTo-DelimitedRecord -Fields $HeaderNames -FieldDelimiter $FieldDelimiter -QuoteMode $QuoteMode))
 
             for ($recordIndex = 0; $recordIndex -lt $Records.Count; $recordIndex++)
             {
@@ -793,6 +843,7 @@ function Search-DelimitedFile
         $resolvedOutputPath = $null
         $resolvedOutputDirectory = $null
         $outputFormat = $null
+        $outputHeaderNames = $null
         $outputRecords = New-Object 'System.Collections.Generic.List[Object]'
         $sourceOutputGroups = New-Object 'System.Collections.Generic.Dictionary[String,Object]' ([StringComparer]::OrdinalIgnoreCase)
 
@@ -1113,6 +1164,7 @@ function Search-DelimitedFile
                     }
 
                     $columnNames = $null
+                    $sourceColumnNames = $null
                     $skipFirstImportedRow = $false
                     if ($PSBoundParameters.ContainsKey('Header'))
                     {
@@ -1123,6 +1175,7 @@ function Search-DelimitedFile
                         }
                         $importParameters.Header = $Header
                         $columnNames = [String[]]$Header
+                        $sourceColumnNames = [String[]]$Header
                     }
                     elseif ($NoHeader)
                     {
@@ -1132,6 +1185,7 @@ function Search-DelimitedFile
                         }
                         $importParameters.Header = [String[]]$generatedHeader
                         $columnNames = [String[]]$generatedHeader
+                        $sourceColumnNames = [String[]]$generatedHeader
                     }
                     else
                     {
@@ -1154,6 +1208,7 @@ function Search-DelimitedFile
                         }
 
                         $columnNames = Resolve-DuplicateColumnNames -ColumnNames $firstFields
+                        $sourceColumnNames = [String[]]$firstFields
                         for ($headerIndex = 0; $headerIndex -lt $firstFields.Count; $headerIndex++)
                         {
                             if (-not [String]::Equals($firstFields[$headerIndex], $columnNames[$headerIndex], [StringComparison]::Ordinal))
@@ -1190,12 +1245,33 @@ function Search-DelimitedFile
                         {
                             Resolve-UniqueColumnName -ColumnName 'RowNumber' -ExistingColumnNames $columnNames
                         }
+
+                        $delimitedOutputPropertyNames = New-Object System.Collections.ArrayList
+                        if ($IncludeFileName)
+                        {
+                            [void]$delimitedOutputPropertyNames.Add('FileName')
+                        }
+                        if ($IncludeFilePath)
+                        {
+                            [void]$delimitedOutputPropertyNames.Add('FilePath')
+                        }
+                        if ($IncludeRowNumber)
+                        {
+                            [void]$delimitedOutputPropertyNames.Add($rowNumberColumnName)
+                        }
+                        foreach ($selectedColumn in $selectedColumns)
+                        {
+                            [void]$delimitedOutputPropertyNames.Add($selectedColumn)
+                        }
+                        $delimitedOutputHeaderNames = Resolve-OutputHeaderNames -PropertyNames ([String[]]$delimitedOutputPropertyNames.ToArray([String])) -ColumnNames $columnNames -SourceColumnNames $sourceColumnNames
+
                         $sourceOutputGroup = if ($OutputBySourceFile)
                         {
                             [PSCustomObject]@{
                                 SourceFile = $filePath
                                 OutputPath = $sourceOutputPath
                                 Delimiter = $fileDelimiter
+                                HeaderNames = $delimitedOutputHeaderNames
                                 Records = New-Object 'System.Collections.Generic.List[Object]'
                             }
                         }
@@ -1273,6 +1349,10 @@ function Search-DelimitedFile
                                         }
                                         else
                                         {
+                                            if ($null -eq $outputHeaderNames)
+                                            {
+                                                $outputHeaderNames = $delimitedOutputHeaderNames
+                                            }
                                             $outputRecords.Add($resultObject)
                                         }
                                     }
@@ -1310,7 +1390,7 @@ function Search-DelimitedFile
                 foreach ($sourceOutputGroup in $sourceOutputGroups.Values)
                 {
                     $sourceOutputRecordCount += $sourceOutputGroup.Records.Count
-                    Write-DelimitedOutputPath -FilePath $sourceOutputGroup.OutputPath -Records $sourceOutputGroup.Records -FieldDelimiter $sourceOutputGroup.Delimiter -QuoteMode $UseQuotes -TextEncoding $utf8Encoding
+                    Write-DelimitedOutputPath -FilePath $sourceOutputGroup.OutputPath -Records $sourceOutputGroup.Records -HeaderNames $sourceOutputGroup.HeaderNames -FieldDelimiter $sourceOutputGroup.Delimiter -QuoteMode $UseQuotes -TextEncoding $utf8Encoding
                 }
 
                 Write-Verbose "Wrote $sourceOutputRecordCount matching row(s) to $($sourceOutputGroups.Count) per-source output file(s) in '$resolvedOutputDirectory'."
@@ -1342,11 +1422,11 @@ function Search-DelimitedFile
                     }
                     'Csv'
                     {
-                        Write-DelimitedOutputPath -FilePath $resolvedOutputPath -Records $outputRecords -FieldDelimiter ',' -QuoteMode $UseQuotes -TextEncoding $utf8Encoding
+                        Write-DelimitedOutputPath -FilePath $resolvedOutputPath -Records $outputRecords -HeaderNames $outputHeaderNames -FieldDelimiter ',' -QuoteMode $UseQuotes -TextEncoding $utf8Encoding
                     }
                     'Tsv'
                     {
-                        Write-DelimitedOutputPath -FilePath $resolvedOutputPath -Records $outputRecords -FieldDelimiter ([Char]9) -QuoteMode $UseQuotes -TextEncoding $utf8Encoding
+                        Write-DelimitedOutputPath -FilePath $resolvedOutputPath -Records $outputRecords -HeaderNames $outputHeaderNames -FieldDelimiter ([Char]9) -QuoteMode $UseQuotes -TextEncoding $utf8Encoding
                     }
                 }
 
