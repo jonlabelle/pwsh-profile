@@ -102,6 +102,12 @@ Describe 'Search-DelimitedFile' {
 
             $outputBySourceFileParameter.ParameterType | Should -Be ([Switch])
         }
+
+        It 'exposes NoEmptyOutputFiles as a switch parameter' {
+            $noEmptyOutputFilesParameter = (Get-Command -Name Search-DelimitedFile).Parameters.NoEmptyOutputFiles
+
+            $noEmptyOutputFilesParameter.ParameterType | Should -Be ([Switch])
+        }
     }
 
     Context 'CSV matching with headers' {
@@ -703,6 +709,36 @@ Alice,Active,"one,two"
             (Get-Item -LiteralPath $outputPath).Length | Should -Be 0
         }
 
+        It 'skips per-source output files with no matches when empty output files are disabled' {
+            $outputDirectory = Join-Path -Path $TestDrive -ChildPath 'source-skip-empty-outputs'
+            New-Item -ItemType Directory -Path $outputDirectory | Out-Null
+
+            Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Missing$' } -OutputPath $outputDirectory -OutputBySourceFile -NoEmptyOutputFiles
+
+            Test-Path -LiteralPath (Join-Path -Path $outputDirectory -ChildPath 'people.csv') | Should -BeFalse
+        }
+
+        It 'removes existing per-source output files with no matches when empty output files are disabled' {
+            $outputDirectory = Join-Path -Path $TestDrive -ChildPath 'source-skip-existing-empty-outputs'
+            New-Item -ItemType Directory -Path $outputDirectory | Out-Null
+            $outputPath = Join-Path -Path $outputDirectory -ChildPath 'people.csv'
+            Set-Content -LiteralPath $outputPath -Value "Name,Status`nExisting,Active" -Encoding UTF8
+
+            Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Missing$' } -OutputPath $outputDirectory -OutputBySourceFile -NoEmptyOutputFiles
+
+            Test-Path -LiteralPath $outputPath | Should -BeFalse
+        }
+
+        It 'still writes per-source output files with matches when empty output files are disabled' {
+            $outputDirectory = Join-Path -Path $TestDrive -ChildPath 'source-skip-empty-mixed-outputs'
+            New-Item -ItemType Directory -Path $outputDirectory | Out-Null
+
+            Search-DelimitedFile -Path $script:csvPath, $script:archivePath -Criteria @{ Name = '^Alice$' } -OutputPath $outputDirectory -OutputBySourceFile -NoEmptyOutputFiles
+
+            Test-Path -LiteralPath (Join-Path -Path $outputDirectory -ChildPath 'people.csv') -PathType Leaf | Should -BeTrue
+            Test-Path -LiteralPath (Join-Path -Path $outputDirectory -ChildPath 'people-archive.csv') | Should -BeFalse
+        }
+
         It 'creates the per-source output directory when it does not exist' {
             $outputDirectory = Join-Path -Path (Join-Path -Path $TestDrive -ChildPath 'missing-source-outputs') -ChildPath 'nested'
 
@@ -757,6 +793,23 @@ Alice,Active,"one,two"
             (Get-Item -LiteralPath $outputPath).Length | Should -Be 0
         }
 
+        It 'skips aggregate CSV output when no rows match and empty output files are disabled' {
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'skip-empty.csv'
+
+            Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Missing$' } -OutputPath $outputPath -NoEmptyOutputFiles
+
+            Test-Path -LiteralPath $outputPath | Should -BeFalse
+        }
+
+        It 'removes an existing aggregate output when no rows match and empty output files are disabled' {
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'skip-existing-empty.csv'
+            Set-Content -LiteralPath $outputPath -Value "Name,Status`nExisting,Active" -Encoding UTF8
+
+            Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Missing$' } -OutputPath $outputPath -NoEmptyOutputFiles
+
+            Test-Path -LiteralPath $outputPath | Should -BeFalse
+        }
+
         It 'creates an empty TSV file when no rows match' {
             $outputPath = Join-Path -Path $TestDrive -ChildPath 'empty.tsv'
 
@@ -764,6 +817,14 @@ Alice,Active,"one,two"
 
             Test-Path -LiteralPath $outputPath -PathType Leaf | Should -BeTrue
             (Get-Item -LiteralPath $outputPath).Length | Should -Be 0
+        }
+
+        It 'skips aggregate JSON output when no rows match and empty output files are disabled' {
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'skip-empty.json'
+
+            Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Missing$' } -OutputPath $outputPath -NoEmptyOutputFiles
+
+            Test-Path -LiteralPath $outputPath | Should -BeFalse
         }
 
         It 'overwrites an existing output file' {
@@ -820,6 +881,11 @@ Alice,Active,"one,two"
 
         It 'rejects OutputBySourceFile without OutputPath' {
             { Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Alice$' } -OutputBySourceFile } |
+            Should -Throw '*requires OutputPath*'
+        }
+
+        It 'rejects NoEmptyOutputFiles without OutputPath' {
+            { Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '^Alice$' } -NoEmptyOutputFiles } |
             Should -Throw '*requires OutputPath*'
         }
 

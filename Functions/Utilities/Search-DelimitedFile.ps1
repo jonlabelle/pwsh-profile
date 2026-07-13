@@ -129,6 +129,12 @@ function Search-DelimitedFile
         created when needed. Output files use each source file's leaf name and the delimiter used to
         read that source.
 
+    .PARAMETER NoEmptyOutputFiles
+        Skips writing output files that would contain no matched records. For aggregate output, the
+        OutputPath target is not created when no rows match, and an existing output file is removed.
+        With OutputBySourceFile, source files with no matches do not create per-source output files,
+        and existing per-source output files are removed.
+
     .PARAMETER UseQuotes
         Controls quoting for CSV and TSV output files. AsNeeded quotes only fields that contain
         the output delimiter, double quotes, or line breaks. Always quotes every header and field.
@@ -252,6 +258,11 @@ function Search-DelimitedFile
         file name.
 
     .EXAMPLE
+        PS > Search-DelimitedFile './users.csv' @{ Status = '^Disabled$' } -OutputPath './disabled.csv' -NoEmptyOutputFiles
+
+        Writes disabled.csv only when at least one row matches.
+
+    .EXAMPLE
         PS > Search-DelimitedFile './users.csv' @{ Status = '^Active$' } -OutputPath './active.csv' -UseQuotes Never
 
         Writes matching rows to a CSV file without wrapping output headers or values in quotes.
@@ -343,6 +354,9 @@ function Search-DelimitedFile
 
         [Parameter()]
         [Switch]$OutputBySourceFile,
+
+        [Parameter()]
+        [Switch]$NoEmptyOutputFiles,
 
         [Parameter()]
         [ValidateSet('AsNeeded', 'Always', 'Never')]
@@ -854,6 +868,10 @@ function Search-DelimitedFile
         if ($OutputBySourceFile -and -not $writeOutputPath)
         {
             throw 'OutputBySourceFile requires OutputPath.'
+        }
+        if ($NoEmptyOutputFiles -and -not $writeOutputPath)
+        {
+            throw 'NoEmptyOutputFiles requires OutputPath.'
         }
 
         if ($writeOutputPath)
@@ -1387,16 +1405,39 @@ function Search-DelimitedFile
             if ($OutputBySourceFile)
             {
                 $sourceOutputRecordCount = 0
+                $sourceOutputFileCount = 0
                 foreach ($sourceOutputGroup in $sourceOutputGroups.Values)
                 {
+                    if ($NoEmptyOutputFiles -and $sourceOutputGroup.Records.Count -eq 0)
+                    {
+                        if (Test-Path -LiteralPath $sourceOutputGroup.OutputPath -PathType Leaf)
+                        {
+                            Remove-Item -LiteralPath $sourceOutputGroup.OutputPath -Force -ErrorAction Stop
+                        }
+
+                        continue
+                    }
+
                     $sourceOutputRecordCount += $sourceOutputGroup.Records.Count
+                    $sourceOutputFileCount++
                     Write-DelimitedOutputPath -FilePath $sourceOutputGroup.OutputPath -Records $sourceOutputGroup.Records -HeaderNames $sourceOutputGroup.HeaderNames -FieldDelimiter $sourceOutputGroup.Delimiter -QuoteMode $UseQuotes -TextEncoding $utf8Encoding
                 }
 
-                Write-Verbose "Wrote $sourceOutputRecordCount matching row(s) to $($sourceOutputGroups.Count) per-source output file(s) in '$resolvedOutputDirectory'."
+                Write-Verbose "Wrote $sourceOutputRecordCount matching row(s) to $sourceOutputFileCount per-source output file(s) in '$resolvedOutputDirectory'."
             }
             else
             {
+                if ($NoEmptyOutputFiles -and $outputRecords.Count -eq 0)
+                {
+                    if (Test-Path -LiteralPath $resolvedOutputPath -PathType Leaf)
+                    {
+                        Remove-Item -LiteralPath $resolvedOutputPath -Force -ErrorAction Stop
+                    }
+
+                    Write-Verbose "Skipped empty output for '$resolvedOutputPath' because no rows matched."
+                    return
+                }
+
                 switch ($outputFormat)
                 {
                     'Json'
