@@ -95,6 +95,12 @@ function Search-DelimitedFile
         Adds a FilePath property containing the absolute source file path to every result.
         The command rejects this option when an input file already contains a FilePath column.
 
+    .PARAMETER IncludeRowNumber
+        Adds a RowNumber property containing the one-based delimited-record number from the
+        source file to every result. Header rows count as row 1 when header parsing is enabled.
+        If the input file already contains a RowNumber column, the added property uses the next
+        available suffixed name, such as RowNumber1 or RowNumber2.
+
     .PARAMETER Encoding
         Specifies the input file encoding. The default is UTF8. Accepted values are compatible
         with both Windows PowerShell 5.1 and PowerShell Core. OutputFile writes UTF-8 regardless
@@ -188,6 +194,11 @@ function Search-DelimitedFile
         PS > Search-DelimitedFile './exports/*.csv' @{ Result = '^Failed$' } -IncludeFileName -IncludeFilePath
 
         Adds both the source file name and absolute file path to each matched row.
+
+    .EXAMPLE
+        PS > Search-DelimitedFile './exports/*.csv' @{ Result = '^Failed$' } -IncludeFileName -IncludeRowNumber
+
+        Adds the source file name and one-based source row number to each matched row.
 
     .EXAMPLE
         PS > Search-DelimitedFile './inventory.csv', './inventory-archive.csv' @{ Sku = '^ABC-\d+$' }
@@ -297,6 +308,9 @@ function Search-DelimitedFile
 
         [Parameter()]
         [Switch]$IncludeFilePath,
+
+        [Parameter()]
+        [Switch]$IncludeRowNumber,
 
         [Parameter()]
         [ValidateSet('ASCII', 'BigEndianUnicode', 'Default', 'OEM', 'Unicode', 'UTF7', 'UTF8', 'UTF32')]
@@ -456,6 +470,38 @@ function Search-DelimitedFile
             }
 
             return [String[]]$resolvedColumnNames.ToArray([String])
+        }
+
+        function Resolve-UniqueColumnName
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$ColumnName,
+
+                [Parameter(Mandatory)]
+                [String[]]$ExistingColumnNames
+            )
+
+            $usedNames = New-Object 'System.Collections.Generic.HashSet[String]' ([StringComparer]::OrdinalIgnoreCase)
+            foreach ($existingColumnName in $ExistingColumnNames)
+            {
+                [void]$usedNames.Add($existingColumnName)
+            }
+
+            if (-not $usedNames.Contains($ColumnName))
+            {
+                return $ColumnName
+            }
+
+            $suffix = 1
+            do
+            {
+                $candidateName = "$ColumnName$suffix"
+                $suffix++
+            }
+            while ($usedNames.Contains($candidateName))
+
+            return $candidateName
         }
 
         function Resolve-SearchCriteria
@@ -1059,6 +1105,10 @@ function Search-DelimitedFile
                         {
                             throw "Input file '$filePath' already contains a FilePath column. Omit IncludeFilePath or rename the input column."
                         }
+                        $rowNumberColumnName = if ($IncludeRowNumber)
+                        {
+                            Resolve-UniqueColumnName -ColumnName 'RowNumber' -ExistingColumnNames $columnNames
+                        }
                     }
                     catch
                     {
@@ -1069,10 +1119,20 @@ function Search-DelimitedFile
                     try
                     {
                         $importedRowIndex = 0
+                        $rowNumberOffset = if ($PSBoundParameters.ContainsKey('Header') -or $NoHeader -or $skipFirstImportedRow)
+                        {
+                            0
+                        }
+                        else
+                        {
+                            1
+                        }
+
                         Import-Csv @importParameters | ForEach-Object {
                             $row = $_
                             $shouldSkipRow = $skipFirstImportedRow -and $importedRowIndex -eq 0
                             $importedRowIndex++
+                            $rowNumber = $importedRowIndex + $rowNumberOffset
 
                             if (-not $shouldSkipRow)
                             {
@@ -1100,6 +1160,10 @@ function Search-DelimitedFile
                                     if ($IncludeFilePath)
                                     {
                                         $outputRow.FilePath = $filePath
+                                    }
+                                    if ($IncludeRowNumber)
+                                    {
+                                        $outputRow[$rowNumberColumnName] = $rowNumber
                                     }
                                     foreach ($columnName in $selectedColumns)
                                     {

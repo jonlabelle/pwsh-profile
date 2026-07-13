@@ -89,6 +89,12 @@ Describe 'Search-DelimitedFile' {
             $validateSet = $useQuotesParameter.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }
             $validateSet.ValidValues | Should -Be @('AsNeeded', 'Always', 'Never')
         }
+
+        It 'exposes IncludeRowNumber as a switch parameter' {
+            $rowNumberParameter = (Get-Command -Name Search-DelimitedFile).Parameters.IncludeRowNumber
+
+            $rowNumberParameter.ParameterType | Should -Be ([Switch])
+        }
     }
 
     Context 'CSV matching with headers' {
@@ -376,6 +382,47 @@ Describe 'Search-DelimitedFile' {
             $result[0].FilePath | Should -Be $script:csvPath
         }
 
+        It 'adds the one-based source row number on request' {
+            $result = @(Search-DelimitedFile -Path $script:csvPath -Criteria @{ City = '^Boston$' } -IncludeRowNumber -MatchColumnsOnly)
+
+            $result.Count | Should -Be 2
+            @($result[0].PSObject.Properties.Name) | Should -Be @('RowNumber', 'City')
+            @($result.RowNumber) | Should -Be @(2, 4)
+        }
+
+        It 'starts row numbers at one for headerless files' {
+            $path = Initialize-DelimitedTestFile -Name 'headerless-row-number.csv' -Content "Alice,Active`nBob,Pending`nCarol,Active"
+
+            $result = @(Search-DelimitedFile -Path $path -Criteria @{ 1 = '^Active$' } -NoHeader -IncludeRowNumber -MatchColumnsOnly)
+
+            $result.Count | Should -Be 2
+            @($result[0].PSObject.Properties.Name) | Should -Be @('RowNumber', 'Column1')
+            @($result.RowNumber) | Should -Be @(1, 3)
+        }
+
+        It 'suffixes the row number metadata name when RowNumber already exists' {
+            $path = Initialize-DelimitedTestFile -Name 'rownumber-column.csv' -Content "RowNumber,Value`n100,one"
+
+            $result = @(Search-DelimitedFile -Path $path -Criteria @{ Value = '^one$' } -IncludeRowNumber)
+
+            $result.Count | Should -Be 1
+            @($result[0].PSObject.Properties.Name) | Should -Be @('RowNumber1', 'RowNumber', 'Value')
+            $result[0].RowNumber1 | Should -Be 2
+            $result[0].RowNumber | Should -Be '100'
+        }
+
+        It 'uses the next available row number metadata suffix' {
+            $path = Initialize-DelimitedTestFile -Name 'rownumber-suffix-column.csv' -Content "RowNumber,RowNumber1,Value`n100,existing,one"
+
+            $result = @(Search-DelimitedFile -Path $path -Criteria @{ Value = '^one$' } -IncludeRowNumber)
+
+            $result.Count | Should -Be 1
+            @($result[0].PSObject.Properties.Name) | Should -Be @('RowNumber2', 'RowNumber', 'RowNumber1', 'Value')
+            $result[0].RowNumber2 | Should -Be 2
+            $result[0].RowNumber | Should -Be '100'
+            $result[0].RowNumber1 | Should -Be 'existing'
+        }
+
         It 'searches a directory non-recursively using the default filters' {
             $directory = Join-Path -Path $TestDrive -ChildPath 'directory-default'
             $nestedDirectory = Join-Path -Path $directory -ChildPath 'nested'
@@ -531,6 +578,30 @@ Alice,Active,"one,two"
             [Array]$exportedRows = $jsonText | ConvertFrom-Json
             $exportedRows.Count | Should -Be 1
             @($exportedRows[0].PSObject.Properties.Name) | Should -Be @('FileName', 'Status')
+        }
+
+        It 'writes row numbers to output files when requested' {
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'row-numbers.csv'
+
+            Search-DelimitedFile -Path $script:csvPath -Criteria @{ City = '^Boston$' } -IncludeRowNumber -MatchColumnsOnly -OutputFile $outputPath
+
+            $exportedRows = @(Import-Csv -LiteralPath $outputPath)
+            $exportedRows.Count | Should -Be 2
+            @($exportedRows[0].PSObject.Properties.Name) | Should -Be @('RowNumber', 'City')
+            @($exportedRows.RowNumber) | Should -Be @('2', '4')
+        }
+
+        It 'writes suffixed row number metadata to output files when RowNumber already exists' {
+            $path = Initialize-DelimitedTestFile -Name 'rownumber-output-column.csv' -Content "RowNumber,Value`n100,one"
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'row-number-suffix-output.csv'
+
+            Search-DelimitedFile -Path $path -Criteria @{ Value = '^one$' } -IncludeRowNumber -OutputFile $outputPath
+
+            $exportedRows = @(Import-Csv -LiteralPath $outputPath)
+            $exportedRows.Count | Should -Be 1
+            @($exportedRows[0].PSObject.Properties.Name) | Should -Be @('RowNumber1', 'RowNumber', 'Value')
+            $exportedRows[0].RowNumber1 | Should -Be '2'
+            $exportedRows[0].RowNumber | Should -Be '100'
         }
 
         It 'aggregates results from multiple input files into one output file' {
