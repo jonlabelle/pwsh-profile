@@ -156,6 +156,24 @@ Describe 'Export-InstalledPlatformPackage' {
         Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
     }
 
+    It 'rejects Both dependency export mode for winget records' {
+        $package = [PSCustomObject]@{
+            Name = 'Git'
+            Id = 'Git.Git'
+            PackageManager = 'winget'
+            PackageManagerDisplayName = 'Windows Package Manager'
+            Type = 'Package'
+            InstalledVersion = '2.45.1'
+            Source = 'winget'
+        }
+        $exportPath = Join-Path -Path $TestDrive -ChildPath 'winget-both.json'
+
+        { Export-InstalledPlatformPackage -Package $package -Path $exportPath -DependencyMode Both } |
+            Should -Throw -ExpectedMessage "*Value 'Both' for parameter -DependencyMode*package manager 'winget'*supports only 'None' and 'DependsOn'*"
+
+        Test-Path -LiteralPath $exportPath | Should -BeFalse
+    }
+
     It 'sets IncludeDependencies to false on the result when DependencyMode is None' {
         $package = [PSCustomObject]@{
             Name = 'git'

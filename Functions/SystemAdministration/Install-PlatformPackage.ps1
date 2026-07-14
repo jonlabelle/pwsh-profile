@@ -42,8 +42,14 @@ function Install-PlatformPackage
         Use 0 to return all normalized search results to the picker.
 
     .PARAMETER NoSudo
-        On Linux package managers that normally require elevated privileges, do not
-        automatically prefix install commands with sudo.
+        With apt or apk, does not automatically prefix install commands with sudo. Using
+        this parameter with winget or Homebrew throws an unsupported-parameter error.
+
+    .PARAMETER Interactive
+        When installing with winget, passes --interactive so the installer can request
+        user input and display its interactive UI. In the winget query picker, initially
+        enables interactive mode for every row; press I to toggle it for the current package.
+        Using this parameter with another package manager throws an unsupported-parameter error.
 
     .PARAMETER FilterSource
         Pre-filters the interactive picker to show only packages from this source (e.g. 'winget').
@@ -65,6 +71,11 @@ function Install-PlatformPackage
 
         Installs a Windows package by winget package id when winget is the detected
         package manager.
+
+    .EXAMPLE
+        PS > Install-PlatformPackage -Name Git.Git -Interactive
+
+        Installs a Windows package with winget's interactive installer mode enabled.
 
     .EXAMPLE
         PS > Find-PlatformPackage -NonInteractive -Query code | Install-PlatformPackage
@@ -136,6 +147,9 @@ function Install-PlatformPackage
 
         [Parameter()]
         [Switch]$NoSudo,
+
+        [Parameter()]
+        [Switch]$Interactive,
 
         [Parameter(ParameterSetName = 'Query')]
         [String]$FilterSource = '',
@@ -420,6 +434,24 @@ function Install-PlatformPackage
             }
 
             throw 'No supported package manager was found. Install winget, brew, apt, or apk and try again.'
+        }
+
+        function Assert-PackageManagerParameterSupport
+        {
+            param(
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Manager
+            )
+
+            if ($Interactive -and $Manager.Name -ne 'winget')
+            {
+                throw "Parameter -Interactive is not supported by package manager '$($Manager.Name)'. It is only supported by winget."
+            }
+
+            if ($NoSudo -and $Manager.Name -notin @('apt', 'apk'))
+            {
+                throw "Parameter -NoSudo is not supported by package manager '$($Manager.Name)'. It is only supported by apt and apk."
+            }
         }
 
         function Resolve-ManagerFromPackages
@@ -927,12 +959,16 @@ function Install-PlatformPackage
                         @()
                     }
 
+                    $interactiveProperty = $Package.PSObject.Properties['Interactive']
+                    $useInteractive = if ($null -ne $interactiveProperty) { [Boolean]$interactiveProperty.Value } else { [Boolean]$Interactive }
+                    $interactiveArguments = if ($useInteractive) { @('--interactive') } else { @() }
+
                     if (-not [String]::IsNullOrWhiteSpace($Package.Id))
                     {
-                        return @('install', '--id', $Package.Id, '--exact') + $sourceArguments + @('--accept-source-agreements', '--accept-package-agreements')
+                        return @('install', '--id', $Package.Id, '--exact') + $sourceArguments + @('--accept-source-agreements', '--accept-package-agreements') + $interactiveArguments
                     }
 
-                    return @('install', $Package.Name) + $sourceArguments + @('--accept-source-agreements', '--accept-package-agreements')
+                    return @('install', $Package.Name) + $sourceArguments + @('--accept-source-agreements', '--accept-package-agreements') + $interactiveArguments
                 }
                 'brew'
                 {
@@ -1249,10 +1285,14 @@ function Install-PlatformPackage
             {
                 param(
                     [Parameter(Mandatory)]
-                    [PSCustomObject]$ColumnWidths
+                    [PSCustomObject]$ColumnWidths,
+
+                    [Parameter()]
+                    [Switch]$IncludesInteractive
                 )
 
-                return 6 + [Int32]$ColumnWidths.Name + 1 + [Int32]$ColumnWidths.Id + 1 + [Int32]$ColumnWidths.Version + 1 + [Int32]$ColumnWidths.Type + 1 + [Int32]$ColumnWidths.Source
+                $prefixWidth = 6 + $(if ($IncludesInteractive) { 4 } else { 0 })
+                return $prefixWidth + [Int32]$ColumnWidths.Name + 1 + [Int32]$ColumnWidths.Id + 1 + [Int32]$ColumnWidths.Version + 1 + [Int32]$ColumnWidths.Type + 1 + [Int32]$ColumnWidths.Source
             }
 
             function Compress-PackagePickerTableWidths
@@ -1262,7 +1302,10 @@ function Install-PlatformPackage
                     [PSCustomObject]$ColumnWidths,
 
                     [Parameter(Mandatory)]
-                    [Int32]$MaximumWidth
+                    [Int32]$MaximumWidth,
+
+                    [Parameter()]
+                    [Switch]$IncludesInteractive
                 )
 
                 $minimumWidths = @{
@@ -1274,23 +1317,17 @@ function Install-PlatformPackage
                 }
                 $shrinkOrder = @('Id', 'Name', 'Version', 'Source', 'Type')
 
-                while ((Get-PackagePickerTableLineWidth -ColumnWidths $ColumnWidths) -gt $MaximumWidth)
+                foreach ($columnName in $shrinkOrder)
                 {
-                    $shrunk = $false
-                    foreach ($columnName in $shrinkOrder)
+                    while (
+                        (Get-PackagePickerTableLineWidth -ColumnWidths $ColumnWidths -IncludesInteractive:$IncludesInteractive.IsPresent) -gt $MaximumWidth -and
+                        [Int32]$ColumnWidths.$columnName -gt [Int32]$minimumWidths[$columnName]
+                    )
                     {
-                        if ([Int32]$ColumnWidths.$columnName -gt [Int32]$minimumWidths[$columnName])
-                        {
-                            $ColumnWidths.$columnName = [Int32]$ColumnWidths.$columnName - 1
-                            $shrunk = $true
-                            if ((Get-PackagePickerTableLineWidth -ColumnWidths $ColumnWidths) -le $MaximumWidth)
-                            {
-                                break
-                            }
-                        }
+                        $ColumnWidths.$columnName = [Int32]$ColumnWidths.$columnName - 1
                     }
 
-                    if (-not $shrunk)
+                    if ((Get-PackagePickerTableLineWidth -ColumnWidths $ColumnWidths -IncludesInteractive:$IncludesInteractive.IsPresent) -le $MaximumWidth)
                     {
                         break
                     }
@@ -1299,6 +1336,7 @@ function Install-PlatformPackage
                 return $ColumnWidths
             }
 
+            $showInteractive = $allPackages[0].PackageManager -eq 'winget'
             $pickerFrameWidth = Get-PackagePickerFrameWidth
             $columnWidths = [PSCustomObject]@{
                 Name = Get-PackagePickerTextMaximum -Values @($allPackages | ForEach-Object { $_.Name }) -Minimum 12 -Maximum 30
@@ -1307,7 +1345,7 @@ function Install-PlatformPackage
                 Type = Get-PackagePickerTextMaximum -Values @($allPackages | ForEach-Object { Get-PackageTypeDisplay -Type $_.Type }) -Minimum 3 -Maximum 7
                 Source = Get-PackagePickerTextMaximum -Values @($allPackages | ForEach-Object { $_.Source }) -Minimum 5 -Maximum 32
             }
-            $columnWidths = Compress-PackagePickerTableWidths -ColumnWidths $columnWidths -MaximumWidth $pickerFrameWidth
+            $columnWidths = Compress-PackagePickerTableWidths -ColumnWidths $columnWidths -MaximumWidth $pickerFrameWidth -IncludesInteractive:$showInteractive
             $nameWidth = [Int32]$columnWidths.Name
             $idWidth = [Int32]$columnWidths.Id
             $versionWidth = [Int32]$columnWidths.Version
@@ -1316,6 +1354,14 @@ function Install-PlatformPackage
             $pageSize = Get-PackagePickerPageSize -RequestedPageSize $PageSize -ItemCount $allPackages.Count
 
             $selectedKeys = [System.Collections.Generic.HashSet[String]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            $interactiveKeys = [System.Collections.Generic.HashSet[String]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            if ($showInteractive -and $Interactive)
+            {
+                foreach ($package in $allPackages)
+                {
+                    [void]$interactiveKeys.Add((Get-PackagePickerKey -Package $package))
+                }
+            }
             $wingetDescriptionAttempted = @{}
             $pendingWingetDescriptionLookupKey = ''
             $cursor = 0
@@ -1750,6 +1796,11 @@ function Install-PlatformPackage
                 Write-PackagePickerHelpItem -Shortcut 'A' -Description 'select or clear all visible packages'
                 Write-PackagePickerHelpItem -Shortcut 'Enter' -Description 'install selected packages, or the current package if none are selected'
 
+                if ($showInteractive)
+                {
+                    Write-PackagePickerHelpItem -Shortcut 'I' -Description 'toggle winget --interactive for the current package'
+                }
+
                 if ($hasSourceFilter)
                 {
                     Write-Host ''
@@ -1864,7 +1915,14 @@ function Install-PlatformPackage
 
                     $sourceHint = if ($hasSourceFilter) { "S: [$($availableSources[$sourceFilterIndex])]  " } else { '' }
                     $sourceSummary = if ($hasSourceFilter) { "source: $($availableSources[$sourceFilterIndex])" } else { '' }
-                    $selectionHint = 'Keys: Space select  Enter install  V details  A toggle all'
+                    $selectionHint = if ($showInteractive)
+                    {
+                        'Keys: Space select  I interactive installer  Enter install  V details  A toggle all'
+                    }
+                    else
+                    {
+                        'Keys: Space select  Enter install  V details  A toggle all'
+                    }
                     $navigationHint = "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel"
                     $frameLines = @(
                         (Format-PickerFrameLine -Text "Install-PlatformPackage - $($allPackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
@@ -1879,8 +1937,16 @@ function Install-PlatformPackage
                         $frameLines += Format-PickerFrameLine -Text 'Backspace/Delete: manager menu' -ForegroundColor DarkGray
                     }
                     $frameLines += ''
-                    $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth), 'Inst') -ForegroundColor DarkGray
-                    $frameLines += Format-PickerFrameLine -Text ('- {0} {1} {2} {3} {4} {5} {6}' -f '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth), '----') -ForegroundColor DarkGray
+                    if ($showInteractive)
+                    {
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6} {7}' -f 'Sel', (Format-PickerCell -Text 'UI' -Width 3), (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth), 'Inst') -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('- {0} {1} {2} {3} {4} {5} {6} {7}' -f '---', '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth), '----') -ForegroundColor DarkGray
+                    }
+                    else
+                    {
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth), 'Inst') -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('- {0} {1} {2} {3} {4} {5} {6}' -f '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth), '----') -ForegroundColor DarkGray
+                    }
 
                     if ($visiblePackages.Count -eq 0)
                     {
@@ -1934,7 +2000,15 @@ function Install-PlatformPackage
                         $cursorMarker = if ($i -eq $cursor) { '>' } else { ' ' }
                         $selectedMarker = if ($selectedKeys.Contains($pkgKey)) { '[x]' } else { '[ ]' }
                         $installedCell = if ($package.Installed) { 'yes ' } else { 'no  ' }
-                        $packageLine = ('{0} {1} {2} {3} {4} {5} {6} {7}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.Version -Width $versionWidth), (Format-PickerCell -Text (Get-PackageTypeDisplay -Type $package.Type) -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth), $installedCell)
+                        if ($showInteractive)
+                        {
+                            $interactiveMarker = if ($interactiveKeys.Contains($pkgKey)) { '[I]' } else { '[ ]' }
+                            $packageLine = ('{0} {1} {2} {3} {4} {5} {6} {7} {8}' -f $cursorMarker, $selectedMarker, $interactiveMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.Version -Width $versionWidth), (Format-PickerCell -Text (Get-PackageTypeDisplay -Type $package.Type) -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth), $installedCell)
+                        }
+                        else
+                        {
+                            $packageLine = ('{0} {1} {2} {3} {4} {5} {6} {7}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.Version -Width $versionWidth), (Format-PickerCell -Text (Get-PackageTypeDisplay -Type $package.Type) -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth), $installedCell)
+                        }
                         if ($package.Installed)
                         {
                             $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor DarkGray
@@ -2082,6 +2156,14 @@ function Install-PlatformPackage
                                 $pendingWingetDescriptionLookupKey = $currentPackageLookupKey
                             }
                         }
+                        'I'
+                        {
+                            if ($showInteractive)
+                            {
+                                $pkgKey = Get-PackagePickerKey -Package $visiblePackages[$cursor]
+                                if ($interactiveKeys.Contains($pkgKey)) { [void]$interactiveKeys.Remove($pkgKey) } else { [void]$interactiveKeys.Add($pkgKey) }
+                            }
+                        }
                         'S'
                         {
                             if ($hasSourceFilter)
@@ -2110,6 +2192,12 @@ function Install-PlatformPackage
                             if ($selectedPackages.Count -eq 0)
                             {
                                 $selectedPackages = @($visiblePackages[$cursor])
+                            }
+
+                            foreach ($pkg in $selectedPackages)
+                            {
+                                $pkgKey = Get-PackagePickerKey -Package $pkg
+                                $pkg | Add-Member -NotePropertyName 'Interactive' -NotePropertyValue ($interactiveKeys.Contains($pkgKey)) -Force
                             }
 
                             return $selectedPackages
@@ -2226,6 +2314,7 @@ function Install-PlatformPackage
             'Query'
             {
                 $manager = Resolve-PackageManager
+                Assert-PackageManagerParameterSupport -Manager $manager
                 $candidatePackages = @(
                     Find-PlatformPackage -NonInteractive -Query $Query -ExcludePackage $ExcludePackage -Top $Top -PackageManager $manager.Name -SkipDescriptionEnrichment:($manager.Name -eq 'winget') -CommandRunner $CommandRunner
                 )
@@ -2248,6 +2337,7 @@ function Install-PlatformPackage
             'Name'
             {
                 $manager = Resolve-PackageManager
+                Assert-PackageManagerParameterSupport -Manager $manager
                 $selectedPackages = @(
                     foreach ($packageName in @($Name | Where-Object { -not [String]::IsNullOrWhiteSpace($_) }))
                     {
@@ -2276,6 +2366,7 @@ function Install-PlatformPackage
                     }
                 )
                 $manager = Resolve-ManagerFromPackages -PackageRecords $pipelinePackages
+                Assert-PackageManagerParameterSupport -Manager $manager
                 $totalMatched = $selectedPackages.Count
             }
         }

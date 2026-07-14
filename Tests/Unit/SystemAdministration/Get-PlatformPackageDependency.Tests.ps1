@@ -176,12 +176,21 @@ Describe 'Get-PlatformPackageDependency' {
             $result[0].DependencyType | Should -Be 'Package Dependencies'
         }
 
-        It 'returns no reverse dependencies for winget' {
+        It 'rejects reverse dependency lookup for winget' {
             $runner = & $script:NewPackageCommandRunner @{}
 
-            $result = @(Get-PlatformPackageDependency -PackageManager winget -Package Git.Git -Direction RequiredBy -CommandRunner $runner)
+            { Get-PlatformPackageDependency -PackageManager winget -Package Git.Git -Direction RequiredBy -CommandRunner $runner } |
+                Should -Throw -ExpectedMessage "*Value 'RequiredBy' for parameter -Direction*package manager 'winget'*supports only 'DependsOn'*"
 
-            $result.Count | Should -Be 0
+            $script:Invocations.Count | Should -Be 0
+        }
+
+        It 'rejects partial Both dependency lookup for winget' {
+            $runner = & $script:NewPackageCommandRunner @{}
+
+            { Get-PlatformPackageDependency -PackageManager winget -Package Git.Git -Direction Both -CommandRunner $runner } |
+                Should -Throw -ExpectedMessage "*Value 'Both' for parameter -Direction*package manager 'winget'*supports only 'DependsOn'*"
+
             $script:Invocations.Count | Should -Be 0
         }
 

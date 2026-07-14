@@ -56,8 +56,8 @@ function Remove-PlatformPackage
         available sources. Only applicable when multiple package sources are present.
 
     .PARAMETER NoSudo
-        On Linux package managers that normally require elevated privileges, do not
-        automatically prefix remove commands with sudo.
+        With apt or apk, does not automatically prefix remove commands with sudo. Using
+        this parameter with winget or Homebrew throws an unsupported-parameter error.
 
     .EXAMPLE
         PS > Remove-PlatformPackage
@@ -753,6 +753,19 @@ function Remove-PlatformPackage
             }
 
             throw 'No supported package manager was found. Install winget, brew, apt, or apk and try again.'
+        }
+
+        function Assert-PackageManagerParameterSupport
+        {
+            param(
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Manager
+            )
+
+            if ($NoSudo -and $Manager.Name -notin @('apt', 'apk'))
+            {
+                throw "Parameter -NoSudo is not supported by package manager '$($Manager.Name)'. It is only supported by apt and apk."
+            }
         }
 
         function Invoke-PackageManagerCommand
@@ -3554,6 +3567,7 @@ function Remove-PlatformPackage
     process
     {
         $manager = Resolve-PackageManager
+        Assert-PackageManagerParameterSupport -Manager $manager
         Write-Verbose "Using package manager: $($manager.DisplayName) ($($manager.Command))"
 
         Write-Host "Checking installed packages with $($manager.DisplayName)..." -ForegroundColor White

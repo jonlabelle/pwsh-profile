@@ -46,7 +46,8 @@ function Show-InstalledPlatformPackage
     .PARAMETER ExportDependencyMode
         Dependency relationships to include in the export. None exports package records
         only. DependsOn includes direct dependencies. Both includes direct dependencies
-        and required-by relationships where supported.
+        and required-by relationships. winget supports only None and DependsOn; requesting
+        Both for winget throws an unsupported-value error.
 
     .EXAMPLE
         PS > Show-InstalledPlatformPackage

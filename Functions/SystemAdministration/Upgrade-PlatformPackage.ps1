@@ -44,13 +44,18 @@ function Upgrade-PlatformPackage
 
     .PARAMETER UninstallPrevious
         When upgrading with winget, passes --uninstall-previous to remove the previously
-        installed version before installing the new one. Has no effect on other package
-        managers (brew, apt, apk), which replace packages atomically as part of their
-        normal upgrade process.
+        installed version before installing the new one. Using this parameter with another
+        package manager throws an unsupported-parameter error.
+
+    .PARAMETER Interactive
+        When upgrading with winget, passes --interactive so the installer can request
+        user input and display its interactive UI. In the winget picker, initially enables
+        interactive mode for every row; press I to toggle it for the current package. Using
+        this parameter with another package manager throws an unsupported-parameter error.
 
     .PARAMETER NoSudo
-        On Linux package managers that normally require elevated privileges, do not
-        automatically prefix refresh and upgrade commands with sudo.
+        With apt or apk, does not automatically prefix refresh and upgrade commands with
+        sudo. Using this parameter with winget or Homebrew throws an unsupported-parameter error.
 
     .EXAMPLE
         PS > Upgrade-PlatformPackage
@@ -62,6 +67,11 @@ function Upgrade-PlatformPackage
         PS > Upgrade-PlatformPackage -All
 
         Refreshes package registry metadata and upgrades all discovered outdated packages.
+
+    .EXAMPLE
+        PS > Upgrade-PlatformPackage -All -Interactive
+
+        Upgrades all discovered winget packages with interactive installer mode enabled.
 
     .EXAMPLE
         PS > Upgrade-PlatformPackage -IncludePackage 'git*','curl' -ExcludePackage '*preview*'
@@ -128,6 +138,9 @@ function Upgrade-PlatformPackage
 
         [Parameter()]
         [Switch]$UninstallPrevious,
+
+        [Parameter()]
+        [Switch]$Interactive,
 
         [Parameter()]
         [Switch]$NoSudo,
@@ -454,6 +467,29 @@ function Upgrade-PlatformPackage
             }
 
             throw 'No supported package manager was found. Install winget, brew, apt, or apk and try again.'
+        }
+
+        function Assert-PackageManagerParameterSupport
+        {
+            param(
+                [Parameter(Mandatory)]
+                [PSCustomObject]$Manager
+            )
+
+            if ($UninstallPrevious -and $Manager.Name -ne 'winget')
+            {
+                throw "Parameter -UninstallPrevious is not supported by package manager '$($Manager.Name)'. It is only supported by winget."
+            }
+
+            if ($Interactive -and $Manager.Name -ne 'winget')
+            {
+                throw "Parameter -Interactive is not supported by package manager '$($Manager.Name)'. It is only supported by winget."
+            }
+
+            if ($NoSudo -and $Manager.Name -notin @('apt', 'apk'))
+            {
+                throw "Parameter -NoSudo is not supported by package manager '$($Manager.Name)'. It is only supported by apt and apk."
+            }
         }
 
         function Invoke-PackageManagerCommand
@@ -2133,10 +2169,13 @@ function Upgrade-PlatformPackage
                     [PSCustomObject]$ColumnWidths,
 
                     [Parameter()]
-                    [Switch]$IncludesUninstallPrevious
+                    [Switch]$IncludesUninstallPrevious,
+
+                    [Parameter()]
+                    [Switch]$IncludesInteractive
                 )
 
-                $prefixWidth = if ($IncludesUninstallPrevious) { 10 } else { 6 }
+                $prefixWidth = 6 + $(if ($IncludesUninstallPrevious) { 6 } else { 0 }) + $(if ($IncludesInteractive) { 4 } else { 0 })
                 return $prefixWidth + [Int32]$ColumnWidths.Name + 1 + [Int32]$ColumnWidths.Id + 1 + [Int32]$ColumnWidths.Installed + 1 + [Int32]$ColumnWidths.Latest + 1 + [Int32]$ColumnWidths.Type + 1 + [Int32]$ColumnWidths.Source
             }
 
@@ -2150,7 +2189,10 @@ function Upgrade-PlatformPackage
                     [Int32]$MaximumWidth,
 
                     [Parameter()]
-                    [Switch]$IncludesUninstallPrevious
+                    [Switch]$IncludesUninstallPrevious,
+
+                    [Parameter()]
+                    [Switch]$IncludesInteractive
                 )
 
                 $minimumWidths = @{
@@ -2163,23 +2205,17 @@ function Upgrade-PlatformPackage
                 }
                 $shrinkOrder = @('Id', 'Name', 'Installed', 'Latest', 'Source', 'Type')
 
-                while ((Get-PackagePickerTableLineWidth -ColumnWidths $ColumnWidths -IncludesUninstallPrevious:$IncludesUninstallPrevious.IsPresent) -gt $MaximumWidth)
+                foreach ($columnName in $shrinkOrder)
                 {
-                    $shrunk = $false
-                    foreach ($columnName in $shrinkOrder)
+                    while (
+                        (Get-PackagePickerTableLineWidth -ColumnWidths $ColumnWidths -IncludesUninstallPrevious:$IncludesUninstallPrevious.IsPresent -IncludesInteractive:$IncludesInteractive.IsPresent) -gt $MaximumWidth -and
+                        [Int32]$ColumnWidths.$columnName -gt [Int32]$minimumWidths[$columnName]
+                    )
                     {
-                        if ([Int32]$ColumnWidths.$columnName -gt [Int32]$minimumWidths[$columnName])
-                        {
-                            $ColumnWidths.$columnName = [Int32]$ColumnWidths.$columnName - 1
-                            $shrunk = $true
-                            if ((Get-PackagePickerTableLineWidth -ColumnWidths $ColumnWidths -IncludesUninstallPrevious:$IncludesUninstallPrevious.IsPresent) -le $MaximumWidth)
-                            {
-                                break
-                            }
-                        }
+                        $ColumnWidths.$columnName = [Int32]$ColumnWidths.$columnName - 1
                     }
 
-                    if (-not $shrunk)
+                    if ((Get-PackagePickerTableLineWidth -ColumnWidths $ColumnWidths -IncludesUninstallPrevious:$IncludesUninstallPrevious.IsPresent -IncludesInteractive:$IncludesInteractive.IsPresent) -le $MaximumWidth)
                     {
                         break
                     }
@@ -2189,6 +2225,7 @@ function Upgrade-PlatformPackage
             }
 
             $showUninstallPrevious = $PackageManagerName -eq 'winget'
+            $showInteractive = $PackageManagerName -eq 'winget'
             $pickerFrameWidth = Get-PackagePickerFrameWidth
             $columnWidths = [PSCustomObject]@{
                 Name = Get-PackagePickerTextMaximum -Values @($allPackages | ForEach-Object { $_.Name }) -Minimum 12 -Maximum 30
@@ -2198,7 +2235,7 @@ function Upgrade-PlatformPackage
                 Type = Get-PackagePickerTextMaximum -Values @($allPackages | ForEach-Object { Get-PackageTypeDisplay -Type $_.Type }) -Minimum 3 -Maximum 7
                 Source = Get-PackagePickerTextMaximum -Values @($allPackages | ForEach-Object { $_.Source }) -Minimum 5 -Maximum 32
             }
-            $columnWidths = Compress-PackagePickerTableWidths -ColumnWidths $columnWidths -MaximumWidth $pickerFrameWidth -IncludesUninstallPrevious:$showUninstallPrevious
+            $columnWidths = Compress-PackagePickerTableWidths -ColumnWidths $columnWidths -MaximumWidth $pickerFrameWidth -IncludesUninstallPrevious:$showUninstallPrevious -IncludesInteractive:$showInteractive
             $nameWidth = [Int32]$columnWidths.Name
             $idWidth = [Int32]$columnWidths.Id
             $installedWidth = [Int32]$columnWidths.Installed
@@ -2209,6 +2246,14 @@ function Upgrade-PlatformPackage
 
             $selectedKeys = [System.Collections.Generic.HashSet[String]]::new([System.StringComparer]::OrdinalIgnoreCase)
             $uninstallPreviousKeys = [System.Collections.Generic.HashSet[String]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            $interactiveKeys = [System.Collections.Generic.HashSet[String]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            if ($showInteractive -and $Interactive)
+            {
+                foreach ($package in $allPackages)
+                {
+                    [void]$interactiveKeys.Add((Get-PackagePickerKey -Package $package))
+                }
+            }
             $wingetDescriptionAttempted = @{}
             $pendingWingetDescriptionLookupKey = ''
             $cursor = 0
@@ -2651,6 +2696,11 @@ function Upgrade-PlatformPackage
                     Write-PackagePickerHelpItem -Shortcut 'U' -Description 'toggle winget --uninstall-previous for the current package'
                 }
 
+                if ($showInteractive)
+                {
+                    Write-PackagePickerHelpItem -Shortcut 'I' -Description 'toggle winget --interactive for the current package'
+                }
+
                 if ($hasSourceFilter)
                 {
                     Write-Host ''
@@ -2752,7 +2802,7 @@ function Upgrade-PlatformPackage
                     $nameFilterHintValue = if ([String]::IsNullOrWhiteSpace($nameFilterText)) { 'all' } else { $nameFilterText }
                     $selectionHint = if ($showUninstallPrevious)
                     {
-                        "Keys: Space select  U uninstall previous  Enter upgrade  V details  A toggle all  F: [$nameFilterHintValue]"
+                        "Keys: Space select  U remove old version  I interactive installer  Enter upgrade  V details  A toggle all  F: [$nameFilterHintValue]"
                     }
                     else
                     {
@@ -2847,8 +2897,8 @@ function Upgrade-PlatformPackage
 
                     if ($showUninstallPrevious)
                     {
-                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6} {7}' -f 'Sel', 'Unp', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Inst' -Width $installedWidth), (Format-PickerCell -Text 'Avail' -Width $latestWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray
-                        $frameLines += Format-PickerFrameLine -Text ('- {0} {1} {2} {3} {4} {5} {6} {7}' -f '---', '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5} {6} {7} {8}' -f 'Sel', 'RmOld', (Format-PickerCell -Text 'UI' -Width 3), (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Inst' -Width $installedWidth), (Format-PickerCell -Text 'Avail' -Width $latestWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray
+                        $frameLines += Format-PickerFrameLine -Text ('- {0} {1} {2} {3} {4} {5} {6} {7} {8}' -f '---', '-----', '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $installedWidth), ('-' * $latestWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
                     }
                     else
                     {
@@ -2864,8 +2914,9 @@ function Upgrade-PlatformPackage
                         $selectedMarker = if ($selectedKeys.Contains($pkgKey)) { '[x]' } else { '[ ]' }
                         if ($showUninstallPrevious)
                         {
-                            $uninstallMarker = if ($uninstallPreviousKeys.Contains($pkgKey)) { '[u]' } else { '[ ]' }
-                            $packageLine = ('{0} {1} {2} {3} {4} {5} {6} {7} {8}' -f $cursorMarker, $selectedMarker, $uninstallMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text (Get-PackageTypeDisplay -Type $package.Type) -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
+                            $uninstallMarker = if ($uninstallPreviousKeys.Contains($pkgKey)) { '[U]' } else { '[ ]' }
+                            $interactiveMarker = if ($interactiveKeys.Contains($pkgKey)) { '[I]' } else { '[ ]' }
+                            $packageLine = ('{0} {1} {2} {3} {4} {5} {6} {7} {8} {9}' -f $cursorMarker, $selectedMarker, (Format-PickerCell -Text $uninstallMarker -Width 5), $interactiveMarker, (Format-PickerCell -Text $package.Name -Width $nameWidth), (Format-PickerCell -Text $package.Id -Width $idWidth), (Format-PickerCell -Text $package.InstalledVersion -Width $installedWidth), (Format-PickerCell -Text $package.LatestVersion -Width $latestWidth), (Format-PickerCell -Text (Get-PackageTypeDisplay -Type $package.Type) -Width $typeWidth), (Format-PickerCell -Text $package.Source -Width $sourceWidth))
                         }
                         else
                         {
@@ -3045,6 +3096,14 @@ function Upgrade-PlatformPackage
                                 if ($uninstallPreviousKeys.Contains($pkgKey)) { [void]$uninstallPreviousKeys.Remove($pkgKey) } else { [void]$uninstallPreviousKeys.Add($pkgKey) }
                             }
                         }
+                        'I'
+                        {
+                            if ($showInteractive)
+                            {
+                                $pkgKey = Get-PackagePickerKey -Package $visiblePackages[$cursor]
+                                if ($interactiveKeys.Contains($pkgKey)) { [void]$interactiveKeys.Remove($pkgKey) } else { [void]$interactiveKeys.Add($pkgKey) }
+                            }
+                        }
                         'S'
                         {
                             if ($hasSourceFilter)
@@ -3073,6 +3132,7 @@ function Upgrade-PlatformPackage
                             {
                                 $pkgKey = Get-PackagePickerKey -Package $pkg
                                 $pkg | Add-Member -NotePropertyName 'UninstallPrevious' -NotePropertyValue ($uninstallPreviousKeys.Contains($pkgKey)) -Force
+                                $pkg | Add-Member -NotePropertyName 'Interactive' -NotePropertyValue ($interactiveKeys.Contains($pkgKey)) -Force
                             }
 
                             Clear-PickerFrame
@@ -3110,6 +3170,13 @@ function Upgrade-PlatformPackage
             if (($UninstallPrevious -or $perPackageUninstall) -and $Manager.Name -eq 'winget')
             {
                 $upgradeArguments = @($upgradeArguments) + @('--uninstall-previous')
+            }
+
+            $interactiveProperty = $Package.PSObject.Properties['Interactive']
+            $useInteractive = if ($null -ne $interactiveProperty) { [Boolean]$interactiveProperty.Value } else { [Boolean]$Interactive }
+            if ($useInteractive -and $Manager.Name -eq 'winget')
+            {
+                $upgradeArguments = @($upgradeArguments) + @('--interactive')
             }
 
             $invocation = Resolve-PackageManagerInvocation -Manager $Manager -Arguments $upgradeArguments
@@ -3153,6 +3220,7 @@ function Upgrade-PlatformPackage
     process
     {
         $manager = Resolve-PackageManager
+        Assert-PackageManagerParameterSupport -Manager $manager
         Write-Verbose "Using package manager: $($manager.DisplayName) ($($manager.Command))"
 
         if (-not $SkipRefresh -and $PSCmdlet.ShouldProcess($manager.DisplayName, 'Refresh package metadata'))

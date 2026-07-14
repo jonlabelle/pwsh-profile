@@ -15,6 +15,26 @@ Describe 'Install-PlatformPackage' {
         Mock -CommandName Clear-Host -MockWith {}
     }
 
+    Context 'Package manager parameter support' {
+        It 'rejects winget interactive mode for other package managers' {
+            $runner = & $script:NewPackageCommandRunner @{}
+
+            { Install-PlatformPackage -PackageManager brew -Name git -Interactive -CommandRunner $runner -Confirm:$false } |
+                Should -Throw -ExpectedMessage "*Parameter -Interactive*package manager 'brew'*only supported by winget*"
+
+            $script:Invocations.Count | Should -Be 0
+        }
+
+        It 'rejects NoSudo for package managers that do not use sudo' {
+            $runner = & $script:NewPackageCommandRunner @{}
+
+            { Install-PlatformPackage -PackageManager winget -Name Git.Git -NoSudo -CommandRunner $runner -Confirm:$false } |
+                Should -Throw -ExpectedMessage "*Parameter -NoSudo*package manager 'winget'*only supported by apt and apk*"
+
+            $script:Invocations.Count | Should -Be 0
+        }
+    }
+
     Context 'Direct installs' {
         It 'installs a winget package name as an exact id and streams command output' {
             $runner = & $script:NewPackageCommandRunner @{
@@ -26,6 +46,17 @@ Describe 'Install-PlatformPackage' {
             $result.Installed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --accept-source-agreements --accept-package-agreements' }).StreamOutput | Should -BeTrue
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'winget install output' } -Times 1
+        }
+
+        It 'passes interactive mode to winget installs' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget install --id Git.Git --exact --accept-source-agreements --accept-package-agreements --interactive' = Get-TestCommandResponse -Output @('winget interactive install output')
+            }
+
+            $result = Install-PlatformPackage -PackageManager winget -Name Git.Git -Interactive -CommandRunner $runner -Confirm:$false
+
+            $result.Installed | Should -Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --accept-source-agreements --accept-package-agreements --interactive' }).StreamOutput | Should -BeTrue
         }
 
         It 'promotes the full failure message into informational results' {
@@ -236,6 +267,43 @@ Describe 'Install-PlatformPackage' {
             $result.Installed | Should -Be 1
             @($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --source winget --accept-source-agreements --accept-package-agreements' }).Count | Should -Be 0
             ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --source msstore --accept-source-agreements --accept-package-agreements' }).StreamOutput | Should -BeTrue
+        }
+
+        It 'toggles interactive mode for the current winget picker row' {
+            $wingetSearchJson = @{
+                Sources = @(
+                    @{
+                        SourceDetails = @{ Name = 'winget' }
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.45.1'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $wingetListJson = @{ Sources = @(@{ Packages = @() }) } | ConvertTo-Json -Depth 4 -Compress
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget search git --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetSearchJson)
+                'winget list --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetListJson)
+                'winget install --id Git.Git --exact --source winget --accept-source-agreements --accept-package-agreements --interactive' = Get-TestCommandResponse -Output @('winget interactive install output')
+            }
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new('i', [ConsoleKey]::I, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = { return $keys.Dequeue() }.GetNewClosure()
+
+            $result = Install-PlatformPackage -PackageManager winget -Query git -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+
+            $result.Installed | Should -Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --source winget --accept-source-agreements --accept-package-agreements --interactive' }).StreamOutput | Should -BeTrue
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  I interactive installer  Enter install  V details  A toggle all' } -Times 2
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match '^\s+Sel\s+UI\s+' } -Times 2
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match '^> \[ \] \[I\]' } -Times 1
         }
 
         It 'does not suppress terminal echo when a custom key reader drives winget details' -Skip:($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {

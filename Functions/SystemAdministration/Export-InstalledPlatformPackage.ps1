@@ -12,7 +12,8 @@ function Export-InstalledPlatformPackage
 
         Use -DependencyMode DependsOn to include direct dependency relationships, or
         -DependencyMode Both to include direct and reverse dependency relationships where
-        the selected package manager supports them.
+        the selected package manager supports them. winget does not expose reverse
+        dependency metadata, so Both is rejected for winget package records.
 
     .PARAMETER Package
         Installed package records to export. Objects returned by Get-PlatformPackage or
@@ -27,7 +28,7 @@ function Export-InstalledPlatformPackage
     .PARAMETER DependencyMode
         Dependency relationships to include. None exports package records only. DependsOn
         includes direct dependencies. Both includes direct dependencies and packages that
-        require each exported package.
+        require each exported package. winget supports only None and DependsOn.
 
     .PARAMETER ShowProgress
         Writes progress while dependency relationships are resolved.
@@ -468,6 +469,11 @@ function Export-InstalledPlatformPackage
         if ($packageRecords.Count -eq 0)
         {
             throw 'No packages are available for the current scope'
+        }
+
+        if ($DependencyMode -eq 'Both' -and @($packageRecords | Where-Object { $_.PackageManager -eq 'winget' }).Count -gt 0)
+        {
+            throw "Value 'Both' for parameter -DependencyMode is not supported by package manager 'winget'. winget supports only 'None' and 'DependsOn' because it does not expose reverse dependency metadata."
         }
 
         $resolvedPath = Resolve-PackageExportPath -ExportPath $Path

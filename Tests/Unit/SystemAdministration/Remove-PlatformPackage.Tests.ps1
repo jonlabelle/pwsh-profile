@@ -18,6 +18,17 @@ Describe 'Remove-PlatformPackage' {
         Mock -CommandName Clear-Host -MockWith {}
     }
 
+    Context 'Package manager parameter support' {
+        It 'rejects NoSudo for package managers that do not use sudo' {
+            $runner = & $script:NewPackageCommandRunner @{}
+
+            { Remove-PlatformPackage -PackageManager brew -NonInteractive -NoSudo -CommandRunner $runner -Confirm:$false } |
+                Should -Throw -ExpectedMessage "*Parameter -NoSudo*package manager 'brew'*only supported by apt and apk*"
+
+            $script:Invocations.Count | Should -Be 0
+        }
+    }
+
     Context 'Homebrew package discovery' {
         It 'returns formula and cask records from list output' {
             $runner = & $script:NewPackageCommandRunner @{

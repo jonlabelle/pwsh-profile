@@ -27,14 +27,20 @@ function Show-PlatformPackageManager
         Skips registry refresh when launching the upgrade workflow.
 
     .PARAMETER UninstallPrevious
-        Passes winget --uninstall-previous when launching the upgrade workflow.
+        Passes winget --uninstall-previous when launching the upgrade workflow. Using this
+        parameter with another package manager throws an unsupported-parameter error.
+
+    .PARAMETER Interactive
+        Initially enables winget --interactive for install and upgrade picker rows. Press I
+        in either picker to toggle interactive mode for the current package. Using this
+        parameter with another package manager throws an unsupported-parameter error.
 
     .PARAMETER Purge
         Requests package-manager-specific purge or zap behavior when launching removal.
 
     .PARAMETER NoSudo
-        On Linux package managers that normally require elevated privileges, do not
-        automatically prefix install, upgrade, or removal commands with sudo.
+        With apt or apk, does not automatically prefix install, upgrade, or removal commands
+        with sudo. Using this parameter with winget or Homebrew throws an unsupported-parameter error.
 
     .PARAMETER FilterSource
         Sets the initial source filter for delegated interactive pickers that support
@@ -89,6 +95,9 @@ function Show-PlatformPackageManager
 
         [Parameter()]
         [Switch]$UninstallPrevious,
+
+        [Parameter()]
+        [Switch]$Interactive,
 
         [Parameter()]
         [Switch]$Purge,
@@ -814,6 +823,11 @@ function Show-PlatformPackageManager
                 $flags += 'UninstallPrevious'
             }
 
+            if ($Interactive)
+            {
+                $flags += 'Interactive'
+            }
+
             if ($Purge)
             {
                 $flags += 'Purge'
@@ -898,6 +912,35 @@ function Show-PlatformPackageManager
             }
 
             return 'unresolved'
+        }
+
+        function Assert-PlatformPackageManagerParameterSupport
+        {
+            param(
+                [Parameter(Mandatory)]
+                [ValidateNotNullOrEmpty()]
+                [String]$ManagerName
+            )
+
+            if ($ManagerName -eq 'unresolved')
+            {
+                return
+            }
+
+            if ($UninstallPrevious -and $ManagerName -ne 'winget')
+            {
+                throw "Parameter -UninstallPrevious is not supported by package manager '$ManagerName'. It is only supported by winget."
+            }
+
+            if ($Interactive -and $ManagerName -ne 'winget')
+            {
+                throw "Parameter -Interactive is not supported by package manager '$ManagerName'. It is only supported by winget."
+            }
+
+            if ($NoSudo -and $ManagerName -notin @('apt', 'apk'))
+            {
+                throw "Parameter -NoSudo is not supported by package manager '$ManagerName'. It is only supported by apt and apk."
+            }
         }
 
         function Write-PlatformPackageManagerHeader
@@ -1410,6 +1453,11 @@ function Show-PlatformPackageManager
                 $parameters.NoSudo = $true
             }
 
+            if ($Interactive)
+            {
+                $parameters.Interactive = $true
+            }
+
             $result = @(Invoke-PlatformPackageManagerFunction -FunctionName 'Install-PlatformPackage' -FileName 'Install-PlatformPackage.ps1' -Parameters $parameters -Invocation {
                     param([Hashtable]$InvocationParameters)
                     Install-PlatformPackage @InvocationParameters
@@ -1435,6 +1483,11 @@ function Show-PlatformPackageManager
             if ($UninstallPrevious)
             {
                 $parameters.UninstallPrevious = $true
+            }
+
+            if ($Interactive)
+            {
+                $parameters.Interactive = $true
             }
 
             if ($NoSudo)
@@ -1497,9 +1550,10 @@ function Show-PlatformPackageManager
                 return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message 'Dependency lookup cancelled.' -AutoReturn)
             }
 
-            if ($PackageManager -eq 'winget' -and $direction -eq 'RequiredBy')
+            $resolvedManagerName = Get-PlatformPackageManagerDetectedName
+            if ($resolvedManagerName -eq 'winget' -and $direction -ne 'DependsOn')
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message 'winget does not expose reverse dependency metadata, so RequiredBy dependency lookup is unavailable.')
+                return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message "Direction '$direction' is not supported by winget. winget does not expose reverse dependency metadata; choose DependsOn.")
             }
 
             $parameters = Get-PlatformPackageManagerCommonParameters
@@ -1511,24 +1565,12 @@ function Show-PlatformPackageManager
                     param([Hashtable]$InvocationParameters)
                     Get-PlatformPackageDependency @InvocationParameters
                 })
-            $wingetReverseDependencyNote = ''
-            if ($PackageManager -eq 'winget' -and $direction -eq 'Both')
-            {
-                $wingetReverseDependencyNote = 'winget does not expose reverse dependency metadata; RequiredBy results are unavailable.'
-            }
-
             if ($records.Count -eq 0)
             {
-                $message = 'No dependency relationships were found.'
-                if (-not [String]::IsNullOrWhiteSpace($wingetReverseDependencyNote))
-                {
-                    $message = "$message $wingetReverseDependencyNote"
-                }
-
-                return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message $message)
+                return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message 'No dependency relationships were found.')
             }
 
-            return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message $wingetReverseDependencyNote -Records $records)
+            return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Records $records)
         }
 
         function Get-PlatformPackageManagerAutoReturnNotification
@@ -1788,6 +1830,7 @@ function Show-PlatformPackageManager
 
     process
     {
+        Assert-PlatformPackageManagerParameterSupport -ManagerName (Get-PlatformPackageManagerDetectedName)
         $notification = ''
 
         while ($true)

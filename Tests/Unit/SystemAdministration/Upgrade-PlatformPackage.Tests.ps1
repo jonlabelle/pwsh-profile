@@ -15,6 +15,35 @@ Describe 'Upgrade-PlatformPackage' {
         Mock -CommandName Clear-Host -MockWith {}
     }
 
+    Context 'Package manager parameter support' {
+        It 'rejects uninstall-previous outside winget' {
+            $runner = & $script:NewPackageCommandRunner @{}
+
+            { Upgrade-PlatformPackage -PackageManager brew -UninstallPrevious -CommandRunner $runner -Confirm:$false } |
+                Should -Throw -ExpectedMessage "*Parameter -UninstallPrevious*package manager 'brew'*only supported by winget*"
+
+            $script:Invocations.Count | Should -Be 0
+        }
+
+        It 'rejects interactive mode outside winget' {
+            $runner = & $script:NewPackageCommandRunner @{}
+
+            { Upgrade-PlatformPackage -PackageManager apt -Interactive -CommandRunner $runner -Confirm:$false } |
+                Should -Throw -ExpectedMessage "*Parameter -Interactive*package manager 'apt'*only supported by winget*"
+
+            $script:Invocations.Count | Should -Be 0
+        }
+
+        It 'rejects NoSudo for package managers that do not use sudo' {
+            $runner = & $script:NewPackageCommandRunner @{}
+
+            { Upgrade-PlatformPackage -PackageManager winget -NoSudo -CommandRunner $runner -Confirm:$false } |
+                Should -Throw -ExpectedMessage "*Parameter -NoSudo*package manager 'winget'*only supported by apt and apk*"
+
+            $script:Invocations.Count | Should -Be 0
+        }
+    }
+
     Context 'Homebrew package discovery' {
         It 'returns formula and cask update records from JSON output' {
             $brewJson = @{
@@ -614,6 +643,43 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
             Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[msstore\]' } -Times 1
         }
 
+        It 'toggles interactive mode for the current winget picker row' {
+            $wingetUpgradeJson = @{
+                Sources = @(
+                    @{
+                        SourceDetails = @{ Name = 'winget' }
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.43.0'
+                                Available = '2.44.0'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget upgrade --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetUpgradeJson)
+                'winget upgrade --id Git.Git --exact --source winget --accept-package-agreements --accept-source-agreements --interactive' = Get-TestCommandResponse -Output @('winget interactive upgrade output')
+            }
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new(' ', [ConsoleKey]::Spacebar, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new('i', [ConsoleKey]::I, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = { return $keys.Dequeue() }.GetNewClosure()
+
+            $result = Upgrade-PlatformPackage -PackageManager winget -SkipRefresh -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
+
+            $result.Upgraded | Should -Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source winget --accept-package-agreements --accept-source-agreements --interactive' }).StreamOutput | Should -BeTrue
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'U remove old version\s+I interactive installer' } -Times 3
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match '^\s+Sel\s+RmOld\s+UI\s+' } -Times 3
+            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match '^> \[x\] \[ \]\s+\[I\]' } -Times 1
+        }
+
         It 'does not suppress terminal echo when a custom key reader drives winget details' -Skip:($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
             $wingetUpgradeJson = @{
                 Sources = @(
@@ -779,17 +845,17 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
                 $script:HostOutput |
                 ForEach-Object { "$_" } |
                 Where-Object {
-                    $_ -match '^\s+Sel\s+Unp\s+' -or
-                    $_ -match '^[> ] \[[ x]\] \[[ u]\]\s+'
+                    $_ -match '^\s+Sel\s+RmOld\s+UI\s+' -or
+                    $_ -match '^[> ] \[[ x]\] \[[ U]\]\s+\[[ I]\]\s+'
                 }
             )
 
             $tableLines.Count | Should -BeGreaterThan 1
-            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Unp\s+' } | Select-Object -First 1) | Should -Match '\bInst\b'
-            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Unp\s+' } | Select-Object -First 1) | Should -Match '\bAvail\b'
-            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Unp\s+' } | Select-Object -First 1) | Should -Match '\bTyp\b'
-            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Unp\s+' } | Select-Object -First 1) | Should -Match '\bSrc\b'
-            ($tableLines | Where-Object { $_ -match '^[> ] \[[ x]\] \[[ u]\]\s+' } | Select-Object -First 1) | Should -Match 'homebrew/core'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+RmOld\s+UI\s+' } | Select-Object -First 1) | Should -Match '\bInst\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+RmOld\s+UI\s+' } | Select-Object -First 1) | Should -Match '\bAvail\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+RmOld\s+UI\s+' } | Select-Object -First 1) | Should -Match '\bTyp\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+RmOld\s+UI\s+' } | Select-Object -First 1) | Should -Match '\bSrc\b'
+            ($tableLines | Where-Object { $_ -match '^[> ] \[[ x]\] \[[ U]\]\s+\[[ I]\]\s+' } | Select-Object -First 1) | Should -Match 'homebrew/core'
             (($tableLines | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum) | Should -BeLessOrEqual $limit
         }
     }
@@ -873,6 +939,33 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result.Upgraded | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source msstore --accept-package-agreements --accept-source-agreements' }).StreamOutput | Should -BeTrue
+        }
+
+        It 'passes interactive mode to winget upgrades' {
+            $wingetUpgradeJson = @{
+                Sources = @(
+                    @{
+                        SourceDetails = @{ Name = 'winget' }
+                        Packages = @(
+                            @{
+                                PackageName = 'Git'
+                                PackageIdentifier = 'Git.Git'
+                                Version = '2.43.0'
+                                Available = '2.44.0'
+                            }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget upgrade --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetUpgradeJson)
+                'winget upgrade --id Git.Git --exact --source winget --accept-package-agreements --accept-source-agreements --interactive' = Get-TestCommandResponse -Output @('winget interactive upgrade output')
+            }
+
+            $result = Upgrade-PlatformPackage -PackageManager winget -SkipRefresh -All -Interactive -CommandRunner $runner -Confirm:$false
+
+            $result.Upgraded | Should -Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source winget --accept-package-agreements --accept-source-agreements --interactive' }).StreamOutput | Should -BeTrue
         }
 
         It 'decodes winget uninstall command failures when streamed output is unavailable' {

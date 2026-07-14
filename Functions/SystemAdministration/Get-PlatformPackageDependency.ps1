@@ -18,8 +18,8 @@ function Get-PlatformPackageDependency
         metadata can be queried through Get-PlatformPackage.
 
         winget can report installer dependencies only when package manifest metadata
-        includes them. winget does not expose reverse dependency metadata, so
-        -Direction RequiredBy returns no records for winget.
+        includes them. winget does not expose reverse dependency metadata, so using
+        -Direction RequiredBy or Both with winget throws an unsupported-value error.
 
     .PARAMETER Package
         Package names, ids, or normalized package records to query. Objects returned by
@@ -28,7 +28,7 @@ function Get-PlatformPackageDependency
     .PARAMETER Direction
         Dependency direction to query. DependsOn returns packages the requested package
         depends on. RequiredBy returns packages that depend on the requested package.
-        Both returns both directions.
+        Both returns both directions. winget supports only DependsOn.
 
     .PARAMETER InstalledOnly
         Limits related packages to installed packages when possible.
@@ -1143,6 +1143,12 @@ function Get-PlatformPackageDependency
     process
     {
         $manager = Resolve-PackageManager
+
+        if ($manager.Name -eq 'winget' -and $Direction -ne 'DependsOn')
+        {
+            throw "Value '$Direction' for parameter -Direction is not supported by package manager 'winget'. winget supports only 'DependsOn' because it does not expose reverse dependency metadata."
+        }
+
         Write-Verbose "Using package manager: $($manager.DisplayName) ($($manager.Command))"
 
         $relationshipDirections = if ($Direction -eq 'Both')

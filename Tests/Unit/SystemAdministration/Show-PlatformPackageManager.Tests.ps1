@@ -58,6 +58,23 @@ Describe 'Show-PlatformPackageManager' {
         $command.Parameters.Keys | Should -Contain 'Confirm'
     }
 
+    It 'rejects winget-only manager options for other package managers' {
+        $promptReader = & $script:NewPromptReader @('q')
+
+        { Show-PlatformPackageManager -PackageManager brew -Interactive -PromptReader $promptReader } |
+            Should -Throw -ExpectedMessage "*Parameter -Interactive*package manager 'brew'*only supported by winget*"
+
+        { Show-PlatformPackageManager -PackageManager apt -UninstallPrevious -PromptReader $promptReader } |
+            Should -Throw -ExpectedMessage "*Parameter -UninstallPrevious*package manager 'apt'*only supported by winget*"
+    }
+
+    It 'rejects NoSudo for managers that do not use sudo' {
+        $promptReader = & $script:NewPromptReader @('q')
+
+        { Show-PlatformPackageManager -PackageManager winget -NoSudo -PromptReader $promptReader } |
+            Should -Throw -ExpectedMessage "*Parameter -NoSudo*package manager 'winget'*only supported by apt and apk*"
+    }
+
     It 'routes installed package browsing through Show-InstalledPlatformPackage without extra prompts' {
         $runner = & $script:NewPackageCommandRunner @{
             'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0', 'gh 2.50.0')
@@ -321,6 +338,23 @@ Describe 'Show-PlatformPackageManager' {
             $ReturnToPlatformPackageManagerOnBackKey
         } -Times 1
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*FilterSource=msstore*' } -Times 3
+    }
+
+    It 'forwards interactive mode to winget install and upgrade workflows' {
+        Mock -CommandName Install-PlatformPackage -MockWith {}
+        Mock -CommandName Upgrade-PlatformPackage -MockWith {}
+        $promptReader = & $script:NewPromptReader @('2', 'git', '1', 'q')
+
+        $result = @(Show-PlatformPackageManager -PackageManager winget -Interactive -SkipRefresh -PromptReader $promptReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Install-PlatformPackage -ParameterFilter {
+            $PackageManager -eq 'winget' -and $Interactive
+        } -Times 1
+        Assert-MockCalled -CommandName Upgrade-PlatformPackage -ParameterFilter {
+            $PackageManager -eq 'winget' -and $Interactive
+        } -Times 1
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Interactive*' } -Times 3
     }
 
     It 'routes upgrade options and forwards winget uninstall-previous' {
@@ -763,6 +797,15 @@ Describe 'Show-PlatformPackageManager' {
 
         $result.Count | Should -Be 0
         Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*winget does not expose reverse dependency metadata*' } -Times 1
+    }
+
+    It 'rejects partial Both dependency lookup for winget' {
+        $promptReader = & $script:NewPromptReader @('5', 'Git.Git', '3', 'n', 'q')
+
+        $result = @(Show-PlatformPackageManager -PackageManager winget -PromptReader $promptReader)
+
+        $result.Count | Should -Be 0
+        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like "*Direction 'Both' is not supported by winget*Choose DependsOn*" } -Times 1
     }
 
     It 'keeps action results on a dedicated screen until the next action is chosen' {
