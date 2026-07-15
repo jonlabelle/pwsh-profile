@@ -137,8 +137,8 @@ Describe 'Upgrade-PlatformPackage' {
             ($script:Invocations | Where-Object { $_.Key -eq 'brew update --quiet' }).StreamOutput | Should -BeFalse
             ($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).StreamOutput | Should -BeTrue
 
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew update output' } -Times 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew upgrade git output' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'brew update output' } -Times 0 -Exactly
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'brew upgrade git output' } -Times 1
         }
 
         It 'captures Homebrew refresh process output before the picker and streams upgrade process output' {
@@ -485,11 +485,11 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result.Selected | Should -Be 0
             $result.Upgraded | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  Enter upgrade  V details  A toggle all  F: [all]" } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  0 selected" -and $ForegroundColor -eq 'White' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Upgrade-PlatformPackage Help' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Enter: ' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'upgrade selected packages' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  Enter upgrade  V details  A toggle all  F: [all]" } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  0 selected" -and $ForegroundColor -eq 'White' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Upgrade-PlatformPackage Help' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Enter: ' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'upgrade selected packages' -and $ForegroundColor -eq 'DarkGray' } -Times 1
         }
 
         It 'renders only the current viewport for long upgrade lists' {
@@ -513,10 +513,10 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $null = Upgrade-PlatformPackage -PackageManager brew -SkipRefresh -CommandRunner $runner -KeyReader $keyReader -PickerPageSize 2 -Confirm:$false
 
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-01*' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-02*' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-03*' } -Times 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-04*' } -Times 0
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-01*' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-02*' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-03*' } -Times 0 -Exactly
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-04*' } -Times 0 -Exactly
         }
 
         It 'filters picker results by package name when F is pressed' {
@@ -550,8 +550,8 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
             $result.Upgraded | Should -Be 1
             @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should -Be 1
             @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade curl' }).Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: g' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[g\]' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: g' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[g\]' } -Times 1
         }
 
         It 'treats lowercase q as filter text instead of cancel' {
@@ -585,8 +585,8 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
             $result.Upgraded | Should -Be 1
             @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade jq' }).Count | Should -Be 1
             @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: q' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[q\]' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: q' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[q\]' } -Times 1
         }
 
         It 'upgrades only the visible package when filtering duplicate winget ids by source' {
@@ -640,7 +640,7 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
             $result.Upgraded | Should -Be 1
             @($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source winget --accept-package-agreements --accept-source-agreements' }).Count | Should -Be 0
             ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source msstore --accept-package-agreements --accept-source-agreements' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[msstore\]' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[msstore\]' } -Times 1
         }
 
         It 'toggles interactive mode for the current winget picker row' {
@@ -675,9 +675,9 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result.Upgraded | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source winget --accept-package-agreements --accept-source-agreements --interactive' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'U remove old version\s+I interactive installer' } -Times 3
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match '^\s+Sel\s+RmOld\s+UI\s+' } -Times 3
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match '^> \[x\] \[ \]\s+\[I\]' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'U remove old version\s+I interactive installer' } -Times 3
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match '^\s+Sel\s+RmOld\s+UI\s+' } -Times 3
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match '^> \[x\] \[ \]\s+\[I\]' } -Times 1
         }
 
         It 'does not suppress terminal echo when a custom key reader drives winget details' -Skip:($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
@@ -718,7 +718,7 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result.Selected | Should -Be 0
             $echoActions.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
         }
 
         It 'restores terminal echo when winget details throw in the console key reader flow' -Skip:($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
@@ -886,7 +886,7 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result.Count | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'winget source update' }).StreamOutput | Should -BeFalse
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Updating all sources*' -or $Object -like 'Updating source:*' } -Times 0
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like 'Updating all sources*' -or $Object -like 'Updating source:*' } -Times 0 -Exactly
         }
 
         It 'falls back to table parsing when JSON output is unavailable' {

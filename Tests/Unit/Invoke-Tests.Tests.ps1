@@ -33,33 +33,49 @@ BeforeAll {
         $moduleManifest = @'
 @{
     RootModule = 'Pester.psm1'
-    ModuleVersion = '5.99.0'
+    ModuleVersion = '6.99.0'
     GUID = '8f60f7c8-ef86-4f89-b46d-d1cc5b3a1111'
     Author = 'Invoke-Tests unit test'
     Description = 'Minimal fake Pester module for Invoke-Tests.ps1 tests.'
-    FunctionsToExport = @('Invoke-Pester')
+    FunctionsToExport = @('Invoke-Pester', 'New-PesterConfiguration')
 }
 '@
 
         $moduleBody = @'
+function New-PesterConfiguration
+{
+    return [PSCustomObject]@{
+        Run = [PSCustomObject]@{
+            Path = @()
+            Exit = $false
+            PassThru = $true
+        }
+        Output = [PSCustomObject]@{
+            Verbosity = 'Detailed'
+        }
+        TestResult = [PSCustomObject]@{
+            Enabled = $true
+            OutputFormat = 'NUnitXml'
+            OutputPath = ''
+        }
+    }
+}
+
 function Invoke-Pester
 {
     [CmdletBinding()]
     param(
         [Parameter()]
-        [string[]]$Path,
-
-        [Parameter()]
-        [switch]$PassThru,
-
-        [Parameter()]
-        [string]$OutputFile,
-
-        [Parameter()]
-        [string]$OutputFormat
+        [Object]$Configuration
     )
 
-    if ($OutputFile)
+    $outputPath = ''
+    if ($Configuration -and $Configuration.TestResult -and $Configuration.TestResult.OutputPath)
+    {
+        $outputPath = $Configuration.TestResult.OutputPath
+    }
+
+    if ($outputPath)
     {
         $xml = @"
 <?xml version="1.0" encoding="utf-8"?>
@@ -81,7 +97,7 @@ function Invoke-Pester
 </test-results>
 "@
 
-        [System.IO.File]::WriteAllText($OutputFile, $xml, [System.Text.Encoding]::UTF8)
+        [System.IO.File]::WriteAllText($outputPath, $xml, [System.Text.Encoding]::UTF8)
     }
 
     [PSCustomObject]@{
@@ -94,7 +110,7 @@ function Invoke-Pester
     }
 }
 
-Export-ModuleMember -Function Invoke-Pester
+Export-ModuleMember -Function Invoke-Pester, New-PesterConfiguration
 '@
 
         Set-Content -LiteralPath (Join-Path -Path $pesterModulePath -ChildPath 'Pester.psd1') -Value $moduleManifest -Encoding UTF8

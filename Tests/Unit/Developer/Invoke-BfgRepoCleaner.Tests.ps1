@@ -145,7 +145,7 @@ Describe 'Invoke-BfgRepoCleaner' {
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
 
             { Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' -Confirm:$false } | Should -Not -Throw
-            Assert-MockCalled -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -Times 0 -Exactly
+            Should -Invoke -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -Times 0 -Exactly
         }
 
         It 'Falls back to Docker when local BFG is not available' {

@@ -45,7 +45,7 @@ Describe 'Install-PlatformPackage' {
 
             $result.Installed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --accept-source-agreements --accept-package-agreements' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'winget install output' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'winget install output' } -Times 1
         }
 
         It 'passes interactive mode to winget installs' {
@@ -138,8 +138,8 @@ Describe 'Install-PlatformPackage' {
             $result.Selected | Should -Be 1
             $result.Installed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew install --cask visual-studio-code' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter install  V details  A toggle all' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  1 selected" -and $ForegroundColor -eq 'White' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter install  V details  A toggle all' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  1 selected" -and $ForegroundColor -eq 'White' } -Times 1
         }
 
         It 'installs the current search result when Enter is pressed without a selection' {
@@ -159,7 +159,7 @@ Describe 'Install-PlatformPackage' {
             $result.NotSelected | Should -Be 0
             $result.Installed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew install git' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter install  V details  A toggle all' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter install  V details  A toggle all' } -Times 1
         }
 
         It 'shows keyboard help from the query result picker' {
@@ -182,9 +182,9 @@ Describe 'Install-PlatformPackage' {
 
             $result.Selected | Should -Be 0
             $result.Installed | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Install-PlatformPackage Help' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Enter: ' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'install selected packages, or the current package if none are selected' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Install-PlatformPackage Help' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Enter: ' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'install selected packages, or the current package if none are selected' -and $ForegroundColor -eq 'DarkGray' } -Times 1
         }
 
         It 'shows and skips an installed Homebrew search result' {
@@ -211,9 +211,9 @@ Describe 'Install-PlatformPackage' {
             $result.Skipped | Should -Be 1
             $result.Results[0].Message | Should -Be 'Package is already installed'
             @($script:Invocations | Where-Object { $_.Key -eq 'brew install jq' }).Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Current: jq' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Id: jq | Source: homebrew/core | Publisher: Homebrew | Installed: yes' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $ForegroundColor -eq 'DarkGray' -and $Object -like '*jq*' } -Times 2
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current: jq' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Id: jq | Source: homebrew/core | Publisher: Homebrew | Installed: yes' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $ForegroundColor -eq 'DarkGray' -and $Object -like '*jq*' } -Times 2
         }
 
         It 'installs only the visible package when filtering duplicate winget ids by source' {
@@ -301,9 +301,9 @@ Describe 'Install-PlatformPackage' {
 
             $result.Installed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --source winget --accept-source-agreements --accept-package-agreements --interactive' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  I interactive installer  Enter install  V details  A toggle all' } -Times 2
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match '^\s+Sel\s+UI\s+' } -Times 2
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match '^> \[ \] \[I\]' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  I interactive installer  Enter install  V details  A toggle all' } -Times 2
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match '^\s+Sel\s+UI\s+' } -Times 2
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match '^> \[ \] \[I\]' } -Times 1
         }
 
         It 'does not suppress terminal echo when a custom key reader drives winget details' -Skip:($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
@@ -349,7 +349,7 @@ Describe 'Install-PlatformPackage' {
 
             $result.Selected | Should -Be 0
             $echoActions.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
         }
 
         It 'restores terminal echo when winget details throw in the console key reader flow' -Skip:($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {

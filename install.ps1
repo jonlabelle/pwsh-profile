@@ -585,6 +585,19 @@ function Copy-ProfileItem
         return
     }
 
+    # Skip non-regular files (Unix sockets, named pipes, device files, etc.)
+    # that cannot be copied — e.g. .git/fsmonitor--daemon.ipc on macOS.
+    try
+    {
+        $stream = [System.IO.File]::Open($SourcePath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        $stream.Dispose()
+    }
+    catch [System.IO.IOException]
+    {
+        Write-Verbose "Skipping non-copyable file (socket or pipe): $SourcePath"
+        return
+    }
+
     $destinationParent = Split-Path -Parent $DestinationPath
     if ($destinationParent -and -not (Test-Path -Path $destinationParent))
     {

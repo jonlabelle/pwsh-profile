@@ -349,7 +349,7 @@ Describe 'GitHub secret functions' {
                 Set-GitHubSecret -Name 'OVERSIZED_SECRET' -Value $tooLargeValue -Scope Repository -Repository 'octo-org/service-api'
             } | Should -Throw '*48 KB*'
 
-            Assert-MockCalled -CommandName gh -Times 0
+            Should -Invoke -CommandName gh -Times 0 -Exactly
         }
 
         It 'skips existing secrets without -Force' {
@@ -367,7 +367,7 @@ Describe 'GitHub secret functions' {
 
             $result.Status | Should -Be 'Skipped'
             $result.Changed | Should -BeFalse
-            Assert-MockCalled -CommandName gh -ParameterFilter { $args[0] -eq 'secret' -and $args[1] -eq 'set' } -Times 0
+            Should -Invoke -CommandName gh -ParameterFilter { $args[0] -eq 'secret' -and $args[1] -eq 'set' } -Times 0 -Exactly
         }
 
         It 'updates existing secrets when -Force is used' {
@@ -423,7 +423,7 @@ Describe 'GitHub secret functions' {
             $result = Set-GitHubSecret -Name 'NEW_SECRET' -Value $script:SecretValue -Scope Repository -Repository 'octo-org/service-api' -WhatIf
 
             $result.Status | Should -Be 'WhatIf'
-            Assert-MockCalled -CommandName gh -ParameterFilter { $args[0] -eq 'secret' -and $args[1] -eq 'set' } -Times 0
+            Should -Invoke -CommandName gh -ParameterFilter { $args[0] -eq 'secret' -and $args[1] -eq 'set' } -Times 0 -Exactly
         }
 
         It 'throws a clear error when gh is not installed' {
@@ -683,7 +683,7 @@ Describe 'GitHub secret functions' {
 
             $result.Status | Should -Be 'AlreadyAbsent'
             $result.Changed | Should -BeFalse
-            Assert-MockCalled -CommandName gh -ParameterFilter { $args[0] -eq 'secret' -and $args[1] -eq 'delete' } -Times 0
+            Should -Invoke -CommandName gh -ParameterFilter { $args[0] -eq 'secret' -and $args[1] -eq 'delete' } -Times 0 -Exactly
         }
 
         It 'disables gh interactive prompts during deletion' {
@@ -727,7 +727,7 @@ Describe 'GitHub secret functions' {
             $result = Remove-GitHubSecret -Name 'TO_DELETE' -Scope Repository -Repository 'octo-org/service-api' -WhatIf
 
             $result.Status | Should -Be 'WhatIf'
-            Assert-MockCalled -CommandName gh -ParameterFilter { $args[0] -eq 'secret' -and $args[1] -eq 'delete' } -Times 0
+            Should -Invoke -CommandName gh -ParameterFilter { $args[0] -eq 'secret' -and $args[1] -eq 'delete' } -Times 0 -Exactly
         }
 
         It 'supports user scope deletion through -Scope User' {

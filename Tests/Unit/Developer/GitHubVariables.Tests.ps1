@@ -151,9 +151,9 @@ Describe 'GitHub variable functions' {
 
             $result.Status | Should -Be 'Unchanged'
             $result.Changed | Should -BeFalse
-            Assert-MockCalled -CommandName gh -ParameterFilter {
+            Should -Invoke -CommandName gh -ParameterFilter {
                 $args[0] -eq 'api' -and $args -contains '--method' -and $args -contains 'PATCH'
-            } -Times 0
+            } -Times 0 -Exactly
         }
 
         It 'skips existing variables without -Force when the value differs' {
@@ -170,9 +170,9 @@ Describe 'GitHub variable functions' {
             $result = Set-GitHubVariable -Name 'DOTNET_VERSION' -Value '8.0.x' -Scope Repository -Repository 'octo-org/service-api'
 
             $result.Status | Should -Be 'Skipped'
-            Assert-MockCalled -CommandName gh -ParameterFilter {
+            Should -Invoke -CommandName gh -ParameterFilter {
                 $args[0] -eq 'api' -and $args -contains '--method' -and ($args -contains 'PATCH' -or $args -contains 'POST')
-            } -Times 0
+            } -Times 0 -Exactly
         }
 
         It 'updates existing variables when -Force is used' {
@@ -286,7 +286,7 @@ Describe 'GitHub variable functions' {
 
             $result.Status | Should -Be 'Created'
             $script:CreateAttempts | Should -Be 2
-            Assert-MockCalled -CommandName Start-Sleep -Times 1
+            Should -Invoke -CommandName Start-Sleep -Times 1
         }
 
         It 'rejects -SelectedRepository combined with incompatible -Visibility' -ForEach @(
@@ -414,9 +414,9 @@ Describe 'GitHub variable functions' {
             $result = Remove-GitHubVariable -Name 'MISSING_FLAG' -Scope Repository -Repository 'octo-org/service-api'
 
             $result.Status | Should -Be 'AlreadyAbsent'
-            Assert-MockCalled -CommandName gh -ParameterFilter {
+            Should -Invoke -CommandName gh -ParameterFilter {
                 $args[0] -eq 'api' -and $args -contains '--method' -and $args -contains 'DELETE'
-            } -Times 0
+            } -Times 0 -Exactly
         }
 
         It 'supports WhatIf without deleting the variable' {
@@ -433,9 +433,9 @@ Describe 'GitHub variable functions' {
             $result = Remove-GitHubVariable -Name 'FEATURE_FLAG' -Scope Repository -Repository 'octo-org/service-api' -WhatIf
 
             $result.Status | Should -Be 'WhatIf'
-            Assert-MockCalled -CommandName gh -ParameterFilter {
+            Should -Invoke -CommandName gh -ParameterFilter {
                 $args[0] -eq 'api' -and $args -contains '--method' -and $args -contains 'DELETE'
-            } -Times 0
+            } -Times 0 -Exactly
         }
     }
 }

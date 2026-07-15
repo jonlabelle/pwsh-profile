@@ -534,8 +534,8 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $result.OutputCopied | Should -Be $true
             $result.RemainingMetadataTags | Should -Contain '[EXIF] Make = Test Camera'
             $result.RemainingMetadataTags | Should -Contain '[XMP] Title = Private Album'
-            Assert-MockCalled -CommandName Get-ImageMetadata -Times 1 -Exactly -ParameterFilter { $Path -eq $script:PrivacySourceImage }
-            Assert-MockCalled -CommandName Get-ImageMetadata -Times 2 -Exactly -ParameterFilter { $Path -eq $script:PrivacyOutputImage }
+            Should -Invoke -CommandName Get-ImageMetadata -Times 1 -Exactly -ParameterFilter { $Path -eq $script:PrivacySourceImage }
+            Should -Invoke -CommandName Get-ImageMetadata -Times 2 -Exactly -ParameterFilter { $Path -eq $script:PrivacyOutputImage }
         }
 
         It 'Should surface remaining metadata tag values when in-place verification is incomplete' {
@@ -558,7 +558,7 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $result.OutputCopied | Should -Be $false
             $result.RemainingMetadataTags | Should -Contain '[GPS] GPSLatitude = 41.88'
             $result.RemainingMetadataTags | Should -Contain '[IPTC] Keywords = private, home'
-            Assert-MockCalled -CommandName Get-ImageMetadata -Times 3 -Exactly -ParameterFilter { $Path -eq $script:PrivacySourceImage }
+            Should -Invoke -CommandName Get-ImageMetadata -Times 3 -Exactly -ParameterFilter { $Path -eq $script:PrivacySourceImage }
         }
     }
 }
