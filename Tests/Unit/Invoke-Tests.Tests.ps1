@@ -16,32 +16,40 @@ BeforeAll {
     {
         param(
             [Parameter(Mandatory)]
-            [string]$RootPath
+            [string]$RootPath,
+
+            [Parameter()]
+            [version[]]$PesterVersions = @([version]'6.99.0')
         )
 
         $testsPath = Join-Path -Path $RootPath -ChildPath 'Tests'
         $unitTestsPath = Join-Path -Path $testsPath -ChildPath 'Unit'
         $moduleRootPath = Join-Path -Path $RootPath -ChildPath 'Modules'
-        $pesterModulePath = Join-Path -Path $moduleRootPath -ChildPath 'Pester'
+        $pesterModuleRootPath = Join-Path -Path $moduleRootPath -ChildPath 'Pester'
 
         New-Item -Path $unitTestsPath -ItemType Directory -Force | Out-Null
-        New-Item -Path $pesterModulePath -ItemType Directory -Force | Out-Null
+        New-Item -Path $pesterModuleRootPath -ItemType Directory -Force | Out-Null
 
         Copy-Item -LiteralPath $script:InvokeTestsSourcePath -Destination (Join-Path -Path $RootPath -ChildPath 'Invoke-Tests.ps1')
         Copy-Item -LiteralPath $script:TimingSummarySourcePath -Destination (Join-Path -Path $testsPath -ChildPath 'Write-TestTimingSummary.ps1')
 
-        $moduleManifest = @'
+        foreach ($pesterVersion in $PesterVersions)
+        {
+            $pesterModulePath = Join-Path -Path $pesterModuleRootPath -ChildPath $pesterVersion.ToString()
+            New-Item -Path $pesterModulePath -ItemType Directory -Force | Out-Null
+
+            $moduleManifest = @"
 @{
     RootModule = 'Pester.psm1'
-    ModuleVersion = '6.99.0'
+    ModuleVersion = '$($pesterVersion.ToString())'
     GUID = '8f60f7c8-ef86-4f89-b46d-d1cc5b3a1111'
     Author = 'Invoke-Tests unit test'
     Description = 'Minimal fake Pester module for Invoke-Tests.ps1 tests.'
     FunctionsToExport = @('Invoke-Pester', 'New-PesterConfiguration')
 }
-'@
+"@
 
-        $moduleBody = @'
+            $moduleBody = @'
 function New-PesterConfiguration
 {
     return [PSCustomObject]@{
@@ -100,6 +108,11 @@ function Invoke-Pester
         [System.IO.File]::WriteAllText($outputPath, $xml, [System.Text.Encoding]::UTF8)
     }
 
+    if ($env:PWSPROFILE_FAKE_PESTER_VERSION_OUTPUT)
+    {
+        [System.IO.File]::WriteAllText($env:PWSPROFILE_FAKE_PESTER_VERSION_OUTPUT, $MyInvocation.MyCommand.Module.Version.ToString(), [System.Text.Encoding]::UTF8)
+    }
+
     [PSCustomObject]@{
         TotalCount = 2
         PassedCount = 2
@@ -113,8 +126,9 @@ function Invoke-Pester
 Export-ModuleMember -Function Invoke-Pester, New-PesterConfiguration
 '@
 
-        Set-Content -LiteralPath (Join-Path -Path $pesterModulePath -ChildPath 'Pester.psd1') -Value $moduleManifest -Encoding UTF8
-        Set-Content -LiteralPath (Join-Path -Path $pesterModulePath -ChildPath 'Pester.psm1') -Value $moduleBody -Encoding UTF8
+            Set-Content -LiteralPath (Join-Path -Path $pesterModulePath -ChildPath 'Pester.psd1') -Value $moduleManifest -Encoding UTF8
+            Set-Content -LiteralPath (Join-Path -Path $pesterModulePath -ChildPath 'Pester.psm1') -Value $moduleBody -Encoding UTF8
+        }
 
         return [PSCustomObject]@{
             RootPath = $RootPath
@@ -166,5 +180,28 @@ Describe 'Invoke-Tests.ps1 timing summary' -Tag 'Unit' {
         $LASTEXITCODE | Should -Be 0
 
         Test-Path -LiteralPath $summaryPath | Should -BeFalse
+    }
+
+    It 'uses the latest installed Pester 6 version and ignores Pester 7' {
+        $versionOutputPath = Join-Path -Path $script:TestRootPath -ChildPath 'selected-pester-version.txt'
+        $script:FakeProject = Get-FakeInvokeTestsProject -RootPath $script:TestRootPath -PesterVersions @(
+            [version]'6.1.0'
+            [version]'7.0.0'
+            [version]'6.99.0'
+        )
+        $env:PSModulePath = $script:FakeProject.ModuleRootPath
+        $env:PWSPROFILE_FAKE_PESTER_VERSION_OUTPUT = $versionOutputPath
+
+        try
+        {
+            $null = & $script:PowerShellExecutable -NoProfile -File $script:FakeProject.InvokeTestsPath -TestType Unit -OutputFormat Normal
+            $LASTEXITCODE | Should -Be 0
+
+            (Get-Content -LiteralPath $versionOutputPath -Raw).Trim() | Should -Be '6.99.0'
+        }
+        finally
+        {
+            Remove-Item Env:\PWSPROFILE_FAKE_PESTER_VERSION_OUTPUT -ErrorAction SilentlyContinue
+        }
     }
 }

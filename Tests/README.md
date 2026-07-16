@@ -149,7 +149,7 @@ Run tests manually with Pester:
 
 ```powershell
 # Install Pester 6.x if not available
-Install-Module Pester -MinimumVersion '6.0.0' -Force -SkipPublisherCheck
+Install-Module Pester -MinimumVersion '6.0.0' -MaximumVersion '6.999.999' -Force -SkipPublisherCheck
 
 # Run specific test file
 Invoke-Pester -Path Tests/Unit/New-RandomString.Tests.ps1

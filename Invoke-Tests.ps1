@@ -77,7 +77,7 @@
 
 .NOTES
     Requires Pester 6.x to be installed:
-        Install-Module -Name Pester -MinimumVersion 6.0.0 -Force -SkipPublisherCheck
+        Install-Module -Name Pester -MinimumVersion 6.0.0 -MaximumVersion 6.999.999 -Force -SkipPublisherCheck
 #>
 
 [CmdletBinding()]
@@ -139,12 +139,12 @@ $TestTimingSummaryScriptPath = Join-Parts -BasePath $ScriptDirectory -PathSegmen
 # Import Pester if not already loaded
 if (-not (Get-Module Pester -ListAvailable))
 {
-    Write-Error 'Pester module is not installed. Please install Pester 6.x: Install-Module -Name Pester -MinimumVersion 6.0.0 -Force -SkipPublisherCheck'
+    Write-Error 'Pester module is not installed. Please install Pester 6.x: Install-Module -Name Pester -MinimumVersion 6.0.0 -MaximumVersion 6.999.999 -Force -SkipPublisherCheck'
     exit 1
 }
 
 $availablePesterModules = Get-Module Pester -ListAvailable | Sort-Object Version -Descending
-$compatiblePesterModules = $availablePesterModules | Where-Object { $_.Version.Major -ge 6 }
+$compatiblePesterModules = $availablePesterModules | Where-Object { $_.Version.Major -eq 6 }
 $selectedPesterModule = $compatiblePesterModules | Select-Object -First 1
 
 if (-not $selectedPesterModule)
@@ -155,7 +155,7 @@ No compatible Pester version is available.
 This test suite requires Pester 6.x.
 
 Please install Pester 6.x:
-    Install-Module -Name Pester -MinimumVersion 6.0.0 -Force -SkipPublisherCheck
+    Install-Module -Name Pester -MinimumVersion 6.0.0 -MaximumVersion 6.999.999 -Force -SkipPublisherCheck
 
 Available Pester versions:
 $($availablePesterModules | ForEach-Object { "  - $($_.Version.ToString()) at $($_.ModuleBase)" } | Out-String)
@@ -188,7 +188,7 @@ Write-Host "Running $TestType tests from: $($testPathsToRun -join ', ')" -Foregr
 # Verify the imported Pester version
 $installedPesterVersion = (Get-Module Pester).Version
 
-if ($installedPesterVersion -and $installedPesterVersion.Major -lt 6)
+if ($installedPesterVersion -and $installedPesterVersion.Major -ne 6)
 {
     Write-Error @"
 Pester version $($installedPesterVersion.ToString()) is not supported.
@@ -197,7 +197,7 @@ This test suite requires Pester 6.x.
 
 Please install Pester 6.x:
 
-    Install-Module -Name Pester -MinimumVersion 6.0.0 -Force -SkipPublisherCheck
+    Install-Module -Name Pester -MinimumVersion 6.0.0 -MaximumVersion 6.999.999 -Force -SkipPublisherCheck
 
 Current Pester installation: $($selectedPesterModule.ModuleBase)
 "@

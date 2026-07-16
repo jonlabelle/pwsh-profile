@@ -68,7 +68,14 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
         Mock -CommandName Get-Command -MockWith {
             foreach ($commandName in @($Name))
             {
-                $ExecutionContext.SessionState.InvokeCommand.GetCommand($commandName, [System.Management.Automation.CommandTypes]::All)
+                try
+                {
+                    $ExecutionContext.SessionState.InvokeCommand.GetCommand($commandName, [System.Management.Automation.CommandTypes]::All)
+                }
+                catch
+                {
+                    $null
+                }
             }
         }
     }
