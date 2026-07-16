@@ -94,7 +94,7 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'pandoc' } -MockWith { $null }
 
             { ConvertTo-Markdown -InputObject 'https://example.com' } |
-            Should -Throw 'Pandoc is not installed or not available in PATH. Please install Pandoc and try again.'
+            Should-Throw 'Pandoc is not installed or not available in PATH. Please install Pandoc and try again.'
         }
     }
 
@@ -103,8 +103,8 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
             $aliasCommand = Get-Command -Name 'url2markdown' -ErrorAction SilentlyContinue
 
             $aliasCommand | Should -Not -BeNullOrEmpty
-            $aliasCommand.CommandType | Should -Be 'Alias'
-            $aliasCommand.Definition | Should -Be 'ConvertTo-Markdown'
+            $aliasCommand.CommandType | Should-Be 'Alias'
+            $aliasCommand.Definition | Should-Be 'ConvertTo-Markdown'
         }
     }
 
@@ -126,14 +126,14 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
             $expectedPath = Join-Path -Path $script:TestDir -ChildPath 'sample.md'
 
             $result | Should -BeNullOrEmpty
-            Test-Path -LiteralPath $expectedPath | Should -BeTrue
-            Get-Content -LiteralPath $expectedPath -Raw | Should -Match '^# Converted Markdown'
+            Test-Path -LiteralPath $expectedPath | Should-BeTruthy
+            Get-Content -LiteralPath $expectedPath -Raw | Should-MatchString '^# Converted Markdown'
             $runCall = $script:PandocShimInvocations[0]
-            $runCall | Should -Contain '--to'
-            $runCall | Should -Contain 'gfm'
-            $runCall | Should -Contain '-o'
-            $runCall | Should -Contain $expectedPath
-            $runCall | Should -Contain ([System.IO.Path]::GetFullPath($inputFile))
+            $runCall | Should-ContainCollection '--to'
+            $runCall | Should-ContainCollection 'gfm'
+            $runCall | Should-ContainCollection '-o'
+            $runCall | Should-ContainCollection $expectedPath
+            $runCall | Should-ContainCollection ([System.IO.Path]::GetFullPath($inputFile))
         }
 
         It 'Converts an HTTPS URL and writes to an auto-generated file path' {
@@ -141,11 +141,11 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
             $expectedPath = Join-Path -Path $script:TestDir -ChildPath 'example-com-docs-page.md'
 
             $result | Should -BeNullOrEmpty
-            Test-Path -LiteralPath $expectedPath | Should -BeTrue
+            Test-Path -LiteralPath $expectedPath | Should-BeTruthy
             $runCall = $script:PandocShimInvocations[0]
-            $runCall | Should -Contain '-o'
-            $runCall | Should -Contain $expectedPath
-            $runCall | Should -Contain 'https://example.com/docs/page.html'
+            $runCall | Should-ContainCollection '-o'
+            $runCall | Should-ContainCollection $expectedPath
+            $runCall | Should-ContainCollection 'https://example.com/docs/page.html'
         }
 
         It 'Auto-saves URL input using URI path segments when -OutputPath is omitted' {
@@ -153,22 +153,22 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
             $expectedPath = Join-Path -Path $script:TestDir -ChildPath 'example-com-docs-page.md'
 
             $result | Should -BeNullOrEmpty
-            Test-Path -LiteralPath $expectedPath | Should -BeTrue
-            Get-Content -LiteralPath $expectedPath -Raw | Should -Match '^# Converted Markdown'
+            Test-Path -LiteralPath $expectedPath | Should-BeTruthy
+            Get-Content -LiteralPath $expectedPath -Raw | Should-MatchString '^# Converted Markdown'
         }
 
         It 'Auto-saves base URL input as domain-derived markdown filename' {
             ConvertTo-Markdown -InputObject 'https://example.com' | Out-Null
             $expectedPath = Join-Path -Path $script:TestDir -ChildPath 'example-com.md'
 
-            Test-Path -LiteralPath $expectedPath | Should -BeTrue
+            Test-Path -LiteralPath $expectedPath | Should-BeTruthy
         }
 
         It 'Throws when a local file path does not exist' {
             $missingPath = Join-Path -Path $script:TestDir -ChildPath 'missing.html'
 
             { ConvertTo-Markdown -InputObject $missingPath } |
-            Should -Throw "*Input path does not exist or is not a file: $missingPath*"
+            Should-Throw "*Input path does not exist or is not a file: $missingPath*"
         }
 
         It 'Accepts pipeline input' {
@@ -176,8 +176,8 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
             ConvertTo-Markdown
 
             $results | Should -BeNullOrEmpty
-            Test-Path -LiteralPath (Join-Path -Path $script:TestDir -ChildPath 'example-com-one.md') | Should -BeTrue
-            Test-Path -LiteralPath (Join-Path -Path $script:TestDir -ChildPath 'example-com-two.md') | Should -BeTrue
+            Test-Path -LiteralPath (Join-Path -Path $script:TestDir -ChildPath 'example-com-one.md') | Should-BeTruthy
+            Test-Path -LiteralPath (Join-Path -Path $script:TestDir -ChildPath 'example-com-two.md') | Should-BeTruthy
         }
     }
 
@@ -198,12 +198,12 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
             ConvertTo-Markdown -InputObject $inputFile -From html -To markdown -PandocArgs @('--wrap=none', '--strip-comments') | Out-Null
 
             $runCall = $script:PandocShimInvocations[0]
-            $runCall | Should -Contain '--from'
-            $runCall | Should -Contain 'html'
-            $runCall | Should -Contain '--to'
-            $runCall | Should -Contain 'markdown'
-            $runCall | Should -Contain '--wrap=none'
-            $runCall | Should -Contain '--strip-comments'
+            $runCall | Should-ContainCollection '--from'
+            $runCall | Should-ContainCollection 'html'
+            $runCall | Should-ContainCollection '--to'
+            $runCall | Should-ContainCollection 'markdown'
+            $runCall | Should-ContainCollection '--wrap=none'
+            $runCall | Should-ContainCollection '--strip-comments'
         }
 
         It 'Accepts Pandoc markdown output variants and extension modifiers for -To' {
@@ -216,8 +216,8 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
             ConvertTo-Markdown -InputObject $inputFile -To 'gfm+task_lists+pipe_tables-smart' | Out-Null
 
             $runCall = $script:PandocShimInvocations[-1]
-            $runCall | Should -Contain '--to'
-            $runCall | Should -Contain 'gfm+task_lists+pipe_tables-smart'
+            $runCall | Should-ContainCollection '--to'
+            $runCall | Should-ContainCollection 'gfm+task_lists+pipe_tables-smart'
         }
 
         It 'Rejects non-markdown or malformed values for -To' {
@@ -225,13 +225,13 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
             '<h1>Hello</h1>' | Set-Content -LiteralPath $inputFile -NoNewline
 
             { ConvertTo-Markdown -InputObject $inputFile -To html } |
-            Should -Throw "*Cannot validate argument on parameter 'To'*"
+            Should-Throw "*Cannot validate argument on parameter 'To'*"
 
             { ConvertTo-Markdown -InputObject $inputFile -To 'gfm++task_lists' } |
-            Should -Throw "*Cannot validate argument on parameter 'To'*"
+            Should-Throw "*Cannot validate argument on parameter 'To'*"
 
             { ConvertTo-Markdown -InputObject $inputFile -To 'gfm+1invalid' } |
-            Should -Throw "*Cannot validate argument on parameter 'To'*"
+            Should-Throw "*Cannot validate argument on parameter 'To'*"
         }
 
         It 'Writes to -OutputPath and returns path with -PassThru' {
@@ -242,25 +242,25 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
             $result = ConvertTo-Markdown -InputObject $inputFile -OutputPath $outputPath -PassThru
 
             $resolvedOutputPath = [System.IO.Path]::GetFullPath($outputPath)
-            $result | Should -Be $resolvedOutputPath
+            $result | Should-Be $resolvedOutputPath
 
             $runCall = $script:PandocShimInvocations[0]
-            $runCall | Should -Contain '-o'
-            $runCall | Should -Contain $resolvedOutputPath
-            Test-Path -LiteralPath $resolvedOutputPath | Should -BeTrue
+            $runCall | Should-ContainCollection '-o'
+            $runCall | Should-ContainCollection $resolvedOutputPath
+            Test-Path -LiteralPath $resolvedOutputPath | Should-BeTruthy
         }
 
         It 'Returns auto-generated output path with -PassThru when -OutputPath is omitted' {
             $result = ConvertTo-Markdown -InputObject 'https://example.com/notes' -PassThru
             $expectedPath = Join-Path -Path $script:TestDir -ChildPath 'example-com-notes.md'
 
-            $result | Should -Be $expectedPath
-            Test-Path -LiteralPath $expectedPath | Should -BeTrue
+            $result | Should-Be $expectedPath
+            Test-Path -LiteralPath $expectedPath | Should-BeTruthy
         }
 
         It 'Rejects multiple input values when -OutputPath is specified' {
             { @('https://example.com/one', 'https://example.com/two') | ConvertTo-Markdown -OutputPath (Join-Path -Path $script:TestDir -ChildPath 'out.md') } |
-            Should -Throw '*only one InputObject value is supported*'
+            Should-Throw '*only one InputObject value is supported*'
         }
 
         It 'Accepts valid values for -Encoding' {
@@ -270,15 +270,15 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
             Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] } |
             Select-Object -ExpandProperty ValidValues
 
-            $validEncodings | Should -Contain 'Auto'
-            $validEncodings | Should -Contain 'UTF8'
-            $validEncodings | Should -Contain 'UTF8BOM'
-            $validEncodings | Should -Contain 'UTF16LE'
-            $validEncodings | Should -Contain 'UTF16BE'
-            $validEncodings | Should -Contain 'UTF32'
-            $validEncodings | Should -Contain 'UTF32BE'
-            $validEncodings | Should -Contain 'ASCII'
-            $validEncodings | Should -Contain 'ANSI'
+            $validEncodings | Should-ContainCollection 'Auto'
+            $validEncodings | Should-ContainCollection 'UTF8'
+            $validEncodings | Should-ContainCollection 'UTF8BOM'
+            $validEncodings | Should-ContainCollection 'UTF16LE'
+            $validEncodings | Should-ContainCollection 'UTF16BE'
+            $validEncodings | Should-ContainCollection 'UTF32'
+            $validEncodings | Should-ContainCollection 'UTF32BE'
+            $validEncodings | Should-ContainCollection 'ASCII'
+            $validEncodings | Should-ContainCollection 'ANSI'
         }
 
         It 'Preserves Pandoc output encoding when -Encoding Auto' {
@@ -289,9 +289,9 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
             ConvertTo-Markdown -InputObject $inputFile -OutputPath $outputPath -Encoding Auto | Out-Null
 
             $bytes = [System.IO.File]::ReadAllBytes($outputPath)
-            $bytes[0] | Should -Not -Be 0xEF
-            $bytes[0] | Should -Not -Be 0xFF
-            $bytes[0] | Should -Not -Be 0xFE
+            $bytes[0] | Should-NotBe 0xEF
+            $bytes[0] | Should-NotBe 0xFF
+            $bytes[0] | Should-NotBe 0xFE
         }
 
         It 'Converts output file encoding when -Encoding is specified' {
@@ -302,9 +302,9 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
             ConvertTo-Markdown -InputObject $inputFile -OutputPath $outputPath -Encoding UTF8BOM | Out-Null
 
             $bytes = [System.IO.File]::ReadAllBytes($outputPath)
-            $bytes[0] | Should -Be 0xEF
-            $bytes[1] | Should -Be 0xBB
-            $bytes[2] | Should -Be 0xBF
+            $bytes[0] | Should-Be 0xEF
+            $bytes[1] | Should-Be 0xBB
+            $bytes[2] | Should-Be 0xBF
         }
     }
 
@@ -322,7 +322,7 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
             $script:PandocShimExitCode = 9
 
             { ConvertTo-Markdown -InputObject 'https://example.com/fail' } |
-            Should -Throw '*exit code 9*'
+            Should-Throw '*exit code 9*'
         }
     }
 }

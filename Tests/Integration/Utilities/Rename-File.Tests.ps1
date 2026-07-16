@@ -43,12 +43,12 @@ Describe 'Rename-File Integration Tests' -Tag 'Integration', 'Utilities' {
             Get-ChildItem -Path $script:testRoot -Filter 'IMG_*.jpg' |
             Rename-File -NewName 'vacation_2024_{0:D4}.jpg' -Counter
 
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'vacation_2024_0001.jpg') | Should -Be $true
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'vacation_2024_0002.jpg') | Should -Be $true
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'vacation_2024_0005.jpg') | Should -Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'vacation_2024_0001.jpg') | Should-Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'vacation_2024_0002.jpg') | Should-Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'vacation_2024_0005.jpg') | Should-Be $true
 
             # Verify old names are gone
-            Get-ChildItem -Path $script:testRoot -Filter 'IMG_*.jpg' | Should -HaveCount 0
+            Get-ChildItem -Path $script:testRoot -Filter 'IMG_*.jpg' | Should-BeCollection -Count 0
         }
     }
 
@@ -76,10 +76,10 @@ Describe 'Rename-File Integration Tests' -Tag 'Integration', 'Utilities' {
             Rename-File -Normalize -RemoveShellMetaCharacters -ReplaceSpacesWith '_' -ToLower
 
             $files = Get-ChildItem -Path $script:testRoot | Sort-Object Name
-            $files.Name | Should -Contain 'budget-2024_final.xlsx'
-            $files.Name | Should -Contain 'meeting_notes_1.txt'
-            $files.Name | Should -Contain 'project__plan.docx'
-            $files.Name | Should -Contain 'resume.pdf'
+            $files.Name | Should-ContainCollection 'budget-2024_final.xlsx'
+            $files.Name | Should-ContainCollection 'meeting_notes_1.txt'
+            $files.Name | Should-ContainCollection 'project__plan.docx'
+            $files.Name | Should-ContainCollection 'resume.pdf'
         }
     }
 
@@ -105,9 +105,9 @@ Describe 'Rename-File Integration Tests' -Tag 'Integration', 'Utilities' {
             Get-ChildItem -Path $script:testRoot |
             Rename-File -UrlDecode -RemoveShellMetaCharacters -ReplaceSpacesWith '_'
 
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'document_file.pdf') | Should -Be $true
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'report+2024.xlsx') | Should -Be $true
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'photo_1.jpg') | Should -Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'document_file.pdf') | Should-Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'report+2024.xlsx') | Should-Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'photo_1.jpg') | Should-Be $true
         }
     }
 
@@ -139,9 +139,9 @@ Describe 'Rename-File Integration Tests' -Tag 'Integration', 'Utilities' {
             Get-ChildItem -Path $script:testRoot -Filter '*.avi' |
             Rename-File -ReplaceSpacesWith '.' -ToLower
 
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'The Great Movie 2024.mkv') | Should -Be $true
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'Another Movie Title.mp4') | Should -Be $true
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'tv.show.s01e01.avi') | Should -Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'The Great Movie 2024.mkv') | Should-Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'Another Movie Title.mp4') | Should-Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'tv.show.s01e01.avi') | Should-Be $true
         }
     }
 
@@ -167,9 +167,9 @@ Describe 'Rename-File Integration Tests' -Tag 'Integration', 'Utilities' {
             Get-ChildItem -Path $script:testRoot -Filter '*.txt' |
             Rename-File -Expression { $_ -replace '(\d{4})(\d{2})(\d{2})_', '$1-$2-$3_' }
 
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath '2024-01-01_report.txt') | Should -Be $true
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath '2024-01-02_notes.txt') | Should -Be $true
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath '2024-01-03_data.txt') | Should -Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath '2024-01-01_report.txt') | Should-Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath '2024-01-02_notes.txt') | Should-Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath '2024-01-03_data.txt') | Should-Be $true
         }
     }
 
@@ -191,11 +191,11 @@ Describe 'Rename-File Integration Tests' -Tag 'Integration', 'Utilities' {
             Get-ChildItem -Path $script:testRoot -Filter '*.dat' |
             Rename-File -NewExtension '.txt'
 
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'data1.txt') | Should -Be $true
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'data2.txt') | Should -Be $true
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'data3.txt') | Should -Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'data1.txt') | Should-Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'data2.txt') | Should-Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'data3.txt') | Should-Be $true
 
-            Get-ChildItem -Path $script:testRoot -Filter '*.dat' | Should -HaveCount 0
+            Get-ChildItem -Path $script:testRoot -Filter '*.dat' | Should-BeCollection -Count 0
         }
     }
 
@@ -227,9 +227,9 @@ Describe 'Rename-File Integration Tests' -Tag 'Integration', 'Utilities' {
         It 'Should process files recursively in all subdirectories' {
             Rename-File -Path $script:testRoot -Recurse -ReplaceSpacesWith '_' -ToLower
 
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'test_file.txt') | Should -Be $true
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'SubDir1/test_file_1.txt') | Should -Be $true
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'SubDir2/test_file_2.txt') | Should -Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'test_file.txt') | Should-Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'SubDir1/test_file_1.txt') | Should-Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'SubDir2/test_file_2.txt') | Should-Be $true
         }
     }
 
@@ -256,11 +256,11 @@ Describe 'Rename-File Integration Tests' -Tag 'Integration', 'Utilities' {
             Rename-File -ToCamelCase
 
             $files = Get-ChildItem -Path $script:testRoot -Filter '*.js' | Sort-Object Name
-            $files | Should -HaveCount 3
+            $files | Should-BeCollection -Count 3
             # Verify camelCase format: first letter lowercase, subsequent words capitalized
-            $files[0].Name | Should -Be 'anotherFunction.js'
-            $files[1].Name | Should -Be 'myFunction.js'
-            $files[2].Name | Should -Be 'thirdFunction.js'
+            $files[0].Name | Should-Be 'anotherFunction.js'
+            $files[1].Name | Should-Be 'myFunction.js'
+            $files[2].Name | Should-Be 'thirdFunction.js'
         }
 
         It 'Should convert all files to PascalCase convention' {
@@ -268,11 +268,11 @@ Describe 'Rename-File Integration Tests' -Tag 'Integration', 'Utilities' {
             Rename-File -ToPascalCase
 
             $files = Get-ChildItem -Path $script:testRoot -Filter '*.js' | Sort-Object Name
-            $files | Should -HaveCount 3
+            $files | Should-BeCollection -Count 3
             # Verify PascalCase format: first letter of each word capitalized
-            $files[0].Name | Should -Be 'AnotherFunction.js'
-            $files[1].Name | Should -Be 'MyFunction.js'
-            $files[2].Name | Should -Be 'ThirdFunction.js'
+            $files[0].Name | Should-Be 'AnotherFunction.js'
+            $files[1].Name | Should-Be 'MyFunction.js'
+            $files[2].Name | Should-Be 'ThirdFunction.js'
         }
     }
 
@@ -299,9 +299,9 @@ Describe 'Rename-File Integration Tests' -Tag 'Integration', 'Utilities' {
             Rename-File -Prepend '2024-01-15_' -Append '_archived' -Counter -CounterFormat 'D2'
 
             # Files are processed in alphabetical order: application, debug, error
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath '2024-01-15_application_archived01.log') | Should -Be $true
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath '2024-01-15_debug_archived02.log') | Should -Be $true
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath '2024-01-15_error_archived03.log') | Should -Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath '2024-01-15_application_archived01.log') | Should-Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath '2024-01-15_debug_archived02.log') | Should-Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath '2024-01-15_error_archived03.log') | Should-Be $true
         }
     }
 
@@ -333,7 +333,7 @@ Describe 'Rename-File Integration Tests' -Tag 'Integration', 'Utilities' {
             foreach ($file in $files)
             {
                 # Verify no problematic characters remain
-                $file.Name | Should -Not -Match '[<>:"/\\|?*#~]'
+                $file.Name | Should-NotMatchString '[<>:"/\\|?*#~]'
             }
         }
     }
@@ -358,14 +358,14 @@ Describe 'Rename-File Integration Tests' -Tag 'Integration', 'Utilities' {
             Rename-File -ToUpper
 
             $files = Get-ChildItem -Path $script:testRoot -Filter '*.txt' | Sort-Object Name
-            $files | Should -HaveCount 5
+            $files | Should-BeCollection -Count 5
             # First three files should be uppercase (FILE1, FILE2, FILE3)
-            $files[0].Name | Should -Be 'FILE1.TXT'
-            $files[1].Name | Should -Be 'FILE2.TXT'
-            $files[2].Name | Should -Be 'FILE3.TXT'
+            $files[0].Name | Should-Be 'FILE1.TXT'
+            $files[1].Name | Should-Be 'FILE2.TXT'
+            $files[2].Name | Should-Be 'FILE3.TXT'
             # Last two files should remain lowercase
-            $files[3].Name | Should -Be 'file4.txt'
-            $files[4].Name | Should -Be 'file5.txt'
+            $files[3].Name | Should-Be 'file4.txt'
+            $files[4].Name | Should-Be 'file5.txt'
         }
 
         It 'Should work with PassThru for further processing' {
@@ -373,9 +373,9 @@ Describe 'Rename-File Integration Tests' -Tag 'Integration', 'Utilities' {
             Rename-File -Prepend 'processed_' -PassThru |
             Select-Object -ExpandProperty Name
 
-            $result | Should -HaveCount 5
-            $result | Should -Contain 'processed_file1.txt'
-            $result | Should -Contain 'processed_file5.txt'
+            $result | Should-BeCollection -Count 5
+            $result | Should-ContainCollection 'processed_file1.txt'
+            $result | Should-ContainCollection 'processed_file5.txt'
         }
     }
 
@@ -408,9 +408,9 @@ Describe 'Rename-File Integration Tests' -Tag 'Integration', 'Utilities' {
                 '\d{4}-\d{2}-\d{2}' = 'DATE'
             }
 
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'rpt_DATE.txt') | Should -Be $true
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'dat_DATE.csv') | Should -Be $true
-            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'log_DATE.log') | Should -Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'rpt_DATE.txt') | Should-Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'dat_DATE.csv') | Should-Be $true
+            Test-Path (Join-Path -Path $script:testRoot -ChildPath 'log_DATE.log') | Should-Be $true
         }
     }
 }

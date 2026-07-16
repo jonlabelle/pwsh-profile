@@ -56,32 +56,32 @@ Describe 'New-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
         It 'Should create a symbolic link to a file' {
             New-SymbolicLink -Path $script:linkPath -Target $script:targetFile
 
-            Test-Path -Path $script:linkPath | Should -Be $true
+            Test-Path -Path $script:linkPath | Should-Be $true
 
             $linkItem = Get-Item -Path $script:linkPath
-            $linkItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint | Should -Be ([System.IO.FileAttributes]::ReparsePoint)
+            $linkItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint | Should-Be ([System.IO.FileAttributes]::ReparsePoint)
         }
 
         It 'Should create a symbolic link that points to correct content' {
             New-SymbolicLink -Path $script:linkPath -Target $script:targetFile
 
             $content = Get-Content -Path $script:linkPath
-            $content | Should -Be 'test content'
+            $content | Should-Be 'test content'
         }
 
         It 'Should return FileInfo when PassThru is specified' {
             $result = New-SymbolicLink -Path $script:linkPath -Target $script:targetFile -PassThru
 
             $result | Should -Not -BeNullOrEmpty
-            $result.Name | Should -Be 'link-to-file.txt'
-            $result.Attributes -band [System.IO.FileAttributes]::ReparsePoint | Should -Be ([System.IO.FileAttributes]::ReparsePoint)
+            $result.Name | Should-Be 'link-to-file.txt'
+            $result.Attributes -band [System.IO.FileAttributes]::ReparsePoint | Should-Be ([System.IO.FileAttributes]::ReparsePoint)
         }
 
         It 'Should fail when target does not exist and Force is not specified' {
             $nonExistentTarget = Join-Path -Path $script:targetDir -ChildPath 'does-not-exist.txt'
 
             { New-SymbolicLink -Path $script:linkPath -Target $nonExistentTarget -ErrorAction Stop } |
-            Should -Throw '*does not exist*'
+            Should-Throw '*does not exist*'
         }
 
         It 'Should create link to non-existent target when Force is specified' {
@@ -89,9 +89,9 @@ Describe 'New-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
 
             New-SymbolicLink -Path $script:linkPath -Target $nonExistentTarget -Force
 
-            Test-Path -Path $script:linkPath | Should -Be $true
+            Test-Path -Path $script:linkPath | Should-Be $true
             $linkItem = Get-Item -Path $script:linkPath
-            $linkItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint | Should -Be ([System.IO.FileAttributes]::ReparsePoint)
+            $linkItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint | Should-Be ([System.IO.FileAttributes]::ReparsePoint)
         }
 
         It 'Should fail when path already exists and Force is not specified' {
@@ -100,7 +100,7 @@ Describe 'New-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
 
             # Try to create another link at the same path
             { New-SymbolicLink -Path $script:linkPath -Target $script:targetFile -ErrorAction Stop } |
-            Should -Throw '*already exists*'
+            Should-Throw '*already exists*'
         }
 
         It 'Should overwrite existing link when Force is specified' {
@@ -115,7 +115,7 @@ Describe 'New-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
             New-SymbolicLink -Path $script:linkPath -Target $targetFile2 -Force
 
             $content = Get-Content -Path $script:linkPath
-            $content | Should -Be 'different content'
+            $content | Should-Be 'different content'
 
             # Cleanup second target
             Remove-Item -Path $targetFile2 -Force -ErrorAction SilentlyContinue
@@ -132,7 +132,7 @@ Describe 'New-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
             {
                 New-SymbolicLink -Path $script:linkPath -Target $replacementTarget -Force
 
-                Get-Content -Path $script:linkPath | Should -Be 'replacement content'
+                Get-Content -Path $script:linkPath | Should-Be 'replacement content'
             }
             finally
             {
@@ -170,26 +170,26 @@ Describe 'New-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
         It 'Should create a symbolic link to a directory' {
             New-SymbolicLink -Path $script:dirLinkPath -Target $script:targetSubDir
 
-            Test-Path -Path $script:dirLinkPath | Should -Be $true
+            Test-Path -Path $script:dirLinkPath | Should-Be $true
 
             $linkItem = Get-Item -Path $script:dirLinkPath
-            $linkItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint | Should -Be ([System.IO.FileAttributes]::ReparsePoint)
+            $linkItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint | Should-Be ([System.IO.FileAttributes]::ReparsePoint)
         }
 
         It 'Should allow access to files through directory symbolic link' {
             New-SymbolicLink -Path $script:dirLinkPath -Target $script:targetSubDir
 
             $fileViaLink = Join-Path -Path $script:dirLinkPath -ChildPath 'file-in-dir.txt'
-            Test-Path -Path $fileViaLink | Should -Be $true
+            Test-Path -Path $fileViaLink | Should-Be $true
 
             $content = Get-Content -Path $fileViaLink
-            $content | Should -Be 'content in subdir'
+            $content | Should-Be 'content in subdir'
         }
 
         It 'Should auto-detect directory type' {
             $result = New-SymbolicLink -Path $script:dirLinkPath -Target $script:targetSubDir -PassThru
 
-            $result.PSIsContainer | Should -Be $true
+            $result.PSIsContainer | Should-Be $true
         }
     }
 
@@ -202,7 +202,7 @@ Describe 'New-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
 
             New-SymbolicLink -Path $nestedLinkPath -Target $targetFile
 
-            Test-Path -Path $nestedLinkPath | Should -Be $true
+            Test-Path -Path $nestedLinkPath | Should-Be $true
 
             # Cleanup
             $nestedParent = Join-Path -Path $script:linkDir -ChildPath 'nested'
@@ -230,7 +230,7 @@ Describe 'New-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
             New-SymbolicLink -Path $script:linkPath -Target $targetFile -ItemType File
 
             $linkItem = Get-Item -Path $script:linkPath
-            $linkItem.PSIsContainer | Should -Be $false
+            $linkItem.PSIsContainer | Should-Be $false
 
             Remove-Item -Path $targetFile -Force -ErrorAction SilentlyContinue
         }
@@ -242,7 +242,7 @@ Describe 'New-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
             New-SymbolicLink -Path $script:linkPath -Target $targetSubDir -ItemType Directory
 
             $linkItem = Get-Item -Path $script:linkPath
-            $linkItem.PSIsContainer | Should -Be $true
+            $linkItem.PSIsContainer | Should-Be $true
 
             Remove-Item -Path $targetSubDir -Force -ErrorAction SilentlyContinue
         }
@@ -257,7 +257,7 @@ Describe 'New-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
 
             New-SymbolicLink -Path $linkPath -Target $targetFile -WhatIf
 
-            Test-Path -Path $linkPath | Should -Be $false
+            Test-Path -Path $linkPath | Should-Be $false
 
             Remove-Item -Path $targetFile -Force -ErrorAction SilentlyContinue
         }
@@ -276,7 +276,7 @@ Describe 'New-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
             {
                 New-SymbolicLink -Path './links/relative-link.txt' -Target './targets/relative-target.txt'
 
-                Test-Path -Path $linkPath | Should -Be $true
+                Test-Path -Path $linkPath | Should-Be $true
             }
             finally
             {
@@ -292,12 +292,12 @@ Describe 'New-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
     Context 'Error Handling' {
         It 'Should provide clear error when path is null or empty' {
             { New-SymbolicLink -Path '' -Target 'sometarget' -ErrorAction Stop } |
-            Should -Throw
+            Should-Throw
         }
 
         It 'Should provide clear error when target is null or empty' {
             { New-SymbolicLink -Path 'somepath' -Target '' -ErrorAction Stop } |
-            Should -Throw
+            Should-Throw
         }
     }
 }

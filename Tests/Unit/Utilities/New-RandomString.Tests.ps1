@@ -30,42 +30,42 @@ Describe 'New-RandomString' {
             # Test the default behavior - 32 character alphanumeric string
             $result = New-RandomString
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 32
-            $result | Should -MatchExactly '^[0-9A-Za-z]+$'
+            $result.Length | Should-Be 32
+            $result | Should-MatchString '^[0-9A-Za-z]+$' -CaseSensitive
         }
 
         It 'Returns a random 16-character string when Length is specified (Example: New-RandomString -Length 16)' {
             # Test custom length specification
             $result = New-RandomString -Length 16
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 16
-            $result | Should -MatchExactly '^[0-9A-Za-z]+$'
+            $result.Length | Should-Be 16
+            $result | Should-MatchString '^[0-9A-Za-z]+$' -CaseSensitive
         }
 
         It 'Returns a random 64-character string without ambiguous characters when ExcludeAmbiguous is specified (Example: New-RandomString -Length 64 -ExcludeAmbiguous)' {
             # Test exclusion of potentially confusing characters: 0, 1, O, I, l, o, i
             $result = New-RandomString -Length 64 -ExcludeAmbiguous
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 64
+            $result.Length | Should-Be 64
             # Should exclude all ambiguous characters: 0, 1, O, I, l, o, i
-            $result | Should -Not -Match '[01OIlio]'
-            $result | Should -MatchExactly '^[2-9A-HJ-KM-NP-Za-hj-km-np-z]+$'
+            $result | Should-NotMatchString '[01OIlio]'
+            $result | Should-MatchString '^[2-9A-HJ-KM-NP-Za-hj-km-np-z]+$' -CaseSensitive
         }
 
         It 'Returns a 20-character string including symbols when IncludeSymbols and Secure are specified (Example: New-RandomString -Length 20 -IncludeSymbols -Secure)' {
             # Test symbol inclusion and cryptographically secure generation
             $result = New-RandomString -Length 20 -IncludeSymbols -Secure
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 20
+            $result.Length | Should-Be 20
             # Should allow alphanumeric and symbols
-            $result | Should -MatchExactly '^[0-9A-Za-z!@#$%^&*]+$'
+            $result | Should-MatchString '^[0-9A-Za-z!@#$%^&*]+$' -CaseSensitive
         }
 
         It 'Returns different values on multiple calls' {
             # Verify randomness - multiple calls should produce different results
             $result1 = New-RandomString -Length 10
             $result2 = New-RandomString -Length 10
-            $result1 | Should -Not -Be $result2
+            $result1 | Should-NotBe $result2
         }
     }
 
@@ -76,36 +76,36 @@ Describe 'New-RandomString' {
         }
 
         It 'Should reject Length values outside valid range' {
-            { New-RandomString -Length 0 } | Should -Throw
-            { New-RandomString -Length 10001 } | Should -Throw
-            { New-RandomString -Length -1 } | Should -Throw
+            { New-RandomString -Length 0 } | Should-Throw
+            { New-RandomString -Length 10001 } | Should-Throw
+            { New-RandomString -Length -1 } | Should-Throw
         }
     }
 
     Context 'Character set validation' {
         It 'Should include numbers when not excluding ambiguous' {
             $result = New-RandomString -Length 1000  # Large sample to increase probability
-            $result | Should -Match '[0-9]'
+            $result | Should-MatchString '[0-9]'
         }
 
         It 'Should include uppercase letters' {
             $result = New-RandomString -Length 1000
-            $result | Should -Match '[A-Z]'
+            $result | Should-MatchString '[A-Z]'
         }
 
         It 'Should include lowercase letters' {
             $result = New-RandomString -Length 1000
-            $result | Should -Match '[a-z]'
+            $result | Should-MatchString '[a-z]'
         }
 
         It 'Should include symbols when IncludeSymbols is specified' {
             $result = New-RandomString -Length 1000 -IncludeSymbols
-            $result | Should -Match '[!@#$%^&*]'
+            $result | Should-MatchString '[!@#$%^&*]'
         }
 
         It 'Should not include symbols when IncludeSymbols is not specified' {
             $result = New-RandomString -Length 100
-            $result | Should -Not -Match '[!@#$%^&*]'
+            $result | Should-NotMatchString '[!@#$%^&*]'
         }
     }
 
@@ -115,15 +115,15 @@ Describe 'New-RandomString' {
             1..10 | ForEach-Object {
                 $result = New-RandomString -Length 100 -ExcludeAmbiguous
                 # Should exclude all ambiguous characters: 0, 1, O, I, l, o, i
-                $result | Should -Not -Match '[01OIlio]'
+                $result | Should-NotMatchString '[01OIlio]'
             }
         }
 
         It 'Should still include non-ambiguous numbers and letters when ExcludeAmbiguous is specified' {
             $result = New-RandomString -Length 1000 -ExcludeAmbiguous
-            $result | Should -Match '[2-9]'  # Non-ambiguous numbers
-            $result | Should -Match '[A-HJ-KM-NP-Z]'  # Uppercase letters excluding I, L, O
-            $result | Should -Match '[a-hj-km-np-z]'  # Lowercase letters excluding i, l, o
+            $result | Should-MatchString '[2-9]'  # Non-ambiguous numbers
+            $result | Should-MatchString '[A-HJ-KM-NP-Z]'  # Uppercase letters excluding I, L, O
+            $result | Should-MatchString '[a-hj-km-np-z]'  # Lowercase letters excluding i, l, o
         }
     }
 
@@ -132,12 +132,12 @@ Describe 'New-RandomString' {
             $excludedChars = @('0', '1', 'A', 'a')
             $result = New-RandomString -Length 100 -ExcludeCharacters $excludedChars
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 100
+            $result.Length | Should-Be 100
 
             # None of the excluded characters should appear
             foreach ($char in $excludedChars)
             {
-                $result.Contains($char) | Should -Be $false
+                $result.Contains($char) | Should-Be $false
             }
         }
 
@@ -145,12 +145,12 @@ Describe 'New-RandomString' {
             $excludedSymbols = @('!', '@', '#')
             $result = New-RandomString -Length 200 -IncludeSymbols -ExcludeCharacters $excludedSymbols
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 200
+            $result.Length | Should-Be 200
 
             # Excluded symbols should not appear
             foreach ($symbol in $excludedSymbols)
             {
-                $result.Contains($symbol) | Should -Be $false
+                $result.Contains($symbol) | Should-Be $false
             }
 
             # But other symbols should still be possible
@@ -165,22 +165,22 @@ Describe 'New-RandomString' {
                     break
                 }
             }
-            $foundAllowedSymbol | Should -Be $true
+            $foundAllowedSymbol | Should-Be $true
         }
 
         It 'Should work in combination with ExcludeAmbiguous' {
             $additionalExclusions = @('X', 'Y', 'Z')
             $result = New-RandomString -Length 100 -ExcludeAmbiguous -ExcludeCharacters $additionalExclusions
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 100
+            $result.Length | Should-Be 100
 
             # Should exclude ambiguous characters: 0, 1, O, I, l, o, i
-            $result | Should -Not -Match '[01OIlio]'
+            $result | Should-NotMatchString '[01OIlio]'
 
             # Should also exclude additional characters
             foreach ($char in $additionalExclusions)
             {
-                $result.Contains($char) | Should -Be $false
+                $result.Contains($char) | Should-Be $false
             }
         }
 
@@ -188,12 +188,12 @@ Describe 'New-RandomString' {
             $excludedChars = @('0', 'O', '1', 'I')
             $result = New-RandomString -Length 50 -ExcludeCharacters $excludedChars -Secure
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 50
+            $result.Length | Should-Be 50
 
             # None of the excluded characters should appear
             foreach ($char in $excludedChars)
             {
-                $result.Contains($char) | Should -Be $false
+                $result.Contains($char) | Should-Be $false
             }
         }
 
@@ -206,35 +206,35 @@ Describe 'New-RandomString' {
 
             $allChars = $numbers + $upperCase + $lowerCase
 
-            { New-RandomString -Length 10 -ExcludeCharacters $allChars } | Should -Throw -ExpectedMessage '*All available characters have been excluded*'
+            { New-RandomString -Length 10 -ExcludeCharacters $allChars } | Should-Throw -ExceptionMessage '*All available characters have been excluded*'
         }
 
         It 'Should handle empty ExcludeCharacters array' {
             $result = New-RandomString -Length 20 -ExcludeCharacters @()
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 20
-            $result | Should -MatchExactly '^[0-9A-Za-z]+$'
+            $result.Length | Should-Be 20
+            $result | Should-MatchString '^[0-9A-Za-z]+$' -CaseSensitive
         }
 
         It 'Should exclude single character correctly' {
             $result = New-RandomString -Length 100 -ExcludeCharacters @('X')
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 100
-            $result.Contains('X') | Should -Be $false
+            $result.Length | Should-Be 100
+            $result.Contains('X') | Should-Be $false
         }
 
         It 'Should handle case-sensitive exclusions' {
             # Test excluding uppercase 'A'
             $result = New-RandomString -Length 100 -ExcludeCharacters @('A')
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 100
-            $result.Contains('A') | Should -Be $false
+            $result.Length | Should-Be 100
+            $result.Contains('A') | Should-Be $false
 
             # Test excluding lowercase 'a'
             $result2 = New-RandomString -Length 100 -ExcludeCharacters @('a')
             $result2 | Should -Not -BeNullOrEmpty
-            $result2.Length | Should -Be 100
-            $result2.Contains('a') | Should -Be $false
+            $result2.Length | Should-Be 100
+            $result2.Contains('a') | Should-Be $false
         }
 
         It 'Should split multi-character exclusion entries into individual characters' {
@@ -248,7 +248,7 @@ Describe 'New-RandomString' {
             }
 
             $result = New-RandomString -Length 50 -ExcludeCharacters ($charactersToExclude + @('AB', '12'))
-            $result | Should -Be ($allowedCharacter * 50)
+            $result | Should-Be ($allowedCharacter * 50)
         }
 
         It 'Should treat ExcludeCharacters as case-sensitive when only one case remains in the pool' {
@@ -261,7 +261,7 @@ Describe 'New-RandomString' {
             }
 
             $result = New-RandomString -Length 20 -ExcludeCharacters $charactersToExclude
-            $result | Should -Be ('a' * 20)
+            $result | Should-Be ('a' * 20)
         }
     }
 
@@ -270,15 +270,15 @@ Describe 'New-RandomString' {
             $customChars = @('-', '_', '.')
             $result = New-RandomString -Length 200 -IncludeCharacters $customChars -ExcludeCharacters $script:DefaultRandomStringCharacters
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 200
-            $result | Should -MatchExactly '^[-_.]+$'
+            $result.Length | Should-Be 200
+            $result | Should-MatchString '^[-_.]+$' -CaseSensitive
         }
 
         It 'Should work with special ASCII characters' {
             $specialChars = @('-', '_', '.', '|')
             $result = New-RandomString -Length 100 -IncludeCharacters $specialChars
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 100
+            $result.Length | Should-Be 100
 
             # Test multiple times to increase probability of finding special characters
             $foundSpecialChar = $false
@@ -295,27 +295,27 @@ Describe 'New-RandomString' {
                 }
                 if ($foundSpecialChar) { break }
             }
-            $foundSpecialChar | Should -Be $true
+            $foundSpecialChar | Should-Be $true
         }
 
         It 'Should work in combination with IncludeSymbols' {
             $customChars = @('-', '_', '.')
             $result = New-RandomString -Length 200 -IncludeCharacters $customChars -IncludeSymbols
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 200
+            $result.Length | Should-Be 200
 
             # Should allow standard symbols and custom characters
-            $result | Should -MatchExactly '^[0-9A-Za-z!@#$%^&*._-]+$'
+            $result | Should-MatchString '^[0-9A-Za-z!@#$%^&*._-]+$' -CaseSensitive
         }
 
         It 'Should work in combination with ExcludeAmbiguous' {
             $customChars = @('+', '=', '%')
             $result = New-RandomString -Length 100 -IncludeCharacters $customChars -ExcludeAmbiguous
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 100
+            $result.Length | Should-Be 100
 
             # Should exclude ambiguous characters: 0, 1, O, I, l, o, i
-            $result | Should -Not -Match '[01OIlio]'
+            $result | Should-NotMatchString '[01OIlio]'
 
             # Test multiple times to find custom characters
             $foundCustomChar = $false
@@ -332,7 +332,7 @@ Describe 'New-RandomString' {
                 }
                 if ($foundCustomChar) { break }
             }
-            $foundCustomChar | Should -Be $true
+            $foundCustomChar | Should-Be $true
         }
 
         It 'Should respect ExcludeCharacters even when characters are in IncludeCharacters' {
@@ -340,12 +340,12 @@ Describe 'New-RandomString' {
             $excludeChars = @('X', 'Z')  # Exclude some of the custom characters
             $result = New-RandomString -Length 100 -IncludeCharacters $customChars -ExcludeCharacters $excludeChars
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 100
+            $result.Length | Should-Be 100
 
             # Excluded characters should not appear, even if they were in IncludeCharacters
             foreach ($char in $excludeChars)
             {
-                $result.Contains($char) | Should -Be $false
+                $result.Contains($char) | Should-Be $false
             }
 
             # But non-excluded custom characters should still be possible
@@ -359,14 +359,14 @@ Describe 'New-RandomString' {
                     break
                 }
             }
-            $foundAllowedCustomChar | Should -Be $true
+            $foundAllowedCustomChar | Should-Be $true
         }
 
         It 'Should work with Secure parameter' {
             $customChars = @('+', '=', '%', '~')
             $result = New-RandomString -Length 50 -IncludeCharacters $customChars -Secure
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 50
+            $result.Length | Should-Be 50
 
             # Test multiple times to find custom characters with secure generation
             $foundCustomChar = $false
@@ -383,21 +383,21 @@ Describe 'New-RandomString' {
                 }
                 if ($foundCustomChar) { break }
             }
-            $foundCustomChar | Should -Be $true
+            $foundCustomChar | Should-Be $true
         }
 
         It 'Should handle empty IncludeCharacters array' {
             $result = New-RandomString -Length 20 -IncludeCharacters @()
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 20
-            $result | Should -MatchExactly '^[0-9A-Za-z]+$'
+            $result.Length | Should-Be 20
+            $result | Should-MatchString '^[0-9A-Za-z]+$' -CaseSensitive
         }
 
         It 'Should handle single custom character' {
             $customChar = @('-')
             $result = New-RandomString -Length 100 -IncludeCharacters $customChar
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 100
+            $result.Length | Should-Be 100
 
             # Test multiple times to find the custom character
             $foundCustomChar = $false
@@ -410,14 +410,14 @@ Describe 'New-RandomString' {
                     break
                 }
             }
-            $foundCustomChar | Should -Be $true
+            $foundCustomChar | Should-Be $true
         }
 
         It 'Should handle duplicate characters in IncludeCharacters array' {
             $customChars = @('X', 'X', 'Y', 'Y', 'Z')  # Duplicates should not cause issues
             $result = New-RandomString -Length 100 -IncludeCharacters $customChars
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 100
+            $result.Length | Should-Be 100
 
             # Test multiple times to find custom characters
             $foundCustomChar = $false
@@ -430,24 +430,24 @@ Describe 'New-RandomString' {
                     break
                 }
             }
-            $foundCustomChar | Should -Be $true
+            $foundCustomChar | Should-Be $true
         }
 
         It 'Should split multi-character IncludeCharacters entries into individual characters without changing the requested length' {
             $result = New-RandomString -Length 40 -ExcludeCharacters $script:DefaultRandomStringCharacters -IncludeCharacters @('AB', '-_')
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 40
-            $result | Should -MatchExactly '^[AB_-]+$'
+            $result.Length | Should-Be 40
+            $result | Should-MatchString '^[AB_-]+$' -CaseSensitive
         }
 
         It 'Should work with separator characters' {
             $separators = @('-', '_', '.', '|')
             $result = New-RandomString -Length 50 -IncludeCharacters $separators
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 50
+            $result.Length | Should-Be 50
 
             # Should allow alphanumeric and separator characters
-            $result | Should -MatchExactly '^[0-9A-Za-z._|-]+$'
+            $result | Should-MatchString '^[0-9A-Za-z._|-]+$' -CaseSensitive
         }
     }
 
@@ -455,47 +455,47 @@ Describe 'New-RandomString' {
         It 'Should not generate adjacent duplicates when NoAdjacentDuplicates is specified' {
             $result = New-RandomString -Length 200 -NoAdjacentDuplicates
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 200
+            $result.Length | Should-Be 200
 
             for ($i = 1; $i -lt $result.Length; $i++)
             {
-                $result[$i] | Should -Not -Be $result[$i - 1]
+                $result[$i] | Should-NotBe $result[$i - 1]
             }
         }
 
         It 'Should work with custom-only pools when NoAdjacentDuplicates is specified' {
             $result = New-RandomString -Length 40 -ExcludeCharacters $script:DefaultRandomStringCharacters -IncludeCharacters @('-', '_') -NoAdjacentDuplicates
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 40
-            $result | Should -MatchExactly '^[-_]+$'
+            $result.Length | Should-Be 40
+            $result | Should-MatchString '^[-_]+$' -CaseSensitive
 
             for ($i = 1; $i -lt $result.Length; $i++)
             {
-                $result[$i] | Should -Not -Be $result[$i - 1]
+                $result[$i] | Should-NotBe $result[$i - 1]
             }
         }
 
         It 'Should throw when NoAdjacentDuplicates is impossible' {
             { New-RandomString -Length 2 -ExcludeCharacters $script:DefaultRandomStringCharacters -IncludeCharacters @('-') -NoAdjacentDuplicates } |
-                Should -Throw -ExpectedMessage '*At least two distinct characters are required*'
+                Should-Throw -ExceptionMessage '*At least two distinct characters are required*'
         }
 
         It 'Should generate unique characters when UniqueCharacters is specified' {
             $result = New-RandomString -Length 40 -UniqueCharacters
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 40
-            ($result.ToCharArray() | Select-Object -Unique).Count | Should -Be 40
+            $result.Length | Should-Be 40
+            ($result.ToCharArray() | Select-Object -Unique).Count | Should-Be 40
         }
 
         It 'Should honor NoAdjacentDuplicates when combined with UniqueCharacters' {
             $result = New-RandomString -Length 20 -UniqueCharacters -NoAdjacentDuplicates
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 20
-            ($result.ToCharArray() | Select-Object -Unique).Count | Should -Be 20
+            $result.Length | Should-Be 20
+            ($result.ToCharArray() | Select-Object -Unique).Count | Should-Be 20
 
             for ($i = 1; $i -lt $result.Length; $i++)
             {
-                $result[$i] | Should -Not -Be $result[$i - 1]
+                $result[$i] | Should-NotBe $result[$i - 1]
             }
         }
 
@@ -503,25 +503,25 @@ Describe 'New-RandomString' {
             $customChars = @('-', '_', '.', '+')
             $result = New-RandomString -Length 4 -ExcludeCharacters $script:DefaultRandomStringCharacters -IncludeCharacters $customChars -UniqueCharacters
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 4
-            ($result.ToCharArray() | Select-Object -Unique).Count | Should -Be 4
+            $result.Length | Should-Be 4
+            ($result.ToCharArray() | Select-Object -Unique).Count | Should-Be 4
 
             foreach ($char in $customChars)
             {
-                $result.Contains($char) | Should -Be $true
+                $result.Contains($char) | Should-Be $true
             }
         }
 
         It 'Should support WithoutReplacement as an alias for UniqueCharacters' {
             $result = New-RandomString -Length 20 -WithoutReplacement
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 20
-            ($result.ToCharArray() | Select-Object -Unique).Count | Should -Be 20
+            $result.Length | Should-Be 20
+            ($result.ToCharArray() | Select-Object -Unique).Count | Should-Be 20
         }
 
         It 'Should throw when UniqueCharacters exceeds pool size' {
             { New-RandomString -Length 63 -UniqueCharacters } |
-                Should -Throw -ExpectedMessage '*exceeds the number of unique characters available*'
+                Should-Throw -ExceptionMessage '*exceeds the number of unique characters available*'
         }
     }
 
@@ -530,23 +530,23 @@ Describe 'New-RandomString' {
             # We can't directly test cryptographic security, but we can test that it works
             $result = New-RandomString -Length 32 -Secure
             $result | Should -Not -BeNullOrEmpty
-            $result.Length | Should -Be 32
+            $result.Length | Should-Be 32
         }
 
         It 'Should support repeat control options when Secure is specified' {
             $noAdjacentResult = New-RandomString -Length 100 -NoAdjacentDuplicates -Secure
             $noAdjacentResult | Should -Not -BeNullOrEmpty
-            $noAdjacentResult.Length | Should -Be 100
+            $noAdjacentResult.Length | Should-Be 100
 
             for ($i = 1; $i -lt $noAdjacentResult.Length; $i++)
             {
-                $noAdjacentResult[$i] | Should -Not -Be $noAdjacentResult[$i - 1]
+                $noAdjacentResult[$i] | Should-NotBe $noAdjacentResult[$i - 1]
             }
 
             $uniqueResult = New-RandomString -Length 20 -UniqueCharacters -Secure
             $uniqueResult | Should -Not -BeNullOrEmpty
-            $uniqueResult.Length | Should -Be 20
-            ($uniqueResult.ToCharArray() | Select-Object -Unique).Count | Should -Be 20
+            $uniqueResult.Length | Should-Be 20
+            ($uniqueResult.ToCharArray() | Select-Object -Unique).Count | Should-Be 20
         }
 
         It 'Should work with all parameter combinations when Secure is specified' {
@@ -558,7 +558,7 @@ Describe 'New-RandomString' {
             {
                 $result = New-RandomString -Length 100 -ExcludeAmbiguous -IncludeSymbols -Secure
                 $result | Should -Not -BeNullOrEmpty
-                $result.Length | Should -Be 100
+                $result.Length | Should-Be 100
 
                 # Check that no ambiguous characters are present: 0, 1, O, I, l, o, i
                 if ($result -match '[01OIlio]')
@@ -573,15 +573,15 @@ Describe 'New-RandomString' {
                 }
             }
 
-            $foundNoAmbiguous | Should -Be $true
-            $foundSymbol | Should -Be $true
+            $foundNoAmbiguous | Should-Be $true
+            $foundSymbol | Should-Be $true
         }
     }
 
     Context 'Output type' {
         It 'Should return a string' {
             $result = New-RandomString
-            $result | Should -BeOfType [String]
+            $result | Should-HaveType ([String])
         }
     }
 }

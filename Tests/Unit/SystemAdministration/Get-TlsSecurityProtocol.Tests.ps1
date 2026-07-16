@@ -31,7 +31,7 @@ Describe 'Get-TlsSecurityProtocol' {
         }
 
         It 'rejects invalid protocol values' {
-            { Get-TlsSecurityProtocol -Protocol 'InvalidTls' } | Should -Throw
+            { Get-TlsSecurityProtocol -Protocol 'InvalidTls' } | Should-Throw
         }
     }
 
@@ -40,43 +40,43 @@ Describe 'Get-TlsSecurityProtocol' {
             $result = Get-TlsSecurityProtocol
 
             $result | Should -Not -BeNullOrEmpty
-            $result.PSObject.Properties.Name | Should -Contain 'CurrentProtocol'
-            $result.PSObject.Properties.Name | Should -Contain 'CurrentProtocolDisplay'
-            $result.PSObject.Properties.Name | Should -Contain 'EnabledProtocols'
-            $result.PSObject.Properties.Name | Should -Contain 'AvailableProtocols'
-            $result.PSObject.Properties.Name | Should -Contain 'ConfigurationMode'
-            $result.PSObject.Properties.Name | Should -Contain 'SupportsSystemDefault'
-            $result.PSObject.Properties.Name | Should -Contain 'IsSystemDefault'
-            $result.PSObject.Properties.Name | Should -Contain 'EffectiveProtocolKnown'
-            $result.PSObject.Properties.Name | Should -Contain 'EffectiveProtocolNote'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'CurrentProtocol'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'CurrentProtocolDisplay'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'EnabledProtocols'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'AvailableProtocols'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'ConfigurationMode'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'SupportsSystemDefault'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'IsSystemDefault'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'EffectiveProtocolKnown'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'EffectiveProtocolNote'
 
-            $result.CurrentProtocol | Should -BeOfType [System.Net.SecurityProtocolType]
-            $result.CurrentProtocolDisplay | Should -BeOfType [String]
-            $result.EnabledProtocols.GetType().FullName | Should -Be 'System.String[]'
-            $result.AvailableProtocols.GetType().FullName | Should -Be 'System.String[]'
+            $result.CurrentProtocol | Should-HaveType ([System.Net.SecurityProtocolType])
+            $result.CurrentProtocolDisplay | Should-HaveType ([String])
+            $result.EnabledProtocols.GetType().FullName | Should-Be 'System.String[]'
+            $result.AvailableProtocols.GetType().FullName | Should-Be 'System.String[]'
         }
 
         It 'returns evaluation details when Protocol is specified' {
             $result = Get-TlsSecurityProtocol -Protocol 'Tls12'
 
-            $result.PSObject.Properties.Name | Should -Contain 'RequestedProtocol'
-            $result.PSObject.Properties.Name | Should -Contain 'RequestedProtocolAvailable'
-            $result.PSObject.Properties.Name | Should -Contain 'ResolvedProtocol'
-            $result.PSObject.Properties.Name | Should -Contain 'TargetProtocol'
-            $result.PSObject.Properties.Name | Should -Contain 'TargetProtocolDisplay'
-            $result.PSObject.Properties.Name | Should -Contain 'ForceTargetProtocol'
-            $result.PSObject.Properties.Name | Should -Contain 'ForceTargetProtocolDisplay'
-            $result.PSObject.Properties.Name | Should -Contain 'FallbackUsed'
-            $result.PSObject.Properties.Name | Should -Contain 'FallbackDirection'
-            $result.PSObject.Properties.Name | Should -Contain 'ChangeRequired'
-            $result.PSObject.Properties.Name | Should -Contain 'ForceRequired'
-            $result.PSObject.Properties.Name | Should -Contain 'EvaluationNote'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'RequestedProtocol'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'RequestedProtocolAvailable'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'ResolvedProtocol'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'TargetProtocol'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'TargetProtocolDisplay'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'ForceTargetProtocol'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'ForceTargetProtocolDisplay'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'FallbackUsed'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'FallbackDirection'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'ChangeRequired'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'ForceRequired'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'EvaluationNote'
 
-            $result.RequestedProtocol | Should -Be 'Tls12'
-            $result.TargetProtocol | Should -BeOfType [System.Net.SecurityProtocolType]
-            $result.ForceTargetProtocol | Should -BeOfType [System.Net.SecurityProtocolType]
-            $result.ChangeRequired | Should -BeOfType [Boolean]
-            $result.ForceRequired | Should -BeOfType [Boolean]
+            $result.RequestedProtocol | Should-Be 'Tls12'
+            $result.TargetProtocol | Should-HaveType ([System.Net.SecurityProtocolType])
+            $result.ForceTargetProtocol | Should-HaveType ([System.Net.SecurityProtocolType])
+            $result.ChangeRequired | Should-HaveType ([Boolean])
+            $result.ForceRequired | Should-HaveType ([Boolean])
         }
     }
 
@@ -86,8 +86,8 @@ Describe 'Get-TlsSecurityProtocol' {
 
             $result = Get-TlsSecurityProtocol -Protocol 'Tls12'
 
-            $result.ChangeRequired | Should -Be $false
-            $result.TargetProtocol | Should -Be ([Net.SecurityProtocolType]::Tls12)
+            $result.ChangeRequired | Should-Be $false
+            $result.TargetProtocol | Should-Be ([Net.SecurityProtocolType]::Tls12)
         }
 
         It 'reports a change when weaker-only protocols are enabled' {
@@ -103,9 +103,9 @@ Describe 'Get-TlsSecurityProtocol' {
 
             $result = Get-TlsSecurityProtocol -Protocol 'Tls12'
 
-            $result.ChangeRequired | Should -Be $true
-            ($result.TargetProtocol -band [Net.SecurityProtocolType]::Tls12) | Should -Not -Be 0
-            ($result.TargetProtocol -band [Net.SecurityProtocolType]::Tls) | Should -Be 0
+            $result.ChangeRequired | Should-Be $true
+            ($result.TargetProtocol -band [Net.SecurityProtocolType]::Tls12) | Should-NotBe 0
+            ($result.TargetProtocol -band [Net.SecurityProtocolType]::Tls) | Should-Be 0
         }
 
         It 'preserves stronger secure protocols when evaluating a lower secure request' {
@@ -121,26 +121,26 @@ Describe 'Get-TlsSecurityProtocol' {
 
             $result = Get-TlsSecurityProtocol -Protocol 'Tls12'
 
-            $result.ChangeRequired | Should -Be $false
-            ($result.TargetProtocol -band [Net.SecurityProtocolType]::Tls12) | Should -Not -Be 0
-            ($result.TargetProtocol -band [Net.SecurityProtocolType]::Tls13) | Should -Not -Be 0
+            $result.ChangeRequired | Should-Be $false
+            ($result.TargetProtocol -band [Net.SecurityProtocolType]::Tls12) | Should-NotBe 0
+            ($result.TargetProtocol -band [Net.SecurityProtocolType]::Tls13) | Should-NotBe 0
         }
 
         It 'handles TLS 1.3 evaluation gracefully when it is unavailable' {
             $result = Get-TlsSecurityProtocol -Protocol 'Tls13'
 
             $result | Should -Not -BeNullOrEmpty
-            $result.RequestedProtocol | Should -Be 'Tls13'
-            $result.ChangeRequired | Should -BeOfType [Boolean]
+            $result.RequestedProtocol | Should-Be 'Tls13'
+            $result.ChangeRequired | Should-HaveType ([Boolean])
             $result.ResolvedProtocol | Should -Not -BeNullOrEmpty
         }
 
         It 'evaluates SystemDefault requests without throwing' {
             $result = Get-TlsSecurityProtocol -Protocol 'SystemDefault'
 
-            $result.RequestedProtocol | Should -Be 'SystemDefault'
+            $result.RequestedProtocol | Should-Be 'SystemDefault'
             $result.TargetProtocolDisplay | Should -Not -BeNullOrEmpty
-            $result.ChangeRequired | Should -BeOfType [Boolean]
+            $result.ChangeRequired | Should-HaveType ([Boolean])
         }
 
         It 'treats explicit requests as no-op when the current session is SystemDefault' {
@@ -154,16 +154,16 @@ Describe 'Get-TlsSecurityProtocol' {
 
             $result = Get-TlsSecurityProtocol -Protocol 'Tls12'
 
-            $result.IsSystemDefault | Should -Be $true
-            $result.ConfigurationMode | Should -Be 'SystemDefault'
-            $result.EffectiveProtocolKnown | Should -Be $false
-            $result.ChangeRequired | Should -Be $false
-            $result.ForceRequired | Should -Be $true
-            $result.ResolvedProtocol | Should -Be 'SystemDefault'
-            $result.TargetProtocol | Should -Be ([Net.SecurityProtocolType]::SystemDefault)
-            $result.TargetProtocolDisplay | Should -Be 'SystemDefault'
-            $result.ForceTargetProtocolDisplay | Should -Be 'Tls12'
-            $result.EvaluationNote | Should -Match 'SystemDefault|OS-managed|Force'
+            $result.IsSystemDefault | Should-Be $true
+            $result.ConfigurationMode | Should-Be 'SystemDefault'
+            $result.EffectiveProtocolKnown | Should-Be $false
+            $result.ChangeRequired | Should-Be $false
+            $result.ForceRequired | Should-Be $true
+            $result.ResolvedProtocol | Should-Be 'SystemDefault'
+            $result.TargetProtocol | Should-Be ([Net.SecurityProtocolType]::SystemDefault)
+            $result.TargetProtocolDisplay | Should-Be 'SystemDefault'
+            $result.ForceTargetProtocolDisplay | Should-Be 'Tls12'
+            $result.EvaluationNote | Should-MatchString 'SystemDefault|OS-managed|Force'
         }
     }
 }

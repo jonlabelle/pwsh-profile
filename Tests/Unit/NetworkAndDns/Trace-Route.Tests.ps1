@@ -21,59 +21,59 @@ Describe 'Trace-Route' {
         It 'Should require the ComputerName parameter' {
             $param = (Get-Command Trace-Route).Parameters['ComputerName']
             $param.Attributes | Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] } |
-            ForEach-Object { $_.Mandatory } | Should -Contain $true
+            ForEach-Object { $_.Mandatory } | Should-ContainCollection $true
         }
 
         It 'Should reject empty ComputerName' {
-            { Trace-Route -ComputerName '' } | Should -Throw
-            { Trace-Route -ComputerName $null } | Should -Throw
+            { Trace-Route -ComputerName '' } | Should-Throw
+            { Trace-Route -ComputerName $null } | Should-Throw
         }
 
         It 'Should validate MaxHops range' {
-            { Trace-Route -ComputerName 'localhost' -MaxHops 0 } | Should -Throw
-            { Trace-Route -ComputerName 'localhost' -MaxHops 65 } | Should -Throw
+            { Trace-Route -ComputerName 'localhost' -MaxHops 0 } | Should-Throw
+            { Trace-Route -ComputerName 'localhost' -MaxHops 65 } | Should-Throw
         }
 
         It 'Should validate Timeout range' {
-            { Trace-Route -ComputerName 'localhost' -Timeout 50 } | Should -Throw
-            { Trace-Route -ComputerName 'localhost' -Timeout 31000 } | Should -Throw
+            { Trace-Route -ComputerName 'localhost' -Timeout 50 } | Should-Throw
+            { Trace-Route -ComputerName 'localhost' -Timeout 31000 } | Should-Throw
         }
 
         It 'Should validate Queries range' {
-            { Trace-Route -ComputerName 'localhost' -Queries 0 } | Should -Throw
-            { Trace-Route -ComputerName 'localhost' -Queries 6 } | Should -Throw
+            { Trace-Route -ComputerName 'localhost' -Queries 0 } | Should-Throw
+            { Trace-Route -ComputerName 'localhost' -Queries 6 } | Should-Throw
         }
 
         It 'Should validate BufferSize range' {
-            { Trace-Route -ComputerName 'localhost' -BufferSize -1 } | Should -Throw
+            { Trace-Route -ComputerName 'localhost' -BufferSize -1 } | Should-Throw
         }
     }
 
     Context 'Localhost traceroute' {
         It 'Should trace route to localhost successfully' {
             $results = Trace-Route -ComputerName 'localhost' -MaxHops 3 -Timeout 2000
-            @($results).Count | Should -BeGreaterThan 0
+            @($results).Count | Should-BeGreaterThan 0
         }
 
         It 'Should return objects with expected properties' {
             $results = Trace-Route -ComputerName 'localhost' -MaxHops 3 -Timeout 2000
             $first = $results | Select-Object -First 1
-            $first.PSObject.Properties.Name | Should -Contain 'Hop'
-            $first.PSObject.Properties.Name | Should -Contain 'IP'
-            $first.PSObject.Properties.Name | Should -Contain 'Hostname'
-            $first.PSObject.Properties.Name | Should -Contain 'Latency'
-            $first.PSObject.Properties.Name | Should -Contain 'Status'
+            $first.PSObject.Properties.Name | Should-ContainCollection 'Hop'
+            $first.PSObject.Properties.Name | Should-ContainCollection 'IP'
+            $first.PSObject.Properties.Name | Should-ContainCollection 'Hostname'
+            $first.PSObject.Properties.Name | Should-ContainCollection 'Latency'
+            $first.PSObject.Properties.Name | Should-ContainCollection 'Status'
         }
 
         It 'Should return valid status values for each hop' {
             $results = Trace-Route -ComputerName 'localhost' -MaxHops 3 -Timeout 2000
             $validStatuses = @('Success', 'TimedOut', 'TtlExpired', 'Error')
-            $results | ForEach-Object { $_.Status | Should -BeIn $validStatuses }
+            $results | ForEach-Object { $validStatuses | Should-ContainCollection $_.Status }
         }
 
         It 'Should have Hop numbers starting at 1' {
             $results = Trace-Route -ComputerName 'localhost' -MaxHops 3 -Timeout 2000
-            $results[0].Hop | Should -Be 1
+            $results[0].Hop | Should-Be 1
         }
     }
 

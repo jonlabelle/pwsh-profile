@@ -83,9 +83,9 @@ TEST_VAR3=value3
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:TEST_VAR1 | Should -Be 'value1'
-            $env:TEST_VAR2 | Should -Be 'value2'
-            $env:TEST_VAR3 | Should -Be 'value3'
+            $env:TEST_VAR1 | Should-Be 'value1'
+            $env:TEST_VAR2 | Should-Be 'value2'
+            $env:TEST_VAR3 | Should-Be 'value3'
         }
 
         It 'Should handle spaces around equals sign' {
@@ -94,7 +94,7 @@ TEST_VAR3=value3
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:TEST_VAR1 | Should -Be 'value with spaces'
+            $env:TEST_VAR1 | Should-Be 'value with spaces'
         }
 
         It 'Should skip empty lines' {
@@ -108,8 +108,8 @@ TEST_VAR2=value2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:TEST_VAR1 | Should -Be 'value1'
-            $env:TEST_VAR2 | Should -Be 'value2'
+            $env:TEST_VAR1 | Should-Be 'value1'
+            $env:TEST_VAR2 | Should-Be 'value2'
         }
 
         It 'Should skip comment lines starting with #' {
@@ -123,8 +123,8 @@ TEST_VAR2=value2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:TEST_VAR1 | Should -Be 'value1'
-            $env:TEST_VAR2 | Should -Be 'value2'
+            $env:TEST_VAR1 | Should-Be 'value1'
+            $env:TEST_VAR2 | Should-Be 'value2'
         }
 
         It 'Should handle export prefix' {
@@ -137,9 +137,9 @@ TEST_VAR3=value3
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:TEST_VAR1 | Should -Be 'value1'
-            $env:TEST_VAR2 | Should -Be 'value2'
-            $env:TEST_VAR3 | Should -Be 'value3'
+            $env:TEST_VAR1 | Should-Be 'value1'
+            $env:TEST_VAR2 | Should-Be 'value2'
+            $env:TEST_VAR3 | Should-Be 'value3'
         }
 
         It 'Should track loaded variables' {
@@ -152,8 +152,8 @@ TEST_VAR2=value2
             Import-DotEnv -Path $script:TestEnvFile
 
             $env:__DOTENV_LOADED_VARS | Should -Not -BeNullOrEmpty
-            $env:__DOTENV_LOADED_VARS | Should -Match 'TEST_VAR1'
-            $env:__DOTENV_LOADED_VARS | Should -Match 'TEST_VAR2'
+            $env:__DOTENV_LOADED_VARS | Should-MatchString 'TEST_VAR1'
+            $env:__DOTENV_LOADED_VARS | Should-MatchString 'TEST_VAR2'
         }
 
         It 'Should return results with PassThru' {
@@ -166,11 +166,11 @@ TEST_VAR2=value2
             $result = Import-DotEnv -Path $script:TestEnvFile -PassThru
 
             $result | Should -Not -BeNullOrEmpty
-            $result.PSObject.TypeNames[0] | Should -Be 'DotEnv.LoadResult'
-            $result.VariableCount | Should -Be 2
-            $result.Variables | Should -Contain 'TEST_VAR1'
-            $result.Variables | Should -Contain 'TEST_VAR2'
-            $result.Scope | Should -Be 'Process'
+            $result.PSObject.TypeNames[0] | Should-Be 'DotEnv.LoadResult'
+            $result.VariableCount | Should-Be 2
+            $result.Variables | Should-ContainCollection 'TEST_VAR1'
+            $result.Variables | Should-ContainCollection 'TEST_VAR2'
+            $result.Scope | Should-Be 'Process'
         }
     }
 
@@ -194,7 +194,7 @@ TEST_VAR2=value2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:TEST_DOUBLE | Should -Be 'double quoted value'
+            $env:TEST_DOUBLE | Should-Be 'double quoted value'
         }
 
         It 'Should handle single-quoted values' {
@@ -203,7 +203,7 @@ TEST_VAR2=value2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:TEST_SINGLE | Should -Be 'single quoted value'
+            $env:TEST_SINGLE | Should-Be 'single quoted value'
         }
 
         It 'Should handle unquoted values with trailing comments' {
@@ -212,7 +212,7 @@ TEST_VAR2=value2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:TEST_UNQUOTED | Should -Be 'value'
+            $env:TEST_UNQUOTED | Should-Be 'value'
         }
 
         It 'Should preserve spaces in double-quoted values' {
@@ -221,7 +221,7 @@ TEST_VAR2=value2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:TEST_DOUBLE | Should -Be '  value with spaces  '
+            $env:TEST_DOUBLE | Should-Be '  value with spaces  '
         }
 
         It 'Should preserve spaces in single-quoted values' {
@@ -230,7 +230,7 @@ TEST_VAR2=value2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:TEST_SINGLE | Should -Be '  value with spaces  '
+            $env:TEST_SINGLE | Should-Be '  value with spaces  '
         }
 
         It 'Should handle escape sequences in double-quoted values' {
@@ -239,7 +239,7 @@ TEST_VAR2=value2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:TEST_DOUBLE | Should -Match "Line 1`nLine 2`tTabbed"
+            $env:TEST_DOUBLE | Should-MatchString "Line 1`nLine 2`tTabbed"
         }
 
         It 'Should NOT expand escape sequences in single-quoted values' {
@@ -248,7 +248,7 @@ TEST_VAR2=value2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:TEST_SINGLE | Should -Be 'Line 1\nLine 2'
+            $env:TEST_SINGLE | Should-Be 'Line 1\nLine 2'
         }
 
         It 'Should handle escaped quotes in double-quoted values' {
@@ -257,7 +257,7 @@ TEST_VAR2=value2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:TEST_DOUBLE | Should -Be 'She said "Hello"'
+            $env:TEST_DOUBLE | Should-Be 'She said "Hello"'
         }
 
         It 'Should handle backslashes in double-quoted values' {
@@ -266,7 +266,7 @@ TEST_VAR2=value2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:TEST_DOUBLE | Should -Be 'C:\Windows\System32'
+            $env:TEST_DOUBLE | Should-Be 'C:\Windows\System32'
         }
     }
 
@@ -291,7 +291,7 @@ TEST_VAR2=value2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:TEST_EXPAND1 | Should -Be 'Value is existing_value'
+            $env:TEST_EXPAND1 | Should-Be 'Value is existing_value'
         }
 
         It 'Should expand variables with $VAR syntax in double quotes' {
@@ -300,7 +300,7 @@ TEST_VAR2=value2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:TEST_EXPAND2 | Should -Be 'Value is existing_value'
+            $env:TEST_EXPAND2 | Should-Be 'Value is existing_value'
         }
 
         It 'Should NOT expand variables in single quotes' {
@@ -309,7 +309,7 @@ TEST_VAR2=value2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:TEST_NO_EXPAND | Should -Be 'Value is ${EXISTING_VAR}'
+            $env:TEST_NO_EXPAND | Should-Be 'Value is ${EXISTING_VAR}'
         }
 
         It 'Should handle undefined variable expansion gracefully' {
@@ -319,7 +319,7 @@ TEST_VAR2=value2
             Import-DotEnv -Path $script:TestEnvFile
 
             # Should keep the literal variable reference if undefined
-            $env:NEW_VAR | Should -Be 'Value is ${UNDEFINED_VAR}'
+            $env:NEW_VAR | Should-Be 'Value is ${UNDEFINED_VAR}'
         }
 
         It 'Should expand multiple variables in one value' {
@@ -330,7 +330,7 @@ TEST_VAR2=value2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:TEST_EXPAND1 | Should -Be 'first and second'
+            $env:TEST_EXPAND1 | Should-Be 'first and second'
 
             Clear-TestEnvVars -VarNames @('VAR1', 'VAR2')
         }
@@ -345,8 +345,8 @@ PATH_TWO="${PATH_ONE}/tools"
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:PATH_ONE | Should -Be '/home/user/bin'
-            $env:PATH_TWO | Should -Be '/home/user/bin/tools'
+            $env:PATH_ONE | Should-Be '/home/user/bin'
+            $env:PATH_TWO | Should-Be '/home/user/bin/tools'
 
             Clear-TestEnvVars -VarNames @('BASE', 'PATH_ONE', 'PATH_TWO')
         }
@@ -358,7 +358,7 @@ PATH_TWO="${PATH_ONE}/tools"
 
             Import-DotEnv -Path $script:TestEnvFile -Force
 
-            $env:ORIG_PATH | Should -Be '/usr/bin:/new/path'
+            $env:ORIG_PATH | Should-Be '/usr/bin:/new/path'
 
             Clear-TestEnvVars -VarNames @('ORIG_PATH')
         }
@@ -371,7 +371,7 @@ PATH_TWO="${PATH_ONE}/tools"
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:URL | Should -Be 'http://localhost:8080/api'
+            $env:URL | Should-Be 'http://localhost:8080/api'
 
             Clear-TestEnvVars -VarNames @('HOST', 'PORT', 'URL')
         }
@@ -398,8 +398,8 @@ PATH_TWO="${PATH_ONE}/tools"
 
             $result = Import-DotEnv -Path $script:TestEnvFile -PassThru
 
-            $env:EXISTING_VAR | Should -Be 'original_value'
-            $result.Skipped | Should -Contain 'EXISTING_VAR'
+            $env:EXISTING_VAR | Should-Be 'original_value'
+            $result.Skipped | Should-ContainCollection 'EXISTING_VAR'
         }
 
         It 'Should overwrite existing variables with -Force' {
@@ -408,7 +408,7 @@ PATH_TWO="${PATH_ONE}/tools"
 
             Import-DotEnv -Path $script:TestEnvFile -Force
 
-            $env:EXISTING_VAR | Should -Be 'new_value'
+            $env:EXISTING_VAR | Should-Be 'new_value'
         }
 
         It 'Should track overwritten variables with -Force' {
@@ -417,7 +417,7 @@ PATH_TWO="${PATH_ONE}/tools"
 
             Import-DotEnv -Path $script:TestEnvFile -Force
 
-            $env:__DOTENV_LOADED_VARS | Should -Match 'EXISTING_VAR'
+            $env:__DOTENV_LOADED_VARS | Should-MatchString 'EXISTING_VAR'
         }
     }
 
@@ -445,9 +445,9 @@ UNLOAD_VAR3=value3
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:UNLOAD_VAR1 | Should -Be 'value1'
-            $env:UNLOAD_VAR2 | Should -Be 'value2'
-            $env:UNLOAD_VAR3 | Should -Be 'value3'
+            $env:UNLOAD_VAR1 | Should-Be 'value1'
+            $env:UNLOAD_VAR2 | Should-Be 'value2'
+            $env:UNLOAD_VAR3 | Should-Be 'value3'
 
             Import-DotEnv -Unload
 
@@ -479,16 +479,16 @@ UNLOAD_VAR2=value2
             $result = Import-DotEnv -Unload -PassThru
 
             $result | Should -Not -BeNullOrEmpty
-            $result.PSObject.TypeNames[0] | Should -Be 'DotEnv.UnloadResult'
-            $result.VariableCount | Should -Be 2
-            $result.Variables | Should -Contain 'UNLOAD_VAR1'
-            $result.Variables | Should -Contain 'UNLOAD_VAR2'
+            $result.PSObject.TypeNames[0] | Should-Be 'DotEnv.UnloadResult'
+            $result.VariableCount | Should-Be 2
+            $result.Variables | Should-ContainCollection 'UNLOAD_VAR1'
+            $result.Variables | Should-ContainCollection 'UNLOAD_VAR2'
         }
 
         It 'Should handle unload when no variables were loaded' {
             $result = Import-DotEnv -Unload -PassThru
 
-            $result.VariableCount | Should -Be 0
+            $result.VariableCount | Should-Be 0
             $result.Variables | Should -BeNullOrEmpty
         }
 
@@ -503,8 +503,8 @@ UNLOAD_VAR2=value2
             Import-DotEnv -Path $testEnvFile2
 
             $tracked = $env:__DOTENV_LOADED_VARS
-            $tracked | Should -Match 'UNLOAD_VAR1'
-            $tracked | Should -Match 'UNLOAD_VAR2'
+            $tracked | Should-MatchString 'UNLOAD_VAR1'
+            $tracked | Should-MatchString 'UNLOAD_VAR2'
 
             Import-DotEnv -Unload
 
@@ -536,7 +536,7 @@ UNLOAD_VAR2=value2
             try
             {
                 Import-DotEnv
-                $env:PATH_VAR | Should -Be 'default'
+                $env:PATH_VAR | Should-Be 'default'
             }
             finally
             {
@@ -555,7 +555,7 @@ UNLOAD_VAR2=value2
 
             Import-DotEnv -Path $absoluteFile
 
-            $env:PATH_VAR | Should -Be 'absolute'
+            $env:PATH_VAR | Should-Be 'absolute'
 
             if (Test-Path $absoluteFile)
             {
@@ -571,8 +571,8 @@ UNLOAD_VAR2=value2
 
             @($file1, $file2) | Import-DotEnv
 
-            $env:VAR1 | Should -Be 'value1'
-            $env:VAR2 | Should -Be 'value2'
+            $env:VAR1 | Should-Be 'value1'
+            $env:VAR2 | Should-Be 'value2'
 
             Clear-TestEnvVars -VarNames @('VAR1', 'VAR2')
             Remove-Item -Path $file1, $file2 -Force
@@ -581,7 +581,7 @@ UNLOAD_VAR2=value2
         It 'Should warn when file does not exist' {
             $nonExistent = Join-Path -Path $script:TestDir -ChildPath 'nonexistent.env'
 
-            { Import-DotEnv -Path $nonExistent -WarningAction Stop } | Should -Throw
+            { Import-DotEnv -Path $nonExistent -WarningAction Stop } | Should-Throw
         }
     }
 
@@ -605,7 +605,7 @@ UNLOAD_VAR2=value2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:VALID_VAR | Should -Be 'value'
+            $env:VALID_VAR | Should-Be 'value'
         }
 
         It 'Should accept variable names with numbers' {
@@ -614,7 +614,7 @@ UNLOAD_VAR2=value2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:VALID_VAR_123 | Should -Be 'value'
+            $env:VALID_VAR_123 | Should-Be 'value'
         }
 
         It 'Should accept variable names starting with underscore' {
@@ -623,7 +623,7 @@ UNLOAD_VAR2=value2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:_VALID_VAR | Should -Be 'value'
+            $env:_VALID_VAR | Should-Be 'value'
         }
 
         It 'Should skip invalid variable names (starting with number)' {
@@ -636,8 +636,8 @@ ANOTHER_VALID=valid2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:VALID_VAR | Should -Be 'valid'
-            $env:ANOTHER_VALID | Should -Be 'valid2'
+            $env:VALID_VAR | Should-Be 'valid'
+            $env:ANOTHER_VALID | Should-Be 'valid2'
             # Invalid variable should not be set
         }
     }
@@ -671,7 +671,7 @@ ANOTHER_VALID=valid2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:EQUALS_VAR | Should -Be 'key=value'
+            $env:EQUALS_VAR | Should-Be 'key=value'
         }
 
         It 'Should handle empty file' {
@@ -697,7 +697,7 @@ ANOTHER_VALID=valid2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:SPECIAL_VAR | Should -Be '!@#$%^&*()[]{}|;:<>?,./'
+            $env:SPECIAL_VAR | Should-Be '!@#$%^&*()[]{}|;:<>?,./'
         }
 
         It 'Should handle Windows-style line endings' {
@@ -706,8 +706,8 @@ ANOTHER_VALID=valid2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:VAR1 | Should -Be 'value1'
-            $env:VAR2 | Should -Be 'value2'
+            $env:VAR1 | Should-Be 'value1'
+            $env:VAR2 | Should-Be 'value2'
 
             Clear-TestEnvVars -VarNames @('VAR1', 'VAR2')
         }
@@ -718,8 +718,8 @@ ANOTHER_VALID=valid2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:VAR1 | Should -Be 'value1'
-            $env:VAR2 | Should -Be 'value2'
+            $env:VAR1 | Should-Be 'value1'
+            $env:VAR2 | Should-Be 'value2'
 
             Clear-TestEnvVars -VarNames @('VAR1', 'VAR2')
         }
@@ -735,9 +735,9 @@ ANOTHER_VALID=valid2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:NAME | Should -Be $jose
-            $env:MESSAGE | Should -Be $hello
-            $env:EMOJI | Should -Be $emoji
+            $env:NAME | Should-Be $jose
+            $env:MESSAGE | Should-Be $hello
+            $env:EMOJI | Should-Be $emoji
 
             Clear-TestEnvVars -VarNames @('NAME', 'MESSAGE', 'EMOJI')
         }
@@ -762,21 +762,21 @@ ANOTHER_VALID=valid2
             New-TestEnvFile -Path $script:TestEnvFile -Content $content
 
             { Import-DotEnv -Path $script:TestEnvFile -Scope Process } | Should -Not -Throw
-            $env:SCOPE_VAR | Should -Be 'process_value'
+            $env:SCOPE_VAR | Should-Be 'process_value'
         }
 
         It 'Should throw error for User scope on non-Windows platforms' -Skip:($IsWindows -or $PSVersionTable.PSEdition -eq 'Desktop') {
             $content = 'SCOPE_VAR=user_value'
             New-TestEnvFile -Path $script:TestEnvFile -Content $content
 
-            { Import-DotEnv -Path $script:TestEnvFile -Scope User } | Should -Throw '*only supported on Windows*'
+            { Import-DotEnv -Path $script:TestEnvFile -Scope User } | Should-Throw '*only supported on Windows*'
         }
 
         It 'Should throw error for Machine scope on non-Windows platforms' -Skip:($IsWindows -or $PSVersionTable.PSEdition -eq 'Desktop') {
             $content = 'SCOPE_VAR=machine_value'
             New-TestEnvFile -Path $script:TestEnvFile -Content $content
 
-            { Import-DotEnv -Path $script:TestEnvFile -Scope Machine } | Should -Throw '*only supported on Windows*'
+            { Import-DotEnv -Path $script:TestEnvFile -Scope Machine } | Should-Throw '*only supported on Windows*'
         }
     }
 
@@ -804,8 +804,8 @@ ANOTHER_VALID=valid2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:VALID_VAR | Should -Be 'valid_value'
-            $env:ANOTHER_VALID | Should -Be 'valid2'
+            $env:VALID_VAR | Should-Be 'valid_value'
+            $env:ANOTHER_VALID | Should-Be 'valid2'
             # Invalid line should be skipped
         }
 
@@ -815,7 +815,7 @@ ANOTHER_VALID=valid2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:KEY | Should -Be 'value=with=equals'
+            $env:KEY | Should-Be 'value=with=equals'
         }
 
         It 'Should handle unclosed double quotes gracefully' {
@@ -830,7 +830,7 @@ ANOTHER_VALID=after
             { Import-DotEnv -Path $script:TestEnvFile } | Should -Not -Throw
 
             # Valid variables before and after should still load
-            $env:VALID_VAR | Should -Be 'before'
+            $env:VALID_VAR | Should-Be 'before'
         }
 
         It 'Should handle mismatched quotes' {
@@ -851,8 +851,8 @@ ANOTHER_VALID=valid2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:VALID_VAR | Should -Be 'valid'
-            $env:ANOTHER_VALID | Should -Be 'valid2'
+            $env:VALID_VAR | Should-Be 'valid'
+            $env:ANOTHER_VALID | Should-Be 'valid2'
             # Variable with hyphen should be skipped (not valid env var name)
         }
 
@@ -866,8 +866,8 @@ ANOTHER_VALID=valid2
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:VALID_VAR | Should -Be 'valid'
-            $env:ANOTHER_VALID | Should -Be 'valid2'
+            $env:VALID_VAR | Should-Be 'valid'
+            $env:ANOTHER_VALID | Should-Be 'valid2'
         }
 
         It 'Should handle lowercase variable names' {
@@ -881,9 +881,9 @@ MixedCase_Var=mixed
             Import-DotEnv -Path $script:TestEnvFile
 
             # PowerShell environment variables are case-insensitive on Windows, case-sensitive on Unix
-            $env:lowercase_var | Should -Be 'lowercase'
-            $env:UPPERCASE_VAR | Should -Be 'uppercase'
-            $env:MixedCase_Var | Should -Be 'mixed'
+            $env:lowercase_var | Should-Be 'lowercase'
+            $env:UPPERCASE_VAR | Should-Be 'uppercase'
+            $env:MixedCase_Var | Should-Be 'mixed'
 
             Clear-TestEnvVars -VarNames @('lowercase_var', 'UPPERCASE_VAR', 'MixedCase_Var')
         }
@@ -910,7 +910,7 @@ MixedCase_Var=mixed
             Import-DotEnv -Path $script:TestEnvFile
 
             # Trimmed key should work
-            $env:KEY1 | Should -Be 'value'
+            $env:KEY1 | Should-Be 'value'
         }
 
         It 'Should handle tabs around equals sign' {
@@ -919,7 +919,7 @@ MixedCase_Var=mixed
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:KEY2 | Should -Be 'value'
+            $env:KEY2 | Should-Be 'value'
         }
 
         It 'Should handle mixed whitespace' {
@@ -928,7 +928,7 @@ MixedCase_Var=mixed
 
             Import-DotEnv -Path $script:TestEnvFile
 
-            $env:KEY3 | Should -Be 'value'
+            $env:KEY3 | Should-Be 'value'
         }
     }
 
@@ -957,12 +957,12 @@ PASSWORD=MyP@ssw0rd!
             $verboseOutput = Import-DotEnv -Path $script:TestEnvFile -Verbose 4>&1 | Out-String
 
             # Verbose output should contain "Parsing variable" or "Setting" messages with variable names
-            ($verboseOutput | Should -Match 'Parsing variable:|Setting environment variable:')
+            ($verboseOutput | Should-MatchString 'Parsing variable:|Setting environment variable:')
 
             # Verbose output should NOT contain the secret values
-            $verboseOutput | Should -Not -Match 'super_secret_12345'
-            $verboseOutput | Should -Not -Match 'token_abcdef67890'
-            $verboseOutput | Should -Not -Match 'MyP@ssw0rd!'
+            $verboseOutput | Should-NotMatchString 'super_secret_12345'
+            $verboseOutput | Should-NotMatchString 'token_abcdef67890'
+            $verboseOutput | Should-NotMatchString 'MyP@ssw0rd!'
         }
 
         It 'Should not leak values in PassThru output (only variable names)' {
@@ -975,15 +975,15 @@ API_TOKEN=another_secret
             $result = Import-DotEnv -Path $script:TestEnvFile -PassThru
 
             # Result should contain variable names
-            $result.Variables | Should -Contain 'SECRET_KEY'
-            $result.Variables | Should -Contain 'API_TOKEN'
+            $result.Variables | Should-ContainCollection 'SECRET_KEY'
+            $result.Variables | Should-ContainCollection 'API_TOKEN'
 
             # Convert result to string to check for leaks
             $resultString = $result | Out-String
 
             # Should NOT contain the secret values
-            $resultString | Should -Not -Match 'super_secret_value'
-            $resultString | Should -Not -Match 'another_secret'
+            $resultString | Should-NotMatchString 'super_secret_value'
+            $resultString | Should-NotMatchString 'another_secret'
         }
 
         It 'Should redact content in error messages' {
@@ -1008,8 +1008,8 @@ API_TOKEN=token_abcdef67890
             # Even if there's an error, secret values should not appear in error messages
             if ($errorOutput)
             {
-                $errorOutput | Should -Not -Match 'super_secret_12345'
-                $errorOutput | Should -Not -Match 'token_abcdef67890'
+                $errorOutput | Should-NotMatchString 'super_secret_12345'
+                $errorOutput | Should-NotMatchString 'token_abcdef67890'
             }
         }
     }
@@ -1034,7 +1034,7 @@ API_TOKEN=token_abcdef67890
             Import-DotEnv -Path @($file1, $file2)
 
             # First value should win (second should be skipped)
-            $env:SHARED_VAR | Should -Be 'first_value'
+            $env:SHARED_VAR | Should-Be 'first_value'
 
             Remove-Item -Path $file1, $file2 -Force
         }
@@ -1050,7 +1050,7 @@ API_TOKEN=token_abcdef67890
             Import-DotEnv -Path @($file1, $file2) -Force
 
             # Last value should win with Force
-            $env:SHARED_VAR | Should -Be 'second_value'
+            $env:SHARED_VAR | Should-Be 'second_value'
 
             Remove-Item -Path $file1, $file2 -Force
         }
@@ -1065,8 +1065,8 @@ API_TOKEN=token_abcdef67890
             Import-DotEnv -Path @($file1, $file2)
 
             $tracked = $env:__DOTENV_LOADED_VARS
-            $tracked | Should -Match 'FILE1_VAR'
-            $tracked | Should -Match 'FILE2_VAR'
+            $tracked | Should-MatchString 'FILE1_VAR'
+            $tracked | Should-MatchString 'FILE2_VAR'
 
             Remove-Item -Path $file1, $file2 -Force
         }
@@ -1096,7 +1096,7 @@ API_TOKEN=token_abcdef67890
             # Should still work
             { Import-DotEnv -Path $script:TestEnvFile } | Should -Not -Throw
 
-            $env:TEST_VAR1 | Should -Be 'value1'
+            $env:TEST_VAR1 | Should-Be 'value1'
         }
 
         It 'Should handle duplicate variable names in same file' {
@@ -1109,7 +1109,7 @@ TEST_VAR1=second_value
             Import-DotEnv -Path $script:TestEnvFile -Force
 
             # Last occurrence should win
-            $env:TEST_VAR1 | Should -Be 'second_value'
+            $env:TEST_VAR1 | Should-Be 'second_value'
         }
 
         It 'Should deduplicate tracking variable entries' {
@@ -1123,7 +1123,7 @@ TEST_VAR1=second_value
             $tracked = $env:__DOTENV_LOADED_VARS
             # Should only contain TEST_VAR1 once (deduplicated)
             $varCount = ($tracked -split '\|' | Where-Object { $_ -eq 'TEST_VAR1' }).Count
-            $varCount | Should -BeLessOrEqual 1
+            $varCount | Should-BeLessThanOrEqual 1
         }
     }
 
@@ -1166,16 +1166,16 @@ SHOW_VAR3=value3
             $result = Import-DotEnv -ShowLoadedWithValues -PassThru
 
             $result | Should -Not -BeNullOrEmpty
-            $result.Count | Should -Be 3
+            $result.Count | Should-Be 3
 
             $var1 = $result | Where-Object { $_.Name -eq 'SHOW_VAR1' }
-            $var1.Value | Should -Be 'value1'
+            $var1.Value | Should-Be 'value1'
 
             $var2 = $result | Where-Object { $_.Name -eq 'SHOW_VAR2' }
-            $var2.Value | Should -Be 'value2'
+            $var2.Value | Should-Be 'value2'
 
             $var3 = $result | Where-Object { $_.Name -eq 'SHOW_VAR3' }
-            $var3.Value | Should -Be 'value3'
+            $var3.Value | Should-Be 'value3'
         }
 
         It 'Should return PSCustomObjects with Name and Value properties' {
@@ -1188,9 +1188,9 @@ SHOW_VAR2=another_value
 
             $result = Import-DotEnv -ShowLoadedWithValues -PassThru
 
-            $result | Should -BeOfType [PSCustomObject]
-            $result[0].PSObject.Properties.Name | Should -Contain 'Name'
-            $result[0].PSObject.Properties.Name | Should -Contain 'Value'
+            $result | Should-HaveType ([PSCustomObject])
+            $result[0].PSObject.Properties.Name | Should-ContainCollection 'Name'
+            $result[0].PSObject.Properties.Name | Should-ContainCollection 'Value'
         }
 
         It 'Should show current values even if modified after loading' {
@@ -1204,7 +1204,7 @@ SHOW_VAR2=another_value
             $result = Import-DotEnv -ShowLoadedWithValues -PassThru
 
             $var1 = $result | Where-Object { $_.Name -eq 'SHOW_VAR1' }
-            $var1.Value | Should -Be 'modified_value'
+            $var1.Value | Should-Be 'modified_value'
         }
 
         It 'Should handle variables with special characters in values' {
@@ -1218,9 +1218,9 @@ SHOW_VAR3="special!@#$%"
 
             $result = Import-DotEnv -ShowLoadedWithValues -PassThru
 
-            ($result | Where-Object { $_.Name -eq 'SHOW_VAR1' }).Value | Should -Be 'value with spaces'
-            ($result | Where-Object { $_.Name -eq 'SHOW_VAR2' }).Value | Should -Be 'value=with=equals'
-            ($result | Where-Object { $_.Name -eq 'SHOW_VAR3' }).Value | Should -Be 'special!@#$%'
+            ($result | Where-Object { $_.Name -eq 'SHOW_VAR1' }).Value | Should-Be 'value with spaces'
+            ($result | Where-Object { $_.Name -eq 'SHOW_VAR2' }).Value | Should-Be 'value=with=equals'
+            ($result | Where-Object { $_.Name -eq 'SHOW_VAR3' }).Value | Should-Be 'special!@#$%'
         }
 
         It 'Should handle variables that were unset after loading' {
@@ -1237,7 +1237,7 @@ SHOW_VAR2=value2
             $result = Import-DotEnv -ShowLoadedWithValues -PassThru
 
             # Should still show both in tracking, but SHOW_VAR2 will have null/empty value
-            $result.Count | Should -Be 2
+            $result.Count | Should-Be 2
             ($result | Where-Object { $_.Name -eq 'SHOW_VAR2' }).Value | Should -BeNullOrEmpty
         }
 
@@ -1253,7 +1253,7 @@ SHOW_VAR1=regular_value
 
             # Verify that sensitive values ARE shown (this is expected behavior)
             $secret = $result | Where-Object { $_.Name -eq 'SECRET_KEY' }
-            $secret.Value | Should -Be 'super_secret_password'
+            $secret.Value | Should-Be 'super_secret_password'
         }
 
         It 'Should handle empty values' {
@@ -1267,7 +1267,7 @@ SHOW_VAR3=value3
 
             $result = Import-DotEnv -ShowLoadedWithValues -PassThru
 
-            $result.Count | Should -Be 3
+            $result.Count | Should-Be 3
             ($result | Where-Object { $_.Name -eq 'SHOW_VAR2' }).Value | Should -BeNullOrEmpty
         }
 
@@ -1283,9 +1283,9 @@ SHOW_VAR3=value3
 
             $result = Import-DotEnv -ShowLoadedWithValues -PassThru
 
-            ($result | Where-Object { $_.Name -eq 'SHOW_VAR1' }).Value | Should -Be $jose
-            ($result | Where-Object { $_.Name -eq 'SHOW_VAR2' }).Value | Should -Be $emoji
-            ($result | Where-Object { $_.Name -eq 'SHOW_VAR3' }).Value | Should -Be $chinese
+            ($result | Where-Object { $_.Name -eq 'SHOW_VAR1' }).Value | Should-Be $jose
+            ($result | Where-Object { $_.Name -eq 'SHOW_VAR2' }).Value | Should-Be $emoji
+            ($result | Where-Object { $_.Name -eq 'SHOW_VAR3' }).Value | Should-Be $chinese
         }
     }
 }

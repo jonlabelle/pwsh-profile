@@ -31,14 +31,14 @@ Describe 'Set-FileEncoding Integration Tests' -Tag 'Integration' {
 
         $results = Set-FileEncoding -Path (Join-Path -Path $textDir -ChildPath '*.txt') -Encoding UTF16BE -PassThru
 
-        $results.Count | Should -Be 2
-        ($results | Where-Object { $_.Success }).Count | Should -Be 2
-        ($results | Where-Object { -not $_.Skipped }).Count | Should -Be 2
+        $results.Count | Should-Be 2
+        ($results | Where-Object { $_.Success }).Count | Should-Be 2
+        ($results | Where-Object { -not $_.Skipped }).Count | Should-Be 2
 
-        (Get-FileEncoding -FilePath $firstTextFile).CodePage | Should -Be 1201
-        (Get-FileEncoding -FilePath $secondTextFile).CodePage | Should -Be 1201
-        (Get-FileEncoding -FilePath $markdownFile).CodePage | Should -Be 65001
-        [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($binaryFile)) | Should -Be $binaryBefore
+        (Get-FileEncoding -FilePath $firstTextFile).CodePage | Should-Be 1201
+        (Get-FileEncoding -FilePath $secondTextFile).CodePage | Should-Be 1201
+        (Get-FileEncoding -FilePath $markdownFile).CodePage | Should-Be 65001
+        [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($binaryFile)) | Should-Be $binaryBefore
     }
 
     It 'Works in the pipeline and returns one summary object per processed file' {
@@ -53,11 +53,11 @@ Describe 'Set-FileEncoding Integration Tests' -Tag 'Integration' {
         $results = Get-ChildItem -Path $pipelineDir -Filter '*.ps1' |
         Set-FileEncoding -Encoding UTF8BOM -PassThru
 
-        $results.Count | Should -Be 2
-        ($results | Where-Object { $_.Success }).Count | Should -Be 2
-        ($results | Where-Object { $_.TargetEncoding -match 'UTF-8' }).Count | Should -Be 2
+        $results.Count | Should-Be 2
+        ($results | Where-Object { $_.Success }).Count | Should-Be 2
+        ($results | Where-Object { $_.TargetEncoding -match 'UTF-8' }).Count | Should-Be 2
 
-        (Get-FileEncoding -FilePath $firstScript).GetPreamble().Length | Should -Be 3
-        (Get-FileEncoding -FilePath $secondScript).GetPreamble().Length | Should -Be 3
+        (Get-FileEncoding -FilePath $firstScript).GetPreamble().Length | Should-Be 3
+        (Get-FileEncoding -FilePath $secondScript).GetPreamble().Length | Should-Be 3
     }
 }

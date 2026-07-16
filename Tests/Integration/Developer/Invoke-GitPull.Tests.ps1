@@ -153,9 +153,9 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
             $result = Invoke-GitPull -Path $repos.RepoPath
 
-            $result.RepositoriesProcessed | Should -Be 1
-            $result.RepositoriesUpdated | Should -Be 1
-            $result.RepositoriesFailed | Should -Be 0
+            $result.RepositoriesProcessed | Should-Be 1
+            $result.RepositoriesUpdated | Should-Be 1
+            $result.RepositoriesFailed | Should-Be 0
         }
 
         It 'Should report already up to date' {
@@ -163,8 +163,8 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
             $result = Invoke-GitPull -Path $repos.RepoPath
 
-            $result.RepositoriesUpdated | Should -Be 1
-            $result.Results[0].Message | Should -Match 'up to date|Updated successfully'
+            $result.RepositoriesUpdated | Should-Be 1
+            $result.Results[0].Message | Should-MatchString 'up to date|Updated successfully'
         }
 
         It 'Should skip non-Git directory' {
@@ -173,8 +173,8 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
             $result = Invoke-GitPull -Path $nonGitDir
 
-            $result.RepositoriesSkipped | Should -Be 1
-            $result.RepositoriesProcessed | Should -Be 0
+            $result.RepositoriesSkipped | Should-Be 1
+            $result.RepositoriesProcessed | Should-Be 0
         }
 
         It 'Should skip repository without remote origin configured' {
@@ -182,9 +182,9 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
             $result = Invoke-GitPull -Path $repos.RepoPath -WarningAction SilentlyContinue
 
-            $result.RepositoriesProcessed | Should -Be 0
-            $result.RepositoriesSkipped | Should -Be 1
-            $result.RepositoriesFailed | Should -Be 0
+            $result.RepositoriesProcessed | Should-Be 0
+            $result.RepositoriesSkipped | Should-Be 1
+            $result.RepositoriesFailed | Should-Be 0
         }
 
         It 'Should respect -WhatIf and not make changes' {
@@ -197,7 +197,7 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
             # HEAD should be unchanged (use 2>$null for PS 5.1 compatibility)
             $headAfter = & git -C $repos.RepoPath rev-parse HEAD 2>$null
-            $headAfter | Should -Be $headBefore
+            $headAfter | Should-Be $headBefore
         }
 
         It 'Should use rebase by default' {
@@ -206,7 +206,7 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
             # The command should succeed (rebase is default)
             $result = Invoke-GitPull -Path $repos.RepoPath
 
-            $result.RepositoriesUpdated | Should -Be 1
+            $result.RepositoriesUpdated | Should-Be 1
         }
 
         It 'Should support -NoRebase option' {
@@ -214,7 +214,7 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
             $result = Invoke-GitPull -Path $repos.RepoPath -NoRebase
 
-            $result.RepositoriesUpdated | Should -Be 1
+            $result.RepositoriesUpdated | Should-Be 1
         }
 
         It 'Should support -Prune option' {
@@ -222,7 +222,7 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
             $result = Invoke-GitPull -Path $repos.RepoPath -Prune
 
-            $result.RepositoriesUpdated | Should -Be 1
+            $result.RepositoriesUpdated | Should-Be 1
         }
     }
 
@@ -245,8 +245,8 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
             $result = Invoke-GitPull -Path @($repos1.RepoPath, $repos2.RepoPath)
 
-            $result.RepositoriesProcessed | Should -Be 2
-            $result.RepositoriesUpdated | Should -Be 2
+            $result.RepositoriesProcessed | Should-Be 2
+            $result.RepositoriesUpdated | Should-Be 2
         }
 
         It 'Should accept paths from pipeline' {
@@ -255,8 +255,8 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
             $result = @($repos1.RepoPath, $repos2.RepoPath) | Invoke-GitPull
 
-            $result.RepositoriesProcessed | Should -Be 2
-            $result.RepositoriesUpdated | Should -Be 2
+            $result.RepositoriesProcessed | Should-Be 2
+            $result.RepositoriesUpdated | Should-Be 2
         }
 
         It 'Should skip repository without remote and continue processing remaining' {
@@ -265,10 +265,10 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
             $result = Invoke-GitPull -Path @($repos1.RepoPath, $repos2.RepoPath) -WarningAction SilentlyContinue
 
-            $result.RepositoriesProcessed | Should -Be 1
-            $result.RepositoriesUpdated | Should -Be 1
-            $result.RepositoriesSkipped | Should -Be 1
-            $result.RepositoriesFailed | Should -Be 0
+            $result.RepositoriesProcessed | Should-Be 1
+            $result.RepositoriesUpdated | Should-Be 1
+            $result.RepositoriesSkipped | Should-Be 1
+            $result.RepositoriesFailed | Should-Be 0
         }
     }
 
@@ -295,8 +295,8 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
             $result = Invoke-GitPull -Path $script:TestWorkspace -Recurse
 
-            $result.RepositoriesProcessed | Should -Be 2
-            $result.RepositoriesUpdated | Should -Be 2
+            $result.RepositoriesProcessed | Should-Be 2
+            $result.RepositoriesUpdated | Should-Be 2
         }
 
         It 'Should respect -Depth parameter' {
@@ -312,7 +312,7 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
             # With depth 1, should only find level 1 repo
             $result = Invoke-GitPull -Path $script:TestWorkspace -Recurse -Depth 1
 
-            $result.RepositoriesProcessed | Should -Be 1
+            $result.RepositoriesProcessed | Should-Be 1
         }
 
         It 'Should handle empty directory with -Recurse' {
@@ -321,7 +321,7 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
             $result = Invoke-GitPull -Path $emptyDir -Recurse
 
-            $result.RepositoriesProcessed | Should -Be 0
+            $result.RepositoriesProcessed | Should-Be 0
         }
 
         It 'Should find repository when path is the repository itself with -Recurse' {
@@ -329,8 +329,8 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
             $result = Invoke-GitPull -Path $repos.RepoPath -Recurse
 
-            $result.RepositoriesProcessed | Should -Be 1
-            $result.RepositoriesUpdated | Should -Be 1
+            $result.RepositoriesProcessed | Should-Be 1
+            $result.RepositoriesUpdated | Should-Be 1
         }
     }
 
@@ -352,10 +352,10 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
             $result = Invoke-GitPull -Path $repos.RepoPath
 
-            $result.Results | Should -HaveCount 1
-            $result.Results[0].Path | Should -Be $repos.RepoPath
-            $result.Results[0].Name | Should -Be 'detail-repo'
-            $result.Results[0].Success | Should -BeTrue
+            $result.Results | Should-BeCollection -Count 1
+            $result.Results[0].Path | Should-Be $repos.RepoPath
+            $result.Results[0].Name | Should-Be 'detail-repo'
+            $result.Results[0].Success | Should-BeTruthy
             $result.Results[0].Message | Should -Not -BeNullOrEmpty
         }
 
@@ -365,7 +365,7 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
             # Pulling a non-existent branch forces a real failure with an error message
             $result = Invoke-GitPull -Path $repos.RepoPath -Branch 'branch-does-not-exist' -Force -ErrorAction SilentlyContinue
 
-            $result.Results[0].Success | Should -BeFalse
+            $result.Results[0].Success | Should-BeFalsy
             $result.Results[0].Message | Should -Not -BeNullOrEmpty
         }
     }
@@ -390,7 +390,7 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
             $result = Invoke-GitPull -Path $repos.RepoPath
 
-            $result.RepositoriesUpdated | Should -Be 1
+            $result.RepositoriesUpdated | Should-Be 1
         }
 
         It 'Should handle mixed valid and invalid paths' {
@@ -399,8 +399,8 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
             $result = Invoke-GitPull -Path @($repos.RepoPath, $invalidPath) -WarningAction SilentlyContinue
 
-            $result.RepositoriesUpdated | Should -Be 1
-            $result.RepositoriesSkipped | Should -Be 1
+            $result.RepositoriesUpdated | Should-Be 1
+            $result.RepositoriesSkipped | Should-Be 1
         }
     }
 
@@ -422,9 +422,9 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
             $result = Invoke-GitPull -Path $repos.RepoPath -Branch $repos.BranchName
 
-            $result.RepositoriesProcessed | Should -Be 1
-            $result.RepositoriesUpdated | Should -Be 1
-            $result.RepositoriesFailed | Should -Be 0
+            $result.RepositoriesProcessed | Should-Be 1
+            $result.RepositoriesUpdated | Should-Be 1
+            $result.RepositoriesFailed | Should-Be 0
         }
 
         It 'Should auto-detect the default branch with -DefaultBranch' {
@@ -435,9 +435,9 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
             $result = Invoke-GitPull -Path $repos.RepoPath -DefaultBranch
 
-            $result.RepositoriesProcessed | Should -Be 1
-            $result.RepositoriesUpdated | Should -Be 1
-            $result.RepositoriesFailed | Should -Be 0
+            $result.RepositoriesProcessed | Should-Be 1
+            $result.RepositoriesUpdated | Should-Be 1
+            $result.RepositoriesFailed | Should-Be 0
         }
 
         It 'Should auto-detect default branch for each repository in recursive mode' {
@@ -449,16 +449,16 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
             $result = Invoke-GitPull -Path $script:TestWorkspace -Recurse -DefaultBranch
 
-            $result.RepositoriesProcessed | Should -Be 2
-            $result.RepositoriesUpdated | Should -Be 2
+            $result.RepositoriesProcessed | Should-Be 2
+            $result.RepositoriesUpdated | Should-Be 2
         }
 
         It 'Should throw when -Branch and -DefaultBranch are both specified' {
-            { Invoke-GitPull -Branch 'main' -DefaultBranch } | Should -Throw '*Cannot use*'
+            { Invoke-GitPull -Branch 'main' -DefaultBranch } | Should-Throw '*Cannot use*'
         }
 
         It 'Should throw when -Checkout is used without -Branch or -DefaultBranch' {
-            { Invoke-GitPull -Checkout } | Should -Throw '*Checkout*requires*'
+            { Invoke-GitPull -Checkout } | Should-Throw '*Checkout*requires*'
         }
 
         It 'Should switch to the specified branch before pulling with -Checkout' {
@@ -469,13 +469,13 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
             $result = Invoke-GitPull -Path $repos.RepoPath -Branch $repos.BranchName -Checkout
 
-            $result.RepositoriesProcessed | Should -Be 1
-            $result.RepositoriesUpdated | Should -Be 1
-            $result.RepositoriesFailed | Should -Be 0
+            $result.RepositoriesProcessed | Should-Be 1
+            $result.RepositoriesUpdated | Should-Be 1
+            $result.RepositoriesFailed | Should-Be 0
 
             # Verify we are now on the target branch
             $currentBranch = Invoke-GitWithOutput -WorkingDirectory $repos.RepoPath -Arguments @('rev-parse', '--abbrev-ref', 'HEAD')
-            $currentBranch | Should -Be $repos.BranchName
+            $currentBranch | Should-Be $repos.BranchName
         }
 
         It 'Should switch to the auto-detected default branch with -DefaultBranch -Checkout' {
@@ -487,13 +487,13 @@ Describe 'Invoke-GitPull Integration Tests' -Tag 'Integration' {
 
             $result = Invoke-GitPull -Path $repos.RepoPath -DefaultBranch -Checkout
 
-            $result.RepositoriesProcessed | Should -Be 1
-            $result.RepositoriesUpdated | Should -Be 1
-            $result.RepositoriesFailed | Should -Be 0
+            $result.RepositoriesProcessed | Should-Be 1
+            $result.RepositoriesUpdated | Should-Be 1
+            $result.RepositoriesFailed | Should-Be 0
 
             # Verify we are now on the default branch
             $currentBranch = Invoke-GitWithOutput -WorkingDirectory $repos.RepoPath -Arguments @('rev-parse', '--abbrev-ref', 'HEAD')
-            $currentBranch | Should -Be $repos.BranchName
+            $currentBranch | Should-Be $repos.BranchName
         }
     }
 }

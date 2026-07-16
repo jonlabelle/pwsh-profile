@@ -25,7 +25,7 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
             foreach ($funcName in $functions)
             {
                 $command = Get-Command $funcName
-                $command.Parameters.ContainsKey('Recurse') | Should -Be $true -Because "$funcName should have Recurse parameter"
+                $command.Parameters.ContainsKey('Recurse') | Should-Be $true -Because "$funcName should have Recurse parameter"
             }
         }
 
@@ -35,7 +35,7 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
             foreach ($funcName in $functions)
             {
                 $command = Get-Command $funcName
-                $command.Parameters.ContainsKey('NoRecursion') | Should -Be $false -Because "$funcName should not have NoRecursion parameter"
+                $command.Parameters.ContainsKey('NoRecursion') | Should-Be $false -Because "$funcName should not have NoRecursion parameter"
             }
         }
 
@@ -45,7 +45,7 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
             foreach ($funcName in $functions)
             {
                 $command = Get-Command $funcName
-                $command.Parameters.ContainsKey('Exclude') | Should -Be $true -Because "$funcName should have Exclude parameter"
+                $command.Parameters.ContainsKey('Exclude') | Should-Be $true -Because "$funcName should have Exclude parameter"
             }
         }
     }
@@ -58,7 +58,7 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
             {
                 $command = Get-Command $funcName
                 $recurseParam = $command.Parameters['Recurse']
-                $recurseParam.ParameterType.Name | Should -Be 'SwitchParameter' -Because "$funcName Recurse parameter should be Switch type"
+                $recurseParam.ParameterType.Name | Should-Be 'SwitchParameter' -Because "$funcName Recurse parameter should be Switch type"
             }
         }
 
@@ -69,7 +69,7 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
             {
                 $command = Get-Command $funcName
                 $excludeParam = $command.Parameters['Exclude']
-                $excludeParam.ParameterType.Name | Should -Be 'String[]' -Because "$funcName Exclude parameter should be String array type"
+                $excludeParam.ParameterType.Name | Should-Be 'String[]' -Because "$funcName Exclude parameter should be String array type"
             }
         }
     }
@@ -81,7 +81,7 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
             foreach ($funcName in $functions)
             {
                 $command = Get-Command $funcName
-                $command.Parameters.ContainsKey('Filter') | Should -Be $true -Because "$funcName should have Filter parameter"
+                $command.Parameters.ContainsKey('Filter') | Should-Be $true -Because "$funcName should have Filter parameter"
             }
         }
 
@@ -92,7 +92,7 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
             {
                 $command = Get-Command $funcName
                 $filterParam = $command.Parameters['Filter']
-                $filterParam.ParameterType.Name | Should -Be 'String[]' -Because "$funcName Filter parameter should be String array type"
+                $filterParam.ParameterType.Name | Should-Be 'String[]' -Because "$funcName Filter parameter should be String array type"
             }
         }
     }
@@ -148,21 +148,21 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
             $global:LASTEXITCODE = 0
             $metadataWriteOutput = @(& $exifToolPath -overwrite_original '-Comment=Private integration comment' $sampleImage 2>&1)
             $metadataWriteExitCode = $LASTEXITCODE
-            $metadataWriteExitCode | Should -Be 0 -Because "ExifTool should stage the test metadata. Output: $($metadataWriteOutput -join ' ')"
+            $metadataWriteExitCode | Should-Be 0 -Because "ExifTool should stage the test metadata. Output: $($metadataWriteOutput -join ' ')"
 
             $beforeCleanup = Get-ImageMetadata -Path $sampleImage -ExifToolPath $exifToolPath -Tag 'Comment' -NoEmptyProperties
-            $beforeCleanup.Metadata['File:Comment'] | Should -Be 'Private integration comment'
+            $beforeCleanup.Metadata['File:Comment'] | Should-Be 'Private integration comment'
 
             $cleanupResult = Remove-ImageMetadata -Path $sampleImage -ExifToolPath $exifToolPath -Verify -PassThru
 
-            $cleanupResult.MetadataRemoved | Should -Be $true
-            $cleanupResult.RemovedMetadataTagCount | Should -BeGreaterThan 0
-            $cleanupResult.RemovedMetadataTags | Should -Contain 'File:Comment'
-            $cleanupResult.Verified | Should -Be $true
+            $cleanupResult.MetadataRemoved | Should-Be $true
+            $cleanupResult.RemovedMetadataTagCount | Should-BeGreaterThan 0
+            $cleanupResult.RemovedMetadataTags | Should-ContainCollection 'File:Comment'
+            $cleanupResult.Verified | Should-Be $true
             $cleanupResult.RemainingMetadataTags | Should -BeNullOrEmpty
 
             $afterCleanup = Get-ImageMetadata -Path $sampleImage -ExifToolPath $exifToolPath -Tag 'Comment' -NoEmptyProperties
-            $afterCleanup.Metadata.Contains('File:Comment') | Should -Be $false
+            $afterCleanup.Metadata.Contains('File:Comment') | Should-Be $false
         }
     }
 }

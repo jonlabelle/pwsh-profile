@@ -75,16 +75,16 @@ Describe 'Protect-PathWithPassword Unit Tests' {
             # Test that the Path parameter is mandatory by checking the parameter metadata
             $command = Get-Command Protect-PathWithPassword
             $pathParam = $command.Parameters['Path']
-            $pathParam.Attributes.Mandatory | Should -Contain $true
+            $pathParam.Attributes.Mandatory | Should-ContainCollection $true
         }
 
         It 'Should accept path from pipeline' {
             $result = Get-Item $script:TestFile1 | Protect-PathWithPassword -Password $script:TestPassword -Force
-            $result.Success | Should -Be $true
+            $result.Success | Should-Be $true
         }
 
         It 'Should throw when path does not exist' {
-            { Protect-PathWithPassword -Path 'C:\NonExistent\file.txt' -Password $script:TestPassword } | Should -Throw '*does not exist*'
+            { Protect-PathWithPassword -Path 'C:\NonExistent\file.txt' -Password $script:TestPassword } | Should-Throw '*does not exist*'
         }
     }
 
@@ -93,15 +93,15 @@ Describe 'Protect-PathWithPassword Unit Tests' {
             # Test basic file encryption functionality as shown in documentation
             $result = Protect-PathWithPassword -Path $script:TestFile1 -Password $script:TestPassword -Force
 
-            $result.Success | Should -Be $true
-            $result.OriginalPath | Should -Be $script:TestFile1
-            $result.EncryptedPath | Should -Be ($script:TestFile1 + '.enc')
-            Test-Path ($script:TestFile1 + '.enc') | Should -Be $true
+            $result.Success | Should-Be $true
+            $result.OriginalPath | Should-Be $script:TestFile1
+            $result.EncryptedPath | Should-Be ($script:TestFile1 + '.enc')
+            Test-Path ($script:TestFile1 + '.enc') | Should-Be $true
         }
 
         It 'Should create encrypted file with .enc extension by default' {
             Protect-PathWithPassword -Path $script:TestFile1 -Password $script:TestPassword -Force | Out-Null
-            Test-Path ($script:TestFile1 + '.enc') | Should -Be $true
+            Test-Path ($script:TestFile1 + '.enc') | Should-Be $true
         }
 
         It 'Should respect custom output path' {
@@ -111,16 +111,16 @@ Describe 'Protect-PathWithPassword Unit Tests' {
 
             $result = Protect-PathWithPassword -Path $script:TestFile1 -Password $script:TestPassword -OutputPath $customOutput -Force
 
-            $result.EncryptedPath | Should -Be $customOutput
-            Test-Path $customOutput | Should -Be $true
+            $result.EncryptedPath | Should-Be $customOutput
+            Test-Path $customOutput | Should-Be $true
         }
 
         It 'Should support RemoveOriginal parameter' {
             $result = Protect-PathWithPassword -Path $script:TestFile1 -Password $script:TestPassword -RemoveOriginal -Force
 
-            $result.Success | Should -Be $true
-            Test-Path $script:TestFile1 | Should -Be $false
-            Test-Path ($script:TestFile1 + '.enc') | Should -Be $true
+            $result.Success | Should-Be $true
+            Test-Path $script:TestFile1 | Should-Be $false
+            Test-Path ($script:TestFile1 + '.enc') | Should-Be $true
         }
     }
 
@@ -129,18 +129,18 @@ Describe 'Protect-PathWithPassword Unit Tests' {
             Protect-PathWithPassword -Path $script:TestDir -Password $script:TestPassword -Force | Out-Null
 
             # Should encrypt files in root directory only
-            Test-Path ($script:TestFile1 + '.enc') | Should -Be $true
-            Test-Path ($script:TestFile2 + '.enc') | Should -Be $true
-            Test-Path ($script:TestFile3 + '.enc') | Should -Be $false
+            Test-Path ($script:TestFile1 + '.enc') | Should-Be $true
+            Test-Path ($script:TestFile2 + '.enc') | Should-Be $true
+            Test-Path ($script:TestFile3 + '.enc') | Should-Be $false
         }
 
         It 'Should encrypt files recursively when -Recurse is specified' {
             Protect-PathWithPassword -Path $script:TestDir -Password $script:TestPassword -Recurse -Force | Out-Null
 
             # Should encrypt all files including subdirectories
-            Test-Path ($script:TestFile1 + '.enc') | Should -Be $true
-            Test-Path ($script:TestFile2 + '.enc') | Should -Be $true
-            Test-Path ($script:TestFile3 + '.enc') | Should -Be $true
+            Test-Path ($script:TestFile1 + '.enc') | Should-Be $true
+            Test-Path ($script:TestFile2 + '.enc') | Should-Be $true
+            Test-Path ($script:TestFile3 + '.enc') | Should-Be $true
         }
     }
 
@@ -148,10 +148,10 @@ Describe 'Protect-PathWithPassword Unit Tests' {
         It 'Should accept input from pipeline' {
             $results = Get-ChildItem -Path $script:TestDir -File | Protect-PathWithPassword -Password $script:TestPassword -Force
 
-            $results | Should -HaveCount 2
-            $results | ForEach-Object { $_.Success | Should -Be $true }
-            Test-Path ($script:TestFile1 + '.enc') | Should -Be $true
-            Test-Path ($script:TestFile2 + '.enc') | Should -Be $true
+            $results | Should-BeCollection -Count 2
+            $results | ForEach-Object { $_.Success | Should-Be $true }
+            Test-Path ($script:TestFile1 + '.enc') | Should-Be $true
+            Test-Path ($script:TestFile2 + '.enc') | Should-Be $true
         }
     }
 
@@ -166,9 +166,9 @@ Describe 'Protect-PathWithPassword Unit Tests' {
             # Encrypt again with -Force
             $result = Protect-PathWithPassword -Path $script:TestFile1 -Password $script:TestPassword -Force
 
-            $result.Success | Should -Be $true
+            $result.Success | Should-Be $true
             $newTime = (Get-Item ($script:TestFile1 + '.enc')).LastWriteTime
-            $newTime | Should -BeGreaterThan $initialTime
+            $newTime | Should-BeGreaterThan $initialTime
         }
     }
 
@@ -179,14 +179,14 @@ Describe 'Protect-PathWithPassword Unit Tests' {
             $result2 = Protect-PathWithPassword -Path $script:TestFile1 -Password $script:TestPassword -OutputPath (Join-Path -Path $script:TestDir -ChildPath 'enc2.dat') -Force
 
             $both = $result1, $result2
-            $both | ForEach-Object { $_.Success | Should -Be $true }
+            $both | ForEach-Object { $_.Success | Should-Be $true }
 
             # Files should be different due to random salt and IV
             $bytes1 = [System.IO.File]::ReadAllBytes($result1.EncryptedPath)
             $bytes2 = [System.IO.File]::ReadAllBytes($result2.EncryptedPath)
 
             # Compare first 48 bytes (salt + IV) - they should be different
-            $bytes1[0..47] | Should -Not -Be $bytes2[0..47]
+            $bytes1[0..47] | Should-NotBe $bytes2[0..47]
         }
 
         It 'Should create files with appropriate size (larger than original due to encryption overhead)' {
@@ -196,9 +196,9 @@ Describe 'Protect-PathWithPassword Unit Tests' {
             $encryptedSize = (Get-Item ($script:TestFile1 + '.enc')).Length
 
             # Encrypted file should be larger (salt + IV + padding)
-            $encryptedSize | Should -BeGreaterThan $originalSize
+            $encryptedSize | Should-BeGreaterThan $originalSize
             # Should have at least 48 bytes overhead (32 salt + 16 IV)
-            $encryptedSize | Should -BeGreaterThan ($originalSize + 48)
+            $encryptedSize | Should-BeGreaterThan ($originalSize + 48)
         }
     }
 }

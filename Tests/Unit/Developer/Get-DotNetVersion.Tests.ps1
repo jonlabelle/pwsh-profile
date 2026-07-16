@@ -15,15 +15,15 @@ Describe 'Get-DotNetVersion' {
             $result = Get-DotNetVersion
             $result | Should -Not -BeNullOrEmpty
             $result | ForEach-Object {
-                $_.PSObject.Properties.Name | Should -Contain 'ComputerName'
-                $_.PSObject.Properties.Name | Should -Contain 'RuntimeType'
-                $_.PSObject.Properties.Name | Should -Contain 'Version'
-                $_.PSObject.Properties.Name | Should -Contain 'Type'
+                $_.PSObject.Properties.Name | Should-ContainCollection 'ComputerName'
+                $_.PSObject.Properties.Name | Should-ContainCollection 'RuntimeType'
+                $_.PSObject.Properties.Name | Should-ContainCollection 'Version'
+                $_.PSObject.Properties.Name | Should-ContainCollection 'Type'
             }
         }
 
         It 'Rejects mutually exclusive -FrameworkOnly and -DotNetOnly' {
-            { Get-DotNetVersion -FrameworkOnly -DotNetOnly } | Should -Throw
+            { Get-DotNetVersion -FrameworkOnly -DotNetOnly } | Should-Throw
         }
 
     }
@@ -51,10 +51,10 @@ Describe 'Get-DotNetVersion' {
 
             $result = Get-DotNetVersion -ComputerName $script:RemoteTestComputerName -DotNetOnly -WarningAction SilentlyContinue
 
-            $result | Should -HaveCount 1
-            $result[0].RuntimeType | Should -Be '.NET'
-            $result[0].Version | Should -Be 'Error'
-            $result[0].Error | Should -Match 'session failure'
+            $result | Should-BeCollection -Count 1
+            $result[0].RuntimeType | Should-Be '.NET'
+            $result[0].Version | Should-Be 'Error'
+            $result[0].Error | Should-MatchString 'session failure'
         }
 
         It 'Returns only .NET Framework error rows with -FrameworkOnly' {
@@ -64,10 +64,10 @@ Describe 'Get-DotNetVersion' {
 
             $result = Get-DotNetVersion -ComputerName $script:RemoteTestComputerName -FrameworkOnly -WarningAction SilentlyContinue
 
-            $result | Should -HaveCount 1
-            $result[0].RuntimeType | Should -Be '.NET Framework'
-            $result[0].Version | Should -Be 'Error'
-            $result[0].Error | Should -Match 'session failure'
+            $result | Should-BeCollection -Count 1
+            $result[0].RuntimeType | Should-Be '.NET Framework'
+            $result[0].Version | Should-Be 'Error'
+            $result[0].Error | Should-MatchString 'session failure'
         }
     }
 
@@ -116,8 +116,8 @@ Describe 'Get-DotNetVersion' {
             $netRows = $result | Where-Object { $_.RuntimeType -eq '.NET' }
 
             $netRows | Should -Not -BeNullOrEmpty
-            @($netRows | Where-Object { $_.Version -eq '10.0.0-preview.7.25380.108' }).Count | Should -Be 1
-            @($netRows | Where-Object { $_.Version -eq '10.0.0' -and $_.IsLatest }).Count | Should -Be 1
+            @($netRows | Where-Object { $_.Version -eq '10.0.0-preview.7.25380.108' }).Count | Should-Be 1
+            @($netRows | Where-Object { $_.Version -eq '10.0.0' -and $_.IsLatest }).Count | Should-Be 1
         }
 
         It 'Includes SDK rows when -All is used without -IncludeSDKs' {
@@ -125,7 +125,7 @@ Describe 'Get-DotNetVersion' {
             $sdkRows = $result | Where-Object { $_.RuntimeType -eq '.NET SDK' -and $_.Type -eq 'SDK' }
 
             $sdkRows | Should -Not -BeNullOrEmpty
-            @($sdkRows | Where-Object { $_.Version -eq '10.0.100-preview.2.25164.34' }).Count | Should -Be 1
+            @($sdkRows | Where-Object { $_.Version -eq '10.0.100-preview.2.25164.34' }).Count | Should-Be 1
         }
     }
 
@@ -158,8 +158,8 @@ Describe 'Get-DotNetVersion' {
                 $netRow = $result | Where-Object { $_.RuntimeType -eq '.NET' } | Select-Object -First 1
 
                 $netRow | Should -Not -BeNullOrEmpty
-                $netRow.Version | Should -Be '8.0.14'
-                $netRow.Type | Should -Be 'Runtime'
+                $netRow.Version | Should-Be '8.0.14'
+                $netRow.Type | Should-Be 'Runtime'
             }
             finally
             {
@@ -223,8 +223,8 @@ Describe 'Get-DotNetVersion' {
                 $sdkRow = $result | Where-Object { $_.RuntimeType -eq '.NET SDK' } | Select-Object -First 1
 
                 $sdkRow | Should -Not -BeNullOrEmpty
-                $sdkRow.Version | Should -Be '10.0.200'
-                $sdkRow.Type | Should -Be 'SDK'
+                $sdkRow.Version | Should-Be '10.0.200'
+                $sdkRow.Type | Should-Be 'SDK'
             }
             finally
             {

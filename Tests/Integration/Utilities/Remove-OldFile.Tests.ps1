@@ -66,16 +66,16 @@ Describe 'Remove-OldFile Integration Tests' {
         It 'Should remove only files older than threshold' {
             $result = Remove-OldFile -Path $script:testDir -OlderThan 7 -Confirm:$false
 
-            $result.FilesRemoved | Should -Be 3
+            $result.FilesRemoved | Should-Be 3
 
             # Verify old files are gone
-            Test-Path (Join-Path -Path $script:testDir -ChildPath 'old_file_1.txt') | Should -Be $false
-            Test-Path (Join-Path -Path $script:testDir -ChildPath 'old_file_2.txt') | Should -Be $false
-            Test-Path (Join-Path -Path $script:testDir -ChildPath 'old_file_3.txt') | Should -Be $false
+            Test-Path (Join-Path -Path $script:testDir -ChildPath 'old_file_1.txt') | Should-Be $false
+            Test-Path (Join-Path -Path $script:testDir -ChildPath 'old_file_2.txt') | Should-Be $false
+            Test-Path (Join-Path -Path $script:testDir -ChildPath 'old_file_3.txt') | Should-Be $false
 
             # Verify recent and current files remain
-            Test-Path (Join-Path -Path $script:testDir -ChildPath 'recent_file_1.txt') | Should -Be $true
-            Test-Path (Join-Path -Path $script:testDir -ChildPath 'current.txt') | Should -Be $true
+            Test-Path (Join-Path -Path $script:testDir -ChildPath 'recent_file_1.txt') | Should-Be $true
+            Test-Path (Join-Path -Path $script:testDir -ChildPath 'current.txt') | Should-Be $true
         }
 
         It 'Should calculate space freed correctly' {
@@ -91,8 +91,8 @@ Describe 'Remove-OldFile Integration Tests' {
 
             $result = Remove-OldFile -Path $spaceTestDir -OlderThan 5 -Confirm:$false
 
-            $result.TotalSpaceFreed | Should -BeGreaterThan 1000000
-            $result.TotalSpaceFreedMB | Should -BeGreaterThan 0.9
+            $result.TotalSpaceFreed | Should-BeGreaterThan 1000000
+            $result.TotalSpaceFreedMB | Should-BeGreaterThan 0.9
 
             Remove-TestDirectory -Path $spaceTestDir
         }
@@ -115,8 +115,8 @@ Describe 'Remove-OldFile Integration Tests' {
 
             $result = Remove-OldFile -Path $script:timeTestDir -OlderThan 24 -Unit Hours -Confirm:$false
 
-            $result.FilesRemoved | Should -Be 1
-            Test-Path $file | Should -Be $false
+            $result.FilesRemoved | Should-Be 1
+            Test-Path $file | Should-Be $false
         }
 
         It 'Should work with Days unit' {
@@ -126,8 +126,8 @@ Describe 'Remove-OldFile Integration Tests' {
 
             $result = Remove-OldFile -Path $script:timeTestDir -OlderThan 10 -Unit Days -Confirm:$false
 
-            $result.FilesRemoved | Should -Be 1
-            Test-Path $file | Should -Be $false
+            $result.FilesRemoved | Should-Be 1
+            Test-Path $file | Should-Be $false
         }
 
         It 'Should work with Months unit' {
@@ -137,8 +137,8 @@ Describe 'Remove-OldFile Integration Tests' {
 
             $result = Remove-OldFile -Path $script:timeTestDir -OlderThan 3 -Unit Months -Confirm:$false
 
-            $result.FilesRemoved | Should -Be 1
-            Test-Path $file | Should -Be $false
+            $result.FilesRemoved | Should-Be 1
+            Test-Path $file | Should-Be $false
         }
 
         It 'Should work with Years unit' {
@@ -148,8 +148,8 @@ Describe 'Remove-OldFile Integration Tests' {
 
             $result = Remove-OldFile -Path $script:timeTestDir -OlderThan 1 -Unit Years -Confirm:$false
 
-            $result.FilesRemoved | Should -Be 1
-            Test-Path $file | Should -Be $false
+            $result.FilesRemoved | Should-Be 1
+            Test-Path $file | Should-Be $false
         }
     }
 
@@ -173,15 +173,15 @@ Describe 'Remove-OldFile Integration Tests' {
         It 'Should only remove files matching Include pattern' {
             $result = Remove-OldFile -Path $script:filterDir -OlderThan 7 -Include '*.log' -Confirm:$false
 
-            $result.FilesRemoved | Should -Be 3
+            $result.FilesRemoved | Should-Be 3
 
             # .log files should be removed
-            Test-Path (Join-Path -Path $script:filterDir -ChildPath 'file1.log') | Should -Be $false
-            Test-Path (Join-Path -Path $script:filterDir -ChildPath 'file3.log') | Should -Be $false
+            Test-Path (Join-Path -Path $script:filterDir -ChildPath 'file1.log') | Should-Be $false
+            Test-Path (Join-Path -Path $script:filterDir -ChildPath 'file3.log') | Should-Be $false
 
             # Other files should remain
-            Test-Path (Join-Path -Path $script:filterDir -ChildPath 'file2.txt') | Should -Be $true
-            Test-Path (Join-Path -Path $script:filterDir -ChildPath 'file4.tmp') | Should -Be $true
+            Test-Path (Join-Path -Path $script:filterDir -ChildPath 'file2.txt') | Should-Be $true
+            Test-Path (Join-Path -Path $script:filterDir -ChildPath 'file4.tmp') | Should-Be $true
         }
 
         It 'Should exclude files matching Exclude pattern' {
@@ -197,8 +197,8 @@ Describe 'Remove-OldFile Integration Tests' {
 
             $result = Remove-OldFile -Path $excludeTestDir -OlderThan 7 -Exclude 'keep*' -Confirm:$false
 
-            $result.FilesRemoved | Should -Be 2
-            Test-Path (Join-Path -Path $excludeTestDir -ChildPath 'keep1.txt') | Should -Be $true
+            $result.FilesRemoved | Should-Be 2
+            Test-Path (Join-Path -Path $excludeTestDir -ChildPath 'keep1.txt') | Should-Be $true
 
             Remove-TestDirectory -Path $excludeTestDir
         }
@@ -215,8 +215,8 @@ Describe 'Remove-OldFile Integration Tests' {
 
             $result = Remove-OldFile -Path $multiIncludeDir -OlderThan 7 -Include @('*.log', '*.tmp') -Confirm:$false
 
-            $result.FilesRemoved | Should -Be 4
-            Test-Path (Join-Path -Path $multiIncludeDir -ChildPath 'file3.txt') | Should -Be $true
+            $result.FilesRemoved | Should-Be 4
+            Test-Path (Join-Path -Path $multiIncludeDir -ChildPath 'file3.txt') | Should-Be $true
 
             Remove-TestDirectory -Path $multiIncludeDir
         }
@@ -249,13 +249,13 @@ Describe 'Remove-OldFile Integration Tests' {
         It 'Should exclude specified directories from processing' {
             $result = Remove-OldFile -Path $script:dirExcludeTest -OlderThan 7 -ExcludeDirectory 'KeepMe' -Recurse -Confirm:$false
 
-            $result.FilesRemoved | Should -Be 1
+            $result.FilesRemoved | Should-Be 1
 
             # File in excluded directory should remain
-            Test-Path (Join-Path -Path $script:dirExcludeTest -ChildPath 'KeepMe/file_keep.txt') | Should -Be $true
+            Test-Path (Join-Path -Path $script:dirExcludeTest -ChildPath 'KeepMe/file_keep.txt') | Should-Be $true
 
             # File in processed directory should be removed
-            Test-Path (Join-Path -Path $script:dirExcludeTest -ChildPath 'ProcessMe/file_process.txt') | Should -Be $false
+            Test-Path (Join-Path -Path $script:dirExcludeTest -ChildPath 'ProcessMe/file_process.txt') | Should-Be $false
         }
     }
 
@@ -293,16 +293,16 @@ Describe 'Remove-OldFile Integration Tests' {
         It 'Should remove empty directories when specified' {
             $result = Remove-OldFile -Path $script:emptyDirTest -OlderThan 7 -RemoveEmptyDirectories -Recurse -Confirm:$false -ErrorAction SilentlyContinue
 
-            $result.FilesRemoved | Should -Be 2
-            $result.DirectoriesRemoved | Should -BeGreaterOrEqual 2
+            $result.FilesRemoved | Should-Be 2
+            $result.DirectoriesRemoved | Should-BeGreaterThanOrEqual 2
 
             # Empty directories should be removed
-            Test-Path (Join-Path -Path $script:emptyDirTest -ChildPath 'SubDir1/SubDir2') | Should -Be $false
-            Test-Path (Join-Path -Path $script:emptyDirTest -ChildPath 'SubDir1') | Should -Be $false
+            Test-Path (Join-Path -Path $script:emptyDirTest -ChildPath 'SubDir1/SubDir2') | Should-Be $false
+            Test-Path (Join-Path -Path $script:emptyDirTest -ChildPath 'SubDir1') | Should-Be $false
 
             # Directory with remaining files should exist
-            Test-Path (Join-Path -Path $script:emptyDirTest -ChildPath 'MixedDir') | Should -Be $true
-            Test-Path (Join-Path -Path $script:emptyDirTest -ChildPath 'MixedDir/new.txt') | Should -Be $true
+            Test-Path (Join-Path -Path $script:emptyDirTest -ChildPath 'MixedDir') | Should-Be $true
+            Test-Path (Join-Path -Path $script:emptyDirTest -ChildPath 'MixedDir/new.txt') | Should-Be $true
         }
 
         It 'Should not remove directories when flag not set' {
@@ -317,11 +317,11 @@ Describe 'Remove-OldFile Integration Tests' {
 
             $result = Remove-OldFile -Path $noRemoveDir -OlderThan 7 -Recurse -Confirm:$false
 
-            $result.FilesRemoved | Should -Be 1
-            $result.DirectoriesRemoved | Should -Be 0
+            $result.FilesRemoved | Should-Be 1
+            $result.DirectoriesRemoved | Should-Be 0
 
             # Directory should still exist (empty)
-            Test-Path $subDir | Should -Be $true
+            Test-Path $subDir | Should-Be $true
 
             Remove-TestDirectory -Path $noRemoveDir
         }
@@ -359,9 +359,9 @@ Describe 'Remove-OldFile Integration Tests' {
             $result = Remove-OldFile -Path $script:forceTestDir -OlderThan 7 -Confirm:$false
 
             # Only normal file should be removed
-            $result.FilesRemoved | Should -Be 1
-            Test-Path (Join-Path -Path $script:forceTestDir -ChildPath 'readonly.txt') | Should -Be $true
-            Test-Path (Join-Path -Path $script:forceTestDir -ChildPath 'normal.txt') | Should -Be $false
+            $result.FilesRemoved | Should-Be 1
+            Test-Path (Join-Path -Path $script:forceTestDir -ChildPath 'readonly.txt') | Should-Be $true
+            Test-Path (Join-Path -Path $script:forceTestDir -ChildPath 'normal.txt') | Should-Be $false
         }
 
         It 'Should remove read-only files with Force' {
@@ -378,8 +378,8 @@ Describe 'Remove-OldFile Integration Tests' {
 
             $result = Remove-OldFile -Path $script:forceTestDir -OlderThan 7 -Force -Confirm:$false
 
-            $result.FilesRemoved | Should -BeGreaterOrEqual 1
-            Test-Path $readOnlyFile | Should -Be $false
+            $result.FilesRemoved | Should-BeGreaterThanOrEqual 1
+            Test-Path $readOnlyFile | Should-Be $false
         }
     }
 
@@ -413,8 +413,8 @@ Describe 'Remove-OldFile Integration Tests' {
 
             # Should process both directories and return a single summary
             $result | Should -Not -BeNullOrEmpty
-            $result.FilesRemoved | Should -Be 4
-            $result.Errors | Should -Be 0
+            $result.FilesRemoved | Should-Be 4
+            $result.Errors | Should-Be 0
         }
     }
 
@@ -424,7 +424,7 @@ Describe 'Remove-OldFile Integration Tests' {
 
             $result = Remove-OldFile -Path $nonExistent -OlderThan 1 -ErrorAction SilentlyContinue
 
-            $result.Errors | Should -BeGreaterThan 0
+            $result.Errors | Should-BeGreaterThan 0
         }
 
         It 'Should continue processing after individual file errors' {
@@ -445,8 +445,8 @@ Describe 'Remove-OldFile Integration Tests' {
             $result = Remove-OldFile -Path $errorTestDir -OlderThan 7 -Confirm:$false
 
             # Should remove file2 even if file1 fails
-            $result.FilesRemoved | Should -BeGreaterOrEqual 1
-            Test-Path $file2 | Should -Be $false
+            $result.FilesRemoved | Should-BeGreaterThanOrEqual 1
+            Test-Path $file2 | Should-Be $false
 
             # Cleanup
             (Get-Item $file1).IsReadOnly = $false

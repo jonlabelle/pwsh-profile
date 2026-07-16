@@ -110,40 +110,40 @@ Write-Host "Example usage"
 
         It 'Should search only top-level project files by default after recursion became opt-in' {
             $results = Search-FileContent -Pattern 'TODO:' -Path $script:projectDir -Simple
-            $results.Count | Should -Be 2
-            ($results.Path | Select-Object -Unique).Count | Should -Be 1
-            $results[0].Path | Should -Be (Join-Path -Path $script:projectDir -ChildPath 'README.md')
+            $results.Count | Should-Be 2
+            ($results.Path | Select-Object -Unique).Count | Should-Be 1
+            $results[0].Path | Should-Be (Join-Path -Path $script:projectDir -ChildPath 'README.md')
         }
 
         It 'Should find all TODO comments across project' {
             $results = Search-FileContent -Pattern 'TODO:' -Path $script:projectDir -Simple -Recurse
             # Should find TODOs in src files, test files, and README, but not in .git
-            $results.Count | Should -BeGreaterOrEqual 4
-            $results.Path | Should -Not -BeLike '*.git*'
+            $results.Count | Should-BeGreaterThanOrEqual 4
+            $results.Path | Should-NotBeLikeString '*.git*'
         }
 
         It 'Should find function declarations in PowerShell files' {
             $results = Search-FileContent -Pattern 'function\s+\w+-\w+' -Path $script:projectDir -Include '*.ps1' -Simple -Recurse
             # Should find Get-UserData and Set-UserData
-            $results.Count | Should -BeGreaterOrEqual 2
+            $results.Count | Should-BeGreaterThanOrEqual 2
         }
 
         It 'Should exclude test files when requested' {
             $results = Search-FileContent -Pattern 'TODO' -Path $script:projectDir -Exclude '*.Tests.ps1' -Simple -Recurse
-            $results.Path | Should -Not -BeLike '*Tests.ps1'
+            $results.Path | Should-NotBeLikeString '*Tests.ps1'
         }
 
         It 'Should search only PowerShell files' {
             $results = Search-FileContent -Pattern 'Write-' -Path $script:projectDir -Include '*.ps1' -Simple -Recurse
-            $results.Count | Should -BeGreaterOrEqual 2
-            $results.Path | ForEach-Object { $_ | Should -BeLike '*.ps1' }
+            $results.Count | Should-BeGreaterThanOrEqual 2
+            $results.Path | ForEach-Object { $_ | Should-BeLikeString '*.ps1' }
         }
 
         It 'Should find matches with context lines' {
             $results = Search-FileContent -Pattern 'function Get-UserData' -Path $script:projectDir -Simple -Before 0 -After 2 -Recurse
             $results | Should -Not -BeNullOrEmpty
             # Verify it's finding the function
-            $results[0].Line | Should -BeLike '*Get-UserData*'
+            $results[0].Line | Should-BeLikeString '*Get-UserData*'
         }
     }
 
@@ -176,28 +176,28 @@ camelCaseVariable = true
             $pattern = '\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b'
             $results = Search-FileContent -Pattern $pattern -Path $script:codeDir -Simple
             # Should find 192.168.1.1 and 10.0.0.1, but not 256.1.1.1
-            $results.Count | Should -Be 2
+            $results.Count | Should-Be 2
         }
 
         It 'Should find email addresses' {
             $pattern = '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
             $results = Search-FileContent -Pattern $pattern -Path $script:codeDir -Simple
             # Should find test@example.com and user@domain.co.uk
-            $results.Count | Should -BeGreaterOrEqual 2
+            $results.Count | Should-BeGreaterThanOrEqual 2
         }
 
         It 'Should find PowerShell function declarations' {
             $pattern = 'function\s+[A-Z][a-z]+-[A-Z][a-z]+'
             $results = Search-FileContent -Pattern $pattern -Path $script:codeDir -Simple
             # Should find Test-Connection and Get-Item
-            $results.Count | Should -Be 2
+            $results.Count | Should-Be 2
         }
 
         It 'Should find PowerShell variables' {
             $pattern = '\$[a-zA-Z_][a-zA-Z0-9_]*'
             $results = Search-FileContent -Pattern $pattern -Path $script:codeDir -Simple
             # Should find $variable and $another_var
-            $results.Count | Should -BeGreaterOrEqual 2
+            $results.Count | Should-BeGreaterThanOrEqual 2
         }
     }
 
@@ -223,14 +223,14 @@ camelCaseVariable = true
 
         It 'Should work with Get-ChildItem pipeline' {
             $results = Get-ChildItem $script:pipelineDir -Filter 'file*.txt' | Search-FileContent -Pattern 'MATCH' -Simple
-            $results.Count | Should -Be 5
+            $results.Count | Should-Be 5
         }
 
         It 'Should work with Where-Object in pipeline' {
             $results = Get-ChildItem $script:pipelineDir -File |
             Where-Object { $_.Name -like 'file*' } |
             Search-FileContent -Pattern 'MATCH' -Simple
-            $results.Count | Should -Be 5
+            $results.Count | Should-Be 5
         }
 
         It 'Should chain with other cmdlets' {
@@ -238,8 +238,8 @@ camelCaseVariable = true
             Search-FileContent -Pattern 'MATCH' -FilesOnly -Simple |
             ForEach-Object { Split-Path $_.Path -Leaf }
 
-            $fileNames.Count | Should -Be 5
-            $fileNames | Should -Contain 'file1.txt'
+            $fileNames.Count | Should-Be 5
+            $fileNames | Should-ContainCollection 'file1.txt'
         }
     }
 
@@ -271,16 +271,16 @@ Line 5 with another MATCH
             $stopwatch.Stop()
 
             # Should find 2 matches per file * 50 files = 100 matches
-            $results.Count | Should -Be 100
+            $results.Count | Should-Be 100
 
             # Should complete in reasonable time (less than 5 seconds for 50 files)
-            $stopwatch.Elapsed.TotalSeconds | Should -BeLessThan 5
+            $stopwatch.Elapsed.TotalSeconds | Should-BeLessThan 5
         }
 
         It 'Should count matches efficiently' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:perfDir -CountOnly -Simple
-            $results.Count | Should -Be 50
-            $results | ForEach-Object { $_.MatchCount | Should -Be 2 }
+            $results.Count | Should-Be 50
+            $results | ForEach-Object { $_.MatchCount | Should-Be 2 }
         }
     }
 
@@ -311,17 +311,17 @@ Line 5 with another MATCH
 
         It 'Should search across different file types' {
             $results = Search-FileContent -Pattern 'PATTERN' -Path $script:mixedDir -Simple
-            $results.Count | Should -Be 5
+            $results.Count | Should-Be 5
         }
 
         It 'Should filter by specific file types' {
             $results = Search-FileContent -Pattern 'PATTERN' -Path $script:mixedDir -Include '*.ps1', '*.md' -Simple
-            $results.Count | Should -Be 2
+            $results.Count | Should-Be 2
         }
 
         It 'Should exclude specific file types' {
             $results = Search-FileContent -Pattern 'PATTERN' -Path $script:mixedDir -Exclude '*.log', '*.xml' -Simple
-            $results.Count | Should -Be 3
+            $results.Count | Should-Be 3
         }
     }
 
@@ -351,13 +351,13 @@ Line 5 with another MATCH
         It 'Should handle large files correctly' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:largeFileDir -Simple
             # Should find 10 matches (at lines 100, 200, 300, ..., 1000)
-            $results.Count | Should -Be 10
+            $results.Count | Should-Be 10
         }
 
         It 'Should provide correct line numbers in large files' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:largeFileDir -Simple
-            $results[0].LineNumber | Should -Be 100
-            $results[9].LineNumber | Should -Be 1000
+            $results[0].LineNumber | Should-Be 100
+            $results[9].LineNumber | Should-Be 1000
         }
     }
 
@@ -383,18 +383,18 @@ Line with backslash: \PATTERN\
 
         It 'Should find patterns with special characters around them' {
             $results = Search-FileContent -Pattern 'PATTERN' -Path $script:specialDir -Simple
-            $results.Count | Should -BeGreaterOrEqual 5
+            $results.Count | Should-BeGreaterThanOrEqual 5
         }
 
         It 'Should handle bracket patterns with literal matching' {
             $results = @(Search-FileContent -Pattern '[PATTERN]' -Path $script:specialDir -Simple -Literal)
-            $results.Count | Should -Be 1
-            $results[0].Line | Should -BeLike '*[PATTERN]*'
+            $results.Count | Should-Be 1
+            $results[0].Line | Should-BeLikeString '*[PATTERN]*'
         }
 
         It 'Should handle regex special characters properly' {
             $results = @(Search-FileContent -Pattern '\[PATTERN\]' -Path $script:specialDir -Simple)
-            $results.Count | Should -Be 1
+            $results.Count | Should-Be 1
         }
     }
 
@@ -423,13 +423,13 @@ Line with backslash: \PATTERN\
 
         It 'Should search deep nested directories with -Recurse' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:nestedDir -Simple -Recurse
-            $results.Count | Should -Be 5
+            $results.Count | Should-Be 5
         }
 
         It 'Should respect MaxDepth limitation' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:nestedDir -Simple -Recurse -MaxDepth 2
             # Should only find matches in level1 and level2
-            $results.Count | Should -BeLessOrEqual 2
+            $results.Count | Should-BeLessThanOrEqual 2
         }
 
     }
@@ -454,22 +454,22 @@ Fifth line with MATCH
 
         It 'Should provide detailed results in Simple mode' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:outputDir -Simple
-            $results.Count | Should -Be 3
-            $results[0].PSObject.Properties.Name | Should -Contain 'Path'
-            $results[0].PSObject.Properties.Name | Should -Contain 'LineNumber'
-            $results[0].PSObject.Properties.Name | Should -Contain 'Line'
-            $results[0].PSObject.Properties.Name | Should -Contain 'Match'
+            $results.Count | Should-Be 3
+            $results[0].PSObject.Properties.Name | Should-ContainCollection 'Path'
+            $results[0].PSObject.Properties.Name | Should-ContainCollection 'LineNumber'
+            $results[0].PSObject.Properties.Name | Should-ContainCollection 'Line'
+            $results[0].PSObject.Properties.Name | Should-ContainCollection 'Match'
         }
 
         It 'Should provide count in CountOnly mode' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:outputDir -CountOnly -Simple
-            $results.MatchCount | Should -Be 3
+            $results.MatchCount | Should-Be 3
         }
 
         It 'Should provide only paths in FilesOnly mode' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:outputDir -FilesOnly -Simple
-            $results.PSObject.Properties.Name | Should -Contain 'Path'
-            $results.PSObject.Properties.Name | Should -Not -Contain 'LineNumber'
+            $results.PSObject.Properties.Name | Should-ContainCollection 'Path'
+            $results.PSObject.Properties.Name | Should-NotContainCollection 'LineNumber'
         }
     }
 
@@ -567,13 +567,13 @@ api_key=development_key
             $uniqueVariations = $results.Variation | Select-Object -Unique
             # Should find apiKey (camelCase) and ApiKey (PascalCase) across files
             # Note: api_key, API_KEY, api-key won't match because of separators
-            $uniqueVariations.Count | Should -BeGreaterOrEqual 2
+            $uniqueVariations.Count | Should-BeGreaterThanOrEqual 2
         }
 
         It 'Should correctly count each variation across files' {
             $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple -Recurse
             $apiKeyResults = $results | Where-Object { $_.Variation -eq 'apiKey' }
-            $apiKeyResults.Count | Should -BeGreaterThan 0
+            $apiKeyResults.Count | Should-BeGreaterThan 0
         }
 
         It 'Should identify JavaScript camelCase usage' {
@@ -603,7 +603,7 @@ api_key=development_key
             {
                 $result.Files | Should -Not -BeNullOrEmpty
                 # Files should be an array (or single value if only one file)
-                @($result.Files).Count | Should -BeGreaterThan 0
+                @($result.Files).Count | Should-BeGreaterThan 0
             }
         }
 
@@ -615,7 +615,7 @@ api_key=development_key
             {
                 foreach ($file in $result.Files)
                 {
-                    $file | Should -Match '\.(js|ts)$'
+                    $file | Should-MatchString '\.(js|ts)$'
                 }
             }
         }
@@ -623,22 +623,22 @@ api_key=development_key
         It 'Should show most common variation first when sorted' {
             $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple -Recurse
             $sortedResults = $results | Sort-Object -Property Count -Descending
-            $sortedResults[0].Count | Should -BeGreaterOrEqual $sortedResults[-1].Count
+            $sortedResults[0].Count | Should-BeGreaterThanOrEqual $sortedResults[-1].Count
         }
 
         It 'Should handle multiple variations in same file' {
             $results = Search-FileContent -Pattern 'apikey' -Path (Join-Path -Path $script:codebaseDir -ChildPath 'src/config.js') -CaseInsensitive -IncludeCaseVariations -Simple
-            $results.Count | Should -BeGreaterThan 1
+            $results.Count | Should-BeGreaterThan 1
         }
 
         It 'Should provide accurate file occurrence counts' {
             $results = Search-FileContent -Pattern 'apikey' -Path $script:codebaseDir -CaseInsensitive -IncludeCaseVariations -Simple -Recurse
             foreach ($result in $results)
             {
-                $result.Count | Should -BeGreaterThan 0
-                $result.Files.Count | Should -BeGreaterThan 0
+                $result.Count | Should-BeGreaterThan 0
+                $result.Files.Count | Should-BeGreaterThan 0
                 # Total count should be >= number of files (could be multiple matches per file)
-                $result.Count | Should -BeGreaterOrEqual $result.Files.Count
+                $result.Count | Should-BeGreaterThanOrEqual $result.Files.Count
             }
         }
 
@@ -648,8 +648,8 @@ api_key=development_key
             # Should not include config.json or .env files
             foreach ($result in $results)
             {
-                $result.Files | Should -Not -Contain (Join-Path -Path $script:codebaseDir -ChildPath 'config.json')
-                $result.Files | Should -Not -Contain (Join-Path -Path $script:codebaseDir -ChildPath '.env')
+                $result.Files | Should-NotContainCollection (Join-Path -Path $script:codebaseDir -ChildPath 'config.json')
+                $result.Files | Should-NotContainCollection (Join-Path -Path $script:codebaseDir -ChildPath '.env')
             }
         }
     }

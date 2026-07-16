@@ -21,18 +21,18 @@ Describe 'Set-FileEncoding' -Tag 'Unit' {
 
         $result = Set-FileEncoding -Path $path -Encoding UTF8BOM -PassThru
 
-        $result.Success | Should -BeTrue
-        $result.Skipped | Should -BeFalse
-        $result.EncodingChanged | Should -BeTrue
+        $result.Success | Should-BeTruthy
+        $result.Skipped | Should-BeFalsy
+        $result.EncodingChanged | Should-BeTruthy
 
         $bytes = [System.IO.File]::ReadAllBytes($path)
-        $bytes[0] | Should -Be 0xEF
-        $bytes[1] | Should -Be 0xBB
-        $bytes[2] | Should -Be 0xBF
+        $bytes[0] | Should-Be 0xEF
+        $bytes[1] | Should-Be 0xBB
+        $bytes[2] | Should-Be 0xBF
 
         $detected = Get-FileEncoding -FilePath $path
-        $detected.CodePage | Should -Be 65001
-        $detected.GetPreamble().Length | Should -Be 3
+        $detected.CodePage | Should-Be 65001
+        $detected.GetPreamble().Length | Should-Be 3
     }
 
     It 'Skips files that already have the requested encoding' {
@@ -43,10 +43,10 @@ Describe 'Set-FileEncoding' -Tag 'Unit' {
         $result = Set-FileEncoding -Path $path -Encoding UTF16LE -PassThru
         $afterBytes = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($path))
 
-        $result.Success | Should -BeTrue
-        $result.Skipped | Should -BeTrue
-        $result.EncodingChanged | Should -BeFalse
-        $afterBytes | Should -Be $beforeBytes
+        $result.Success | Should-BeTruthy
+        $result.Skipped | Should-BeTruthy
+        $result.EncodingChanged | Should-BeFalsy
+        $afterBytes | Should-Be $beforeBytes
     }
 
     It 'Rewrites matching encodings when Force is specified' {
@@ -60,11 +60,11 @@ Describe 'Set-FileEncoding' -Tag 'Unit' {
         $result = Set-FileEncoding -Path $path -Encoding UTF8BOM -Force -PassThru
         $afterWriteTime = (Get-Item -Path $path).LastWriteTimeUtc
 
-        $result.Success | Should -BeTrue
-        $result.Skipped | Should -BeFalse
-        $result.Forced | Should -BeTrue
-        $result.EncodingChanged | Should -BeFalse
-        $afterWriteTime | Should -BeGreaterThan $beforeWriteTime
+        $result.Success | Should-BeTruthy
+        $result.Skipped | Should-BeFalsy
+        $result.Forced | Should-BeTruthy
+        $result.EncodingChanged | Should-BeFalsy
+        $afterWriteTime | Should-BeGreaterThan $beforeWriteTime
     }
 
     It 'Accepts pipeline input by FullName' {
@@ -74,10 +74,10 @@ Describe 'Set-FileEncoding' -Tag 'Unit' {
         $result = Get-Item -Path $path | Set-FileEncoding -Encoding UTF8 -PassThru
         $detected = Get-FileEncoding -FilePath $path
 
-        $result.Success | Should -BeTrue
-        $result.Skipped | Should -BeFalse
-        $detected.CodePage | Should -Be 65001
-        $detected.GetPreamble().Length | Should -Be 0
+        $result.Success | Should-BeTruthy
+        $result.Skipped | Should-BeFalsy
+        $detected.CodePage | Should-Be 65001
+        $detected.GetPreamble().Length | Should-Be 0
     }
 
     It 'Warns and skips binary files' {
@@ -88,8 +88,8 @@ Describe 'Set-FileEncoding' -Tag 'Unit' {
         $result = Set-FileEncoding -Path $path -Encoding UTF8BOM -PassThru -WarningVariable warnings -WarningAction Continue
         $afterBytes = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($path))
 
-        $warnings | Should -Match 'binary'
+        $warnings | Should-MatchString 'binary'
         $result | Should -BeNullOrEmpty
-        $afterBytes | Should -Be $beforeBytes
+        $afterBytes | Should-Be $beforeBytes
     }
 }

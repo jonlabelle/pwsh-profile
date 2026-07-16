@@ -82,7 +82,7 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
 
             # Verify binary data integrity
             $restoredData = [System.IO.File]::ReadAllBytes($decResult.DecryptedPath)
-            $restoredData | Should -Be $binaryData
+            $restoredData | Should-Be $binaryData
         }
 
         It 'Should handle large files efficiently' {
@@ -98,8 +98,8 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             $encTime = ($encEndTime - $encStartTime).TotalSeconds
 
             # Verify encryption succeeded
-            $encResult.Success | Should -Be $true
-            Test-Path $encResult.EncryptedPath | Should -Be $true
+            $encResult.Success | Should-Be $true
+            Test-Path $encResult.EncryptedPath | Should-Be $true
 
             # Measure decryption time
             Remove-Item $largeFile -Force
@@ -109,13 +109,13 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             $decTime = ($decEndTime - $decStartTime).TotalSeconds
 
             # Verify decryption succeeded
-            $decResult.Success | Should -Be $true
+            $decResult.Success | Should-Be $true
             $restoredContent = [System.IO.File]::ReadAllText($decResult.DecryptedPath)
-            $restoredContent | Should -Be $largeContent
+            $restoredContent | Should-Be $largeContent
 
             # Performance check (should complete within reasonable time)
-            $encTime | Should -BeLessThan 30
-            $decTime | Should -BeLessThan 30
+            $encTime | Should-BeLessThan 30
+            $decTime | Should-BeLessThan 30
         }
 
         It 'Should handle different text encodings' {
@@ -141,7 +141,7 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
 
                 # Verify content (comparing with the same bytes we wrote)
                 $restoredBytes = [System.IO.File]::ReadAllBytes($decResult.DecryptedPath)
-                $restoredBytes | Should -Be $contentBytes
+                $restoredBytes | Should-Be $contentBytes
             }
         }
     }
@@ -160,7 +160,7 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             $encBytes2 = [System.IO.File]::ReadAllBytes($enc2.EncryptedPath)
 
             # Files should be different (due to random salt and IV)
-            $encBytes1 | Should -Not -Be $encBytes2
+            $encBytes1 | Should-NotBe $encBytes2
 
             # But both should decrypt to the same content
             Remove-Item $testFile -Force
@@ -169,7 +169,7 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
 
             $content1 = Get-Content $dec1.DecryptedPath -Raw
             $content2 = Get-Content $dec2.DecryptedPath -Raw
-            $content1 | Should -Be $content2
+            $content1 | Should-Be $content2
         }
 
         It 'Should fail gracefully with incorrect password' {
@@ -187,11 +187,11 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             $decResult = Unprotect-PathWithPassword -Path $encResult.EncryptedPath -Password $wrongPassword -ErrorAction SilentlyContinue
 
             # Should fail
-            $decResult.Success | Should -Be $false
-            $decResult.Error | Should -Match 'Decryption failed|Invalid password'
+            $decResult.Success | Should-Be $false
+            $decResult.Error | Should-MatchString 'Decryption failed|Invalid password'
 
             # Original file should not be restored
-            Test-Path $testFile | Should -Be $false
+            Test-Path $testFile | Should-Be $false
         }
     }
 
@@ -210,8 +210,8 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             $encResults = Get-ChildItem -Path $script:TestDir -File | Protect-PathWithPassword -Password $script:TestPassword
 
             # All encryptions should succeed
-            $encResults | Should -HaveCount 5
-            $encResults | ForEach-Object { $_.Success | Should -Be $true }
+            $encResults | Should-BeCollection -Count 5
+            $encResults | ForEach-Object { $_.Success | Should-Be $true }
 
             # Remove original files
             $testFiles | ForEach-Object { Remove-Item $_ -Force }
@@ -220,16 +220,16 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             $decResults = Get-ChildItem -Path $script:TestDir -File -Filter '*.enc' | Unprotect-PathWithPassword -Password $script:TestPassword
 
             # All decryptions should succeed
-            $decResults | Should -HaveCount 5
-            $decResults | ForEach-Object { $_.Success | Should -Be $true }
+            $decResults | Should-BeCollection -Count 5
+            $decResults | ForEach-Object { $_.Success | Should-Be $true }
 
             # Verify all files are restored with correct content
             for ($i = 1; $i -le 5; $i++)
             {
                 $restoredFile = Join-Path -Path $script:TestDir -ChildPath "batch_test_$i.txt"
-                Test-Path $restoredFile | Should -Be $true
+                Test-Path $restoredFile | Should-Be $true
                 $content = Get-Content $restoredFile -Raw
-                $content.Trim() | Should -Be "Batch content for file $i"
+                $content.Trim() | Should-Be "Batch content for file $i"
             }
         }
 
@@ -264,9 +264,9 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             # Verify all files are restored
             foreach ($file in $files)
             {
-                Test-Path $file.Path | Should -Be $true
+                Test-Path $file.Path | Should-Be $true
                 $content = Get-Content $file.Path -Raw
-                $content.Trim() | Should -Be $file.Content
+                $content.Trim() | Should-Be $file.Content
             }
         }
     }
@@ -283,23 +283,23 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             $encryptedBytes = [System.IO.File]::ReadAllBytes($encResult.EncryptedPath)
 
             # Verify expected structure: 32-byte salt + 16-byte IV + encrypted data
-            $encryptedBytes.Length | Should -BeGreaterThan 48  # Minimum size
+            $encryptedBytes.Length | Should-BeGreaterThan 48  # Minimum size
 
             # Extract components
             $salt = $encryptedBytes[0..31]
             $iv = $encryptedBytes[32..47]
 
             # Verify salt and IV are not all zeros (proper randomness)
-            $salt | Should -Not -Be (@(0) * 32)
-            $iv | Should -Not -Be (@(0) * 16)
+            $salt | Should-NotBe (@(0) * 32)
+            $iv | Should-NotBe (@(0) * 16)
 
             # Verify we can decrypt it
             Remove-Item $testFile -Force
             $decResult = Unprotect-PathWithPassword -Path $encResult.EncryptedPath -Password $script:TestPassword
 
-            $decResult.Success | Should -Be $true
+            $decResult.Success | Should-Be $true
             $content = Get-Content $decResult.DecryptedPath -Raw
-            $content | Should -Be 'Cross-platform test content'
+            $content | Should-Be 'Cross-platform test content'
         }
 
         It 'Should handle files encrypted on different PowerShell versions' {
@@ -314,13 +314,13 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             $encryptedBytes = [System.IO.File]::ReadAllBytes($encResult.EncryptedPath)
 
             # Manually verify structure (same as what Unprotect expects)
-            $encryptedBytes.Length | Should -BeGreaterOrEqual 64
+            $encryptedBytes.Length | Should-BeGreaterThanOrEqual 64
 
             # Decrypt should work
             Remove-Item $testFile -Force
             $decResult = Unprotect-PathWithPassword -Path $encResult.EncryptedPath -Password $script:TestPassword
 
-            $decResult.Success | Should -Be $true
+            $decResult.Success | Should-Be $true
         }
     }
 
@@ -386,7 +386,7 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             Write-Verbose "Bash encrypt output: $bashOutput"
 
             # Verify bash created the file
-            Test-Path $encryptedFile | Should -Be $true
+            Test-Path $encryptedFile | Should-Be $true
 
             # Remove original
             Remove-Item $testFile -Force
@@ -396,9 +396,9 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             $decResult = Unprotect-PathWithPassword -Path $encryptedFile -Password $pwPassword
 
             # Verify decryption
-            $decResult.Success | Should -Be $true
+            $decResult.Success | Should-Be $true
             $content = Get-Content $decResult.DecryptedPath -Raw
-            $content | Should -Be $originalContent
+            $content | Should-Be $originalContent
         }
 
         It 'Should encrypt files that the OpenSSL bash script can decrypt' {
@@ -425,8 +425,8 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             $encResult = Protect-PathWithPassword -Path $testFile -Password $pwPassword
 
             # Verify encryption
-            $encResult.Success | Should -Be $true
-            Test-Path $encResult.EncryptedPath | Should -Be $true
+            $encResult.Success | Should-Be $true
+            Test-Path $encResult.EncryptedPath | Should-Be $true
 
             # Remove original
             Remove-Item $testFile -Force
@@ -437,9 +437,9 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             Write-Verbose "Bash decrypt output: $bashOutput"
 
             # Verify bash decrypted successfully
-            Test-Path $decryptedFile | Should -Be $true
+            Test-Path $decryptedFile | Should-Be $true
             $content = Get-Content $decryptedFile -Raw
-            $content | Should -Be $originalContent
+            $content | Should-Be $originalContent
 
             # Cleanup
             Remove-Item $decryptedFile -Force -ErrorAction SilentlyContinue
@@ -472,7 +472,7 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
 
             # Verify binary integrity
             $restoredData = [System.IO.File]::ReadAllBytes($decResult.DecryptedPath)
-            $restoredData | Should -Be $binaryData
+            $restoredData | Should-Be $binaryData
         }
 
         It 'Should provide information about OpenSSL script availability' {
@@ -481,14 +481,14 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
                 Write-Host 'OpenSSL bash script available and functional' -ForegroundColor Green
                 $opensslVersion = bash -c 'openssl version' 2>&1
                 Write-Host "OpenSSL version: $opensslVersion" -ForegroundColor Cyan
-                $true | Should -Be $true
+                $true | Should-Be $true
             }
             else
             {
                 $reason = if ($script:SkipReason) { $script:SkipReason } else { 'Unknown reason' }
                 Write-Host "OpenSSL interoperability tests skipped: $reason" -ForegroundColor Yellow
                 Write-Host 'For full compatibility testing, install OpenSSL 3.0+ with KDF support' -ForegroundColor Yellow
-                $true | Should -Be $true
+                $true | Should-Be $true
             }
         }
     }

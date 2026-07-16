@@ -119,15 +119,15 @@ Describe 'Find-ProfileFunction' {
         It 'Should have mandatory Query parameter' {
             $command = Get-Command Find-ProfileFunction
             $queryParam = $command.Parameters['Query']
-            $queryParam.Attributes.Mandatory | Should -Contain $true
+            $queryParam.Attributes.Mandatory | Should-ContainCollection $true
         }
 
         It 'Should validate Top parameter range' {
             $command = Get-Command Find-ProfileFunction
             $topParam = $command.Parameters['Top']
             $validateRange = $topParam.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateRangeAttribute] }
-            $validateRange.MinRange | Should -Be 1
-            $validateRange.MaxRange | Should -Be 500
+            $validateRange.MinRange | Should-Be 1
+            $validateRange.MaxRange | Should-Be 500
         }
     }
 
@@ -135,39 +135,39 @@ Describe 'Find-ProfileFunction' {
         It 'Should find by function name keyword' {
             $results = @(Find-ProfileFunction -Query 'sqlfluff')
             $results | Should -Not -BeNullOrEmpty
-            $results[0].Name | Should -Be 'Invoke-SqlFluff'
+            $results[0].Name | Should-Be 'Invoke-SqlFluff'
         }
 
         It 'Should find by synopsis keyword' {
             $results = @(Find-ProfileFunction -Query 'pandoc markdown')
-            $results.Count | Should -Be 1
-            $results[0].Name | Should -Be 'ConvertTo-Markdown'
+            $results.Count | Should-Be 1
+            $results[0].Name | Should-Be 'ConvertTo-Markdown'
         }
 
         It 'Should find by alias keyword' {
             $results = @(Find-ProfileFunction -Query 'docker-auto')
-            $results.Count | Should -Be 1
-            $results[0].Name | Should -Be 'Invoke-DockerAutoRun'
-            $results[0].Aliases | Should -Match 'docker-auto'
+            $results.Count | Should-Be 1
+            $results[0].Name | Should-Be 'Invoke-DockerAutoRun'
+            $results[0].Aliases | Should-MatchString 'docker-auto'
         }
 
         It 'Should support MatchAny for multi-term queries' {
             $results = @(Find-ProfileFunction -Query 'docker reboot' -MatchAny)
-            $results.Count | Should -BeGreaterThan 1
-            $results.Name | Should -Contain 'Invoke-DockerAutoRun'
-            $results.Name | Should -Contain 'Test-PendingReboot'
+            $results.Count | Should-BeGreaterThan 1
+            $results.Name | Should-ContainCollection 'Invoke-DockerAutoRun'
+            $results.Name | Should-ContainCollection 'Test-PendingReboot'
         }
 
         It 'Should rank stronger function name matches ahead of weaker matches' {
             $results = @(Find-ProfileFunction -Query 'docker')
-            $results.Count | Should -BeGreaterThan 1
-            $results[0].Name | Should -Be 'Invoke-DockerAutoRun'
-            $results[0].Score | Should -BeGreaterOrEqual $results[1].Score
+            $results.Count | Should-BeGreaterThan 1
+            $results[0].Name | Should-Be 'Invoke-DockerAutoRun'
+            $results[0].Score | Should-BeGreaterThanOrEqual $results[1].Score
         }
 
         It 'Should apply Top result limiting' {
             $results = @(Find-ProfileFunction -Query 'docker' -Top 1)
-            $results.Count | Should -Be 1
+            $results.Count | Should-Be 1
         }
     }
 
@@ -175,27 +175,27 @@ Describe 'Find-ProfileFunction' {
         It 'Should filter by category alias' {
             $results = @(Find-ProfileFunction -Query 'docker' -Category 'dev')
             $results | Should -Not -BeNullOrEmpty
-            ($results | Select-Object -ExpandProperty Category -Unique) | Should -Be 'Developer'
+            ($results | Select-Object -ExpandProperty Category -Unique) | Should-Be 'Developer'
         }
 
         It 'Should filter by spaced category display name' {
             $results = @(Find-ProfileFunction -Query 'dns' -Category 'Network And Dns')
-            $results.Count | Should -Be 1
-            $results[0].Name | Should -Be 'Test-DnsPropagation'
-            $results[0].Category | Should -Be 'Network And Dns'
+            $results.Count | Should-Be 1
+            $results[0].Name | Should-Be 'Test-DnsPropagation'
+            $results[0].Category | Should-Be 'Network And Dns'
         }
 
         It 'Should warn for unknown category values' {
             $warnings = Find-ProfileFunction -Query 'docker' -Category 'bogus' 3>&1
-            ($warnings | Out-String) | Should -Match "Unknown category: 'bogus'"
-            ($warnings | Out-String) | Should -Match 'No valid categories specified'
+            ($warnings | Out-String) | Should-MatchString "Unknown category: 'bogus'"
+            ($warnings | Out-String) | Should-MatchString 'No valid categories specified'
         }
     }
 
     Context 'No match behavior' {
         It 'Should warn when no results match the query' {
             $warnings = Find-ProfileFunction -Query 'no-such-function-keyword' 3>&1
-            ($warnings | Out-String) | Should -Match 'No functions matched query'
+            ($warnings | Out-String) | Should-MatchString 'No functions matched query'
         }
     }
 }

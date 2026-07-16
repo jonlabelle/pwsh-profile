@@ -123,7 +123,7 @@ Describe 'GitHub pull request function' {
                 if ($args[0] -eq 'api' -and $args[-1] -like '/search/issues*')
                 {
                     $query = Get-TestSearchQuery -Path $args[-1]
-                    $query | Should -Be 'is:pr state:open author:octocat'
+                    $query | Should-Be 'is:pr state:open author:octocat'
 
                     $global:LASTEXITCODE = 0
                     return Get-TestPullRequestSearchResponse -TotalCount 1 -Items @(
@@ -136,12 +136,12 @@ Describe 'GitHub pull request function' {
 
             $result = Get-GitHubPullRequest
 
-            $result.State | Should -Be 'Open'
-            $result.Author | Should -Be 'octocat'
-            $result.PullRequestCount | Should -Be 1
-            $result.PullRequests[0].Repository | Should -Be 'octo-org/service-api'
-            $result.PullRequests[0].Number | Should -Be 42
-            $result.PullRequests[0].IsMerged | Should -BeFalse
+            $result.State | Should-Be 'Open'
+            $result.Author | Should-Be 'octocat'
+            $result.PullRequestCount | Should-Be 1
+            $result.PullRequests[0].Repository | Should-Be 'octo-org/service-api'
+            $result.PullRequests[0].Number | Should-Be 42
+            $result.PullRequests[0].IsMerged | Should-BeFalsy
         }
 
         It 'searches merged pull requests for a specified author without resolving the current user' {
@@ -154,7 +154,7 @@ Describe 'GitHub pull request function' {
                 if ($args[0] -eq 'api' -and $args[-1] -like '/search/issues*')
                 {
                     $query = Get-TestSearchQuery -Path $args[-1]
-                    $query | Should -Be 'is:pr is:merged author:hubot'
+                    $query | Should-Be 'is:pr is:merged author:hubot'
 
                     $global:LASTEXITCODE = 0
                     return Get-TestPullRequestSearchResponse -TotalCount 1 -Items @(
@@ -167,9 +167,9 @@ Describe 'GitHub pull request function' {
 
             $result = Get-GitHubPullRequest -Author 'hubot' -State Merged
 
-            $result.Query | Should -Be 'is:pr is:merged author:hubot'
-            $result.PullRequests[0].IsMerged | Should -BeTrue
-            ([DateTime]$result.PullRequests[0].MergedAt).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') | Should -Be '2026-01-03T00:00:00Z'
+            $result.Query | Should-Be 'is:pr is:merged author:hubot'
+            $result.PullRequests[0].IsMerged | Should-BeTruthy
+            ([DateTime]$result.PullRequests[0].MergedAt).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') | Should-Be '2026-01-03T00:00:00Z'
         }
 
         It 'uses the closed unmerged search qualifiers for closed pull requests' {
@@ -177,7 +177,7 @@ Describe 'GitHub pull request function' {
                 if ($args[0] -eq 'api' -and $args[-1] -like '/search/issues*')
                 {
                     $query = Get-TestSearchQuery -Path $args[-1]
-                    $query | Should -Be 'is:pr state:closed -is:merged author:octocat'
+                    $query | Should-Be 'is:pr state:closed -is:merged author:octocat'
 
                     $global:LASTEXITCODE = 0
                     return Get-TestPullRequestSearchResponse -TotalCount 0 -Items @()
@@ -188,8 +188,8 @@ Describe 'GitHub pull request function' {
 
             $result = Get-GitHubPullRequest -Author 'octocat' -State Closed
 
-            $result.Query | Should -Be 'is:pr state:closed -is:merged author:octocat'
-            $result.PullRequestCount | Should -Be 0
+            $result.Query | Should-Be 'is:pr state:closed -is:merged author:octocat'
+            $result.PullRequestCount | Should-Be 0
         }
 
         It 'supports repository-scoped searches from all authors' {
@@ -202,7 +202,7 @@ Describe 'GitHub pull request function' {
                 if ($args[0] -eq 'api' -and $args[-1] -like '/search/issues*')
                 {
                     $query = Get-TestSearchQuery -Path $args[-1]
-                    $query | Should -Be 'is:pr state:open repo:octo-org/service-api'
+                    $query | Should-Be 'is:pr state:open repo:octo-org/service-api'
 
                     $global:LASTEXITCODE = 0
                     return Get-TestPullRequestSearchResponse -TotalCount 1 -Items @(
@@ -216,9 +216,9 @@ Describe 'GitHub pull request function' {
             $result = Get-GitHubPullRequest -Repository 'octo-org/service-api' -AllAuthors
 
             $result.Author | Should -BeNullOrEmpty
-            $result.AllAuthors | Should -BeTrue
-            $result.Repository | Should -Be 'octo-org/service-api'
-            $result.PullRequests[0].Author | Should -Be 'monalisa'
+            $result.AllAuthors | Should-BeTruthy
+            $result.Repository | Should-Be 'octo-org/service-api'
+            $result.PullRequests[0].Author | Should-Be 'monalisa'
         }
 
         It 'retrieves all available search pages with the REST fallback' {
@@ -228,7 +228,7 @@ Describe 'GitHub pull request function' {
                 if ($Method -eq 'GET' -and $Uri -like 'https://api.github.com/search/issues*page=1')
                 {
                     $query = Get-TestSearchQuery -Path $Uri
-                    $query | Should -Be 'is:pr state:open author:octocat org:octo-org'
+                    $query | Should-Be 'is:pr state:open author:octocat org:octo-org'
 
                     return [PSCustomObject]@{
                         total_count = 101
@@ -255,22 +255,22 @@ Describe 'GitHub pull request function' {
 
             $result = Get-GitHubPullRequest -Author 'octocat' -Organization 'octo-org' -Token $script:TokenValue
 
-            $result.Transport | Should -Be 'RestApi'
-            $result.PullRequestCount | Should -Be 101
-            $result.TotalCount | Should -Be 101
-            $result.SearchResultLimitReached | Should -BeFalse
+            $result.Transport | Should-Be 'RestApi'
+            $result.PullRequestCount | Should-Be 101
+            $result.TotalCount | Should-Be 101
+            $result.SearchResultLimitReached | Should-BeFalsy
         }
 
         It 'requires a scope filter when searching all authors' {
             {
                 Get-GitHubPullRequest -AllAuthors
-            } | Should -Throw '*Use -AllAuthors only with -Owner, -Organization, or -Repository*'
+            } | Should-Throw '*Use -AllAuthors only with -Owner, -Organization, or -Repository*'
         }
 
         It 'rejects owner and organization filters together' {
             {
                 Get-GitHubPullRequest -Owner 'octocat' -Organization 'octo-org'
-            } | Should -Throw '*Use only one of -Owner or -Organization*'
+            } | Should-Throw '*Use only one of -Owner or -Organization*'
         }
 
         It 'rejects whitespace-only search filter values' -ForEach @(
@@ -282,13 +282,13 @@ Describe 'GitHub pull request function' {
         ) {
             {
                 Get-GitHubPullRequest @Parameters
-            } | Should -Throw $Error
+            } | Should-Throw $Error
         }
 
         It 'rejects a repository host that conflicts with an explicitly supplied GitHub host' {
             {
                 Get-GitHubPullRequest -Repository 'github.example.com/octo-org/service-api' -GitHubHost 'github.invalid' -AllAuthors
-            } | Should -Throw "*Repository 'github.example.com/octo-org/service-api' resolves to host 'github.example.com', which does not match -GitHubHost 'github.invalid'.*"
+            } | Should-Throw "*Repository 'github.example.com/octo-org/service-api' resolves to host 'github.example.com', which does not match -GitHubHost 'github.invalid'.*"
         }
     }
 }

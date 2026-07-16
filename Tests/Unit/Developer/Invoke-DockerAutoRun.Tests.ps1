@@ -82,7 +82,7 @@ Describe 'Invoke-DockerAutoRun' {
 
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
 
-            { Invoke-DockerAutoRun -Path $script:TestDir } | Should -Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
+            { Invoke-DockerAutoRun -Path $script:TestDir } | Should-Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
         }
 
         It 'Can generate a Dockerfile without Docker when -GenerateOnly is used' {
@@ -93,10 +93,10 @@ Describe 'Invoke-DockerAutoRun' {
 
             $result = Invoke-DockerAutoRun -Path $script:TestDir -GenerateOnly
 
-            Test-Path -LiteralPath (Join-Path -Path $script:TestDir -ChildPath 'Dockerfile') | Should -BeTrue
-            $result.BuildExecuted | Should -BeFalse
-            $result.RunExecuted | Should -BeFalse
-            $result.ProjectType | Should -Be 'Node'
+            Test-Path -LiteralPath (Join-Path -Path $script:TestDir -ChildPath 'Dockerfile') | Should-BeTruthy
+            $result.BuildExecuted | Should-BeFalsy
+            $result.RunExecuted | Should-BeFalsy
+            $result.ProjectType | Should-Be 'Node'
         }
     }
 
@@ -120,25 +120,25 @@ Describe 'Invoke-DockerAutoRun' {
             $result = Invoke-DockerAutoRun -Path $script:TestDir -ImageName 'test-image' -ContainerName 'test-container'
 
             $dockerfilePath = Join-Path -Path $script:TestDir -ChildPath 'Dockerfile'
-            $dockerfilePath | Should -Exist
-            (Get-Content -LiteralPath $dockerfilePath -Raw) | Should -Match 'FROM node:lts-alpine'
+            Test-Path -LiteralPath $dockerfilePath | Should-BeTruthy
+            (Get-Content -LiteralPath $dockerfilePath -Raw) | Should-MatchString 'FROM node:lts-alpine'
 
-            $result.ProjectType | Should -Be 'Node'
-            $result.DockerfileGenerated | Should -BeTrue
-            $result.Port | Should -Be 3000
-            $result.BuildExecuted | Should -BeTrue
-            $result.RunExecuted | Should -BeTrue
+            $result.ProjectType | Should-Be 'Node'
+            $result.DockerfileGenerated | Should-BeTruthy
+            $result.Port | Should-Be 3000
+            $result.BuildExecuted | Should-BeTruthy
+            $result.RunExecuted | Should-BeTruthy
 
             $buildCalls = @($script:DockerShimInvocations | Where-Object { $_.Count -gt 0 -and $_[0] -eq 'build' })
             $runCalls = @($script:DockerShimInvocations | Where-Object { $_.Count -gt 0 -and $_[0] -eq 'run' })
 
-            $buildCalls.Count | Should -Be 1
-            $runCalls.Count | Should -Be 1
-            $buildCalls[0] | Should -Contain '-t'
-            $buildCalls[0] | Should -Contain 'test-image'
-            $runCalls[0] | Should -Contain '--name'
-            $runCalls[0] | Should -Contain 'test-container'
-            $runCalls[0] | Should -Contain '3000:3000'
+            $buildCalls.Count | Should-Be 1
+            $runCalls.Count | Should-Be 1
+            $buildCalls[0] | Should-ContainCollection '-t'
+            $buildCalls[0] | Should-ContainCollection 'test-image'
+            $runCalls[0] | Should-ContainCollection '--name'
+            $runCalls[0] | Should-ContainCollection 'test-container'
+            $runCalls[0] | Should-ContainCollection '3000:3000'
         }
 
         It 'Uses existing Dockerfile without overwriting by default' {
@@ -153,13 +153,13 @@ CMD ["sh","-c","sleep 600"]
 
             $result = Invoke-DockerAutoRun -Path $script:TestDir -ImageName 'existing-file-image'
 
-            $result.ProjectType | Should -Be 'ExistingDockerfile'
-            $result.DockerfileGenerated | Should -BeFalse
-            $result.Port | Should -Be 9090
+            $result.ProjectType | Should-Be 'ExistingDockerfile'
+            $result.DockerfileGenerated | Should-BeFalsy
+            $result.Port | Should-Be 9090
 
             $runCalls = @($script:DockerShimInvocations | Where-Object { $_.Count -gt 0 -and $_[0] -eq 'run' })
-            $runCalls.Count | Should -Be 1
-            $runCalls[0] | Should -Contain '9090:9090'
+            $runCalls.Count | Should-Be 1
+            $runCalls[0] | Should-ContainCollection '9090:9090'
         }
 
         It 'Overwrites existing Dockerfile when -ForceDockerfile is specified' {
@@ -172,8 +172,8 @@ CMD ["sh","-c","sleep 600"]
             $result = Invoke-DockerAutoRun -Path $script:TestDir -ForceDockerfile -NoRun
             $dockerfileText = Get-Content -LiteralPath (Join-Path -Path $script:TestDir -ChildPath 'Dockerfile') -Raw
 
-            $result.DockerfileGenerated | Should -BeTrue
-            $dockerfileText | Should -Match 'FROM node:lts-alpine'
+            $result.DockerfileGenerated | Should-BeTruthy
+            $dockerfileText | Should-MatchString 'FROM node:lts-alpine'
         }
     }
 
@@ -195,20 +195,20 @@ CMD ["sh","-c","sleep 600"]
         It 'Builds but does not run when -NoRun is specified' {
             $result = Invoke-DockerAutoRun -Path $script:TestDir -NoRun
 
-            $result.BuildExecuted | Should -BeTrue
-            $result.RunExecuted | Should -BeFalse
+            $result.BuildExecuted | Should-BeTruthy
+            $result.RunExecuted | Should-BeFalsy
 
             $buildCalls = @($script:DockerShimInvocations | Where-Object { $_.Count -gt 0 -and $_[0] -eq 'build' })
             $runCalls = @($script:DockerShimInvocations | Where-Object { $_.Count -gt 0 -and $_[0] -eq 'run' })
-            $buildCalls.Count | Should -Be 1
-            $runCalls.Count | Should -Be 0
+            $buildCalls.Count | Should-Be 1
+            $runCalls.Count | Should-Be 0
         }
 
         It 'Throws when project type cannot be auto-detected' {
             Remove-Item -LiteralPath (Join-Path -Path $script:TestDir -ChildPath 'package.json') -Force -ErrorAction SilentlyContinue
             Remove-Item -LiteralPath (Join-Path -Path $script:TestDir -ChildPath 'index.js') -Force -ErrorAction SilentlyContinue
 
-            { Invoke-DockerAutoRun -Path $script:TestDir -GenerateOnly } | Should -Throw '*Unable to auto-detect project type*'
+            { Invoke-DockerAutoRun -Path $script:TestDir -GenerateOnly } | Should-Throw '*Unable to auto-detect project type*'
         }
     }
 
@@ -229,12 +229,12 @@ CMD ["sh","-c","sleep 600"]
             $result = Invoke-DockerAutoRun -Path $script:TestDir -GenerateOnly
 
             $ignorePath = Join-Path -Path $script:TestDir -ChildPath '.dockerignore'
-            $ignorePath | Should -Exist
-            $result.DockerIgnoreGenerated | Should -BeTrue
+            Test-Path -LiteralPath $ignorePath | Should-BeTruthy
+            $result.DockerIgnoreGenerated | Should-BeTruthy
 
             $ignoreContent = Get-Content -LiteralPath $ignorePath -Raw
-            $ignoreContent | Should -Match 'node_modules'
-            $ignoreContent | Should -Match '\.git'
+            $ignoreContent | Should-MatchString 'node_modules'
+            $ignoreContent | Should-MatchString '\.git'
         }
 
         It 'Generates project-specific .dockerignore for Python projects' {
@@ -244,11 +244,11 @@ CMD ["sh","-c","sleep 600"]
             Invoke-DockerAutoRun -Path $script:TestDir -GenerateOnly
 
             $ignorePath = Join-Path -Path $script:TestDir -ChildPath '.dockerignore'
-            $ignorePath | Should -Exist
+            Test-Path -LiteralPath $ignorePath | Should-BeTruthy
 
             $ignoreContent = Get-Content -LiteralPath $ignorePath -Raw
-            $ignoreContent | Should -Match '__pycache__'
-            $ignoreContent | Should -Match '\.venv'
+            $ignoreContent | Should-MatchString '__pycache__'
+            $ignoreContent | Should-MatchString '\.venv'
         }
 
         It 'Does not overwrite existing .dockerignore' {
@@ -258,8 +258,8 @@ CMD ["sh","-c","sleep 600"]
 
             $result = Invoke-DockerAutoRun -Path $script:TestDir -GenerateOnly
 
-            $result.DockerIgnoreGenerated | Should -BeFalse
-            (Get-Content -LiteralPath $ignorePath -Raw).Trim() | Should -Be 'custom-ignore'
+            $result.DockerIgnoreGenerated | Should-BeFalsy
+            (Get-Content -LiteralPath $ignorePath -Raw).Trim() | Should-Be 'custom-ignore'
         }
 
         It 'Skips .dockerignore generation when -NoDockerIgnore is specified' {
@@ -268,8 +268,8 @@ CMD ["sh","-c","sleep 600"]
             $result = Invoke-DockerAutoRun -Path $script:TestDir -GenerateOnly -NoDockerIgnore
 
             $ignorePath = Join-Path -Path $script:TestDir -ChildPath '.dockerignore'
-            $ignorePath | Should -Not -Exist
-            $result.DockerIgnoreGenerated | Should -BeFalse
+            Test-Path -LiteralPath $ignorePath | Should-BeFalsy
+            $result.DockerIgnoreGenerated | Should-BeFalsy
         }
     }
 
@@ -292,15 +292,15 @@ CMD ["sh","-c","sleep 600"]
         It 'Adds -i and -t flags when -Interactive is specified' {
             $result = Invoke-DockerAutoRun -Path $script:TestDir -Interactive -ImageName 'test-app'
 
-            $result.Interactive | Should -BeTrue
+            $result.Interactive | Should-BeTruthy
             $runCalls = @($script:DockerShimInvocations | Where-Object { $_.Count -gt 0 -and $_[0] -eq 'run' })
-            $runCalls.Count | Should -Be 1
-            $runCalls[0] | Should -Contain '-i'
-            $runCalls[0] | Should -Contain '-t'
+            $runCalls.Count | Should-Be 1
+            $runCalls[0] | Should-ContainCollection '-i'
+            $runCalls[0] | Should-ContainCollection '-t'
         }
 
         It 'Throws when -Interactive and -Detached are used together' {
-            { Invoke-DockerAutoRun -Path $script:TestDir -Interactive -Detached } | Should -Throw '*cannot be used together*'
+            { Invoke-DockerAutoRun -Path $script:TestDir -Interactive -Detached } | Should-Throw '*cannot be used together*'
         }
 
         It 'Passes --env-file when -EnvFile is specified' {
@@ -310,18 +310,18 @@ CMD ["sh","-c","sleep 600"]
             Invoke-DockerAutoRun -Path $script:TestDir -EnvFile $envFilePath -ImageName 'test-app'
 
             $runCalls = @($script:DockerShimInvocations | Where-Object { $_.Count -gt 0 -and $_[0] -eq 'run' })
-            $runCalls.Count | Should -Be 1
-            $runCalls[0] | Should -Contain '--env-file'
-            $runCalls[0] | Should -Contain $envFilePath
+            $runCalls.Count | Should-Be 1
+            $runCalls[0] | Should-ContainCollection '--env-file'
+            $runCalls[0] | Should-ContainCollection $envFilePath
         }
 
         It 'Passes --network when -Network is specified' {
             Invoke-DockerAutoRun -Path $script:TestDir -Network 'my-bridge' -ImageName 'test-app'
 
             $runCalls = @($script:DockerShimInvocations | Where-Object { $_.Count -gt 0 -and $_[0] -eq 'run' })
-            $runCalls.Count | Should -Be 1
-            $runCalls[0] | Should -Contain '--network'
-            $runCalls[0] | Should -Contain 'my-bridge'
+            $runCalls.Count | Should-Be 1
+            $runCalls[0] | Should-ContainCollection '--network'
+            $runCalls[0] | Should-ContainCollection 'my-bridge'
         }
     }
 
@@ -346,7 +346,7 @@ CMD ["sh","-c","sleep 600"]
             Invoke-DockerAutoRun -Path $script:TestDir -ImageName 'test-app' -ContainerName 'test-ctr' | Out-Null
 
             $psCalls = @($script:DockerShimInvocations | Where-Object { $_.Count -gt 0 -and $_[0] -eq 'ps' })
-            $psCalls.Count | Should -Be 1
+            $psCalls.Count | Should-Be 1
         }
 
         It 'Removes existing container when one is found with the same name' {
@@ -356,9 +356,9 @@ CMD ["sh","-c","sleep 600"]
             Invoke-DockerAutoRun -Path $script:TestDir -ImageName 'test-app' -ContainerName 'test-ctr' | Out-Null
 
             $rmCalls = @($script:DockerShimInvocations | Where-Object { $_.Count -gt 0 -and $_[0] -eq 'rm' })
-            $rmCalls.Count | Should -Be 1
-            $rmCalls[0] | Should -Contain '-f'
-            $rmCalls[0] | Should -Contain 'test-ctr'
+            $rmCalls.Count | Should-Be 1
+            $rmCalls[0] | Should-ContainCollection '-f'
+            $rmCalls[0] | Should-ContainCollection 'test-ctr'
         }
     }
 }

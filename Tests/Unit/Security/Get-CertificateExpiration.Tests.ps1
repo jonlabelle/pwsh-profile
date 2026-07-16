@@ -58,23 +58,23 @@ Describe 'Get-CertificateExpiration' {
 
             $result = @(Get-CertificateExpiration -Path $certPath)
 
-            $result | Should -HaveCount 1
-            $result[0] | Should -BeOfType [PSCustomObject]
-            $result[0].PSObject.Properties.Name | Should -Contain 'ComputerName'
-            $result[0].PSObject.Properties.Name | Should -Contain 'ExpirationDate'
-            $result[0].PSObject.Properties.Name | Should -Contain 'ExpiresIn'
-            $result[0].PSObject.Properties.Name | Should -Contain 'Status'
-            $result[0].PSObject.Properties.Name | Should -Contain 'CertificatePath'
-            $result[0].ComputerName | Should -Be $null
-            $result[0].CertificatePath | Should -Be $certPath
-            $result[0].ExpirationDate | Should -BeOfType [datetime]
-            $result[0].ExpiresIn | Should -Be '31 days'
-            $result[0].Status | Should -Be 'Valid'
-            ($result[0].ExpirationDate).ToUniversalTime().ToString('o') | Should -Be $script:ExpectedExpirationDate.UtcDateTime.ToString('o')
+            $result | Should-BeCollection -Count 1
+            $result[0] | Should-HaveType ([PSCustomObject])
+            $result[0].PSObject.Properties.Name | Should-ContainCollection 'ComputerName'
+            $result[0].PSObject.Properties.Name | Should-ContainCollection 'ExpirationDate'
+            $result[0].PSObject.Properties.Name | Should-ContainCollection 'ExpiresIn'
+            $result[0].PSObject.Properties.Name | Should-ContainCollection 'Status'
+            $result[0].PSObject.Properties.Name | Should-ContainCollection 'CertificatePath'
+            $result[0].ComputerName | Should-Be $null
+            $result[0].CertificatePath | Should-Be $certPath
+            $result[0].ExpirationDate | Should-HaveType ([datetime])
+            $result[0].ExpiresIn | Should-Be '31 days'
+            $result[0].Status | Should-Be 'Valid'
+            ($result[0].ExpirationDate).ToUniversalTime().ToString('o') | Should-Be $script:ExpectedExpirationDate.UtcDateTime.ToString('o')
 
             $renderedOutput = $result | Out-String
-            $renderedOutput | Should -Match 'ComputerName\s+ExpirationDate\s+ExpiresIn\s+Status'
-            $renderedOutput | Should -Not -Match 'ComputerName\s*:'
+            $renderedOutput | Should-MatchString 'ComputerName\s+ExpirationDate\s+ExpiresIn\s+Status'
+            $renderedOutput | Should-NotMatchString 'ComputerName\s*:'
         }
 
         It 'treats an existing file path passed through ComputerName as a certificate path' {
@@ -85,12 +85,12 @@ Describe 'Get-CertificateExpiration' {
 
             $result = @(Get-CertificateExpiration -ComputerName $certPath)
 
-            $result | Should -HaveCount 1
-            $result[0].ComputerName | Should -Be $null
-            $result[0].CertificatePath | Should -Be $certPath
-            $result[0].ExpirationDate | Should -BeOfType [datetime]
-            $result[0].ExpiresIn | Should -Be '1 day ago'
-            $result[0].Status | Should -Be 'Expired'
+            $result | Should-BeCollection -Count 1
+            $result[0].ComputerName | Should-Be $null
+            $result[0].CertificatePath | Should-Be $certPath
+            $result[0].ExpirationDate | Should-HaveType ([datetime])
+            $result[0].ExpiresIn | Should-Be '1 day ago'
+            $result[0].Status | Should-Be 'Expired'
         }
     }
 
@@ -103,18 +103,18 @@ Describe 'Get-CertificateExpiration' {
 
             $result = @(Get-CertificateExpiration -Path $certPath -Detailed -DaysToWarn 7)
 
-            $result | Should -HaveCount 1
-            $result[0].PSObject.Properties.Name | Should -Contain 'ComputerName'
-            $result[0].PSObject.Properties.Name | Should -Contain 'ExpirationDate'
-            $result[0].PSObject.Properties.Name | Should -Contain 'ExpiresIn'
-            $result[0].PSObject.Properties.Name | Should -Contain 'Status'
-            $result[0].PSObject.Properties.Name | Should -Contain 'NotAfter'
-            $result[0].PSObject.Properties.Name | Should -Contain 'CertificatePath'
-            $result[0].ComputerName | Should -Be $null
-            $result[0].CertificatePath | Should -Be $certPath
-            $result[0].ExpirationDate | Should -Be $result[0].NotAfter
-            $result[0].ExpiresIn | Should -Be '1 day'
-            $result[0].Status | Should -Be 'ExpiringSoon'
+            $result | Should-BeCollection -Count 1
+            $result[0].PSObject.Properties.Name | Should-ContainCollection 'ComputerName'
+            $result[0].PSObject.Properties.Name | Should-ContainCollection 'ExpirationDate'
+            $result[0].PSObject.Properties.Name | Should-ContainCollection 'ExpiresIn'
+            $result[0].PSObject.Properties.Name | Should-ContainCollection 'Status'
+            $result[0].PSObject.Properties.Name | Should-ContainCollection 'NotAfter'
+            $result[0].PSObject.Properties.Name | Should-ContainCollection 'CertificatePath'
+            $result[0].ComputerName | Should-Be $null
+            $result[0].CertificatePath | Should-Be $certPath
+            $result[0].ExpirationDate | Should-Be $result[0].NotAfter
+            $result[0].ExpiresIn | Should-Be '1 day'
+            $result[0].Status | Should-Be 'ExpiringSoon'
         }
     }
 }

@@ -37,85 +37,85 @@ Describe 'Search-FileContent' {
         It 'Should have mandatory Pattern parameter' {
             $command = Get-Command Search-FileContent
             $patternParam = $command.Parameters['Pattern']
-            $patternParam.Attributes.Mandatory | Should -Contain $true
+            $patternParam.Attributes.Mandatory | Should-ContainCollection $true
         }
 
         It 'Should have optional Path parameter with default value' {
             $command = Get-Command Search-FileContent
             $pathParam = $command.Parameters['Path']
-            $pathParam.Attributes.Mandatory | Should -Not -Contain $true
+            $pathParam.Attributes.Mandatory | Should-NotContainCollection $true
         }
 
         It 'Should accept pipeline input for Path' {
             $command = Get-Command Search-FileContent
             $pathParam = $command.Parameters['Path']
-            $pathParam.Attributes.ValueFromPipeline | Should -Contain $true
+            $pathParam.Attributes.ValueFromPipeline | Should-ContainCollection $true
         }
 
         It 'Should have optional Recurse switch parameter' {
             $command = Get-Command Search-FileContent
-            $command.Parameters['Recurse'].SwitchParameter | Should -BeTrue
+            $command.Parameters['Recurse'].SwitchParameter | Should-BeTruthy
         }
 
         It 'Should validate Context parameter range' {
             $command = Get-Command Search-FileContent
             $contextParam = $command.Parameters['Context']
             $validateRange = $contextParam.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateRangeAttribute] }
-            $validateRange.MinRange | Should -Be 0
-            $validateRange.MaxRange | Should -Be 100
+            $validateRange.MinRange | Should-Be 0
+            $validateRange.MaxRange | Should-Be 100
         }
 
         It 'Should validate Before parameter range' {
             $command = Get-Command Search-FileContent
             $beforeParam = $command.Parameters['Before']
             $validateRange = $beforeParam.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateRangeAttribute] }
-            $validateRange.MinRange | Should -Be 0
-            $validateRange.MaxRange | Should -Be 100
+            $validateRange.MinRange | Should-Be 0
+            $validateRange.MaxRange | Should-Be 100
         }
 
         It 'Should validate After parameter range' {
             $command = Get-Command Search-FileContent
             $afterParam = $command.Parameters['After']
             $validateRange = $afterParam.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateRangeAttribute] }
-            $validateRange.MinRange | Should -Be 0
-            $validateRange.MaxRange | Should -Be 100
+            $validateRange.MinRange | Should-Be 0
+            $validateRange.MaxRange | Should-Be 100
         }
 
         It 'Should validate MaxDepth parameter range' {
             $command = Get-Command Search-FileContent
             $maxDepthParam = $command.Parameters['MaxDepth']
             $validateRange = $maxDepthParam.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateRangeAttribute] }
-            $validateRange.MinRange | Should -Be 1
-            $validateRange.MaxRange | Should -Be 100
+            $validateRange.MinRange | Should-Be 1
+            $validateRange.MaxRange | Should-Be 100
         }
 
         It 'Should validate MaxFileSizeMB parameter range' {
             $command = Get-Command Search-FileContent
             $maxSizeParam = $command.Parameters['MaxFileSizeMB']
             $validateRange = $maxSizeParam.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateRangeAttribute] }
-            $validateRange.MinRange | Should -Be 1
-            $validateRange.MaxRange | Should -Be 10240
+            $validateRange.MinRange | Should-Be 1
+            $validateRange.MaxRange | Should-Be 10240
         }
 
         It 'Should have Context alias C' {
             $command = Get-Command Search-FileContent
             $contextParam = $command.Parameters['Context']
             $aliases = $contextParam.Aliases
-            $aliases | Should -Contain 'C'
+            $aliases | Should-ContainCollection 'C'
         }
 
         It 'Should have Before alias B' {
             $command = Get-Command Search-FileContent
             $beforeParam = $command.Parameters['Before']
             $aliases = $beforeParam.Aliases
-            $aliases | Should -Contain 'B'
+            $aliases | Should-ContainCollection 'B'
         }
 
         It 'Should have After alias A' {
             $command = Get-Command Search-FileContent
             $afterParam = $command.Parameters['After']
             $aliases = $afterParam.Aliases
-            $aliases | Should -Contain 'A'
+            $aliases | Should-ContainCollection 'A'
         }
     }
 
@@ -155,34 +155,34 @@ No matches
         It 'Should find matches in files with Simple output' {
             $results = Search-FileContent -Pattern 'pattern' -Path $script:testDir -Simple -CaseInsensitive
             $results | Should -Not -BeNullOrEmpty
-            $results.Count | Should -Be 2
+            $results.Count | Should-Be 2
         }
 
         It 'Should return correct line numbers' {
             $results = Search-FileContent -Pattern 'pattern' -Path $script:testDir -Simple -CaseInsensitive
-            $results[0].LineNumber | Should -Be 2
-            $results[1].LineNumber | Should -Be 4
+            $results[0].LineNumber | Should-Be 2
+            $results[1].LineNumber | Should-Be 4
         }
 
         It 'Should return correct line content' {
             $results = Search-FileContent -Pattern 'pattern' -Path $script:testDir -Simple -CaseInsensitive
-            $results[0].Line | Should -BeLike '*PATTERN*'
-            $results[1].Line | Should -BeLike '*pattern again*'
+            $results[0].Line | Should-BeLikeString '*PATTERN*'
+            $results[1].Line | Should-BeLikeString '*pattern again*'
         }
 
         It 'Should return correct match value' {
             $results = Search-FileContent -Pattern 'PATTERN' -Path $script:testDir -Simple
-            $results[0].Match | Should -Be 'PATTERN'
+            $results[0].Match | Should-Be 'PATTERN'
         }
 
         It 'Should respect case sensitivity by default' {
             $results = @(Search-FileContent -Pattern 'PATTERN' -Path $script:testDir -Simple)
-            $results.Count | Should -Be 1
+            $results.Count | Should-Be 1
         }
 
         It 'Should work with case insensitive flag' {
             $results = Search-FileContent -Pattern 'PATTERN' -Path $script:testDir -Simple -CaseInsensitive
-            $results.Count | Should -Be 2
+            $results.Count | Should-Be 2
         }
 
         It 'Should find no matches when pattern does not exist' {
@@ -210,28 +210,28 @@ function Get-Item
 
         It 'Should treat pattern as literal when -Literal is used' {
             $results = @(Search-FileContent -Pattern 'test.file' -Path $script:testDir -Simple -Literal)
-            $results.Count | Should -Be 1
-            $results[0].Line | Should -Be 'test.file.name'
+            $results.Count | Should-Be 1
+            $results[0].Line | Should-Be 'test.file.name'
         }
 
         It 'Should treat pattern as regex by default' {
             $results = Search-FileContent -Pattern 'test.file' -Path $script:testDir -Simple
             # Regex . matches any character, so should match test*file and test[file] too
-            $results.Count | Should -BeGreaterThan 1
+            $results.Count | Should-BeGreaterThan 1
         }
 
         It 'Should support regex character classes' {
             $results = Search-FileContent -Pattern '\d+\.\d+\.\d+\.\d+' -Path $script:testDir -Simple
-            $results.Count | Should -Be 2
+            $results.Count | Should-Be 2
         }
 
         It 'Should support regex word boundaries' {
             $results = Search-FileContent -Pattern '\bfunction\b' -Path $script:testDir -Simple
-            $results.Count | Should -Be 2
+            $results.Count | Should-Be 2
         }
 
         It 'Should throw error for invalid regex pattern' {
-            { Search-FileContent -Pattern '(unclosed' -Path $script:testDir -Simple } | Should -Throw
+            { Search-FileContent -Pattern '(unclosed' -Path $script:testDir -Simple } | Should-Throw
         }
     }
 
@@ -256,7 +256,7 @@ Line 9
 
         It 'Should return matches without context by default' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple
-            $results.Count | Should -Be 2
+            $results.Count | Should-Be 2
             # Each result should have no context or minimal context
         }
 
@@ -264,22 +264,22 @@ Line 9
             # Context parameter provides before and after context
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Context 1
             # Should find 2 matches
-            $results.Count | Should -Be 2
+            $results.Count | Should-Be 2
         }
 
         It 'Should handle -Before parameter' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Before 2
-            $results.Count | Should -Be 2
+            $results.Count | Should-Be 2
         }
 
         It 'Should handle -After parameter' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -After 2
-            $results.Count | Should -Be 2
+            $results.Count | Should-Be 2
         }
 
         It 'Should handle both -Before and -After parameters' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Before 1 -After 1
-            $results.Count | Should -Be 2
+            $results.Count | Should-Be 2
         }
     }
 
@@ -297,33 +297,33 @@ Line 9
 
         It 'Should search all files when no filter specified' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple
-            $results.Count | Should -Be 4
+            $results.Count | Should-Be 4
         }
 
         It 'Should filter files with -Include parameter' {
             $results = @(Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Include '*.txt')
-            $results.Count | Should -Be 1
-            $results[0].Path | Should -Match 'file1\.txt$'
+            $results.Count | Should-Be 1
+            $results[0].Path | Should-MatchString 'file1\.txt$'
         }
 
         It 'Should support multiple include patterns' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Include '*.txt', '*.ps1'
-            $results.Count | Should -Be 2
+            $results.Count | Should-Be 2
         }
 
         It 'Should filter files with -Exclude parameter' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Exclude '*.log'
-            $results.Count | Should -Be 3
+            $results.Count | Should-Be 3
         }
 
         It 'Should support multiple exclude patterns' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Exclude '*.log', '*.md'
-            $results.Count | Should -Be 2
+            $results.Count | Should-Be 2
         }
 
         It 'Should combine include and exclude filters' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Include '*.txt', '*.ps1', '*.log' -Exclude '*.log'
-            $results.Count | Should -Be 2
+            $results.Count | Should-Be 2
         }
     }
 
@@ -352,28 +352,28 @@ Line 9
 
         It 'Should exclude .git directories by default' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Recurse
-            $results.Path | Should -Not -BeLike '*.git*'
+            $results.Path | Should-NotBeLikeString '*.git*'
         }
 
         It 'Should exclude node_modules directories by default' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Recurse
-            $results.Path | Should -Not -BeLike '*node_modules*'
+            $results.Path | Should-NotBeLikeString '*node_modules*'
         }
 
         It 'Should allow custom directory exclusions' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Recurse -ExcludeDirectory 'src'
-            $results.Path | Should -Not -Match '[\\/]src[\\/]'
+            $results.Path | Should-NotMatchString '[\\/]src[\\/]'
         }
 
         It 'Should not exclude similarly named directories without wildcards' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Recurse -ExcludeDirectory 'src'
-            $results.Path | Should -Contain (Join-Path -Path $script:testDir -ChildPath 'src-utils/helper.ps1')
+            $results.Path | Should-ContainCollection (Join-Path -Path $script:testDir -ChildPath 'src-utils/helper.ps1')
         }
 
         It 'Should support wildcard directory exclusions' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Recurse -ExcludeDirectory 'src*'
-            $results.Path | Should -Not -Contain (Join-Path -Path $script:testDir -ChildPath 'src/main.ps1')
-            $results.Path | Should -Not -Contain (Join-Path -Path $script:testDir -ChildPath 'src-utils/helper.ps1')
+            $results.Path | Should-NotContainCollection (Join-Path -Path $script:testDir -ChildPath 'src/main.ps1')
+            $results.Path | Should-NotContainCollection (Join-Path -Path $script:testDir -ChildPath 'src-utils/helper.ps1')
         }
 
         It 'Should support multiple directory exclusions' {
@@ -398,26 +398,26 @@ Final line
 
         It 'Should output objects in Simple mode' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple
-            $results | Should -BeOfType [PSCustomObject]
-            $results[0].PSObject.Properties.Name | Should -Contain 'Path'
-            $results[0].PSObject.Properties.Name | Should -Contain 'LineNumber'
-            $results[0].PSObject.Properties.Name | Should -Contain 'Line'
-            $results[0].PSObject.Properties.Name | Should -Contain 'Match'
+            $results | Should-HaveType ([PSCustomObject])
+            $results[0].PSObject.Properties.Name | Should-ContainCollection 'Path'
+            $results[0].PSObject.Properties.Name | Should-ContainCollection 'LineNumber'
+            $results[0].PSObject.Properties.Name | Should-ContainCollection 'Line'
+            $results[0].PSObject.Properties.Name | Should-ContainCollection 'Match'
         }
 
         It 'Should output count with -CountOnly and -Simple' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -CountOnly -Simple
-            $results | Should -BeOfType [PSCustomObject]
-            $results.PSObject.Properties.Name | Should -Contain 'Path'
-            $results.PSObject.Properties.Name | Should -Contain 'MatchCount'
-            $results.MatchCount | Should -Be 2
+            $results | Should-HaveType ([PSCustomObject])
+            $results.PSObject.Properties.Name | Should-ContainCollection 'Path'
+            $results.PSObject.Properties.Name | Should-ContainCollection 'MatchCount'
+            $results.MatchCount | Should-Be 2
         }
 
         It 'Should output only file paths with -FilesOnly and -Simple' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -FilesOnly -Simple
-            $results | Should -BeOfType [PSCustomObject]
-            $results.PSObject.Properties.Name | Should -Contain 'Path'
-            $results.PSObject.Properties.Name | Should -Not -Contain 'LineNumber'
+            $results | Should-HaveType ([PSCustomObject])
+            $results.PSObject.Properties.Name | Should-ContainCollection 'Path'
+            $results.PSObject.Properties.Name | Should-NotContainCollection 'LineNumber'
         }
     }
 
@@ -443,18 +443,18 @@ Final line
 
         It 'Should search only the top-level directory by default after recursion became opt-in' {
             $results = @(Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple)
-            $results.Count | Should -Be 1
-            $results[0].Path | Should -Match 'root\.txt$'
+            $results.Count | Should-Be 1
+            $results[0].Path | Should-MatchString 'root\.txt$'
         }
 
         It 'Should search recursively with -Recurse' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Recurse
-            $results.Count | Should -Be 4
+            $results.Count | Should-Be 4
         }
 
         It 'Should respect MaxDepth parameter' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Recurse -MaxDepth 1
-            $results.Count | Should -BeLessOrEqual 2
+            $results.Count | Should-BeLessThanOrEqual 2
         }
     }
 
@@ -469,19 +469,19 @@ Final line
 
         It 'Should accept file objects from pipeline' {
             $results = Get-ChildItem $script:testDir -File | Search-FileContent -Pattern 'MATCH' -Simple
-            $results.Count | Should -Be 2
+            $results.Count | Should-Be 2
         }
 
         It 'Should accept path strings from pipeline' {
             $results = (Get-ChildItem $script:testDir -File).FullName | Search-FileContent -Pattern 'MATCH' -Simple
-            $results.Count | Should -Be 2
+            $results.Count | Should-Be 2
         }
 
         It 'Should de-duplicate files from overlapping path inputs' {
             $singleFile = Join-Path -Path $script:testDir -ChildPath 'file1.txt'
             $results = Search-FileContent -Pattern 'MATCH' -Path @($script:testDir, $singleFile, $singleFile) -Simple
-            $results.Count | Should -Be 2
-            @($results | Where-Object { $_.Path -eq $singleFile }).Count | Should -Be 1
+            $results.Count | Should-Be 2
+            @($results | Where-Object { $_.Path -eq $singleFile }).Count | Should-Be 1
         }
     }
 
@@ -502,8 +502,8 @@ Final line
         It 'Should skip binary files' {
             $results = @(Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple)
             # Should only find the text file, not the binary file
-            $results.Count | Should -Be 1
-            $results[0].Path | Should -BeLike '*text.txt'
+            $results.Count | Should-Be 1
+            $results[0].Path | Should-BeLikeString '*text.txt'
         }
     }
 
@@ -517,7 +517,7 @@ Final line
         It 'Should throw error for invalid regex' {
             $testFile = Join-Path -Path $TestDrive -ChildPath 'test.txt'
             'test' | Set-Content -Path $testFile
-            { Search-FileContent -Pattern '[invalid' -Path $testFile -Simple } | Should -Throw
+            { Search-FileContent -Pattern '[invalid' -Path $testFile -Simple } | Should-Throw
         }
     }
 
@@ -555,81 +555,81 @@ USER-NAME = cssConstant
         }
 
         It 'Should throw error when IncludeCaseVariations used without CaseInsensitive' {
-            { Search-FileContent -Pattern 'username' -Path $script:testDir -IncludeCaseVariations } | Should -Throw '*IncludeCaseVariations requires CaseInsensitive*'
+            { Search-FileContent -Pattern 'username' -Path $script:testDir -IncludeCaseVariations } | Should-Throw '*IncludeCaseVariations requires CaseInsensitive*'
         }
 
         It 'Should throw error when IncludeCaseVariations used with CountOnly' {
-            { Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -CountOnly } | Should -Throw '*IncludeCaseVariations cannot be used with CountOnly*'
+            { Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -CountOnly } | Should-Throw '*IncludeCaseVariations cannot be used with CountOnly*'
         }
 
         It 'Should throw error when IncludeCaseVariations used with FilesOnly' {
-            { Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -FilesOnly } | Should -Throw '*IncludeCaseVariations cannot be used with FilesOnly*'
+            { Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -FilesOnly } | Should-Throw '*IncludeCaseVariations cannot be used with FilesOnly*'
         }
 
         It 'Should throw error when IncludeCaseVariations used with Context' {
-            { Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Context 2 } | Should -Throw '*IncludeCaseVariations cannot be used with Context*'
+            { Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Context 2 } | Should-Throw '*IncludeCaseVariations cannot be used with Context*'
         }
 
         It 'Should throw error when IncludeCaseVariations used with Before' {
-            { Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Before 2 } | Should -Throw '*IncludeCaseVariations cannot be used with*Before*'
+            { Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Before 2 } | Should-Throw '*IncludeCaseVariations cannot be used with*Before*'
         }
 
         It 'Should throw error when IncludeCaseVariations used with After' {
-            { Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -After 2 } | Should -Throw '*IncludeCaseVariations cannot be used with*After*'
+            { Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -After 2 } | Should-Throw '*IncludeCaseVariations cannot be used with*After*'
         }
 
         It 'Should detect all case variations in Simple mode' {
             $results = Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
             $results | Should -Not -BeNullOrEmpty
-            $results.Count | Should -BeGreaterThan 0
+            $results.Count | Should-BeGreaterThan 0
             # Should find these variations (not separated patterns like user_name)
-            $results.Variation | Should -Contain 'userName'
-            $results.Variation | Should -Contain 'UserName'
-            $results.Variation | Should -Contain 'USERNAME'
-            $results.Variation | Should -Contain 'username'
-            $results.Variation | Should -Contain 'Username'
+            $results.Variation | Should-ContainCollection 'userName'
+            $results.Variation | Should-ContainCollection 'UserName'
+            $results.Variation | Should-ContainCollection 'USERNAME'
+            $results.Variation | Should-ContainCollection 'username'
+            $results.Variation | Should-ContainCollection 'Username'
         }
 
         It 'Should count occurrences correctly' {
             $results = Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
             $userNameResult = $results | Where-Object { $_.Variation -ceq 'userName' }
-            $userNameResult.Count | Should -Be 2  # Once in code.js, once in code.py
+            $userNameResult.Count | Should-Be 2  # Once in code.js, once in code.py
         }
 
         It 'Should track files for each variation' {
             $results = Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
             $usernameResult = $results | Where-Object { $_.Variation -ceq 'username' }
-            $usernameResult.Files | Should -Contain (Join-Path -Path $script:testDir -ChildPath 'code.js')
+            $usernameResult.Files | Should-ContainCollection (Join-Path -Path $script:testDir -ChildPath 'code.js')
         }
 
         It 'Should identify camelCase pattern' {
             $results = Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
             $camelResult = $results | Where-Object { $_.Variation -ceq 'userName' }
-            $camelResult.CasePattern | Should -Be 'camelCase'
+            $camelResult.CasePattern | Should-Be 'camelCase'
         }
 
         It 'Should identify PascalCase pattern' {
             $results = Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
             $pascalResult = $results | Where-Object { $_.Variation -ceq 'UserName' }
-            $pascalResult.CasePattern | Should -Be 'PascalCase'
+            $pascalResult.CasePattern | Should-Be 'PascalCase'
         }
 
         It 'Should identify UPPERCASE pattern' {
             $results = Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
             $upperResult = $results | Where-Object { $_.Variation -ceq 'USERNAME' }
-            $upperResult.CasePattern | Should -Be 'UPPERCASE'
+            $upperResult.CasePattern | Should-Be 'UPPERCASE'
         }
 
         It 'Should identify lowercase pattern' {
             $results = Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
             $lowerResult = $results | Where-Object { $_.Variation -ceq 'username' }
-            $lowerResult.CasePattern | Should -Be 'lowercase'
+            $lowerResult.CasePattern | Should-Be 'lowercase'
         }
 
         It 'Should identify First Capital pattern' {
             $results = Search-FileContent -Pattern 'username' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
             $firstCapResult = $results | Where-Object { $_.Variation -ceq 'Username' }
-            $firstCapResult.CasePattern | Should -Be 'First Capital'
+            $firstCapResult.CasePattern | Should-Be 'First Capital'
         }
 
         It 'Should match separated patterns like user_name and user-name with separator-aware matching' {
@@ -637,9 +637,9 @@ USER-NAME = cssConstant
             # across different separators (underscores, hyphens, spaces) when pattern has word boundaries
             $results = Search-FileContent -Pattern 'userName' -Path $script:testDir -CaseInsensitive -IncludeCaseVariations -Simple
             # These SHOULD be in the results because the pattern is separator-aware
-            $results.Variation | Should -Contain 'user_name'
-            $results.Variation | Should -Contain 'USER_NAME'
-            $results.Variation | Should -Contain 'user-name'
+            $results.Variation | Should-ContainCollection 'user_name'
+            $results.Variation | Should-ContainCollection 'USER_NAME'
+            $results.Variation | Should-ContainCollection 'user-name'
         }
     }
 }

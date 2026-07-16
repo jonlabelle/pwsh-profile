@@ -28,9 +28,9 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -NonInteractive -CommandRunner $runner)
 
-            $result.Count | Should -Be 2
-            ($result | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should -Be '2.44.0'
-            ($result | Where-Object { $_.Name -eq 'git' }).Publisher | Should -Be 'Homebrew'
+            $result.Count | Should-Be 2
+            ($result | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should-Be '2.44.0'
+            ($result | Where-Object { $_.Name -eq 'git' }).Publisher | Should-Be 'Homebrew'
         }
 
         It 'keeps AsObject as an alias for NonInteractive output' {
@@ -41,10 +41,10 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -AsObject -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'git'
-            $result[0].PackageManager | Should -Be 'brew'
-            Should -Invoke -CommandName Write-Host -Times 0 -Exactly
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'git'
+            $result[0].PackageManager | Should-Be 'brew'
+            Should-Invoke -CommandName Write-Host -Times 0 -Exactly
         }
 
         It 'exports installed packages to inferred JSON without opening the picker' {
@@ -56,15 +56,15 @@ Describe 'Show-InstalledPlatformPackage' {
             $exportPath = Join-Path -Path $TestDrive -ChildPath 'installed-packages.json'
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -ExportPath $exportPath)
 
-            $result.Count | Should -Be 1
-            $result[0].Format | Should -Be 'JSON'
-            $result[0].Count | Should -Be 2
-            $result[0].DependencyMode | Should -Be 'None'
-            Test-Path -LiteralPath $exportPath | Should -BeTrue
+            $result.Count | Should-Be 1
+            $result[0].Format | Should-Be 'JSON'
+            $result[0].Count | Should-Be 2
+            $result[0].DependencyMode | Should-Be 'None'
+            Test-Path -LiteralPath $exportPath | Should-BeTruthy
             $exportedPackages = Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json
-            $exportedPackages.Count | Should -Be 2
-            ($exportedPackages | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should -Be '2.44.0'
-            Should -Invoke -CommandName Write-Host -Times 0 -Exactly
+            $exportedPackages.Count | Should-Be 2
+            ($exportedPackages | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should-Be '2.44.0'
+            Should-Invoke -CommandName Write-Host -Times 0 -Exactly
         }
 
         It 'exports installed packages to explicit CSV with dependency relationships' {
@@ -106,16 +106,16 @@ Describe 'Show-InstalledPlatformPackage' {
             $exportPath = Join-Path -Path $TestDrive -ChildPath 'installed-packages-export'
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -ExportPath $exportPath -ExportFormat Csv -ExportDependencyMode Both)
 
-            $result.Count | Should -Be 1
-            $result[0].Format | Should -Be 'CSV'
-            $result[0].DependencyMode | Should -Be 'Both'
+            $result.Count | Should-Be 1
+            $result[0].Format | Should-Be 'CSV'
+            $result[0].DependencyMode | Should-Be 'Both'
             $exportedPackages = @(Import-Csv -LiteralPath $exportPath)
-            $exportedPackages.Count | Should -Be 1
-            $exportedPackages[0].DependsOn | Should -Be 'openssl'
-            $exportedPackages[0].RequiredBy | Should -Be 'git-extras'
-            Should -Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
-            Should -Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
-            Should -Invoke -CommandName Write-Host -Times 0 -Exactly
+            $exportedPackages.Count | Should-Be 1
+            $exportedPackages[0].DependsOn | Should-Be 'openssl'
+            $exportedPackages[0].RequiredBy | Should-Be 'git-extras'
+            Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
+            Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
+            Should-Invoke -CommandName Write-Host -Times 0 -Exactly
         }
 
         It 'shows dependency resolution progress when export progress is requested' {
@@ -145,11 +145,11 @@ Describe 'Show-InstalledPlatformPackage' {
             $exportPath = Join-Path -Path $TestDrive -ChildPath 'installed-packages-progress.csv'
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -ExportPath $exportPath -ExportFormat Csv -ExportDependencyMode Both -ShowExportProgress)
 
-            $result.Count | Should -Be 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Exporting installed packages...' -and $ForegroundColor -eq 'Cyan' } -Times 2
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Package: 1 of 1 - git' -and $ForegroundColor -eq 'White' } -Times 2
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Resolving: DependsOn' -and $ForegroundColor -eq 'White' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Resolving: RequiredBy' -and $ForegroundColor -eq 'White' } -Times 1
+            $result.Count | Should-Be 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Exporting installed packages...' -and $ForegroundColor -eq 'Cyan' } -Times 2
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Package: 1 of 1 - git' -and $ForegroundColor -eq 'White' } -Times 2
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Resolving: DependsOn' -and $ForegroundColor -eq 'White' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Resolving: RequiredBy' -and $ForegroundColor -eq 'White' } -Times 1
         }
     }
 
@@ -166,11 +166,11 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
-            $result.Count | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Nav: Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  filter: all" -and $ForegroundColor -eq 'White' } -Times 1
-            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 2
+            $result.Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Nav: Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  filter: all" -and $ForegroundColor -eq 'White' } -Times 1
+            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should-Be 2
         }
 
         It 'does not exit when Enter is pressed in browse mode' {
@@ -190,8 +190,8 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
-            $result.Count | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 2
+            $result.Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 2
         }
 
         It 'ignores Backspace and Delete as manager navigation when not launched by the manager' {
@@ -212,9 +212,9 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
-            $result.Count | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 3
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 0 -Exactly
+            $result.Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 3
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 0 -Exactly
         }
 
         It 'returns to the manager menu on <Name> when manager navigation is enabled' -TestCases @(
@@ -234,9 +234,9 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey)
 
-            $result.Count | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
+            $result.Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
         }
 
         It 'renders only the current viewport for long package lists' {
@@ -256,10 +256,10 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $null = Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PickerPageSize 2
 
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-01*' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-02*' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-03*' } -Times 0 -Exactly
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-04*' } -Times 0 -Exactly
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-01*' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-02*' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-03*' } -Times 0 -Exactly
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-04*' } -Times 0 -Exactly
         }
 
         It 'returns selected packages when PassThru is used' {
@@ -279,9 +279,9 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PassThru)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'git'
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A toggle all  F: [all]' } -Times 1
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'git'
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A toggle all  F: [all]' } -Times 1
         }
 
         It 'returns the current package when PassThru is used without a selection' {
@@ -296,10 +296,10 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PassThru)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'git'
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A toggle all  F: [all]' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Nav: S: [All]  Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit' } -Times 1
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'git'
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A toggle all  F: [all]' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Nav: S: [All]  Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit' } -Times 1
         }
 
         It 'shows keyboard help from the picker when question mark is pressed' {
@@ -320,16 +320,16 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
-            $result.Count | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Show-InstalledPlatformPackage Help' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'D: ' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'open or close the dependency view for the current package' -and $ForegroundColor -eq 'DarkGray' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'B: ' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'return to the package list from the dependency view' -and $ForegroundColor -eq 'DarkGray' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'V: ' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'load a missing winget description when available' -and $ForegroundColor -eq 'DarkGray' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'E: ' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'export visible packages, or selected packages when any are selected, to JSON or CSV' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+            $result.Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Show-InstalledPlatformPackage Help' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'D: ' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'open or close the dependency view for the current package' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'B: ' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'return to the package list from the dependency view' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'V: ' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'load a missing winget description when available' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'E: ' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'export visible packages, or selected packages when any are selected, to JSON or CSV' -and $ForegroundColor -eq 'DarkGray' } -Times 1
         }
 
         It 'loads missing winget descriptions only when V is pressed' {
@@ -369,11 +369,11 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager winget -CommandRunner $runner -KeyReader $keyReader)
 
-            $result.Count | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: <press V to load>' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: retrieving description...' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
-            @($script:Invocations | Where-Object { $_.Key -eq 'winget show --id Git.Git --exact --accept-source-agreements --output json' }).Count | Should -Be 1
+            $result.Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: <press V to load>' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: retrieving description...' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'winget show --id Git.Git --exact --accept-source-agreements --output json' }).Count | Should-Be 1
         }
 
         It 'defaults source filter to winget for the winget picker when multiple sources exist' {
@@ -408,8 +408,8 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager winget -CommandRunner $runner -KeyReader $keyReader)
 
-            $result.Count | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[winget\]' } -Times 1
+            $result.Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[winget\]' } -Times 1
         }
 
         It 'keeps picker table rows within the current console width' {
@@ -447,12 +447,12 @@ Describe 'Show-InstalledPlatformPackage' {
                 }
             )
 
-            $tableLines.Count | Should -BeGreaterThan 1
-            ($tableLines | Where-Object { $_ -match '^\s+Name\s+' } | Select-Object -First 1) | Should -Match '\bVer\b'
-            ($tableLines | Where-Object { $_ -match '^\s+Name\s+' } | Select-Object -First 1) | Should -Match '\bTyp\b'
-            ($tableLines | Where-Object { $_ -match '^\s+Name\s+' } | Select-Object -First 1) | Should -Match '\bSrc\b'
-            ($tableLines | Where-Object { $_ -match '^>\s+' } | Select-Object -First 1) | Should -Match 'homebrew/core'
-            (($tableLines | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum) | Should -BeLessOrEqual (Get-TestPickerLineLimit)
+            $tableLines.Count | Should-BeGreaterThan 1
+            ($tableLines | Where-Object { $_ -match '^\s+Name\s+' } | Select-Object -First 1) | Should-MatchString '\bVer\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Name\s+' } | Select-Object -First 1) | Should-MatchString '\bTyp\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Name\s+' } | Select-Object -First 1) | Should-MatchString '\bSrc\b'
+            ($tableLines | Where-Object { $_ -match '^>\s+' } | Select-Object -First 1) | Should-MatchString 'homebrew/core'
+            (($tableLines | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum) | Should-BeLessThanOrEqual (Get-TestPickerLineLimit)
         }
 
         It 'shows both dependency directions from the picker with D' {
@@ -488,15 +488,15 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
-            $result.Count | Should -Be 0
-            Should -Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
-            Should -Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Show-InstalledPlatformPackage Dependencies - Homebrew' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Resolving dependencies...' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn + RequiredBy]' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn]' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [RequiredBy]' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/Delete/LeftArrow to return to the package list.' } -Times 1
+            $result.Count | Should-Be 0
+            Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
+            Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Show-InstalledPlatformPackage Dependencies - Homebrew' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Resolving dependencies...' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn + RequiredBy]' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn]' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [RequiredBy]' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/Delete/LeftArrow to return to the package list.' } -Times 1
         }
 
         It 'returns from dependency view to the package list on <Name> when manager navigation is enabled' -TestCases @(
@@ -533,10 +533,10 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey)
 
-            $result.Count | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 2
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Show-InstalledPlatformPackage Dependencies - Homebrew' } -Times 2
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/Delete/LeftArrow to return to the package list.' } -Times 2
+            $result.Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 2
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Show-InstalledPlatformPackage Dependencies - Homebrew' } -Times 2
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/Delete/LeftArrow to return to the package list.' } -Times 2
         }
 
         It 'invokes Remove-PlatformPackage from the picker when R is confirmed' {
@@ -565,14 +565,14 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
-            $result.Count | Should -Be 0
-            Should -Invoke -CommandName Remove-PlatformPackage -ParameterFilter {
+            $result.Count | Should-Be 0
+            Should-Invoke -CommandName Remove-PlatformPackage -ParameterFilter {
                 $PackageManager -eq 'brew' -and
                 $All -and
                 @($IncludePackage).Count -eq 1 -and
                 @($IncludePackage)[0] -eq 'git'
             } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Status: Removed: 1, Failed: 0, Skipped: 0' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Status: Removed: 1, Failed: 0, Skipped: 0' } -Times 1
         }
 
         It 'shows winget remediation text after a browser-launched remove failure' {
@@ -610,11 +610,11 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager winget -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey -WarningAction SilentlyContinue)
 
-            $result.Count | Should -Be 0
+            $result.Count | Should-Be 0
             $visibleOutput = ($script:HostOutput | ForEach-Object { "$_" }) -join "`n"
-            $visibleOutput | Should -Match 'Status: Removed: 0, Failed: 1, Skipped: 0'
-            $visibleOutput | Should -Match 'winget uninstall --id JohnMacFarlane\.Pandoc --exact --source winget --accept-source-agreements'
-            $visibleOutput | Should -Match 'Remediation: close running Pandoc processes and retry the uninstall'
+            $visibleOutput | Should-MatchString 'Status: Removed: 0, Failed: 1, Skipped: 0'
+            $visibleOutput | Should-MatchString 'winget uninstall --id JohnMacFarlane\.Pandoc --exact --source winget --accept-source-agreements'
+            $visibleOutput | Should-MatchString 'Remediation: close running Pandoc processes and retry the uninstall'
         }
 
         It 'invokes Upgrade-PlatformPackage from the picker when U is confirmed' {
@@ -643,15 +643,15 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
-            $result.Count | Should -Be 0
-            Should -Invoke -CommandName Upgrade-PlatformPackage -ParameterFilter {
+            $result.Count | Should-Be 0
+            Should-Invoke -CommandName Upgrade-PlatformPackage -ParameterFilter {
                 $PackageManager -eq 'brew' -and
                 $All -and
                 $SkipRefresh -and
                 @($IncludePackage).Count -eq 1 -and
                 @($IncludePackage)[0] -eq 'git'
             } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Status: Upgraded: 1, Failed: 0, Skipped: 0' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Status: Upgraded: 1, Failed: 0, Skipped: 0' } -Times 1
         }
 
         It 'shows winget remediation text after a browser-launched upgrade failure' {
@@ -704,13 +704,13 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager winget -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey -WarningAction SilentlyContinue)
 
-            $result.Count | Should -Be 0
+            $result.Count | Should-Be 0
             $visibleOutput = ($script:HostOutput | ForEach-Object { "$_" }) -join "`n"
-            $visibleOutput | Should -Match 'Status: Upgraded: 0, Failed: 1, Skipped: 0'
-            $visibleOutput | Should -Match 'APPINSTALLER_CLI_ERROR_EXEC_UNINSTALL_COMMAND_FAILED'
-            $visibleOutput | Should -Match 'Running uninstall command failed'
-            $visibleOutput | Should -Match 'winget uninstall --id JohnMacFarlane\.Pandoc --exact --source winget'
-            $visibleOutput | Should -Match 'winget install --id JohnMacFarlane\.Pandoc --exact --source winget'
+            $visibleOutput | Should-MatchString 'Status: Upgraded: 0, Failed: 1, Skipped: 0'
+            $visibleOutput | Should-MatchString 'APPINSTALLER_CLI_ERROR_EXEC_UNINSTALL_COMMAND_FAILED'
+            $visibleOutput | Should-MatchString 'Running uninstall command failed'
+            $visibleOutput | Should-MatchString 'winget uninstall --id JohnMacFarlane\.Pandoc --exact --source winget'
+            $visibleOutput | Should-MatchString 'winget install --id JohnMacFarlane\.Pandoc --exact --source winget'
         }
 
         It 'exports visible packages to JSON from the picker when E is used' {
@@ -735,13 +735,13 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
-            $result.Count | Should -Be 0
-            Test-Path -LiteralPath $exportPath | Should -BeTrue
+            $result.Count | Should-Be 0
+            Test-Path -LiteralPath $exportPath | Should-BeTruthy
             $exportedPackages = Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json
-            $exportedPackages.Count | Should -Be 2
-            ($exportedPackages | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should -Be '2.44.0'
-            ($exportedPackages | Where-Object { $_.Name -eq 'curl' }).PackageManager | Should -Be 'brew'
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like 'Status: Exported 2 package(s) to *installed-packages.json (JSON)' } -Times 1
+            $exportedPackages.Count | Should-Be 2
+            ($exportedPackages | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should-Be '2.44.0'
+            ($exportedPackages | Where-Object { $_.Name -eq 'curl' }).PackageManager | Should-Be 'brew'
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like 'Status: Exported 2 package(s) to *installed-packages.json (JSON)' } -Times 1
         }
 
         It 'exports selected packages to CSV with dependencies from the picker' {
@@ -797,16 +797,16 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PassThru)
 
-            $result.Count | Should -Be 0
-            Test-Path -LiteralPath $exportPath | Should -BeTrue
+            $result.Count | Should-Be 0
+            Test-Path -LiteralPath $exportPath | Should-BeTruthy
             $exportedPackages = @(Import-Csv -LiteralPath $exportPath)
-            $exportedPackages.Count | Should -Be 1
-            $exportedPackages[0].Name | Should -Be 'curl'
-            $exportedPackages[0].DependsOn | Should -Be 'openssl'
-            $exportedPackages[0].RequiredBy | Should -Be 'git-extras'
-            Should -Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
-            Should -Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like 'Status: Exported 1 package(s) with dependencies and required-by relationships to *selected-packages.csv (CSV)' } -Times 1
+            $exportedPackages.Count | Should-Be 1
+            $exportedPackages[0].Name | Should-Be 'curl'
+            $exportedPackages[0].DependsOn | Should-Be 'openssl'
+            $exportedPackages[0].RequiredBy | Should-Be 'git-extras'
+            Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
+            Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like 'Status: Exported 1 package(s) with dependencies and required-by relationships to *selected-packages.csv (CSV)' } -Times 1
         }
 
         It 'exports direct dependencies without resolving required-by relationships' {
@@ -849,12 +849,12 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
-            $result.Count | Should -Be 0
+            $result.Count | Should-Be 0
             $exportedPackages = @(Import-Csv -LiteralPath $exportPath)
-            $exportedPackages[0].DependsOn | Should -Be 'openssl'
-            $exportedPackages[0].RequiredBy | Should -Be ''
-            Should -Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
-            Should -Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 0 -Exactly
+            $exportedPackages[0].DependsOn | Should-Be 'openssl'
+            $exportedPackages[0].RequiredBy | Should-Be ''
+            Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
+            Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 0 -Exactly
         }
 
         It 'filters picker results by package name when F is pressed' {
@@ -876,10 +876,10 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PassThru)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'git'
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: g' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[g\]' } -Times 1
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'git'
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: g' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[g\]' } -Times 1
         }
 
         It 'treats lowercase q as filter text instead of cancel' {
@@ -901,10 +901,10 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PassThru)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'jq'
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: q' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[q\]' } -Times 1
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'jq'
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: q' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[q\]' } -Times 1
         }
     }
 }

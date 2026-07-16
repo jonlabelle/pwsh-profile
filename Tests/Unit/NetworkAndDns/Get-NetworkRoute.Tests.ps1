@@ -20,16 +20,16 @@ Describe 'Get-NetworkRoute' {
     Context 'Basic routing table retrieval' {
         It 'Should return at least one route' {
             $results = Get-NetworkRoute
-            @($results).Count | Should -BeGreaterThan 0
+            @($results).Count | Should-BeGreaterThan 0
         }
 
         It 'Should return objects with expected properties' {
             $results = Get-NetworkRoute
             $first = $results | Select-Object -First 1
-            $first.PSObject.Properties.Name | Should -Contain 'Destination'
-            $first.PSObject.Properties.Name | Should -Contain 'Gateway'
-            $first.PSObject.Properties.Name | Should -Contain 'Interface'
-            $first.PSObject.Properties.Name | Should -Contain 'Metric'
+            $first.PSObject.Properties.Name | Should-ContainCollection 'Destination'
+            $first.PSObject.Properties.Name | Should-ContainCollection 'Gateway'
+            $first.PSObject.Properties.Name | Should-ContainCollection 'Interface'
+            $first.PSObject.Properties.Name | Should-ContainCollection 'Metric'
         }
 
         It 'Should have non-empty Destination values' {
@@ -55,7 +55,7 @@ Describe 'Get-NetworkRoute' {
         }
 
         It 'Should reject invalid AddressFamily values' {
-            { Get-NetworkRoute -AddressFamily 'IPX' } | Should -Throw
+            { Get-NetworkRoute -AddressFamily 'IPX' } | Should-Throw
         }
     }
 

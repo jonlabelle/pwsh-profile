@@ -72,22 +72,22 @@ The UserService class provides user management functionality.
 
             # Verify results
             $content1 = Get-Content -Path $file1 -Raw
-            $content1 | Should -Match 'public class AccountService'
-            $content1 | Should -Match 'private readonly IUserRepository userRepository'  # Should not change
-            $content1 | Should -Match 'public AccountService\(IUserRepository userRepository\)'
+            $content1 | Should-MatchString 'public class AccountService'
+            $content1 | Should-MatchString 'private readonly IUserRepository userRepository'  # Should not change
+            $content1 | Should-MatchString 'public AccountService\(IUserRepository userRepository\)'
 
             $content2 = Get-Content -Path $file2 -Raw
-            $content2 | Should -Match '// ACCOUNT_SERVICE endpoint'  # Separator-aware matching replaces USER_SERVICE
-            $content2 | Should -Match 'private readonly AccountService accountService'
-            $content2 | Should -Match 'public UserController\(AccountService accountService\)'
+            $content2 | Should-MatchString '// ACCOUNT_SERVICE endpoint'  # Separator-aware matching replaces USER_SERVICE
+            $content2 | Should-MatchString 'private readonly AccountService accountService'
+            $content2 | Should-MatchString 'public UserController\(AccountService accountService\)'
 
             $content3 = Get-Content -Path $file3 -Raw
-            $content3 | Should -Match '# AccountService Documentation'
-            $content3 | Should -Match 'The AccountService class'
+            $content3 | Should-MatchString '# AccountService Documentation'
+            $content3 | Should-MatchString 'The AccountService class'
 
             # Verify all files were processed
-            $results.Count | Should -Be 3
-            ($results | Where-Object { $_.ReplacementsMade }).Count | Should -Be 3
+            $results.Count | Should-Be 3
+            ($results | Where-Object { $_.ReplacementsMade }).Count | Should-Be 3
         }
 
         It 'Should preserve camelCase and PascalCase in JavaScript code refactoring' {
@@ -104,11 +104,11 @@ function setUserName(newUserName) {
             $result = Replace-StringInFile -Path $jsFile -OldString 'username' -NewString 'accountid' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $jsFile -Raw
-            $content | Should -Match 'const accountId = getAccountId\(\);'
-            $content | Should -Match "const AccountId = 'John';"
-            $content | Should -Match 'function setAccountId\(newAccountId\)'
-            $content | Should -Match 'this\.accountId = newAccountId;'
-            $result.MatchCount | Should -Be 7  # userName, getUserName, UserName, setUserName, newUserName (x2), userName
+            $content | Should-MatchString 'const accountId = getAccountId\(\);'
+            $content | Should-MatchString "const AccountId = 'John';"
+            $content | Should-MatchString 'function setAccountId\(newAccountId\)'
+            $content | Should-MatchString 'this\.accountId = newAccountId;'
+            $result.MatchCount | Should-Be 7  # userName, getUserName, UserName, setUserName, newUserName (x2), userName
         }
 
         It 'Should update variable names in configuration files' {
@@ -124,11 +124,11 @@ database_user=admin
             $result = Replace-StringInFile -Path $configFile -OldString 'database' -NewString 'postgres' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $configFile -Raw
-            $content | Should -Match 'postgres_host=localhost'
-            $content | Should -Match 'POSTGRES_PORT=5432'
-            $content | Should -Match 'Postgres_Name=myapp'
-            $content | Should -Match 'postgres_user=admin'
-            $result.MatchCount | Should -Be 4
+            $content | Should-MatchString 'postgres_host=localhost'
+            $content | Should-MatchString 'POSTGRES_PORT=5432'
+            $content | Should-MatchString 'Postgres_Name=myapp'
+            $content | Should-MatchString 'postgres_user=admin'
+            $result.MatchCount | Should-Be 4
         }
 
         It 'Should handle multiple wildcard files with PreserveCase' {
@@ -145,11 +145,11 @@ database_user=admin
             $results = Replace-StringInFile -Path $pattern -OldString 'oldproduct' -NewString 'newproduct' -CaseInsensitive -PreserveCase
 
             # Verify each file
-            Get-Content -Path (Join-Path -Path $docsDir -ChildPath 'features.md') -Raw | Should -Be 'NewProduct features'
-            Get-Content -Path (Join-Path -Path $docsDir -ChildPath 'install.md') -Raw | Should -Be 'NEWPRODUCT installation'
-            Get-Content -Path (Join-Path -Path $docsDir -ChildPath 'config.md') -Raw | Should -Be 'newproduct configuration'
+            Get-Content -Path (Join-Path -Path $docsDir -ChildPath 'features.md') -Raw | Should-Be 'NewProduct features'
+            Get-Content -Path (Join-Path -Path $docsDir -ChildPath 'install.md') -Raw | Should-Be 'NEWPRODUCT installation'
+            Get-Content -Path (Join-Path -Path $docsDir -ChildPath 'config.md') -Raw | Should-Be 'newproduct configuration'
 
-            $results.Count | Should -Be 3
+            $results.Count | Should-Be 3
         }
 
         It 'Should preserve snake_case in Python code' {
@@ -165,11 +165,11 @@ def get_user_name():
             $result = Replace-StringInFile -Path $pyFile -OldString 'user_name' -NewString 'account_id' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $pyFile -Raw
-            $content | Should -Match 'def get_account_id\(\):'
-            $content | Should -Match 'account_id = "admin"'
-            $content | Should -Match 'ACCOUNT_ID = "ADMIN"'
-            $content | Should -Match 'return account_id'
-            $result.MatchCount | Should -Be 4
+            $content | Should-MatchString 'def get_account_id\(\):'
+            $content | Should-MatchString 'account_id = "admin"'
+            $content | Should-MatchString 'ACCOUNT_ID = "ADMIN"'
+            $content | Should-MatchString 'return account_id'
+            $result.MatchCount | Should-Be 4
         }
 
         It 'Should preserve kebab-case in CSS' {
@@ -188,11 +188,11 @@ def get_user_name():
             $result = Replace-StringInFile -Path $cssFile -OldString 'primary-color' -NewString 'brand-color' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $cssFile -Raw
-            $content | Should -Match '--brand-color: #007bff;'
-            $content | Should -Match '--BRAND-COLOR: #0056b3;'
-            $content | Should -Match '\.brand-color \{'
-            $content | Should -Match 'var\(--brand-color\);'
-            $result.MatchCount | Should -Be 4
+            $content | Should-MatchString '--brand-color: #007bff;'
+            $content | Should-MatchString '--BRAND-COLOR: #0056b3;'
+            $content | Should-MatchString '\.brand-color \{'
+            $content | Should-MatchString 'var\(--brand-color\);'
+            $result.MatchCount | Should-Be 4
         }
 
         It 'Should preserve SCREAMING_SNAKE_CASE in environment files' {
@@ -207,11 +207,11 @@ DATABASE-URL=postgresql://localhost/db
             $result = Replace-StringInFile -Path $envFile -OldString 'database_url' -NewString 'db_connection' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $envFile -Raw
-            $content | Should -Match 'DB_CONNECTION=postgresql://localhost/db'
-            $content | Should -Match 'db_connection=postgresql://localhost/db'
-            $content | Should -Match 'DB-CONNECTION=postgresql://localhost/db'
+            $content | Should-MatchString 'DB_CONNECTION=postgresql://localhost/db'
+            $content | Should-MatchString 'db_connection=postgresql://localhost/db'
+            $content | Should-MatchString 'DB-CONNECTION=postgresql://localhost/db'
             # Note: Separator-aware matching now matches DATABASE-URL because separators are interchangeable
-            $result.MatchCount | Should -Be 3
+            $result.MatchCount | Should-Be 3
         }
     }
 
@@ -228,18 +228,18 @@ foobar everywhere
             # Make changes with backup
             $result = Replace-StringInFile -Path $testFile -OldString 'foobar' -NewString 'bazqux' -CaseInsensitive -PreserveCase -Backup
 
-            $result.BackupCreated | Should -Be $true
+            $result.BackupCreated | Should-Be $true
 
             # Verify changes were made
             $newContent = Get-Content -Path $testFile -Raw
-            $newContent | Should -Not -Be $originalContent
+            $newContent | Should-NotBe $originalContent
 
             # Rollback using backup
             Copy-Item -Path "$testFile.bak" -Destination $testFile -Force
 
             # Verify rollback
             $rolledBack = Get-Content -Path $testFile -Raw
-            $rolledBack | Should -Be $originalContent
+            $rolledBack | Should-Be $originalContent
         }
     }
 
@@ -251,7 +251,7 @@ foobar everywhere
             Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase -Encoding UTF8
 
             $content = Get-Content -Path $testFile -Encoding UTF8 -Raw
-            $content | Should -Be 'Goodbye café'
+            $content | Should-Be 'Goodbye café'
         }
 
         It 'Should work with ASCII encoding' {
@@ -261,7 +261,7 @@ foobar everywhere
             Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase -Encoding ASCII
 
             $content = Get-Content -Path $testFile -Encoding ASCII -Raw
-            $content | Should -Be 'GOODBYE world'
+            $content | Should-Be 'GOODBYE world'
         }
     }
 
@@ -284,13 +284,13 @@ foobar everywhere
             $result = Replace-StringInFile -Path $testFile -OldString 'foo' -NewString 'bar' -CaseInsensitive -PreserveCase
 
             # Verify
-            $result.MatchCount | Should -Be 1000
-            $result.ReplacementsMade | Should -Be $true
+            $result.MatchCount | Should-Be 1000
+            $result.ReplacementsMade | Should-Be $true
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Match 'bar is on line'
-            $content | Should -Match 'BAR is on line'
-            $content | Should -Match 'Bar is on line'
+            $content | Should-MatchString 'bar is on line'
+            $content | Should-MatchString 'BAR is on line'
+            $content | Should-MatchString 'Bar is on line'
         }
     }
 
@@ -338,13 +338,13 @@ foobar everywhere
             $content2 = Get-Content -Path $file2 -Raw
 
             # Standard should replace all with exact replacement text
-            $content1 | Should -Be 'goodbye goodbye goodbye'
+            $content1 | Should-Be 'goodbye goodbye goodbye'
 
             # PreserveCase should maintain original case patterns
-            $content2 | Should -Be 'GOODBYE goodbye Goodbye'
+            $content2 | Should-Be 'GOODBYE goodbye Goodbye'
 
             # Both should report same match count
-            $result1.MatchCount | Should -Be $result2.MatchCount
+            $result1.MatchCount | Should-Be $result2.MatchCount
         }
     }
 }

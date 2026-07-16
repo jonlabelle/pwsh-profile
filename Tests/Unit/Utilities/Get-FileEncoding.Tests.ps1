@@ -19,8 +19,8 @@ Describe 'Get-FileEncoding' -Tag 'Unit' {
         [System.IO.File]::WriteAllText($path, 'hello café', $utf8NoBom)
 
         $detected = Get-FileEncoding -FilePath $path
-        $detected.CodePage | Should -Be 65001
-        $detected.GetPreamble().Length | Should -Be 0
+        $detected.CodePage | Should-Be 65001
+        $detected.GetPreamble().Length | Should-Be 0
     }
 
     It 'Detects UTF8 with BOM' {
@@ -29,8 +29,8 @@ Describe 'Get-FileEncoding' -Tag 'Unit' {
         [System.IO.File]::WriteAllText($path, 'hello café', $utf8Bom)
 
         $detected = Get-FileEncoding -FilePath $path
-        $detected.CodePage | Should -Be 65001
-        $detected.GetPreamble().Length | Should -Be 3
+        $detected.CodePage | Should-Be 65001
+        $detected.GetPreamble().Length | Should-Be 3
     }
 
     It 'Detects UTF16LE with BOM' {
@@ -38,8 +38,8 @@ Describe 'Get-FileEncoding' -Tag 'Unit' {
         [System.IO.File]::WriteAllText($path, 'hello world', [System.Text.Encoding]::Unicode)
 
         $detected = Get-FileEncoding -FilePath $path
-        $detected.CodePage | Should -Be 1200
-        $detected.GetPreamble().Length | Should -Be 2
+        $detected.CodePage | Should-Be 1200
+        $detected.GetPreamble().Length | Should-Be 2
     }
 
     It 'Returns UTF8 without BOM for empty files' {
@@ -47,7 +47,7 @@ Describe 'Get-FileEncoding' -Tag 'Unit' {
         [System.IO.File]::WriteAllBytes($path, @())
 
         $detected = Get-FileEncoding -FilePath $path
-        $detected.CodePage | Should -Be 65001
-        $detected.GetPreamble().Length | Should -Be 0
+        $detected.CodePage | Should-Be 65001
+        $detected.GetPreamble().Length | Should-Be 0
     }
 }

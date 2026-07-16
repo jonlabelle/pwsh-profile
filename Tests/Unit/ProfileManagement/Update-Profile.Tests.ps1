@@ -76,9 +76,9 @@ Describe 'Update-Profile' {
             $hostOutput = @(Update-Profile -ProfileRoot (New-UpdateProfileTestRoot) -ErrorAction Stop 6>&1 | ForEach-Object { [String]$_ })
 
             $output = $hostOutput -join "`n"
-            $output | Should -Match 'Git is not installed or not found in PATH\.'
-            $output | Should -Match 'install\.ps1'
-            $script:GitInvocations.Count | Should -Be 0
+            $output | Should-MatchString 'Git is not installed or not found in PATH\.'
+            $output | Should-MatchString 'install\.ps1'
+            $script:GitInvocations.Count | Should-Be 0
         }
 
         It 'Writes an error when the profile root is not a git repository' {
@@ -93,8 +93,8 @@ Describe 'Update-Profile' {
 
             $null = Update-Profile -ProfileRoot $profileRoot -ErrorAction SilentlyContinue -ErrorVariable updateErrors 6>&1
 
-            $updateErrors[0].Exception.Message | Should -Match 'is not a git repository'
-            $script:GitInvocations.Count | Should -Be 0
+            $updateErrors[0].Exception.Message | Should-MatchString 'is not a git repository'
+            $script:GitInvocations.Count | Should-Be 0
         }
     }
 
@@ -133,14 +133,14 @@ Describe 'Update-Profile' {
 
             $hostOutput = @(Update-Profile -ProfileRoot $profileRoot -ErrorAction SilentlyContinue -ErrorVariable updateErrors 6>&1 | ForEach-Object { [String]$_ })
 
-            $hostOutput | Should -Contain 'fatal: cannot rebase: You have unstaged changes.'
-            $updateErrors[0].Exception.Message | Should -Match 'git pull failed with exit code 128'
+            $hostOutput | Should-ContainCollection 'fatal: cannot rebase: You have unstaged changes.'
+            $updateErrors[0].Exception.Message | Should-MatchString 'git pull failed with exit code 128'
 
             $pullInvocations = @($script:GitInvocations | Where-Object { ($_ -join ' ') -match 'pull --rebase$' })
-            $pullInvocations.Count | Should -Be 1
+            $pullInvocations.Count | Should-Be 1
 
             $logInvocations = @($script:GitInvocations | Where-Object { ($_ -join ' ') -match 'log --oneline' })
-            $logInvocations.Count | Should -Be 0
+            $logInvocations.Count | Should-Be 0
         }
 
         It 'Shows the up-to-date message when HEAD is unchanged' {
@@ -168,8 +168,8 @@ Describe 'Update-Profile' {
 
             $hostOutput = @(Update-Profile -ProfileRoot $profileRoot -ErrorAction Stop 6>&1 | ForEach-Object { [String]$_ })
 
-            $hostOutput | Should -Contain 'Profile is already up to date.'
-            $hostOutput | Should -Not -Contain 'Updates:'
+            $hostOutput | Should-ContainCollection 'Profile is already up to date.'
+            $hostOutput | Should-NotContainCollection 'Updates:'
         }
 
         It 'Prints cleaned commit summary bullets when HEAD changes' {
@@ -213,15 +213,15 @@ Describe 'Update-Profile' {
 
             $hostOutput = @(Update-Profile -ProfileRoot $profileRoot -ErrorAction Stop 6>&1 | ForEach-Object { [String]$_ })
 
-            $hostOutput | Should -Contain 'Updates:'
-            $hostOutput | Should -Contain '  - feat: add updater coverage'
-            $hostOutput | Should -Contain '  - docs: refresh update notes'
-            $hostOutput | Should -Contain 'Profile updated successfully! Restart your PowerShell session to reload your profile.'
+            $hostOutput | Should-ContainCollection 'Updates:'
+            $hostOutput | Should-ContainCollection '  - feat: add updater coverage'
+            $hostOutput | Should-ContainCollection '  - docs: refresh update notes'
+            $hostOutput | Should-ContainCollection 'Profile updated successfully! Restart your PowerShell session to reload your profile.'
 
             $output = $hostOutput -join "`n"
-            $output | Should -Not -Match '2222222'
-            $output | Should -Not -Match 'HEAD -> main'
-            $output | Should -Not -Match '\(profile\)'
+            $output | Should-NotMatchString '2222222'
+            $output | Should-NotMatchString 'HEAD -> main'
+            $output | Should-NotMatchString '\(profile\)'
 
             Remove-Variable -Name RevParseCount -Scope Script -ErrorAction SilentlyContinue
         }

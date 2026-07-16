@@ -36,7 +36,7 @@ Describe 'Remove-PythonArtifact' {
 
     Context 'Parameter validation' {
         It 'Should throw when Path is empty' {
-            { Remove-PythonArtifact -Path '' } | Should -Throw
+            { Remove-PythonArtifact -Path '' } | Should-Throw
         }
 
         It 'Should write an error for a non-existent path' {
@@ -52,8 +52,8 @@ Describe 'Remove-PythonArtifact' {
 
             $result = Remove-PythonArtifact -Path $script:TestRoot
 
-            Test-Path -Path $dir.FullName | Should -BeFalse
-            $result.DirsRemoved | Should -Be 1
+            Test-Path -Path $dir.FullName | Should-BeFalsy
+            $result.DirsRemoved | Should-Be 1
         }
 
         It 'Should remove .pytest_cache directory' {
@@ -61,8 +61,8 @@ Describe 'Remove-PythonArtifact' {
 
             $result = Remove-PythonArtifact -Path $script:TestRoot
 
-            Test-Path -Path $dir.FullName | Should -BeFalse
-            $result.DirsRemoved | Should -Be 1
+            Test-Path -Path $dir.FullName | Should-BeFalsy
+            $result.DirsRemoved | Should-Be 1
         }
 
         It 'Should remove .mypy_cache directory' {
@@ -70,7 +70,7 @@ Describe 'Remove-PythonArtifact' {
 
             Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
-            Test-Path -Path $dir.FullName | Should -BeFalse
+            Test-Path -Path $dir.FullName | Should-BeFalsy
         }
 
         It 'Should remove .ruff_cache directory' {
@@ -78,7 +78,7 @@ Describe 'Remove-PythonArtifact' {
 
             Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
-            Test-Path -Path $dir.FullName | Should -BeFalse
+            Test-Path -Path $dir.FullName | Should-BeFalsy
         }
 
         It 'Should remove .venv directory' {
@@ -86,7 +86,7 @@ Describe 'Remove-PythonArtifact' {
 
             Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
-            Test-Path -Path $dir.FullName | Should -BeFalse
+            Test-Path -Path $dir.FullName | Should-BeFalsy
         }
 
         It 'Should remove venv directory' {
@@ -94,7 +94,7 @@ Describe 'Remove-PythonArtifact' {
 
             Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
-            Test-Path -Path $dir.FullName | Should -BeFalse
+            Test-Path -Path $dir.FullName | Should-BeFalsy
         }
 
         It 'Should remove .tox directory' {
@@ -102,7 +102,7 @@ Describe 'Remove-PythonArtifact' {
 
             Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
-            Test-Path -Path $dir.FullName | Should -BeFalse
+            Test-Path -Path $dir.FullName | Should-BeFalsy
         }
 
         It 'Should remove .nox directory' {
@@ -110,7 +110,7 @@ Describe 'Remove-PythonArtifact' {
 
             Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
-            Test-Path -Path $dir.FullName | Should -BeFalse
+            Test-Path -Path $dir.FullName | Should-BeFalsy
         }
 
         It 'Should remove htmlcov directory' {
@@ -118,7 +118,7 @@ Describe 'Remove-PythonArtifact' {
 
             Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
-            Test-Path -Path $dir.FullName | Should -BeFalse
+            Test-Path -Path $dir.FullName | Should-BeFalsy
         }
 
         It 'Should remove dist directory' {
@@ -126,7 +126,7 @@ Describe 'Remove-PythonArtifact' {
 
             Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
-            Test-Path -Path $dir.FullName | Should -BeFalse
+            Test-Path -Path $dir.FullName | Should-BeFalsy
         }
 
         It 'Should remove build directory' {
@@ -134,7 +134,7 @@ Describe 'Remove-PythonArtifact' {
 
             Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
-            Test-Path -Path $dir.FullName | Should -BeFalse
+            Test-Path -Path $dir.FullName | Should-BeFalsy
         }
 
         It 'Should remove *.egg-info directories' {
@@ -142,8 +142,8 @@ Describe 'Remove-PythonArtifact' {
 
             $result = Remove-PythonArtifact -Path $script:TestRoot
 
-            Test-Path -Path $dir.FullName | Should -BeFalse
-            $result.DirsRemoved | Should -Be 1
+            Test-Path -Path $dir.FullName | Should-BeFalsy
+            $result.DirsRemoved | Should-Be 1
         }
 
         It 'Should remove multiple artifact directories and count them correctly' {
@@ -153,7 +153,7 @@ Describe 'Remove-PythonArtifact' {
 
             $result = Remove-PythonArtifact -Path $script:TestRoot
 
-            $result.DirsRemoved | Should -Be 3
+            $result.DirsRemoved | Should-Be 3
         }
 
         It 'Should not remove non-artifact directories' {
@@ -161,7 +161,7 @@ Describe 'Remove-PythonArtifact' {
 
             Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
-            Test-Path -Path $srcDir.FullName | Should -BeTrue
+            Test-Path -Path $srcDir.FullName | Should-BeTruthy
         }
     }
 
@@ -171,8 +171,8 @@ Describe 'Remove-PythonArtifact' {
 
             $result = Remove-PythonArtifact -Path $script:TestRoot
 
-            Test-Path -Path $file.FullName | Should -BeFalse
-            $result.FilesRemoved | Should -Be 1
+            Test-Path -Path $file.FullName | Should-BeFalsy
+            $result.FilesRemoved | Should-Be 1
         }
 
         It 'Should remove .pyo files' {
@@ -180,7 +180,7 @@ Describe 'Remove-PythonArtifact' {
 
             Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
-            Test-Path -Path $file.FullName | Should -BeFalse
+            Test-Path -Path $file.FullName | Should-BeFalsy
         }
 
         It 'Should remove .coverage file' {
@@ -188,7 +188,7 @@ Describe 'Remove-PythonArtifact' {
 
             Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
-            Test-Path -Path $file.FullName | Should -BeFalse
+            Test-Path -Path $file.FullName | Should-BeFalsy
         }
 
         It 'Should remove .coverage.* parallel-mode files' {
@@ -196,7 +196,7 @@ Describe 'Remove-PythonArtifact' {
 
             Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
-            Test-Path -Path $file.FullName | Should -BeFalse
+            Test-Path -Path $file.FullName | Should-BeFalsy
         }
 
         It 'Should remove coverage.xml file' {
@@ -204,7 +204,7 @@ Describe 'Remove-PythonArtifact' {
 
             Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
-            Test-Path -Path $file.FullName | Should -BeFalse
+            Test-Path -Path $file.FullName | Should-BeFalsy
         }
 
         It 'Should remove .pdm-python file' {
@@ -212,7 +212,7 @@ Describe 'Remove-PythonArtifact' {
 
             Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
-            Test-Path -Path $file.FullName | Should -BeFalse
+            Test-Path -Path $file.FullName | Should-BeFalsy
         }
 
         It 'Should not remove non-artifact Python source files' {
@@ -220,7 +220,7 @@ Describe 'Remove-PythonArtifact' {
 
             Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
-            Test-Path -Path $file.FullName | Should -BeTrue
+            Test-Path -Path $file.FullName | Should-BeTruthy
         }
 
         It 'Should remove both artifact directories and files in the same run' {
@@ -229,8 +229,8 @@ Describe 'Remove-PythonArtifact' {
 
             $result = Remove-PythonArtifact -Path $script:TestRoot
 
-            $result.DirsRemoved | Should -Be 1
-            $result.FilesRemoved | Should -Be 1
+            $result.DirsRemoved | Should-Be 1
+            $result.FilesRemoved | Should-Be 1
         }
     }
 
@@ -241,7 +241,7 @@ Describe 'Remove-PythonArtifact' {
 
             Remove-PythonArtifact -Path $script:TestRoot | Out-Null
 
-            Test-Path -Path $nestedCache.FullName | Should -BeTrue
+            Test-Path -Path $nestedCache.FullName | Should-BeTruthy
         }
 
         It 'Should remove nested artifacts with -Recurse' {
@@ -250,8 +250,8 @@ Describe 'Remove-PythonArtifact' {
 
             $result = Remove-PythonArtifact -Path $script:TestRoot -Recurse
 
-            Test-Path -Path $nestedCache.FullName | Should -BeFalse
-            $result.DirsRemoved | Should -Be 1
+            Test-Path -Path $nestedCache.FullName | Should-BeFalsy
+            $result.DirsRemoved | Should-Be 1
         }
 
         It 'Should remove nested artifact files with -Recurse' {
@@ -260,8 +260,8 @@ Describe 'Remove-PythonArtifact' {
 
             $result = Remove-PythonArtifact -Path $script:TestRoot -Recurse
 
-            Test-Path -Path $nestedFile.FullName | Should -BeFalse
-            $result.FilesRemoved | Should -Be 1
+            Test-Path -Path $nestedFile.FullName | Should-BeFalsy
+            $result.FilesRemoved | Should-Be 1
         }
 
         It 'Should not recurse into artifact directories' {
@@ -272,8 +272,8 @@ Describe 'Remove-PythonArtifact' {
 
             $result = Remove-PythonArtifact -Path $script:TestRoot -Recurse
 
-            Test-Path -Path $cacheDir.FullName | Should -BeFalse
-            $result.DirsRemoved | Should -Be 1
+            Test-Path -Path $cacheDir.FullName | Should-BeFalsy
+            $result.DirsRemoved | Should-Be 1
         }
 
         It 'Should preserve non-artifact parent directories when recursing' {
@@ -282,7 +282,7 @@ Describe 'Remove-PythonArtifact' {
 
             Remove-PythonArtifact -Path $script:TestRoot -Recurse | Out-Null
 
-            Test-Path -Path $subDir.FullName | Should -BeTrue
+            Test-Path -Path $subDir.FullName | Should-BeTruthy
         }
     }
 
@@ -292,7 +292,7 @@ Describe 'Remove-PythonArtifact' {
 
             Remove-PythonArtifact -Path $script:TestRoot -WhatIf | Out-Null
 
-            Test-Path -Path $dir.FullName | Should -BeTrue
+            Test-Path -Path $dir.FullName | Should-BeTruthy
         }
 
         It 'Should not remove files when -WhatIf is specified' {
@@ -300,7 +300,7 @@ Describe 'Remove-PythonArtifact' {
 
             Remove-PythonArtifact -Path $script:TestRoot -WhatIf | Out-Null
 
-            Test-Path -Path $file.FullName | Should -BeTrue
+            Test-Path -Path $file.FullName | Should-BeTruthy
         }
 
         It 'Should report zero removals when -WhatIf is specified' {
@@ -309,8 +309,8 @@ Describe 'Remove-PythonArtifact' {
 
             $result = Remove-PythonArtifact -Path $script:TestRoot -WhatIf
 
-            $result.DirsRemoved | Should -Be 0
-            $result.FilesRemoved | Should -Be 0
+            $result.DirsRemoved | Should-Be 0
+            $result.FilesRemoved | Should-Be 0
         }
     }
 
@@ -321,7 +321,7 @@ Describe 'Remove-PythonArtifact' {
 
             Remove-PythonArtifact -Path $script:TestRoot -Recurse -ExcludeDirectory @('vendor') | Out-Null
 
-            Test-Path -Path $nestedCache.FullName | Should -BeTrue
+            Test-Path -Path $nestedCache.FullName | Should-BeTruthy
         }
     }
 
@@ -330,30 +330,30 @@ Describe 'Remove-PythonArtifact' {
             $result = Remove-PythonArtifact -Path $script:TestRoot
 
             $result | Should -Not -BeNullOrEmpty
-            $result.PSObject.Properties.Name | Should -Contain 'DirsRemoved'
-            $result.PSObject.Properties.Name | Should -Contain 'FilesRemoved'
-            $result.PSObject.Properties.Name | Should -Contain 'TotalSpaceFreed'
-            $result.PSObject.Properties.Name | Should -Contain 'Errors'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'DirsRemoved'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'FilesRemoved'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'TotalSpaceFreed'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'Errors'
         }
 
         It 'Should report zero removals for a directory with no artifacts' {
             $result = Remove-PythonArtifact -Path $script:TestRoot
 
-            $result.DirsRemoved | Should -Be 0
-            $result.FilesRemoved | Should -Be 0
-            $result.Errors | Should -Be 0
+            $result.DirsRemoved | Should-Be 0
+            $result.FilesRemoved | Should-Be 0
+            $result.Errors | Should-Be 0
         }
 
         It 'Should report TotalSpaceFreed as a string when -NoSizeCalculation is specified' {
             $result = Remove-PythonArtifact -Path $script:TestRoot -NoSizeCalculation
 
-            $result.TotalSpaceFreed | Should -Be 'Not calculated (use without -NoSizeCalculation for details)'
+            $result.TotalSpaceFreed | Should-Be 'Not calculated (use without -NoSizeCalculation for details)'
         }
 
         It 'Should report TotalSpaceFreed as bytes string when no artifacts removed' {
             $result = Remove-PythonArtifact -Path $script:TestRoot
 
-            $result.TotalSpaceFreed | Should -Be '0 bytes'
+            $result.TotalSpaceFreed | Should-Be '0 bytes'
         }
     }
 }

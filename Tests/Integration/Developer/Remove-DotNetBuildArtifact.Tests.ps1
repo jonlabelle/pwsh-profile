@@ -1,4 +1,4 @@
-﻿BeforeAll {
+BeforeAll {
     # Suppress progress bars to prevent freezing in non-interactive environments
     $Global:ProgressPreference = 'SilentlyContinue'
 
@@ -53,10 +53,10 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
             $Result = Remove-DotNetBuildArtifact -Path $script:ProjectPath -Recurse
 
             # Verify folders are removed
-            Test-Path $BinPath | Should -BeFalse
-            Test-Path $ObjPath | Should -BeFalse
-            $Result.FoldersRemoved | Should -Be 2
-            $Result.TotalProjectsFound | Should -Be 1
+            Test-Path $BinPath | Should-BeFalsy
+            Test-Path $ObjPath | Should-BeFalsy
+            $Result.FoldersRemoved | Should-Be 2
+            $Result.TotalProjectsFound | Should-Be 1
         }
 
         It 'Should remove bin and obj folders from VB.NET projects' {
@@ -72,8 +72,8 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
             $Result = Remove-DotNetBuildArtifact -Path $script:ProjectPath -Recurse
 
             # Verify
-            Test-Path $BinPath | Should -BeFalse
-            $Result.FoldersRemoved | Should -Be 1
+            Test-Path $BinPath | Should-BeFalsy
+            $Result.FoldersRemoved | Should-Be 1
         }
 
         It 'Should remove bin and obj folders from F# projects' {
@@ -89,8 +89,8 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
             $Result = Remove-DotNetBuildArtifact -Path $script:ProjectPath -Recurse
 
             # Verify
-            Test-Path $ObjPath | Should -BeFalse
-            $Result.FoldersRemoved | Should -Be 1
+            Test-Path $ObjPath | Should-BeFalsy
+            $Result.FoldersRemoved | Should-Be 1
         }
 
         It 'Should remove bin and obj folders from SQL projects' {
@@ -106,8 +106,8 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
             $Result = Remove-DotNetBuildArtifact -Path $script:ProjectPath -Recurse
 
             # Verify
-            Test-Path $BinPath | Should -BeFalse
-            $Result.FoldersRemoved | Should -Be 1
+            Test-Path $BinPath | Should-BeFalsy
+            $Result.FoldersRemoved | Should-Be 1
         }
 
         It 'Should not remove bin/obj folders without project file' {
@@ -121,10 +121,10 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
             $Result = Remove-DotNetBuildArtifact -Path $script:ProjectPath
 
             # Verify folders still exist (no project file found)
-            Test-Path $BinPath | Should -BeTrue
-            Test-Path $ObjPath | Should -BeTrue
-            $Result.FoldersRemoved | Should -Be 0
-            $Result.TotalProjectsFound | Should -Be 0
+            Test-Path $BinPath | Should-BeTruthy
+            Test-Path $ObjPath | Should-BeTruthy
+            $Result.FoldersRemoved | Should-Be 0
+            $Result.TotalProjectsFound | Should-Be 0
         }
 
         It 'Should respect -WhatIf parameter' {
@@ -137,7 +137,7 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
             $null = Remove-DotNetBuildArtifact -Path $script:ProjectPath -WhatIf
 
             # Verify folder still exists
-            Test-Path $BinPath | Should -BeTrue
+            Test-Path $BinPath | Should-BeTruthy
         }
 
         It 'Should calculate space freed' {
@@ -153,8 +153,8 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
             $Result = Remove-DotNetBuildArtifact -Path $script:ProjectPath
 
             # Verify space calculation
-            $Result.TotalSpaceFreed | Should -Not -Match 'Not calculated'
-            $Result.TotalSpaceFreed | Should -Not -Be '0 bytes'
+            $Result.TotalSpaceFreed | Should-NotMatchString 'Not calculated'
+            $Result.TotalSpaceFreed | Should-NotBe '0 bytes'
         }
 
         It 'Should skip size calculation with -NoSizeCalculation' {
@@ -170,8 +170,8 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
             $Result = Remove-DotNetBuildArtifact -Path $script:ProjectPath -NoSizeCalculation
 
             # Verify
-            $Result.TotalSpaceFreed | Should -Match 'Not calculated'
-            $Result.FoldersRemoved | Should -Be 1
+            $Result.TotalSpaceFreed | Should-MatchString 'Not calculated'
+            $Result.FoldersRemoved | Should-Be 1
         }
     }
 
@@ -213,15 +213,15 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
             $Result = Remove-DotNetBuildArtifact -Path $script:WorkspacePath -Recurse
 
             # Verify all artifacts removed
-            Test-Path (Join-Path -Path $Project1 -ChildPath 'bin') | Should -BeFalse
-            Test-Path (Join-Path -Path $Project1 -ChildPath 'obj') | Should -BeFalse
-            Test-Path (Join-Path -Path $Project2 -ChildPath 'bin') | Should -BeFalse
-            Test-Path (Join-Path -Path $Project2 -ChildPath 'obj') | Should -BeFalse
-            Test-Path (Join-Path -Path $Project3 -ChildPath 'bin') | Should -BeFalse
-            Test-Path (Join-Path -Path $Project3 -ChildPath 'obj') | Should -BeFalse
+            Test-Path (Join-Path -Path $Project1 -ChildPath 'bin') | Should-BeFalsy
+            Test-Path (Join-Path -Path $Project1 -ChildPath 'obj') | Should-BeFalsy
+            Test-Path (Join-Path -Path $Project2 -ChildPath 'bin') | Should-BeFalsy
+            Test-Path (Join-Path -Path $Project2 -ChildPath 'obj') | Should-BeFalsy
+            Test-Path (Join-Path -Path $Project3 -ChildPath 'bin') | Should-BeFalsy
+            Test-Path (Join-Path -Path $Project3 -ChildPath 'obj') | Should-BeFalsy
 
-            $Result.TotalProjectsFound | Should -Be 3
-            $Result.FoldersRemoved | Should -Be 6
+            $Result.TotalProjectsFound | Should-Be 3
+            $Result.FoldersRemoved | Should-Be 6
         }
 
         It 'Should limit scope without Recurse' {
@@ -238,11 +238,11 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
 
             $Result = Remove-DotNetBuildArtifact -Path $rootProject
 
-            Test-Path (Join-Path -Path $rootProject -ChildPath 'bin') | Should -BeFalse
-            Test-Path (Join-Path -Path $rootProject -ChildPath 'obj') | Should -BeFalse
-            Test-Path (Join-Path -Path $nestedProject -ChildPath 'bin') | Should -BeTrue
-            Test-Path (Join-Path -Path $nestedProject -ChildPath 'obj') | Should -BeTrue
-            $Result.FoldersRemoved | Should -Be 2
+            Test-Path (Join-Path -Path $rootProject -ChildPath 'bin') | Should-BeFalsy
+            Test-Path (Join-Path -Path $rootProject -ChildPath 'obj') | Should-BeFalsy
+            Test-Path (Join-Path -Path $nestedProject -ChildPath 'bin') | Should-BeTruthy
+            Test-Path (Join-Path -Path $nestedProject -ChildPath 'obj') | Should-BeTruthy
+            $Result.FoldersRemoved | Should-Be 2
         }
 
         It 'Should handle projects with only bin or only obj' {
@@ -264,10 +264,10 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
             $Result = Remove-DotNetBuildArtifact -Path $script:WorkspacePath -Recurse
 
             # Verify
-            Test-Path $BinPath | Should -BeFalse
-            Test-Path $ObjPath | Should -BeFalse
-            $Result.TotalProjectsFound | Should -Be 2
-            $Result.FoldersRemoved | Should -Be 2
+            Test-Path $BinPath | Should-BeFalsy
+            Test-Path $ObjPath | Should-BeFalsy
+            $Result.TotalProjectsFound | Should-Be 2
+            $Result.FoldersRemoved | Should-Be 2
         }
 
         It 'Should handle nested bin/obj directories' {
@@ -289,8 +289,8 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
             $Result = Remove-DotNetBuildArtifact -Path $script:WorkspacePath -Recurse
 
             # Verify entire bin directory is removed
-            Test-Path $BinPath | Should -BeFalse
-            $Result.FoldersRemoved | Should -Be 1
+            Test-Path $BinPath | Should-BeFalsy
+            $Result.FoldersRemoved | Should-Be 1
         }
     }
 
@@ -327,9 +327,9 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
             $Result = Remove-DotNetBuildArtifact -Path $script:WorkspacePath -Recurse
 
             # Verify .git project was excluded
-            Test-Path $BinPath | Should -BeTrue
-            Test-Path $NormalBin | Should -BeFalse
-            $Result.TotalProjectsFound | Should -Be 1
+            Test-Path $BinPath | Should-BeTruthy
+            Test-Path $NormalBin | Should-BeFalsy
+            $Result.TotalProjectsFound | Should-Be 1
         }
 
         It 'Should exclude node_modules directories by default' {
@@ -345,8 +345,8 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
             $Result = Remove-DotNetBuildArtifact -Path $script:WorkspacePath
 
             # Verify node_modules project was excluded
-            Test-Path $BinPath | Should -BeTrue
-            $Result.TotalProjectsFound | Should -Be 0
+            Test-Path $BinPath | Should-BeTruthy
+            $Result.TotalProjectsFound | Should-Be 0
         }
 
         It 'Should respect custom ExcludeDirectory parameter' {
@@ -369,9 +369,9 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
             $Result = Remove-DotNetBuildArtifact -Path $script:WorkspacePath -ExcludeDirectory @('.git', 'node_modules', 'vendor') -Recurse
 
             # Verify vendor was excluded, normal was cleaned
-            Test-Path $VendorBin | Should -BeTrue
-            Test-Path $NormalBin | Should -BeFalse
-            $Result.TotalProjectsFound | Should -Be 1
+            Test-Path $VendorBin | Should-BeTruthy
+            Test-Path $NormalBin | Should-BeFalsy
+            $Result.TotalProjectsFound | Should-Be 1
         }
     }
 
@@ -399,7 +399,7 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
                 $RelativePath = Split-Path $script:ProjectPath -Leaf
                 $Result = Remove-DotNetBuildArtifact -Path $RelativePath
 
-                $Result.FoldersRemoved | Should -Be 1
+                $Result.FoldersRemoved | Should-Be 1
             }
             finally
             {
@@ -413,7 +413,7 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
             {
                 $Result = Remove-DotNetBuildArtifact
 
-                $Result.FoldersRemoved | Should -Be 1
+                $Result.FoldersRemoved | Should-Be 1
             }
             finally
             {
@@ -426,7 +426,7 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
         It 'Should handle invalid path' {
             $InvalidPath = Join-Path -Path $script:TestRoot -ChildPath 'nonexistent-path'
 
-            { Remove-DotNetBuildArtifact -Path $InvalidPath -ErrorAction Stop } | Should -Throw
+            { Remove-DotNetBuildArtifact -Path $InvalidPath -ErrorAction Stop } | Should-Throw
         }
 
         It 'Should handle path that is not a directory' {
@@ -435,7 +435,7 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
 
             try
             {
-                { Remove-DotNetBuildArtifact -Path $FilePath -ErrorAction Stop } | Should -Throw
+                { Remove-DotNetBuildArtifact -Path $FilePath -ErrorAction Stop } | Should-Throw
             }
             finally
             {
@@ -451,8 +451,8 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
             {
                 $Result = Remove-DotNetBuildArtifact -Path $EmptyPath
 
-                $Result.PSObject.Properties.Name | Should -Contain 'Errors'
-                $Result.Errors | Should -BeOfType [int]
+                $Result.PSObject.Properties.Name | Should-ContainCollection 'Errors'
+                $Result.Errors | Should-HaveType ([int])
             }
             finally
             {
@@ -482,9 +482,9 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
             $Result = Remove-DotNetBuildArtifact -Path $script:ProjectPath
 
             # Should complete successfully
-            $Result.TotalProjectsFound | Should -Be 1
-            $Result.FoldersRemoved | Should -Be 0
-            $Result.Errors | Should -Be 0
+            $Result.TotalProjectsFound | Should-Be 1
+            $Result.FoldersRemoved | Should-Be 0
+            $Result.Errors | Should-Be 0
         }
 
         It 'Should handle empty directory' {
@@ -492,9 +492,9 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
             $Result = Remove-DotNetBuildArtifact -Path $script:ProjectPath
 
             # Should complete without errors
-            $Result.TotalProjectsFound | Should -Be 0
-            $Result.FoldersRemoved | Should -Be 0
-            $Result.Errors | Should -Be 0
+            $Result.TotalProjectsFound | Should-Be 0
+            $Result.FoldersRemoved | Should-Be 0
+            $Result.Errors | Should-Be 0
         }
 
         It 'Should handle mixed project types' {
@@ -514,10 +514,10 @@ Describe 'Remove-DotNetBuildArtifact Integration Tests' -Tag 'Integration' {
             $Result = Remove-DotNetBuildArtifact -Path $script:ProjectPath -Recurse
 
             # Verify both projects cleaned
-            Test-Path $BinPath1 | Should -BeFalse
-            Test-Path $ObjPath | Should -BeFalse
-            $Result.TotalProjectsFound | Should -Be 2
-            $Result.FoldersRemoved | Should -Be 2
+            Test-Path $BinPath1 | Should-BeFalsy
+            Test-Path $ObjPath | Should-BeFalsy
+            $Result.TotalProjectsFound | Should-Be 2
+            $Result.FoldersRemoved | Should-Be 2
         }
     }
 }

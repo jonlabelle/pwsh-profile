@@ -20,28 +20,28 @@ Describe 'Get-PublicDnsServer' {
     Context 'Default output (no parameters)' {
         It 'Should return multiple DNS server entries' {
             $results = Get-PublicDnsServer
-            @($results).Count | Should -BeGreaterThan 5
+            @($results).Count | Should-BeGreaterThan 5
         }
 
         It 'Should return objects with expected properties' {
             $results = Get-PublicDnsServer
             $first = $results | Select-Object -First 1
-            $first.PSObject.Properties.Name | Should -Contain 'Name'
-            $first.PSObject.Properties.Name | Should -Contain 'IPv4Primary'
-            $first.PSObject.Properties.Name | Should -Contain 'IPv4Secondary'
-            $first.PSObject.Properties.Name | Should -Contain 'IPv6Primary'
-            $first.PSObject.Properties.Name | Should -Contain 'IPv6Secondary'
-            $first.PSObject.Properties.Name | Should -Contain 'DoHUrl'
-            $first.PSObject.Properties.Name | Should -Contain 'DoHJsonUrl'
-            $first.PSObject.Properties.Name | Should -Contain 'PrivacyPolicyUrl'
+            $first.PSObject.Properties.Name | Should-ContainCollection 'Name'
+            $first.PSObject.Properties.Name | Should-ContainCollection 'IPv4Primary'
+            $first.PSObject.Properties.Name | Should-ContainCollection 'IPv4Secondary'
+            $first.PSObject.Properties.Name | Should-ContainCollection 'IPv6Primary'
+            $first.PSObject.Properties.Name | Should-ContainCollection 'IPv6Secondary'
+            $first.PSObject.Properties.Name | Should-ContainCollection 'DoHUrl'
+            $first.PSObject.Properties.Name | Should-ContainCollection 'DoHJsonUrl'
+            $first.PSObject.Properties.Name | Should-ContainCollection 'PrivacyPolicyUrl'
         }
 
         It 'Should include well-known providers (Cloudflare, Google, Quad9)' {
             $results = Get-PublicDnsServer
             $names = $results | ForEach-Object { $_.Name }
-            $names | Should -Contain 'Cloudflare'
-            $names | Should -Contain 'Google'
-            $names | Should -Contain 'Quad9'
+            $names | Should-ContainCollection 'Cloudflare'
+            $names | Should-ContainCollection 'Google'
+            $names | Should-ContainCollection 'Quad9'
         }
 
         It 'Should have valid IPv4 addresses for all entries' {
@@ -49,7 +49,7 @@ Describe 'Get-PublicDnsServer' {
             foreach ($server in $results)
             {
                 $parsed = $null
-                [System.Net.IPAddress]::TryParse($server.IPv4Primary, [ref]$parsed) | Should -Be $true
+                [System.Net.IPAddress]::TryParse($server.IPv4Primary, [ref]$parsed) | Should-Be $true
             }
         }
     }
@@ -57,15 +57,15 @@ Describe 'Get-PublicDnsServer' {
     Context 'Name filter' {
         It 'Should filter by exact name' {
             $results = Get-PublicDnsServer -Name 'Google'
-            @($results).Count | Should -Be 1
-            $results.Name | Should -Be 'Google'
-            $results.IPv4Primary | Should -Be '8.8.8.8'
+            @($results).Count | Should-Be 1
+            $results.Name | Should-Be 'Google'
+            $results.IPv4Primary | Should-Be '8.8.8.8'
         }
 
         It 'Should support wildcard filtering' {
             $results = Get-PublicDnsServer -Name 'Cloud*'
-            @($results).Count | Should -Be 1
-            $results.Name | Should -Be 'Cloudflare'
+            @($results).Count | Should-Be 1
+            $results.Name | Should-Be 'Cloudflare'
         }
 
         It 'Should return empty for non-matching name' {
@@ -79,41 +79,41 @@ Describe 'Get-PublicDnsServer' {
             $results = Get-PublicDnsServer -IPv4Only
             foreach ($ip in $results)
             {
-                $ip | Should -BeOfType [String]
+                $ip | Should-HaveType ([String])
                 $parsed = $null
-                [System.Net.IPAddress]::TryParse($ip, [ref]$parsed) | Should -Be $true
+                [System.Net.IPAddress]::TryParse($ip, [ref]$parsed) | Should-Be $true
             }
         }
 
         It 'Should return the same count as full results' {
             $full = Get-PublicDnsServer
             $ipsOnly = Get-PublicDnsServer -IPv4Only
-            @($ipsOnly).Count | Should -Be @($full).Count
+            @($ipsOnly).Count | Should-Be @($full).Count
         }
 
         It 'Should include well-known IPs' {
             $results = Get-PublicDnsServer -IPv4Only
-            $results | Should -Contain '1.1.1.1'
-            $results | Should -Contain '8.8.8.8'
-            $results | Should -Contain '9.9.9.9'
+            $results | Should-ContainCollection '1.1.1.1'
+            $results | Should-ContainCollection '8.8.8.8'
+            $results | Should-ContainCollection '9.9.9.9'
         }
     }
 
     Context 'Known server data integrity' {
         It 'Should have correct Cloudflare data' {
             $cf = Get-PublicDnsServer -Name 'Cloudflare'
-            $cf.IPv4Primary | Should -Be '1.1.1.1'
-            $cf.IPv4Secondary | Should -Be '1.0.0.1'
-            $cf.DoHUrl | Should -Be 'https://cloudflare-dns.com/dns-query'
-            $cf.DoHJsonUrl | Should -Be 'https://cloudflare-dns.com/dns-query'
+            $cf.IPv4Primary | Should-Be '1.1.1.1'
+            $cf.IPv4Secondary | Should-Be '1.0.0.1'
+            $cf.DoHUrl | Should-Be 'https://cloudflare-dns.com/dns-query'
+            $cf.DoHJsonUrl | Should-Be 'https://cloudflare-dns.com/dns-query'
         }
 
         It 'Should have correct Google data' {
             $g = Get-PublicDnsServer -Name 'Google'
-            $g.IPv4Primary | Should -Be '8.8.8.8'
-            $g.IPv4Secondary | Should -Be '8.8.4.4'
-            $g.DoHUrl | Should -Be 'https://dns.google/dns-query'
-            $g.DoHJsonUrl | Should -Be 'https://dns.google/resolve'
+            $g.IPv4Primary | Should-Be '8.8.8.8'
+            $g.IPv4Secondary | Should-Be '8.8.4.4'
+            $g.DoHUrl | Should-Be 'https://dns.google/dns-query'
+            $g.DoHJsonUrl | Should-Be 'https://dns.google/resolve'
         }
     }
 }

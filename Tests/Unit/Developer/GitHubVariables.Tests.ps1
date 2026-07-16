@@ -67,15 +67,15 @@ Describe 'GitHub variable functions' {
         ) {
             {
                 Set-GitHubVariable -Name $Name -Value 'enabled' -Scope Repository -Repository 'octo-org/service-api'
-            } | Should -Throw $Error
+            } | Should-Throw $Error
 
             {
                 Get-GitHubVariable -Name $Name -Scope Repository -Repository 'octo-org/service-api'
-            } | Should -Throw $Error
+            } | Should-Throw $Error
 
             {
                 Remove-GitHubVariable -Name $Name -Scope Repository -Repository 'octo-org/service-api'
-            } | Should -Throw $Error
+            } | Should-Throw $Error
         }
 
         It 'rejects environment names longer than 255 characters' {
@@ -102,15 +102,15 @@ Describe 'GitHub variable functions' {
 
             {
                 Set-GitHubVariable @setGitHubVariableParams
-            } | Should -Throw '*may not exceed 255 characters*'
+            } | Should-Throw '*may not exceed 255 characters*'
 
             {
                 Get-GitHubVariable @getGitHubVariableParams
-            } | Should -Throw '*may not exceed 255 characters*'
+            } | Should-Throw '*may not exceed 255 characters*'
 
             {
                 Remove-GitHubVariable @removeGitHubVariableParams
-            } | Should -Throw '*may not exceed 255 characters*'
+            } | Should-Throw '*may not exceed 255 characters*'
         }
 
         It 'accepts environment names that contain slashes' {
@@ -132,8 +132,8 @@ Describe 'GitHub variable functions' {
             }
             $result = Get-GitHubVariable @getGitHubVariableParams
 
-            $result.Name | Should -Be 'DEPLOY_RING'
-            $result.Target | Should -Be "environment 'Production/Blue' in octo-org/service-api"
+            $result.Name | Should-Be 'DEPLOY_RING'
+            $result.Target | Should-Be "environment 'Production/Blue' in octo-org/service-api"
         }
 
         It 'returns Unchanged when the existing value already matches' {
@@ -149,9 +149,9 @@ Describe 'GitHub variable functions' {
 
             $result = Set-GitHubVariable -Name 'DOTNET_VERSION' -Value '8.0.x' -Scope Repository -Repository 'octo-org/service-api'
 
-            $result.Status | Should -Be 'Unchanged'
-            $result.Changed | Should -BeFalse
-            Should -Invoke -CommandName gh -ParameterFilter {
+            $result.Status | Should-Be 'Unchanged'
+            $result.Changed | Should-BeFalsy
+            Should-Invoke -CommandName gh -ParameterFilter {
                 $args[0] -eq 'api' -and $args -contains '--method' -and $args -contains 'PATCH'
             } -Times 0 -Exactly
         }
@@ -169,8 +169,8 @@ Describe 'GitHub variable functions' {
 
             $result = Set-GitHubVariable -Name 'DOTNET_VERSION' -Value '8.0.x' -Scope Repository -Repository 'octo-org/service-api'
 
-            $result.Status | Should -Be 'Skipped'
-            Should -Invoke -CommandName gh -ParameterFilter {
+            $result.Status | Should-Be 'Skipped'
+            Should-Invoke -CommandName gh -ParameterFilter {
                 $args[0] -eq 'api' -and $args -contains '--method' -and ($args -contains 'PATCH' -or $args -contains 'POST')
             } -Times 0 -Exactly
         }
@@ -202,9 +202,9 @@ Describe 'GitHub variable functions' {
 
             $result = Set-GitHubVariable -Name 'DOTNET_VERSION' -Value '8.0.x' -Scope Repository -Repository 'octo-org/service-api' -Force
 
-            $result.Status | Should -Be 'Updated'
-            $script:TempRequestBodies.Count | Should -Be 1
-            $script:TempRequestBodies[0] | Should -Match '"value":"8.0.x"'
+            $result.Status | Should-Be 'Updated'
+            $script:TempRequestBodies.Count | Should-Be 1
+            $script:TempRequestBodies[0] | Should-MatchString '"value":"8.0.x"'
         }
 
         It 'falls back to the REST API when gh is not installed' {
@@ -232,8 +232,8 @@ Describe 'GitHub variable functions' {
 
                 if ($Method -eq 'POST' -and $Uri -eq 'https://api.github.com/orgs/octo-org/actions/variables')
                 {
-                    $Body | Should -Match '"visibility":"selected"'
-                    $Body | Should -Match '"selected_repository_ids":\[101,102\]'
+                    $Body | Should-MatchString '"visibility":"selected"'
+                    $Body | Should-MatchString '"selected_repository_ids":\[101,102\]'
                     return $null
                 }
 
@@ -250,9 +250,9 @@ Describe 'GitHub variable functions' {
             }
             $result = Set-GitHubVariable @setGitHubVariableParams
 
-            $result.Status | Should -Be 'Created'
-            $result.Transport | Should -Be 'RestApi'
-            $script:App1LookupCount | Should -Be 1
+            $result.Status | Should-Be 'Created'
+            $result.Transport | Should-Be 'RestApi'
+            $script:App1LookupCount | Should-Be 1
         }
 
         It 'retries transient API failures with exponential backoff' {
@@ -284,9 +284,9 @@ Describe 'GitHub variable functions' {
 
             $result = Set-GitHubVariable -Name 'FEATURE_FLAG' -Value 'enabled' -Scope Repository -Repository 'octo-org/service-api'
 
-            $result.Status | Should -Be 'Created'
-            $script:CreateAttempts | Should -Be 2
-            Should -Invoke -CommandName Start-Sleep -Times 1
+            $result.Status | Should-Be 'Created'
+            $script:CreateAttempts | Should-Be 2
+            Should-Invoke -CommandName Start-Sleep -Times 1
         }
 
         It 'rejects -SelectedRepository combined with incompatible -Visibility' -ForEach @(
@@ -304,7 +304,7 @@ Describe 'GitHub variable functions' {
 
             {
                 Set-GitHubVariable @setGitHubVariableParams
-            } | Should -Throw "*'-Visibility selected'*"
+            } | Should-Throw "*'-Visibility selected'*"
         }
 
         It 'rejects whitespace-only entries in -SelectedRepository' {
@@ -320,7 +320,7 @@ Describe 'GitHub variable functions' {
 
             {
                 Set-GitHubVariable @setGitHubVariableParams
-            } | Should -Throw '*empty or whitespace*'
+            } | Should-Throw '*empty or whitespace*'
         }
     }
 
@@ -346,10 +346,10 @@ Describe 'GitHub variable functions' {
 
             $result = Get-GitHubVariable -Name 'REGION' -Scope Organization -Organization 'octo-org' -Token $script:TokenValue
 
-            $result.Name | Should -Be 'REGION'
-            $result.Value | Should -Be 'us-east-1'
-            $result.NumSelectedRepos | Should -Be 2
-            $result.SelectedReposUrl | Should -Be 'https://api.github.com/orgs/octo-org/actions/variables/REGION/repositories'
+            $result.Name | Should-Be 'REGION'
+            $result.Value | Should-Be 'us-east-1'
+            $result.NumSelectedRepos | Should-Be 2
+            $result.SelectedReposUrl | Should-Be 'https://api.github.com/orgs/octo-org/actions/variables/REGION/repositories'
         }
 
         It 'redacts the GitHub token from REST fallback errors' {
@@ -372,8 +372,8 @@ Describe 'GitHub variable functions' {
             }
             catch
             {
-                $_.Exception.Message | Should -Not -Match 'ghp_Abc123Sensitive'
-                $_.Exception.Message | Should -Match '\[REDACTED\]'
+                $_.Exception.Message | Should-NotMatchString 'ghp_Abc123Sensitive'
+                $_.Exception.Message | Should-MatchString '\[REDACTED\]'
             }
         }
     }
@@ -395,7 +395,7 @@ Describe 'GitHub variable functions' {
 
             {
                 & $helpers.InvokeGitHubRequest @invokeGitHubRequestParams
-            } | Should -Throw "*'GH_TOKEN'*"
+            } | Should-Throw "*'GH_TOKEN'*"
         }
     }
 
@@ -413,8 +413,8 @@ Describe 'GitHub variable functions' {
 
             $result = Remove-GitHubVariable -Name 'MISSING_FLAG' -Scope Repository -Repository 'octo-org/service-api'
 
-            $result.Status | Should -Be 'AlreadyAbsent'
-            Should -Invoke -CommandName gh -ParameterFilter {
+            $result.Status | Should-Be 'AlreadyAbsent'
+            Should-Invoke -CommandName gh -ParameterFilter {
                 $args[0] -eq 'api' -and $args -contains '--method' -and $args -contains 'DELETE'
             } -Times 0 -Exactly
         }
@@ -432,8 +432,8 @@ Describe 'GitHub variable functions' {
 
             $result = Remove-GitHubVariable -Name 'FEATURE_FLAG' -Scope Repository -Repository 'octo-org/service-api' -WhatIf
 
-            $result.Status | Should -Be 'WhatIf'
-            Should -Invoke -CommandName gh -ParameterFilter {
+            $result.Status | Should-Be 'WhatIf'
+            Should-Invoke -CommandName gh -ParameterFilter {
                 $args[0] -eq 'api' -and $args -contains '--method' -and $args -contains 'DELETE'
             } -Times 0 -Exactly
         }

@@ -12,33 +12,33 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
     Context 'Parameter Validation' {
         It 'Should have Recurse parameter' {
             $command = Get-Command Invoke-FFmpeg
-            $command.Parameters.ContainsKey('Recurse') | Should -Be $true
+            $command.Parameters.ContainsKey('Recurse') | Should-Be $true
         }
 
         It 'Should not have NoRecursion parameter' {
             $command = Get-Command Invoke-FFmpeg
-            $command.Parameters.ContainsKey('NoRecursion') | Should -Be $false
+            $command.Parameters.ContainsKey('NoRecursion') | Should-Be $false
         }
 
         It 'Should have Exclude parameter' {
             $command = Get-Command Invoke-FFmpeg
-            $command.Parameters.ContainsKey('Exclude') | Should -Be $true
+            $command.Parameters.ContainsKey('Exclude') | Should-Be $true
         }
 
         It 'Should have Filter parameter' {
             $command = Get-Command Invoke-FFmpeg
-            $command.Parameters.ContainsKey('Filter') | Should -Be $true
+            $command.Parameters.ContainsKey('Filter') | Should-Be $true
         }
 
         It 'Should not have Extension parameter' {
             $command = Get-Command Invoke-FFmpeg
-            $command.Parameters.ContainsKey('Extension') | Should -Be $false
+            $command.Parameters.ContainsKey('Extension') | Should-Be $false
         }
 
         It 'Should have default Path value' {
             $command = Get-Command Invoke-FFmpeg
             $pathParam = $command.Parameters['Path']
-            $pathParam.Attributes.Where({$_ -is [System.Management.Automation.ParameterAttribute]})[0].Mandatory | Should -Be $false
+            $pathParam.Attributes.Where({$_ -is [System.Management.Automation.ParameterAttribute]})[0].Mandatory | Should-Be $false
         }
     }
 
@@ -46,19 +46,19 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
         It 'Should have Recurse as Switch parameter' {
             $command = Get-Command Invoke-FFmpeg
             $recurseParam = $command.Parameters['Recurse']
-            $recurseParam.ParameterType.Name | Should -Be 'SwitchParameter'
+            $recurseParam.ParameterType.Name | Should-Be 'SwitchParameter'
         }
 
         It 'Should have Exclude as String array parameter' {
             $command = Get-Command Invoke-FFmpeg
             $excludeParam = $command.Parameters['Exclude']
-            $excludeParam.ParameterType.Name | Should -Be 'String[]'
+            $excludeParam.ParameterType.Name | Should-Be 'String[]'
         }
 
         It 'Should have Filter as String array parameter' {
             $command = Get-Command Invoke-FFmpeg
             $filterParam = $command.Parameters['Filter']
-            $filterParam.ParameterType.Name | Should -Be 'String[]'
+            $filterParam.ParameterType.Name | Should-Be 'String[]'
         }
     }
 
@@ -71,7 +71,7 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
                     $node.Name.VariablePath.UserPath -eq 'Filter'
                 }, $true)
 
-            $parameterAst.DefaultValue.Extent.Text | Should -Be "@('*.mkv')"
+            $parameterAst.DefaultValue.Extent.Text | Should-Be "@('*.mkv')"
         }
     }
 
@@ -94,9 +94,9 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
             $null = Invoke-FFmpeg -Path $script:filterTestRoot -Filter '*.avi', '*.mov' -FFmpegPath $script:fakeFFmpegPath -WhatIf -InformationVariable information
             $messages = ($information | ForEach-Object { $_.MessageData }) -join [Environment]::NewLine
 
-            $messages | Should -Match "Processing: 'filtered-video.avi'"
-            $messages | Should -Match "Processing: 'secondary-video.mov'"
-            $messages | Should -Not -Match 'default-video.mkv'
+            $messages | Should-MatchString "Processing: 'filtered-video.avi'"
+            $messages | Should-MatchString "Processing: 'secondary-video.mov'"
+            $messages | Should-NotMatchString 'default-video.mkv'
         }
     }
 
@@ -266,8 +266,8 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
 
             $loggedArgs = Get-Content -Path $script:ffmpegLogPath
             $loggedArgs | Should -Not -BeNullOrEmpty
-            ($loggedArgs -join ' ') | Should -Match '-c:s(?::0)? (copy|mov_text)'
-            ($loggedArgs -join ' ') | Should -Match '-map (0:2|0:s\\?)'
+            ($loggedArgs -join ' ') | Should-MatchString '-c:s(?::0)? (copy|mov_text)'
+            ($loggedArgs -join ' ') | Should-MatchString '-map (0:2|0:s\\?)'
         }
     }
 }

@@ -16,8 +16,8 @@ Describe 'Get-PlatformPackageDependency' {
         It 'uses Name as an alias for Package without exposing an Id alias' {
             $command = Get-Command Get-PlatformPackageDependency
 
-            $command.Parameters['Package'].Aliases | Should -Contain 'Name'
-            $command.Parameters['Package'].Aliases | Should -Not -Contain 'Id'
+            $command.Parameters['Package'].Aliases | Should-ContainCollection 'Name'
+            $command.Parameters['Package'].Aliases | Should-NotContainCollection 'Id'
         }
     }
 
@@ -35,12 +35,12 @@ Describe 'Get-PlatformPackageDependency' {
 
             $result = @(Get-PlatformPackageDependency -PackageManager brew -Package git -CommandRunner $runner)
 
-            $result.Count | Should -Be 2
-            $result[0].Package | Should -Be 'git'
-            $result[0].Direction | Should -Be 'DependsOn'
-            $result[0].RelatedPackage | Should -Be 'gettext'
-            $result[0].Relationship | Should -Be 'git -> gettext'
-            $result[0].DependencyType | Should -Be 'Dependency'
+            $result.Count | Should-Be 2
+            $result[0].Package | Should-Be 'git'
+            $result[0].Direction | Should-Be 'DependsOn'
+            $result[0].RelatedPackage | Should-Be 'gettext'
+            $result[0].Relationship | Should-Be 'git -> gettext'
+            $result[0].DependencyType | Should-Be 'Dependency'
         }
 
         It 'returns installed dependents from brew uses' {
@@ -50,12 +50,12 @@ Describe 'Get-PlatformPackageDependency' {
 
             $result = @(Get-PlatformPackageDependency -PackageManager brew -Package openssl -Direction RequiredBy -InstalledOnly -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].Package | Should -Be 'openssl'
-            $result[0].Direction | Should -Be 'RequiredBy'
-            $result[0].RelatedPackage | Should -Be 'curl'
-            $result[0].Relationship | Should -Be 'curl -> openssl'
-            $result[0].Installed | Should -BeTrue
+            $result.Count | Should-Be 1
+            $result[0].Package | Should-Be 'openssl'
+            $result[0].Direction | Should-Be 'RequiredBy'
+            $result[0].RelatedPackage | Should-Be 'curl'
+            $result[0].Relationship | Should-Be 'curl -> openssl'
+            $result[0].Installed | Should-BeTruthy
         }
 
         It 'uses eval-all for broad dependent discovery' {
@@ -65,10 +65,10 @@ Describe 'Get-PlatformPackageDependency' {
 
             $result = @(Get-PlatformPackageDependency -PackageManager brew -Package jq -Direction RequiredBy -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].Package | Should -Be 'jq'
-            $result[0].Direction | Should -Be 'RequiredBy'
-            $result[0].RelatedPackage | Should -Be 'gojq'
+            $result.Count | Should-Be 1
+            $result[0].Package | Should-Be 'jq'
+            $result[0].Direction | Should-Be 'RequiredBy'
+            $result[0].RelatedPackage | Should-Be 'gojq'
         }
 
         It 'returns both dependency directions when Direction is Both' {
@@ -79,11 +79,11 @@ Describe 'Get-PlatformPackageDependency' {
 
             $result = @(Get-PlatformPackageDependency -PackageManager brew -Package openssl -Direction Both -CommandRunner $runner)
 
-            $result.Count | Should -Be 2
-            ($result | Where-Object { $_.Direction -eq 'DependsOn' }).RelatedPackage | Should -Be 'ca-certificates'
-            ($result | Where-Object { $_.Direction -eq 'RequiredBy' }).RelatedPackage | Should -Be 'curl'
-            ($result | Where-Object { $_.Direction -eq 'DependsOn' }).Relationship | Should -Be 'openssl -> ca-certificates'
-            ($result | Where-Object { $_.Direction -eq 'RequiredBy' }).Relationship | Should -Be 'curl -> openssl'
+            $result.Count | Should-Be 2
+            ($result | Where-Object { $_.Direction -eq 'DependsOn' }).RelatedPackage | Should-Be 'ca-certificates'
+            ($result | Where-Object { $_.Direction -eq 'RequiredBy' }).RelatedPackage | Should-Be 'curl'
+            ($result | Where-Object { $_.Direction -eq 'DependsOn' }).Relationship | Should-Be 'openssl -> ca-certificates'
+            ($result | Where-Object { $_.Direction -eq 'RequiredBy' }).Relationship | Should-Be 'curl -> openssl'
         }
     }
 
@@ -101,12 +101,12 @@ Describe 'Get-PlatformPackageDependency' {
 
             $result = @(Get-PlatformPackageDependency -PackageManager apt -Package curl -CommandRunner $runner)
 
-            $result.Count | Should -Be 3
-            $result.RelatedPackage | Should -Contain 'libc6'
-            $result.RelatedPackage | Should -Contain 'libcurl4'
-            $result.RelatedPackage | Should -Contain 'dpkg'
-            $result.RelatedPackage | Should -Not -Contain 'ca-certificates'
-            ($result | Where-Object { $_.RelatedPackage -eq 'dpkg' }).DependencyType | Should -Be 'PreDepends'
+            $result.Count | Should-Be 3
+            $result.RelatedPackage | Should-ContainCollection 'libc6'
+            $result.RelatedPackage | Should-ContainCollection 'libcurl4'
+            $result.RelatedPackage | Should-ContainCollection 'dpkg'
+            $result.RelatedPackage | Should-NotContainCollection 'ca-certificates'
+            ($result | Where-Object { $_.RelatedPackage -eq 'dpkg' }).DependencyType | Should-Be 'PreDepends'
         }
 
         It 'filters reverse dependency records to installed APT packages' {
@@ -125,9 +125,9 @@ Describe 'Get-PlatformPackageDependency' {
 
             $result = @(Get-PlatformPackageDependency -PackageManager apt -Package openssl -Direction RequiredBy -InstalledOnly -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].RelatedPackage | Should -Be 'curl'
-            $result[0].Installed | Should -BeTrue
+            $result.Count | Should-Be 1
+            $result[0].RelatedPackage | Should-Be 'curl'
+            $result[0].Installed | Should-BeTruthy
         }
     }
 
@@ -147,10 +147,10 @@ Describe 'Get-PlatformPackageDependency' {
 
             $result = @(Get-PlatformPackageDependency -PackageManager apk -Package pipewire -Direction Both -CommandRunner $runner)
 
-            $result.Count | Should -Be 3
-            ($result | Where-Object { $_.Direction -eq 'DependsOn' }).RelatedPackage | Should -Contain '/bin/sh'
-            ($result | Where-Object { $_.Direction -eq 'DependsOn' }).RelatedPackage | Should -Contain 'so:libpipewire-0.3.so.0'
-            ($result | Where-Object { $_.Direction -eq 'RequiredBy' }).RelatedPackage | Should -Be 'pipewire-pulse'
+            $result.Count | Should-Be 3
+            ($result | Where-Object { $_.Direction -eq 'DependsOn' }).RelatedPackage | Should-ContainCollection '/bin/sh'
+            ($result | Where-Object { $_.Direction -eq 'DependsOn' }).RelatedPackage | Should-ContainCollection 'so:libpipewire-0.3.so.0'
+            ($result | Where-Object { $_.Direction -eq 'RequiredBy' }).RelatedPackage | Should-Be 'pipewire-pulse'
         }
     }
 
@@ -170,28 +170,28 @@ Describe 'Get-PlatformPackageDependency' {
 
             $result = @(Get-PlatformPackageDependency -PackageManager winget -Package Git.Git -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].Package | Should -Be 'Git.Git'
-            $result[0].RelatedPackage | Should -Be 'Microsoft.VCRedist.2015+.x64'
-            $result[0].DependencyType | Should -Be 'Package Dependencies'
+            $result.Count | Should-Be 1
+            $result[0].Package | Should-Be 'Git.Git'
+            $result[0].RelatedPackage | Should-Be 'Microsoft.VCRedist.2015+.x64'
+            $result[0].DependencyType | Should-Be 'Package Dependencies'
         }
 
         It 'rejects reverse dependency lookup for winget' {
             $runner = & $script:NewPackageCommandRunner @{}
 
             { Get-PlatformPackageDependency -PackageManager winget -Package Git.Git -Direction RequiredBy -CommandRunner $runner } |
-                Should -Throw -ExpectedMessage "*Value 'RequiredBy' for parameter -Direction*package manager 'winget'*supports only 'DependsOn'*"
+                Should-Throw -ExceptionMessage "*Value 'RequiredBy' for parameter -Direction*package manager 'winget'*supports only 'DependsOn'*"
 
-            $script:Invocations.Count | Should -Be 0
+            $script:Invocations.Count | Should-Be 0
         }
 
         It 'rejects partial Both dependency lookup for winget' {
             $runner = & $script:NewPackageCommandRunner @{}
 
             { Get-PlatformPackageDependency -PackageManager winget -Package Git.Git -Direction Both -CommandRunner $runner } |
-                Should -Throw -ExpectedMessage "*Value 'Both' for parameter -Direction*package manager 'winget'*supports only 'DependsOn'*"
+                Should-Throw -ExceptionMessage "*Value 'Both' for parameter -Direction*package manager 'winget'*supports only 'DependsOn'*"
 
-            $script:Invocations.Count | Should -Be 0
+            $script:Invocations.Count | Should-Be 0
         }
 
         It 'filters winget installed dependencies by id instead of ambiguous display name' {
@@ -226,8 +226,8 @@ Describe 'Get-PlatformPackageDependency' {
 
             $result = @(Get-PlatformPackageDependency -PackageManager winget -Package Git.Git -InstalledOnly -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].RelatedPackage | Should -Be 'OpenJS.NodeJS.LTS'
+            $result.Count | Should-Be 1
+            $result[0].RelatedPackage | Should-Be 'OpenJS.NodeJS.LTS'
         }
     }
 
@@ -245,10 +245,10 @@ Describe 'Get-PlatformPackageDependency' {
 
             $result = @($package | Get-PlatformPackageDependency -PackageManager brew -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].Package | Should -Be 'git'
-            $result[0].Id | Should -Be 'git'
-            $result[0].RelatedPackage | Should -Be 'gettext'
+            $result.Count | Should-Be 1
+            $result[0].Package | Should-Be 'git'
+            $result[0].Id | Should-Be 'git'
+            $result[0].RelatedPackage | Should-Be 'gettext'
         }
 
         It 'returns empty when brew reports no dependencies for a package' {
@@ -264,7 +264,7 @@ Describe 'Get-PlatformPackageDependency' {
 
             $result = @($package | Get-PlatformPackageDependency -PackageManager brew -CommandRunner $runner)
 
-            $result.Count | Should -Be 0
+            $result.Count | Should-Be 0
         }
 
         It 'returns dependency records for each package when multiple packages are piped' {
@@ -280,9 +280,9 @@ Describe 'Get-PlatformPackageDependency' {
 
             $result = @($packages | Get-PlatformPackageDependency -PackageManager brew -CommandRunner $runner)
 
-            $result.Count | Should -Be 4
-            ($result | Where-Object { $_.Package -eq 'git' }).Count | Should -Be 2
-            ($result | Where-Object { $_.Package -eq 'curl' }).Count | Should -Be 2
+            $result.Count | Should-Be 4
+            ($result | Where-Object { $_.Package -eq 'git' }).Count | Should-Be 2
+            ($result | Where-Object { $_.Package -eq 'curl' }).Count | Should-Be 2
         }
     }
 }

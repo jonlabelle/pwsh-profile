@@ -9,17 +9,17 @@ Describe 'Rename-VideoSeasonFile' -Tag 'Unit' {
     Context 'Parameter Validation' {
         It 'Should have Recurse parameter' {
             $command = Get-Command Rename-VideoSeasonFile
-            $command.Parameters.ContainsKey('Recurse') | Should -Be $true
+            $command.Parameters.ContainsKey('Recurse') | Should-Be $true
         }
 
         It 'Should have Exclude parameter' {
             $command = Get-Command Rename-VideoSeasonFile
-            $command.Parameters.ContainsKey('Exclude') | Should -Be $true
+            $command.Parameters.ContainsKey('Exclude') | Should-Be $true
         }
 
         It 'Should have PassThru parameter' {
             $command = Get-Command Rename-VideoSeasonFile
-            $command.Parameters.ContainsKey('PassThru') | Should -Be $true
+            $command.Parameters.ContainsKey('PassThru') | Should-Be $true
         }
     }
 
@@ -27,19 +27,19 @@ Describe 'Rename-VideoSeasonFile' -Tag 'Unit' {
         It 'Should have Recurse as Switch parameter' {
             $command = Get-Command Rename-VideoSeasonFile
             $recurseParam = $command.Parameters['Recurse']
-            $recurseParam.ParameterType.Name | Should -Be 'SwitchParameter'
+            $recurseParam.ParameterType.Name | Should-Be 'SwitchParameter'
         }
 
         It 'Should have Exclude as String array parameter' {
             $command = Get-Command Rename-VideoSeasonFile
             $excludeParam = $command.Parameters['Exclude']
-            $excludeParam.ParameterType.Name | Should -Be 'String[]'
+            $excludeParam.ParameterType.Name | Should-Be 'String[]'
         }
 
         It 'Should have Filter as String array parameter' {
             $command = Get-Command Rename-VideoSeasonFile
             $filterParam = $command.Parameters['Filter']
-            $filterParam.ParameterType.Name | Should -Be 'String[]'
+            $filterParam.ParameterType.Name | Should-Be 'String[]'
         }
     }
 
@@ -136,8 +136,8 @@ Describe 'Rename-VideoSeasonFile' -Tag 'Unit' {
             # Should handle gracefully by producing appropriate error message
             $ErrorActionPreference = 'SilentlyContinue'
             $null = Rename-VideoSeasonFile -Path $nonExistentFile -WhatIf -ErrorVariable errors 2>&1
-            $errors.Count | Should -BeGreaterThan 0
-            $errors[0].Exception.Message | Should -BeLike '*not found*'
+            $errors.Count | Should-BeGreaterThan 0
+            $errors[0].Exception.Message | Should-BeLikeString '*not found*'
         }
 
         It 'Should support pipeline input for individual files' {
@@ -156,8 +156,8 @@ Describe 'Rename-VideoSeasonFile' -Tag 'Unit' {
 
             # Check for aliases that support file input
             $aliases = $pathParam.Aliases
-            $aliases | Should -Contain 'FilePath'
-            $aliases | Should -Contain 'FullName'
+            $aliases | Should-ContainCollection 'FilePath'
+            $aliases | Should-ContainCollection 'FullName'
         }
     }
 }

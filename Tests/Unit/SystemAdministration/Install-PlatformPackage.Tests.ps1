@@ -20,18 +20,18 @@ Describe 'Install-PlatformPackage' {
             $runner = & $script:NewPackageCommandRunner @{}
 
             { Install-PlatformPackage -PackageManager brew -Name git -Interactive -CommandRunner $runner -Confirm:$false } |
-                Should -Throw -ExpectedMessage "*Parameter -Interactive*package manager 'brew'*only supported by winget*"
+                Should-Throw -ExceptionMessage "*Parameter -Interactive*package manager 'brew'*only supported by winget*"
 
-            $script:Invocations.Count | Should -Be 0
+            $script:Invocations.Count | Should-Be 0
         }
 
         It 'rejects NoSudo for package managers that do not use sudo' {
             $runner = & $script:NewPackageCommandRunner @{}
 
             { Install-PlatformPackage -PackageManager winget -Name Git.Git -NoSudo -CommandRunner $runner -Confirm:$false } |
-                Should -Throw -ExpectedMessage "*Parameter -NoSudo*package manager 'winget'*only supported by apt and apk*"
+                Should-Throw -ExceptionMessage "*Parameter -NoSudo*package manager 'winget'*only supported by apt and apk*"
 
-            $script:Invocations.Count | Should -Be 0
+            $script:Invocations.Count | Should-Be 0
         }
     }
 
@@ -43,9 +43,9 @@ Describe 'Install-PlatformPackage' {
 
             $result = Install-PlatformPackage -PackageManager winget -Name Git.Git -CommandRunner $runner -Confirm:$false
 
-            $result.Installed | Should -Be 1
-            ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --accept-source-agreements --accept-package-agreements' }).StreamOutput | Should -BeTrue
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'winget install output' } -Times 1
+            $result.Installed | Should-Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --accept-source-agreements --accept-package-agreements' }).StreamOutput | Should-BeTruthy
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'winget install output' } -Times 1
         }
 
         It 'passes interactive mode to winget installs' {
@@ -55,8 +55,8 @@ Describe 'Install-PlatformPackage' {
 
             $result = Install-PlatformPackage -PackageManager winget -Name Git.Git -Interactive -CommandRunner $runner -Confirm:$false
 
-            $result.Installed | Should -Be 1
-            ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --accept-source-agreements --accept-package-agreements --interactive' }).StreamOutput | Should -BeTrue
+            $result.Installed | Should-Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --accept-source-agreements --accept-package-agreements --interactive' }).StreamOutput | Should-BeTruthy
         }
 
         It 'promotes the full failure message into informational results' {
@@ -66,22 +66,22 @@ Describe 'Install-PlatformPackage' {
 
             $result = Install-PlatformPackage -PackageManager winget -Name Microsoft.Edge -CommandRunner $runner -Confirm:$false -WarningAction SilentlyContinue
 
-            $result.Installed | Should -Be 0
-            $result.Failed | Should -Be 1
-            $result.Results[0].Message | Should -Match 'winget install --id Microsoft.Edge --exact'
-            $result.Results[0].Message | Should -Match 'failed with exit code -1978335090'
-            $result.Results[0].InformationalOutput | Should -HaveCount 1
-            $result.Results[0].InformationalOutput[0] | Should -BeExactly $result.Results[0].Message
-            $result.InformationalResults | Should -HaveCount 1
-            $result.InformationalResults[0].Lines | Should -HaveCount 1
-            $result.InformationalResults[0].Lines[0] | Should -BeExactly $result.Results[0].Message
+            $result.Installed | Should-Be 0
+            $result.Failed | Should-Be 1
+            $result.Results[0].Message | Should-MatchString 'winget install --id Microsoft.Edge --exact'
+            $result.Results[0].Message | Should-MatchString 'failed with exit code -1978335090'
+            $result.Results[0].InformationalOutput | Should-BeCollection -Count 1
+            $result.Results[0].InformationalOutput[0] | Should-BeString $result.Results[0].Message -CaseSensitive
+            $result.InformationalResults | Should-BeCollection -Count 1
+            $result.InformationalResults[0].Lines | Should-BeCollection -Count 1
+            $result.InformationalResults[0].Lines[0] | Should-BeString $result.Results[0].Message -CaseSensitive
         }
 
         It 'does not expose a separate Id parameter' {
             $command = Get-Command Install-PlatformPackage
 
-            $command.Parameters.ContainsKey('Name') | Should -BeTrue
-            $command.Parameters.ContainsKey('Id') | Should -BeFalse
+            $command.Parameters.ContainsKey('Name') | Should-BeTruthy
+            $command.Parameters.ContainsKey('Id') | Should-BeFalsy
         }
 
         It 'honors WhatIf for direct installs' {
@@ -91,9 +91,9 @@ Describe 'Install-PlatformPackage' {
 
             $result = Install-PlatformPackage -PackageManager brew -Name git -CommandRunner $runner -WhatIf
 
-            $result.Installed | Should -Be 0
-            $result.Skipped | Should -Be 1
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew install git' }).Count | Should -Be 0
+            $result.Installed | Should-Be 0
+            $result.Skipped | Should-Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew install git' }).Count | Should-Be 0
         }
 
         It 'captures post-install instructions in the result object' {
@@ -108,11 +108,11 @@ Describe 'Install-PlatformPackage' {
 
             $result = Install-PlatformPackage -PackageManager brew -Name python -CommandRunner $runner -Confirm:$false
 
-            $result.Installed | Should -Be 1
-            $result.Results[0].CapturedOutput | Should -Contain 'Installing python...'
-            $result.Results[0].InformationalOutput | Should -Contain '==> Caveats'
-            $result.InformationalResults.Count | Should -Be 1
-            $result.InformationalResults[0].Lines | Should -Contain 'Python is installed as'
+            $result.Installed | Should-Be 1
+            $result.Results[0].CapturedOutput | Should-ContainCollection 'Installing python...'
+            $result.Results[0].InformationalOutput | Should-ContainCollection '==> Caveats'
+            $result.InformationalResults.Count | Should-Be 1
+            $result.InformationalResults[0].Lines | Should-ContainCollection 'Python is installed as'
         }
     }
 
@@ -135,11 +135,11 @@ Describe 'Install-PlatformPackage' {
 
             $result = Install-PlatformPackage -PackageManager brew -Query code -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Selected | Should -Be 1
-            $result.Installed | Should -Be 1
-            ($script:Invocations | Where-Object { $_.Key -eq 'brew install --cask visual-studio-code' }).StreamOutput | Should -BeTrue
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter install  V details  A toggle all' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  1 selected" -and $ForegroundColor -eq 'White' } -Times 1
+            $result.Selected | Should-Be 1
+            $result.Installed | Should-Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'brew install --cask visual-studio-code' }).StreamOutput | Should-BeTruthy
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter install  V details  A toggle all' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  1 selected" -and $ForegroundColor -eq 'White' } -Times 1
         }
 
         It 'installs the current search result when Enter is pressed without a selection' {
@@ -155,11 +155,11 @@ Describe 'Install-PlatformPackage' {
 
             $result = Install-PlatformPackage -PackageManager brew -Query git -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Selected | Should -Be 1
-            $result.NotSelected | Should -Be 0
-            $result.Installed | Should -Be 1
-            ($script:Invocations | Where-Object { $_.Key -eq 'brew install git' }).StreamOutput | Should -BeTrue
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter install  V details  A toggle all' } -Times 1
+            $result.Selected | Should-Be 1
+            $result.NotSelected | Should-Be 0
+            $result.Installed | Should-Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'brew install git' }).StreamOutput | Should-BeTruthy
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter install  V details  A toggle all' } -Times 1
         }
 
         It 'shows keyboard help from the query result picker' {
@@ -180,11 +180,11 @@ Describe 'Install-PlatformPackage' {
 
             $result = Install-PlatformPackage -PackageManager brew -Query git -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Selected | Should -Be 0
-            $result.Installed | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Install-PlatformPackage Help' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Enter: ' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'install selected packages, or the current package if none are selected' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+            $result.Selected | Should-Be 0
+            $result.Installed | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Install-PlatformPackage Help' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Enter: ' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'install selected packages, or the current package if none are selected' -and $ForegroundColor -eq 'DarkGray' } -Times 1
         }
 
         It 'shows and skips an installed Homebrew search result' {
@@ -206,14 +206,14 @@ Describe 'Install-PlatformPackage' {
 
             $result = Install-PlatformPackage -PackageManager brew -Query jq -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Selected | Should -Be 1
-            $result.Installed | Should -Be 0
-            $result.Skipped | Should -Be 1
-            $result.Results[0].Message | Should -Be 'Package is already installed'
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew install jq' }).Count | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current: jq' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Id: jq | Source: homebrew/core | Publisher: Homebrew | Installed: yes' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $ForegroundColor -eq 'DarkGray' -and $Object -like '*jq*' } -Times 2
+            $result.Selected | Should-Be 1
+            $result.Installed | Should-Be 0
+            $result.Skipped | Should-Be 1
+            $result.Results[0].Message | Should-Be 'Package is already installed'
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew install jq' }).Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current: jq' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Id: jq | Source: homebrew/core | Publisher: Homebrew | Installed: yes' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $ForegroundColor -eq 'DarkGray' -and $Object -like '*jq*' } -Times 2
         }
 
         It 'installs only the visible package when filtering duplicate winget ids by source' {
@@ -263,10 +263,10 @@ Describe 'Install-PlatformPackage' {
 
             $result = Install-PlatformPackage -PackageManager winget -Query git -FilterSource msstore -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Selected | Should -Be 1
-            $result.Installed | Should -Be 1
-            @($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --source winget --accept-source-agreements --accept-package-agreements' }).Count | Should -Be 0
-            ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --source msstore --accept-source-agreements --accept-package-agreements' }).StreamOutput | Should -BeTrue
+            $result.Selected | Should-Be 1
+            $result.Installed | Should-Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --source winget --accept-source-agreements --accept-package-agreements' }).Count | Should-Be 0
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --source msstore --accept-source-agreements --accept-package-agreements' }).StreamOutput | Should-BeTruthy
         }
 
         It 'toggles interactive mode for the current winget picker row' {
@@ -299,11 +299,11 @@ Describe 'Install-PlatformPackage' {
 
             $result = Install-PlatformPackage -PackageManager winget -Query git -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Installed | Should -Be 1
-            ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --source winget --accept-source-agreements --accept-package-agreements --interactive' }).StreamOutput | Should -BeTrue
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  I interactive installer  Enter install  V details  A toggle all' } -Times 2
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match '^\s+Sel\s+UI\s+' } -Times 2
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match '^> \[ \] \[I\]' } -Times 1
+            $result.Installed | Should-Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --source winget --accept-source-agreements --accept-package-agreements --interactive' }).StreamOutput | Should-BeTruthy
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  I interactive installer  Enter install  V details  A toggle all' } -Times 2
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match '^\s+Sel\s+UI\s+' } -Times 2
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match '^> \[ \] \[I\]' } -Times 1
         }
 
         It 'does not suppress terminal echo when a custom key reader drives winget details' -Skip:($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
@@ -347,9 +347,9 @@ Describe 'Install-PlatformPackage' {
 
             $result = Install-PlatformPackage -PackageManager winget -Query git -CommandRunner $runner -KeyReader $keyReader -TerminalEchoController $terminalEchoController -Confirm:$false
 
-            $result.Selected | Should -Be 0
-            $echoActions.Count | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
+            $result.Selected | Should-Be 0
+            $echoActions.Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
         }
 
         It 'restores terminal echo when winget details throw in the console key reader flow' -Skip:($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
@@ -417,9 +417,9 @@ Describe 'Install-PlatformPackage' {
 
             {
                 Install-PlatformPackage -PackageManager winget -Query git -CommandRunner $runner -KeyReader $keyReader -TreatKeyReaderAsConsoleKeyReader -TerminalEchoController $terminalEchoController -Confirm:$false
-            } | Should -Throw -ExpectedMessage '*winget details failed*'
+            } | Should-Throw -ExceptionMessage '*winget details failed*'
 
-            ($echoActions -join '|') | Should -Be 'Disable|Restore:saved-stty-state'
+            ($echoActions -join '|') | Should-Be 'Disable|Restore:saved-stty-state'
         }
 
         It 'keeps picker table rows within the current console width' {
@@ -467,12 +467,12 @@ Describe 'Install-PlatformPackage' {
                 }
             )
 
-            $tableLines.Count | Should -BeGreaterThan 1
-            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+' } | Select-Object -First 1) | Should -Match '\bVer\b'
-            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+' } | Select-Object -First 1) | Should -Match '\bTyp\b'
-            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+' } | Select-Object -First 1) | Should -Match '\bSrc\b'
-            ($tableLines | Where-Object { $_ -match '^[> ] \[[ x]\]\s+' } | Select-Object -First 1) | Should -Match 'homebrew/core'
-            (($tableLines | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum) | Should -BeLessOrEqual (Get-TestPickerLineLimit)
+            $tableLines.Count | Should-BeGreaterThan 1
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+' } | Select-Object -First 1) | Should-MatchString '\bVer\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+' } | Select-Object -First 1) | Should-MatchString '\bTyp\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+' } | Select-Object -First 1) | Should-MatchString '\bSrc\b'
+            ($tableLines | Where-Object { $_ -match '^[> ] \[[ x]\]\s+' } | Select-Object -First 1) | Should-MatchString 'homebrew/core'
+            (($tableLines | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum) | Should-BeLessThanOrEqual (Get-TestPickerLineLimit)
         }
 
         It 'returns a no-selection summary when the picker is cancelled' {
@@ -487,11 +487,11 @@ Describe 'Install-PlatformPackage' {
 
             $result = Install-PlatformPackage -PackageManager brew -Query git -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Selected | Should -Be 0
-            $result.NotSelected | Should -Be 1
-            $result.Installed | Should -Be 0
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew install git' }).Count | Should -Be 0
-            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 4
+            $result.Selected | Should-Be 0
+            $result.NotSelected | Should-Be 1
+            $result.Installed | Should-Be 0
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew install git' }).Count | Should-Be 0
+            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should-Be 4
         }
     }
 
@@ -508,9 +508,9 @@ Describe 'Install-PlatformPackage' {
 
             $result = $package | Install-PlatformPackage -CommandRunner (& $script:NewPackageCommandRunner @{}) -Confirm:$false
 
-            $result.Selected | Should -Be 1
-            $result.Skipped | Should -Be 1
-            $result.Results[0].Message | Should -Be 'Package is already installed'
+            $result.Selected | Should-Be 1
+            $result.Skipped | Should-Be 1
+            $result.Results[0].Message | Should-Be 'Package is already installed'
         }
 
         It 'passes the package source to winget install commands' {
@@ -529,8 +529,8 @@ Describe 'Install-PlatformPackage' {
 
             $result = $package | Install-PlatformPackage -CommandRunner $runner -Confirm:$false
 
-            $result.Installed | Should -Be 1
-            ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --source msstore --accept-source-agreements --accept-package-agreements' }).StreamOutput | Should -BeTrue
+            $result.Installed | Should-Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget install --id Git.Git --exact --source msstore --accept-source-agreements --accept-package-agreements' }).StreamOutput | Should-BeTruthy
         }
     }
 }

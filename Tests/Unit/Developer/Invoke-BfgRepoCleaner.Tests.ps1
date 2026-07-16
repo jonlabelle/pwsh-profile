@@ -81,7 +81,7 @@ Describe 'Invoke-BfgRepoCleaner' {
         It 'Throws when Docker is not installed' {
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
 
-            { Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' } | Should -Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
+            { Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' } | Should-Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
         }
 
         It 'Throws when Docker daemon is not running' {
@@ -106,7 +106,7 @@ Describe 'Invoke-BfgRepoCleaner' {
                 }
             }
 
-            { Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' } | Should -Throw '*daemon is not running*'
+            { Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' } | Should-Throw '*daemon is not running*'
 
             Remove-Item -Path Function:\pwshDockerTestShimDaemonDown -ErrorAction SilentlyContinue
         }
@@ -130,8 +130,8 @@ Describe 'Invoke-BfgRepoCleaner' {
 
             Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' -Confirm:$false | Out-Null
 
-            $script:BfgShimInvocations.Count | Should -Be 1
-            $script:DockerShimInvocations.Count | Should -Be 0
+            $script:BfgShimInvocations.Count | Should-Be 1
+            $script:DockerShimInvocations.Count | Should-Be 0
         }
 
         It 'Skips Docker prerequisite checks when local BFG is available' {
@@ -145,7 +145,7 @@ Describe 'Invoke-BfgRepoCleaner' {
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
 
             { Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' -Confirm:$false } | Should -Not -Throw
-            Should -Invoke -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -Times 0 -Exactly
+            Should-Invoke -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -Times 0 -Exactly
         }
 
         It 'Falls back to Docker when local BFG is not available' {
@@ -160,7 +160,7 @@ Describe 'Invoke-BfgRepoCleaner' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $script:BfgShimInvocations.Count | Should -Be 0
+            $script:BfgShimInvocations.Count | Should-Be 0
         }
 
         It 'Uses Docker when Runtime is explicitly set to Docker' {
@@ -182,7 +182,7 @@ Describe 'Invoke-BfgRepoCleaner' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $script:BfgShimInvocations.Count | Should -Be 0
+            $script:BfgShimInvocations.Count | Should-Be 0
         }
 
         It 'Uses local BFG when Runtime is explicitly set to Local' {
@@ -197,8 +197,8 @@ Describe 'Invoke-BfgRepoCleaner' {
 
             Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' -Runtime Local -Confirm:$false | Out-Null
 
-            $script:BfgShimInvocations.Count | Should -Be 1
-            $script:DockerShimInvocations.Count | Should -Be 0
+            $script:BfgShimInvocations.Count | Should-Be 1
+            $script:DockerShimInvocations.Count | Should-Be 0
         }
     }
 
@@ -209,7 +209,7 @@ Describe 'Invoke-BfgRepoCleaner' {
             @{ Value = 'abc' }
             @{ Value = '10T' }
         ) {
-            { Invoke-BfgRepoCleaner -StripBlobsBiggerThan $Value } | Should -Throw
+            { Invoke-BfgRepoCleaner -StripBlobsBiggerThan $Value } | Should-Throw
         }
 
         It 'Accepts valid StripBlobsBiggerThan format "<Value>"' -ForEach @(
@@ -230,25 +230,25 @@ Describe 'Invoke-BfgRepoCleaner' {
         }
 
         It 'Rejects StripBiggestBlobs less than 1' {
-            { Invoke-BfgRepoCleaner -StripBiggestBlobs 0 } | Should -Throw
+            { Invoke-BfgRepoCleaner -StripBiggestBlobs 0 } | Should-Throw
         }
 
         It 'Rejects empty DeleteFiles' {
-            { Invoke-BfgRepoCleaner -DeleteFiles '' } | Should -Throw
+            { Invoke-BfgRepoCleaner -DeleteFiles '' } | Should-Throw
         }
 
         It 'Rejects empty DeleteFolders' {
-            { Invoke-BfgRepoCleaner -DeleteFolders '' } | Should -Throw
+            { Invoke-BfgRepoCleaner -DeleteFolders '' } | Should-Throw
         }
 
         It 'Rejects invalid Runtime' {
-            { Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' -Runtime 'Container' } | Should -Throw
+            { Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' -Runtime 'Container' } | Should-Throw
         }
     }
 
     Context 'Explicit runtime prerequisites' {
         It 'Throws when Runtime is Local and local BFG is not installed' {
-            { Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' -Runtime Local -Confirm:$false } | Should -Throw 'BFG Repo-Cleaner is not installed or not available in PATH. Install BFG or use -Runtime Docker.'
+            { Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' -Runtime Local -Confirm:$false } | Should-Throw 'BFG Repo-Cleaner is not installed or not available in PATH. Install BFG or use -Runtime Docker.'
         }
 
         It 'Throws when Runtime is Docker and Docker is not installed even if local BFG is available' {
@@ -261,7 +261,7 @@ Describe 'Invoke-BfgRepoCleaner' {
 
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
 
-            { Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' -Runtime Docker -Confirm:$false } | Should -Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
+            { Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' -Runtime Docker -Confirm:$false } | Should-Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
         }
     }
 
@@ -278,12 +278,12 @@ Describe 'Invoke-BfgRepoCleaner' {
         It 'Passes --strip-blobs-bigger-than with the correct size' {
             Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' -Confirm:$false | Out-Null
 
-            $script:DockerShimInvocations.Count | Should -BeGreaterThan 0
+            $script:DockerShimInvocations.Count | Should-BeGreaterThan 0
             # Find the 'run' invocation (skip the 'info' call)
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '--strip-blobs-bigger-than'
-            $runCall | Should -Contain '100M'
+            $runCall | Should-ContainCollection '--strip-blobs-bigger-than'
+            $runCall | Should-ContainCollection '100M'
         }
 
         It 'Passes --strip-biggest-blobs with the correct count' {
@@ -291,8 +291,8 @@ Describe 'Invoke-BfgRepoCleaner' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '--strip-biggest-blobs'
-            $runCall | Should -Contain '10'
+            $runCall | Should-ContainCollection '--strip-biggest-blobs'
+            $runCall | Should-ContainCollection '10'
         }
 
         It 'Passes --delete-files with the correct pattern' {
@@ -300,8 +300,8 @@ Describe 'Invoke-BfgRepoCleaner' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '--delete-files'
-            $runCall | Should -Contain 'passwords.txt'
+            $runCall | Should-ContainCollection '--delete-files'
+            $runCall | Should-ContainCollection 'passwords.txt'
         }
 
         It 'Passes --delete-folders with the correct name' {
@@ -309,8 +309,8 @@ Describe 'Invoke-BfgRepoCleaner' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '--delete-folders'
-            $runCall | Should -Contain '.secrets'
+            $runCall | Should-ContainCollection '--delete-folders'
+            $runCall | Should-ContainCollection '.secrets'
         }
 
         It 'Passes --no-blob-protection when NoBlobProtection is specified' {
@@ -318,7 +318,7 @@ Describe 'Invoke-BfgRepoCleaner' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '--no-blob-protection'
+            $runCall | Should-ContainCollection '--no-blob-protection'
         }
 
         It 'Appends repository path as the last argument' {
@@ -326,7 +326,7 @@ Describe 'Invoke-BfgRepoCleaner' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall[-1] | Should -Be 'my-repo.git'
+            $runCall[-1] | Should-Be 'my-repo.git'
         }
 
         It 'Appends additional arguments' {
@@ -334,7 +334,7 @@ Describe 'Invoke-BfgRepoCleaner' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '--private'
+            $runCall | Should-ContainCollection '--private'
         }
 
         It 'Uses correct image reference with default tag' {
@@ -342,7 +342,7 @@ Describe 'Invoke-BfgRepoCleaner' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain 'jonlabelle/bfg:latest'
+            $runCall | Should-ContainCollection 'jonlabelle/bfg:latest'
         }
 
         It 'Uses correct image reference with custom tag' {
@@ -350,7 +350,7 @@ Describe 'Invoke-BfgRepoCleaner' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain 'jonlabelle/bfg:1.15.0'
+            $runCall | Should-ContainCollection 'jonlabelle/bfg:1.15.0'
         }
 
         It 'Mounts the working directory as /work volume' {
@@ -358,7 +358,7 @@ Describe 'Invoke-BfgRepoCleaner' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '-v'
+            $runCall | Should-ContainCollection '-v'
             # Find the volume mount argument that contains :/work
             $volArg = $runCall | Where-Object { $_ -match ':/work$' }
             $volArg | Should -Not -BeNullOrEmpty
@@ -369,11 +369,11 @@ Describe 'Invoke-BfgRepoCleaner' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '--delete-files'
-            $runCall | Should -Contain '*.env'
-            $runCall | Should -Contain '--delete-folders'
-            $runCall | Should -Contain 'node_modules'
-            $runCall[-1] | Should -Be 'my-repo.git'
+            $runCall | Should-ContainCollection '--delete-files'
+            $runCall | Should-ContainCollection '*.env'
+            $runCall | Should-ContainCollection '--delete-folders'
+            $runCall | Should-ContainCollection 'node_modules'
+            $runCall[-1] | Should-Be 'my-repo.git'
         }
 
         It 'Uses -i and --rm flags for docker run' {
@@ -381,8 +381,8 @@ Describe 'Invoke-BfgRepoCleaner' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '-i'
-            $runCall | Should -Contain '--rm'
+            $runCall | Should-ContainCollection '-i'
+            $runCall | Should-ContainCollection '--rm'
         }
     }
 
@@ -397,7 +397,7 @@ Describe 'Invoke-BfgRepoCleaner' {
         }
 
         It 'Throws when replace-text file does not exist' {
-            { Invoke-BfgRepoCleaner -ReplaceText 'nonexistent-file.txt' -Confirm:$false } | Should -Throw 'Replace-text file not found*'
+            { Invoke-BfgRepoCleaner -ReplaceText 'nonexistent-file.txt' -Confirm:$false } | Should-Throw 'Replace-text file not found*'
         }
 
         It 'Mounts replace-text file and passes --replace-text with container path' {
@@ -408,8 +408,8 @@ Describe 'Invoke-BfgRepoCleaner' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '--replace-text'
-            $runCall | Should -Contain '/config/replacements.txt'
+            $runCall | Should-ContainCollection '--replace-text'
+            $runCall | Should-ContainCollection '/config/replacements.txt'
 
             # Verify the volume mount for the replace-text file
             $volArgs = @()
@@ -439,7 +439,7 @@ Describe 'Invoke-BfgRepoCleaner' {
             $result = @(Invoke-BfgRepoCleaner -StripBlobsBiggerThan '100M' -Confirm:$false)
 
             # The last element is the exit code (preceding elements are Docker output)
-            $result[-1] | Should -Be 0
+            $result[-1] | Should-Be 0
         }
 
         It 'Returns non-zero exit code on failure and writes warning' {
@@ -475,7 +475,7 @@ Describe 'Invoke-BfgRepoCleaner' {
 
             # The result should contain a non-zero exit code and a warning
             $exitCode = $result | Where-Object { $_ -is [Int32] -or $_ -is [Int64] }
-            $exitCode | Should -Be 1
+            $exitCode | Should-Be 1
 
             Remove-Item -Path Function:\pwshDockerTestShimFail -ErrorAction SilentlyContinue
         }
@@ -515,7 +515,7 @@ Describe 'Invoke-BfgRepoCleaner' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '--help'
+            $runCall | Should-ContainCollection '--help'
         }
     }
 }

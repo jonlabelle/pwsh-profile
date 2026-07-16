@@ -128,27 +128,27 @@ Describe 'Test-Admin' {
         $command = Get-Command -Name 'Test-Admin' -ErrorAction SilentlyContinue
 
         $command | Should -Not -BeNullOrEmpty
-        $command.CommandType | Should -Be 'Function'
+        $command.CommandType | Should-Be 'Function'
     }
 
     It 'returns a boolean result' {
         $result = Test-Admin
 
-        $result | Should -BeOfType [System.Boolean]
+        $result | Should-HaveType ([System.Boolean])
     }
 
     It 'creates the Test-Root alias' {
         $alias = Get-Alias -Name 'Test-Root' -ErrorAction SilentlyContinue
 
         $alias | Should -Not -BeNullOrEmpty
-        $alias.Definition | Should -Be 'Test-Admin'
+        $alias.Definition | Should-Be 'Test-Admin'
     }
 
     It 'creates the Test-Sudo alias' {
         $alias = Get-Alias -Name 'Test-Sudo' -ErrorAction SilentlyContinue
 
         $alias | Should -Not -BeNullOrEmpty
-        $alias.Definition | Should -Be 'Test-Admin'
+        $alias.Definition | Should-Be 'Test-Admin'
     }
 
     It 'does not leak platform variables into the caller script scope' {
@@ -161,35 +161,35 @@ Describe 'Test-Admin' {
 
     Context 'Unix privilege detection' -Skip:$script:SkipUnixContext {
         It 'matches the current process effective user ID' -Skip:(-not $script:HasUnixIdCommand) {
-            Test-Admin | Should -Be $script:IsUnixElevatedSession
+            Test-Admin | Should-Be $script:IsUnixElevatedSession
         }
 
         It 'does not treat SUDO_* environment variables as proof of elevation' -Skip:(-not $script:HasUnixIdCommand -or $script:IsUnixElevatedSession) {
             $env:SUDO_USER = 'root'
             $env:SUDO_UID = '0'
 
-            Test-Admin | Should -BeFalse
+            Test-Admin | Should-BeFalsy
         }
 
         It 'does not treat sudo capability as elevation unless AllowSudo is specified' {
             $script:NativeCommandTestDir = & $script:NewNativeCommandDirectory -IdOutput '501' -IncludeSudo -SudoExitCode 0
             $env:PATH = $script:NativeCommandTestDir
 
-            Test-Admin | Should -BeFalse
+            Test-Admin | Should-BeFalsy
         }
 
         It 'returns true with AllowSudo when non-interactive sudo succeeds' {
             $script:NativeCommandTestDir = & $script:NewNativeCommandDirectory -IdOutput '501' -IncludeSudo -SudoExitCode 0
             $env:PATH = $script:NativeCommandTestDir
 
-            Test-Admin -AllowSudo | Should -BeTrue
+            Test-Admin -AllowSudo | Should-BeTruthy
         }
 
         It 'returns false with AllowSudo when non-interactive sudo fails' {
             $script:NativeCommandTestDir = & $script:NewNativeCommandDirectory -IdOutput '501' -IncludeSudo -SudoExitCode 1
             $env:PATH = $script:NativeCommandTestDir
 
-            Test-Admin -AllowSudo | Should -BeFalse
+            Test-Admin -AllowSudo | Should-BeFalsy
         }
 
         It 'writes a warning and returns false when the id command cannot be resolved' {
@@ -198,9 +198,9 @@ Describe 'Test-Admin' {
 
             $result = Test-Admin -WarningAction Continue -WarningVariable warnings
 
-            $result | Should -BeFalse
-            @($warnings).Count | Should -BeGreaterThan 0
-            ($warnings | Out-String) | Should -Match 'Failed to determine privilege status'
+            $result | Should-BeFalsy
+            @($warnings).Count | Should-BeGreaterThan 0
+            ($warnings | Out-String) | Should-MatchString 'Failed to determine privilege status'
         }
 
         It 'suppresses warning output with Quiet when the id command cannot be resolved' {
@@ -209,8 +209,8 @@ Describe 'Test-Admin' {
 
             $result = Test-Admin -Quiet -WarningAction Continue -WarningVariable warnings
 
-            $result | Should -BeFalse
-            @($warnings).Count | Should -Be 0
+            $result | Should-BeFalsy
+            @($warnings).Count | Should-Be 0
         }
     }
 }

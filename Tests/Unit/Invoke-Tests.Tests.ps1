@@ -160,16 +160,16 @@ Describe 'Invoke-Tests.ps1 timing summary' -Tag 'Unit' {
         $env:PSModulePath = $script:FakeProject.ModuleRootPath
 
         $null = & $script:PowerShellExecutable -NoProfile -File $script:FakeProject.InvokeTestsPath -TestType Unit -OutputFormat Normal -ShowTimingSummary -TimingSummaryTop 1 -TimingSummaryTitle 'Local timings' -TimingSummaryOutputPath $summaryPath
-        $LASTEXITCODE | Should -Be 0
+        $LASTEXITCODE | Should-Be 0
 
-        Test-Path -LiteralPath $summaryPath | Should -BeTrue
+        Test-Path -LiteralPath $summaryPath | Should-BeTruthy
         $summary = Get-Content -LiteralPath $summaryPath -Raw
-        $summary | Should -Match '### Local timings'
-        $summary | Should -Match '#### Slowest test files \(top 1\)'
-        $summary | Should -Match 'Tests/Unit/Slow.Tests.ps1'
-        $summary | Should -Not -Match 'Tests/Unit/Fast.Tests.ps1'
-        $summary | Should -Match 'Slow case'
-        $summary | Should -Not -Match 'Fast case'
+        $summary | Should-MatchString '### Local timings'
+        $summary | Should-MatchString '#### Slowest test files \(top 1\)'
+        $summary | Should-MatchString 'Tests/Unit/Slow.Tests.ps1'
+        $summary | Should-NotMatchString 'Tests/Unit/Fast.Tests.ps1'
+        $summary | Should-MatchString 'Slow case'
+        $summary | Should-NotMatchString 'Fast case'
     }
 
     It 'does not write a timing summary unless ShowTimingSummary is specified' {
@@ -177,9 +177,9 @@ Describe 'Invoke-Tests.ps1 timing summary' -Tag 'Unit' {
         $env:PSModulePath = $script:FakeProject.ModuleRootPath
 
         $null = & $script:PowerShellExecutable -NoProfile -File $script:FakeProject.InvokeTestsPath -TestType Unit -OutputFormat Normal -TimingSummaryOutputPath $summaryPath
-        $LASTEXITCODE | Should -Be 0
+        $LASTEXITCODE | Should-Be 0
 
-        Test-Path -LiteralPath $summaryPath | Should -BeFalse
+        Test-Path -LiteralPath $summaryPath | Should-BeFalsy
     }
 
     It 'uses the latest installed Pester 6 version and ignores Pester 7' {
@@ -195,9 +195,9 @@ Describe 'Invoke-Tests.ps1 timing summary' -Tag 'Unit' {
         try
         {
             $null = & $script:PowerShellExecutable -NoProfile -File $script:FakeProject.InvokeTestsPath -TestType Unit -OutputFormat Normal
-            $LASTEXITCODE | Should -Be 0
+            $LASTEXITCODE | Should-Be 0
 
-            (Get-Content -LiteralPath $versionOutputPath -Raw).Trim() | Should -Be '6.99.0'
+            (Get-Content -LiteralPath $versionOutputPath -Raw).Trim() | Should-Be '6.99.0'
         }
         finally
         {

@@ -22,7 +22,7 @@ Describe 'Get-WhichCommand' -Tag 'Unit' {
         }
 
         It 'Should require Name parameter' {
-            { Get-WhichCommand -Name '' -ErrorAction Stop } | Should -Throw
+            { Get-WhichCommand -Name '' -ErrorAction Stop } | Should-Throw
         }
 
         It 'Should accept All switch parameter' {
@@ -34,14 +34,14 @@ Describe 'Get-WhichCommand' -Tag 'Unit' {
         It 'Should find Get-Process cmdlet' {
             $result = Get-WhichCommand -Name 'Get-Process'
             $result | Should -Not -BeNullOrEmpty
-            $result | Should -BeOfType [String]
-            $result | Should -Match 'Microsoft.PowerShell.Management'
+            $result | Should-HaveType ([String])
+            $result | Should-MatchString 'Microsoft.PowerShell.Management'
         }
 
         It 'Should return module path for cmdlets' {
             $result = Get-WhichCommand -Name 'Get-Process'
             $result | Should -Not -BeNullOrEmpty
-            $result | Should -BeOfType [String]
+            $result | Should-HaveType ([String])
         }
     }
 
@@ -49,13 +49,13 @@ Describe 'Get-WhichCommand' -Tag 'Unit' {
         It 'Should find dir alias (cross-platform test)' {
             $result = Get-WhichCommand -Name 'dir'
             $result | Should -Not -BeNullOrEmpty
-            $result | Should -BeOfType [String]
+            $result | Should-HaveType ([String])
         }
 
         It 'Should show alias definition with arrow notation' {
             $result = Get-WhichCommand -Name 'dir'
-            $result | Should -Match '->'
-            $result | Should -Match 'Get-ChildItem'
+            $result | Should-MatchString '->'
+            $result | Should-MatchString 'Get-ChildItem'
         }
 
         It 'Should resolve common aliases (gci, dir, select)' {
@@ -64,8 +64,8 @@ Describe 'Get-WhichCommand' -Tag 'Unit' {
             {
                 $result = Get-WhichCommand -Name $alias
                 $result | Should -Not -BeNullOrEmpty
-                $result | Should -BeOfType [String]
-                $result | Should -Match '->'
+                $result | Should-HaveType ([String])
+                $result | Should-MatchString '->'
             }
         }
     }
@@ -77,7 +77,7 @@ Describe 'Get-WhichCommand' -Tag 'Unit' {
                 function Test-WhichCommandTempFunction { 'This is a test function' }
                 $result = Get-WhichCommand -Name 'Test-WhichCommandTempFunction'
                 $result | Should -Not -BeNullOrEmpty
-                $result | Should -BeOfType [String]
+                $result | Should-HaveType ([String])
             }
         }
 
@@ -88,9 +88,9 @@ Describe 'Get-WhichCommand' -Tag 'Unit' {
             {
                 $result = Get-WhichCommand -Name 'Test-WhichTemp2'
                 $result | Should -Not -BeNullOrEmpty
-                $result | Should -BeOfType [String]
+                $result | Should-HaveType ([String])
                 # Should be either a file path or indicate it's a function
-                ($result -match '\(Function\)' -or (Test-Path $result -PathType Leaf -ErrorAction SilentlyContinue)) | Should -Be $true
+                ($result -match '\(Function\)' -or (Test-Path $result -PathType Leaf -ErrorAction SilentlyContinue)) | Should-Be $true
             }
             finally
             {
@@ -103,14 +103,14 @@ Describe 'Get-WhichCommand' -Tag 'Unit' {
         It 'Should find pwsh executable' {
             $result = Get-WhichCommand -Name 'pwsh'
             $result | Should -Not -BeNullOrEmpty
-            $result | Should -BeOfType [String]
-            $result | Should -Match 'pwsh'
+            $result | Should-HaveType ([String])
+            $result | Should-MatchString 'pwsh'
         }
 
         It 'Should return full path for executables' {
             $result = Get-WhichCommand -Name 'pwsh'
             $result | Should -Not -BeNullOrEmpty
-            [System.IO.Path]::IsPathRooted($result) | Should -Be $true
+            [System.IO.Path]::IsPathRooted($result) | Should-Be $true
         }
 
         It 'Should find platform-specific commands' {
@@ -127,7 +127,7 @@ Describe 'Get-WhichCommand' -Tag 'Unit' {
             {
                 $result = Get-WhichCommand -Name 'cmd'
                 $result | Should -Not -BeNullOrEmpty
-                $result | Should -Match 'cmd\.exe'
+                $result | Should-MatchString 'cmd\.exe'
             }
             else
             {
@@ -143,7 +143,7 @@ Describe 'Get-WhichCommand' -Tag 'Unit' {
                         break
                     }
                 }
-                $foundCommand | Should -Be $true
+                $foundCommand | Should-Be $true
             }
         }
     }
@@ -153,7 +153,7 @@ Describe 'Get-WhichCommand' -Tag 'Unit' {
             $warningMessage = $null
             Get-WhichCommand -Name 'ThisCommandDefinitelyDoesNotExist123456789' -WarningVariable warningMessage -WarningAction SilentlyContinue
             $warningMessage | Should -Not -BeNullOrEmpty
-            $warningMessage | Should -Match 'not found'
+            $warningMessage | Should-MatchString 'not found'
         }
 
         It 'Should not throw for non-existent commands' {
@@ -165,7 +165,7 @@ Describe 'Get-WhichCommand' -Tag 'Unit' {
         It 'Should return only first match without -All' {
             # Test with a well-known cmdlet that has only one match
             $result = Get-WhichCommand -Name 'Get-Process'
-            @($result).Count | Should -Be 1
+            @($result).Count | Should-Be 1
         }
 
         It 'Should handle commands with multiple matches when -All is specified' {
@@ -182,13 +182,13 @@ Describe 'Get-WhichCommand' -Tag 'Unit' {
         It 'Should process multiple commands from pipeline' {
             $commands = @('Get-Process', 'ls')
             $results = $commands | Get-WhichCommand
-            @($results).Count | Should -BeGreaterThan 0
+            @($results).Count | Should-BeGreaterThan 0
         }
 
         It 'Should handle mixed valid and invalid commands from pipeline' {
             $commands = @('Get-Process', 'NonExistentCommand999', 'ls')
             $results = $commands | Get-WhichCommand -WarningAction SilentlyContinue
-            @($results).Count | Should -BeGreaterThan 0
+            @($results).Count | Should-BeGreaterThan 0
         }
     }
 
@@ -198,26 +198,26 @@ Describe 'Get-WhichCommand' -Tag 'Unit' {
             $result = Get-WhichCommand -Name 'dir'
             $result | Should -Not -BeNullOrEmpty
             # PowerShell prioritizes aliases, so should show alias notation
-            $result | Should -Match '->'
+            $result | Should-MatchString '->'
         }
     }
 
     Context 'Output Format' {
         It 'Should return String for aliases' {
             $result = Get-WhichCommand -Name 'dir'
-            $result | Should -BeOfType [String]
-            $result | Should -Match '->'
+            $result | Should-HaveType ([String])
+            $result | Should-MatchString '->'
         }
 
         It 'Should return String for executables' {
             $result = Get-WhichCommand -Name 'pwsh'
-            $result | Should -BeOfType [String]
-            [System.IO.Path]::IsPathRooted($result) | Should -Be $true
+            $result | Should-HaveType ([String])
+            [System.IO.Path]::IsPathRooted($result) | Should-Be $true
         }
 
         It 'Should return String for cmdlets' {
             $result = Get-WhichCommand -Name 'Get-Process'
-            $result | Should -BeOfType [String]
+            $result | Should-HaveType ([String])
         }
     }
 

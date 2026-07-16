@@ -20,120 +20,120 @@ Describe 'ConvertTo-CidrNotation' {
     Context 'Conversion from PrefixLength' {
         It 'Should convert /24 correctly' {
             $result = ConvertTo-CidrNotation -PrefixLength 24
-            $result.PrefixLength | Should -Be 24
-            $result.SubnetMask | Should -Be '255.255.255.0'
-            $result.WildcardMask | Should -Be '0.0.0.255'
+            $result.PrefixLength | Should-Be 24
+            $result.SubnetMask | Should-Be '255.255.255.0'
+            $result.WildcardMask | Should-Be '0.0.0.255'
         }
 
         It 'Should convert /16 correctly' {
             $result = ConvertTo-CidrNotation -PrefixLength 16
-            $result.PrefixLength | Should -Be 16
-            $result.SubnetMask | Should -Be '255.255.0.0'
-            $result.WildcardMask | Should -Be '0.0.255.255'
+            $result.PrefixLength | Should-Be 16
+            $result.SubnetMask | Should-Be '255.255.0.0'
+            $result.WildcardMask | Should-Be '0.0.255.255'
         }
 
         It 'Should convert /8 correctly' {
             $result = ConvertTo-CidrNotation -PrefixLength 8
-            $result.PrefixLength | Should -Be 8
-            $result.SubnetMask | Should -Be '255.0.0.0'
-            $result.WildcardMask | Should -Be '0.255.255.255'
+            $result.PrefixLength | Should-Be 8
+            $result.SubnetMask | Should-Be '255.0.0.0'
+            $result.WildcardMask | Should-Be '0.255.255.255'
         }
 
         It 'Should convert /32 (host route) correctly' {
             $result = ConvertTo-CidrNotation -PrefixLength 32
-            $result.PrefixLength | Should -Be 32
-            $result.SubnetMask | Should -Be '255.255.255.255'
-            $result.WildcardMask | Should -Be '0.0.0.0'
+            $result.PrefixLength | Should-Be 32
+            $result.SubnetMask | Should-Be '255.255.255.255'
+            $result.WildcardMask | Should-Be '0.0.0.0'
         }
 
         It 'Should convert /0 (default route) correctly' {
             $result = ConvertTo-CidrNotation -PrefixLength 0
-            $result.PrefixLength | Should -Be 0
-            $result.SubnetMask | Should -Be '0.0.0.0'
-            $result.WildcardMask | Should -Be '255.255.255.255'
+            $result.PrefixLength | Should-Be 0
+            $result.SubnetMask | Should-Be '0.0.0.0'
+            $result.WildcardMask | Should-Be '255.255.255.255'
         }
 
         It 'Should convert /26 correctly' {
             $result = ConvertTo-CidrNotation -PrefixLength 26
-            $result.PrefixLength | Should -Be 26
-            $result.SubnetMask | Should -Be '255.255.255.192'
-            $result.WildcardMask | Should -Be '0.0.0.63'
+            $result.PrefixLength | Should-Be 26
+            $result.SubnetMask | Should-Be '255.255.255.192'
+            $result.WildcardMask | Should-Be '0.0.0.63'
         }
     }
 
     Context 'Conversion from SubnetMask' {
         It 'Should convert 255.255.255.0 to /24' {
             $result = ConvertTo-CidrNotation -SubnetMask '255.255.255.0'
-            $result.PrefixLength | Should -Be 24
-            $result.SubnetMask | Should -Be '255.255.255.0'
-            $result.WildcardMask | Should -Be '0.0.0.255'
+            $result.PrefixLength | Should-Be 24
+            $result.SubnetMask | Should-Be '255.255.255.0'
+            $result.WildcardMask | Should-Be '0.0.0.255'
         }
 
         It 'Should convert 255.255.0.0 to /16' {
             $result = ConvertTo-CidrNotation -SubnetMask '255.255.0.0'
-            $result.PrefixLength | Should -Be 16
+            $result.PrefixLength | Should-Be 16
         }
 
         It 'Should convert 255.255.255.252 to /30' {
             $result = ConvertTo-CidrNotation -SubnetMask '255.255.255.252'
-            $result.PrefixLength | Should -Be 30
-            $result.WildcardMask | Should -Be '0.0.0.3'
+            $result.PrefixLength | Should-Be 30
+            $result.WildcardMask | Should-Be '0.0.0.3'
         }
 
         It 'Should reject non-contiguous subnet masks' {
-            { ConvertTo-CidrNotation -SubnetMask '255.0.255.0' } | Should -Throw
+            { ConvertTo-CidrNotation -SubnetMask '255.0.255.0' } | Should-Throw
         }
     }
 
     Context 'Conversion from WildcardMask' {
         It 'Should convert 0.0.0.255 to /24' {
             $result = ConvertTo-CidrNotation -WildcardMask '0.0.0.255'
-            $result.PrefixLength | Should -Be 24
-            $result.SubnetMask | Should -Be '255.255.255.0'
+            $result.PrefixLength | Should-Be 24
+            $result.SubnetMask | Should-Be '255.255.255.0'
         }
 
         It 'Should convert 0.0.0.63 to /26' {
             $result = ConvertTo-CidrNotation -WildcardMask '0.0.0.63'
-            $result.PrefixLength | Should -Be 26
-            $result.SubnetMask | Should -Be '255.255.255.192'
+            $result.PrefixLength | Should-Be 26
+            $result.SubnetMask | Should-Be '255.255.255.192'
         }
 
         It 'Should reject non-contiguous wildcard masks' {
-            { ConvertTo-CidrNotation -WildcardMask '0.255.0.255' } | Should -Throw
+            { ConvertTo-CidrNotation -WildcardMask '0.255.0.255' } | Should-Throw
         }
     }
 
     Context 'Pipeline input' {
         It 'Should accept prefix lengths from the pipeline' {
             $results = 8, 16, 24 | ConvertTo-CidrNotation
-            @($results).Count | Should -Be 3
-            $results[0].PrefixLength | Should -Be 8
-            $results[1].PrefixLength | Should -Be 16
-            $results[2].PrefixLength | Should -Be 24
+            @($results).Count | Should-Be 3
+            $results[0].PrefixLength | Should-Be 8
+            $results[1].PrefixLength | Should-Be 16
+            $results[2].PrefixLength | Should-Be 24
         }
 
         It 'Should accept PrefixLength by property name from the pipeline' {
             $result = [pscustomobject]@{ PrefixLength = 27 } | ConvertTo-CidrNotation
 
-            $result.PrefixLength | Should -Be 27
-            $result.SubnetMask | Should -Be '255.255.255.224'
-            $result.WildcardMask | Should -Be '0.0.0.31'
+            $result.PrefixLength | Should-Be 27
+            $result.SubnetMask | Should-Be '255.255.255.224'
+            $result.WildcardMask | Should-Be '0.0.0.31'
         }
 
         It 'Should accept SubnetMask by property name from the pipeline' {
             $result = [pscustomobject]@{ SubnetMask = '255.255.255.240' } | ConvertTo-CidrNotation
 
-            $result.PrefixLength | Should -Be 28
-            $result.SubnetMask | Should -Be '255.255.255.240'
-            $result.WildcardMask | Should -Be '0.0.0.15'
+            $result.PrefixLength | Should-Be 28
+            $result.SubnetMask | Should-Be '255.255.255.240'
+            $result.WildcardMask | Should-Be '0.0.0.15'
         }
 
         It 'Should accept WildcardMask by property name from the pipeline' {
             $result = [pscustomobject]@{ WildcardMask = '0.0.0.7' } | ConvertTo-CidrNotation
 
-            $result.PrefixLength | Should -Be 29
-            $result.SubnetMask | Should -Be '255.255.255.248'
-            $result.WildcardMask | Should -Be '0.0.0.7'
+            $result.PrefixLength | Should-Be 29
+            $result.SubnetMask | Should-Be '255.255.255.248'
+            $result.WildcardMask | Should-Be '0.0.0.7'
         }
     }
 
@@ -143,29 +143,29 @@ Describe 'ConvertTo-CidrNotation' {
             $fromMask = ConvertTo-CidrNotation -SubnetMask '255.255.255.0'
             $fromWildcard = ConvertTo-CidrNotation -WildcardMask '0.0.0.255'
 
-            $fromPrefix.PrefixLength | Should -Be $fromMask.PrefixLength
-            $fromPrefix.PrefixLength | Should -Be $fromWildcard.PrefixLength
-            $fromPrefix.SubnetMask | Should -Be $fromMask.SubnetMask
-            $fromPrefix.WildcardMask | Should -Be $fromWildcard.WildcardMask
+            $fromPrefix.PrefixLength | Should-Be $fromMask.PrefixLength
+            $fromPrefix.PrefixLength | Should-Be $fromWildcard.PrefixLength
+            $fromPrefix.SubnetMask | Should-Be $fromMask.SubnetMask
+            $fromPrefix.WildcardMask | Should-Be $fromWildcard.WildcardMask
         }
     }
 
     Context 'Parameter validation' {
         It 'Should reject prefix lengths outside 0-32 range' {
-            { ConvertTo-CidrNotation -PrefixLength 33 } | Should -Throw
-            { ConvertTo-CidrNotation -PrefixLength -1 } | Should -Throw
+            { ConvertTo-CidrNotation -PrefixLength 33 } | Should-Throw
+            { ConvertTo-CidrNotation -PrefixLength -1 } | Should-Throw
         }
 
         It 'Should reject invalid subnet mask format' {
-            { ConvertTo-CidrNotation -SubnetMask 'not-an-ip' } | Should -Throw
+            { ConvertTo-CidrNotation -SubnetMask 'not-an-ip' } | Should-Throw
         }
 
         It 'Should reject IPv6 subnet masks' {
-            { ConvertTo-CidrNotation -SubnetMask 'ffff:ffff:ffff:ffff::' } | Should -Throw
+            { ConvertTo-CidrNotation -SubnetMask 'ffff:ffff:ffff:ffff::' } | Should-Throw
         }
 
         It 'Should reject IPv6 wildcard masks' {
-            { ConvertTo-CidrNotation -WildcardMask '::ffff' } | Should -Throw
+            { ConvertTo-CidrNotation -WildcardMask '::ffff' } | Should-Throw
         }
     }
 }

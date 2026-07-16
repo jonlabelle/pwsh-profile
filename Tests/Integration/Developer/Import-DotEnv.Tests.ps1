@@ -191,32 +191,32 @@ Describe 'Import-DotEnv Integration Tests' {
             $result = Import-DotEnv -Path $envFile -PassThru
 
             # Verify application settings
-            $env:APP_NAME | Should -Be 'MyApp'
-            $env:APP_ENV | Should -Be 'development'
-            $env:APP_DEBUG | Should -Be 'true'
-            $env:APP_URL | Should -Be 'http://localhost:3000'
+            $env:APP_NAME | Should-Be 'MyApp'
+            $env:APP_ENV | Should-Be 'development'
+            $env:APP_DEBUG | Should-Be 'true'
+            $env:APP_URL | Should-Be 'http://localhost:3000'
 
             # Verify database settings
-            $env:DB_CONNECTION | Should -Be 'postgresql'
-            $env:DB_HOST | Should -Be 'localhost'
-            $env:DB_PORT | Should -Be '5432'
-            $env:DB_DATABASE | Should -Be 'myapp_dev'
-            $env:DB_USERNAME | Should -Be 'postgres'
-            $env:DB_PASSWORD | Should -Be 'secret123'
+            $env:DB_CONNECTION | Should-Be 'postgresql'
+            $env:DB_HOST | Should-Be 'localhost'
+            $env:DB_PORT | Should-Be '5432'
+            $env:DB_DATABASE | Should-Be 'myapp_dev'
+            $env:DB_USERNAME | Should-Be 'postgres'
+            $env:DB_PASSWORD | Should-Be 'secret123'
 
             # Verify cache settings
-            $env:CACHE_DRIVER | Should -Be 'redis'
-            $env:REDIS_HOST | Should -Be '127.0.0.1'
-            $env:REDIS_PORT | Should -Be '6379'
+            $env:CACHE_DRIVER | Should-Be 'redis'
+            $env:REDIS_HOST | Should-Be '127.0.0.1'
+            $env:REDIS_PORT | Should-Be '6379'
 
             # Verify mail settings
-            $env:MAIL_MAILER | Should -Be 'smtp'
-            $env:MAIL_HOST | Should -Be 'smtp.mailtrap.io'
-            $env:MAIL_PORT | Should -Be '2525'
+            $env:MAIL_MAILER | Should-Be 'smtp'
+            $env:MAIL_HOST | Should-Be 'smtp.mailtrap.io'
+            $env:MAIL_PORT | Should-Be '2525'
 
             # Verify PassThru result
-            $result.VariableCount | Should -BeGreaterThan 10
-            $result.FileName | Should -Be 'app.env'
+            $result.VariableCount | Should-BeGreaterThan 10
+            $result.FileName | Should-Be 'app.env'
 
             Remove-Item -Path $envFile -Force
         }
@@ -227,11 +227,11 @@ Describe 'Import-DotEnv Integration Tests' {
 
             Import-DotEnv -Path $envFile
 
-            $env:COMPOSE_PROJECT_NAME | Should -Be 'myproject'
-            $env:DOCKER_BUILDKIT | Should -Be '1'
-            $env:NODE_VERSION | Should -Be '18'
-            $env:POSTGRES_VERSION | Should -Be '15'
-            $env:WEB_PORT | Should -Be '8080'
+            $env:COMPOSE_PROJECT_NAME | Should-Be 'myproject'
+            $env:DOCKER_BUILDKIT | Should-Be '1'
+            $env:NODE_VERSION | Should-Be '18'
+            $env:POSTGRES_VERSION | Should-Be '15'
+            $env:WEB_PORT | Should-Be '8080'
 
             Remove-Item -Path $envFile -Force
         }
@@ -242,11 +242,11 @@ Describe 'Import-DotEnv Integration Tests' {
 
             Import-DotEnv -Path $envFile
 
-            $env:AWS_REGION | Should -Be 'us-east-1'
-            $env:AWS_ACCOUNT_ID | Should -Be '123456789012'
-            $env:AWS_ACCESS_KEY_ID | Should -Be 'AKIAIOSFODNN7EXAMPLE'
-            $env:AWS_SECRET_ACCESS_KEY | Should -Be 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
-            $env:S3_BUCKET | Should -Be 'my-app-bucket'
+            $env:AWS_REGION | Should-Be 'us-east-1'
+            $env:AWS_ACCOUNT_ID | Should-Be '123456789012'
+            $env:AWS_ACCESS_KEY_ID | Should-Be 'AKIAIOSFODNN7EXAMPLE'
+            $env:AWS_SECRET_ACCESS_KEY | Should-Be 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+            $env:S3_BUCKET | Should-Be 'my-app-bucket'
 
             Remove-Item -Path $envFile -Force
         }
@@ -259,7 +259,7 @@ Describe 'Import-DotEnv Integration Tests' {
             $result = Import-DotEnv -Path $envDir -PassThru -WarningVariable warnings -WarningAction Continue
 
             $warnings | Should -Not -BeNullOrEmpty
-            ($warnings -join "`n") | Should -Match 'File not found.*dotenv-dir'
+            ($warnings -join "`n") | Should-MatchString 'File not found.*dotenv-dir'
             $env:APP_NAME | Should -BeNullOrEmpty
             $result | Should -BeNullOrEmpty
 
@@ -273,8 +273,8 @@ Describe 'Import-DotEnv Integration Tests' {
 
             $result = Import-DotEnv -Path $envFile -PassThru
 
-            $result.VariableCount | Should -Be 1
-            $env:BOM_VAR | Should -Be 'value_with_bom'
+            $result.VariableCount | Should-Be 1
+            $env:BOM_VAR | Should-Be 'value_with_bom'
 
             Remove-Item -Path $envFile -Force
         }
@@ -287,9 +287,9 @@ API_URL=https://first.example.com
 '@, [System.Text.Encoding]::UTF8)
 
             $initialResult = Import-DotEnv -Path $envFile -PassThru
-            $initialResult.VariableCount | Should -Be 2
-            $env:APP_NAME | Should -Be 'FirstLoad'
-            $env:API_URL | Should -Be 'https://first.example.com'
+            $initialResult.VariableCount | Should-Be 2
+            $env:APP_NAME | Should-Be 'FirstLoad'
+            $env:API_URL | Should-Be 'https://first.example.com'
 
             # Change the file values and load again without -Force; existing env vars should be preserved
             [System.IO.File]::WriteAllText($envFile, @'
@@ -299,11 +299,11 @@ API_URL=https://second.example.com
 
             $secondResult = Import-DotEnv -Path $envFile -PassThru
 
-            $env:APP_NAME | Should -Be 'FirstLoad'
-            $env:API_URL | Should -Be 'https://first.example.com'
-            $secondResult.VariableCount | Should -Be 0
-            $secondResult.Skipped | Should -Contain 'APP_NAME'
-            $secondResult.Skipped | Should -Contain 'API_URL'
+            $env:APP_NAME | Should-Be 'FirstLoad'
+            $env:API_URL | Should-Be 'https://first.example.com'
+            $secondResult.VariableCount | Should-Be 0
+            $secondResult.Skipped | Should-ContainCollection 'APP_NAME'
+            $secondResult.Skipped | Should-ContainCollection 'API_URL'
 
             Remove-Item -Path $envFile -Force
         }
@@ -331,17 +331,17 @@ LOCAL_SETTING=true
             # Load base first
             Import-DotEnv -Path $baseEnvFile
 
-            $env:APP_NAME | Should -Be 'BaseApp'
-            $env:APP_ENV | Should -Be 'production'
-            $env:DB_HOST | Should -Be 'prod-db.example.com'
+            $env:APP_NAME | Should-Be 'BaseApp'
+            $env:APP_ENV | Should-Be 'production'
+            $env:DB_HOST | Should-Be 'prod-db.example.com'
 
             # Load local overrides with Force
             Import-DotEnv -Path $localEnvFile -Force
 
-            $env:APP_NAME | Should -Be 'BaseApp'  # Not in local file
-            $env:APP_ENV | Should -Be 'development'  # Overridden
-            $env:DB_HOST | Should -Be 'localhost'  # Overridden
-            $env:LOCAL_SETTING | Should -Be 'true'  # New variable
+            $env:APP_NAME | Should-Be 'BaseApp'  # Not in local file
+            $env:APP_ENV | Should-Be 'development'  # Overridden
+            $env:DB_HOST | Should-Be 'localhost'  # Overridden
+            $env:LOCAL_SETTING | Should-Be 'true'  # New variable
 
             Remove-Item -Path $baseEnvFile, $localEnvFile -Force
         }
@@ -368,10 +368,10 @@ DB_PORT=5432'
             Import-DotEnv -Path (Join-Path -Path $script:TestDir -ChildPath '.env.development') -Force
             Import-DotEnv -Path (Join-Path -Path $script:TestDir -ChildPath '.env.local') -Force
 
-            $env:APP_NAME | Should -Be 'MyApp'
-            $env:APP_ENV | Should -Be 'development'
-            $env:DEBUG | Should -Be 'true'
-            $env:DB_HOST | Should -Be 'localhost'
+            $env:APP_NAME | Should-Be 'MyApp'
+            $env:APP_ENV | Should-Be 'development'
+            $env:DEBUG | Should-Be 'true'
+            $env:DB_HOST | Should-Be 'localhost'
 
             foreach ($fileName in $envFiles.Keys)
             {
@@ -387,11 +387,11 @@ DB_PORT=5432'
 
             Import-DotEnv -Path $envFile
 
-            $env:HOME_DIR | Should -Be '/home/user'
-            $env:PROJECT_ROOT | Should -Be '/home/user/projects/myapp'
-            $env:CONFIG_PATH | Should -Be '/home/user/projects/myapp/config'
-            $env:DATA_PATH | Should -Be '/home/user/projects/myapp/data'
-            $env:LOG_PATH | Should -Be '/home/user/projects/myapp/logs'
+            $env:HOME_DIR | Should-Be '/home/user'
+            $env:PROJECT_ROOT | Should-Be '/home/user/projects/myapp'
+            $env:CONFIG_PATH | Should-Be '/home/user/projects/myapp/config'
+            $env:DATA_PATH | Should-Be '/home/user/projects/myapp/data'
+            $env:LOG_PATH | Should-Be '/home/user/projects/myapp/logs'
 
             Remove-Item -Path $envFile -Force
         }
@@ -406,9 +406,9 @@ API_ENDPOINT="${API_BASE}/${API_VERSION}"
 
             Import-DotEnv -Path $envFile
 
-            $env:API_BASE | Should -Be 'https://api.example.com'
-            $env:API_VERSION | Should -Be 'v2'
-            $env:API_ENDPOINT | Should -Be 'https://api.example.com/v2'
+            $env:API_BASE | Should-Be 'https://api.example.com'
+            $env:API_VERSION | Should-Be 'v2'
+            $env:API_ENDPOINT | Should-Be 'https://api.example.com/v2'
 
             Remove-Item -Path $envFile -Force
         }
@@ -421,16 +421,16 @@ API_ENDPOINT="${API_BASE}/${API_VERSION}"
 
             Import-DotEnv -Path $envFile
 
-            $env:SIMPLE | Should -Be 'value'
-            $env:DOUBLE_QUOTED | Should -Be 'value with spaces'
-            $env:SINGLE_QUOTED | Should -Be 'value with spaces'
-            $env:SPECIAL | Should -Be '!@#$%^&*()'
-            $env:ESCAPED | Should -Match "Line 1`nLine 2"
-            $env:INLINE | Should -Be 'value'
-            $env:EXPORTED | Should -Be 'exported_value'
+            $env:SIMPLE | Should-Be 'value'
+            $env:DOUBLE_QUOTED | Should-Be 'value with spaces'
+            $env:SINGLE_QUOTED | Should-Be 'value with spaces'
+            $env:SPECIAL | Should-Be '!@#$%^&*()'
+            $env:ESCAPED | Should-MatchString "Line 1`nLine 2"
+            $env:INLINE | Should-Be 'value'
+            $env:EXPORTED | Should-Be 'exported_value'
             $env:EMPTY | Should -BeNullOrEmpty
-            $env:EQUALS | Should -Be 'key=value=another'
-            $env:EXPANDED | Should -Be 'base_expanded'
+            $env:EQUALS | Should-Be 'key=value=another'
+            $env:EXPANDED | Should-Be 'base_expanded'
 
             Remove-Item -Path $envFile -Force
         }
@@ -447,16 +447,16 @@ WORKFLOW_VAR3=value3
 
             # Load
             $loadResult = Import-DotEnv -Path $envFile -PassThru
-            $loadResult.VariableCount | Should -Be 3
+            $loadResult.VariableCount | Should-Be 3
 
             # Use
-            $env:WORKFLOW_VAR1 | Should -Be 'value1'
-            $env:WORKFLOW_VAR2 | Should -Be 'value2'
-            $env:WORKFLOW_VAR3 | Should -Be 'value3'
+            $env:WORKFLOW_VAR1 | Should-Be 'value1'
+            $env:WORKFLOW_VAR2 | Should-Be 'value2'
+            $env:WORKFLOW_VAR3 | Should-Be 'value3'
 
             # Unload
             $unloadResult = Import-DotEnv -Unload -PassThru
-            $unloadResult.VariableCount | Should -Be 3
+            $unloadResult.VariableCount | Should-Be 3
 
             # Verify cleanup
             $env:WORKFLOW_VAR1 | Should -BeNullOrEmpty
@@ -475,7 +475,7 @@ RELOAD_VAR=initial_value
 
             # First load
             Import-DotEnv -Path $envFile
-            $env:RELOAD_VAR | Should -Be 'initial_value'
+            $env:RELOAD_VAR | Should-Be 'initial_value'
 
             # Unload
             Import-DotEnv -Unload
@@ -487,7 +487,7 @@ RELOAD_VAR=new_value
 '@, [System.Text.Encoding]::UTF8)
 
             Import-DotEnv -Path $envFile
-            $env:RELOAD_VAR | Should -Be 'new_value'
+            $env:RELOAD_VAR | Should-Be 'new_value'
 
             Remove-Item -Path $envFile -Force
         }
@@ -504,7 +504,7 @@ RELOAD_VAR=new_value
             Import-DotEnv -Path @($validFile, $invalidFile) -WarningAction SilentlyContinue
 
             # Should still load the valid file
-            $env:VALID_VAR | Should -Be 'value'
+            $env:VALID_VAR | Should-Be 'value'
 
             Remove-Item -Path $validFile -Force
         }
@@ -517,8 +517,8 @@ RELOAD_VAR=new_value
             Import-DotEnv -Path $missingFile -WarningVariable warnings -WarningAction Continue
 
             $warnings | Should -Not -BeNullOrEmpty
-            ($warnings -join "`n") | Should -Match $escapedMissingFile
-            ($warnings -join "`n") | Should -Match 'File not found'
+            ($warnings -join "`n") | Should-MatchString $escapedMissingFile
+            ($warnings -join "`n") | Should-MatchString 'File not found'
         }
 
         It 'Should handle file read permissions gracefully' {
@@ -542,8 +542,8 @@ RELATIVE_PATH=./config/app.json
 
             Import-DotEnv -Path $envFile
 
-            $env:UNIX_PATH | Should -Be '/usr/local/bin'
-            $env:RELATIVE_PATH | Should -Be './config/app.json'
+            $env:UNIX_PATH | Should-Be '/usr/local/bin'
+            $env:RELATIVE_PATH | Should-Be './config/app.json'
 
             Remove-Item -Path $envFile -Force
         }
@@ -557,8 +557,8 @@ NETWORK_PATH="\\\\server\\share"
 
             Import-DotEnv -Path $envFile
 
-            $env:WIN_PATH | Should -Be 'C:\Program Files\MyApp'
-            $env:NETWORK_PATH | Should -Be '\\server\share'
+            $env:WIN_PATH | Should-Be 'C:\Program Files\MyApp'
+            $env:NETWORK_PATH | Should-Be '\\server\share'
 
             Remove-Item -Path $envFile -Force
         }
@@ -576,10 +576,10 @@ NETWORK_PATH="\\\\server\\share"
 
             $result = Import-DotEnv -Path $envFile -PassThru
 
-            $result.VariableCount | Should -Be 100
-            $env:VAR_1 | Should -Be 'value_1'
-            $env:VAR_50 | Should -Be 'value_50'
-            $env:VAR_100 | Should -Be 'value_100'
+            $result.VariableCount | Should-Be 100
+            $env:VAR_1 | Should-Be 'value_1'
+            $env:VAR_50 | Should-Be 'value_50'
+            $env:VAR_100 | Should-Be 'value_100'
 
             # Cleanup
             for ($i = 1; $i -le 100; $i++)
@@ -601,13 +601,13 @@ NETWORK_PATH="\\\\server\\share"
 
             # Verify we got results
             $result | Should -Not -BeNullOrEmpty
-            $result.Count | Should -BeGreaterThan 10
+            $result.Count | Should-BeGreaterThan 10
 
             # Check specific values
-            ($result | Where-Object { $_.Name -eq 'APP_NAME' }).Value | Should -Be 'MyApp'
-            ($result | Where-Object { $_.Name -eq 'APP_ENV' }).Value | Should -Be 'development'
-            ($result | Where-Object { $_.Name -eq 'DB_CONNECTION' }).Value | Should -Be 'postgresql'
-            ($result | Where-Object { $_.Name -eq 'DB_HOST' }).Value | Should -Be 'localhost'
+            ($result | Where-Object { $_.Name -eq 'APP_NAME' }).Value | Should-Be 'MyApp'
+            ($result | Where-Object { $_.Name -eq 'APP_ENV' }).Value | Should-Be 'development'
+            ($result | Where-Object { $_.Name -eq 'DB_CONNECTION' }).Value | Should-Be 'postgresql'
+            ($result | Where-Object { $_.Name -eq 'DB_HOST' }).Value | Should-Be 'localhost'
 
             Remove-Item -Path $envFile -Force
         }
@@ -634,11 +634,11 @@ DEBUG=true
             $result = Import-DotEnv -ShowLoadedWithValues -PassThru
 
             # Should show all variables with final values
-            $result.Count | Should -Be 4
-            ($result | Where-Object { $_.Name -eq 'APP_NAME' }).Value | Should -Be 'BaseApp'
-            ($result | Where-Object { $_.Name -eq 'APP_ENV' }).Value | Should -Be 'development'
-            ($result | Where-Object { $_.Name -eq 'DB_HOST' }).Value | Should -Be 'localhost'
-            ($result | Where-Object { $_.Name -eq 'DEBUG' }).Value | Should -Be 'true'
+            $result.Count | Should-Be 4
+            ($result | Where-Object { $_.Name -eq 'APP_NAME' }).Value | Should-Be 'BaseApp'
+            ($result | Where-Object { $_.Name -eq 'APP_ENV' }).Value | Should-Be 'development'
+            ($result | Where-Object { $_.Name -eq 'DB_HOST' }).Value | Should-Be 'localhost'
+            ($result | Where-Object { $_.Name -eq 'DEBUG' }).Value | Should-Be 'true'
 
             Remove-Item -Path $file1, $file2 -Force
         }
@@ -655,9 +655,9 @@ CONFIG_PATH="${PROJECT_PATH}/config"
 
             $result = Import-DotEnv -ShowLoadedWithValues -PassThru
 
-            ($result | Where-Object { $_.Name -eq 'BASE_PATH' }).Value | Should -Be '/home/user'
-            ($result | Where-Object { $_.Name -eq 'PROJECT_PATH' }).Value | Should -Be '/home/user/projects'
-            ($result | Where-Object { $_.Name -eq 'CONFIG_PATH' }).Value | Should -Be '/home/user/projects/config'
+            ($result | Where-Object { $_.Name -eq 'BASE_PATH' }).Value | Should-Be '/home/user'
+            ($result | Where-Object { $_.Name -eq 'PROJECT_PATH' }).Value | Should-Be '/home/user/projects'
+            ($result | Where-Object { $_.Name -eq 'CONFIG_PATH' }).Value | Should-Be '/home/user/projects/config'
 
             Remove-Item -Path $envFile -Force
         }
@@ -680,9 +680,9 @@ TIMEOUT=30
             # Show values should reflect current state
             $result = Import-DotEnv -ShowLoadedWithValues -PassThru
 
-            ($result | Where-Object { $_.Name -eq 'CONFIG_MODE' }).Value | Should -Be 'modified'
-            ($result | Where-Object { $_.Name -eq 'API_ENDPOINT' }).Value | Should -Be 'https://api.example.com'
-            ($result | Where-Object { $_.Name -eq 'TIMEOUT' }).Value | Should -Be '60'
+            ($result | Where-Object { $_.Name -eq 'CONFIG_MODE' }).Value | Should-Be 'modified'
+            ($result | Where-Object { $_.Name -eq 'API_ENDPOINT' }).Value | Should-Be 'https://api.example.com'
+            ($result | Where-Object { $_.Name -eq 'TIMEOUT' }).Value | Should-Be '60'
 
             Remove-Item -Path $envFile -Force
         }

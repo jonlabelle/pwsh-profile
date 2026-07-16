@@ -21,18 +21,18 @@ Describe 'Get-PlatformPackage' {
 
             $result = @(Get-PlatformPackage -PackageManager brew -CommandRunner $runner)
 
-            $result.Count | Should -Be 2
+            $result.Count | Should-Be 2
 
             $formula = $result | Where-Object { $_.Name -eq 'git' }
-            $formula.PackageManager | Should -Be 'brew'
-            $formula.Type | Should -Be 'Formula'
-            $formula.InstalledVersion | Should -Be '2.44.0'
-            $formula.Publisher | Should -Be 'Homebrew'
-            $formula.PSObject.Properties.Name | Should -Not -Contain 'RemoveArguments'
+            $formula.PackageManager | Should-Be 'brew'
+            $formula.Type | Should-Be 'Formula'
+            $formula.InstalledVersion | Should-Be '2.44.0'
+            $formula.Publisher | Should-Be 'Homebrew'
+            $formula.PSObject.Properties.Name | Should-NotContainCollection 'RemoveArguments'
 
             $cask = $result | Where-Object { $_.Name -eq 'visual-studio-code' }
-            $cask.Type | Should -Be 'Cask'
-            $cask.Source | Should -Be 'homebrew/cask'
+            $cask.Type | Should-Be 'Cask'
+            $cask.Source | Should-Be 'homebrew/cask'
         }
     }
 
@@ -59,12 +59,12 @@ Describe 'Get-PlatformPackage' {
 
             $result = @(Get-PlatformPackage -PackageManager winget -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'Git'
-            $result[0].Id | Should -Be 'Git.Git'
-            $result[0].InstalledVersion | Should -Be '2.45.1'
-            $result[0].Source | Should -Be 'winget'
-            $result[0].Publisher | Should -Be 'winget'
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'Git'
+            $result[0].Id | Should-Be 'Git.Git'
+            $result[0].InstalledVersion | Should-Be '2.45.1'
+            $result[0].Source | Should-Be 'winget'
+            $result[0].Publisher | Should-Be 'winget'
         }
     }
 
@@ -79,11 +79,11 @@ Describe 'Get-PlatformPackage' {
 
             $result = @(Get-PlatformPackage -PackageManager apt -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'openssl'
-            $result[0].Type | Should -Be 'arm64'
-            $result[0].InstalledVersion | Should -Be '3.0.2-0ubuntu1.15'
-            $result[0].Notes | Should -Be 'Automatic'
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'openssl'
+            $result[0].Type | Should-Be 'arm64'
+            $result[0].InstalledVersion | Should-Be '3.0.2-0ubuntu1.15'
+            $result[0].Notes | Should-Be 'Automatic'
         }
 
         It 'parses apk output and keeps hyphenated package names' {
@@ -96,13 +96,13 @@ Describe 'Get-PlatformPackage' {
 
             $result = @(Get-PlatformPackage -PackageManager apk -CommandRunner $runner)
 
-            $result.Count | Should -Be 2
+            $result.Count | Should-Be 2
 
             $busybox = $result | Where-Object { $_.Name -eq 'busybox' }
-            $busybox.InstalledVersion | Should -Be '1.36.1-r19'
+            $busybox.InstalledVersion | Should-Be '1.36.1-r19'
 
             $requests = $result | Where-Object { $_.Name -eq 'py3-requests' }
-            $requests.InstalledVersion | Should -Be '2.31.0-r0'
+            $requests.InstalledVersion | Should-Be '2.31.0-r0'
         }
     }
 
@@ -115,8 +115,8 @@ Describe 'Get-PlatformPackage' {
 
             $result = @(Get-PlatformPackage -PackageManager brew -Name 'g*' -ExcludePackage 'gh' -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'git'
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'git'
         }
 
         It 'returns empty when brew list output is empty' {
@@ -127,7 +127,7 @@ Describe 'Get-PlatformPackage' {
 
             $result = @(Get-PlatformPackage -PackageManager brew -CommandRunner $runner)
 
-            $result.Count | Should -Be 0
+            $result.Count | Should-Be 0
         }
 
         It 'excludes winget packages matched by wildcard ExcludePackage pattern' {
@@ -158,8 +158,8 @@ Describe 'Get-PlatformPackage' {
 
             $result = @(Get-PlatformPackage -PackageManager winget -ExcludePackage '*Desktop*' -SkipDescriptionEnrichment -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'Git'
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'Git'
         }
 
         It 'falls back to winget table output when the JSON command fails' {
@@ -176,8 +176,8 @@ Describe 'Get-PlatformPackage' {
 
             $result = @(Get-PlatformPackage -PackageManager winget -SkipDescriptionEnrichment -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'Git'
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'Git'
         }
     }
 }
