@@ -233,7 +233,7 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
             $job2 = Start-KeepAlive -KeepAliveHours 0.1 -JobName 'TestKeepAlive2' -WarningVariable warningMessages
 
             $job2 | Should -BeNullOrEmpty
-            $warningMessages | Should-MatchString 'already running'
+            ($warningMessages | Out-String) | Should-MatchString 'already running'
         }
 
         It 'Should clean up completed jobs before starting new ones' {
@@ -268,7 +268,7 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
             $warningMessages = @()
             Start-KeepAlive -Query -JobName 'NonExistentJob' -WarningVariable warningMessages
 
-            $warningMessages | Should-MatchString "No keep-alive job named 'NonExistentJob' found"
+            ($warningMessages | Out-String) | Should-MatchString "No keep-alive job named 'NonExistentJob' found"
         }
 
         It 'Should include scheduled end time for keep-alive jobs' {
@@ -289,7 +289,7 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
             $warningMessages = @()
             $output = Start-KeepAlive -Query -JobName 'TestQueryDuplicate' -WarningVariable warningMessages 6>&1 | Out-String
 
-            $warningMessages | Should-MatchString "Multiple jobs named 'TestQueryDuplicate' were found"
+            ($warningMessages | Out-String) | Should-MatchString "Multiple jobs named 'TestQueryDuplicate' were found"
             $output | Should-MatchString "Job Status for 'TestQueryDuplicate'"
         }
 
@@ -323,7 +323,7 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
             $warningMessages = @()
             Start-KeepAlive -EndJob -JobName 'NonExistentEndJob' -WarningVariable warningMessages
 
-            $warningMessages | Should-MatchString "No keep-alive job named 'NonExistentEndJob' found"
+            ($warningMessages | Out-String) | Should-MatchString "No keep-alive job named 'NonExistentEndJob' found"
         }
 
         It 'Should successfully stop and remove running job' {
@@ -346,7 +346,7 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
             $warningMessages = @()
             $output = Start-KeepAlive -EndJob -JobName 'TestEndDuplicate' -WarningVariable warningMessages 6>&1 | Out-String
 
-            $warningMessages | Should-MatchString "Multiple jobs named 'TestEndDuplicate' were found"
+            ($warningMessages | Out-String) | Should-MatchString "Multiple jobs named 'TestEndDuplicate' were found"
             $output | Should-MatchString "Removed 2 matching jobs named 'TestEndDuplicate'"
             Get-Job -Name 'TestEndDuplicate' -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
         }
@@ -375,8 +375,8 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
             $job = Start-KeepAlive -KeepAliveHours 0.1 -JobName 'TestVerbose1' -Verbose 4>&1
 
             $verboseOutput = $job | Out-String
-            $verboseOutput | Should-MatchString 'Starting Start-KeepAlive function'
-            $verboseOutput | Should-MatchString 'Starting new keep-alive job'
+            ($verboseOutput | Out-String) | Should-MatchString 'Starting Start-KeepAlive function'
+            ($verboseOutput | Out-String) | Should-MatchString 'Starting new keep-alive job'
 
             # Clean up
             Get-Job -Name 'TestVerbose1' | Remove-Job -Force

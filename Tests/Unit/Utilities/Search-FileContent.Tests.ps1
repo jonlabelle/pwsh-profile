@@ -352,17 +352,17 @@ Line 9
 
         It 'Should exclude .git directories by default' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Recurse
-            $results.Path | Should-NotBeLikeString '*.git*'
+            $results.Path | ForEach-Object { $_ | Should-NotBeLikeString '*.git*' }
         }
 
         It 'Should exclude node_modules directories by default' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Recurse
-            $results.Path | Should-NotBeLikeString '*node_modules*'
+            $results.Path | ForEach-Object { $_ | Should-NotBeLikeString '*node_modules*' }
         }
 
         It 'Should allow custom directory exclusions' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Recurse -ExcludeDirectory 'src'
-            $results.Path | Should-NotMatchString '[\\/]src[\\/]'
+            $results.Path | ForEach-Object { $_ | Should-NotMatchString '[\\/]src[\\/]' }
         }
 
         It 'Should not exclude similarly named directories without wildcards' {
@@ -398,7 +398,7 @@ Final line
 
         It 'Should output objects in Simple mode' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple
-            $results | Should-HaveType ([PSCustomObject])
+            $results | ForEach-Object { $_ | Should-HaveType ([PSCustomObject]) }
             $results[0].PSObject.Properties.Name | Should-ContainCollection 'Path'
             $results[0].PSObject.Properties.Name | Should-ContainCollection 'LineNumber'
             $results[0].PSObject.Properties.Name | Should-ContainCollection 'Line'
@@ -407,7 +407,7 @@ Final line
 
         It 'Should output count with -CountOnly and -Simple' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -CountOnly -Simple
-            $results | Should-HaveType ([PSCustomObject])
+            $results | ForEach-Object { $_ | Should-HaveType ([PSCustomObject]) }
             $results.PSObject.Properties.Name | Should-ContainCollection 'Path'
             $results.PSObject.Properties.Name | Should-ContainCollection 'MatchCount'
             $results.MatchCount | Should-Be 2
@@ -415,7 +415,7 @@ Final line
 
         It 'Should output only file paths with -FilesOnly and -Simple' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -FilesOnly -Simple
-            $results | Should-HaveType ([PSCustomObject])
+            $results | ForEach-Object { $_ | Should-HaveType ([PSCustomObject]) }
             $results.PSObject.Properties.Name | Should-ContainCollection 'Path'
             $results.PSObject.Properties.Name | Should-NotContainCollection 'LineNumber'
         }

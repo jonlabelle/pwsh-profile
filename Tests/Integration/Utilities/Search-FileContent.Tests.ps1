@@ -119,7 +119,7 @@ Write-Host "Example usage"
             $results = Search-FileContent -Pattern 'TODO:' -Path $script:projectDir -Simple -Recurse
             # Should find TODOs in src files, test files, and README, but not in .git
             $results.Count | Should-BeGreaterThanOrEqual 4
-            $results.Path | Should-NotBeLikeString '*.git*'
+            $results.Path | ForEach-Object { $_ | Should-NotBeLikeString '*.git*' }
         }
 
         It 'Should find function declarations in PowerShell files' {
@@ -130,7 +130,7 @@ Write-Host "Example usage"
 
         It 'Should exclude test files when requested' {
             $results = Search-FileContent -Pattern 'TODO' -Path $script:projectDir -Exclude '*.Tests.ps1' -Simple -Recurse
-            $results.Path | Should-NotBeLikeString '*Tests.ps1'
+            $results.Path | ForEach-Object { $_ | Should-NotBeLikeString '*Tests.ps1' }
         }
 
         It 'Should search only PowerShell files' {

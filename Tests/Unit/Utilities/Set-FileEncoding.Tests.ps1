@@ -88,7 +88,7 @@ Describe 'Set-FileEncoding' -Tag 'Unit' {
         $result = Set-FileEncoding -Path $path -Encoding UTF8BOM -PassThru -WarningVariable warnings -WarningAction Continue
         $afterBytes = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($path))
 
-        $warnings | Should-MatchString 'binary'
+        ($warnings | Out-String) | Should-MatchString 'binary'
         $result | Should -BeNullOrEmpty
         $afterBytes | Should-Be $beforeBytes
     }

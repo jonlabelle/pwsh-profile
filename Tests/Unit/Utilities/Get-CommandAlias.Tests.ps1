@@ -74,7 +74,7 @@ Describe 'Get-CommandAlias' {
         It 'Should show warning for non-existent command pattern' {
             $warningOutput = Get-CommandAlias -Name 'NonExistentCommand*' 3>&1
             $warningOutput | Should -Not -BeNullOrEmpty
-            $warningOutput | Should-MatchString 'No aliases found'
+            ($warningOutput | Out-String) | Should-MatchString 'No aliases found'
         }
     }
 
@@ -108,7 +108,7 @@ Describe 'Get-CommandAlias' {
             # Should produce verbose messages
             $verboseMessages = $verboseOutput | Where-Object { $_ -is [System.Management.Automation.VerboseRecord] }
             $verboseMessages | Should -Not -BeNullOrEmpty
-            $verboseMessages | Should-MatchString 'alias'
+            ($verboseMessages | Out-String) | Should-MatchString 'alias'
         }
     }
 
@@ -133,7 +133,7 @@ Describe 'Get-CommandAlias' {
             # Should produce a warning about no aliases found
             if ($warningOutput)
             {
-                $warningOutput | Should-MatchString 'No aliases found'
+                ($warningOutput | Out-String) | Should-MatchString 'No aliases found'
             }
         }
     }

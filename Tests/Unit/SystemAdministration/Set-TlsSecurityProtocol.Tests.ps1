@@ -263,7 +263,7 @@ Describe 'Set-TlsSecurityProtocol' {
             $verboseOutput = Set-TlsSecurityProtocol -Protocol 'Tls12' -Verbose 4>&1
 
             $verboseOutput | Should -Not -BeNullOrEmpty
-            $verboseOutput | Should-MatchString 'TLS|protocol|security'
+            ($verboseOutput | Out-String) | Should-MatchString 'TLS|protocol|security'
         }
     }
 

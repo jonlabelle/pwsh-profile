@@ -71,7 +71,7 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
             ConvertFrom-Base64 -InputObject $encoded -OutputPath $outputFile
 
             $result = [System.IO.File]::ReadAllBytes($outputFile)
-            $result | Should-Be $bytes
+            [Convert]::ToBase64String($result) | Should-Be ([Convert]::ToBase64String($bytes))
         }
 
         It 'Should handle large text file' {
@@ -220,7 +220,7 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
             ConvertFrom-Base64 -InputObject $encoded -OutputPath $outputFile
 
             $result = [System.IO.File]::ReadAllBytes($outputFile)
-            $result | Should-Be $imageBytes
+            [Convert]::ToBase64String($result) | Should-Be ([Convert]::ToBase64String($imageBytes))
         }
 
         It 'Should handle configuration data' {
@@ -263,7 +263,7 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
             ConvertFrom-Base64 -InputObject $encoded -OutputPath $outputFile
 
             $result = [System.IO.File]::ReadAllBytes($outputFile)
-            $result | Should-Be $bytes
+            [Convert]::ToBase64String($result) | Should-Be ([Convert]::ToBase64String($bytes))
         }
     }
 }

@@ -648,7 +648,7 @@ Describe 'install.ps1 integration tests' {
 
             try
             {
-                Should-Throw -ActualValue { & $script:installScript -ProfileRoot $profileRoot -RestorePath $missingRestore -Verbose:$false }
+                Should-Throw -ScriptBlock { & $script:installScript -ProfileRoot $profileRoot -RestorePath $missingRestore -Verbose:$false }
             }
             finally
             {

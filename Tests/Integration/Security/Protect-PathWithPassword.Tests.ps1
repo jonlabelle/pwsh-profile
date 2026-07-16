@@ -82,7 +82,7 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
 
             # Verify binary data integrity
             $restoredData = [System.IO.File]::ReadAllBytes($decResult.DecryptedPath)
-            $restoredData | Should-Be $binaryData
+            [Convert]::ToBase64String($restoredData) | Should-Be ([Convert]::ToBase64String($binaryData))
         }
 
         It 'Should handle large files efficiently' {
@@ -141,7 +141,7 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
 
                 # Verify content (comparing with the same bytes we wrote)
                 $restoredBytes = [System.IO.File]::ReadAllBytes($decResult.DecryptedPath)
-                $restoredBytes | Should-Be $contentBytes
+                [Convert]::ToBase64String($restoredBytes) | Should-Be ([Convert]::ToBase64String($contentBytes))
             }
         }
     }
@@ -160,7 +160,7 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             $encBytes2 = [System.IO.File]::ReadAllBytes($enc2.EncryptedPath)
 
             # Files should be different (due to random salt and IV)
-            $encBytes1 | Should-NotBe $encBytes2
+            [Convert]::ToBase64String($encBytes1) | Should-NotBe ([Convert]::ToBase64String($encBytes2))
 
             # But both should decrypt to the same content
             Remove-Item $testFile -Force
@@ -290,8 +290,8 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
             $iv = $encryptedBytes[32..47]
 
             # Verify salt and IV are not all zeros (proper randomness)
-            $salt | Should-NotBe (@(0) * 32)
-            $iv | Should-NotBe (@(0) * 16)
+            [Convert]::ToBase64String([byte[]]$salt) | Should-NotBe ([Convert]::ToBase64String([byte[]](@(0) * 32)))
+            [Convert]::ToBase64String([byte[]]$iv) | Should-NotBe ([Convert]::ToBase64String([byte[]](@(0) * 16)))
 
             # Verify we can decrypt it
             Remove-Item $testFile -Force
@@ -472,7 +472,7 @@ Describe 'Protect-PathWithPassword and Unprotect-PathWithPassword Integration Te
 
             # Verify binary integrity
             $restoredData = [System.IO.File]::ReadAllBytes($decResult.DecryptedPath)
-            $restoredData | Should-Be $binaryData
+            [Convert]::ToBase64String($restoredData) | Should-Be ([Convert]::ToBase64String($binaryData))
         }
 
         It 'Should provide information about OpenSSL script availability' {

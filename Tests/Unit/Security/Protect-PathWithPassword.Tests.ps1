@@ -186,7 +186,7 @@ Describe 'Protect-PathWithPassword Unit Tests' {
             $bytes2 = [System.IO.File]::ReadAllBytes($result2.EncryptedPath)
 
             # Compare first 48 bytes (salt + IV) - they should be different
-            $bytes1[0..47] | Should-NotBe $bytes2[0..47]
+            [Convert]::ToBase64String($bytes1[0..47]) | Should-NotBe ([Convert]::ToBase64String($bytes2[0..47]))
         }
 
         It 'Should create files with appropriate size (larger than original due to encryption overhead)' {

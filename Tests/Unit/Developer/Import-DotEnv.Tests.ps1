@@ -1188,7 +1188,7 @@ SHOW_VAR2=another_value
 
             $result = Import-DotEnv -ShowLoadedWithValues -PassThru
 
-            $result | Should-HaveType ([PSCustomObject])
+            $result | ForEach-Object { $_ | Should-HaveType ([PSCustomObject]) }
             $result[0].PSObject.Properties.Name | Should-ContainCollection 'Name'
             $result[0].PSObject.Properties.Name | Should-ContainCollection 'Value'
         }
@@ -1289,4 +1289,3 @@ SHOW_VAR3=value3
         }
     }
 }
-

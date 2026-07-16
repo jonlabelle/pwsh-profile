@@ -153,7 +153,7 @@ Describe 'Get-WhichCommand' -Tag 'Unit' {
             $warningMessage = $null
             Get-WhichCommand -Name 'ThisCommandDefinitelyDoesNotExist123456789' -WarningVariable warningMessage -WarningAction SilentlyContinue
             $warningMessage | Should -Not -BeNullOrEmpty
-            $warningMessage | Should-MatchString 'not found'
+            ($warningMessage | Out-String) | Should-MatchString 'not found'
         }
 
         It 'Should not throw for non-existent commands' {

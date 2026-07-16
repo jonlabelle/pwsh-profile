@@ -256,7 +256,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
             $null = Replace-StringInFile -Path $binaryFile -OldString 'test' -NewString 'new' -WarningVariable warnings -WarningAction SilentlyContinue
 
-            $warnings | Should-MatchString 'binary'
+            ($warnings | Out-String) | Should-MatchString 'binary'
         }
     }
 

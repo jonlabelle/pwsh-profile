@@ -106,7 +106,7 @@ Describe 'ConvertFrom-Base64' -Tag 'Unit' {
             ConvertFrom-Base64 -InputObject $encoded -OutputPath $outputFile
 
             $decodedBytes = [System.IO.File]::ReadAllBytes($outputFile)
-            $decodedBytes | Should-Be $originalBytes
+            [Convert]::ToBase64String($decodedBytes) | Should-Be ([Convert]::ToBase64String($originalBytes))
         }
 
         It 'Should create output directory if it does not exist' {
