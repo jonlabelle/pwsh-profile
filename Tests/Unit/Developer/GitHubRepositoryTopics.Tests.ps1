@@ -63,11 +63,11 @@ Describe 'GitHub repository topic functions' {
 
             $result = Get-GitHubRepositoryTopic -Repository 'octo-org/service-api'
 
-            $result.Repository | Should -Be 'octo-org/service-api'
-            $result.Topics | Should -Be @('powershell', 'automation')
-            $result.AllTopics | Should -Be @('powershell', 'automation')
+            $result.Repository | Should-Be 'octo-org/service-api'
+            $result.Topics | Should-BeCollection @('powershell', 'automation')
+            $result.AllTopics | Should-BeCollection @('powershell', 'automation')
             $result.MissingTopics | Should -BeNullOrEmpty
-            $result.TopicCount | Should -Be 2
+            $result.TopicCount | Should-Be 2
         }
 
         It 'filters requested topics and reports missing topic names' {
@@ -83,10 +83,10 @@ Describe 'GitHub repository topic functions' {
 
             $result = Get-GitHubRepositoryTopic -Name @(' PowerShell ', 'Missing', 'powershell') -Repository 'octo-org/service-api'
 
-            $result.RequestedTopics | Should -Be @('powershell', 'missing')
-            $result.Topics | Should -Be @('powershell')
-            $result.MissingTopics | Should -Be @('missing')
-            $result.TotalTopicCount | Should -Be 2
+            $result.RequestedTopics | Should-BeCollection @('powershell', 'missing')
+            $result.Topics | Should-BeCollection @('powershell')
+            $result.MissingTopics | Should-BeCollection @('missing')
+            $result.TotalTopicCount | Should-Be 2
         }
     }
 
@@ -104,10 +104,10 @@ Describe 'GitHub repository topic functions' {
 
             $result = Set-GitHubRepositoryTopic -Name @('Automation', ' powershell ') -Repository 'octo-org/service-api'
 
-            $result.Status | Should -Be 'Unchanged'
-            $result.Changed | Should -BeFalse
-            $result.Topics | Should -Be @('powershell', 'automation')
-            Should -Invoke -CommandName gh -ParameterFilter {
+            $result.Status | Should-Be 'Unchanged'
+            $result.Changed | Should-BeFalsy
+            $result.Topics | Should-BeCollection @('powershell', 'automation')
+            Should-Invoke -CommandName gh -ParameterFilter {
                 $args[0] -eq 'api' -and $args -contains 'PUT'
             } -Times 0 -Exactly
         }
@@ -139,11 +139,11 @@ Describe 'GitHub repository topic functions' {
 
             $result = Set-GitHubRepositoryTopic -Name @(' PowerShell ', 'DevOps', 'devops ') -Repository 'octo-org/service-api'
 
-            $result.Status | Should -Be 'Updated'
-            $result.AddedTopics | Should -Be @('devops')
-            $result.Topics | Should -Be @('powershell', 'automation', 'devops')
-            $script:TempRequestBodies.Count | Should -Be 1
-            $script:TempRequestBodies[0] | Should -Match '"names":\["powershell","automation","devops"\]'
+            $result.Status | Should-Be 'Updated'
+            $result.AddedTopics | Should-BeCollection @('devops')
+            $result.Topics | Should-BeCollection @('powershell', 'automation', 'devops')
+            $script:TempRequestBodies.Count | Should-Be 1
+            $script:TempRequestBodies[0] | Should-MatchString '"names":\["powershell","automation","devops"\]'
         }
 
         It 'falls back to the REST API when gh is not installed' {
@@ -159,7 +159,7 @@ Describe 'GitHub repository topic functions' {
 
                 if ($Method -eq 'PUT' -and $Uri -eq 'https://api.github.com/repos/octo-org/service-api/topics')
                 {
-                    $Body | Should -Match '"names":\["powershell","automation"\]'
+                    $Body | Should-MatchString '"names":\["powershell","automation"\]'
 
                     return [PSCustomObject]@{
                         names = @('powershell', 'automation')
@@ -176,9 +176,9 @@ Describe 'GitHub repository topic functions' {
             }
             $result = Set-GitHubRepositoryTopic @setGitHubRepositoryTopicParams
 
-            $result.Status | Should -Be 'Updated'
-            $result.Transport | Should -Be 'RestApi'
-            $result.Topics | Should -Be @('powershell', 'automation')
+            $result.Status | Should-Be 'Updated'
+            $result.Transport | Should-Be 'RestApi'
+            $result.Topics | Should-BeCollection @('powershell', 'automation')
         }
     }
 
@@ -196,10 +196,10 @@ Describe 'GitHub repository topic functions' {
 
             $result = Remove-GitHubRepositoryTopic -Name @('missing', ' Missing ') -Repository 'octo-org/service-api'
 
-            $result.Status | Should -Be 'AlreadyAbsent'
-            $result.Changed | Should -BeFalse
-            $result.Topics | Should -Be @('powershell', 'automation')
-            Should -Invoke -CommandName gh -ParameterFilter {
+            $result.Status | Should-Be 'AlreadyAbsent'
+            $result.Changed | Should-BeFalsy
+            $result.Topics | Should-BeCollection @('powershell', 'automation')
+            Should-Invoke -CommandName gh -ParameterFilter {
                 $args[0] -eq 'api' -and $args -contains 'PUT'
             } -Times 0 -Exactly
         }
@@ -231,11 +231,11 @@ Describe 'GitHub repository topic functions' {
 
             $result = Remove-GitHubRepositoryTopic -Name @('Automation', 'missing') -Repository 'octo-org/service-api'
 
-            $result.Status | Should -Be 'Removed'
-            $result.RemovedTopics | Should -Be @('automation')
-            $result.Topics | Should -Be @('powershell', 'devops')
-            $script:TempRequestBodies.Count | Should -Be 1
-            $script:TempRequestBodies[0] | Should -Match '"names":\["powershell","devops"\]'
+            $result.Status | Should-Be 'Removed'
+            $result.RemovedTopics | Should-BeCollection @('automation')
+            $result.Topics | Should-BeCollection @('powershell', 'devops')
+            $script:TempRequestBodies.Count | Should-Be 1
+            $script:TempRequestBodies[0] | Should-MatchString '"names":\["powershell","devops"\]'
         }
     }
 }

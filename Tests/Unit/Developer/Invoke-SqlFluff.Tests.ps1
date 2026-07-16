@@ -81,7 +81,7 @@ Describe 'Invoke-SqlFluff' {
         It 'Throws when Docker is not installed' {
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
 
-            { Invoke-SqlFluff -Mode lint -Path 'test.sql' } | Should -Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
+            { Invoke-SqlFluff -Mode lint -Path 'test.sql' } | Should-Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
         }
 
         It 'Throws when Docker daemon is not running' {
@@ -106,7 +106,7 @@ Describe 'Invoke-SqlFluff' {
                 }
             }
 
-            { Invoke-SqlFluff -Mode lint -Path 'test.sql' } | Should -Throw '*daemon is not running*'
+            { Invoke-SqlFluff -Mode lint -Path 'test.sql' } | Should-Throw '*daemon is not running*'
 
             Remove-Item -Path Function:\pwshDockerTestShimDaemonDown -ErrorAction SilentlyContinue
         }
@@ -140,8 +140,8 @@ Describe 'Invoke-SqlFluff' {
 
             Invoke-SqlFluff -Mode lint -Path $script:SqlFile | Out-Null
 
-            $script:SqlFluffShimInvocations.Count | Should -Be 1
-            $script:DockerShimInvocations.Count | Should -Be 0
+            $script:SqlFluffShimInvocations.Count | Should-Be 1
+            $script:DockerShimInvocations.Count | Should-Be 0
         }
 
         It 'Skips Docker prerequisite checks when local SQLFluff is available' {
@@ -155,7 +155,7 @@ Describe 'Invoke-SqlFluff' {
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
 
             { Invoke-SqlFluff -Mode lint -Path $script:SqlFile } | Should -Not -Throw
-            Should -Invoke -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -Times 0 -Exactly
+            Should-Invoke -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -Times 0 -Exactly
         }
 
         It 'Falls back to Docker when local SQLFluff is not available' {
@@ -170,7 +170,7 @@ Describe 'Invoke-SqlFluff' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $script:SqlFluffShimInvocations.Count | Should -Be 0
+            $script:SqlFluffShimInvocations.Count | Should-Be 0
         }
 
         It 'Uses Docker when Runtime is explicitly set to Docker' {
@@ -192,7 +192,7 @@ Describe 'Invoke-SqlFluff' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $script:SqlFluffShimInvocations.Count | Should -Be 0
+            $script:SqlFluffShimInvocations.Count | Should-Be 0
         }
 
         It 'Uses local SQLFluff when Runtime is explicitly set to Local' {
@@ -207,8 +207,8 @@ Describe 'Invoke-SqlFluff' {
 
             Invoke-SqlFluff -Mode lint -Path $script:SqlFile -Runtime Local | Out-Null
 
-            $script:SqlFluffShimInvocations.Count | Should -Be 1
-            $script:DockerShimInvocations.Count | Should -Be 0
+            $script:SqlFluffShimInvocations.Count | Should-Be 1
+            $script:DockerShimInvocations.Count | Should-Be 0
         }
     }
 
@@ -218,7 +218,7 @@ Describe 'Invoke-SqlFluff' {
             @{ Value = 'analyze' }
             @{ Value = '' }
         ) {
-            { Invoke-SqlFluff -Mode $Value -Path 'test.sql' } | Should -Throw
+            { Invoke-SqlFluff -Mode $Value -Path 'test.sql' } | Should-Throw
         }
 
         It 'Accepts valid Mode "<Value>"' -ForEach @(
@@ -248,25 +248,25 @@ Describe 'Invoke-SqlFluff' {
         }
 
         It 'Rejects empty Path' {
-            { Invoke-SqlFluff -Mode lint -Path '' } | Should -Throw
+            { Invoke-SqlFluff -Mode lint -Path '' } | Should-Throw
         }
 
         It 'Rejects using Path and LiteralPath together' {
-            { Invoke-SqlFluff -Mode lint -Path 'test.sql' -LiteralPath 'test.sql' } | Should -Throw
+            { Invoke-SqlFluff -Mode lint -Path 'test.sql' -LiteralPath 'test.sql' } | Should-Throw
         }
 
         It 'Rejects empty ImageTag' {
-            { Invoke-SqlFluff -Mode lint -Path 'test.sql' -ImageTag '' } | Should -Throw
+            { Invoke-SqlFluff -Mode lint -Path 'test.sql' -ImageTag '' } | Should-Throw
         }
 
         It 'Rejects invalid Runtime' {
-            { Invoke-SqlFluff -Mode lint -Path 'test.sql' -Runtime 'Container' } | Should -Throw
+            { Invoke-SqlFluff -Mode lint -Path 'test.sql' -Runtime 'Container' } | Should-Throw
         }
     }
 
     Context 'Explicit runtime prerequisites' {
         It 'Throws when Runtime is Local and local SQLFluff is not installed' {
-            { Invoke-SqlFluff -Mode lint -Path 'test.sql' -Runtime Local } | Should -Throw 'SQLFluff is not installed or not available in PATH. Install SQLFluff or use -Runtime Docker.'
+            { Invoke-SqlFluff -Mode lint -Path 'test.sql' -Runtime Local } | Should-Throw 'SQLFluff is not installed or not available in PATH. Install SQLFluff or use -Runtime Docker.'
         }
 
         It 'Throws when Runtime is Docker and Docker is not installed even if local SQLFluff is available' {
@@ -279,7 +279,7 @@ Describe 'Invoke-SqlFluff' {
 
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
 
-            { Invoke-SqlFluff -Mode lint -Path 'test.sql' -Runtime Docker } | Should -Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
+            { Invoke-SqlFluff -Mode lint -Path 'test.sql' -Runtime Docker } | Should-Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
         }
     }
 
@@ -312,7 +312,7 @@ Describe 'Invoke-SqlFluff' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain $Mode
+            $runCall | Should-ContainCollection $Mode
         }
 
         It 'Uses -i and --rm flags for docker run' {
@@ -320,8 +320,8 @@ Describe 'Invoke-SqlFluff' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '-i'
-            $runCall | Should -Contain '--rm'
+            $runCall | Should-ContainCollection '-i'
+            $runCall | Should-ContainCollection '--rm'
         }
 
         It 'Mounts the working directory as /sql volume' {
@@ -329,7 +329,7 @@ Describe 'Invoke-SqlFluff' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '-v'
+            $runCall | Should-ContainCollection '-v'
             $volArg = $runCall | Where-Object { $_ -match ':/sql$' }
             $volArg | Should -Not -BeNullOrEmpty
         }
@@ -339,7 +339,7 @@ Describe 'Invoke-SqlFluff' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain 'sqlfluff/sqlfluff:latest'
+            $runCall | Should-ContainCollection 'sqlfluff/sqlfluff:latest'
         }
 
         It 'Uses correct image reference with custom tag' {
@@ -347,7 +347,7 @@ Describe 'Invoke-SqlFluff' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain 'sqlfluff/sqlfluff:3.0.0'
+            $runCall | Should-ContainCollection 'sqlfluff/sqlfluff:3.0.0'
         }
 
         It 'Passes --dialect with the correct value' {
@@ -355,8 +355,8 @@ Describe 'Invoke-SqlFluff' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '--dialect'
-            $runCall | Should -Contain 'tsql'
+            $runCall | Should-ContainCollection '--dialect'
+            $runCall | Should-ContainCollection 'tsql'
         }
 
         It 'Defaults to --dialect ansi when no config file and no dialect are provided' {
@@ -373,8 +373,8 @@ Describe 'Invoke-SqlFluff' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '--dialect'
-            $runCall | Should -Contain 'ansi'
+            $runCall | Should-ContainCollection '--dialect'
+            $runCall | Should-ContainCollection 'ansi'
         }
 
         It 'Appends additional arguments' {
@@ -382,8 +382,8 @@ Describe 'Invoke-SqlFluff' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '--exclude-rules'
-            $runCall | Should -Contain 'LT01'
+            $runCall | Should-ContainCollection '--exclude-rules'
+            $runCall | Should-ContainCollection 'LT01'
         }
 
         It 'Includes relative SQL file path in docker args' {
@@ -391,7 +391,7 @@ Describe 'Invoke-SqlFluff' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain 'query.sql'
+            $runCall | Should-ContainCollection 'query.sql'
         }
     }
 
@@ -422,8 +422,8 @@ Describe 'Invoke-SqlFluff' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '--config'
-            $runCall | Should -Contain '/config/.sqlfluff'
+            $runCall | Should-ContainCollection '--config'
+            $runCall | Should-ContainCollection '/config/.sqlfluff'
 
             # Verify the volume mount for the config file
             $volArgs = @()
@@ -446,17 +446,17 @@ Describe 'Invoke-SqlFluff' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Not -Contain '--dialect'
+            $runCall | Should-NotContainCollection '--dialect'
         }
 
         It 'Throws when explicitly specified config file does not exist' {
-            { Invoke-SqlFluff -Mode lint -Path $script:SqlFile -ConfigPath '/nonexistent/.sqlfluff' } | Should -Throw 'Config file not found*'
+            { Invoke-SqlFluff -Mode lint -Path $script:SqlFile -ConfigPath '/nonexistent/.sqlfluff' } | Should-Throw 'Config file not found*'
         }
 
         It 'Throws when explicitly specified config path does not exist' {
             $missingConfig = Join-Path -Path $script:TestDir -ChildPath 'no-such-dir/.sqlfluff'
 
-            { Invoke-SqlFluff -Mode lint -Path $script:SqlFile -ConfigPath $missingConfig } | Should -Throw 'Config file not found*'
+            { Invoke-SqlFluff -Mode lint -Path $script:SqlFile -ConfigPath $missingConfig } | Should-Throw 'Config file not found*'
         }
 
         It 'Runs without --config when default config is not found' {
@@ -479,7 +479,7 @@ Describe 'Invoke-SqlFluff' {
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             if ($runCall)
             {
-                $runCall | Should -Not -Contain '--config'
+                $runCall | Should-NotContainCollection '--config'
             }
         }
     }
@@ -507,7 +507,7 @@ Describe 'Invoke-SqlFluff' {
             Invoke-SqlFluff -Mode lint | Out-Null
 
             $runCalls = @($script:DockerShimInvocations | Where-Object { $_ -contains 'run' })
-            $runCalls.Count | Should -Be 2
+            $runCalls.Count | Should-Be 2
         }
 
         It 'Warns when no *.sql files are found in working directory' {
@@ -515,8 +515,8 @@ Describe 'Invoke-SqlFluff' {
             $result = Invoke-SqlFluff -Mode lint 3>&1
 
             $warnings = @($result | Where-Object { $_ -is [System.Management.Automation.WarningRecord] })
-            $warnings.Count | Should -BeGreaterThan 0
-            $warnings[0].Message | Should -BeLike '*No *.sql files found*'
+            $warnings.Count | Should-BeGreaterThan 0
+            $warnings[0].Message | Should-BeLikeString '*No *.sql files found*'
         }
 
         It 'Expands directories to contained *.sql files' {
@@ -527,7 +527,7 @@ Describe 'Invoke-SqlFluff' {
             Invoke-SqlFluff -Mode lint -Path $subDir | Out-Null
 
             $runCalls = @($script:DockerShimInvocations | Where-Object { $_ -contains 'run' })
-            $runCalls.Count | Should -Be 1
+            $runCalls.Count | Should-Be 1
         }
 
         It 'Discovers files recursively with -Recurse' {
@@ -539,7 +539,7 @@ Describe 'Invoke-SqlFluff' {
             Invoke-SqlFluff -Mode lint -Recurse | Out-Null
 
             $runCalls = @($script:DockerShimInvocations | Where-Object { $_ -contains 'run' })
-            $runCalls.Count | Should -Be 2
+            $runCalls.Count | Should-Be 2
         }
 
         It 'Expands wildcard Path patterns to matching SQL files' {
@@ -550,7 +550,7 @@ Describe 'Invoke-SqlFluff' {
             Invoke-SqlFluff -Mode lint -Path '*.sql' | Out-Null
 
             $runCalls = @($script:DockerShimInvocations | Where-Object { $_ -contains 'run' })
-            $runCalls.Count | Should -Be 2
+            $runCalls.Count | Should-Be 2
         }
 
         It 'Expands wildcard Path patterns recursively with -Recurse' {
@@ -562,7 +562,7 @@ Describe 'Invoke-SqlFluff' {
             Invoke-SqlFluff -Mode lint -Path '*.sql' -Recurse | Out-Null
 
             $runCalls = @($script:DockerShimInvocations | Where-Object { $_ -contains 'run' })
-            $runCalls.Count | Should -Be 2
+            $runCalls.Count | Should-Be 2
         }
 
         It 'Treats wildcard characters literally with LiteralPath' {
@@ -573,7 +573,7 @@ Describe 'Invoke-SqlFluff' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain $specialName
+            $runCall | Should-ContainCollection $specialName
         }
     }
 
@@ -599,7 +599,7 @@ Describe 'Invoke-SqlFluff' {
         It 'Returns exit code 0 on success' {
             $result = @(Invoke-SqlFluff -Mode lint -Path $script:SqlFile)
 
-            $result[-1] | Should -Be 0
+            $result[-1] | Should-Be 0
         }
 
         It 'Returns non-zero exit code on lint violations and writes warning' {
@@ -632,7 +632,7 @@ Describe 'Invoke-SqlFluff' {
             $result = @(Invoke-SqlFluff -Mode lint -Path $script:SqlFile 3>&1)
 
             $exitCode = $result | Where-Object { $_ -is [Int32] -or $_ -is [Int64] }
-            $exitCode | Should -Be 1
+            $exitCode | Should-Be 1
 
             Remove-Item -Path Function:\pwshDockerTestShimFail -ErrorAction SilentlyContinue
         }
@@ -675,7 +675,7 @@ Describe 'Invoke-SqlFluff' {
             Invoke-SqlFluff -Mode lint -Path $script:SqlFile | Out-Null
 
             $runCalls = @($script:DockerShimInvocations | Where-Object { $_ -contains 'run' })
-            $runCalls.Count | Should -Be 1
+            $runCalls.Count | Should-Be 1
         }
     }
 
@@ -701,7 +701,7 @@ Describe 'Invoke-SqlFluff' {
             Get-ChildItem -Path $script:TestDir -Filter '*.sql' | Invoke-SqlFluff -Mode lint | Out-Null
 
             $runCalls = @($script:DockerShimInvocations | Where-Object { $_ -contains 'run' })
-            $runCalls.Count | Should -Be 1
+            $runCalls.Count | Should-Be 1
         }
 
         It 'Processes multiple files from pipeline' {
@@ -711,7 +711,7 @@ Describe 'Invoke-SqlFluff' {
             Get-ChildItem -Path $script:TestDir -Filter '*.sql' | Invoke-SqlFluff -Mode lint | Out-Null
 
             $runCalls = @($script:DockerShimInvocations | Where-Object { $_ -contains 'run' })
-            $runCalls.Count | Should -Be 2
+            $runCalls.Count | Should-Be 2
         }
     }
 }

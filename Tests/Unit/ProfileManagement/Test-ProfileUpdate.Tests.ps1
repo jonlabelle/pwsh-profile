@@ -85,10 +85,10 @@ Describe 'Test-ProfileUpdate' {
 
             $result = Test-ProfileUpdate -ProfileRoot $profileRoot -GitRunner ${function:Invoke-TestProfileUpdateGitShim} -ConnectivityTest $script:ConnectivityTest -ErrorAction Stop
 
-            $result | Should -Be $null
-            $script:GitInvocations.Count | Should -Be 0
-            $script:ConnectivityHosts.Count | Should -Be 0
-            (Get-Location).Path | Should -Be $script:OriginalLocation.Path
+            $result | Should-Be $null
+            $script:GitInvocations.Count | Should-Be 0
+            $script:ConnectivityHosts.Count | Should-Be 0
+            (Get-Location).Path | Should-Be $script:OriginalLocation.Path
         }
 
         It 'Returns null when remote.origin.url is missing' {
@@ -96,16 +96,16 @@ Describe 'Test-ProfileUpdate' {
             $script:GitBehavior = {
                 param([Object[]]$Arguments)
 
-                ($Arguments -join ' ') | Should -Be 'config --get remote.origin.url'
+                ($Arguments -join ' ') | Should-Be 'config --get remote.origin.url'
                 $global:LASTEXITCODE = 1
                 return @()
             }
 
             $result = Test-ProfileUpdate -ProfileRoot $profileRoot -GitRunner ${function:Invoke-TestProfileUpdateGitShim} -ConnectivityTest $script:ConnectivityTest -ErrorAction Stop
 
-            $result | Should -Be $null
-            $script:GitInvocations.Count | Should -Be 1
-            $script:ConnectivityHosts.Count | Should -Be 0
+            $result | Should-Be $null
+            $script:GitInvocations.Count | Should-Be 1
+            $script:ConnectivityHosts.Count | Should-Be 0
         }
     }
 
@@ -132,11 +132,11 @@ Describe 'Test-ProfileUpdate' {
 
             $result = Test-ProfileUpdate -ProfileRoot $profileRoot -GitRunner ${function:Invoke-TestProfileUpdateGitShim} -ConnectivityTest $script:ConnectivityTest -ErrorAction Stop
 
-            $result | Should -Be $null
-            $script:ConnectivityHosts | Should -Contain 'github.com'
+            $result | Should-Be $null
+            $script:ConnectivityHosts | Should-ContainCollection 'github.com'
 
             $fetchInvocations = @($script:GitInvocations | Where-Object { ($_ -join ' ') -eq 'fetch origin' })
-            $fetchInvocations.Count | Should -Be 0
+            $fetchInvocations.Count | Should-Be 0
         }
 
         It 'Returns null when git fetch origin fails' {
@@ -166,13 +166,13 @@ Describe 'Test-ProfileUpdate' {
 
             $result = Test-ProfileUpdate -ProfileRoot $profileRoot -GitRunner ${function:Invoke-TestProfileUpdateGitShim} -ConnectivityTest $script:ConnectivityTest -ErrorAction Stop
 
-            $result | Should -Be $null
+            $result | Should-Be $null
 
             $fetchInvocations = @($script:GitInvocations | Where-Object { ($_ -join ' ') -eq 'fetch origin' })
-            $fetchInvocations.Count | Should -Be 1
+            $fetchInvocations.Count | Should-Be 1
 
             $revParseInvocations = @($script:GitInvocations | Where-Object { ($_ -join ' ') -match '^rev-parse ' })
-            $revParseInvocations.Count | Should -Be 0
+            $revParseInvocations.Count | Should-Be 0
         }
     }
 
@@ -214,12 +214,12 @@ Describe 'Test-ProfileUpdate' {
 
             $result = Test-ProfileUpdate -ProfileRoot $profileRoot -GitRunner ${function:Invoke-TestProfileUpdateGitShim} -ConnectivityTest $script:ConnectivityTest -ErrorAction Stop
 
-            $result | Should -BeFalse
+            $result | Should-BeFalsy
 
             $revListInvocations = @($script:GitInvocations | Where-Object { ($_ -join ' ') -match '^rev-list ' })
             $logInvocations = @($script:GitInvocations | Where-Object { ($_ -join ' ') -match '^log ' })
-            $revListInvocations.Count | Should -Be 0
-            $logInvocations.Count | Should -Be 0
+            $revListInvocations.Count | Should-Be 0
+            $logInvocations.Count | Should-Be 0
         }
 
         It 'Returns true and shows cleaned change bullets when updates are available with ShowChanges' {
@@ -272,19 +272,19 @@ Describe 'Test-ProfileUpdate' {
 
             $rawOutput = @(Test-ProfileUpdate -ProfileRoot $profileRoot -ShowChanges -GitRunner ${function:Invoke-TestProfileUpdateGitShim} -ConnectivityTest $script:ConnectivityTest -ErrorAction Stop 6>&1)
 
-            $rawOutput | Should -Contain $true
+            $rawOutput | Should-ContainCollection $true
 
             $hostOutput = @($rawOutput | Where-Object { $_ -isnot [Boolean] } | ForEach-Object { [String]$_ })
-            $hostOutput | Should -Contain 'Profile updates are available!'
-            $hostOutput | Should -Contain 'Here are the available changes:'
-            $hostOutput | Should -Contain '  - feat: add updater coverage'
-            $hostOutput | Should -Contain '  - docs: refresh update notes'
-            $hostOutput | Should -Contain "Run 'Update-Profile' to apply these changes."
+            $hostOutput | Should-ContainCollection 'Profile updates are available!'
+            $hostOutput | Should-ContainCollection 'Here are the available changes:'
+            $hostOutput | Should-ContainCollection '  - feat: add updater coverage'
+            $hostOutput | Should-ContainCollection '  - docs: refresh update notes'
+            $hostOutput | Should-ContainCollection "Run 'Update-Profile' to apply these changes."
 
             $output = $hostOutput -join "`n"
-            $output | Should -Not -Match '2222222'
-            $output | Should -Not -Match 'HEAD -> main'
-            $output | Should -Not -Match '\(profile\)'
+            $output | Should-NotMatchString '2222222'
+            $output | Should-NotMatchString 'HEAD -> main'
+            $output | Should-NotMatchString '\(profile\)'
         }
     }
 }

@@ -57,23 +57,23 @@ Describe 'Remove-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
         It 'Should remove a file symbolic link' {
             Remove-SymbolicLink -Path $script:linkPath
 
-            Test-Path -Path $script:linkPath | Should -Be $false
+            Test-Path -Path $script:linkPath | Should-Be $false
         }
 
         It 'Should not remove the target file when removing symbolic link' {
             Remove-SymbolicLink -Path $script:linkPath
 
-            Test-Path -Path $script:targetFile | Should -Be $true
-            Get-Content -Path $script:targetFile | Should -Be 'test content'
+            Test-Path -Path $script:targetFile | Should-Be $true
+            Get-Content -Path $script:targetFile | Should-Be 'test content'
         }
 
         It 'Should return information when PassThru is specified' {
             $result = Remove-SymbolicLink -Path $script:linkPath -PassThru
 
             $result | Should -Not -BeNullOrEmpty
-            $result.Path | Should -Be $script:linkPath
-            $result.Removed | Should -Be $true
-            $result.ItemType | Should -Be 'File'
+            $result.Path | Should-Be $script:linkPath
+            $result.Removed | Should-Be $true
+            $result.ItemType | Should-Be 'File'
         }
 
         It 'Should remove a dangling symbolic link without touching the missing target path' {
@@ -81,9 +81,9 @@ Describe 'Remove-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
 
             $result = Remove-SymbolicLink -Path $script:linkPath -PassThru
 
-            Test-Path -Path $script:linkPath | Should -Be $false
-            Test-Path -Path $script:targetFile | Should -Be $false
-            $result.Removed | Should -Be $true
+            Test-Path -Path $script:linkPath | Should-Be $false
+            Test-Path -Path $script:targetFile | Should-Be $false
+            $result.Removed | Should-Be $true
         }
     }
 
@@ -116,24 +116,24 @@ Describe 'Remove-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
         It 'Should remove a directory symbolic link' {
             Remove-SymbolicLink -Path $script:dirLinkPath
 
-            Test-Path -Path $script:dirLinkPath | Should -Be $false
+            Test-Path -Path $script:dirLinkPath | Should-Be $false
         }
 
         It 'Should not remove the target directory or its contents when removing symbolic link' {
             Remove-SymbolicLink -Path $script:dirLinkPath
 
-            Test-Path -Path $script:targetSubDir | Should -Be $true
+            Test-Path -Path $script:targetSubDir | Should-Be $true
 
             $fileInDir = Join-Path -Path $script:targetSubDir -ChildPath 'file-in-dir.txt'
-            Test-Path -Path $fileInDir | Should -Be $true
-            Get-Content -Path $fileInDir | Should -Be 'content in subdir'
+            Test-Path -Path $fileInDir | Should-Be $true
+            Get-Content -Path $fileInDir | Should-Be 'content in subdir'
         }
 
         It 'Should return directory ItemType in PassThru output' {
             $result = Remove-SymbolicLink -Path $script:dirLinkPath -PassThru
 
-            $result.ItemType | Should -Be 'Directory'
-            $result.Removed | Should -Be $true
+            $result.ItemType | Should-Be 'Directory'
+            $result.Removed | Should-Be $true
         }
     }
 
@@ -142,7 +142,7 @@ Describe 'Remove-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
             $nonExistentPath = Join-Path -Path $script:linkDir -ChildPath 'does-not-exist'
 
             { Remove-SymbolicLink -Path $nonExistentPath -ErrorAction Stop } |
-            Should -Throw '*not found*'
+            Should-Throw '*not found*'
         }
 
         It 'Should return error info in PassThru when path does not exist' {
@@ -151,8 +151,8 @@ Describe 'Remove-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
             $result = Remove-SymbolicLink -Path $nonExistentPath -PassThru -ErrorAction SilentlyContinue
 
             $result | Should -Not -BeNullOrEmpty
-            $result.Removed | Should -Be $false
-            $result.Error | Should -Be 'Path not found'
+            $result.Removed | Should-Be $false
+            $result.Error | Should-Be 'Path not found'
         }
 
         It 'Should fail when path is not a symbolic link' {
@@ -163,7 +163,7 @@ Describe 'Remove-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
             try
             {
                 { Remove-SymbolicLink -Path $regularFile -ErrorAction Stop } |
-                Should -Throw '*not a symbolic link*'
+                Should-Throw '*not a symbolic link*'
             }
             finally
             {
@@ -178,7 +178,7 @@ Describe 'Remove-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
 
             Remove-SymbolicLink -Path $regularFile -Force
 
-            Test-Path -Path $regularFile | Should -Be $false
+            Test-Path -Path $regularFile | Should-Be $false
         }
     }
 
@@ -223,32 +223,32 @@ Describe 'Remove-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
         It 'Should remove multiple symbolic links via array parameter' {
             Remove-SymbolicLink -Path $script:linkPath1, $script:linkPath2, $script:linkPath3
 
-            Test-Path -Path $script:linkPath1 | Should -Be $false
-            Test-Path -Path $script:linkPath2 | Should -Be $false
-            Test-Path -Path $script:linkPath3 | Should -Be $false
+            Test-Path -Path $script:linkPath1 | Should-Be $false
+            Test-Path -Path $script:linkPath2 | Should-Be $false
+            Test-Path -Path $script:linkPath3 | Should-Be $false
         }
 
         It 'Should preserve all target files when removing multiple links' {
             Remove-SymbolicLink -Path $script:linkPath1, $script:linkPath2, $script:linkPath3
 
-            Test-Path -Path $script:targetFile1 | Should -Be $true
-            Test-Path -Path $script:targetFile2 | Should -Be $true
-            Test-Path -Path $script:targetFile3 | Should -Be $true
+            Test-Path -Path $script:targetFile1 | Should-Be $true
+            Test-Path -Path $script:targetFile2 | Should-Be $true
+            Test-Path -Path $script:targetFile3 | Should-Be $true
         }
 
         It 'Should return results for all links when PassThru is specified' {
             $results = Remove-SymbolicLink -Path $script:linkPath1, $script:linkPath2, $script:linkPath3 -PassThru
 
-            $results.Count | Should -Be 3
-            $results | ForEach-Object { $_.Removed | Should -Be $true }
+            $results.Count | Should-Be 3
+            $results | ForEach-Object { $_.Removed | Should-Be $true }
         }
 
         It 'Should process symbolic links via pipeline' {
             $script:linkPath1, $script:linkPath2, $script:linkPath3 | Remove-SymbolicLink
 
-            Test-Path -Path $script:linkPath1 | Should -Be $false
-            Test-Path -Path $script:linkPath2 | Should -Be $false
-            Test-Path -Path $script:linkPath3 | Should -Be $false
+            Test-Path -Path $script:linkPath1 | Should-Be $false
+            Test-Path -Path $script:linkPath2 | Should-Be $false
+            Test-Path -Path $script:linkPath3 | Should-Be $false
         }
     }
 
@@ -277,14 +277,14 @@ Describe 'Remove-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
         It 'Should not remove link when WhatIf is specified' {
             Remove-SymbolicLink -Path $script:linkPath -WhatIf
 
-            Test-Path -Path $script:linkPath | Should -Be $true
+            Test-Path -Path $script:linkPath | Should-Be $true
         }
 
         It 'Should return WhatIf status in PassThru output' {
             $result = Remove-SymbolicLink -Path $script:linkPath -WhatIf -PassThru
 
-            $result.Removed | Should -Be $false
-            $result.Error | Should -Be 'WhatIf mode - not removed'
+            $result.Removed | Should-Be $false
+            $result.Error | Should-Be 'WhatIf mode - not removed'
         }
     }
 
@@ -315,7 +315,7 @@ Describe 'Remove-SymbolicLink Unit Tests' -Tag 'Unit', 'Utilities' {
             {
                 Remove-SymbolicLink -Path './links/relative-link.txt'
 
-                Test-Path -Path $script:linkPath | Should -Be $false
+                Test-Path -Path $script:linkPath | Should-Be $false
             }
             finally
             {

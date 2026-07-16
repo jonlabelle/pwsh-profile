@@ -19,37 +19,37 @@ Describe 'ConvertTo-UrlSlug' -Tag 'Unit', 'Utilities' {
     Context 'String mode' {
         It 'Should convert text to a lowercase slug' {
             $result = ConvertTo-UrlSlug -InputObject 'Hello, World!'
-            $result | Should -Be 'hello-world'
+            $result | Should-Be 'hello-world'
         }
 
         It 'Should strip diacritics by default' {
             $slugInput = ('Cr{0}me br{1}l{2}e & caf{2}' -f [char]0x00E8, [char]0x00FB, [char]0x00E9)
             $result = ConvertTo-UrlSlug -InputObject $slugInput
-            $result | Should -Be 'creme-brulee-cafe'
+            $result | Should-Be 'creme-brulee-cafe'
         }
 
         It 'Should decode URL-encoded input' {
             $result = ConvertTo-UrlSlug -InputObject 'My%20Encoded%20Title'
-            $result | Should -Be 'my-encoded-title'
+            $result | Should-Be 'my-encoded-title'
         }
 
         It 'Should allow a custom separator' {
             $result = ConvertTo-UrlSlug -InputObject 'Hello World' -Separator '_'
-            $result | Should -Be 'hello_world'
+            $result | Should-Be 'hello_world'
         }
 
         It 'Should preserve unicode characters when KeepUnicode is specified' {
             $slugInput = ('{0}{1} 2026' -f [char]0x6771, [char]0x4EAC)
             $expected = ('{0}{1}-2026' -f [char]0x6771, [char]0x4EAC)
             $result = ConvertTo-UrlSlug -InputObject $slugInput -KeepUnicode
-            $result | Should -Be $expected
+            $result | Should-Be $expected
         }
 
         It 'Should accept multiple pipeline values' {
             $result = 'First Post', 'Second Post' | ConvertTo-UrlSlug
-            $result.Count | Should -Be 2
-            $result[0] | Should -Be 'first-post'
-            $result[1] | Should -Be 'second-post'
+            $result.Count | Should-Be 2
+            $result[0] | Should-Be 'first-post'
+            $result[1] | Should-Be 'second-post'
         }
     }
 
@@ -72,7 +72,7 @@ Describe 'ConvertTo-UrlSlug' -Tag 'Unit', 'Utilities' {
 
             ConvertTo-UrlSlug -LiteralPath $filePath
 
-            Test-Path -LiteralPath (Join-Path -Path $script:testRoot -ChildPath 'my-draft-file.txt') | Should -Be $true
+            Test-Path -LiteralPath (Join-Path -Path $script:testRoot -ChildPath 'my-draft-file.txt') | Should-Be $true
         }
 
         It 'Should rename a directory' {
@@ -81,7 +81,7 @@ Describe 'ConvertTo-UrlSlug' -Tag 'Unit', 'Utilities' {
 
             ConvertTo-UrlSlug -LiteralPath $directoryPath
 
-            Test-Path -LiteralPath (Join-Path -Path $script:testRoot -ChildPath 'release-notes-2026') | Should -Be $true
+            Test-Path -LiteralPath (Join-Path -Path $script:testRoot -ChildPath 'release-notes-2026') | Should-Be $true
         }
 
         It 'Should resolve name collisions with numeric suffixes' {
@@ -93,7 +93,7 @@ Describe 'ConvertTo-UrlSlug' -Tag 'Unit', 'Utilities' {
 
             ConvertTo-UrlSlug -LiteralPath $renamePath
 
-            Test-Path -LiteralPath (Join-Path -Path $script:testRoot -ChildPath 'my-file-2.txt') | Should -Be $true
+            Test-Path -LiteralPath (Join-Path -Path $script:testRoot -ChildPath 'my-file-2.txt') | Should-Be $true
         }
 
         It 'Should support WhatIf and not rename when specified' {
@@ -102,8 +102,8 @@ Describe 'ConvertTo-UrlSlug' -Tag 'Unit', 'Utilities' {
 
             ConvertTo-UrlSlug -LiteralPath $filePath -WhatIf
 
-            Test-Path -LiteralPath $filePath | Should -Be $true
-            Test-Path -LiteralPath (Join-Path -Path $script:testRoot -ChildPath 'what-if-name.txt') | Should -Be $false
+            Test-Path -LiteralPath $filePath | Should-Be $true
+            Test-Path -LiteralPath (Join-Path -Path $script:testRoot -ChildPath 'what-if-name.txt') | Should-Be $false
         }
 
         It 'Should return renamed item when PassThru is specified' {
@@ -113,7 +113,7 @@ Describe 'ConvertTo-UrlSlug' -Tag 'Unit', 'Utilities' {
             $result = ConvertTo-UrlSlug -LiteralPath $filePath -PassThru
 
             $result | Should -Not -BeNullOrEmpty
-            $result.Name | Should -Be 'pass-thru-me.txt'
+            $result.Name | Should-Be 'pass-thru-me.txt'
         }
 
         It 'Should rename from Get-ChildItem pipeline when PassThru is specified' {
@@ -123,7 +123,7 @@ Describe 'ConvertTo-UrlSlug' -Tag 'Unit', 'Utilities' {
             $result = Get-ChildItem -LiteralPath $script:testRoot -File | ConvertTo-UrlSlug -PassThru
 
             $result | Should -Not -BeNullOrEmpty
-            $result.Name | Should -Contain 'pipeline-rename.txt'
+            $result.Name | Should-ContainCollection 'pipeline-rename.txt'
         }
     }
 }

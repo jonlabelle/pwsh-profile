@@ -17,8 +17,8 @@ Describe 'ConvertTo-MarkdownObject' -Tag 'Unit' {
 
             $result = ConvertTo-MarkdownObject -InputObject $inputObject
 
-            $result | Should -Match ([Regex]::Escape('- `Name`: `Jon`'))
-            $result | Should -Match ([Regex]::Escape('- `Age`: `42`'))
+            $result | Should-MatchString ([Regex]::Escape('- `Name`: `Jon`'))
+            $result | Should-MatchString ([Regex]::Escape('- `Age`: `42`'))
         }
 
         It 'Converts a nested PSCustomObject and arrays' {
@@ -33,12 +33,12 @@ Describe 'ConvertTo-MarkdownObject' -Tag 'Unit' {
 
             $result = ConvertTo-MarkdownObject -InputObject $inputObject
 
-            $result | Should -Match ([Regex]::Escape('- `Name`: `Tooling`'))
-            $result | Should -Match ([Regex]::Escape('- `Tags`'))
-            $result | Should -Match ([Regex]::Escape('- `[0]`: `powershell`'))
-            $result | Should -Match ([Regex]::Escape('- `Meta`'))
-            $result | Should -Match ([Regex]::Escape('- `Enabled`: `true`'))
-            $result | Should -Match ([Regex]::Escape('- `RetryCount`: `3`'))
+            $result | Should-MatchString ([Regex]::Escape('- `Name`: `Tooling`'))
+            $result | Should-MatchString ([Regex]::Escape('- `Tags`'))
+            $result | Should-MatchString ([Regex]::Escape('- `[0]`: `powershell`'))
+            $result | Should-MatchString ([Regex]::Escape('- `Meta`'))
+            $result | Should-MatchString ([Regex]::Escape('- `Enabled`: `true`'))
+            $result | Should-MatchString ([Regex]::Escape('- `RetryCount`: `3`'))
         }
     }
 
@@ -48,7 +48,7 @@ Describe 'ConvertTo-MarkdownObject' -Tag 'Unit' {
 
             $result = ConvertTo-MarkdownObject -InputObject $json
 
-            $result | Should -Match ([Regex]::Escape('- `{"name":"Jon","age":42}`'))
+            $result | Should-MatchString ([Regex]::Escape('- `{"name":"Jon","age":42}`'))
         }
 
         It 'Parses JSON strings when -ParseJsonStrings is used' {
@@ -56,10 +56,10 @@ Describe 'ConvertTo-MarkdownObject' -Tag 'Unit' {
 
             $result = ConvertTo-MarkdownObject -InputObject $json -ParseJsonStrings
 
-            $result | Should -Match ([Regex]::Escape('- `name`: `Jon`'))
-            $result | Should -Match ([Regex]::Escape('- `roles`'))
-            $result | Should -Match ([Regex]::Escape('- `[0]`: `admin`'))
-            $result | Should -Match ([Regex]::Escape('- `[1]`: `ops`'))
+            $result | Should-MatchString ([Regex]::Escape('- `name`: `Jon`'))
+            $result | Should-MatchString ([Regex]::Escape('- `roles`'))
+            $result | Should-MatchString ([Regex]::Escape('- `[0]`: `admin`'))
+            $result | Should-MatchString ([Regex]::Escape('- `[1]`: `ops`'))
         }
     }
 
@@ -75,8 +75,8 @@ Describe 'ConvertTo-MarkdownObject' -Tag 'Unit' {
 
             $result = ConvertTo-MarkdownObject -InputObject $inputObject -Depth 2
 
-            $result | Should -Match ([Regex]::Escape('- `Level1`'))
-            $result | Should -Match ([Regex]::Escape('- `Level2`: `(max depth reached)`'))
+            $result | Should-MatchString ([Regex]::Escape('- `Level1`'))
+            $result | Should-MatchString ([Regex]::Escape('- `Level2`: `(max depth reached)`'))
         }
 
         It 'Handles null, empty arrays, and empty objects' {
@@ -88,11 +88,11 @@ Describe 'ConvertTo-MarkdownObject' -Tag 'Unit' {
 
             $result = ConvertTo-MarkdownObject -InputObject $inputObject
 
-            $result | Should -Match ([Regex]::Escape('- `EmptyArray`'))
-            $result | Should -Match ([Regex]::Escape('- *(empty array)*'))
-            $result | Should -Match ([Regex]::Escape('- `EmptyObject`'))
-            $result | Should -Match ([Regex]::Escape('- *(empty object)*'))
-            $result | Should -Match ([Regex]::Escape('- `Nothing`: `null`'))
+            $result | Should-MatchString ([Regex]::Escape('- `EmptyArray`'))
+            $result | Should-MatchString ([Regex]::Escape('- *(empty array)*'))
+            $result | Should-MatchString ([Regex]::Escape('- `EmptyObject`'))
+            $result | Should-MatchString ([Regex]::Escape('- *(empty object)*'))
+            $result | Should-MatchString ([Regex]::Escape('- `Nothing`: `null`'))
         }
     }
 
@@ -105,10 +105,10 @@ Describe 'ConvertTo-MarkdownObject' -Tag 'Unit' {
 
             $result = ConvertTo-MarkdownObject -InputObject $inputObject -AsTable
 
-            $result | Should -Match ([Regex]::Escape('| Name | Role |'))
-            $result | Should -Match ([Regex]::Escape('| --- | --- |'))
-            $result | Should -Match ([Regex]::Escape('| Jon | Admin |'))
-            $result | Should -Match ([Regex]::Escape('| Ava | Author |'))
+            $result | Should-MatchString ([Regex]::Escape('| Name | Role |'))
+            $result | Should-MatchString ([Regex]::Escape('| --- | --- |'))
+            $result | Should-MatchString ([Regex]::Escape('| Jon | Admin |'))
+            $result | Should-MatchString ([Regex]::Escape('| Ava | Author |'))
         }
 
         It 'Renders a scalar hashtable as a Property/Value table with -AsTable' {
@@ -119,9 +119,9 @@ Describe 'ConvertTo-MarkdownObject' -Tag 'Unit' {
 
             $result = ConvertTo-MarkdownObject -InputObject $inputObject -AsTable
 
-            $result | Should -Match ([Regex]::Escape('| Property | Value |'))
-            $result | Should -Match ([Regex]::Escape('| Name | Jon |'))
-            $result | Should -Match ([Regex]::Escape('| Age | 42 |'))
+            $result | Should-MatchString ([Regex]::Escape('| Property | Value |'))
+            $result | Should-MatchString ([Regex]::Escape('| Name | Jon |'))
+            $result | Should-MatchString ([Regex]::Escape('| Age | 42 |'))
         }
 
         It 'Renders nested compatible collections as tables with -AsTable' {
@@ -134,9 +134,9 @@ Describe 'ConvertTo-MarkdownObject' -Tag 'Unit' {
 
             $result = ConvertTo-MarkdownObject -InputObject $inputObject -AsTable
 
-            $result | Should -Match ([Regex]::Escape('- `Users`'))
-            $result | Should -Match ([Regex]::Escape('| Name | Role |'))
-            $result | Should -Match ([Regex]::Escape('| Jon | Admin |'))
+            $result | Should-MatchString ([Regex]::Escape('- `Users`'))
+            $result | Should-MatchString ([Regex]::Escape('| Name | Role |'))
+            $result | Should-MatchString ([Regex]::Escape('| Jon | Admin |'))
         }
 
         It 'Falls back to list rendering when rows contain non-scalar values' {
@@ -157,11 +157,11 @@ Describe 'ConvertTo-MarkdownObject' -Tag 'Unit' {
 
             $result = ConvertTo-MarkdownObject -InputObject $inputObject -AsTable
 
-            $result | Should -Not -Match ([Regex]::Escape('| Name | Meta |'))
-            $result | Should -Match ([Regex]::Escape('- `[0]`'))
-            $result | Should -Match ([Regex]::Escape('- `[1]`'))
-            $result | Should -Match ([Regex]::Escape('- `Meta`'))
-            $result | Should -Match ([Regex]::Escape('| Enabled |'))
+            $result | Should-NotMatchString ([Regex]::Escape('| Name | Meta |'))
+            $result | Should-MatchString ([Regex]::Escape('- `[0]`'))
+            $result | Should-MatchString ([Regex]::Escape('- `[1]`'))
+            $result | Should-MatchString ([Regex]::Escape('- `Meta`'))
+            $result | Should-MatchString ([Regex]::Escape('| Enabled |'))
         }
     }
 
@@ -172,9 +172,9 @@ Describe 'ConvertTo-MarkdownObject' -Tag 'Unit' {
                 [ordered]@{ Second = 2 }
             ) | ConvertTo-MarkdownObject
 
-            @($results).Count | Should -Be 2
-            $results[0] | Should -Match ([Regex]::Escape('- `First`: `1`'))
-            $results[1] | Should -Match ([Regex]::Escape('- `Second`: `2`'))
+            @($results).Count | Should-Be 2
+            $results[0] | Should-MatchString ([Regex]::Escape('- `First`: `1`'))
+            $results[1] | Should-MatchString ([Regex]::Escape('- `Second`: `2`'))
         }
     }
 }

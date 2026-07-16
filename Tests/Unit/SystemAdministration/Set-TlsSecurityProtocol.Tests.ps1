@@ -45,7 +45,7 @@ Describe 'Set-TlsSecurityProtocol' {
         }
 
         It 'Should reject invalid Protocol values' {
-            { Set-TlsSecurityProtocol -Protocol 'InvalidTls' } | Should -Throw
+            { Set-TlsSecurityProtocol -Protocol 'InvalidTls' } | Should-Throw
         }
 
         It 'Should have SystemDefault as default Protocol' {
@@ -64,7 +64,7 @@ Describe 'Set-TlsSecurityProtocol' {
 
             if ([enum]::GetNames([Net.SecurityProtocolType]) -contains 'SystemDefault')
             {
-                $current | Should -Be ([Net.SecurityProtocolType]::SystemDefault)
+                $current | Should-Be ([Net.SecurityProtocolType]::SystemDefault)
             }
             else
             {
@@ -88,8 +88,8 @@ Describe 'Set-TlsSecurityProtocol' {
             Set-TlsSecurityProtocol -Protocol 'Tls12'
 
             $current = [Net.ServicePointManager]::SecurityProtocol
-            ($current -band [Net.SecurityProtocolType]::Tls12) | Should -Not -Be 0
-            ($current -band [Net.SecurityProtocolType]::Tls) | Should -Be 0
+            ($current -band [Net.SecurityProtocolType]::Tls12) | Should-NotBe 0
+            ($current -band [Net.SecurityProtocolType]::Tls) | Should-Be 0
         }
 
         It 'Should not update protocol when already secure' {
@@ -99,7 +99,7 @@ Describe 'Set-TlsSecurityProtocol' {
             Set-TlsSecurityProtocol -Protocol 'Tls12'
 
             $current = [Net.ServicePointManager]::SecurityProtocol
-            $current | Should -Be $originalProtocol
+            $current | Should-Be $originalProtocol
         }
 
         It 'Should force update when Force parameter is used' {
@@ -116,7 +116,7 @@ Describe 'Set-TlsSecurityProtocol' {
             Set-TlsSecurityProtocol -Protocol 'Tls12' -Force
 
             $current = [Net.ServicePointManager]::SecurityProtocol
-            $current | Should -Be ([Net.SecurityProtocolType]::Tls12)
+            $current | Should-Be ([Net.SecurityProtocolType]::Tls12)
         }
 
         It 'Should leave SystemDefault unchanged unless Force is specified' {
@@ -130,7 +130,7 @@ Describe 'Set-TlsSecurityProtocol' {
 
             Set-TlsSecurityProtocol -Protocol 'Tls12'
 
-            [Net.ServicePointManager]::SecurityProtocol | Should -Be ([Net.SecurityProtocolType]::SystemDefault)
+            [Net.ServicePointManager]::SecurityProtocol | Should-Be ([Net.SecurityProtocolType]::SystemDefault)
         }
 
         It 'Should pin an explicit protocol from SystemDefault when Force is used' {
@@ -144,7 +144,7 @@ Describe 'Set-TlsSecurityProtocol' {
 
             Set-TlsSecurityProtocol -Protocol 'Tls12' -Force
 
-            [Net.ServicePointManager]::SecurityProtocol | Should -Be ([Net.SecurityProtocolType]::Tls12)
+            [Net.ServicePointManager]::SecurityProtocol | Should-Be ([Net.SecurityProtocolType]::Tls12)
         }
     }
 
@@ -152,8 +152,8 @@ Describe 'Set-TlsSecurityProtocol' {
         It 'Should return SecurityProtocol when PassThru is specified' {
             $result = Set-TlsSecurityProtocol -Protocol 'Tls12' -PassThru
 
-            $result | Should -BeOfType [System.Net.SecurityProtocolType]
-            $result | Should -Be ([Net.ServicePointManager]::SecurityProtocol)
+            $result | Should-HaveType ([System.Net.SecurityProtocolType])
+            $result | Should-Be ([Net.ServicePointManager]::SecurityProtocol)
         }
 
         It 'Should not return anything when PassThru is not specified' {
@@ -191,7 +191,7 @@ Describe 'Set-TlsSecurityProtocol' {
             $hasTls12 = ($current -band [Net.SecurityProtocolType]::Tls12) -ne 0
             $hasTls13 = try { ($current -band [Net.SecurityProtocolType]::Tls13) -ne 0 } catch { $false }
 
-            ($hasTls12 -or $hasTls13) | Should -Be $true
+            ($hasTls12 -or $hasTls13) | Should-Be $true
         }
     }
 
@@ -219,12 +219,12 @@ Describe 'Set-TlsSecurityProtocol' {
             Set-TlsSecurityProtocol -Protocol 'Tls12'
 
             $current = [Net.ServicePointManager]::SecurityProtocol
-            ($current -band [Net.SecurityProtocolType]::Tls12) | Should -Not -Be 0
-            ($current -band [Net.SecurityProtocolType]::Tls11) | Should -Be 0
+            ($current -band [Net.SecurityProtocolType]::Tls12) | Should-NotBe 0
+            ($current -band [Net.SecurityProtocolType]::Tls11) | Should-Be 0
 
             if ($hadTls13)
             {
-                ($current -band [Net.SecurityProtocolType]::Tls13) | Should -Not -Be 0
+                ($current -band [Net.SecurityProtocolType]::Tls13) | Should-NotBe 0
             }
         }
     }
@@ -232,9 +232,9 @@ Describe 'Set-TlsSecurityProtocol' {
     Context 'Error Handling' {
         It 'Should handle ServicePointManager access errors gracefully' {
             $functionContent = Get-Content "$PSScriptRoot/../../../Functions/SystemAdministration/Set-TlsSecurityProtocol.ps1" -Raw
-            $functionContent | Should -Match 'try\s*\{'
-            $functionContent | Should -Match 'catch\s*\{'
-            $functionContent | Should -Match 'ThrowTerminatingError|throw'
+            $functionContent | Should-MatchString 'try\s*\{'
+            $functionContent | Should-MatchString 'catch\s*\{'
+            $functionContent | Should-MatchString 'ThrowTerminatingError|throw'
         }
     }
 
@@ -254,7 +254,7 @@ Describe 'Set-TlsSecurityProtocol' {
 
             Set-TlsSecurityProtocol -Protocol 'Tls12' -WhatIf
 
-            [Net.ServicePointManager]::SecurityProtocol | Should -Be $originalProtocol
+            [Net.ServicePointManager]::SecurityProtocol | Should-Be $originalProtocol
         }
     }
 
@@ -263,7 +263,7 @@ Describe 'Set-TlsSecurityProtocol' {
             $verboseOutput = Set-TlsSecurityProtocol -Protocol 'Tls12' -Verbose 4>&1
 
             $verboseOutput | Should -Not -BeNullOrEmpty
-            $verboseOutput | Should -Match 'TLS|protocol|security'
+            ($verboseOutput | Out-String) | Should-MatchString 'TLS|protocol|security'
         }
     }
 
@@ -287,7 +287,7 @@ Describe 'Set-TlsSecurityProtocol' {
                 $hasTls12 = ($current -band [Net.SecurityProtocolType]::Tls12) -ne 0
                 $hasTls13 = try { ($current -band [Net.SecurityProtocolType]::Tls13) -ne 0 } catch { $false }
 
-                ($hasTls12 -or $hasTls13) | Should -Be $true
+                ($hasTls12 -or $hasTls13) | Should-Be $true
             }
             else
             {
@@ -296,7 +296,7 @@ Describe 'Set-TlsSecurityProtocol' {
                 $hasTls12 = ($current -band [Net.SecurityProtocolType]::Tls12) -ne 0
                 $hasTls13 = try { ($current -band [Net.SecurityProtocolType]::Tls13) -ne 0 } catch { $false }
 
-                ($hasTls12 -or $hasTls13) | Should -Be $true
+                ($hasTls12 -or $hasTls13) | Should-Be $true
             }
         }
     }

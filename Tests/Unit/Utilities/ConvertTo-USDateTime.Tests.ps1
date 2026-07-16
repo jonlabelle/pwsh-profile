@@ -14,11 +14,11 @@ Describe 'ConvertTo-USDateTime' -Tag 'Unit' {
             $result = ConvertTo-USDateTime -TimeZone Eastern
             $after = [DateTimeOffset]::UtcNow
 
-            $result.SourceKind | Should -Be 'Utc'
-            $result.SourceOffset | Should -Be 'UTC+00:00'
-            $result.SourceDateTime.Offset | Should -Be ([TimeSpan]::Zero)
-            $result.SourceDateTime.UtcDateTime | Should -BeGreaterThan $before.UtcDateTime.AddSeconds(-1)
-            $result.SourceDateTime.UtcDateTime | Should -BeLessThan $after.UtcDateTime.AddSeconds(1)
+            $result.SourceKind | Should-Be 'Utc'
+            $result.SourceOffset | Should-Be 'UTC+00:00'
+            $result.SourceDateTime.Offset | Should-Be ([TimeSpan]::Zero)
+            $result.SourceDateTime.UtcDateTime | Should-BeGreaterThan $before.UtcDateTime.AddSeconds(-1)
+            $result.SourceDateTime.UtcDateTime | Should-BeLessThan $after.UtcDateTime.AddSeconds(1)
         }
     }
 
@@ -26,8 +26,8 @@ Describe 'ConvertTo-USDateTime' -Tag 'Unit' {
         It 'Returns the default US timezone set for UTC input' {
             $results = @(ConvertTo-USDateTime -InputObject '2026-07-04T12:00:00Z')
 
-            $results.Count | Should -Be 11
-            (($results | Select-Object -ExpandProperty TimeZone) -join ',') | Should -Be 'Atlantic,Eastern,Central,Mountain,Arizona,Pacific,Alaska,Aleutian,Hawaii,Samoa,Chamorro'
+            $results.Count | Should-Be 11
+            (($results | Select-Object -ExpandProperty TimeZone) -join ',') | Should-Be 'Atlantic,Eastern,Central,Mountain,Arizona,Pacific,Alaska,Aleutian,Hawaii,Samoa,Chamorro'
 
             $atlantic = $results | Where-Object TimeZone -EQ 'Atlantic'
             $eastern = $results | Where-Object TimeZone -EQ 'Eastern'
@@ -37,40 +37,40 @@ Describe 'ConvertTo-USDateTime' -Tag 'Unit' {
             $samoa = $results | Where-Object TimeZone -EQ 'Samoa'
             $chamorro = $results | Where-Object TimeZone -EQ 'Chamorro'
 
-            $atlantic.UtcOffsetString | Should -Be 'UTC-04:00'
-            $atlantic.IsDaylightSavingTime | Should -BeFalse
-            $atlantic.ObservesDaylightSavingTime | Should -BeFalse
-            $atlantic.Abbreviation | Should -Be 'AST'
+            $atlantic.UtcOffsetString | Should-Be 'UTC-04:00'
+            $atlantic.IsDaylightSavingTime | Should-BeFalsy
+            $atlantic.ObservesDaylightSavingTime | Should-BeFalsy
+            $atlantic.Abbreviation | Should-Be 'AST'
 
-            $eastern.UtcOffsetString | Should -Be 'UTC-04:00'
-            $eastern.IsDaylightSavingTime | Should -BeTrue
-            $eastern.Abbreviation | Should -Be 'EDT'
+            $eastern.UtcOffsetString | Should-Be 'UTC-04:00'
+            $eastern.IsDaylightSavingTime | Should-BeTruthy
+            $eastern.Abbreviation | Should-Be 'EDT'
             $eastern.TimeZoneName | Should -Not -BeNullOrEmpty
 
-            $arizona.UtcOffsetString | Should -Be 'UTC-07:00'
-            $arizona.IsDaylightSavingTime | Should -BeFalse
-            $arizona.ObservesDaylightSavingTime | Should -BeFalse
-            $arizona.Abbreviation | Should -Be 'MST'
+            $arizona.UtcOffsetString | Should-Be 'UTC-07:00'
+            $arizona.IsDaylightSavingTime | Should-BeFalsy
+            $arizona.ObservesDaylightSavingTime | Should-BeFalsy
+            $arizona.Abbreviation | Should-Be 'MST'
 
-            $aleutian.UtcOffsetString | Should -Be 'UTC-09:00'
-            $aleutian.IsDaylightSavingTime | Should -BeTrue
-            $aleutian.ObservesDaylightSavingTime | Should -BeTrue
-            $aleutian.Abbreviation | Should -Be 'HADT'
+            $aleutian.UtcOffsetString | Should-Be 'UTC-09:00'
+            $aleutian.IsDaylightSavingTime | Should-BeTruthy
+            $aleutian.ObservesDaylightSavingTime | Should-BeTruthy
+            $aleutian.Abbreviation | Should-Be 'HADT'
 
-            $hawaii.UtcOffsetString | Should -Be 'UTC-10:00'
-            $hawaii.IsDaylightSavingTime | Should -BeFalse
-            $hawaii.ObservesDaylightSavingTime | Should -BeFalse
-            $hawaii.Abbreviation | Should -Be 'HST'
+            $hawaii.UtcOffsetString | Should-Be 'UTC-10:00'
+            $hawaii.IsDaylightSavingTime | Should-BeFalsy
+            $hawaii.ObservesDaylightSavingTime | Should-BeFalsy
+            $hawaii.Abbreviation | Should-Be 'HST'
 
-            $samoa.UtcOffsetString | Should -Be 'UTC-11:00'
-            $samoa.IsDaylightSavingTime | Should -BeFalse
-            $samoa.ObservesDaylightSavingTime | Should -BeFalse
-            $samoa.Abbreviation | Should -Be 'SST'
+            $samoa.UtcOffsetString | Should-Be 'UTC-11:00'
+            $samoa.IsDaylightSavingTime | Should-BeFalsy
+            $samoa.ObservesDaylightSavingTime | Should-BeFalsy
+            $samoa.Abbreviation | Should-Be 'SST'
 
-            $chamorro.UtcOffsetString | Should -Be 'UTC+10:00'
-            $chamorro.IsDaylightSavingTime | Should -BeFalse
-            $chamorro.ObservesDaylightSavingTime | Should -BeFalse
-            $chamorro.Abbreviation | Should -Be 'ChST'
+            $chamorro.UtcOffsetString | Should-Be 'UTC+10:00'
+            $chamorro.IsDaylightSavingTime | Should-BeFalsy
+            $chamorro.ObservesDaylightSavingTime | Should-BeFalsy
+            $chamorro.Abbreviation | Should-Be 'ChST'
         }
     }
 
@@ -78,18 +78,18 @@ Describe 'ConvertTo-USDateTime' -Tag 'Unit' {
         It 'Returns only requested timezones and resolves aliases' {
             $results = @(ConvertTo-USDateTime -InputObject '2026-01-15T15:00:00Z' -TimeZone ET, Pacific)
 
-            $results.Count | Should -Be 2
-            (($results | Select-Object -ExpandProperty TimeZone) -join ',') | Should -Be 'Eastern,Pacific'
+            $results.Count | Should-Be 2
+            (($results | Select-Object -ExpandProperty TimeZone) -join ',') | Should-Be 'Eastern,Pacific'
 
-            ($results | Where-Object TimeZone -EQ 'Eastern').UtcOffsetString | Should -Be 'UTC-05:00'
-            ($results | Where-Object TimeZone -EQ 'Pacific').UtcOffsetString | Should -Be 'UTC-08:00'
+            ($results | Where-Object TimeZone -EQ 'Eastern').UtcOffsetString | Should-Be 'UTC-05:00'
+            ($results | Where-Object TimeZone -EQ 'Pacific').UtcOffsetString | Should-Be 'UTC-08:00'
         }
 
         It 'Returns properties in the expected display order' {
             $result = ConvertTo-USDateTime -InputObject '2026-04-23T17:14:53Z' -TimeZone Eastern
             $propertyNames = @($result.PSObject.Properties.Name)
 
-            $propertyNames | Should -Be @(
+            $propertyNames | Should-BeCollection @(
                 'TimeZone',
                 'DateTime',
                 'DateTime24',
@@ -113,9 +113,9 @@ Describe 'ConvertTo-USDateTime' -Tag 'Unit' {
         It 'Treats timezone-less strings as UTC when AssumeInputKind Utc is used' {
             $result = ConvertTo-USDateTime -InputObject '2026-01-15 15:00:00' -AssumeInputKind Utc -TimeZone Eastern
 
-            $result.SourceKind | Should -Be 'UtcAssumed'
-            $result.SourceOffset | Should -Be 'UTC+00:00'
-            $result.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should -Be '2026-01-15 10:00:00 -05:00'
+            $result.SourceKind | Should-Be 'UtcAssumed'
+            $result.SourceOffset | Should-Be 'UTC+00:00'
+            $result.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should-Be '2026-01-15 10:00:00 -05:00'
         }
 
         It 'Preserves DateTime values marked as UTC' {
@@ -123,8 +123,8 @@ Describe 'ConvertTo-USDateTime' -Tag 'Unit' {
 
             $result = ConvertTo-USDateTime -InputObject $inputObject -TimeZone Eastern
 
-            $result.SourceKind | Should -Be 'Utc'
-            $result.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should -Be '2026-01-15 10:00:00 -05:00'
+            $result.SourceKind | Should-Be 'Utc'
+            $result.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should-Be '2026-01-15 10:00:00 -05:00'
         }
 
         It 'Accepts DateTimeOffset input with a non-UTC offset' {
@@ -132,9 +132,9 @@ Describe 'ConvertTo-USDateTime' -Tag 'Unit' {
 
             $result = ConvertTo-USDateTime -InputObject $inputObject -TimeZone Eastern
 
-            $result.SourceKind | Should -Be 'OffsetSpecified'
-            $result.SourceOffset | Should -Be 'UTC-08:00'
-            $result.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should -Be '2026-01-15 18:00:00 -05:00'
+            $result.SourceKind | Should-Be 'OffsetSpecified'
+            $result.SourceOffset | Should-Be 'UTC-08:00'
+            $result.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should-Be '2026-01-15 18:00:00 -05:00'
         }
 
         It 'Recognizes DateTime values marked as local time' {
@@ -142,8 +142,8 @@ Describe 'ConvertTo-USDateTime' -Tag 'Unit' {
 
             $result = ConvertTo-USDateTime -InputObject $inputObject -TimeZone Eastern
 
-            $result.SourceKind | Should -Be 'Local'
-            $result.SourceOffset | Should -Match '^UTC[+-]\d{2}:\d{2}$'
+            $result.SourceKind | Should-Be 'Local'
+            $result.SourceOffset | Should-MatchString '^UTC[+-]\d{2}:\d{2}$'
             $result.TimeZoneName | Should -Not -BeNullOrEmpty
         }
     }
@@ -153,45 +153,45 @@ Describe 'ConvertTo-USDateTime' -Tag 'Unit' {
             $before = ConvertTo-USDateTime -InputObject '2026-03-08T06:59:59Z' -TimeZone Eastern
             $after = ConvertTo-USDateTime -InputObject '2026-03-08T07:00:00Z' -TimeZone Eastern
 
-            $before.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should -Be '2026-03-08 01:59:59 -05:00'
-            $before.UtcOffsetString | Should -Be 'UTC-05:00'
-            $before.IsDaylightSavingTime | Should -BeFalse
-            $before.Abbreviation | Should -Be 'EST'
+            $before.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should-Be '2026-03-08 01:59:59 -05:00'
+            $before.UtcOffsetString | Should-Be 'UTC-05:00'
+            $before.IsDaylightSavingTime | Should-BeFalsy
+            $before.Abbreviation | Should-Be 'EST'
 
-            $after.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should -Be '2026-03-08 03:00:00 -04:00'
-            $after.UtcOffsetString | Should -Be 'UTC-04:00'
-            $after.IsDaylightSavingTime | Should -BeTrue
-            $after.Abbreviation | Should -Be 'EDT'
+            $after.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should-Be '2026-03-08 03:00:00 -04:00'
+            $after.UtcOffsetString | Should-Be 'UTC-04:00'
+            $after.IsDaylightSavingTime | Should-BeTruthy
+            $after.Abbreviation | Should-Be 'EDT'
         }
 
         It 'Keeps offset-aware timestamps that land in the spring-forward gap on the correct Eastern side' {
             $invalidStandardSide = ConvertTo-USDateTime -InputObject '2026-03-08T02:30:00-05:00' -TimeZone Eastern
             $invalidDaylightSide = ConvertTo-USDateTime -InputObject '2026-03-08T02:30:00-04:00' -TimeZone Eastern
 
-            $invalidStandardSide.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should -Be '2026-03-08 03:30:00 -04:00'
-            $invalidStandardSide.UtcOffsetString | Should -Be 'UTC-04:00'
-            $invalidStandardSide.IsDaylightSavingTime | Should -BeTrue
-            $invalidStandardSide.Abbreviation | Should -Be 'EDT'
+            $invalidStandardSide.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should-Be '2026-03-08 03:30:00 -04:00'
+            $invalidStandardSide.UtcOffsetString | Should-Be 'UTC-04:00'
+            $invalidStandardSide.IsDaylightSavingTime | Should-BeTruthy
+            $invalidStandardSide.Abbreviation | Should-Be 'EDT'
 
-            $invalidDaylightSide.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should -Be '2026-03-08 01:30:00 -05:00'
-            $invalidDaylightSide.UtcOffsetString | Should -Be 'UTC-05:00'
-            $invalidDaylightSide.IsDaylightSavingTime | Should -BeFalse
-            $invalidDaylightSide.Abbreviation | Should -Be 'EST'
+            $invalidDaylightSide.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should-Be '2026-03-08 01:30:00 -05:00'
+            $invalidDaylightSide.UtcOffsetString | Should-Be 'UTC-05:00'
+            $invalidDaylightSide.IsDaylightSavingTime | Should-BeFalsy
+            $invalidDaylightSide.Abbreviation | Should-Be 'EST'
         }
 
         It 'Disambiguates the repeated Eastern fall-back hour by converted offset' {
             $daylightOccurrence = ConvertTo-USDateTime -InputObject '2026-11-01T05:30:00Z' -TimeZone Eastern
             $standardOccurrence = ConvertTo-USDateTime -InputObject '2026-11-01T06:30:00Z' -TimeZone Eastern
 
-            $daylightOccurrence.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should -Be '2026-11-01 01:30:00 -04:00'
-            $daylightOccurrence.UtcOffsetString | Should -Be 'UTC-04:00'
-            $daylightOccurrence.IsDaylightSavingTime | Should -BeTrue
-            $daylightOccurrence.Abbreviation | Should -Be 'EDT'
+            $daylightOccurrence.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should-Be '2026-11-01 01:30:00 -04:00'
+            $daylightOccurrence.UtcOffsetString | Should-Be 'UTC-04:00'
+            $daylightOccurrence.IsDaylightSavingTime | Should-BeTruthy
+            $daylightOccurrence.Abbreviation | Should-Be 'EDT'
 
-            $standardOccurrence.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should -Be '2026-11-01 01:30:00 -05:00'
-            $standardOccurrence.UtcOffsetString | Should -Be 'UTC-05:00'
-            $standardOccurrence.IsDaylightSavingTime | Should -BeFalse
-            $standardOccurrence.Abbreviation | Should -Be 'EST'
+            $standardOccurrence.DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should-Be '2026-11-01 01:30:00 -05:00'
+            $standardOccurrence.UtcOffsetString | Should-Be 'UTC-05:00'
+            $standardOccurrence.IsDaylightSavingTime | Should-BeFalsy
+            $standardOccurrence.Abbreviation | Should-Be 'EST'
         }
     }
 
@@ -202,21 +202,21 @@ Describe 'ConvertTo-USDateTime' -Tag 'Unit' {
                 '2026-01-15T13:00:00Z'
             ) | ConvertTo-USDateTime -TimeZone Hawaii
 
-            @($results).Count | Should -Be 2
-            $results[0].TimeZone | Should -Be 'Hawaii'
-            $results[1].TimeZone | Should -Be 'Hawaii'
-            $results[0].DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should -Be '2026-01-15 02:00:00 -10:00'
-            $results[1].DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should -Be '2026-01-15 03:00:00 -10:00'
+            @($results).Count | Should-Be 2
+            $results[0].TimeZone | Should-Be 'Hawaii'
+            $results[1].TimeZone | Should-Be 'Hawaii'
+            $results[0].DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should-Be '2026-01-15 02:00:00 -10:00'
+            $results[1].DateTime.ToString('yyyy-MM-dd HH:mm:ss zzz') | Should-Be '2026-01-15 03:00:00 -10:00'
         }
     }
 
     Context 'Error handling' {
         It 'Throws for invalid date strings' {
-            { ConvertTo-USDateTime -InputObject 'not-a-date' } | Should -Throw
+            { ConvertTo-USDateTime -InputObject 'not-a-date' } | Should-Throw
         }
 
         It 'Throws for unsupported timezone names' {
-            { ConvertTo-USDateTime -InputObject '2026-01-15T15:00:00Z' -TimeZone Mars } | Should -Throw
+            { ConvertTo-USDateTime -InputObject '2026-01-15T15:00:00Z' -TimeZone Mars } | Should-Throw
         }
     }
 }

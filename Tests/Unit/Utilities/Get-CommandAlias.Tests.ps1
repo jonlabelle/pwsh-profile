@@ -31,9 +31,9 @@ Describe 'Get-CommandAlias' {
 
             # The function outputs formatted table, so we check the string content
             $outputString = $output | Out-String
-            $outputString | Should -Match 'Get-ChildItem'
-            $outputString | Should -Match 'dir'      # Common Windows alias
-            $outputString | Should -Match 'gci'      # PowerShell-style alias
+            $outputString | Should-MatchString 'Get-ChildItem'
+            $outputString | Should-MatchString 'dir'      # Common Windows alias
+            $outputString | Should-MatchString 'gci'      # PowerShell-style alias
         }
 
         It 'Lists aliases for Select-Object and Select-String with wildcard (Example: Get-CommandAlias -Name "Select*")' {
@@ -42,10 +42,10 @@ Describe 'Get-CommandAlias' {
             $output | Should -Not -BeNullOrEmpty
 
             $outputString = $output | Out-String
-            $outputString | Should -Match 'Select-Object'
-            $outputString | Should -Match 'select'   # Alias for Select-Object
-            $outputString | Should -Match 'Select-String'
-            $outputString | Should -Match 'sls'      # Alias for Select-String
+            $outputString | Should-MatchString 'Select-Object'
+            $outputString | Should-MatchString 'select'   # Alias for Select-Object
+            $outputString | Should-MatchString 'Select-String'
+            $outputString | Should-MatchString 'sls'      # Alias for Select-String
         }
     }
 
@@ -57,8 +57,8 @@ Describe 'Get-CommandAlias' {
             $output | Should -Not -BeNullOrEmpty
 
             $outputString = $output | Out-String
-            $outputString | Should -Match 'Get-Process'
-            $outputString | Should -Match 'gps'  # Known alias for Get-Process
+            $outputString | Should-MatchString 'Get-Process'
+            $outputString | Should-MatchString 'gps'  # Known alias for Get-Process
         }
     }
 
@@ -68,24 +68,24 @@ Describe 'Get-CommandAlias' {
             $output | Should -Not -BeNullOrEmpty
 
             $outputString = $output | Out-String
-            $outputString | Should -Match 'Get-ChildItem'
+            $outputString | Should-MatchString 'Get-ChildItem'
         }
 
         It 'Should show warning for non-existent command pattern' {
             $warningOutput = Get-CommandAlias -Name 'NonExistentCommand*' 3>&1
             $warningOutput | Should -Not -BeNullOrEmpty
-            $warningOutput | Should -Match 'No aliases found'
+            ($warningOutput | Out-String) | Should-MatchString 'No aliases found'
         }
     }
 
     Context 'Parameter validation' {
         It 'Should require Name parameter when called directly' {
-            { Get-CommandAlias -Name '' -ErrorAction Stop } | Should -Throw
+            { Get-CommandAlias -Name '' -ErrorAction Stop } | Should-Throw
         }
 
         It 'Should handle empty Name parameter with proper validation' {
             # Test with empty string - should throw validation error
-            { Get-CommandAlias -Name '' -ErrorAction Stop } | Should -Throw
+            { Get-CommandAlias -Name '' -ErrorAction Stop } | Should-Throw
         }
     }
 
@@ -96,8 +96,8 @@ Describe 'Get-CommandAlias' {
 
             # Check that it's formatted table output
             $outputString = $output | Out-String
-            $outputString | Should -Match 'Definition\s+Name'  # Table headers
-            $outputString | Should -Match '----------\s+----'  # Table separator
+            $outputString | Should-MatchString 'Definition\s+Name'  # Table headers
+            $outputString | Should-MatchString '----------\s+----'  # Table separator
         }
     }
 
@@ -108,7 +108,7 @@ Describe 'Get-CommandAlias' {
             # Should produce verbose messages
             $verboseMessages = $verboseOutput | Where-Object { $_ -is [System.Management.Automation.VerboseRecord] }
             $verboseMessages | Should -Not -BeNullOrEmpty
-            $verboseMessages | Should -Match 'alias'
+            ($verboseMessages | Out-String) | Should-MatchString 'alias'
         }
     }
 
@@ -119,9 +119,9 @@ Describe 'Get-CommandAlias' {
             $output | Should -Not -BeNullOrEmpty
 
             $outputString = $output | Out-String
-            $outputString | Should -Match 'Get-Location'
-            $outputString | Should -Match 'gl'
-            $outputString | Should -Match 'pwd'
+            $outputString | Should-MatchString 'Get-Location'
+            $outputString | Should-MatchString 'gl'
+            $outputString | Should-MatchString 'pwd'
         }
     }
 
@@ -133,7 +133,7 @@ Describe 'Get-CommandAlias' {
             # Should produce a warning about no aliases found
             if ($warningOutput)
             {
-                $warningOutput | Should -Match 'No aliases found'
+                ($warningOutput | Out-String) | Should-MatchString 'No aliases found'
             }
         }
     }

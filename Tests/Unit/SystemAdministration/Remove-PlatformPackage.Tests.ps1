@@ -23,9 +23,9 @@ Describe 'Remove-PlatformPackage' {
             $runner = & $script:NewPackageCommandRunner @{}
 
             { Remove-PlatformPackage -PackageManager brew -NonInteractive -NoSudo -CommandRunner $runner -Confirm:$false } |
-                Should -Throw -ExpectedMessage "*Parameter -NoSudo*package manager 'brew'*only supported by apt and apk*"
+                Should-Throw -ExceptionMessage "*Parameter -NoSudo*package manager 'brew'*only supported by apt and apk*"
 
-            $script:Invocations.Count | Should -Be 0
+            $script:Invocations.Count | Should-Be 0
         }
     }
 
@@ -38,17 +38,17 @@ Describe 'Remove-PlatformPackage' {
 
             $result = @(Remove-PlatformPackage -PackageManager brew -NonInteractive -CommandRunner $runner)
 
-            $result.Count | Should -Be 2
+            $result.Count | Should-Be 2
 
             $formula = $result | Where-Object { $_.Name -eq 'git' }
-            $formula.PackageManager | Should -Be 'brew'
-            $formula.Type | Should -Be 'Formula'
-            $formula.InstalledVersion | Should -Be '2.44.0'
-            (@($formula.RemoveArguments) -join '|') | Should -Be 'uninstall|git'
+            $formula.PackageManager | Should-Be 'brew'
+            $formula.Type | Should-Be 'Formula'
+            $formula.InstalledVersion | Should-Be '2.44.0'
+            (@($formula.RemoveArguments) -join '|') | Should-Be 'uninstall|git'
 
             $cask = $result | Where-Object { $_.Name -eq 'visual-studio-code' }
-            $cask.Type | Should -Be 'Cask'
-            (@($cask.RemoveArguments) -join '|') | Should -Be 'uninstall|--cask|visual-studio-code'
+            $cask.Type | Should-Be 'Cask'
+            (@($cask.RemoveArguments) -join '|') | Should-Be 'uninstall|--cask|visual-studio-code'
         }
 
         It 'keeps AsObject as an alias for NonInteractive discovery' {
@@ -59,10 +59,10 @@ Describe 'Remove-PlatformPackage' {
 
             $result = @(Remove-PlatformPackage -PackageManager brew -AsObject -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'git'
-            (@($result[0].RemoveArguments) -join '|') | Should -Be 'uninstall|git'
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should -Be 0
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'git'
+            (@($result[0].RemoveArguments) -join '|') | Should-Be 'uninstall|git'
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should-Be 0
         }
 
         It 'uses zap for casks when purge is requested' {
@@ -73,7 +73,7 @@ Describe 'Remove-PlatformPackage' {
 
             $result = @(Remove-PlatformPackage -PackageManager brew -NonInteractive -Purge -CommandRunner $runner)
 
-            (@($result[0].RemoveArguments) -join '|') | Should -Be 'uninstall|--cask|--zap|visual-studio-code'
+            (@($result[0].RemoveArguments) -join '|') | Should-Be 'uninstall|--cask|--zap|visual-studio-code'
         }
 
         It 'streams remove command output when removing all matching packages' {
@@ -85,13 +85,13 @@ Describe 'Remove-PlatformPackage' {
 
             $result = Remove-PlatformPackage -PackageManager brew -IncludePackage git -All -CommandRunner $runner -Confirm:$false
 
-            $result.Removed | Should -Be 1
-            $result.Failed | Should -Be 0
-            $result.NotSelected | Should -Be 0
+            $result.Removed | Should-Be 1
+            $result.Failed | Should-Be 0
+            $result.NotSelected | Should-Be 0
 
-            ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).StreamOutput | Should -BeTrue
+            ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).StreamOutput | Should-BeTruthy
 
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'brew uninstall git output' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'brew uninstall git output' } -Times 1
         }
 
         It 'captures post-removal instructions in the result object' {
@@ -107,11 +107,11 @@ Describe 'Remove-PlatformPackage' {
 
             $result = Remove-PlatformPackage -PackageManager brew -IncludePackage python -All -CommandRunner $runner -Confirm:$false
 
-            $result.Removed | Should -Be 1
-            $result.Results[0].CapturedOutput | Should -Contain 'Removing python...'
-            $result.Results[0].InformationalOutput | Should -Contain 'Note:'
-            $result.InformationalResults.Count | Should -Be 1
-            $result.InformationalResults[0].Lines | Should -Contain 'Python user site-packages were left in place.'
+            $result.Removed | Should-Be 1
+            $result.Results[0].CapturedOutput | Should-ContainCollection 'Removing python...'
+            $result.Results[0].InformationalOutput | Should-ContainCollection 'Note:'
+            $result.InformationalResults.Count | Should-Be 1
+            $result.InformationalResults[0].Lines | Should-ContainCollection 'Python user site-packages were left in place.'
         }
 
         It 'reports streamed command failures with command context when captured output is unavailable' {
@@ -123,16 +123,16 @@ Describe 'Remove-PlatformPackage' {
 
             $result = Remove-PlatformPackage -PackageManager brew -IncludePackage git -All -CommandRunner $runner -Confirm:$false -WarningAction SilentlyContinue
 
-            $result.Removed | Should -Be 0
-            $result.Failed | Should -Be 1
-            $result.Skipped | Should -Be 0
-            $result.Results[0].Message | Should -Match 'brew uninstall git failed with exit code 41'
-            $result.Results[0].Message | Should -Match 'streamed directly to the console'
-            $result.Results[0].InformationalOutput | Should -HaveCount 1
-            $result.Results[0].InformationalOutput[0] | Should -BeExactly $result.Results[0].Message
-            $result.InformationalResults | Should -HaveCount 1
-            $result.InformationalResults[0].Lines | Should -HaveCount 1
-            $result.InformationalResults[0].Lines[0] | Should -BeExactly $result.Results[0].Message
+            $result.Removed | Should-Be 0
+            $result.Failed | Should-Be 1
+            $result.Skipped | Should-Be 0
+            $result.Results[0].Message | Should-MatchString 'brew uninstall git failed with exit code 41'
+            $result.Results[0].Message | Should-MatchString 'streamed directly to the console'
+            $result.Results[0].InformationalOutput | Should-BeCollection -Count 1
+            $result.Results[0].InformationalOutput[0] | Should-BeString $result.Results[0].Message -CaseSensitive
+            $result.InformationalResults | Should-BeCollection -Count 1
+            $result.InformationalResults[0].Lines | Should-BeCollection -Count 1
+            $result.InformationalResults[0].Lines[0] | Should-BeString $result.Results[0].Message -CaseSensitive
         }
 
         It 'does not read stale LASTEXITCODE for unstructured command runner output' {
@@ -185,9 +185,9 @@ Describe 'Remove-PlatformPackage' {
 
                 $result = Remove-PlatformPackage -PackageManager brew -IncludePackage git -All -CommandRunner $runner -Confirm:$false
 
-                $result.Removed | Should -Be 1
-                $result.Failed | Should -Be 0
-                $result.Results[0].ExitCode | Should -Be 0
+                $result.Removed | Should-Be 1
+                $result.Failed | Should-Be 0
+                $result.Results[0].ExitCode | Should-Be 0
             }
             finally
             {
@@ -209,7 +209,7 @@ Describe 'Remove-PlatformPackage' {
             }
 
             { Remove-PlatformPackage -PackageManager brew -All -CommandRunner $runner -Confirm:$false } |
-            Should -Throw -ExpectedMessage '*without an include filter*'
+            Should-Throw -ExceptionMessage '*without an include filter*'
         }
 
         It 'warns about installed Homebrew dependents before removing with -All' {
@@ -222,13 +222,13 @@ Describe 'Remove-PlatformPackage' {
 
             $result = Remove-PlatformPackage -PackageManager brew -IncludePackage openssl -All -CommandRunner $runner -Confirm:$false
 
-            $result.Removed | Should -Be 1
-            $result.Results[0].RequiredByCount | Should -Be 1
-            $result.Results[0].RequiredByPackages | Should -Contain 'curl'
-            $script:Warnings | Should -Contain 'openssl is required by 1 installed package(s): curl. Removing it may break dependent packages.'
+            $result.Removed | Should-Be 1
+            $result.Results[0].RequiredByCount | Should-Be 1
+            $result.Results[0].RequiredByPackages | Should-ContainCollection 'curl'
+            $script:Warnings | Should-ContainCollection 'openssl is required by 1 installed package(s): curl. Removing it may break dependent packages.'
 
             $keys = @($script:Invocations | ForEach-Object { $_.Key })
-            [Array]::IndexOf($keys, 'brew uses --installed openssl') | Should -BeLessThan ([Array]::IndexOf($keys, 'brew uninstall openssl'))
+            [Array]::IndexOf($keys, 'brew uses --installed openssl') | Should-BeLessThan ([Array]::IndexOf($keys, 'brew uninstall openssl'))
         }
     }
 
@@ -243,12 +243,12 @@ Describe 'Remove-PlatformPackage' {
 
             $result = @(Remove-PlatformPackage -PackageManager apt -NonInteractive -Purge -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'openssl'
-            $result[0].PackageManager | Should -Be 'apt'
-            $result[0].InstalledVersion | Should -Be '3.0.2-0ubuntu1.15'
-            $result[0].Notes | Should -Be 'Automatic'
-            (@($result[0].RemoveArguments) -join '|') | Should -Be 'purge|-y|openssl'
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'openssl'
+            $result[0].PackageManager | Should-Be 'apt'
+            $result[0].InstalledVersion | Should-Be '3.0.2-0ubuntu1.15'
+            $result[0].Notes | Should-Be 'Automatic'
+            (@($result[0].RemoveArguments) -join '|') | Should-Be 'purge|-y|openssl'
         }
 
         It 'parses apk package output and keeps hyphenated package names' {
@@ -261,14 +261,14 @@ Describe 'Remove-PlatformPackage' {
 
             $result = @(Remove-PlatformPackage -PackageManager apk -NonInteractive -Purge -CommandRunner $runner)
 
-            $result.Count | Should -Be 2
+            $result.Count | Should-Be 2
 
             $busybox = $result | Where-Object { $_.Name -eq 'busybox' }
-            $busybox.InstalledVersion | Should -Be '1.36.1-r19'
-            (@($busybox.RemoveArguments) -join '|') | Should -Be 'del|--purge|busybox'
+            $busybox.InstalledVersion | Should-Be '1.36.1-r19'
+            (@($busybox.RemoveArguments) -join '|') | Should-Be 'del|--purge|busybox'
 
             $requests = $result | Where-Object { $_.Name -eq 'py3-requests' }
-            $requests.InstalledVersion | Should -Be '2.31.0-r0'
+            $requests.InstalledVersion | Should-Be '2.31.0-r0'
         }
 
         It 'warns about installed APT dependents before removing the current interactive package' {
@@ -292,12 +292,12 @@ Describe 'Remove-PlatformPackage' {
 
             $result = Remove-PlatformPackage -PackageManager apt -IncludePackage openssl -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Removed | Should -Be 1
-            $result.Results[0].RequiredByPackages | Should -Contain 'curl'
-            $script:Warnings | Should -Contain 'openssl is required by 1 installed package(s): curl. Removing it may break dependent packages.'
+            $result.Removed | Should-Be 1
+            $result.Results[0].RequiredByPackages | Should-ContainCollection 'curl'
+            $script:Warnings | Should-ContainCollection 'openssl is required by 1 installed package(s): curl. Removing it may break dependent packages.'
 
             $keys = @($script:Invocations | ForEach-Object { $_.Key })
-            [Array]::IndexOf($keys, 'apt-cache rdepends openssl') | Should -BeLessThan ([Array]::IndexOf($keys, 'apt remove -y openssl'))
+            [Array]::IndexOf($keys, 'apt-cache rdepends openssl') | Should-BeLessThan ([Array]::IndexOf($keys, 'apt remove -y openssl'))
         }
 
         It 'warns about installed apk dependents before removing with -All' {
@@ -315,12 +315,12 @@ Describe 'Remove-PlatformPackage' {
 
             $result = Remove-PlatformPackage -PackageManager apk -IncludePackage pipewire -All -CommandRunner $runner -Confirm:$false
 
-            $result.Removed | Should -Be 1
-            $result.Results[0].RequiredByPackages | Should -Contain 'pipewire-pulse'
-            $script:Warnings | Should -Contain 'pipewire is required by 1 installed package(s): pipewire-pulse. Removing it may break dependent packages.'
+            $result.Removed | Should-Be 1
+            $result.Results[0].RequiredByPackages | Should-ContainCollection 'pipewire-pulse'
+            $script:Warnings | Should-ContainCollection 'pipewire is required by 1 installed package(s): pipewire-pulse. Removing it may break dependent packages.'
 
             $keys = @($script:Invocations | ForEach-Object { $_.Key })
-            [Array]::IndexOf($keys, 'apk info --rdepends pipewire') | Should -BeLessThan ([Array]::IndexOf($keys, 'apk del pipewire'))
+            [Array]::IndexOf($keys, 'apk info --rdepends pipewire') | Should-BeLessThan ([Array]::IndexOf($keys, 'apk del pipewire'))
         }
     }
 
@@ -338,13 +338,13 @@ Describe 'Remove-PlatformPackage' {
 
             $result = Remove-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Selected | Should -Be 1
-            $result.NotSelected | Should -Be 0
-            $result.Removed | Should -Be 1
-            ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).StreamOutput | Should -BeTrue
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A toggle all  F: [all]" } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Nav: Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel" } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  0 selected" -and $ForegroundColor -eq 'White' } -Times 1
+            $result.Selected | Should-Be 1
+            $result.NotSelected | Should-Be 0
+            $result.Removed | Should-Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).StreamOutput | Should-BeTruthy
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A toggle all  F: [all]" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Nav: Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  0 selected" -and $ForegroundColor -eq 'White' } -Times 1
         }
 
         It 'shows keyboard help from the removal picker' {
@@ -365,11 +365,11 @@ Describe 'Remove-PlatformPackage' {
 
             $result = Remove-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Selected | Should -Be 0
-            $result.Removed | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Remove-PlatformPackage Help' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'P: ' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'toggle purge/zap removal for the current package' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+            $result.Selected | Should-Be 0
+            $result.Removed | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Remove-PlatformPackage Help' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'P: ' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'toggle purge/zap removal for the current package' -and $ForegroundColor -eq 'DarkGray' } -Times 1
         }
 
         It 'treats Ctrl+C as a cancel command' {
@@ -385,11 +385,11 @@ Describe 'Remove-PlatformPackage' {
 
             $result = Remove-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Selected | Should -Be 0
-            $result.NotSelected | Should -Be 1
-            $result.Removed | Should -Be 0
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should -Be 0
-            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 4
+            $result.Selected | Should-Be 0
+            $result.NotSelected | Should-Be 1
+            $result.Removed | Should-Be 0
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should-Be 0
+            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should-Be 4
         }
 
         It 'ignores Backspace and Delete as manager navigation when not launched by the manager' {
@@ -411,11 +411,11 @@ Describe 'Remove-PlatformPackage' {
 
             $result = Remove-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Selected | Should -Be 0
-            $result.Removed | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A toggle all  F: [all]" } -Times 3
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 0 -Exactly
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should -Be 0
+            $result.Selected | Should-Be 0
+            $result.Removed | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A toggle all  F: [all]" } -Times 3
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 0 -Exactly
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should-Be 0
         }
 
         It 'returns to the manager menu on <Name> when manager navigation is enabled' -TestCases @(
@@ -436,11 +436,11 @@ Describe 'Remove-PlatformPackage' {
 
             $result = Remove-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey -Confirm:$false
 
-            $result.Selected | Should -Be 0
-            $result.Removed | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A toggle all  F: [all]" } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should -Be 0
+            $result.Selected | Should-Be 0
+            $result.Removed | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A toggle all  F: [all]" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should-Be 0
         }
 
         It 'renders only the current viewport for long package lists' {
@@ -460,10 +460,10 @@ Describe 'Remove-PlatformPackage' {
 
             $null = Remove-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PickerPageSize 2 -Confirm:$false
 
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-01*' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-02*' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-03*' } -Times 0 -Exactly
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-04*' } -Times 0 -Exactly
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-01*' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-02*' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-03*' } -Times 0 -Exactly
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-04*' } -Times 0 -Exactly
         }
 
         It 'allows purge behavior to be toggled for the selected package' {
@@ -485,10 +485,10 @@ Describe 'Remove-PlatformPackage' {
 
             $result = Remove-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Removed | Should -Be 1
-            ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall --cask --zap visual-studio-code' }).StreamOutput | Should -BeTrue
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*P purge/zap*' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'brew zap output' } -Times 1
+            $result.Removed | Should-Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall --cask --zap visual-studio-code' }).StreamOutput | Should-BeTruthy
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*P purge/zap*' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'brew zap output' } -Times 1
         }
 
         It 'shows both dependency directions from the removal picker with D' {
@@ -525,14 +525,14 @@ Describe 'Remove-PlatformPackage' {
 
             $result = Remove-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Removed | Should -Be 0
-            Should -Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
-            Should -Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Resolving dependencies...' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn + RequiredBy]' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn]' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [RequiredBy]' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/Delete/LeftArrow to return to the package list.' } -Times 2
+            $result.Removed | Should-Be 0
+            Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
+            Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Resolving dependencies...' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn + RequiredBy]' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn]' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [RequiredBy]' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/Delete/LeftArrow to return to the package list.' } -Times 2
         }
 
         It 'returns from dependency view to the removal picker on <Name> when manager navigation is enabled' -TestCases @(
@@ -569,11 +569,11 @@ Describe 'Remove-PlatformPackage' {
 
             $result = Remove-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey -Confirm:$false
 
-            $result.Selected | Should -Be 0
-            $result.Removed | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A toggle all  F: [all]" } -Times 2
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Remove-PlatformPackage Dependencies - Homebrew' } -Times 2
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/Delete/LeftArrow to return to the package list.' } -Times 2
+            $result.Selected | Should-Be 0
+            $result.Removed | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A toggle all  F: [all]" } -Times 2
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Remove-PlatformPackage Dependencies - Homebrew' } -Times 2
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/Delete/LeftArrow to return to the package list.' } -Times 2
         }
 
         It 'filters picker results by package name when F is pressed' {
@@ -597,11 +597,11 @@ Describe 'Remove-PlatformPackage' {
 
             $result = Remove-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Removed | Should -Be 1
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should -Be 1
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall curl' }).Count | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: g' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[g\]' } -Times 1
+            $result.Removed | Should-Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should-Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall curl' }).Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: g' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[g\]' } -Times 1
         }
 
         It 'treats lowercase q as filter text instead of cancel' {
@@ -625,11 +625,11 @@ Describe 'Remove-PlatformPackage' {
 
             $result = Remove-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Removed | Should -Be 1
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall jq' }).Count | Should -Be 1
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: q' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[q\]' } -Times 1
+            $result.Removed | Should-Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall jq' }).Count | Should-Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: q' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[q\]' } -Times 1
         }
     }
 
@@ -647,12 +647,12 @@ Describe 'Remove-PlatformPackage' {
 
             $result = @(Remove-PlatformPackage -PackageManager winget -NonInteractive -CommandRunner $runner)
 
-            $result.Count | Should -Be 2
+            $result.Count | Should-Be 2
 
             $powershell = $result | Where-Object { $_.Name -eq 'PowerShell' }
-            $powershell.Id | Should -Be 'Microsoft.PowerShell'
-            $powershell.InstalledVersion | Should -Be '7.4.2'
-            (@($powershell.RemoveArguments) -join '|') | Should -Be 'uninstall|--id|Microsoft.PowerShell|--exact|--source|winget|--accept-source-agreements'
+            $powershell.Id | Should-Be 'Microsoft.PowerShell'
+            $powershell.InstalledVersion | Should-Be '7.4.2'
+            (@($powershell.RemoveArguments) -join '|') | Should-Be 'uninstall|--id|Microsoft.PowerShell|--exact|--source|winget|--accept-source-agreements'
         }
 
         It 'uses winget purge when purge is requested' {
@@ -667,7 +667,7 @@ Describe 'Remove-PlatformPackage' {
 
             $result = @(Remove-PlatformPackage -PackageManager winget -NonInteractive -Purge -CommandRunner $runner)
 
-            (@($result[0].RemoveArguments) -join '|') | Should -Be 'uninstall|--id|Microsoft.PowerShell|--exact|--source|winget|--accept-source-agreements|--purge'
+            (@($result[0].RemoveArguments) -join '|') | Should-Be 'uninstall|--id|Microsoft.PowerShell|--exact|--source|winget|--accept-source-agreements|--purge'
         }
 
         It 'passes the installed package source to winget uninstall commands' {
@@ -694,8 +694,8 @@ Describe 'Remove-PlatformPackage' {
 
             $result = Remove-PlatformPackage -PackageManager winget -IncludePackage Git -All -CommandRunner $runner -Confirm:$false
 
-            $result.Removed | Should -Be 1
-            ($script:Invocations | Where-Object { $_.Key -eq 'winget uninstall --id Git.Git --exact --source msstore --accept-source-agreements' }).StreamOutput | Should -BeTrue
+            $result.Removed | Should-Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget uninstall --id Git.Git --exact --source msstore --accept-source-agreements' }).StreamOutput | Should-BeTruthy
         }
 
         It 'renders and applies the purge column for winget interactive removals' {
@@ -720,10 +720,10 @@ Describe 'Remove-PlatformPackage' {
 
             $result = Remove-PlatformPackage -PackageManager winget -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Removed | Should -Be 1
-            ($script:Invocations | Where-Object { $_.Key -eq 'winget uninstall --id Microsoft.PowerShell --exact --source winget --accept-source-agreements --purge' }).StreamOutput | Should -BeTrue
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -clike '*Purge*' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'winget purge output' } -Times 1
+            $result.Removed | Should-Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget uninstall --id Microsoft.PowerShell --exact --source winget --accept-source-agreements --purge' }).StreamOutput | Should-BeTruthy
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -clike '*Purge*' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'winget purge output' } -Times 1
         }
 
         It 'keeps picker table rows within the current console width' {
@@ -762,12 +762,12 @@ Describe 'Remove-PlatformPackage' {
                 }
             )
 
-            $tableLines.Count | Should -BeGreaterThan 1
-            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Purge\s+' } | Select-Object -First 1) | Should -Match '\bVer\b'
-            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Purge\s+' } | Select-Object -First 1) | Should -Match '\bTyp\b'
-            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Purge\s+' } | Select-Object -First 1) | Should -Match '\bSrc\b'
-            ($tableLines | Where-Object { $_ -match '^[> ] \[[ x]\] \[[ p]\]\s+' } | Select-Object -First 1) | Should -Match 'homebrew/core'
-            (($tableLines | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum) | Should -BeLessOrEqual (Get-TestPickerLineLimit)
+            $tableLines.Count | Should-BeGreaterThan 1
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Purge\s+' } | Select-Object -First 1) | Should-MatchString '\bVer\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Purge\s+' } | Select-Object -First 1) | Should-MatchString '\bTyp\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+Purge\s+' } | Select-Object -First 1) | Should-MatchString '\bSrc\b'
+            ($tableLines | Where-Object { $_ -match '^[> ] \[[ x]\] \[[ p]\]\s+' } | Select-Object -First 1) | Should-MatchString 'homebrew/core'
+            (($tableLines | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum) | Should-BeLessThanOrEqual (Get-TestPickerLineLimit)
         }
 
         It 'defaults source filter to winget for the winget picker when multiple sources exist' {
@@ -808,7 +808,7 @@ Describe 'Remove-PlatformPackage' {
 
             $null = Remove-PlatformPackage -PackageManager winget -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[winget\]' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[winget\]' } -Times 1
         }
 
         It 'removes only the visible package when filtering duplicate winget ids by source' {
@@ -850,11 +850,11 @@ Describe 'Remove-PlatformPackage' {
 
             $result = Remove-PlatformPackage -PackageManager winget -FilterSource msstore -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Selected | Should -Be 1
-            $result.Removed | Should -Be 1
-            @($script:Invocations | Where-Object { $_.Key -eq 'winget uninstall --id Git.Git --exact --source winget --accept-source-agreements' }).Count | Should -Be 0
-            ($script:Invocations | Where-Object { $_.Key -eq 'winget uninstall --id Git.Git --exact --source msstore --accept-source-agreements' }).StreamOutput | Should -BeTrue
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[msstore\]' } -Times 1
+            $result.Selected | Should-Be 1
+            $result.Removed | Should-Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'winget uninstall --id Git.Git --exact --source winget --accept-source-agreements' }).Count | Should-Be 0
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget uninstall --id Git.Git --exact --source msstore --accept-source-agreements' }).StreamOutput | Should-BeTruthy
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[msstore\]' } -Times 1
         }
     }
 
@@ -871,8 +871,8 @@ Describe 'Remove-PlatformPackage' {
 
             $result = @(Remove-PlatformPackage -PackageManager brew -NonInteractive -IncludePackage 'git*' -ExcludePackage 'git-lfs' -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'git'
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'git'
         }
 
         It 'honors -WhatIf for remove commands' {
@@ -884,12 +884,12 @@ Describe 'Remove-PlatformPackage' {
             $result = Remove-PlatformPackage -PackageManager brew -IncludePackage git -All -WhatIf -CommandRunner $runner
 
             $result | Should -Not -BeNullOrEmpty
-            $result.Selected | Should -Be 1
-            $result.NotSelected | Should -Be 0
-            $result.Removed | Should -Be 0
-            $result.Skipped | Should -Be 1
+            $result.Selected | Should-Be 1
+            $result.NotSelected | Should-Be 0
+            $result.Removed | Should-Be 0
+            $result.Skipped | Should-Be 1
 
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should -Be 0
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should-Be 0
         }
     }
 }

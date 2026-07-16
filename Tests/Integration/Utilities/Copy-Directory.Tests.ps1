@@ -51,11 +51,11 @@ Describe 'Copy-Directory Integration Tests' {
 
             $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip -Recurse
 
-            $result.TotalFiles | Should -Be 2
-            $result.TotalDirectories | Should -Be 0
-            Test-Path "$destDir\file1.txt" | Should -Be $true
-            Test-Path "$destDir\file2.txt" | Should -Be $true
-            (Get-Content -Path "$destDir\file1.txt") | Should -Be 'file1 content'
+            $result.TotalFiles | Should-Be 2
+            $result.TotalDirectories | Should-Be 0
+            Test-Path "$destDir\file1.txt" | Should-Be $true
+            Test-Path "$destDir\file2.txt" | Should-Be $true
+            (Get-Content -Path "$destDir\file1.txt") | Should-Be 'file1 content'
         }
 
         It 'Should copy nested directory structure' {
@@ -70,11 +70,11 @@ Describe 'Copy-Directory Integration Tests' {
 
             $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip -Recurse
 
-            $result.TotalFiles | Should -Be 3
-            $result.TotalDirectories | Should -Be 3
-            Test-Path "$destDir\dir1\file1.txt" | Should -Be $true
-            Test-Path "$destDir\dir1\subdir1\file2.txt" | Should -Be $true
-            Test-Path "$destDir\dir2\file3.txt" | Should -Be $true
+            $result.TotalFiles | Should-Be 3
+            $result.TotalDirectories | Should-Be 3
+            Test-Path "$destDir\dir1\file1.txt" | Should-Be $true
+            Test-Path "$destDir\dir1\subdir1\file2.txt" | Should-Be $true
+            Test-Path "$destDir\dir2\file3.txt" | Should-Be $true
         }
 
         It 'Should preserve file contents during copy' {
@@ -87,7 +87,7 @@ Describe 'Copy-Directory Integration Tests' {
 
             Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip | Out-Null
 
-            (Get-Content -Path "$destDir\test.txt") | Should -Be $testContent
+            (Get-Content -Path "$destDir\test.txt") | Should-Be $testContent
         }
     }
 
@@ -113,9 +113,9 @@ Describe 'Copy-Directory Integration Tests' {
 
             $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip -Recurse
 
-            $result.FilesSkipped | Should -Be 1
-            $result.FilesOverwritten | Should -Be 0
-            (Get-Content -Path "$destDir\existing.txt") | Should -Be 'old content'
+            $result.FilesSkipped | Should-Be 1
+            $result.FilesOverwritten | Should-Be 0
+            (Get-Content -Path "$destDir\existing.txt") | Should-Be 'old content'
         }
 
         It 'Should copy new files in Skip mode' {
@@ -127,9 +127,9 @@ Describe 'Copy-Directory Integration Tests' {
 
             $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip
 
-            $result.TotalFiles | Should -Be 1
-            $result.FilesSkipped | Should -Be 0
-            Test-Path "$destDir\newfile.txt" | Should -Be $true
+            $result.TotalFiles | Should-Be 1
+            $result.FilesSkipped | Should-Be 0
+            Test-Path "$destDir\newfile.txt" | Should-Be $true
         }
 
         It 'Should track mixed skip and copy operations' {
@@ -146,10 +146,10 @@ Describe 'Copy-Directory Integration Tests' {
             $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip
 
             # TotalFiles tracks copied files, FilesSkipped tracks skipped files
-            $result.TotalFiles | Should -Be 1
-            $result.FilesSkipped | Should -Be 1
-            (Get-Content -Path "$destDir\file1.txt") | Should -Be 'new 1'
-            (Get-Content -Path "$destDir\file2.txt") | Should -Be 'old 2'
+            $result.TotalFiles | Should-Be 1
+            $result.FilesSkipped | Should-Be 1
+            (Get-Content -Path "$destDir\file1.txt") | Should-Be 'new 1'
+            (Get-Content -Path "$destDir\file2.txt") | Should-Be 'old 2'
         }
     }
 
@@ -175,8 +175,8 @@ Describe 'Copy-Directory Integration Tests' {
 
             $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Overwrite
 
-            $result.FilesOverwritten | Should -Be 1
-            (Get-Content -Path "$destDir\file.txt") | Should -Be 'new content'
+            $result.FilesOverwritten | Should-Be 1
+            (Get-Content -Path "$destDir\file.txt") | Should-Be 'new content'
         }
 
         It 'Should overwrite multiple files in Overwrite mode' {
@@ -193,9 +193,9 @@ Describe 'Copy-Directory Integration Tests' {
 
             $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Overwrite
 
-            $result.FilesOverwritten | Should -Be 2
-            (Get-Content -Path "$destDir\file1.txt") | Should -Be 'new1'
-            (Get-Content -Path "$destDir\file2.txt") | Should -Be 'new2'
+            $result.FilesOverwritten | Should-Be 2
+            (Get-Content -Path "$destDir\file1.txt") | Should-Be 'new1'
+            (Get-Content -Path "$destDir\file2.txt") | Should-Be 'new2'
         }
     }
 
@@ -225,8 +225,8 @@ Describe 'Copy-Directory Integration Tests' {
 
             $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode IfNewer
 
-            $result.FilesOverwritten | Should -Be 1
-            (Get-Content -Path "$destDir\file.txt") | Should -Be 'new content'
+            $result.FilesOverwritten | Should-Be 1
+            (Get-Content -Path "$destDir\file.txt") | Should-Be 'new content'
         }
 
         It 'Should skip if destination is newer or equal' {
@@ -245,8 +245,8 @@ Describe 'Copy-Directory Integration Tests' {
 
             $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode IfNewer
 
-            $result.FilesSkipped | Should -Be 1
-            (Get-Content -Path "$destDir\file.txt") | Should -Be 'old content'
+            $result.FilesSkipped | Should-Be 1
+            (Get-Content -Path "$destDir\file.txt") | Should-Be 'old content'
         }
 
         It 'Should handle timestamp comparison correctly' {
@@ -269,7 +269,7 @@ Describe 'Copy-Directory Integration Tests' {
             $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode IfNewer
 
             # Should skip if timestamps are equal (not newer)
-            $result.FilesSkipped | Should -Be 1
+            $result.FilesSkipped | Should-Be 1
         }
     }
 
@@ -299,10 +299,10 @@ Describe 'Copy-Directory Integration Tests' {
 
             Copy-Directory -Source $sourceDir -Destination $destDir -ExcludeDirectories '.git' -UpdateMode Skip -Recurse
 
-            Test-Path "$destDir\.git" | Should -Be $false
-            Test-Path "$destDir\src\app\.git" | Should -Be $false
-            Test-Path "$destDir\src\app\main.ps1" | Should -Be $true
-            Test-Path "$destDir\src\lib\helper.ps1" | Should -Be $true
+            Test-Path "$destDir\.git" | Should-Be $false
+            Test-Path "$destDir\src\app\.git" | Should-Be $false
+            Test-Path "$destDir\src\app\main.ps1" | Should-Be $true
+            Test-Path "$destDir\src\lib\helper.ps1" | Should-Be $true
         }
 
         It 'Should exclude multiple build artifact directories' {
@@ -322,11 +322,11 @@ Describe 'Copy-Directory Integration Tests' {
             $result = Copy-Directory -Source $sourceDir -Destination $destDir `
                 -ExcludeDirectories 'bin', 'obj', 'dist' -UpdateMode Skip -Recurse
 
-            $result.ExcludedDirectories | Should -Be 3
-            Test-Path "$destDir\bin" | Should -Be $false
-            Test-Path "$destDir\obj" | Should -Be $false
-            Test-Path "$destDir\dist" | Should -Be $false
-            Test-Path "$destDir\src\main.ps1" | Should -Be $true
+            $result.ExcludedDirectories | Should-Be 3
+            Test-Path "$destDir\bin" | Should-Be $false
+            Test-Path "$destDir\obj" | Should-Be $false
+            Test-Path "$destDir\dist" | Should-Be $false
+            Test-Path "$destDir\src\main.ps1" | Should-Be $true
         }
     }
 
@@ -350,7 +350,7 @@ Describe 'Copy-Directory Integration Tests' {
             Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip -WhatIf
 
             # Destination should not exist with WhatIf
-            Test-Path $destDir | Should -Be $false
+            Test-Path $destDir | Should-Be $false
         }
     }
 
@@ -371,7 +371,7 @@ Describe 'Copy-Directory Integration Tests' {
 
             {
                 Copy-Directory -Source $sourceDir -Destination $sourceDir -UpdateMode Skip -Recurse
-            } | Should -Throw -ExpectedMessage '*same directory*'
+            } | Should-Throw -ExceptionMessage '*same directory*'
         }
 
         It 'Should reject recursive copy when destination is inside source' {
@@ -382,7 +382,7 @@ Describe 'Copy-Directory Integration Tests' {
 
             {
                 Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip -Recurse
-            } | Should -Throw -ExpectedMessage '*inside the source directory*'
+            } | Should-Throw -ExceptionMessage '*inside the source directory*'
         }
     }
 
@@ -412,9 +412,9 @@ Describe 'Copy-Directory Integration Tests' {
             $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip -Recurse
 
             # 5 files total
-            $result.TotalFiles | Should -Be 5
+            $result.TotalFiles | Should-Be 5
             # 3 directories: dir1, dir1\subdir1, dir2
-            $result.TotalDirectories | Should -Be 3
+            $result.TotalDirectories | Should-Be 3
         }
 
         It 'Should measure duration correctly' {
@@ -427,7 +427,7 @@ Describe 'Copy-Directory Integration Tests' {
             $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip
 
             $result.Duration | Should -Not -BeNullOrEmpty
-            $result.Duration.TotalMilliseconds | Should -BeGreaterThan 0
+            $result.Duration.TotalMilliseconds | Should-BeGreaterThan 0
         }
 
         It 'Should correctly count skipped vs overwritten files' {
@@ -449,9 +449,9 @@ Describe 'Copy-Directory Integration Tests' {
             $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip
 
             # TotalFiles = copied files, FilesSkipped = files that existed and were skipped
-            $result.TotalFiles | Should -Be 1  # Only file1 was copied
-            $result.FilesSkipped | Should -Be 2  # Files 2 and 3 were skipped
-            $result.FilesOverwritten | Should -Be 0
+            $result.TotalFiles | Should-Be 1  # Only file1 was copied
+            $result.FilesSkipped | Should-Be 2  # Files 2 and 3 were skipped
+            $result.FilesOverwritten | Should-Be 0
         }
     }
 
@@ -478,10 +478,10 @@ Describe 'Copy-Directory Integration Tests' {
 
             $result = Copy-Directory -Source $sourceDir -Destination $destDir -ThrottleLimit 4
 
-            $result.TotalFiles | Should -Be 20
+            $result.TotalFiles | Should-Be 20
             1..20 | ForEach-Object {
-                Test-Path "$destDir\file$_.txt" | Should -Be $true
-                (Get-Content -Path "$destDir\file$_.txt") | Should -Be "content for file $_"
+                Test-Path "$destDir\file$_.txt" | Should-Be $true
+                (Get-Content -Path "$destDir\file$_.txt") | Should-Be "content for file $_"
             }
         }
 
@@ -501,16 +501,16 @@ Describe 'Copy-Directory Integration Tests' {
 
             $result = Copy-Directory -Source $sourceDir -Destination $destDir -ThrottleLimit 8 -Recurse
 
-            $result.TotalFiles | Should -Be 25
-            $result.TotalDirectories | Should -Be 4
+            $result.TotalFiles | Should-Be 25
+            $result.TotalDirectories | Should-Be 4
 
             # Verify content integrity across all levels
             1..5 | ForEach-Object {
-                (Get-Content -Path "$destDir\root$_.txt") | Should -Be "root $_"
-                (Get-Content -Path "$destDir\level1\l1_$_.txt") | Should -Be "level1 $_"
-                (Get-Content -Path "$destDir\level1\level2\l2_$_.txt") | Should -Be "level2 $_"
-                (Get-Content -Path "$destDir\level1\level2\level3\l3_$_.txt") | Should -Be "level3 $_"
-                (Get-Content -Path "$destDir\another\a$_.txt") | Should -Be "another $_"
+                (Get-Content -Path "$destDir\root$_.txt") | Should-Be "root $_"
+                (Get-Content -Path "$destDir\level1\l1_$_.txt") | Should-Be "level1 $_"
+                (Get-Content -Path "$destDir\level1\level2\l2_$_.txt") | Should-Be "level2 $_"
+                (Get-Content -Path "$destDir\level1\level2\level3\l3_$_.txt") | Should-Be "level3 $_"
+                (Get-Content -Path "$destDir\another\a$_.txt") | Should-Be "another $_"
             }
         }
 
@@ -529,9 +529,9 @@ Describe 'Copy-Directory Integration Tests' {
 
             $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Skip -ThrottleLimit 4
 
-            $result.TotalFiles | Should -Be 5  # Only files 6-10 copied
-            $result.FilesSkipped | Should -Be 5  # Files 1-5 skipped
-            $result.FilesOverwritten | Should -Be 0
+            $result.TotalFiles | Should-Be 5  # Only files 6-10 copied
+            $result.FilesSkipped | Should-Be 5  # Files 1-5 skipped
+            $result.FilesOverwritten | Should-Be 0
         }
 
         It 'Should correctly track statistics in parallel mode with Overwrite' {
@@ -549,13 +549,13 @@ Describe 'Copy-Directory Integration Tests' {
 
             $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode Overwrite -ThrottleLimit 4
 
-            $result.TotalFiles | Should -Be 10  # All 10 files copied
-            $result.FilesSkipped | Should -Be 0
-            $result.FilesOverwritten | Should -Be 5  # Files 1-5 overwritten
+            $result.TotalFiles | Should-Be 10  # All 10 files copied
+            $result.FilesSkipped | Should-Be 0
+            $result.FilesOverwritten | Should-Be 5  # Files 1-5 overwritten
 
             # Verify all files have new content
             1..10 | ForEach-Object {
-                (Get-Content -Path "$destDir\file$_.txt") | Should -Be "new $_"
+                (Get-Content -Path "$destDir\file$_.txt") | Should-Be "new $_"
             }
         }
 
@@ -579,9 +579,9 @@ Describe 'Copy-Directory Integration Tests' {
             $result = Copy-Directory -Source $sourceDir -Destination $destDir -UpdateMode IfNewer -ThrottleLimit 4
 
             # Files 1-3: overwritten (newer), Files 4-6: newly copied
-            $result.TotalFiles | Should -Be 6  # All 6 files copied
-            $result.FilesOverwritten | Should -Be 3  # Files 1-3 overwritten
-            $result.FilesSkipped | Should -Be 0
+            $result.TotalFiles | Should-Be 6  # All 6 files copied
+            $result.FilesOverwritten | Should-Be 3  # Files 1-3 overwritten
+            $result.FilesSkipped | Should-Be 0
         }
 
         It 'Should produce consistent results between sequential and parallel modes' {
@@ -604,15 +604,15 @@ Describe 'Copy-Directory Integration Tests' {
             $resultSeq = Copy-Directory -Source $sourceSeqDir -Destination $destSeqDir -ThrottleLimit 1 -Recurse
             $resultPar = Copy-Directory -Source $sourceParDir -Destination $destParDir -ThrottleLimit 8 -Recurse
 
-            $resultSeq.TotalFiles | Should -Be $resultPar.TotalFiles
-            $resultSeq.TotalDirectories | Should -Be $resultPar.TotalDirectories
-            $resultSeq.FilesSkipped | Should -Be $resultPar.FilesSkipped
-            $resultSeq.FilesOverwritten | Should -Be $resultPar.FilesOverwritten
+            $resultSeq.TotalFiles | Should-Be $resultPar.TotalFiles
+            $resultSeq.TotalDirectories | Should-Be $resultPar.TotalDirectories
+            $resultSeq.FilesSkipped | Should-Be $resultPar.FilesSkipped
+            $resultSeq.FilesOverwritten | Should-Be $resultPar.FilesOverwritten
 
             # Verify content is identical
             1..10 | ForEach-Object {
-                (Get-Content "$destSeqDir\file$_.txt") | Should -Be (Get-Content "$destParDir\file$_.txt")
-                (Get-Content "$destSeqDir\sub\sub$_.txt") | Should -Be (Get-Content "$destParDir\sub\sub$_.txt")
+                (Get-Content "$destSeqDir\file$_.txt") | Should-Be (Get-Content "$destParDir\file$_.txt")
+                (Get-Content "$destSeqDir\sub\sub$_.txt") | Should-Be (Get-Content "$destParDir\sub\sub$_.txt")
             }
         }
 
@@ -632,12 +632,12 @@ Describe 'Copy-Directory Integration Tests' {
 
             $result = Copy-Directory -Source $sourceDir -Destination $destDir -ExcludeDirectories '.git', 'node_modules' -ThrottleLimit 4 -Recurse
 
-            $result.TotalFiles | Should -Be 5
-            $result.ExcludedDirectories | Should -Be 2
+            $result.TotalFiles | Should-Be 5
+            $result.ExcludedDirectories | Should-Be 2
 
-            Test-Path "$destDir\include" | Should -Be $true
-            Test-Path "$destDir\.git" | Should -Be $false
-            Test-Path "$destDir\node_modules" | Should -Be $false
+            Test-Path "$destDir\include" | Should-Be $true
+            Test-Path "$destDir\.git" | Should-Be $false
+            Test-Path "$destDir\node_modules" | Should-Be $false
         }
 
         It 'Should be faster with parallel processing for large file sets' {
@@ -656,13 +656,13 @@ Describe 'Copy-Directory Integration Tests' {
             $resultPar = Copy-Directory -Source $sourceDir -Destination $destParDir -ThrottleLimit 8
 
             # Both should complete successfully with same file count
-            $resultSeq.TotalFiles | Should -Be 50
-            $resultPar.TotalFiles | Should -Be 50
+            $resultSeq.TotalFiles | Should-Be 50
+            $resultPar.TotalFiles | Should-Be 50
 
             # Parallel should generally be faster or equal (file I/O can be unpredictable)
             # We just verify both complete without errors
-            $resultSeq.Duration | Should -BeOfType [TimeSpan]
-            $resultPar.Duration | Should -BeOfType [TimeSpan]
+            $resultSeq.Duration | Should-HaveType ([TimeSpan])
+            $resultPar.Duration | Should-HaveType ([TimeSpan])
         }
     }
 }

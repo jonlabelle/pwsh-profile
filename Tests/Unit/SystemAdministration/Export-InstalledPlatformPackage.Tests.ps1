@@ -44,13 +44,13 @@ Describe 'Export-InstalledPlatformPackage' {
         $exportPath = Join-Path -Path $TestDrive -ChildPath 'packages.json'
         $result = @($packages | Export-InstalledPlatformPackage -Path $exportPath)
 
-        $result.Count | Should -Be 1
-        $result[0].Format | Should -Be 'JSON'
-        $result[0].Count | Should -Be 2
+        $result.Count | Should-Be 1
+        $result[0].Format | Should-Be 'JSON'
+        $result[0].Count | Should-Be 2
         $exportedPackages = Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json
-        $exportedPackages.Count | Should -Be 2
-        ($exportedPackages | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should -Be '2.44.0'
-        Should -Invoke -CommandName Write-Host -Times 0 -Exactly
+        $exportedPackages.Count | Should-Be 2
+        ($exportedPackages | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should-Be '2.44.0'
+        Should-Invoke -CommandName Write-Host -Times 0 -Exactly
     }
 
     It 'exports CSV with direct dependencies' {
@@ -87,15 +87,15 @@ Describe 'Export-InstalledPlatformPackage' {
         $exportPath = Join-Path -Path $TestDrive -ChildPath 'packages.csv'
         $result = @(Export-InstalledPlatformPackage -Package $package -Path $exportPath -DependencyMode DependsOn)
 
-        $result.Count | Should -Be 1
-        $result[0].Format | Should -Be 'CSV'
-        $result[0].DependencyMode | Should -Be 'DependsOn'
+        $result.Count | Should-Be 1
+        $result[0].Format | Should-Be 'CSV'
+        $result[0].DependencyMode | Should-Be 'DependsOn'
         $exportedPackages = @(Import-Csv -LiteralPath $exportPath)
-        $exportedPackages.Count | Should -Be 1
-        $exportedPackages[0].DependsOn | Should -Be 'openssl'
-        $exportedPackages[0].RequiredBy | Should -Be ''
-        Should -Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
-        Should -Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 0 -Exactly
+        $exportedPackages.Count | Should-Be 1
+        $exportedPackages[0].DependsOn | Should-Be 'openssl'
+        $exportedPackages[0].RequiredBy | Should-Be ''
+        Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
+        Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 0 -Exactly
     }
 
     It 'exports CSV with both dependency directions when DependencyMode is Both' {
@@ -144,16 +144,16 @@ Describe 'Export-InstalledPlatformPackage' {
         $exportPath = Join-Path -Path $TestDrive -ChildPath 'git-both.csv'
         $result = @(Export-InstalledPlatformPackage -Package $package -Path $exportPath -DependencyMode Both)
 
-        $result.Count | Should -Be 1
-        $result[0].Format | Should -Be 'CSV'
-        $result[0].DependencyMode | Should -Be 'Both'
-        $result[0].IncludeDependencies | Should -BeTrue
+        $result.Count | Should-Be 1
+        $result[0].Format | Should-Be 'CSV'
+        $result[0].DependencyMode | Should-Be 'Both'
+        $result[0].IncludeDependencies | Should-BeTruthy
         $exportedPackages = @(Import-Csv -LiteralPath $exportPath)
-        $exportedPackages.Count | Should -Be 1
-        $exportedPackages[0].DependsOn | Should -Be 'openssl'
-        $exportedPackages[0].RequiredBy | Should -Be 'git-extras'
-        Should -Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
-        Should -Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
+        $exportedPackages.Count | Should-Be 1
+        $exportedPackages[0].DependsOn | Should-Be 'openssl'
+        $exportedPackages[0].RequiredBy | Should-Be 'git-extras'
+        Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
+        Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
     }
 
     It 'rejects Both dependency export mode for winget records' {
@@ -169,9 +169,9 @@ Describe 'Export-InstalledPlatformPackage' {
         $exportPath = Join-Path -Path $TestDrive -ChildPath 'winget-both.json'
 
         { Export-InstalledPlatformPackage -Package $package -Path $exportPath -DependencyMode Both } |
-            Should -Throw -ExpectedMessage "*Value 'Both' for parameter -DependencyMode*package manager 'winget'*supports only 'None' and 'DependsOn'*"
+            Should-Throw -ExceptionMessage "*Value 'Both' for parameter -DependencyMode*package manager 'winget'*supports only 'None' and 'DependsOn'*"
 
-        Test-Path -LiteralPath $exportPath | Should -BeFalse
+        Test-Path -LiteralPath $exportPath | Should-BeFalsy
     }
 
     It 'sets IncludeDependencies to false on the result when DependencyMode is None' {
@@ -191,16 +191,16 @@ Describe 'Export-InstalledPlatformPackage' {
         $exportPath = Join-Path -Path $TestDrive -ChildPath 'git-none.json'
         $result = @(Export-InstalledPlatformPackage -Package $package -Path $exportPath)
 
-        $result.Count | Should -Be 1
-        $result[0].DependencyMode | Should -Be 'None'
-        $result[0].IncludeDependencies | Should -BeFalse
+        $result.Count | Should-Be 1
+        $result[0].DependencyMode | Should-Be 'None'
+        $result[0].IncludeDependencies | Should-BeFalsy
     }
 
     It 'throws when no packages are supplied' {
         $exportPath = Join-Path -Path $TestDrive -ChildPath 'empty.json'
 
         { Export-InstalledPlatformPackage -Package @() -Path $exportPath } |
-        Should -Throw -ExpectedMessage '*No packages are available for the current scope*'
+        Should-Throw -ExceptionMessage '*No packages are available for the current scope*'
     }
 
     It 'throws when format cannot be inferred from the export path extension' {
@@ -220,7 +220,7 @@ Describe 'Export-InstalledPlatformPackage' {
         $exportPath = Join-Path -Path $TestDrive -ChildPath 'packages'
 
         { Export-InstalledPlatformPackage -Package $package -Path $exportPath } |
-        Should -Throw -ExpectedMessage '*Export format could not be inferred*'
+        Should-Throw -ExceptionMessage '*Export format could not be inferred*'
     }
 
     It 'uses explicit Format override when path extension is ambiguous' {
@@ -240,12 +240,12 @@ Describe 'Export-InstalledPlatformPackage' {
         $exportPath = Join-Path -Path $TestDrive -ChildPath 'packages'
         $result = @(Export-InstalledPlatformPackage -Package $package -Path $exportPath -Format Csv)
 
-        $result.Count | Should -Be 1
-        $result[0].Format | Should -Be 'CSV'
-        Test-Path -LiteralPath $exportPath | Should -BeTrue
+        $result.Count | Should-Be 1
+        $result[0].Format | Should-Be 'CSV'
+        Test-Path -LiteralPath $exportPath | Should-BeTruthy
         $exportedPackages = @(Import-Csv -LiteralPath $exportPath)
-        $exportedPackages.Count | Should -Be 1
-        $exportedPackages[0].Name | Should -Be 'git'
+        $exportedPackages.Count | Should-Be 1
+        $exportedPackages[0].Name | Should-Be 'git'
     }
 
     It 'uses explicit Format Json override even when path has a csv extension' {
@@ -265,8 +265,8 @@ Describe 'Export-InstalledPlatformPackage' {
         $exportPath = Join-Path -Path $TestDrive -ChildPath 'packages.csv'
         $result = @(Export-InstalledPlatformPackage -Package $package -Path $exportPath -Format Json)
 
-        $result.Count | Should -Be 1
-        $result[0].Format | Should -Be 'JSON'
+        $result.Count | Should-Be 1
+        $result[0].Format | Should-Be 'JSON'
         $exportedJson = Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json
         $exportedJson | Should -Not -BeNullOrEmpty
     }
@@ -286,7 +286,7 @@ Describe 'Export-InstalledPlatformPackage' {
         }
 
         { Export-InstalledPlatformPackage -Package $package -Path $TestDrive } |
-        Should -Throw -ExpectedMessage '*points to a directory*'
+        Should-Throw -ExceptionMessage '*points to a directory*'
     }
 
     It 'throws when the parent directory does not exist' {
@@ -306,6 +306,6 @@ Describe 'Export-InstalledPlatformPackage' {
         $exportPath = Join-Path -Path (Join-Path -Path $TestDrive -ChildPath 'nonexistent-dir') -ChildPath 'packages.json'
 
         { Export-InstalledPlatformPackage -Package $package -Path $exportPath } |
-        Should -Throw -ExpectedMessage '*Export directory does not exist*'
+        Should-Throw -ExceptionMessage '*Export directory does not exist*'
     }
 }

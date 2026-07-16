@@ -57,62 +57,62 @@ Describe 'Test-TlsProtocol' {
         It 'Accepts ComputerName from pipeline input with supported aliases' {
             $parameter = Get-TestTlsProtocolParameter -Name 'ComputerName'
 
-            $parameter.ParameterSets['__AllParameterSets'].ValueFromPipeline | Should -Be $true
-            $parameter.ParameterSets['__AllParameterSets'].ValueFromPipelineByPropertyName | Should -Be $true
-            $parameter.Aliases | Should -Contain 'Server'
-            $parameter.Aliases | Should -Contain 'Host'
-            $parameter.Aliases | Should -Contain 'HostName'
+            $parameter.ParameterSets['__AllParameterSets'].ValueFromPipeline | Should-Be $true
+            $parameter.ParameterSets['__AllParameterSets'].ValueFromPipelineByPropertyName | Should-Be $true
+            $parameter.Aliases | Should-ContainCollection 'Server'
+            $parameter.Aliases | Should-ContainCollection 'Host'
+            $parameter.Aliases | Should-ContainCollection 'HostName'
         }
 
         It 'Uses localhost as default ComputerName' {
-            Get-TestTlsProtocolParameterDefaultText -Name 'ComputerName' | Should -Be "'localhost'"
+            Get-TestTlsProtocolParameterDefaultText -Name 'ComputerName' | Should-Be "'localhost'"
         }
 
         It 'Accepts the valid port range' {
             $parameter = Get-TestTlsProtocolParameter -Name 'Port'
             $range = $parameter.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateRangeAttribute] }
 
-            $range.MinRange | Should -Be 1
-            $range.MaxRange | Should -Be 65535
+            $range.MinRange | Should-Be 1
+            $range.MaxRange | Should-Be 65535
         }
 
         It 'Rejects invalid port numbers' {
-            { Test-TlsProtocol -Port 0 -Protocol Tls12 } | Should -Throw
-            { Test-TlsProtocol -Port 65536 -Protocol Tls12 } | Should -Throw
-            { Test-TlsProtocol -Port -1 -Protocol Tls12 } | Should -Throw
+            { Test-TlsProtocol -Port 0 -Protocol Tls12 } | Should-Throw
+            { Test-TlsProtocol -Port 65536 -Protocol Tls12 } | Should-Throw
+            { Test-TlsProtocol -Port -1 -Protocol Tls12 } | Should-Throw
         }
 
         It 'Uses 443 as default port' {
-            Get-TestTlsProtocolParameterDefaultText -Name 'Port' | Should -Be '443'
+            Get-TestTlsProtocolParameterDefaultText -Name 'Port' | Should-Be '443'
         }
 
         It 'Accepts the valid timeout range' {
             $parameter = Get-TestTlsProtocolParameter -Name 'Timeout'
             $range = $parameter.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateRangeAttribute] }
 
-            $range.MinRange | Should -Be 100
-            $range.MaxRange | Should -Be 30000
+            $range.MinRange | Should-Be 100
+            $range.MaxRange | Should-Be 30000
         }
 
         It 'Rejects invalid timeout values' {
-            { Test-TlsProtocol -Timeout 99 -Protocol Tls12 } | Should -Throw
-            { Test-TlsProtocol -Timeout 30001 -Protocol Tls12 } | Should -Throw
+            { Test-TlsProtocol -Timeout 99 -Protocol Tls12 } | Should-Throw
+            { Test-TlsProtocol -Timeout 30001 -Protocol Tls12 } | Should-Throw
         }
 
         It 'Uses 3000ms as default timeout' {
-            Get-TestTlsProtocolParameterDefaultText -Name 'Timeout' | Should -Be '3000'
+            Get-TestTlsProtocolParameterDefaultText -Name 'Timeout' | Should-Be '3000'
         }
 
         It 'Accepts supported TLS protocol values' {
             $parameter = Get-TestTlsProtocolParameter -Name 'Protocol'
             $validateSet = $parameter.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }
 
-            $validateSet.ValidValues | Should -Be @('Tls', 'Tls11', 'Tls12', 'Tls13')
+            $validateSet.ValidValues | Should-BeCollection @('Tls', 'Tls11', 'Tls12', 'Tls13')
         }
 
         It 'Rejects invalid TLS protocol values' {
-            { Test-TlsProtocol -Protocol 'InvalidProtocol' } | Should -Throw
-            { Test-TlsProtocol -Protocol 'SSL3' } | Should -Throw
+            { Test-TlsProtocol -Protocol 'InvalidProtocol' } | Should-Throw
+            { Test-TlsProtocol -Protocol 'SSL3' } | Should-Throw
         }
     }
 
@@ -121,38 +121,38 @@ Describe 'Test-TlsProtocol' {
             $result = Test-TlsProtocol -ComputerName $script:FastFailureHost -Protocol Tls12 -Timeout 100
 
             $result | Should -Not -BeNullOrEmpty
-            $result[0].PSObject.Properties.Name | Should -Contain 'Server'
-            $result[0].PSObject.Properties.Name | Should -Contain 'Port'
-            $result[0].PSObject.Properties.Name | Should -Contain 'Protocol'
-            $result[0].PSObject.Properties.Name | Should -Contain 'Supported'
-            $result[0].PSObject.Properties.Name | Should -Contain 'Status'
-            $result[0].PSObject.Properties.Name | Should -Contain 'ResponseTime'
+            $result[0].PSObject.Properties.Name | Should-ContainCollection 'Server'
+            $result[0].PSObject.Properties.Name | Should-ContainCollection 'Port'
+            $result[0].PSObject.Properties.Name | Should-ContainCollection 'Protocol'
+            $result[0].PSObject.Properties.Name | Should-ContainCollection 'Supported'
+            $result[0].PSObject.Properties.Name | Should-ContainCollection 'Status'
+            $result[0].PSObject.Properties.Name | Should-ContainCollection 'ResponseTime'
         }
 
         It 'Has correct property types' {
             $result = Test-TlsProtocol -ComputerName $script:FastFailureHost -Protocol Tls12 -Timeout 100
 
-            $result[0].Server | Should -BeOfType [String]
-            $result[0].Port | Should -BeOfType [Int]
-            $result[0].Protocol | Should -BeOfType [String]
-            $result[0].Supported | Should -BeOfType [Boolean]
-            $result[0].Status | Should -BeOfType [String]
-            $result[0].ResponseTime | Should -BeOfType [TimeSpan]
+            $result[0].Server | Should-HaveType ([String])
+            $result[0].Port | Should-HaveType ([Int])
+            $result[0].Protocol | Should-HaveType ([String])
+            $result[0].Supported | Should-HaveType ([Boolean])
+            $result[0].Status | Should-HaveType ([String])
+            $result[0].ResponseTime | Should-HaveType ([TimeSpan])
         }
 
         It 'Populates Server property correctly' {
             $result = Test-TlsProtocol -ComputerName $script:FastFailureHost -Protocol Tls12 -Timeout 100
-            $result[0].Server | Should -Be $script:FastFailureHost
+            $result[0].Server | Should-Be $script:FastFailureHost
         }
 
         It 'Populates Port property correctly' {
             $result = Test-TlsProtocol -ComputerName $script:FastFailureHost -Port 8443 -Protocol Tls12 -Timeout 100
-            $result[0].Port | Should -Be 8443
+            $result[0].Port | Should-Be 8443
         }
 
         It 'Populates Protocol property correctly' {
             $result = Test-TlsProtocol -ComputerName $script:FastFailureHost -Protocol Tls12 -Timeout 100
-            $result[0].Protocol | Should -Be 'Tls12'
+            $result[0].Protocol | Should-Be 'Tls12'
         }
     }
 
@@ -161,20 +161,20 @@ Describe 'Test-TlsProtocol' {
             $result = Test-TlsProtocol -ComputerName $script:FastFailureHost -Protocol Tls12, Tls13 -Timeout 100
 
             $result | Should -Not -BeNullOrEmpty
-            $result | Should -HaveCount 2
-            $result[0].Protocol | Should -Be 'Tls12'
-            $result[1].Protocol | Should -Be 'Tls13'
+            $result | Should-BeCollection -Count 2
+            $result[0].Protocol | Should-Be 'Tls12'
+            $result[1].Protocol | Should-Be 'Tls13'
         }
 
         It 'Tests all protocols when none specified' {
             $result = Test-TlsProtocol -ComputerName $script:FastFailureHost -Timeout 100
 
             $result | Should -Not -BeNullOrEmpty
-            $result | Should -HaveCount 4
-            $result[0].Protocol | Should -Be 'Tls'
-            $result[1].Protocol | Should -Be 'Tls11'
-            $result[2].Protocol | Should -Be 'Tls12'
-            $result[3].Protocol | Should -Be 'Tls13'
+            $result | Should-BeCollection -Count 4
+            $result[0].Protocol | Should-Be 'Tls'
+            $result[1].Protocol | Should-Be 'Tls11'
+            $result[2].Protocol | Should-Be 'Tls12'
+            $result[3].Protocol | Should-Be 'Tls13'
         }
     }
 
@@ -183,7 +183,7 @@ Describe 'Test-TlsProtocol' {
             $result = $script:FastFailureHost | Test-TlsProtocol -Protocol Tls12 -Timeout 100
 
             $result | Should -Not -BeNullOrEmpty
-            $result[0].Server | Should -Be $script:FastFailureHost
+            $result[0].Server | Should-Be $script:FastFailureHost
         }
 
         It 'Handles multiple computer names via pipeline' {
@@ -191,9 +191,9 @@ Describe 'Test-TlsProtocol' {
             $result = $servers | Test-TlsProtocol -Protocol Tls12 -Timeout 100
 
             $result | Should -Not -BeNullOrEmpty
-            $result | Should -HaveCount 2
-            $result[0].Server | Should -Be $servers[0]
-            $result[1].Server | Should -Be $servers[1]
+            $result | Should-BeCollection -Count 2
+            $result[0].Server | Should-Be $servers[0]
+            $result[1].Server | Should-Be $servers[1]
         }
     }
 
@@ -202,7 +202,7 @@ Describe 'Test-TlsProtocol' {
             $result = Test-TlsProtocol -ComputerName '192.0.2.1' -Protocol Tls12 -Timeout 100
 
             $result | Should -Not -BeNullOrEmpty
-            $result[0].Supported | Should -Be $false
+            $result[0].Supported | Should-Be $false
             $result[0].Status | Should -Not -BeNullOrEmpty
         }
 
@@ -210,32 +210,32 @@ Describe 'Test-TlsProtocol' {
             $result = Test-TlsProtocol -ComputerName $script:FastFailureHost -Protocol Tls12 -Timeout 100
 
             $result | Should -Not -BeNullOrEmpty
-            $result[0].Supported | Should -Be $false
+            $result[0].Supported | Should-Be $false
         }
 
         It 'Handles timeout scenarios' {
             $result = Test-TlsProtocol -ComputerName '192.0.2.1' -Protocol Tls12 -Timeout 100
 
             $result | Should -Not -BeNullOrEmpty
-            $result[0].Supported | Should -Be $false
-            $result[0].Status | Should -Match 'timeout|failed'
+            $result[0].Supported | Should-Be $false
+            $result[0].Status | Should-MatchString 'timeout|failed'
         }
     }
 
     Context 'Alias support' {
         It 'Accepts Server alias for ComputerName' {
             $result = Test-TlsProtocol -Server $script:FastFailureHost -Protocol Tls12 -Timeout 100
-            $result[0].Server | Should -Be $script:FastFailureHost
+            $result[0].Server | Should-Be $script:FastFailureHost
         }
 
         It 'Accepts Host alias for ComputerName' {
             $result = Test-TlsProtocol -Host $script:FastFailureHost -Protocol Tls12 -Timeout 100
-            $result[0].Server | Should -Be $script:FastFailureHost
+            $result[0].Server | Should-Be $script:FastFailureHost
         }
 
         It 'Accepts HostName alias for ComputerName' {
             $result = Test-TlsProtocol -HostName $script:FastFailureHost -Protocol Tls12 -Timeout 100
-            $result[0].Server | Should -Be $script:FastFailureHost
+            $result[0].Server | Should-Be $script:FastFailureHost
         }
     }
 }

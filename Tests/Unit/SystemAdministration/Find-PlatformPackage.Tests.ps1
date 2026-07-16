@@ -52,12 +52,12 @@ Describe 'Find-PlatformPackage' {
 
             $result = @(Find-PlatformPackage -PackageManager winget -NonInteractive -Query git -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'Git'
-            $result[0].Id | Should -Be 'Git.Git'
-            $result[0].Version | Should -Be '2.45.1'
-            $result[0].Description | Should -Be 'Distributed version control system'
-            $result[0].Publisher | Should -Be 'winget'
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'Git'
+            $result[0].Id | Should-Be 'Git.Git'
+            $result[0].Version | Should-Be '2.45.1'
+            $result[0].Description | Should-Be 'Distributed version control system'
+            $result[0].Publisher | Should-Be 'winget'
         }
 
         It 'marks search results as installed from winget list output' {
@@ -98,8 +98,8 @@ Describe 'Find-PlatformPackage' {
 
             $result = @(Find-PlatformPackage -PackageManager winget -NonInteractive -Query git -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].Installed | Should -BeTrue
+            $result.Count | Should-Be 1
+            $result[0].Installed | Should-BeTruthy
         }
 
         It 'does not mark winget search results installed by display name when ids differ' {
@@ -146,8 +146,8 @@ Describe 'Find-PlatformPackage' {
 
             $result = @(Find-PlatformPackage -PackageManager winget -NonInteractive -Query node -CommandRunner $runner)
 
-            ($result | Where-Object { $_.Id -eq 'OpenJS.NodeJS' }).Installed | Should -BeFalse
-            ($result | Where-Object { $_.Id -eq 'OpenJS.NodeJS.LTS' }).Installed | Should -BeTrue
+            ($result | Where-Object { $_.Id -eq 'OpenJS.NodeJS' }).Installed | Should-BeFalsy
+            ($result | Where-Object { $_.Id -eq 'OpenJS.NodeJS.LTS' }).Installed | Should-BeTruthy
         }
 
         It 'returns no results when winget reports no package found with progress output' {
@@ -163,7 +163,7 @@ Describe 'Find-PlatformPackage' {
 
             $result = @(Find-PlatformPackage -PackageManager winget -NonInteractive -Query codeql -CommandRunner $runner)
 
-            $result.Count | Should -Be 0
+            $result.Count | Should-Be 0
         }
 
         It 'strips winget progress output from search failure messages' {
@@ -187,10 +187,10 @@ Describe 'Find-PlatformPackage' {
                 $thrown = $_
             }
 
-            ($null -eq $thrown) | Should -BeFalse
-            $thrown.Exception.Message | Should -Be 'Failed to search winget packages: Failed when opening source(s); try source reset.'
-            $thrown.Exception.Message | Should -Not -Match '\u2588'
-            $thrown.Exception.Message | Should -Not -Match '\\\s+\|'
+            ($null -eq $thrown) | Should-BeFalsy
+            $thrown.Exception.Message | Should-Be 'Failed to search winget packages: Failed when opening source(s); try source reset.'
+            $thrown.Exception.Message | Should-NotMatchString '\u2588'
+            $thrown.Exception.Message | Should-NotMatchString '\\\s+\|'
         }
     }
 
@@ -203,9 +203,9 @@ Describe 'Find-PlatformPackage' {
 
             $result = @(Find-PlatformPackage -PackageManager brew -NonInteractive -Query git -CommandRunner $runner -Top 0)
 
-            $result.Count | Should -Be 3
-            ($result | Where-Object { $_.Name -eq 'git' }).Type | Should -Be 'Formula'
-            ($result | Where-Object { $_.Name -eq 'git-credential-manager' }).Type | Should -Be 'Cask'
+            $result.Count | Should-Be 3
+            ($result | Where-Object { $_.Name -eq 'git' }).Type | Should-Be 'Formula'
+            ($result | Where-Object { $_.Name -eq 'git-credential-manager' }).Type | Should-Be 'Cask'
         }
 
         It 'marks formula search results as installed from Homebrew list output' {
@@ -218,9 +218,9 @@ Describe 'Find-PlatformPackage' {
 
             $result = @(Find-PlatformPackage -PackageManager brew -NonInteractive -Query jq -CommandRunner $runner -Top 0)
 
-            ($result | Where-Object { $_.Name -eq 'jq' }).Installed | Should -BeTrue
-            ($result | Where-Object { $_.Name -eq 'gojq' }).Installed | Should -BeFalse
-            ($result | Where-Object { $_.Name -eq 'jquake' }).Installed | Should -BeFalse
+            ($result | Where-Object { $_.Name -eq 'jq' }).Installed | Should-BeTruthy
+            ($result | Where-Object { $_.Name -eq 'gojq' }).Installed | Should-BeFalsy
+            ($result | Where-Object { $_.Name -eq 'jquake' }).Installed | Should-BeFalsy
         }
 
         It 'keeps formula results when cask search reports no Homebrew matches' {
@@ -231,9 +231,9 @@ Describe 'Find-PlatformPackage' {
 
             $result = @(Find-PlatformPackage -PackageManager brew -NonInteractive -Query 7zip -CommandRunner $runner -Top 0)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be '7zip'
-            $result[0].Type | Should -Be 'Formula'
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be '7zip'
+            $result[0].Type | Should-Be 'Formula'
         }
 
         It 'keeps cask results when formula search reports no Homebrew matches' {
@@ -244,9 +244,9 @@ Describe 'Find-PlatformPackage' {
 
             $result = @(Find-PlatformPackage -PackageManager brew -NonInteractive -Query code -CommandRunner $runner -Top 0)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'visual-studio-code'
-            $result[0].Type | Should -Be 'Cask'
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'visual-studio-code'
+            $result[0].Type | Should-Be 'Cask'
         }
     }
 
@@ -263,11 +263,11 @@ Describe 'Find-PlatformPackage' {
 
             $result = @(Find-PlatformPackage -PackageManager apt -NonInteractive -Query openssl -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'openssl'
-            $result[0].Installed | Should -BeTrue
-            $result[0].Notes | Should -Be 'Automatic'
-            $result[0].Description | Should -Be 'Secure Sockets Layer toolkit - cryptographic utility'
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'openssl'
+            $result[0].Installed | Should-BeTruthy
+            $result[0].Notes | Should-Be 'Automatic'
+            $result[0].Description | Should-Be 'Secure Sockets Layer toolkit - cryptographic utility'
         }
     }
 
@@ -282,9 +282,9 @@ Describe 'Find-PlatformPackage' {
 
             $result = @(Find-PlatformPackage -PackageManager apk -NonInteractive -Query bash -CommandRunner $runner -Top 0)
 
-            $result.Count | Should -Be 2
-            ($result | Where-Object { $_.Name -eq 'bash' }).Installed | Should -BeTrue
-            ($result | Where-Object { $_.Name -eq 'bash-doc' }).Version | Should -Be '5.2.15-r5'
+            $result.Count | Should-Be 2
+            ($result | Where-Object { $_.Name -eq 'bash' }).Installed | Should-BeTruthy
+            ($result | Where-Object { $_.Name -eq 'bash-doc' }).Version | Should-Be '5.2.15-r5'
         }
     }
 
@@ -297,8 +297,8 @@ Describe 'Find-PlatformPackage' {
 
             $result = @(Find-PlatformPackage -PackageManager brew -NonInteractive -Query git -ExcludePackage 'git-lfs' -Top 1 -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'git'
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'git'
         }
     }
 
@@ -308,7 +308,7 @@ Describe 'Find-PlatformPackage' {
 
             {
                 Find-PlatformPackage -PackageManager brew -NonInteractive -PassThru -Query git -CommandRunner $runner
-            } | Should -Throw -ExpectedMessage '*PassThru requires interactive package search*'
+            } | Should-Throw -ExceptionMessage '*PassThru requires interactive package search*'
         }
 
         It 'requires a query in NonInteractive mode' {
@@ -316,7 +316,7 @@ Describe 'Find-PlatformPackage' {
 
             {
                 Find-PlatformPackage -PackageManager brew -NonInteractive -CommandRunner $runner
-            } | Should -Throw -ExpectedMessage '*Query is required when -NonInteractive is used*'
+            } | Should-Throw -ExceptionMessage '*Query is required when -NonInteractive is used*'
         }
     }
 
@@ -338,12 +338,12 @@ Describe 'Find-PlatformPackage' {
 
             $result = @(Find-PlatformPackage -PackageManager brew -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
 
-            $result.Count | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: git' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  I install  V details  A toggle all' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-3 of 3 visible  $([char]0x00B7)  3 total  $([char]0x00B7)  0 selected  $([char]0x00B7)  source: All" -and $ForegroundColor -eq 'White' } -Times 1
-            @($script:HostOutputRecords | Where-Object { $_.ForegroundColor -eq [ConsoleColor]::DarkGray -and $_.Object -like '*git*' }).Count | Should -BeGreaterOrEqual 2
-            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 4
+            $result.Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: git' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  I install  V details  A toggle all' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-3 of 3 visible  $([char]0x00B7)  3 total  $([char]0x00B7)  0 selected  $([char]0x00B7)  source: All" -and $ForegroundColor -eq 'White' } -Times 1
+            @($script:HostOutputRecords | Where-Object { $_.ForegroundColor -eq [ConsoleColor]::DarkGray -and $_.Object -like '*git*' }).Count | Should-BeGreaterThanOrEqual 2
+            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should-Be 4
         }
 
         It 'allows a new query to be entered from the interactive browser' {
@@ -371,10 +371,10 @@ Describe 'Find-PlatformPackage' {
 
             $result = @(Find-PlatformPackage -PackageManager brew -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
 
-            $result.Count | Should -Be 0
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew search --formulae git' }).Count | Should -Be 1
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew search --casks code' }).Count | Should -Be 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: code' } -Times 1
+            $result.Count | Should-Be 0
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew search --formulae git' }).Count | Should-Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew search --casks code' }).Count | Should-Be 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: code' } -Times 1
         }
 
         It 'shows keyboard help from the search result picker' {
@@ -399,10 +399,10 @@ Describe 'Find-PlatformPackage' {
 
             $result = @(Find-PlatformPackage -PackageManager brew -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
 
-            $result.Count | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Find-PlatformPackage Help' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq '/: ' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'start a new search' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+            $result.Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Find-PlatformPackage Help' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq '/: ' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'start a new search' -and $ForegroundColor -eq 'DarkGray' } -Times 1
         }
 
         It 'returns selected packages when PassThru is used' {
@@ -426,9 +426,9 @@ Describe 'Find-PlatformPackage' {
 
             $result = @(Find-PlatformPackage -PackageManager brew -PassThru -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'git'
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  I install  V details  A toggle all' } -Times 1
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'git'
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  I install  V details  A toggle all' } -Times 1
         }
 
         It 'opens the result picker with the requested source filter' {
@@ -481,10 +481,10 @@ Describe 'Find-PlatformPackage' {
 
             $result = @(Find-PlatformPackage -PackageManager winget -PassThru -FilterSource msstore -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
 
-            $result.Count | Should -Be 1
-            $result[0].Source | Should -Be 'msstore'
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[msstore\]' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*winget*' -and $Object -notlike '*msstore*' } -Times 0 -Exactly
+            $result.Count | Should-Be 1
+            $result[0].Source | Should-Be 'msstore'
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[msstore\]' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*winget*' -and $Object -notlike '*msstore*' } -Times 0 -Exactly
         }
 
         It 'keeps picker table rows within the current console width' {
@@ -535,12 +535,12 @@ Describe 'Find-PlatformPackage' {
                 }
             )
 
-            $tableLines.Count | Should -BeGreaterThan 1
-            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+' } | Select-Object -First 1) | Should -Match '\bVer\b'
-            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+' } | Select-Object -First 1) | Should -Match '\bTyp\b'
-            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+' } | Select-Object -First 1) | Should -Match '\bSrc\b'
-            ($tableLines | Where-Object { $_ -match '^[> ] \[[ x]\]\s+' } | Select-Object -First 1) | Should -Match 'homebrew/core'
-            (($tableLines | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum) | Should -BeLessOrEqual (Get-TestPickerLineLimit)
+            $tableLines.Count | Should-BeGreaterThan 1
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+' } | Select-Object -First 1) | Should-MatchString '\bVer\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+' } | Select-Object -First 1) | Should-MatchString '\bTyp\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+' } | Select-Object -First 1) | Should-MatchString '\bSrc\b'
+            ($tableLines | Where-Object { $_ -match '^[> ] \[[ x]\]\s+' } | Select-Object -First 1) | Should-MatchString 'homebrew/core'
+            (($tableLines | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum) | Should-BeLessThanOrEqual (Get-TestPickerLineLimit)
         }
 
         It 'returns the current package when PassThru is used without a selection' {
@@ -559,9 +559,9 @@ Describe 'Find-PlatformPackage' {
 
             $result = @(Find-PlatformPackage -PackageManager brew -PassThru -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'git'
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  I install  V details  A toggle all' } -Times 1
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'git'
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  I install  V details  A toggle all' } -Times 1
         }
 
         It 'installs the selected package from the interactive browser' {
@@ -586,10 +586,10 @@ Describe 'Find-PlatformPackage' {
 
             $result = Find-PlatformPackage -PackageManager brew -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader
 
-            $result.Selected | Should -Be 1
-            $result.Installed | Should -Be 1
-            ($script:Invocations | Where-Object { $_.Key -eq 'brew install git' }).StreamOutput | Should -BeTrue
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'brew install git output' } -Times 1
+            $result.Selected | Should-Be 1
+            $result.Installed | Should-Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'brew install git' }).StreamOutput | Should-BeTruthy
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'brew install git output' } -Times 1
         }
 
         It 'loads missing winget descriptions only when D is pressed' {
@@ -640,11 +640,11 @@ Describe 'Find-PlatformPackage' {
 
             $result = @(Find-PlatformPackage -PackageManager winget -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
 
-            $result.Count | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: <press V to load>' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: retrieving description...' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
-            @($script:Invocations | Where-Object { $_.Key -eq 'winget show --id Git.Git --exact --accept-source-agreements --output json' }).Count | Should -Be 1
+            $result.Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: <press V to load>' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: retrieving description...' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'winget show --id Git.Git --exact --accept-source-agreements --output json' }).Count | Should-Be 1
         }
 
         It 'does not suppress terminal echo when a custom key reader drives winget details' -Skip:($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
@@ -692,9 +692,9 @@ Describe 'Find-PlatformPackage' {
 
             $result = @(Find-PlatformPackage -PackageManager winget -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader -TerminalEchoController $terminalEchoController)
 
-            $result.Count | Should -Be 0
-            $echoActions.Count | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
+            $result.Count | Should-Be 0
+            $echoActions.Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
         }
 
         It 'restores terminal echo when winget details throw in the console key reader flow' -Skip:($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
@@ -762,9 +762,9 @@ Describe 'Find-PlatformPackage' {
 
             {
                 Find-PlatformPackage -PackageManager winget -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader -TreatKeyReaderAsConsoleKeyReader -TerminalEchoController $terminalEchoController
-            } | Should -Throw -ExpectedMessage '*winget details failed*'
+            } | Should-Throw -ExceptionMessage '*winget details failed*'
 
-            ($echoActions -join '|') | Should -Be 'Disable|Restore:saved-stty-state'
+            ($echoActions -join '|') | Should-Be 'Disable|Restore:saved-stty-state'
         }
     }
 }

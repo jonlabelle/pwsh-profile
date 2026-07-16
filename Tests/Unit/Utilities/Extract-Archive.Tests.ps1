@@ -24,24 +24,24 @@ Describe 'Extract-Archive' {
         It 'Should accept optional Path parameter with pipeline support' {
             $command = Get-Command Extract-Archive
             $pathParam = $command.Parameters['Path']
-            $pathParam.Attributes.Mandatory | Should -Not -Contain $true
-            $pathParam.Attributes.ValueFromPipeline | Should -Contain $true
+            $pathParam.Attributes.Mandatory | Should-NotContainCollection $true
+            $pathParam.Attributes.ValueFromPipeline | Should-ContainCollection $true
         }
 
         It 'Should expose Include, Exclude, DestinationRoot, and merging parameters' {
             $command = Get-Command Extract-Archive
-            $command.Parameters.ContainsKey('Include') | Should -Be $true
-            $command.Parameters.ContainsKey('Exclude') | Should -Be $true
-            $command.Parameters.ContainsKey('DestinationRoot') | Should -Be $true
-            $command.Parameters.ContainsKey('ExtractNested') | Should -Be $true
-            $command.Parameters.ContainsKey('DeleteArchive') | Should -Be $true
-            $command.Parameters.ContainsKey('MergeMultipartAcrossDirectories') | Should -Be $true
+            $command.Parameters.ContainsKey('Include') | Should-Be $true
+            $command.Parameters.ContainsKey('Exclude') | Should-Be $true
+            $command.Parameters.ContainsKey('DestinationRoot') | Should-Be $true
+            $command.Parameters.ContainsKey('ExtractNested') | Should-Be $true
+            $command.Parameters.ContainsKey('DeleteArchive') | Should-Be $true
+            $command.Parameters.ContainsKey('MergeMultipartAcrossDirectories') | Should-Be $true
         }
 
         It 'Should support ShouldProcess (WhatIf/Confirm)' {
             $command = Get-Command Extract-Archive
-            $command.Parameters.ContainsKey('WhatIf') | Should -Be $true
-            $command.Parameters.ContainsKey('Confirm') | Should -Be $true
+            $command.Parameters.ContainsKey('WhatIf') | Should-Be $true
+            $command.Parameters.ContainsKey('Confirm') | Should-Be $true
         }
 
         It 'Should declare OutputType' {
@@ -63,9 +63,9 @@ Describe 'Extract-Archive' {
             $result = Extract-Archive -Path $root
 
             $destination = Join-Path -Path $root -ChildPath 'archive'
-            Test-Path $destination | Should -Be $true
-            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'hello world'
-            ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should -Be 'Extracted'
+            Test-Path $destination | Should-Be $true
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should-Be 'hello world'
+            ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should-Be 'Extracted'
         }
 
         It 'Extracts archives recursively when -Recurse is specified' {
@@ -81,9 +81,9 @@ Describe 'Extract-Archive' {
             $result = Extract-Archive -Path $root -Recurse
 
             $destination = Join-Path -Path $nested -ChildPath 'nested'
-            Test-Path $destination | Should -Be $true
-            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'data.txt')) | Should -Be 'nested content'
-            $result.Extracted | Should -BeGreaterThan 0
+            Test-Path $destination | Should-Be $true
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'data.txt')) | Should-Be 'nested content'
+            $result.Extracted | Should-BeGreaterThan 0
         }
     }
 
@@ -106,8 +106,8 @@ Describe 'Extract-Archive' {
 
             $result = Extract-Archive -Path $root
 
-            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'modified'
-            ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should -Be 'SkippedExisting'
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should-Be 'modified'
+            ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should-Be 'SkippedExisting'
         }
 
         It 'Overwrites destination when Force is provided' {
@@ -127,8 +127,8 @@ Describe 'Extract-Archive' {
 
             $result = Extract-Archive -Path $root -Force
 
-            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'fresh'
-            ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should -Be 'Extracted'
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should-Be 'fresh'
+            ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should-Be 'Extracted'
         }
 
         It 'Respects WhatIf when Force would overwrite destination' {
@@ -148,8 +148,8 @@ Describe 'Extract-Archive' {
 
             $result = Extract-Archive -Path $root -Force -WhatIf
 
-            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'stale'
-            ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should -Be 'SkippedWhatIf'
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should-Be 'stale'
+            ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should-Be 'SkippedWhatIf'
         }
     }
 
@@ -165,11 +165,11 @@ Describe 'Extract-Archive' {
 
             $result = Extract-Archive -Path $root -DeleteArchive
 
-            Test-Path -LiteralPath $zipPath | Should -Be $false
+            Test-Path -LiteralPath $zipPath | Should-Be $false
             $destination = Join-Path -Path $root -ChildPath 'archive'
-            Test-Path -LiteralPath $destination | Should -Be $true
-            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'content'
-            ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should -Be 'Extracted'
+            Test-Path -LiteralPath $destination | Should-Be $true
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should-Be 'content'
+            ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should-Be 'Extracted'
         }
 
         It 'Keeps archive when extraction is skipped due to existing destination' {
@@ -185,8 +185,8 @@ Describe 'Extract-Archive' {
 
             $result = Extract-Archive -Path $root -DeleteArchive
 
-            Test-Path -LiteralPath $zipPath | Should -Be $true
-            ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should -Be 'SkippedExisting'
+            Test-Path -LiteralPath $zipPath | Should-Be $true
+            ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should-Be 'SkippedExisting'
         }
 
         It 'Deletes archives discovered recursively' {
@@ -201,11 +201,11 @@ Describe 'Extract-Archive' {
 
             $result = Extract-Archive -Path $root -Recurse -DeleteArchive
 
-            Test-Path -LiteralPath $zipPath | Should -Be $false
+            Test-Path -LiteralPath $zipPath | Should-Be $false
             $destination = Join-Path -Path $nested -ChildPath 'archive'
-            Test-Path -LiteralPath $destination | Should -Be $true
-            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'recursive'
-            $result.Extracted | Should -BeGreaterThan 0
+            Test-Path -LiteralPath $destination | Should-Be $true
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should-Be 'recursive'
+            $result.Extracted | Should-BeGreaterThan 0
         }
 
         It 'Deletes nested archives when ExtractNested is specified' {
@@ -233,12 +233,12 @@ Describe 'Extract-Archive' {
             $innerDestination = Join-Path -Path $outerDestination -ChildPath 'inner'
             $innerZipPath = Join-Path -Path $outerDestination -ChildPath 'inner.zip'
 
-            Test-Path -LiteralPath $outerZip | Should -Be $false
-            Test-Path -LiteralPath $innerZipPath | Should -Be $false
-            Test-Path -LiteralPath $innerDestination | Should -Be $true
-            (Get-Content -Path (Join-Path -Path $innerDestination -ChildPath 'payload.txt')) | Should -Be 'nested payload'
-            ($result.Results | Where-Object { $_.Archive -eq $outerZip }).Status | Should -Be 'Extracted'
-            ($result.Results | Where-Object { $_.Archive -eq $innerZipPath }).Status | Should -Be 'Extracted'
+            Test-Path -LiteralPath $outerZip | Should-Be $false
+            Test-Path -LiteralPath $innerZipPath | Should-Be $false
+            Test-Path -LiteralPath $innerDestination | Should-Be $true
+            (Get-Content -Path (Join-Path -Path $innerDestination -ChildPath 'payload.txt')) | Should-Be 'nested payload'
+            ($result.Results | Where-Object { $_.Archive -eq $outerZip }).Status | Should-Be 'Extracted'
+            ($result.Results | Where-Object { $_.Archive -eq $innerZipPath }).Status | Should-Be 'Extracted'
         }
 
         It 'Deletes multipart archives and all parts after extraction' -Skip:($null -eq (Get-Command -Name '7z', '7za' -ErrorAction SilentlyContinue | Select-Object -First 1)) {
@@ -267,9 +267,9 @@ Describe 'Extract-Archive' {
             $remainingParts | Should -BeNullOrEmpty
 
             $destination = Join-Path -Path $root -ChildPath 'multi'
-            Test-Path -LiteralPath $destination | Should -Be $true
-            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'multipart content'
-            ($result.Results | Where-Object { $_.Archive -like '*multi.7z.001' }).Status | Should -Be 'Extracted'
+            Test-Path -LiteralPath $destination | Should-Be $true
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should-Be 'multipart content'
+            ($result.Results | Where-Object { $_.Archive -like '*multi.7z.001' }).Status | Should-Be 'Extracted'
         }
 
         It 'Deletes split zip archives that use .z01 style parts after extraction' -Skip:(($null -eq (Get-Command -Name 'zip' -ErrorAction SilentlyContinue)) -or ($null -eq (Get-Command -Name '7z', '7za' -ErrorAction SilentlyContinue | Select-Object -First 1))) {
@@ -303,10 +303,10 @@ Describe 'Extract-Archive' {
                 Where-Object { $_.Name -like 'split.z??' -or $_.Name -like 'split.z???' -or $_.Name -eq 'split.zip' }
 
             $remainingParts | Should -BeNullOrEmpty
-            Test-Path -LiteralPath $destination | Should -Be $true
-            Test-Path -LiteralPath $extractedFile | Should -Be $true
-            (Get-Item -LiteralPath $extractedFile).Length | Should -Be (Get-Item -LiteralPath $payloadFile).Length
-            ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should -Be 'Extracted'
+            Test-Path -LiteralPath $destination | Should-Be $true
+            Test-Path -LiteralPath $extractedFile | Should-Be $true
+            (Get-Item -LiteralPath $extractedFile).Length | Should-Be (Get-Item -LiteralPath $payloadFile).Length
+            ($result.Results | Where-Object { $_.Archive -eq $zipPath }).Status | Should-Be 'Extracted'
         }
     }
 
@@ -327,9 +327,9 @@ Describe 'Extract-Archive' {
 
             $result = Extract-Archive -Path $root -Include 'alpha*'
 
-            Test-Path (Join-Path -Path $root -ChildPath 'alpha') | Should -Be $true
-            Test-Path (Join-Path -Path $root -ChildPath 'beta') | Should -Be $false
-            $result.TotalArchives | Should -Be 1
+            Test-Path (Join-Path -Path $root -ChildPath 'alpha') | Should-Be $true
+            Test-Path (Join-Path -Path $root -ChildPath 'beta') | Should-Be $false
+            $result.TotalArchives | Should-Be 1
         }
 
         It 'Applies Exclude patterns to skip archives' {
@@ -348,9 +348,9 @@ Describe 'Extract-Archive' {
 
             $result = Extract-Archive -Path $root -Exclude 'beta*'
 
-            Test-Path (Join-Path -Path $root -ChildPath 'alpha') | Should -Be $true
-            Test-Path (Join-Path -Path $root -ChildPath 'beta') | Should -Be $false
-            $result.TotalArchives | Should -Be 1
+            Test-Path (Join-Path -Path $root -ChildPath 'alpha') | Should-Be $true
+            Test-Path (Join-Path -Path $root -ChildPath 'beta') | Should-Be $false
+            $result.TotalArchives | Should-Be 1
         }
 
         It 'Extracts into a custom DestinationRoot while keeping per-archive folders' {
@@ -366,8 +366,8 @@ Describe 'Extract-Archive' {
             $result = Extract-Archive -Path $root -DestinationRoot $customRoot
 
             $destination = Join-Path -Path $customRoot -ChildPath 'archive'
-            Test-Path $destination | Should -Be $true
-            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'payload'
+            Test-Path $destination | Should-Be $true
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should-Be 'payload'
             $result.Results | Where-Object { $_.Destination -eq $destination } | Should -Not -BeNullOrEmpty
         }
     }
@@ -394,9 +394,9 @@ Describe 'Extract-Archive' {
             $result = Extract-Archive -Path $root
 
             $destination = Join-Path -Path $root -ChildPath 'archive'
-            Test-Path $destination | Should -Be $true
-            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'tar content'
-            ($result.Results | Where-Object { $_.Archive -eq $tarPath }).Status | Should -Be 'Extracted'
+            Test-Path $destination | Should-Be $true
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should-Be 'tar content'
+            ($result.Results | Where-Object { $_.Archive -eq $tarPath }).Status | Should-Be 'Extracted'
         }
 
         It 'Extracts 7z archives when 7z/7za is available' -Skip:($null -eq (Get-Command -Name '7z', '7za' -ErrorAction SilentlyContinue | Select-Object -First 1)) {
@@ -420,9 +420,9 @@ Describe 'Extract-Archive' {
             $result = Extract-Archive -Path $root
 
             $destination = Join-Path -Path $root -ChildPath 'archive'
-            Test-Path $destination | Should -Be $true
-            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be '7z content'
-            ($result.Results | Where-Object { $_.Archive -eq $sevenZipPath }).Status | Should -Be 'Extracted'
+            Test-Path $destination | Should-Be $true
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should-Be '7z content'
+            ($result.Results | Where-Object { $_.Archive -eq $sevenZipPath }).Status | Should-Be 'Extracted'
         }
 
         It 'Extracts rar archives via 7z/7za when available' -Skip:($null -eq (Get-Command -Name '7z', '7za' -ErrorAction SilentlyContinue | Select-Object -First 1)) {
@@ -446,9 +446,9 @@ Describe 'Extract-Archive' {
             $result = Extract-Archive -Path $root
 
             $destination = Join-Path -Path $root -ChildPath 'archive'
-            Test-Path $destination | Should -Be $true
-            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should -Be 'rar content'
-            ($result.Results | Where-Object { $_.Archive -eq $rarPath }).Status | Should -Be 'Extracted'
+            Test-Path $destination | Should-Be $true
+            (Get-Content -Path (Join-Path -Path $destination -ChildPath 'file.txt')) | Should-Be 'rar content'
+            ($result.Results | Where-Object { $_.Archive -eq $rarPath }).Status | Should-Be 'Extracted'
         }
     }
 
@@ -499,12 +499,12 @@ Describe 'Extract-Archive' {
             $payloadDestination = Join-Path -Path $wrapperDestination -ChildPath 'payload'
             $extractedFile = Join-Path -Path $payloadDestination -ChildPath 'data.bin'
 
-            Test-Path $wrapperDestination | Should -Be $true
-            Test-Path $payloadDestination | Should -Be $true
-            Test-Path $extractedFile | Should -Be $true
-            (Get-Item -LiteralPath $extractedFile).Length | Should -Be (Get-Item -LiteralPath $payloadFile).Length
-            ($result.Results | Where-Object { $_.Archive -like '*wrapper.zip*' }).Status | Should -Be 'Extracted'
-            ($result.Results | Where-Object { $_.Archive -like '*payload.rar.001' }).Status | Should -Be 'Extracted'
+            Test-Path $wrapperDestination | Should-Be $true
+            Test-Path $payloadDestination | Should-Be $true
+            Test-Path $extractedFile | Should-Be $true
+            (Get-Item -LiteralPath $extractedFile).Length | Should-Be (Get-Item -LiteralPath $payloadFile).Length
+            ($result.Results | Where-Object { $_.Archive -like '*wrapper.zip*' }).Status | Should-Be 'Extracted'
+            ($result.Results | Where-Object { $_.Archive -like '*payload.rar.001' }).Status | Should-Be 'Extracted'
         }
 
         It 'Merges multipart parts across directories when requested' -Skip:($null -eq (Get-Command -Name '7z', '7za' -ErrorAction SilentlyContinue | Select-Object -First 1)) {
@@ -550,11 +550,11 @@ Describe 'Extract-Archive' {
             $payloadDestination = Join-Path -Path $root -ChildPath 'payload'
             $extractedFile = Join-Path -Path $payloadDestination -ChildPath 'data.bin'
 
-            Test-Path $payloadDestination | Should -Be $true
-            Test-Path $extractedFile | Should -Be $true
-            (Get-Item -LiteralPath $extractedFile).Length | Should -Be (Get-Item -LiteralPath $payloadFile).Length
-            ($result.Results | Where-Object { $_.Archive -like '*wrapper1.zip' }).Status | Should -Be 'Extracted'
-            ($result.Results | Where-Object { $_.Archive -like '*payload.rar.001' }).Status | Should -Be 'Extracted'
+            Test-Path $payloadDestination | Should-Be $true
+            Test-Path $extractedFile | Should-Be $true
+            (Get-Item -LiteralPath $extractedFile).Length | Should-Be (Get-Item -LiteralPath $payloadFile).Length
+            ($result.Results | Where-Object { $_.Archive -like '*wrapper1.zip' }).Status | Should-Be 'Extracted'
+            ($result.Results | Where-Object { $_.Archive -like '*payload.rar.001' }).Status | Should-Be 'Extracted'
         }
     }
 
@@ -570,9 +570,9 @@ Describe 'Extract-Archive' {
             $result = Extract-Archive -Path $root
 
             $entry = $result.Results | Where-Object { $_.Archive -eq (Join-Path -Path $root -ChildPath 'archive.tar') }
-            $entry.Status | Should -Be 'SkippedMissingDependency'
-            $entry.ErrorMessage | Should -Match 'tar'
-            Test-Path (Join-Path -Path $root -ChildPath 'archive') | Should -Be $false
+            $entry.Status | Should-Be 'SkippedMissingDependency'
+            $entry.ErrorMessage | Should-MatchString 'tar'
+            Test-Path (Join-Path -Path $root -ChildPath 'archive') | Should-Be $false
         }
 
         It 'Skips 7z/rar archives when 7z dependency is missing' {
@@ -586,9 +586,9 @@ Describe 'Extract-Archive' {
             $result = Extract-Archive -Path $root
 
             $entry = $result.Results | Where-Object { $_.Archive -eq (Join-Path -Path $root -ChildPath 'archive.7z') }
-            $entry.Status | Should -Be 'SkippedMissingDependency'
-            $entry.ErrorMessage | Should -Match '7z'
-            Test-Path (Join-Path -Path $root -ChildPath 'archive') | Should -Be $false
+            $entry.Status | Should-Be 'SkippedMissingDependency'
+            $entry.ErrorMessage | Should-MatchString '7z'
+            Test-Path (Join-Path -Path $root -ChildPath 'archive') | Should-Be $false
         }
     }
 }

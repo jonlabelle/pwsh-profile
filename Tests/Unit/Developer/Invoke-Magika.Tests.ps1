@@ -97,7 +97,7 @@ Describe 'Invoke-Magika' {
         It 'Throws when Docker is not installed' {
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
 
-            { Invoke-Magika -Path 'README.md' } | Should -Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
+            { Invoke-Magika -Path 'README.md' } | Should-Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
         }
 
         It 'Throws when Docker daemon is not running' {
@@ -122,7 +122,7 @@ Describe 'Invoke-Magika' {
                 }
             }
 
-            { Invoke-Magika -Path 'README.md' } | Should -Throw '*daemon is not running*'
+            { Invoke-Magika -Path 'README.md' } | Should-Throw '*daemon is not running*'
 
             Remove-Item -Path Function:\pwshDockerTestShimDaemonDown -ErrorAction SilentlyContinue
         }
@@ -156,8 +156,8 @@ Describe 'Invoke-Magika' {
 
             Invoke-Magika -Path $script:SampleFile | Out-Null
 
-            $script:MagikaShimInvocations.Count | Should -Be 1
-            $script:DockerShimInvocations.Count | Should -Be 0
+            $script:MagikaShimInvocations.Count | Should-Be 1
+            $script:DockerShimInvocations.Count | Should-Be 0
         }
 
         It 'Skips Docker prerequisite checks when local Magika is available' {
@@ -171,7 +171,7 @@ Describe 'Invoke-Magika' {
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
 
             { Invoke-Magika -Path $script:SampleFile } | Should -Not -Throw
-            Should -Invoke -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -Times 0 -Exactly
+            Should-Invoke -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -Times 0 -Exactly
         }
 
         It 'Falls back to Docker when local Magika is not available' {
@@ -186,7 +186,7 @@ Describe 'Invoke-Magika' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $script:MagikaShimInvocations.Count | Should -Be 0
+            $script:MagikaShimInvocations.Count | Should-Be 0
         }
 
         It 'Binds positional argument to Path' {
@@ -201,7 +201,7 @@ Describe 'Invoke-Magika' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain 'sample.txt'
+            $runCall | Should-ContainCollection 'sample.txt'
         }
 
         It 'Uses Docker when Runtime is explicitly set to Docker' {
@@ -223,7 +223,7 @@ Describe 'Invoke-Magika' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $script:MagikaShimInvocations.Count | Should -Be 0
+            $script:MagikaShimInvocations.Count | Should-Be 0
         }
 
         It 'Uses local Magika when Runtime is explicitly set to Local' {
@@ -238,8 +238,8 @@ Describe 'Invoke-Magika' {
 
             Invoke-Magika -Path $script:SampleFile -Runtime Local | Out-Null
 
-            $script:MagikaShimInvocations.Count | Should -Be 1
-            $script:DockerShimInvocations.Count | Should -Be 0
+            $script:MagikaShimInvocations.Count | Should-Be 1
+            $script:DockerShimInvocations.Count | Should-Be 0
         }
 
         It 'Passes --recursive to local Magika when Recurse is set' {
@@ -259,9 +259,9 @@ Describe 'Invoke-Magika' {
 
             Invoke-Magika -Path $script:SampleFile -Recurse | Out-Null
 
-            $script:MagikaShimInvocations.Count | Should -Be 1
-            $script:MagikaShimInvocations[0] | Should -Contain '--recursive'
-            $script:DockerShimInvocations.Count | Should -Be 0
+            $script:MagikaShimInvocations.Count | Should-Be 1
+            $script:MagikaShimInvocations[0] | Should-ContainCollection '--recursive'
+            $script:DockerShimInvocations.Count | Should-Be 0
         }
 
         It 'Passes translated --prediction-mode to local Magika when PredictionMode is set' {
@@ -281,10 +281,10 @@ Describe 'Invoke-Magika' {
 
             Invoke-Magika -Path $script:SampleFile -PredictionMode High | Out-Null
 
-            $script:MagikaShimInvocations.Count | Should -Be 1
-            $script:MagikaShimInvocations[0] | Should -Contain '--prediction-mode'
-            $script:MagikaShimInvocations[0] | Should -Contain 'HIGH_CONFIDENCE'
-            $script:DockerShimInvocations.Count | Should -Be 0
+            $script:MagikaShimInvocations.Count | Should-Be 1
+            $script:MagikaShimInvocations[0] | Should-ContainCollection '--prediction-mode'
+            $script:MagikaShimInvocations[0] | Should-ContainCollection 'HIGH_CONFIDENCE'
+            $script:DockerShimInvocations.Count | Should-Be 0
         }
 
         It 'Passes translated default --prediction-mode to local Magika when PredictionMode is omitted' {
@@ -304,10 +304,10 @@ Describe 'Invoke-Magika' {
 
             Invoke-Magika -Path $script:SampleFile | Out-Null
 
-            $script:MagikaShimInvocations.Count | Should -Be 1
-            $script:MagikaShimInvocations[0] | Should -Contain '--prediction-mode'
-            $script:MagikaShimInvocations[0] | Should -Contain 'HIGH_CONFIDENCE'
-            $script:DockerShimInvocations.Count | Should -Be 0
+            $script:MagikaShimInvocations.Count | Should-Be 1
+            $script:MagikaShimInvocations[0] | Should-ContainCollection '--prediction-mode'
+            $script:MagikaShimInvocations[0] | Should-ContainCollection 'HIGH_CONFIDENCE'
+            $script:DockerShimInvocations.Count | Should-Be 0
         }
 
         It 'Retries without --prediction-mode when local Magika runtime does not support it' {
@@ -328,40 +328,40 @@ Describe 'Invoke-Magika' {
             $script:MagikaShimRejectsPredictionMode = $true
 
             $result = @(Invoke-Magika -Path $script:SampleFile)
-            $result[-1] | Should -Be 0
+            $result[-1] | Should-Be 0
 
-            $script:MagikaShimInvocations.Count | Should -Be 2
-            $script:MagikaShimInvocations[0] | Should -Contain '--prediction-mode'
-            $script:MagikaShimInvocations[1] | Should -Not -Contain '--prediction-mode'
-            $script:DockerShimInvocations.Count | Should -Be 0
+            $script:MagikaShimInvocations.Count | Should-Be 2
+            $script:MagikaShimInvocations[0] | Should-ContainCollection '--prediction-mode'
+            $script:MagikaShimInvocations[1] | Should-NotContainCollection '--prediction-mode'
+            $script:DockerShimInvocations.Count | Should-Be 0
         }
     }
 
     Context 'Parameter validation' {
         It 'Rejects empty Path' {
-            { Invoke-Magika -Path '' } | Should -Throw
+            { Invoke-Magika -Path '' } | Should-Throw
         }
 
         It 'Rejects using Path and LiteralPath together' {
-            { Invoke-Magika -Path 'README.md' -LiteralPath 'README.md' } | Should -Throw
+            { Invoke-Magika -Path 'README.md' -LiteralPath 'README.md' } | Should-Throw
         }
 
         It 'Rejects empty ImageTag' {
-            { Invoke-Magika -Path 'README.md' -ImageTag '' } | Should -Throw
+            { Invoke-Magika -Path 'README.md' -ImageTag '' } | Should-Throw
         }
 
         It 'Rejects invalid Runtime' {
-            { Invoke-Magika -Path 'README.md' -Runtime 'Container' } | Should -Throw
+            { Invoke-Magika -Path 'README.md' -Runtime 'Container' } | Should-Throw
         }
 
         It 'Rejects invalid PredictionMode' {
-            { Invoke-Magika -Path 'README.md' -PredictionMode 'BEST_GUESS' } | Should -Throw
+            { Invoke-Magika -Path 'README.md' -PredictionMode 'BEST_GUESS' } | Should-Throw
         }
     }
 
     Context 'Explicit runtime prerequisites' {
         It 'Throws when Runtime is Local and local Magika is not installed' {
-            { Invoke-Magika -Path 'README.md' -Runtime Local } | Should -Throw 'Magika is not installed or not available in PATH. Install Magika or use -Runtime Docker.'
+            { Invoke-Magika -Path 'README.md' -Runtime Local } | Should-Throw 'Magika is not installed or not available in PATH. Install Magika or use -Runtime Docker.'
         }
 
         It 'Throws when Runtime is Docker and Docker is not installed even if local Magika is available' {
@@ -374,7 +374,7 @@ Describe 'Invoke-Magika' {
 
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
 
-            { Invoke-Magika -Path 'README.md' -Runtime Docker } | Should -Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
+            { Invoke-Magika -Path 'README.md' -Runtime Docker } | Should-Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
         }
     }
 
@@ -402,8 +402,8 @@ Describe 'Invoke-Magika' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '-i'
-            $runCall | Should -Contain '--rm'
+            $runCall | Should-ContainCollection '-i'
+            $runCall | Should-ContainCollection '--rm'
         }
 
         It 'Mounts the working directory as read-only /workspace volume' {
@@ -411,7 +411,7 @@ Describe 'Invoke-Magika' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '-v'
+            $runCall | Should-ContainCollection '-v'
             $volArg = $runCall | Where-Object { $_ -match ':/workspace:ro$' }
             $volArg | Should -Not -BeNullOrEmpty
         }
@@ -421,8 +421,8 @@ Describe 'Invoke-Magika' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '-w'
-            $runCall | Should -Contain '/workspace'
+            $runCall | Should-ContainCollection '-w'
+            $runCall | Should-ContainCollection '/workspace'
         }
 
         It 'Uses image entrypoint by default (no --entrypoint override)' {
@@ -430,7 +430,7 @@ Describe 'Invoke-Magika' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Not -Contain '--entrypoint'
+            $runCall | Should-NotContainCollection '--entrypoint'
         }
 
         It 'Uses correct image reference with default tag' {
@@ -438,7 +438,7 @@ Describe 'Invoke-Magika' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain 'jonlabelle/magika:latest'
+            $runCall | Should-ContainCollection 'jonlabelle/magika:latest'
         }
 
         It 'Uses correct image reference with custom tag' {
@@ -446,7 +446,7 @@ Describe 'Invoke-Magika' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain 'jonlabelle/magika:0.6.0'
+            $runCall | Should-ContainCollection 'jonlabelle/magika:0.6.0'
         }
 
         It 'Appends additional arguments' {
@@ -454,7 +454,7 @@ Describe 'Invoke-Magika' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '--json'
+            $runCall | Should-ContainCollection '--json'
         }
 
         It 'Appends --recursive when Recurse is set' {
@@ -462,7 +462,7 @@ Describe 'Invoke-Magika' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '--recursive'
+            $runCall | Should-ContainCollection '--recursive'
         }
 
         It 'Appends translated --prediction-mode when PredictionMode is set' {
@@ -470,8 +470,8 @@ Describe 'Invoke-Magika' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '--prediction-mode'
-            $runCall | Should -Contain 'MEDIUM_CONFIDENCE'
+            $runCall | Should-ContainCollection '--prediction-mode'
+            $runCall | Should-ContainCollection 'MEDIUM_CONFIDENCE'
         }
 
         It 'Appends translated default --prediction-mode when PredictionMode is omitted' {
@@ -479,20 +479,20 @@ Describe 'Invoke-Magika' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '--prediction-mode'
-            $runCall | Should -Contain 'HIGH_CONFIDENCE'
+            $runCall | Should-ContainCollection '--prediction-mode'
+            $runCall | Should-ContainCollection 'HIGH_CONFIDENCE'
         }
 
         It 'Retries without --prediction-mode when Docker runtime does not support it' {
             $script:DockerShimRejectsPredictionMode = $true
 
             $result = @(Invoke-Magika -Path $script:SampleFile)
-            $result[-1] | Should -Be 0
+            $result[-1] | Should-Be 0
 
             $runCalls = @($script:DockerShimInvocations | Where-Object { $_ -contains 'run' })
-            $runCalls.Count | Should -Be 2
-            $runCalls[0] | Should -Contain '--prediction-mode'
-            $runCalls[1] | Should -Not -Contain '--prediction-mode'
+            $runCalls.Count | Should-Be 2
+            $runCalls[0] | Should-ContainCollection '--prediction-mode'
+            $runCalls[1] | Should-NotContainCollection '--prediction-mode'
         }
 
         It 'Warns when explicit PredictionMode is unsupported by Docker runtime' {
@@ -500,11 +500,11 @@ Describe 'Invoke-Magika' {
 
             $result = @(Invoke-Magika -Path $script:SampleFile -PredictionMode Medium 3>&1)
             $exitCode = $result | Where-Object { $_ -is [Int32] -or $_ -is [Int64] }
-            $exitCode | Should -Be 0
+            $exitCode | Should-Be 0
 
             $warnings = @($result | Where-Object { $_ -is [System.Management.Automation.WarningRecord] })
-            $warnings.Count | Should -BeGreaterThan 0
-            $warnings[0].Message | Should -BeLike '*does not support*--prediction-mode*'
+            $warnings.Count | Should-BeGreaterThan 0
+            $warnings[0].Message | Should-BeLikeString '*does not support*--prediction-mode*'
         }
 
         It 'Includes normalized relative path in docker args' {
@@ -512,7 +512,7 @@ Describe 'Invoke-Magika' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain 'sample.txt'
+            $runCall | Should-ContainCollection 'sample.txt'
         }
 
         It 'Defaults to current directory when no path is provided' {
@@ -520,7 +520,7 @@ Describe 'Invoke-Magika' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain '.'
+            $runCall | Should-ContainCollection '.'
         }
 
         It 'Expands wildcard Path patterns to matching files' {
@@ -532,8 +532,8 @@ Describe 'Invoke-Magika' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain 'a.txt'
-            $runCall | Should -Contain 'b.txt'
+            $runCall | Should-ContainCollection 'a.txt'
+            $runCall | Should-ContainCollection 'b.txt'
         }
 
         It 'Treats wildcard characters literally with LiteralPath' {
@@ -544,7 +544,7 @@ Describe 'Invoke-Magika' {
 
             $runCall = $script:DockerShimInvocations | Where-Object { $_ -contains 'run' } | Select-Object -First 1
             $runCall | Should -Not -BeNullOrEmpty
-            $runCall | Should -Contain $specialName
+            $runCall | Should-ContainCollection $specialName
         }
     }
 
@@ -573,7 +573,7 @@ Describe 'Invoke-Magika' {
 
             try
             {
-                { Invoke-Magika -Path $outsideFile } | Should -Throw '*outside the current working directory*'
+                { Invoke-Magika -Path $outsideFile } | Should-Throw '*outside the current working directory*'
             }
             finally
             {
@@ -606,8 +606,8 @@ Describe 'Invoke-Magika' {
             {
                 { Invoke-Magika -Path $outsideFile } | Should -Not -Throw
 
-                $script:MagikaShimInvocations.Count | Should -Be 1
-                $script:MagikaShimInvocations[0] | Should -Contain $outsideFile
+                $script:MagikaShimInvocations.Count | Should-Be 1
+                $script:MagikaShimInvocations[0] | Should-ContainCollection $outsideFile
             }
             finally
             {
@@ -641,7 +641,7 @@ Describe 'Invoke-Magika' {
         It 'Returns exit code 0 on success' {
             $result = @(Invoke-Magika -Path $script:SampleFile)
 
-            $result[-1] | Should -Be 0
+            $result[-1] | Should-Be 0
         }
 
         It 'Returns non-zero exit code on failure and writes warning' {
@@ -674,11 +674,11 @@ Describe 'Invoke-Magika' {
             $result = @(Invoke-Magika -Path $script:SampleFile 3>&1)
 
             $exitCode = $result | Where-Object { $_ -is [Int32] -or $_ -is [Int64] }
-            $exitCode | Should -Be 2
+            $exitCode | Should-Be 2
 
             $warnings = @($result | Where-Object { $_ -is [System.Management.Automation.WarningRecord] })
-            $warnings.Count | Should -BeGreaterThan 0
-            $warnings[0].Message | Should -BeLike '*Magika failed*'
+            $warnings.Count | Should-BeGreaterThan 0
+            $warnings[0].Message | Should-BeLikeString '*Magika failed*'
 
             Remove-Item -Path Function:\pwshDockerTestShimFail -ErrorAction SilentlyContinue
         }
@@ -706,7 +706,7 @@ Describe 'Invoke-Magika' {
             Get-ChildItem -Path $script:TestDir -Filter '*.txt' | Invoke-Magika | Out-Null
 
             $runCalls = @($script:DockerShimInvocations | Where-Object { $_ -contains 'run' })
-            $runCalls.Count | Should -Be 1
+            $runCalls.Count | Should-Be 1
         }
 
         It 'Processes multiple files from pipeline' {
@@ -716,7 +716,7 @@ Describe 'Invoke-Magika' {
             Get-ChildItem -Path $script:TestDir -Filter '*.txt' | Invoke-Magika | Out-Null
 
             $runCalls = @($script:DockerShimInvocations | Where-Object { $_ -contains 'run' })
-            $runCalls.Count | Should -Be 2
+            $runCalls.Count | Should-Be 2
         }
     }
 }

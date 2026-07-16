@@ -24,15 +24,15 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
     Context 'Parameter Validation' {
         It 'Should have mandatory Path parameter' {
-            (Get-Command Replace-StringInFile).Parameters['Path'].Attributes.Mandatory | Should -Contain $true
+            (Get-Command Replace-StringInFile).Parameters['Path'].Attributes.Mandatory | Should-ContainCollection $true
         }
 
         It 'Should have mandatory OldString parameter' {
-            (Get-Command Replace-StringInFile).Parameters['OldString'].Attributes.Mandatory | Should -Contain $true
+            (Get-Command Replace-StringInFile).Parameters['OldString'].Attributes.Mandatory | Should-ContainCollection $true
         }
 
         It 'Should have mandatory NewString parameter' {
-            (Get-Command Replace-StringInFile).Parameters['NewString'].Attributes.Mandatory | Should -Contain $true
+            (Get-Command Replace-StringInFile).Parameters['NewString'].Attributes.Mandatory | Should-ContainCollection $true
         }
 
         It 'Should accept valid encoding values' {
@@ -55,9 +55,9 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
             $result = Replace-StringInFile -Path $testFile -OldString 'World' -NewString 'PowerShell'
 
-            $result.MatchCount | Should -Be 1
-            $result.ReplacementsMade | Should -Be $true
-            (Get-Content -Path $testFile -Raw) | Should -Be 'Hello PowerShell'
+            $result.MatchCount | Should-Be 1
+            $result.ReplacementsMade | Should-Be $true
+            (Get-Content -Path $testFile -Raw) | Should-Be 'Hello PowerShell'
         }
 
         It 'Should replace multiple occurrences' {
@@ -66,9 +66,9 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
             $result = Replace-StringInFile -Path $testFile -OldString 'foo' -NewString 'test'
 
-            $result.MatchCount | Should -Be 3
-            $result.ReplacementsMade | Should -Be $true
-            (Get-Content -Path $testFile -Raw) | Should -Be 'test bar test baz test'
+            $result.MatchCount | Should-Be 3
+            $result.ReplacementsMade | Should-Be $true
+            (Get-Content -Path $testFile -Raw) | Should-Be 'test bar test baz test'
         }
 
         It 'Should handle empty replacement string' {
@@ -77,8 +77,8 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
             $result = Replace-StringInFile -Path $testFile -OldString 'World' -NewString ''
 
-            $result.MatchCount | Should -Be 1
-            (Get-Content -Path $testFile -Raw) | Should -Be 'Hello !'
+            $result.MatchCount | Should-Be 1
+            (Get-Content -Path $testFile -Raw) | Should-Be 'Hello !'
         }
 
         It 'Should return zero matches when string not found' {
@@ -87,8 +87,8 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
             $result = Replace-StringInFile -Path $testFile -OldString 'xyz' -NewString 'abc'
 
-            $result.MatchCount | Should -Be 0
-            $result.ReplacementsMade | Should -Be $false
+            $result.MatchCount | Should-Be 0
+            $result.ReplacementsMade | Should-Be $false
         }
 
         It 'Should be case-sensitive by default' {
@@ -97,8 +97,8 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
             $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'hi'
 
-            $result.MatchCount | Should -Be 1
-            (Get-Content -Path $testFile -Raw) | Should -Be 'Hello hi HELLO'
+            $result.MatchCount | Should-Be 1
+            (Get-Content -Path $testFile -Raw) | Should-Be 'Hello hi HELLO'
         }
     }
 
@@ -109,8 +109,8 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
             $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'hi' -CaseInsensitive
 
-            $result.MatchCount | Should -Be 3
-            (Get-Content -Path $testFile -Raw) | Should -Be 'hi hi hi'
+            $result.MatchCount | Should-Be 3
+            (Get-Content -Path $testFile -Raw) | Should-Be 'hi hi hi'
         }
     }
 
@@ -121,8 +121,8 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
             $result = Replace-StringInFile -Path $testFile -OldString '\d{3}-\d{3}-\d{4}' -NewString 'XXX-XXX-XXXX' -Regex
 
-            $result.MatchCount | Should -Be 1
-            (Get-Content -Path $testFile -Raw) | Should -Be 'Phone: XXX-XXX-XXXX'
+            $result.MatchCount | Should-Be 1
+            (Get-Content -Path $testFile -Raw) | Should-Be 'Phone: XXX-XXX-XXXX'
         }
 
         It 'Should support regex capture groups' {
@@ -131,8 +131,8 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
             $result = Replace-StringInFile -Path $testFile -OldString '(\d{4})-(\d{2})-(\d{2})' -NewString '$3/$2/$1' -Regex
 
-            $result.MatchCount | Should -Be 1
-            (Get-Content -Path $testFile -Raw) | Should -Be 'Date: 14/11/2024'
+            $result.MatchCount | Should-Be 1
+            (Get-Content -Path $testFile -Raw) | Should-Be 'Date: 14/11/2024'
         }
 
         It 'Should handle complex regex patterns' {
@@ -141,8 +141,8 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
             $result = Replace-StringInFile -Path $testFile -OldString '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b' -NewString 'REDACTED' -Regex
 
-            $result.MatchCount | Should -Be 1
-            (Get-Content -Path $testFile -Raw) | Should -Be 'Contact: REDACTED for help'
+            $result.MatchCount | Should-Be 1
+            (Get-Content -Path $testFile -Raw) | Should-Be 'Contact: REDACTED for help'
         }
     }
 
@@ -153,8 +153,8 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
             $result = Replace-StringInFile -Path $testFile -OldString '$100.00' -NewString '$200.00'
 
-            $result.MatchCount | Should -Be 1
-            (Get-Content -Path $testFile -Raw) | Should -Be 'Price: $200.00'
+            $result.MatchCount | Should-Be 1
+            (Get-Content -Path $testFile -Raw) | Should-Be 'Price: $200.00'
         }
 
         It 'Should handle parentheses and brackets literally' {
@@ -163,8 +163,8 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
             $result = Replace-StringInFile -Path $testFile -OldString '[0]' -NewString '[1]'
 
-            $result.MatchCount | Should -Be 1
-            (Get-Content -Path $testFile -Raw) | Should -Be 'Array[1] = (value)'
+            $result.MatchCount | Should-Be 1
+            (Get-Content -Path $testFile -Raw) | Should-Be 'Array[1] = (value)'
         }
     }
 
@@ -175,10 +175,10 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
             $result = Replace-StringInFile -Path $testFile -OldString 'original' -NewString 'modified' -Backup
 
-            $result.BackupCreated | Should -Be $true
-            Test-Path "$testFile.bak" | Should -Be $true
-            (Get-Content -Path "$testFile.bak" -Raw) | Should -Be 'original content'
-            (Get-Content -Path $testFile -Raw) | Should -Be 'modified content'
+            $result.BackupCreated | Should-Be $true
+            Test-Path "$testFile.bak" | Should-Be $true
+            (Get-Content -Path "$testFile.bak" -Raw) | Should-Be 'original content'
+            (Get-Content -Path $testFile -Raw) | Should-Be 'modified content'
         }
 
         It 'Should not create backup by default' {
@@ -187,8 +187,8 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
             $result = Replace-StringInFile -Path $testFile -OldString 'content' -NewString 'new'
 
-            $result.BackupCreated | Should -Be $false
-            Test-Path "$testFile.bak" | Should -Be $false
+            $result.BackupCreated | Should-Be $false
+            Test-Path "$testFile.bak" | Should-Be $false
         }
     }
 
@@ -201,10 +201,10 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
             $results = Replace-StringInFile -Path $file1, $file2 -OldString 'bar' -NewString 'test'
 
-            $results.Count | Should -Be 2
-            ($results | Where-Object { $_.ReplacementsMade }).Count | Should -Be 2
-            (Get-Content -Path $file1 -Raw) | Should -Be 'foo test'
-            (Get-Content -Path $file2 -Raw) | Should -Be 'test baz'
+            $results.Count | Should-Be 2
+            ($results | Where-Object { $_.ReplacementsMade }).Count | Should-Be 2
+            (Get-Content -Path $file1 -Raw) | Should-Be 'foo test'
+            (Get-Content -Path $file2 -Raw) | Should-Be 'test baz'
         }
 
         It 'Should handle wildcards in path' {
@@ -218,10 +218,10 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
             $pattern = Join-Path -Path $script:testDir -ChildPath '*.txt'
             $results = Replace-StringInFile -Path $pattern -OldString 'foo' -NewString 'bar'
 
-            $results.Count | Should -Be 2
-            (Get-Content -Path $file1 -Raw) | Should -Be 'bar'
-            (Get-Content -Path $file2 -Raw) | Should -Be 'bar'
-            (Get-Content -Path $file3 -Raw) | Should -Be 'foo'
+            $results.Count | Should-Be 2
+            (Get-Content -Path $file1 -Raw) | Should-Be 'bar'
+            (Get-Content -Path $file2 -Raw) | Should-Be 'bar'
+            (Get-Content -Path $file3 -Raw) | Should-Be 'foo'
         }
     }
 
@@ -232,7 +232,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
             Replace-StringInFile -Path $testFile -OldString 'original' -NewString 'modified' -WhatIf
 
-            (Get-Content -Path $testFile -Raw) | Should -Be 'original'
+            (Get-Content -Path $testFile -Raw) | Should-Be 'original'
         }
     }
 
@@ -243,8 +243,8 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
             $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'new' -Encoding UTF8
 
-            $result.ReplacementsMade | Should -Be $true
-            (Get-Content -Path $testFile -Raw) | Should -Be 'new'
+            $result.ReplacementsMade | Should-Be $true
+            (Get-Content -Path $testFile -Raw) | Should-Be 'new'
         }
     }
 
@@ -256,7 +256,7 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
 
             $null = Replace-StringInFile -Path $binaryFile -OldString 'test' -NewString 'new' -WarningVariable warnings -WarningAction SilentlyContinue
 
-            $warnings | Should -Match 'binary'
+            ($warnings | Out-String) | Should-MatchString 'binary'
         }
     }
 
@@ -271,8 +271,8 @@ Line 3
 
             $result = Replace-StringInFile -Path $testFile -OldString 'Line 2' -NewString 'Modified Line'
 
-            $result.MatchCount | Should -Be 1
-            (Get-Content -Path $testFile -Raw) | Should -Match 'Modified Line'
+            $result.MatchCount | Should-Be 1
+            (Get-Content -Path $testFile -Raw) | Should-MatchString 'Modified Line'
         }
 
         It 'Should handle empty files' {
@@ -281,8 +281,8 @@ Line 3
 
             $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'new'
 
-            $result.MatchCount | Should -Be 0
-            $result.ReplacementsMade | Should -Be $false
+            $result.MatchCount | Should-Be 0
+            $result.ReplacementsMade | Should-Be $false
         }
 
         It 'Should handle very long lines' {
@@ -292,8 +292,8 @@ Line 3
 
             $result = Replace-StringInFile -Path $testFile -OldString 'REPLACE' -NewString 'DONE'
 
-            $result.MatchCount | Should -Be 1
-            (Get-Content -Path $testFile -Raw) | Should -Match 'DONE'
+            $result.MatchCount | Should-Be 1
+            (Get-Content -Path $testFile -Raw) | Should-MatchString 'DONE'
         }
     }
 
@@ -301,7 +301,7 @@ Line 3
         It 'Should handle non-existent files gracefully' {
             $nonExistent = Join-Path -Path $script:testDir -ChildPath 'doesnotexist.txt'
 
-            { Replace-StringInFile -Path $nonExistent -OldString 'test' -NewString 'new' -ErrorAction Stop } | Should -Throw
+            { Replace-StringInFile -Path $nonExistent -OldString 'test' -NewString 'new' -ErrorAction Stop } | Should-Throw
         }
 
         It 'Should skip directories' {
@@ -317,7 +317,7 @@ Line 3
             $testFile = Join-Path -Path $script:testDir -ChildPath 'invalidregex.txt'
             'test' | Set-Content -Path $testFile -NoNewline
 
-            { Replace-StringInFile -Path $testFile -OldString '(' -NewString 'new' -Regex -ErrorAction Stop } | Should -Throw
+            { Replace-StringInFile -Path $testFile -OldString '(' -NewString 'new' -Regex -ErrorAction Stop } | Should-Throw
         }
     }
 
@@ -329,11 +329,11 @@ Line 3
             $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'new'
 
             $result | Should -Not -BeNullOrEmpty
-            $result.PSObject.Properties.Name | Should -Contain 'FilePath'
-            $result.PSObject.Properties.Name | Should -Contain 'MatchCount'
-            $result.PSObject.Properties.Name | Should -Contain 'ReplacementsMade'
-            $result.PSObject.Properties.Name | Should -Contain 'BackupCreated'
-            $result.PSObject.Properties.Name | Should -Contain 'Error'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'FilePath'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'MatchCount'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'ReplacementsMade'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'BackupCreated'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'Error'
         }
 
         # Skip on Linux when running as root because root can write to read-only files
@@ -379,10 +379,10 @@ Line 3
 
             $result = Replace-StringInFile -Path $testFile -OldString 'target' -NewString 'value'
 
-            $result.MatchCount | Should -Be 1
-            $result.Matches[0].Line | Should -Be 2
-            $result.Matches[0].Column | Should -Be 7
-            $result.Matches[0].LineContent | Should -Be 'alpha target'
+            $result.MatchCount | Should-Be 1
+            $result.Matches[0].Line | Should-Be 2
+            $result.Matches[0].Column | Should-Be 7
+            $result.Matches[0].LineContent | Should-Be 'alpha target'
         }
 
         It 'Should compute line and column accurately for mixed newline styles' {
@@ -392,10 +392,10 @@ Line 3
 
             $result = Replace-StringInFile -Path $testFile -OldString 'match' -NewString 'done'
 
-            $result.MatchCount | Should -Be 1
-            $result.Matches[0].Line | Should -Be 2
-            $result.Matches[0].Column | Should -Be 5
-            $result.Matches[0].LineContent | Should -Be 'two match'
+            $result.MatchCount | Should-Be 1
+            $result.Matches[0].Line | Should-Be 2
+            $result.Matches[0].Column | Should-Be 5
+            $result.Matches[0].LineContent | Should-Be 'two match'
         }
     }
 
@@ -418,7 +418,7 @@ Line 3
 
             {
                 Replace-StringInFile -Path $testFile -OldString 'foo' -NewString 'bar' -Regex -PreserveCase -CaseInsensitive -ErrorAction Stop
-            } | Should -Throw -ExpectedMessage 'PreserveCase cannot be used with Regex mode'
+            } | Should-Throw -ExceptionMessage 'PreserveCase cannot be used with Regex mode'
         }
 
         It 'Should throw when PreserveCase is used without CaseInsensitive' {
@@ -427,7 +427,7 @@ Line 3
 
             {
                 Replace-StringInFile -Path $testFile -OldString 'foo' -NewString 'bar' -PreserveCase -ErrorAction Stop
-            } | Should -Throw -ExpectedMessage 'PreserveCase requires CaseInsensitive to be enabled'
+            } | Should-Throw -ExceptionMessage 'PreserveCase requires CaseInsensitive to be enabled'
         }
 
         It 'Should accept valid parameter combinations' {
@@ -448,9 +448,9 @@ Line 3
             $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Be 'GOODBYE world'
-            $result.ReplacementsMade | Should -Be $true
-            $result.MatchCount | Should -Be 1
+            $content | Should-Be 'GOODBYE world'
+            $result.ReplacementsMade | Should-Be $true
+            $result.MatchCount | Should-Be 1
         }
 
         It 'Should preserve all lowercase case' {
@@ -460,8 +460,8 @@ Line 3
             $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'GOODBYE' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Be 'goodbye WORLD'
-            $result.ReplacementsMade | Should -Be $true
+            $content | Should-Be 'goodbye WORLD'
+            $result.ReplacementsMade | Should-Be $true
         }
 
         It 'Should preserve First Capital case' {
@@ -471,8 +471,8 @@ Line 3
             $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Be 'Goodbye world'
-            $result.ReplacementsMade | Should -Be $true
+            $content | Should-Be 'Goodbye world'
+            $result.ReplacementsMade | Should-Be $true
         }
 
         It 'Should preserve Title Case for multi-word strings' {
@@ -482,8 +482,8 @@ Line 3
             $result = Replace-StringInFile -Path $testFile -OldString 'hello world' -NewString 'goodbye universe' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Be 'Goodbye Universe from everyone'
-            $result.ReplacementsMade | Should -Be $true
+            $content | Should-Be 'Goodbye Universe from everyone'
+            $result.ReplacementsMade | Should-Be $true
         }
 
         It 'Should handle multiple matches with different cases' {
@@ -497,11 +497,11 @@ Foo is everywhere
             $result = Replace-StringInFile -Path $testFile -OldString 'foo' -NewString 'bar' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Match 'bar is here'
-            $content | Should -Match 'BAR is there'
-            $content | Should -Match 'Bar is everywhere'
-            $result.MatchCount | Should -Be 3
-            $result.ReplacementsMade | Should -Be $true
+            $content | Should-MatchString 'bar is here'
+            $content | Should-MatchString 'BAR is there'
+            $content | Should-MatchString 'Bar is everywhere'
+            $result.MatchCount | Should-Be 3
+            $result.ReplacementsMade | Should-Be $true
         }
 
         It 'Should handle mixed case by using replacement as-is' {
@@ -512,8 +512,8 @@ Foo is everywhere
 
             $content = Get-Content -Path $testFile -Raw
             # Mixed case that doesn't match a clear pattern uses replacement as-is
-            $content | Should -Be 'goodbye world'
-            $result.ReplacementsMade | Should -Be $true
+            $content | Should-Be 'goodbye world'
+            $result.ReplacementsMade | Should-Be $true
         }
 
         It 'Should work with single character replacements' {
@@ -523,8 +523,8 @@ Foo is everywhere
             $result = Replace-StringInFile -Path $testFile -OldString 'a' -NewString 'x' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Be 'X B C x b c'
-            $result.MatchCount | Should -Be 2
+            $content | Should-Be 'X B C x b c'
+            $result.MatchCount | Should-Be 2
         }
 
         It 'Should preserve case with underscores and special characters' {
@@ -534,8 +534,8 @@ Foo is everywhere
             $result = Replace-StringInFile -Path $testFile -OldString 'old_name' -NewString 'better_name' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Be 'BETTER_NAME new_name'
-            $result.MatchCount | Should -Be 1
+            $content | Should-Be 'BETTER_NAME new_name'
+            $result.MatchCount | Should-Be 1
         }
 
         It 'Should handle empty lines without errors' {
@@ -549,9 +549,9 @@ hello
             $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Match 'GOODBYE'
-            $content | Should -Match "`n`ngoodbye"
-            $result.MatchCount | Should -Be 2
+            $content | Should-MatchString 'GOODBYE'
+            $content | Should-MatchString "`n`ngoodbye"
+            $result.MatchCount | Should-Be 2
         }
 
         It 'Should not modify content when no matches found' {
@@ -562,9 +562,9 @@ hello
             $result = Replace-StringInFile -Path $testFile -OldString 'foo' -NewString 'bar' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Be $originalContent
-            $result.MatchCount | Should -Be 0
-            $result.ReplacementsMade | Should -Be $false
+            $content | Should-Be $originalContent
+            $result.MatchCount | Should-Be 0
+            $result.ReplacementsMade | Should-Be $false
         }
 
         It 'Should preserve camelCase pattern' {
@@ -574,8 +574,8 @@ hello
             $result = Replace-StringInFile -Path $testFile -OldString 'username' -NewString 'account id' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Be 'accountId is required'
-            $result.ReplacementsMade | Should -Be $true
+            $content | Should-Be 'accountId is required'
+            $result.ReplacementsMade | Should-Be $true
         }
 
         It 'Should preserve PascalCase pattern' {
@@ -585,8 +585,8 @@ hello
             $result = Replace-StringInFile -Path $testFile -OldString 'username' -NewString 'account id' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Be 'AccountId is required'
-            $result.ReplacementsMade | Should -Be $true
+            $content | Should-Be 'AccountId is required'
+            $result.ReplacementsMade | Should-Be $true
         }
 
         It 'Should preserve camelCase with multi-word replacement' {
@@ -596,8 +596,8 @@ hello
             $result = Replace-StringInFile -Path $testFile -OldString 'oldusername' -NewString 'new account id' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Be 'newAccountId'
-            $result.ReplacementsMade | Should -Be $true
+            $content | Should-Be 'newAccountId'
+            $result.ReplacementsMade | Should-Be $true
         }
 
         It 'Should preserve PascalCase with multi-word replacement' {
@@ -607,8 +607,8 @@ hello
             $result = Replace-StringInFile -Path $testFile -OldString 'oldusername' -NewString 'new account id' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Be 'NewAccountId'
-            $result.ReplacementsMade | Should -Be $true
+            $content | Should-Be 'NewAccountId'
+            $result.ReplacementsMade | Should-Be $true
         }
 
         It 'Should handle multiple camelCase/PascalCase variations' {
@@ -622,10 +622,10 @@ USERNAME
             $result = Replace-StringInFile -Path $testFile -OldString 'username' -NewString 'account id' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Match 'accountId'
-            $content | Should -Match 'AccountId'
-            $content | Should -Match 'ACCOUNT ID'  # ALL CAPS preserves spaces
-            $result.MatchCount | Should -Be 3
+            $content | Should-MatchString 'accountId'
+            $content | Should-MatchString 'AccountId'
+            $content | Should-MatchString 'ACCOUNT ID'  # ALL CAPS preserves spaces
+            $result.MatchCount | Should-Be 3
         }
 
         It 'Should preserve snake_case pattern' {
@@ -635,8 +635,8 @@ USERNAME
             $result = Replace-StringInFile -Path $testFile -OldString 'user_name' -NewString 'account_id' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Be 'account_id is required'
-            $result.ReplacementsMade | Should -Be $true
+            $content | Should-Be 'account_id is required'
+            $result.ReplacementsMade | Should-Be $true
         }
 
         It 'Should preserve SCREAMING_SNAKE_CASE pattern' {
@@ -646,8 +646,8 @@ USERNAME
             $result = Replace-StringInFile -Path $testFile -OldString 'user_name' -NewString 'account_id' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Be 'ACCOUNT_ID is required'
-            $result.ReplacementsMade | Should -Be $true
+            $content | Should-Be 'ACCOUNT_ID is required'
+            $result.ReplacementsMade | Should-Be $true
         }
 
         It 'Should preserve kebab-case pattern' {
@@ -657,8 +657,8 @@ USERNAME
             $result = Replace-StringInFile -Path $testFile -OldString 'user-name' -NewString 'account-id' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Be 'account-id is required'
-            $result.ReplacementsMade | Should -Be $true
+            $content | Should-Be 'account-id is required'
+            $result.ReplacementsMade | Should-Be $true
         }
 
         It 'Should preserve SCREAMING-KEBAB-CASE pattern' {
@@ -668,8 +668,8 @@ USERNAME
             $result = Replace-StringInFile -Path $testFile -OldString 'user-name' -NewString 'account-id' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Be 'ACCOUNT-ID is required'
-            $result.ReplacementsMade | Should -Be $true
+            $content | Should-Be 'ACCOUNT-ID is required'
+            $result.ReplacementsMade | Should-Be $true
         }
 
         It 'Should replace cross-separator variations with PreserveCase (camelCase to snake_case)' {
@@ -679,8 +679,8 @@ USERNAME
             $result = Replace-StringInFile -Path $testFile -OldString 'userName' -NewString 'accountId' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Be 'accountId is the account_id'
-            $result.MatchCount | Should -Be 2
+            $content | Should-Be 'accountId is the account_id'
+            $result.MatchCount | Should-Be 2
         }
 
         It 'Should replace cross-separator variations with PreserveCase (PascalCase to SCREAMING_SNAKE_CASE)' {
@@ -690,8 +690,8 @@ USERNAME
             $result = Replace-StringInFile -Path $testFile -OldString 'userName' -NewString 'accountId' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Be 'AccountId is the ACCOUNT_ID'
-            $result.MatchCount | Should -Be 2
+            $content | Should-Be 'AccountId is the ACCOUNT_ID'
+            $result.MatchCount | Should-Be 2
         }
 
         It 'Should replace cross-separator variations with PreserveCase (kebab-case to snake_case)' {
@@ -701,8 +701,8 @@ USERNAME
             $result = Replace-StringInFile -Path $testFile -OldString 'userName' -NewString 'accountId' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Be 'account-id and account_id'
-            $result.MatchCount | Should -Be 2
+            $content | Should-Be 'account-id and account_id'
+            $result.MatchCount | Should-Be 2
         }
 
         It 'Should replace all separator variations when using separator-aware matching' {
@@ -720,14 +720,14 @@ USER-NAME
             $result = Replace-StringInFile -Path $testFile -OldString 'userName' -NewString 'accountId' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Match 'accountId'
-            $content | Should -Match 'AccountId'
-            $content | Should -Match 'ACCOUNTID'
-            $content | Should -Match 'account_id'
-            $content | Should -Match 'ACCOUNT_ID'
-            $content | Should -Match 'account-id'
-            $content | Should -Match 'ACCOUNT-ID'
-            $result.MatchCount | Should -Be 7
+            $content | Should-MatchString 'accountId'
+            $content | Should-MatchString 'AccountId'
+            $content | Should-MatchString 'ACCOUNTID'
+            $content | Should-MatchString 'account_id'
+            $content | Should-MatchString 'ACCOUNT_ID'
+            $content | Should-MatchString 'account-id'
+            $content | Should-MatchString 'ACCOUNT-ID'
+            $result.MatchCount | Should-Be 7
         }
 
         It 'Should not perform cross-separator matching when pattern has no word boundaries' {
@@ -738,8 +738,8 @@ USER-NAME
 
             $content = Get-Content -Path $testFile -Raw
             # 'username' (all lowercase) has no word boundaries, so it should NOT match 'user_name'
-            $content | Should -Be 'accountid and user_name'
-            $result.MatchCount | Should -Be 1
+            $content | Should-Be 'accountid and user_name'
+            $result.MatchCount | Should-Be 1
         }
 
         It 'Should handle mixed case patterns in same file' {
@@ -753,10 +753,10 @@ USERNAME
             $result = Replace-StringInFile -Path $testFile -OldString 'username' -NewString 'account id' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Match 'accountId'
-            $content | Should -Match 'AccountId'
-            $content | Should -Match 'ACCOUNT ID'
-            $result.MatchCount | Should -Be 3
+            $content | Should-MatchString 'accountId'
+            $content | Should-MatchString 'AccountId'
+            $content | Should-MatchString 'ACCOUNT ID'
+            $result.MatchCount | Should-Be 3
         }
 
         It 'Should convert between different separator styles' {
@@ -767,8 +767,8 @@ USERNAME
             $result = Replace-StringInFile -Path $testFile -OldString 'user_name' -NewString 'account-id' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Be 'account_id'  # Preserves snake_case pattern
-            $result.ReplacementsMade | Should -Be $true
+            $content | Should-Be 'account_id'  # Preserves snake_case pattern
+            $result.ReplacementsMade | Should-Be $true
         }
     }
 
@@ -779,11 +779,11 @@ USERNAME
 
             $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase -Backup
 
-            $result.BackupCreated | Should -Be $true
-            Test-Path -Path "$testFile.bak" | Should -Be $true
+            $result.BackupCreated | Should-Be $true
+            Test-Path -Path "$testFile.bak" | Should-Be $true
 
             $backupContent = Get-Content -Path "$testFile.bak" -Raw
-            $backupContent | Should -Be 'HELLO world'
+            $backupContent | Should-Be 'HELLO world'
         }
 
         It 'Should support WhatIf with PreserveCase' {
@@ -793,9 +793,9 @@ USERNAME
             $result = Replace-StringInFile -Path $testFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase -WhatIf
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Be 'HELLO world'  # Should not be modified
-            $result.ReplacementsMade | Should -Be $false
-            $result.MatchCount | Should -Be 1  # Should still report matches found
+            $content | Should-Be 'HELLO world'  # Should not be modified
+            $result.ReplacementsMade | Should-Be $false
+            $result.MatchCount | Should-Be 1  # Should still report matches found
         }
 
         It 'Should work with pipeline input' {
@@ -805,8 +805,8 @@ USERNAME
             $result = Get-Item -Path $testFile | Replace-StringInFile -OldString 'hello' -NewString 'goodbye' -CaseInsensitive -PreserveCase
 
             $content = Get-Content -Path $testFile -Raw
-            $content | Should -Be 'GOODBYE world'
-            $result.ReplacementsMade | Should -Be $true
+            $content | Should-Be 'GOODBYE world'
+            $result.ReplacementsMade | Should-Be $true
         }
     }
 
@@ -819,11 +819,11 @@ USERNAME
 
             $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'sample'
 
-            $result.ReplacementsMade | Should -Be $true
+            $result.ReplacementsMade | Should-Be $true
             $bytes = [System.IO.File]::ReadAllBytes($testFile)
             # First byte should NOT be BOM (0xEF)
-            $bytes[0] | Should -Not -Be 0xEF
-            (Get-Content -Path $testFile -Raw) | Should -Be 'This is a sample file'
+            $bytes[0] | Should-NotBe 0xEF
+            (Get-Content -Path $testFile -Raw) | Should-Be 'This is a sample file'
         }
 
         It 'Should auto-detect and preserve UTF-8 with BOM' {
@@ -834,12 +834,12 @@ USERNAME
 
             $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'sample'
 
-            $result.ReplacementsMade | Should -Be $true
+            $result.ReplacementsMade | Should-Be $true
             $bytes = [System.IO.File]::ReadAllBytes($testFile)
             # Should have UTF-8 BOM (EF BB BF)
-            $bytes[0] | Should -Be 0xEF
-            $bytes[1] | Should -Be 0xBB
-            $bytes[2] | Should -Be 0xBF
+            $bytes[0] | Should-Be 0xEF
+            $bytes[1] | Should-Be 0xBB
+            $bytes[2] | Should-Be 0xBF
         }
 
         It 'Should auto-detect and preserve UTF-16 LE encoding' {
@@ -850,13 +850,13 @@ USERNAME
 
             $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'sample'
 
-            $result.ReplacementsMade | Should -Be $true
+            $result.ReplacementsMade | Should-Be $true
             $bytes = [System.IO.File]::ReadAllBytes($testFile)
             # Should have UTF-16 LE BOM (FF FE)
-            $bytes[0] | Should -Be 0xFF
-            $bytes[1] | Should -Be 0xFE
+            $bytes[0] | Should-Be 0xFF
+            $bytes[1] | Should-Be 0xFE
             # Verify it's not UTF-32 LE (which also starts with FF FE)
-            $bytes[2] | Should -Not -Be 0x00
+            $bytes[2] | Should-NotBe 0x00
         }
 
         It 'Should auto-detect and preserve UTF-16 BE encoding' {
@@ -867,11 +867,11 @@ USERNAME
 
             $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'sample'
 
-            $result.ReplacementsMade | Should -Be $true
+            $result.ReplacementsMade | Should-Be $true
             $bytes = [System.IO.File]::ReadAllBytes($testFile)
             # Should have UTF-16 BE BOM (FE FF)
-            $bytes[0] | Should -Be 0xFE
-            $bytes[1] | Should -Be 0xFF
+            $bytes[0] | Should-Be 0xFE
+            $bytes[1] | Should-Be 0xFF
         }
 
         It 'Should auto-detect and preserve UTF-32 LE encoding' {
@@ -882,13 +882,13 @@ USERNAME
 
             $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'sample'
 
-            $result.ReplacementsMade | Should -Be $true
+            $result.ReplacementsMade | Should-Be $true
             $bytes = [System.IO.File]::ReadAllBytes($testFile)
             # Should have UTF-32 LE BOM (FF FE 00 00)
-            $bytes[0] | Should -Be 0xFF
-            $bytes[1] | Should -Be 0xFE
-            $bytes[2] | Should -Be 0x00
-            $bytes[3] | Should -Be 0x00
+            $bytes[0] | Should-Be 0xFF
+            $bytes[1] | Should-Be 0xFE
+            $bytes[2] | Should-Be 0x00
+            $bytes[3] | Should-Be 0x00
         }
 
         It 'Should auto-detect and preserve UTF-32 BE encoding' {
@@ -899,13 +899,13 @@ USERNAME
 
             $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'sample'
 
-            $result.ReplacementsMade | Should -Be $true
+            $result.ReplacementsMade | Should-Be $true
             $bytes = [System.IO.File]::ReadAllBytes($testFile)
             # Should have UTF-32 BE BOM (00 00 FE FF)
-            $bytes[0] | Should -Be 0x00
-            $bytes[1] | Should -Be 0x00
-            $bytes[2] | Should -Be 0xFE
-            $bytes[3] | Should -Be 0xFF
+            $bytes[0] | Should-Be 0x00
+            $bytes[1] | Should-Be 0x00
+            $bytes[2] | Should-Be 0xFE
+            $bytes[3] | Should-Be 0xFF
         }
 
         It 'Should auto-detect and preserve ASCII encoding' {
@@ -916,11 +916,11 @@ USERNAME
 
             $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'sample'
 
-            $result.ReplacementsMade | Should -Be $true
+            $result.ReplacementsMade | Should-Be $true
             # Read back and verify all bytes are within ASCII range (0-127)
             $bytes = [System.IO.File]::ReadAllBytes($testFile)
             $nonAsciiBytes = $bytes | Where-Object { $_ -gt 127 }
-            $nonAsciiBytes.Count | Should -Be 0
+            $nonAsciiBytes.Count | Should-Be 0
         }
 
         It 'Should convert to UTF-8 with BOM when explicitly specified' {
@@ -931,16 +931,16 @@ USERNAME
 
             # Verify no BOM before conversion
             $beforeBytes = [System.IO.File]::ReadAllBytes($testFile)
-            $beforeBytes[0] | Should -Not -Be 0xEF
+            $beforeBytes[0] | Should-NotBe 0xEF
 
             $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'sample' -Encoding UTF8BOM
 
-            $result.ReplacementsMade | Should -Be $true
+            $result.ReplacementsMade | Should-Be $true
             $bytes = [System.IO.File]::ReadAllBytes($testFile)
             # Should now have UTF-8 BOM (EF BB BF)
-            $bytes[0] | Should -Be 0xEF
-            $bytes[1] | Should -Be 0xBB
-            $bytes[2] | Should -Be 0xBF
+            $bytes[0] | Should-Be 0xEF
+            $bytes[1] | Should-Be 0xBB
+            $bytes[2] | Should-Be 0xBF
         }
 
         It 'Should convert to UTF-16 LE when explicitly specified' {
@@ -951,11 +951,11 @@ USERNAME
 
             $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'sample' -Encoding UTF16LE
 
-            $result.ReplacementsMade | Should -Be $true
+            $result.ReplacementsMade | Should-Be $true
             $bytes = [System.IO.File]::ReadAllBytes($testFile)
             # Should have UTF-16 LE BOM (FF FE)
-            $bytes[0] | Should -Be 0xFF
-            $bytes[1] | Should -Be 0xFE
+            $bytes[0] | Should-Be 0xFF
+            $bytes[1] | Should-Be 0xFE
         }
 
         It 'Should handle empty files with Auto encoding' {
@@ -964,8 +964,8 @@ USERNAME
 
             $result = Replace-StringInFile -Path $testFile -OldString 'test' -NewString 'sample'
 
-            $result.MatchCount | Should -Be 0
-            $result.ReplacementsMade | Should -Be $false
+            $result.MatchCount | Should-Be 0
+            $result.ReplacementsMade | Should-Be $false
         }
 
         It 'Should not modify UTF-16 LE files binary detection' {
@@ -977,9 +977,9 @@ USERNAME
 
             $result = Replace-StringInFile -Path $testFile -OldString 'Test' -NewString 'Sample'
 
-            $result.ReplacementsMade | Should -Be $true
+            $result.ReplacementsMade | Should-Be $true
             $newContent = [System.IO.File]::ReadAllText($testFile, $utf16LE)
-            $newContent | Should -Match 'Sample'
+            $newContent | Should-MatchString 'Sample'
         }
 
         It 'Should not modify UTF-32 files binary detection' {
@@ -991,9 +991,9 @@ USERNAME
 
             $result = Replace-StringInFile -Path $testFile -OldString 'Test' -NewString 'Sample'
 
-            $result.ReplacementsMade | Should -Be $true
+            $result.ReplacementsMade | Should-Be $true
             $newContent = [System.IO.File]::ReadAllText($testFile, $utf32LE)
-            $newContent | Should -Match 'Sample'
+            $newContent | Should-MatchString 'Sample'
         }
 
         It 'Should preserve encoding when no matches found' {
@@ -1004,12 +1004,12 @@ USERNAME
 
             $result = Replace-StringInFile -Path $testFile -OldString 'xyz' -NewString 'abc'
 
-            $result.MatchCount | Should -Be 0
+            $result.MatchCount | Should-Be 0
             # BOM should still be present (file should be unchanged)
             $bytes = [System.IO.File]::ReadAllBytes($testFile)
-            $bytes[0] | Should -Be 0xEF
-            $bytes[1] | Should -Be 0xBB
-            $bytes[2] | Should -Be 0xBF
+            $bytes[0] | Should-Be 0xEF
+            $bytes[1] | Should-Be 0xBB
+            $bytes[2] | Should-Be 0xBF
         }
 
         It 'Should work with multiple files having different encodings' {
@@ -1026,18 +1026,18 @@ USERNAME
             # Process both files
             $results = Replace-StringInFile -Path $file1, $file2 -OldString 'test' -NewString 'sample'
 
-            $results.Count | Should -Be 2
-            $results[0].ReplacementsMade | Should -Be $true
-            $results[1].ReplacementsMade | Should -Be $true
+            $results.Count | Should-Be 2
+            $results[0].ReplacementsMade | Should-Be $true
+            $results[1].ReplacementsMade | Should-Be $true
 
             # Verify each file preserved its encoding
             $bytes1 = [System.IO.File]::ReadAllBytes($file1)
-            $bytes1[0] | Should -Not -Be 0xEF  # No BOM
+            $bytes1[0] | Should-NotBe 0xEF  # No BOM
 
             $bytes2 = [System.IO.File]::ReadAllBytes($file2)
-            $bytes2[0] | Should -Be 0xEF  # Has BOM
-            $bytes2[1] | Should -Be 0xBB
-            $bytes2[2] | Should -Be 0xBF
+            $bytes2[0] | Should-Be 0xEF  # Has BOM
+            $bytes2[1] | Should-Be 0xBB
+            $bytes2[2] | Should-Be 0xBF
         }
     }
 }

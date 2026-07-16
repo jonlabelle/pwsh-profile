@@ -47,15 +47,15 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
 
         It 'Should be available as a function' {
             Get-Command Start-KeepAlive | Should -Not -BeNullOrEmpty
-            Get-Command Start-KeepAlive | Should -BeOfType [System.Management.Automation.FunctionInfo]
+            Get-Command Start-KeepAlive | Should-HaveType ([System.Management.Automation.FunctionInfo])
         }
 
         It 'Should have correct parameter sets' {
             $command = Get-Command Start-KeepAlive
-            $command.ParameterSets.Count | Should -Be 3
-            $command.ParameterSets.Name | Should -Contain 'Start'
-            $command.ParameterSets.Name | Should -Contain 'Query'
-            $command.ParameterSets.Name | Should -Contain 'End'
+            $command.ParameterSets.Count | Should-Be 3
+            $command.ParameterSets.Name | Should-ContainCollection 'Start'
+            $command.ParameterSets.Name | Should-ContainCollection 'Query'
+            $command.ParameterSets.Name | Should-ContainCollection 'End'
         }
 
         It 'Should work on all platforms' {
@@ -94,7 +94,7 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
             # On Windows CI, we should not get a platform error
             if ($script:IsWindowsTest)
             {
-                $result | Should -Not -Be 'Platform-Error'
+                $result | Should-NotBe 'Platform-Error'
             }
 
             # Clean up any jobs that might have been created
@@ -105,24 +105,24 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
     Context 'Parameter Validation' {
 
         It 'Should validate KeepAliveHours range' {
-            { Start-KeepAlive -KeepAliveHours 0.05 -ErrorAction Stop } | Should -Throw
-            { Start-KeepAlive -KeepAliveHours 50 -ErrorAction Stop } | Should -Throw
+            { Start-KeepAlive -KeepAliveHours 0.05 -ErrorAction Stop } | Should-Throw
+            { Start-KeepAlive -KeepAliveHours 50 -ErrorAction Stop } | Should-Throw
             # These should not throw with valid ranges (but may start jobs)
             { $job1 = Start-KeepAlive -KeepAliveHours 0.1 -JobName 'TestRange1'; if ($job1) { Remove-Job $job1 -Force -ErrorAction SilentlyContinue } } | Should -Not -Throw
             { $job2 = Start-KeepAlive -KeepAliveHours 48 -JobName 'TestRange2'; if ($job2) { Remove-Job $job2 -Force -ErrorAction SilentlyContinue } } | Should -Not -Throw
         }
 
         It 'Should validate SleepSeconds range' {
-            { Start-KeepAlive -SleepSeconds 20 -ErrorAction Stop } | Should -Throw
-            { Start-KeepAlive -SleepSeconds 4000 -ErrorAction Stop } | Should -Throw
+            { Start-KeepAlive -SleepSeconds 20 -ErrorAction Stop } | Should-Throw
+            { Start-KeepAlive -SleepSeconds 4000 -ErrorAction Stop } | Should-Throw
             { $job1 = Start-KeepAlive -SleepSeconds 30 -KeepAliveHours 0.1 -JobName 'TestSleep1'; if ($job1) { Remove-Job $job1 -Force -ErrorAction SilentlyContinue } } | Should -Not -Throw
             { $job2 = Start-KeepAlive -SleepSeconds 3600 -KeepAliveHours 0.1 -JobName 'TestSleep2'; if ($job2) { Remove-Job $job2 -Force -ErrorAction SilentlyContinue } } | Should -Not -Throw
         }
 
         It 'Should validate JobName pattern' {
             { $job1 = Start-KeepAlive -JobName 'Valid-Name_123' -KeepAliveHours 0.1; if ($job1) { Remove-Job $job1 -Force -ErrorAction SilentlyContinue } } | Should -Not -Throw
-            { Start-KeepAlive -JobName 'Invalid Name!' -ErrorAction Stop } | Should -Throw
-            { Start-KeepAlive -JobName 'Invalid@Name' -ErrorAction Stop } | Should -Throw
+            { Start-KeepAlive -JobName 'Invalid Name!' -ErrorAction Stop } | Should-Throw
+            { Start-KeepAlive -JobName 'Invalid@Name' -ErrorAction Stop } | Should-Throw
         }
 
         It 'Should have correct default values' {
@@ -141,10 +141,10 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
             $keyToPressParam | Should -Not -BeNullOrEmpty
 
             # Verify parameter types
-            $keepAliveHoursParam.ParameterType | Should -Be ([Double])
-            $sleepSecondsParam.ParameterType | Should -Be ([Int32])
-            $jobNameParam.ParameterType | Should -Be ([String])
-            $keyToPressParam.ParameterType | Should -Be ([String])
+            $keepAliveHoursParam.ParameterType | Should-Be ([Double])
+            $sleepSecondsParam.ParameterType | Should-Be ([Int32])
+            $jobNameParam.ParameterType | Should-Be ([String])
+            $keyToPressParam.ParameterType | Should-Be ([String])
         }
     }
 
@@ -156,7 +156,7 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
                 throw 'COM object not available'
             }
 
-            { Start-KeepAlive -KeepAliveHours 0.1 } | Should -Throw -ExpectedMessage '*WScript.Shell COM object not available*'
+            { Start-KeepAlive -KeepAliveHours 0.1 } | Should-Throw -ExceptionMessage '*WScript.Shell COM object not available*'
         }
 
         It 'Should validate macOS caffeinate availability' -Skip:($script:IsWindowsTest -or $PSVersionTable.PSVersion.Major -lt 6 -or -not $IsMacOS) {
@@ -172,7 +172,7 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
             $hasXdotool = $null -ne (Get-Command xdotool -ErrorAction SilentlyContinue)
 
             $hasEither = $hasSystemdInhibit -or $hasXdotool
-            $hasEither | Should -Be $true -Because 'Linux requires either systemd-inhibit or xdotool'
+            $hasEither | Should-Be $true -Because 'Linux requires either systemd-inhibit or xdotool'
         }
     }
 
@@ -209,38 +209,38 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
             $job = Start-KeepAlive -KeepAliveHours 0.1 -SleepSeconds 30 -JobName 'TestKeepAlive1'
 
             $job | Should -Not -BeNullOrEmpty
-            $job | Should -BeOfType [System.Management.Automation.Job]
-            $job.Name | Should -Be 'TestKeepAlive1'
-            $job.State | Should -Be 'Running'
+            $job | Should-HaveType ([System.Management.Automation.Job])
+            $job.Name | Should-Be 'TestKeepAlive1'
+            $job.State | Should-Be 'Running'
         }
 
         It 'Should stamp keep-alive metadata on started jobs' {
             $job = Start-KeepAlive -KeepAliveHours 0.1 -JobName 'TestKeepAliveMeta'
 
             $job.PSObject.Properties['KeepAliveJob'] | Should -Not -BeNullOrEmpty
-            $job.KeepAliveJob | Should -Be $true
+            $job.KeepAliveJob | Should-Be $true
             $job.PSObject.Properties['KeepAliveEndTime'] | Should -Not -BeNullOrEmpty
-            $job.KeepAliveEndTime | Should -BeOfType [DateTime]
+            $job.KeepAliveEndTime | Should-HaveType ([DateTime])
         }
 
         It 'Should prevent starting duplicate jobs' {
             # Start first job
             $job1 = Start-KeepAlive -KeepAliveHours 0.1 -JobName 'TestKeepAlive2'
-            $job1.State | Should -Be 'Running'
+            $job1.State | Should-Be 'Running'
 
             # Try to start second job with same name
             $warningMessages = @()
             $job2 = Start-KeepAlive -KeepAliveHours 0.1 -JobName 'TestKeepAlive2' -WarningVariable warningMessages
 
             $job2 | Should -BeNullOrEmpty
-            $warningMessages | Should -Match 'already running'
+            ($warningMessages | Out-String) | Should-MatchString 'already running'
         }
 
         It 'Should clean up completed jobs before starting new ones' {
             # Start a real job - it should clean up the old one
             $job = Start-KeepAlive -KeepAliveHours 0.1 -JobName 'TestKeepAlive3'
             $job | Should -Not -BeNullOrEmpty
-            $job.State | Should -Be 'Running'
+            $job.State | Should-Be 'Running'
         }
     }
 
@@ -268,7 +268,7 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
             $warningMessages = @()
             Start-KeepAlive -Query -JobName 'NonExistentJob' -WarningVariable warningMessages
 
-            $warningMessages | Should -Match "No keep-alive job named 'NonExistentJob' found"
+            ($warningMessages | Out-String) | Should-MatchString "No keep-alive job named 'NonExistentJob' found"
         }
 
         It 'Should include scheduled end time for keep-alive jobs' {
@@ -277,8 +277,8 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
 
             $output = Start-KeepAlive -Query -JobName 'TestQueryScheduled' 6>&1 | Out-String
 
-            $output | Should -Match "Job Status for 'TestQueryScheduled'"
-            $output | Should -Match 'Scheduled End:'
+            $output | Should-MatchString "Job Status for 'TestQueryScheduled'"
+            $output | Should-MatchString 'Scheduled End:'
         }
 
         It 'Should warn when multiple jobs share the same name' {
@@ -289,8 +289,8 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
             $warningMessages = @()
             $output = Start-KeepAlive -Query -JobName 'TestQueryDuplicate' -WarningVariable warningMessages 6>&1 | Out-String
 
-            $warningMessages | Should -Match "Multiple jobs named 'TestQueryDuplicate' were found"
-            $output | Should -Match "Job Status for 'TestQueryDuplicate'"
+            ($warningMessages | Out-String) | Should-MatchString "Multiple jobs named 'TestQueryDuplicate' were found"
+            $output | Should-MatchString "Job Status for 'TestQueryDuplicate'"
         }
 
         It 'Should clean up completed jobs when queried' {
@@ -323,17 +323,17 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
             $warningMessages = @()
             Start-KeepAlive -EndJob -JobName 'NonExistentEndJob' -WarningVariable warningMessages
 
-            $warningMessages | Should -Match "No keep-alive job named 'NonExistentEndJob' found"
+            ($warningMessages | Out-String) | Should-MatchString "No keep-alive job named 'NonExistentEndJob' found"
         }
 
         It 'Should successfully stop and remove running job' {
             # Start a job
             $job = Start-KeepAlive -KeepAliveHours 1 -JobName 'TestEnd1'
-            $job.State | Should -Be 'Running'
+            $job.State | Should-Be 'Running'
 
             # End the job
             $output = Start-KeepAlive -EndJob -JobName 'TestEnd1' 6>&1 | Out-String
-            $output | Should -Match 'stopped and removed'
+            $output | Should-MatchString 'stopped and removed'
 
             # Verify job is gone
             Get-Job -Name 'TestEnd1' -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
@@ -346,8 +346,8 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
             $warningMessages = @()
             $output = Start-KeepAlive -EndJob -JobName 'TestEndDuplicate' -WarningVariable warningMessages 6>&1 | Out-String
 
-            $warningMessages | Should -Match "Multiple jobs named 'TestEndDuplicate' were found"
-            $output | Should -Match "Removed 2 matching jobs named 'TestEndDuplicate'"
+            ($warningMessages | Out-String) | Should-MatchString "Multiple jobs named 'TestEndDuplicate' were found"
+            $output | Should-MatchString "Removed 2 matching jobs named 'TestEndDuplicate'"
             Get-Job -Name 'TestEndDuplicate' -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
         }
     }
@@ -359,13 +359,13 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
                 throw 'Failed to start job'
             }
 
-            { Start-KeepAlive -KeepAliveHours 0.1 } | Should -Throw -ExpectedMessage '*Failed to start keep-alive job*'
+            { Start-KeepAlive -KeepAliveHours 0.1 } | Should-Throw -ExceptionMessage '*Failed to start keep-alive job*'
         }
 
         It 'Should validate parameter combinations' {
             # EndJob and Query should not be used with Start parameters
-            { Start-KeepAlive -EndJob -KeepAliveHours 1 } | Should -Throw
-            { Start-KeepAlive -Query -SleepSeconds 60 } | Should -Throw
+            { Start-KeepAlive -EndJob -KeepAliveHours 1 } | Should-Throw
+            { Start-KeepAlive -Query -SleepSeconds 60 } | Should-Throw
         }
     }
 
@@ -375,8 +375,8 @@ Describe 'Start-KeepAlive Function Tests' -Tag 'Unit' {
             $job = Start-KeepAlive -KeepAliveHours 0.1 -JobName 'TestVerbose1' -Verbose 4>&1
 
             $verboseOutput = $job | Out-String
-            $verboseOutput | Should -Match 'Starting Start-KeepAlive function'
-            $verboseOutput | Should -Match 'Starting new keep-alive job'
+            ($verboseOutput | Out-String) | Should-MatchString 'Starting Start-KeepAlive function'
+            ($verboseOutput | Out-String) | Should-MatchString 'Starting new keep-alive job'
 
             # Clean up
             Get-Job -Name 'TestVerbose1' | Remove-Job -Force

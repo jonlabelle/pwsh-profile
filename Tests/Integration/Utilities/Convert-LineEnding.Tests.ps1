@@ -97,34 +97,34 @@ Describe 'Convert-LineEnding Integration Tests' {
 
             # Verify PowerShell files were converted
             $mainContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:SourceDir -ChildPath 'main.ps1'))
-            $mainContent | Should -Not -Match "`r"
-            $mainContent | Should -Match "Write-Host 'Hello World'"
+            $mainContent | Should-NotMatchString "`r"
+            $mainContent | Should-MatchString "Write-Host 'Hello World'"
 
             # Verify JSON files were converted
             $jsonContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:SourceDir -ChildPath 'config.json'))
-            $jsonContent | Should -Not -Match "`r"
-            $jsonContent | Should -Match '"setting"'
+            $jsonContent | Should-NotMatchString "`r"
+            $jsonContent | Should-MatchString '"setting"'
 
             # Verify Markdown files were converted
             $readmeContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:DocsDir -ChildPath 'README.md'))
-            $readmeContent | Should -Not -Match "`r"
-            $readmeContent | Should -Match 'Project Documentation'
+            $readmeContent | Should-NotMatchString "`r"
+            $readmeContent | Should-MatchString 'Project Documentation'
 
             # Verify shell scripts were converted
             $shellContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:ScriptsDir -ChildPath 'build.sh'))
-            $shellContent | Should -Not -Match "`r"
-            $shellContent | Should -Match 'Building project'
+            $shellContent | Should-NotMatchString "`r"
+            $shellContent | Should-MatchString 'Building project'
         }
 
         It 'Should preserve binary files unchanged' {
             # Binary files should not be modified
             $exeBytes = [System.IO.File]::ReadAllBytes((Join-Path -Path $script:BinaryDir -ChildPath 'app.exe'))
-            $exeBytes[0] | Should -Be 77  # MZ header intact
-            $exeBytes[1] | Should -Be 90
+            $exeBytes[0] | Should-Be 77  # MZ header intact
+            $exeBytes[1] | Should-Be 90
 
             $pngBytes = [System.IO.File]::ReadAllBytes((Join-Path -Path $script:BinaryDir -ChildPath 'image.png'))
-            $pngBytes[0] | Should -Be 137  # PNG header intact
-            $pngBytes[1] | Should -Be 80
+            $pngBytes[0] | Should-Be 137  # PNG header intact
+            $pngBytes[1] | Should-Be 80
         }
 
         It 'Should respect default exclusions for node_modules' {
@@ -163,8 +163,8 @@ Describe 'Convert-LineEnding Integration Tests' {
             Convert-LineEnding -Path $script:Utf8File -LineEnding 'LF'
 
             $result = [System.IO.File]::ReadAllText($script:Utf8File, [System.Text.Encoding]::UTF8)
-            $result | Should -Not -Match "`r"
-            $result | Should -Match 'café, naïve, résumé'
+            $result | Should-NotMatchString "`r"
+            $result | Should-MatchString 'café, naïve, résumé'
         }
 
         It 'Should preserve UTF-8 BOM across platforms' {
@@ -172,22 +172,22 @@ Describe 'Convert-LineEnding Integration Tests' {
 
             # Check BOM is preserved
             $bytes = [System.IO.File]::ReadAllBytes($script:Utf8BomFile)
-            $bytes[0] | Should -Be 0xEF
-            $bytes[1] | Should -Be 0xBB
-            $bytes[2] | Should -Be 0xBF
+            $bytes[0] | Should-Be 0xEF
+            $bytes[1] | Should-Be 0xBB
+            $bytes[2] | Should-Be 0xBF
 
             # Check content is correct
             $result = [System.IO.File]::ReadAllText($script:Utf8BomFile, [System.Text.Encoding]::UTF8)
-            $result | Should -Not -Match "`r"
-            $result | Should -Match 'café, naïve, résumé'
+            $result | Should-NotMatchString "`r"
+            $result | Should-MatchString 'café, naïve, résumé'
         }
 
         It 'Should handle ASCII files correctly' {
             Convert-LineEnding -Path $script:AsciiFile -LineEnding 'CRLF'
 
             $result = [System.IO.File]::ReadAllText($script:AsciiFile, [System.Text.Encoding]::ASCII)
-            $result | Should -Match "`r`n"
-            $result | Should -Match 'Simple ASCII text'
+            $result | Should-MatchString "`r`n"
+            $result | Should-MatchString 'Simple ASCII text'
         }
     }
 
@@ -225,14 +225,14 @@ Describe 'Convert-LineEnding Integration Tests' {
 
             # PowerShell files should be converted
             $mainContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:PipelineDir -ChildPath 'main.ps1'))
-            $mainContent | Should -Not -Match "`r"
+            $mainContent | Should-NotMatchString "`r"
 
             $helperContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:SubDir1 -ChildPath 'helper.ps1'))
-            $helperContent | Should -Not -Match "`r"
+            $helperContent | Should-NotMatchString "`r"
 
             # Other files should remain unchanged
             $jsonContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:PipelineDir -ChildPath 'config.json'))
-            $jsonContent | Should -Match "`r"  # Should still have CRLF
+            $jsonContent | Should-MatchString "`r"  # Should still have CRLF
         }
 
         It 'Should work with Where-Object filtering in pipeline' {
@@ -245,7 +245,7 @@ Describe 'Convert-LineEnding Integration Tests' {
             if ($processedFiles)
             {
                 $processedFiles | ForEach-Object {
-                    $_.Success | Should -Be $true
+                    $_.Success | Should-Be $true
                 }
             }
             # This tests the integration with complex pipeline scenarios
@@ -258,7 +258,7 @@ Describe 'Convert-LineEnding Integration Tests' {
             $results | Should -Not -BeNullOrEmpty
             $results | ForEach-Object {
                 $_.FilePath | Should -Not -BeNullOrEmpty
-                $_.Success | Should -Be $true
+                $_.Success | Should-Be $true
                 $_.SourceEncoding | Should -Not -BeNullOrEmpty
                 $_.TargetEncoding | Should -Not -BeNullOrEmpty
             }
@@ -279,8 +279,8 @@ Describe 'Convert-LineEnding Integration Tests' {
 
                 if ($results)
                 {
-                    $results.Success | Should -Be $false
-                    $results.Error | Should -Match 'read-only'
+                    $results.Success | Should-Be $false
+                    $results.Error | Should-MatchString 'read-only'
                 }
             }
             finally
@@ -371,18 +371,18 @@ Describe 'Convert-LineEnding Integration Tests' {
 
             # Source files should be converted
             $mainJsContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:SourceCodeDir -ChildPath 'main.js'))
-            $mainJsContent | Should -Not -Match "`r"
+            $mainJsContent | Should-NotMatchString "`r"
 
             $utilsTsContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:SourceCodeDir -ChildPath 'utils.ts'))
-            $utilsTsContent | Should -Not -Match "`r"
+            $utilsTsContent | Should-NotMatchString "`r"
 
             # Test files should be converted (not in dist, not minified)
             $testJsContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:TestsDir -ChildPath 'main.test.js'))
-            $testJsContent | Should -Not -Match "`r"
+            $testJsContent | Should-NotMatchString "`r"
 
             # Minified files should be excluded
             $minJsContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:DistDir -ChildPath 'bundle.min.js'))
-            $minJsContent | Should -Match "`r"  # Should still have CRLF
+            $minJsContent | Should-MatchString "`r"  # Should still have CRLF
         }
 
         It 'Should handle multiple exclude patterns effectively' {
@@ -405,18 +405,18 @@ Describe 'Convert-LineEnding Integration Tests' {
 
             # Only main source files should be converted
             $mainJsContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:SourceCodeDir -ChildPath 'main.js'))
-            $mainJsContent | Should -Not -Match "`r"
+            $mainJsContent | Should-NotMatchString "`r"
 
             $utilsTsContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:SourceCodeDir -ChildPath 'utils.ts'))
-            $utilsTsContent | Should -Not -Match "`r"
+            $utilsTsContent | Should-NotMatchString "`r"
 
             # Test files should be excluded
             $testJsContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:TestsDir -ChildPath 'main.test.js'))
-            $testJsContent | Should -Match "`r"  # Should still have CRLF
+            $testJsContent | Should-MatchString "`r"  # Should still have CRLF
 
             # Dist files should be excluded
             $minJsContent = [System.IO.File]::ReadAllText((Join-Path -Path $script:DistDir -ChildPath 'bundle.min.js'))
-            $minJsContent | Should -Match "`r"  # Should still have CRLF
+            $minJsContent | Should-MatchString "`r"  # Should still have CRLF
         }
     }
 
@@ -461,30 +461,30 @@ Describe 'Convert-LineEnding Integration Tests' {
 
             # Check files that should have had newlines added
             $noEndingResult = $results | Where-Object { $_.FilePath -like '*no-ending.txt' }
-            $noEndingResult.EndingNewlineAdded | Should -Be $true
+            $noEndingResult.EndingNewlineAdded | Should-Be $true
 
             $singleLineResult = $results | Where-Object { $_.FilePath -like '*single-line.txt' }
-            $singleLineResult.EndingNewlineAdded | Should -Be $true
+            $singleLineResult.EndingNewlineAdded | Should-Be $true
 
             $subNoEndingResult = $results | Where-Object { $_.FilePath -like '*sub-no-ending.js' }
-            $subNoEndingResult.EndingNewlineAdded | Should -Be $true
+            $subNoEndingResult.EndingNewlineAdded | Should-Be $true
 
             # Check files that should NOT have had newlines added
             $withEndingResult = $results | Where-Object { $_.FilePath -like '*with-ending.txt' }
-            $withEndingResult.EndingNewlineAdded | Should -Be $false
+            $withEndingResult.EndingNewlineAdded | Should-Be $false
 
             $subWithEndingResult = $results | Where-Object { $_.FilePath -like '*sub-with-ending.js' }
-            $subWithEndingResult.EndingNewlineAdded | Should -Be $false
+            $subWithEndingResult.EndingNewlineAdded | Should-Be $false
 
             # Verify file contents
             $noEndingContent = [System.IO.File]::ReadAllText($script:NoEndingFile)
-            $noEndingContent | Should -Be "Line 1`nLine 2 no ending`n"
+            $noEndingContent | Should-Be "Line 1`nLine 2 no ending`n"
 
             $withEndingContent = [System.IO.File]::ReadAllText($script:WithEndingFile)
-            $withEndingContent | Should -Be "Line 1`nLine 2`n"
+            $withEndingContent | Should-Be "Line 1`nLine 2`n"
 
             $singleLineContent = [System.IO.File]::ReadAllText($script:SingleLineFile)
-            $singleLineContent | Should -Be "Single line content`n"
+            $singleLineContent | Should-Be "Single line content`n"
         }
 
         It 'Should work with file filtering and EnsureEndingNewline' {
@@ -500,20 +500,20 @@ Describe 'Convert-LineEnding Integration Tests' {
             $results = Convert-LineEnding -Path $script:EndingTestDir -LineEnding 'LF' -EnsureEndingNewline -Recurse -Include '*.js' -PassThru
 
             # Should only process .js files
-            $results | Should -HaveCount 2
-            $results | ForEach-Object { $_.FilePath | Should -Match '\.js$' }
+            $results | Should-BeCollection -Count 2
+            $results | ForEach-Object { $_.FilePath | Should-MatchString '\.js$' }
 
             # Check that the .js file without ending newline was processed
             $jsNoEndingResult = $results | Where-Object { $_.FilePath -like '*sub-no-ending.js' }
-            $jsNoEndingResult.EndingNewlineAdded | Should -Be $true
+            $jsNoEndingResult.EndingNewlineAdded | Should-Be $true
 
             # Check that the .js file with ending newline was not modified for newline
             $jsWithEndingResult = $results | Where-Object { $_.FilePath -like '*sub-with-ending.js' }
-            $jsWithEndingResult.EndingNewlineAdded | Should -Be $false
+            $jsWithEndingResult.EndingNewlineAdded | Should-Be $false
 
             # Verify non-.js files were not processed (should still not end with newline)
             $finalNoEndingContent = [System.IO.File]::ReadAllText($script:NoEndingFile)
-            $finalNoEndingContent | Should -Not -Match ([char]10 + '$')  # Should still not end with newline
+            $finalNoEndingContent | Should-NotMatchString ([char]10 + '$')  # Should still not end with newline
         }
 
         It 'Should show correct information in WhatIf mode with EnsureEndingNewline' {
@@ -526,7 +526,7 @@ Describe 'Convert-LineEnding Integration Tests' {
 
             # File should not be modified
             $contentAfter = [System.IO.File]::ReadAllText($script:NoEndingFile)
-            $contentAfter | Should -Be $content  # Should be unchanged
+            $contentAfter | Should-Be $content  # Should be unchanged
         }
 
         It 'Should work correctly with encoding conversion and ending newline' {
@@ -538,18 +538,18 @@ Describe 'Convert-LineEnding Integration Tests' {
             $result = Convert-LineEnding -Path $testFile -LineEnding 'LF' -Encoding 'UTF8BOM' -EnsureEndingNewline -PassThru
 
             # Should have both encoding change and ending newline added
-            $result.EncodingChanged | Should -Be $true
-            $result.EndingNewlineAdded | Should -Be $true
+            $result.EncodingChanged | Should-Be $true
+            $result.EndingNewlineAdded | Should-Be $true
 
             # Verify BOM was added
             $bytes = [System.IO.File]::ReadAllBytes($testFile)
-            $bytes[0] | Should -Be 0xEF
-            $bytes[1] | Should -Be 0xBB
-            $bytes[2] | Should -Be 0xBF
+            $bytes[0] | Should-Be 0xEF
+            $bytes[1] | Should-Be 0xBB
+            $bytes[2] | Should-Be 0xBF
 
             # Verify content and ending newline
             $content = [System.IO.File]::ReadAllText($testFile)
-            $content | Should -Be "Test content with café`n"
+            $content | Should-Be "Test content with café`n"
         }
 
         It 'Should handle large number of files efficiently with EnsureEndingNewline' {
@@ -576,17 +576,17 @@ Describe 'Convert-LineEnding Integration Tests' {
             $results = Convert-LineEnding -Path $manyFilesDir -LineEnding 'LF' -EnsureEndingNewline -Recurse -PassThru
 
             # Should have processed all files
-            $results | Should -HaveCount $fileCount
+            $results | Should-BeCollection -Count $fileCount
 
             # Files without ending newlines should have had them added
             $filesWithNewlineAdded = $results | Where-Object EndingNewlineAdded
-            $filesWithNewlineAdded | Should -HaveCount ($fileCount / 2)  # Half the files
+            $filesWithNewlineAdded | Should-BeCollection -Count ($fileCount / 2)  # Half the files
 
             # Verify all files now end with newlines
             foreach ($file in $filesCreated)
             {
                 $content = [System.IO.File]::ReadAllText($file)
-                $content | Should -Match "`n$"
+                $content | Should-MatchString "`n$"
             }
         }
 
@@ -599,15 +599,15 @@ Describe 'Convert-LineEnding Integration Tests' {
 
             $result = Convert-LineEnding -Path $attributeTestFile -LineEnding 'LF' -EnsureEndingNewline -PassThru
 
-            $result.EndingNewlineAdded | Should -Be $true
-            $result.Success | Should -Be $true
+            $result.EndingNewlineAdded | Should-Be $true
+            $result.Success | Should-Be $true
 
             # Verify content was modified correctly
             $content = [System.IO.File]::ReadAllText($attributeTestFile)
-            $content | Should -Be "Test content`n"
+            $content | Should-Be "Test content`n"
 
             # File should still exist and be accessible
-            Test-Path $attributeTestFile | Should -Be $true
+            Test-Path $attributeTestFile | Should-Be $true
         }
     }
 
@@ -639,7 +639,7 @@ Describe 'Convert-LineEnding Integration Tests' {
 
             # Should have results for all files
             $results | Should -Not -BeNullOrEmpty
-            $results | Should -HaveCount 3
+            $results | Should-BeCollection -Count 3
 
             # Platform detection logic
             if ($PSVersionTable.PSVersion.Major -lt 6)
@@ -655,11 +655,11 @@ Describe 'Convert-LineEnding Integration Tests' {
             $results | ForEach-Object {
                 if ($script:IsWindowsPlatform)
                 {
-                    $_.LineEnding | Should -Be 'CRLF'
+                    $_.LineEnding | Should-Be 'CRLF'
                 }
                 else
                 {
-                    $_.LineEnding | Should -Be 'LF'
+                    $_.LineEnding | Should-Be 'LF'
                 }
             }
         }
@@ -673,7 +673,7 @@ Describe 'Convert-LineEnding Integration Tests' {
             $result = Convert-LineEnding -Path $script:MixedFile -PassThru
 
             $result | Should -Not -BeNullOrEmpty
-            $result.Skipped | Should -Be $false
+            $result.Skipped | Should-Be $false
 
             # Platform detection
             if ($PSVersionTable.PSVersion.Major -lt 6)
@@ -687,17 +687,17 @@ Describe 'Convert-LineEnding Integration Tests' {
 
             if ($script:IsWindowsPlatform)
             {
-                $result.LineEnding | Should -Be 'CRLF'
+                $result.LineEnding | Should-Be 'CRLF'
                 # Verify file content has CRLF
                 $finalContent = [System.IO.File]::ReadAllText($script:MixedFile)
-                $finalContent | Should -Match "`r`n"
+                $finalContent | Should-MatchString "`r`n"
             }
             else
             {
-                $result.LineEnding | Should -Be 'LF'
+                $result.LineEnding | Should-Be 'LF'
                 # Verify file content has only LF
                 $finalContent = [System.IO.File]::ReadAllText($script:MixedFile)
-                $finalContent | Should -Not -Match "`r"
+                $finalContent | Should-NotMatchString "`r"
             }
         }
 
@@ -716,15 +716,15 @@ Describe 'Convert-LineEnding Integration Tests' {
             {
                 # On Windows, CRLF file should be skipped when using Auto
                 $result = Convert-LineEnding -Path $script:CrlfFile -PassThru
-                $result.Skipped | Should -Be $true
-                $result.LineEnding | Should -Be 'CRLF'
+                $result.Skipped | Should-Be $true
+                $result.LineEnding | Should-Be 'CRLF'
             }
             else
             {
                 # On Unix/Linux/macOS, LF file should be skipped when using Auto
                 $result = Convert-LineEnding -Path $script:LfFile -PassThru
-                $result.Skipped | Should -Be $true
-                $result.LineEnding | Should -Be 'LF'
+                $result.Skipped | Should-Be $true
+                $result.LineEnding | Should-Be 'LF'
             }
         }
     }
@@ -810,9 +810,9 @@ Describe 'Convert-LineEnding Integration Tests' {
             $result = Convert-LineEnding -Path $singleTestFile -LineEnding 'LF' -PreserveTimestamps -PassThru
 
             # Verify the file was converted successfully
-            $result.Success | Should -Be $true
-            $result.Converted | Should -Be $true
-            $result.Skipped | Should -Be $false
+            $result.Success | Should-Be $true
+            $result.Converted | Should-Be $true
+            $result.Skipped | Should-Be $false
 
             # Verify timestamps were preserved
             $newFileInfo = Get-Item $singleTestFile
@@ -822,13 +822,13 @@ Describe 'Convert-LineEnding Integration Tests' {
 
             # Use platform-appropriate tolerance: Windows NTFS can have different precision than APFS/ext4
             $tolerance = if ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) { 2 } else { 0.1 }
-            $creationDiff | Should -BeLessThan $tolerance -Because 'Creation time should be preserved'
-            $writeDiff | Should -BeLessThan $tolerance -Because 'Last write time should be preserved'
+            $creationDiff | Should-BeLessThan $tolerance -Because 'Creation time should be preserved'
+            $writeDiff | Should-BeLessThan $tolerance -Because 'Last write time should be preserved'
 
             # Verify content was actually converted
             $afterBytes = [System.IO.File]::ReadAllBytes($singleTestFile)
             $hasCarriageReturn = $afterBytes -contains 13
-            $hasCarriageReturn | Should -Be $false -Because 'File should not contain CR bytes after LF conversion'
+            $hasCarriageReturn | Should-Be $false -Because 'File should not contain CR bytes after LF conversion'
 
             # Clean up
             Remove-Item $singleTestFile -Force -ErrorAction SilentlyContinue
@@ -851,18 +851,18 @@ Describe 'Convert-LineEnding Integration Tests' {
             $result = Convert-LineEnding -Path $singleTestFile -LineEnding 'LF' -PassThru
 
             # Verify the file was converted
-            $result.Success | Should -Be $true
-            $result.Converted | Should -Be $true
+            $result.Success | Should-Be $true
+            $result.Converted | Should-Be $true
 
             # Verify timestamps were NOT preserved (should be current time)
             $newFileInfo = Get-Item $singleTestFile
             $currentTime = Get-Date
 
             # Timestamps should be recent (within last 30 seconds)
-            ($currentTime - $newFileInfo.LastWriteTime).TotalSeconds | Should -BeLessThan 30 -Because 'Last write time should be current when not preserving timestamps'
+            ($currentTime - $newFileInfo.LastWriteTime).TotalSeconds | Should-BeLessThan 30 -Because 'Last write time should be current when not preserving timestamps'
 
             # Should not be the original past time
-            $newFileInfo.LastWriteTime | Should -Not -Be $pastTime -Because 'Timestamp should have changed when PreserveTimestamps is not specified'
+            $newFileInfo.LastWriteTime | Should-NotBe $pastTime -Because 'Timestamp should have changed when PreserveTimestamps is not specified'
 
             # Clean up
             Remove-Item $singleTestFile -Force -ErrorAction SilentlyContinue
@@ -901,7 +901,7 @@ Describe 'Convert-LineEnding Integration Tests' {
                     break
                 }
             }
-            $hasCrLf | Should -Be $true -Because 'CRLF test file should actually contain CRLF bytes'
+            $hasCrLf | Should-Be $true -Because 'CRLF test file should actually contain CRLF bytes'
 
             # LF file should contain standalone LF (0A) without preceding CR
             $hasStandaloneLf = $false
@@ -918,7 +918,7 @@ Describe 'Convert-LineEnding Integration Tests' {
                     }
                 }
             }
-            $hasStandaloneLf | Should -Be $true -Because 'LF test file should actually contain standalone LF bytes'
+            $hasStandaloneLf | Should-Be $true -Because 'LF test file should actually contain standalone LF bytes'
 
             # Set past timestamps on both files
             $pastTime = (Get-Date).AddDays(-7)
@@ -936,8 +936,8 @@ Describe 'Convert-LineEnding Integration Tests' {
             $convertedResults = @($results | Where-Object { $_.Converted -eq $true })
             $skippedResults = @($results | Where-Object { $_.Skipped -eq $true })
 
-            $convertedResults.Count | Should -Be 1 -Because 'One file should have been converted from CRLF to LF'
-            $skippedResults.Count | Should -Be 1 -Because 'One file should have been skipped (already LF)'
+            $convertedResults.Count | Should-Be 1 -Because 'One file should have been converted from CRLF to LF'
+            $skippedResults.Count | Should-Be 1 -Because 'One file should have been skipped (already LF)'
 
             # Both files should have preserved timestamps when -PreserveTimestamps is specified
             $allResults = @($convertedResults) + @($skippedResults)
@@ -950,8 +950,8 @@ Describe 'Convert-LineEnding Integration Tests' {
 
                 # Use platform-appropriate tolerance: Windows NTFS can have different precision than APFS/ext4
                 $tolerance = if ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) { 2 } else { 0.1 }
-                $creationDiff | Should -BeLessThan $tolerance -Because 'Timestamps should be preserved when -PreserveTimestamps is specified'
-                $writeDiff | Should -BeLessThan $tolerance -Because 'Timestamps should be preserved when -PreserveTimestamps is specified'
+                $creationDiff | Should-BeLessThan $tolerance -Because 'Timestamps should be preserved when -PreserveTimestamps is specified'
+                $writeDiff | Should-BeLessThan $tolerance -Because 'Timestamps should be preserved when -PreserveTimestamps is specified'
             }
 
             # Clean up

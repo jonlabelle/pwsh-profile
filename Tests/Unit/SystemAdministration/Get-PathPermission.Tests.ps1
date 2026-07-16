@@ -65,68 +65,68 @@ Describe 'Get-PathPermission' {
     It 'is available as a function' {
         $command = Get-Command -Name 'Get-PathPermission' -ErrorAction SilentlyContinue
         $command | Should -Not -BeNullOrEmpty
-        $command.CommandType | Should -Be 'Function'
+        $command.CommandType | Should-Be 'Function'
     }
 
     It 'has a Recurse switch parameter' {
         $command = Get-Command -Name 'Get-PathPermission' -ErrorAction SilentlyContinue
-        $command.Parameters['Recurse'].SwitchParameter | Should -BeTrue
+        $command.Parameters['Recurse'].SwitchParameter | Should-BeTruthy
     }
 
     It 'returns permission details for a file path' {
         $result = Get-PathPermission -Path $script:RegularFile
 
         $result | Should -Not -BeNullOrEmpty
-        $result.PSObject.Properties.Name | Should -Contain 'Path'
-        $result.PSObject.Properties.Name | Should -Contain 'ItemType'
-        $result.PSObject.Properties.Name | Should -Contain 'Permissions'
-        $result.PSObject.Properties.Name | Should -Contain 'Octal'
-        $result.Path | Should -Be ([System.IO.Path]::GetFullPath($script:RegularFile))
+        $result.PSObject.Properties.Name | Should-ContainCollection 'Path'
+        $result.PSObject.Properties.Name | Should-ContainCollection 'ItemType'
+        $result.PSObject.Properties.Name | Should-ContainCollection 'Permissions'
+        $result.PSObject.Properties.Name | Should-ContainCollection 'Octal'
+        $result.Path | Should-Be ([System.IO.Path]::GetFullPath($script:RegularFile))
     }
 
     It 'supports pipeline input for multiple paths' {
         $results = @($script:RegularFile, $script:SampleDirectory) | Get-PathPermission
 
-        @($results).Count | Should -Be 2
-        @($results.Path) | Should -Contain ([System.IO.Path]::GetFullPath($script:RegularFile))
-        @($results.Path) | Should -Contain ([System.IO.Path]::GetFullPath($script:SampleDirectory))
+        @($results).Count | Should-Be 2
+        @($results.Path) | Should-ContainCollection ([System.IO.Path]::GetFullPath($script:RegularFile))
+        @($results.Path) | Should-ContainCollection ([System.IO.Path]::GetFullPath($script:SampleDirectory))
     }
 
     It 'supports wildcard expansion with -Path' {
         $wildcardPath = Join-Path -Path $script:TestDir -ChildPath 'wild-*.txt'
         $results = @(Get-PathPermission -Path $wildcardPath)
 
-        $results.Count | Should -Be 2
-        @($results.Path) | Should -Contain ([System.IO.Path]::GetFullPath($script:WildcardMatchFile1))
-        @($results.Path) | Should -Contain ([System.IO.Path]::GetFullPath($script:WildcardMatchFile2))
+        $results.Count | Should-Be 2
+        @($results.Path) | Should-ContainCollection ([System.IO.Path]::GetFullPath($script:WildcardMatchFile1))
+        @($results.Path) | Should-ContainCollection ([System.IO.Path]::GetFullPath($script:WildcardMatchFile2))
     }
 
     It 'supports literal paths containing wildcard characters' {
         $result = Get-PathPermission -LiteralPath $script:LiteralWildcardFile
 
         $result | Should -Not -BeNullOrEmpty
-        $result.InputPath | Should -Be $script:LiteralWildcardFile
-        $result.Path | Should -Be ([System.IO.Path]::GetFullPath($script:LiteralWildcardFile))
+        $result.InputPath | Should-Be $script:LiteralWildcardFile
+        $result.Path | Should-Be ([System.IO.Path]::GetFullPath($script:LiteralWildcardFile))
     }
 
     It 'recurses into directory contents with -Path -Recurse' {
         $results = @(Get-PathPermission -Path $script:SampleDirectory -Recurse)
 
-        $results.Count | Should -Be 4
-        @($results.Path) | Should -Contain ([System.IO.Path]::GetFullPath($script:SampleDirectory))
-        @($results.Path) | Should -Contain ([System.IO.Path]::GetFullPath($script:ChildFile))
-        @($results.Path) | Should -Contain ([System.IO.Path]::GetFullPath($script:NestedDirectory))
-        @($results.Path) | Should -Contain ([System.IO.Path]::GetFullPath($script:NestedFile))
+        $results.Count | Should-Be 4
+        @($results.Path) | Should-ContainCollection ([System.IO.Path]::GetFullPath($script:SampleDirectory))
+        @($results.Path) | Should-ContainCollection ([System.IO.Path]::GetFullPath($script:ChildFile))
+        @($results.Path) | Should-ContainCollection ([System.IO.Path]::GetFullPath($script:NestedDirectory))
+        @($results.Path) | Should-ContainCollection ([System.IO.Path]::GetFullPath($script:NestedFile))
     }
 
     It 'recurses into directory contents with -LiteralPath -Recurse' {
         $results = @(Get-PathPermission -LiteralPath $script:SampleDirectory -Recurse)
 
-        $results.Count | Should -Be 4
-        @($results.Path) | Should -Contain ([System.IO.Path]::GetFullPath($script:SampleDirectory))
-        @($results.Path) | Should -Contain ([System.IO.Path]::GetFullPath($script:ChildFile))
-        @($results.Path) | Should -Contain ([System.IO.Path]::GetFullPath($script:NestedDirectory))
-        @($results.Path) | Should -Contain ([System.IO.Path]::GetFullPath($script:NestedFile))
+        $results.Count | Should-Be 4
+        @($results.Path) | Should-ContainCollection ([System.IO.Path]::GetFullPath($script:SampleDirectory))
+        @($results.Path) | Should-ContainCollection ([System.IO.Path]::GetFullPath($script:ChildFile))
+        @($results.Path) | Should-ContainCollection ([System.IO.Path]::GetFullPath($script:NestedDirectory))
+        @($results.Path) | Should-ContainCollection ([System.IO.Path]::GetFullPath($script:NestedFile))
     }
 
     It 'writes an error for missing paths and continues processing' {
@@ -134,9 +134,9 @@ Describe 'Get-PathPermission' {
         $errors = $null
         $results = @($script:RegularFile, $missingPath) | Get-PathPermission -ErrorAction SilentlyContinue -ErrorVariable errors
 
-        @($results).Count | Should -Be 1
-        @($errors).Count | Should -BeGreaterThan 0
-        $errors[0].FullyQualifiedErrorId | Should -Match '^PathNotFound'
+        @($results).Count | Should-Be 1
+        @($errors).Count | Should-BeGreaterThan 0
+        $errors[0].FullyQualifiedErrorId | Should-MatchString '^PathNotFound'
     }
 
     It 'writes an error for non-filesystem providers' {
@@ -144,19 +144,19 @@ Describe 'Get-PathPermission' {
         $result = Get-PathPermission -Path 'Variable:\PSVersionTable' -ErrorAction SilentlyContinue -ErrorVariable errors
 
         $result | Should -BeNullOrEmpty
-        @($errors).Count | Should -BeGreaterThan 0
-        $errors[0].FullyQualifiedErrorId | Should -Match '^UnsupportedProvider'
+        @($errors).Count | Should-BeGreaterThan 0
+        $errors[0].FullyQualifiedErrorId | Should-MatchString '^UnsupportedProvider'
     }
 
     Context 'Unix-style permission output' -Skip:$script:SkipUnixContext {
         It 'returns symbolic and octal values on Unix platforms' {
             $result = Get-PathPermission -Path $script:RegularFile
 
-            $result.Symbolic | Should -Match '^[-dlcbps][rwxstST-]{9}$'
-            $result.Permissions | Should -Match '^[rwxstST-]{9}$'
-            $result.Octal | Should -Match '^[0-7]{3}$'
-            $result.OctalWithSpecial | Should -Match '^[0-7]{4}$'
-            $result.FullOctal | Should -Match '^[0-7]+$'
+            $result.Symbolic | Should-MatchString '^[-dlcbps][rwxstST-]{9}$'
+            $result.Permissions | Should-MatchString '^[rwxstST-]{9}$'
+            $result.Octal | Should-MatchString '^[0-7]{3}$'
+            $result.OctalWithSpecial | Should-MatchString '^[0-7]{4}$'
+            $result.FullOctal | Should-MatchString '^[0-7]+$'
             $result.Owner | Should -Not -BeNullOrEmpty
             $result.Group | Should -Not -BeNullOrEmpty
         }
@@ -169,11 +169,11 @@ Describe 'Get-PathPermission' {
 
             $result = Get-PathPermission -Path $script:RegularFile
 
-            $result.Octal | Should -Be $expectedOctal
-            $result.Permissions | Should -Be $expectedPermissions
-            $result.OwnerPermissions | Should -Be $expectedPermissions.Substring(0, 3)
-            $result.GroupPermissions | Should -Be $expectedPermissions.Substring(3, 3)
-            $result.OtherPermissions | Should -Be $expectedPermissions.Substring(6, 3)
+            $result.Octal | Should-Be $expectedOctal
+            $result.Permissions | Should-Be $expectedPermissions
+            $result.OwnerPermissions | Should-Be $expectedPermissions.Substring(0, 3)
+            $result.GroupPermissions | Should-Be $expectedPermissions.Substring(3, 3)
+            $result.OtherPermissions | Should-Be $expectedPermissions.Substring(6, 3)
         }
     }
 
@@ -185,7 +185,7 @@ Describe 'Get-PathPermission' {
             $result.OctalWithSpecial | Should -BeNullOrEmpty
             $result.FullOctal | Should -BeNullOrEmpty
             $result.Owner | Should -Not -BeNullOrEmpty
-            $result.PSObject.Properties.Name | Should -Contain 'AccessSummary'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'AccessSummary'
         }
     }
 }

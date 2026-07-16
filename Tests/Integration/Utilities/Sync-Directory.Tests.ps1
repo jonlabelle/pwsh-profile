@@ -50,10 +50,10 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
                 $Result = Sync-Directory -Source $Source -Destination $Dest
 
                 # Verify
-                $Result.Success | Should -BeTrue
-                Test-Path (Join-Path -Path $Dest -ChildPath 'file1.txt') | Should -BeTrue
-                Test-Path (Join-Path -Path $Dest -ChildPath 'file2.txt') | Should -BeTrue
-                Get-Content (Join-Path -Path $Dest -ChildPath 'file1.txt') | Should -Be 'File 1 content'
+                $Result.Success | Should-BeTruthy
+                Test-Path (Join-Path -Path $Dest -ChildPath 'file1.txt') | Should-BeTruthy
+                Test-Path (Join-Path -Path $Dest -ChildPath 'file2.txt') | Should-BeTruthy
+                Get-Content (Join-Path -Path $Dest -ChildPath 'file1.txt') | Should-Be 'File 1 content'
             }
             finally
             {
@@ -81,10 +81,10 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
                 $Result = Sync-Directory -Source $Source -Destination $Dest
 
                 # Verify
-                $Result.Success | Should -BeTrue
-                Test-Path (Join-Path -Path $Dest -ChildPath 'root.txt') | Should -BeTrue
-                Test-Path (Join-Path -Path (Join-Path -Path $Dest -ChildPath 'subdir1') -ChildPath 'level1.txt') | Should -BeTrue
-                Test-Path (Join-Path -Path (Join-Path -Path (Join-Path -Path $Dest -ChildPath 'subdir1') -ChildPath 'subdir2') -ChildPath 'level2.txt') | Should -BeTrue
+                $Result.Success | Should-BeTruthy
+                Test-Path (Join-Path -Path $Dest -ChildPath 'root.txt') | Should-BeTruthy
+                Test-Path (Join-Path -Path (Join-Path -Path $Dest -ChildPath 'subdir1') -ChildPath 'level1.txt') | Should-BeTruthy
+                Test-Path (Join-Path -Path (Join-Path -Path (Join-Path -Path $Dest -ChildPath 'subdir1') -ChildPath 'subdir2') -ChildPath 'level2.txt') | Should-BeTruthy
             }
             finally
             {
@@ -108,9 +108,9 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
                 $Result = Sync-Directory -Source $Source -Destination $Dest
 
                 # Verify - both tools should preserve empty directories
-                $Result.Success | Should -BeTrue
-                Test-Path (Join-Path -Path $Dest -ChildPath 'empty-subdir') | Should -BeTrue
-                Test-Path (Join-Path -Path $Dest -ChildPath 'file.txt') | Should -BeTrue
+                $Result.Success | Should-BeTruthy
+                Test-Path (Join-Path -Path $Dest -ChildPath 'empty-subdir') | Should-BeTruthy
+                Test-Path (Join-Path -Path $Dest -ChildPath 'file.txt') | Should-BeTruthy
             }
             finally
             {
@@ -132,7 +132,7 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
                 'Original content' | Out-File (Join-Path -Path $Source -ChildPath 'file1.txt')
 
                 $Result1 = Sync-Directory -Source $Source -Destination $Dest
-                $Result1.Success | Should -BeTrue
+                $Result1.Success | Should-BeTruthy
 
                 # Modify source and add new file
                 Start-Sleep -Seconds 1 # Ensure timestamp difference (rsync uses seconds)
@@ -142,11 +142,11 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
 
                 # Second sync
                 $Result2 = Sync-Directory -Source $Source -Destination $Dest
-                $Result2.Success | Should -BeTrue
+                $Result2.Success | Should-BeTruthy
 
                 # Verify both files exist with correct content
-                Get-Content (Join-Path -Path $Dest -ChildPath 'file1.txt') | Should -Be 'Modified content'
-                Get-Content (Join-Path -Path $Dest -ChildPath 'file2.txt') | Should -Be 'New file'
+                Get-Content (Join-Path -Path $Dest -ChildPath 'file1.txt') | Should-Be 'Modified content'
+                Get-Content (Join-Path -Path $Dest -ChildPath 'file2.txt') | Should-Be 'New file'
             }
             finally
             {
@@ -175,9 +175,9 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
                 $Result = Sync-Directory -Source $Source -Destination $Dest -Delete
 
                 # Verify
-                $Result.Success | Should -BeTrue
-                Test-Path (Join-Path -Path $Dest -ChildPath 'keep.txt') | Should -BeTrue
-                Test-Path (Join-Path -Path $Dest -ChildPath 'delete.txt') | Should -BeFalse
+                $Result.Success | Should-BeTruthy
+                Test-Path (Join-Path -Path $Dest -ChildPath 'keep.txt') | Should-BeTruthy
+                Test-Path (Join-Path -Path $Dest -ChildPath 'delete.txt') | Should-BeFalsy
             }
             finally
             {
@@ -203,9 +203,9 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
                 $Result = Sync-Directory -Source $Source -Destination $Dest
 
                 # Verify both files exist
-                $Result.Success | Should -BeTrue
-                Test-Path (Join-Path -Path $Dest -ChildPath 'source.txt') | Should -BeTrue
-                Test-Path (Join-Path -Path $Dest -ChildPath 'extra.txt') | Should -BeTrue
+                $Result.Success | Should-BeTruthy
+                Test-Path (Join-Path -Path $Dest -ChildPath 'source.txt') | Should-BeTruthy
+                Test-Path (Join-Path -Path $Dest -ChildPath 'extra.txt') | Should-BeTruthy
             }
             finally
             {
@@ -232,10 +232,10 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
                 $Result = Sync-Directory -Source $Source -Destination $Dest -ExcludeFiles '*.log', '*.tmp'
 
                 # Verify
-                $Result.Success | Should -BeTrue
-                Test-Path (Join-Path -Path $Dest -ChildPath 'include.txt') | Should -BeTrue
-                Test-Path (Join-Path -Path $Dest -ChildPath 'exclude.log') | Should -BeFalse
-                Test-Path (Join-Path -Path $Dest -ChildPath 'temp.tmp') | Should -BeFalse
+                $Result.Success | Should-BeTruthy
+                Test-Path (Join-Path -Path $Dest -ChildPath 'include.txt') | Should-BeTruthy
+                Test-Path (Join-Path -Path $Dest -ChildPath 'exclude.log') | Should-BeFalsy
+                Test-Path (Join-Path -Path $Dest -ChildPath 'temp.tmp') | Should-BeFalsy
             }
             finally
             {
@@ -263,9 +263,9 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
                 $Result = Sync-Directory -Source $Source -Destination $Dest -ExcludeDirectories 'node_modules'
 
                 # Verify
-                $Result.Success | Should -BeTrue
-                Test-Path (Join-Path -Path $Dest -ChildPath 'include-dir') | Should -BeTrue
-                Test-Path (Join-Path -Path $Dest -ChildPath 'node_modules') | Should -BeFalse
+                $Result.Success | Should-BeTruthy
+                Test-Path (Join-Path -Path $Dest -ChildPath 'include-dir') | Should-BeTruthy
+                Test-Path (Join-Path -Path $Dest -ChildPath 'node_modules') | Should-BeFalsy
             }
             finally
             {
@@ -287,8 +287,8 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
 
                 $Result = Sync-Directory -Source $Source -Destination $Dest
 
-                $Result.Success | Should -BeTrue
-                Test-Path (Join-Path -Path $Dest -ChildPath 'file with spaces.txt') | Should -BeTrue
+                $Result.Success | Should-BeTruthy
+                Test-Path (Join-Path -Path $Dest -ChildPath 'file with spaces.txt') | Should-BeTruthy
             }
             finally
             {
@@ -314,8 +314,8 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
 
                 $Result = Sync-Directory -Source $Source -Destination $Dest
 
-                $Result.Success | Should -BeTrue
-                (Get-ChildItem -Path $Dest -File).Count | Should -Be 50
+                $Result.Success | Should-BeTruthy
+                (Get-ChildItem -Path $Dest -File).Count | Should-Be 50
             }
             finally
             {
@@ -331,7 +331,7 @@ Describe 'Sync-Directory Integration Tests' -Tag 'Integration' {
             $Dest = Join-Path -Path $script:TestRoot -ChildPath 'error-dest'
 
             { Sync-Directory -Source $NonExistent -Destination $Dest -ErrorAction Stop } |
-            Should -Throw '*does not exist*'
+            Should-Throw '*does not exist*'
         }
     }
 }

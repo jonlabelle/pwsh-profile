@@ -96,37 +96,37 @@ Describe 'Invoke-DockerTests.ps1' -Tag 'Unit' {
 
     It 'passes timing summary options through to Invoke-Tests.ps1' {
         $output = & $script:PowerShellExecutable -NoProfile -File $script:FakeProject.InvokeDockerTestsPath -TestType Unit -OutputFormat Normal -ShowTimingSummary -TimingSummaryTop 5 -TimingSummaryTitle 'Docker timings' -TimingSummaryOutputPath 'docker-timings.md' 2>&1
-        $LASTEXITCODE | Should -Be 0
-        ($output -join [Environment]::NewLine) | Should -Match '=== Running PSScriptAnalyzer ==='
-        ($output -join [Environment]::NewLine) | Should -Match '=== Running Pester tests ==='
+        $LASTEXITCODE | Should-Be 0
+        ($output -join [Environment]::NewLine) | Should-MatchString '=== Running PSScriptAnalyzer ==='
+        ($output -join [Environment]::NewLine) | Should-MatchString '=== Running Pester tests ==='
 
         $invokeTestsRecord = Get-Content -LiteralPath $script:FakeProject.InvokeTestsRecordPath -Raw | ConvertFrom-Json
-        $invokeTestsRecord.TestType | Should -Be 'Unit'
-        $invokeTestsRecord.OutputFormat | Should -Be 'Normal'
-        $invokeTestsRecord.ShowTimingSummary | Should -BeTrue
-        $invokeTestsRecord.TimingSummaryTop | Should -Be 5
-        $invokeTestsRecord.TimingSummaryTitle | Should -Be 'Docker timings'
-        $invokeTestsRecord.TimingSummaryOutputPath | Should -Be 'docker-timings.md'
-        $invokeTestsRecord.WorkingDirectory | Should -Be $script:FakeProject.RootPath
+        $invokeTestsRecord.TestType | Should-Be 'Unit'
+        $invokeTestsRecord.OutputFormat | Should-Be 'Normal'
+        $invokeTestsRecord.ShowTimingSummary | Should-BeTruthy
+        $invokeTestsRecord.TimingSummaryTop | Should-Be 5
+        $invokeTestsRecord.TimingSummaryTitle | Should-Be 'Docker timings'
+        $invokeTestsRecord.TimingSummaryOutputPath | Should-Be 'docker-timings.md'
+        $invokeTestsRecord.WorkingDirectory | Should-Be $script:FakeProject.RootPath
     }
 
     It 'keeps the timing summary disabled by default' {
         $null = & $script:PowerShellExecutable -NoProfile -File $script:FakeProject.InvokeDockerTestsPath
-        $LASTEXITCODE | Should -Be 0
+        $LASTEXITCODE | Should-Be 0
 
         $invokeTestsRecord = Get-Content -LiteralPath $script:FakeProject.InvokeTestsRecordPath -Raw | ConvertFrom-Json
-        $invokeTestsRecord.TestType | Should -Be 'All'
-        $invokeTestsRecord.OutputFormat | Should -Be 'Detailed'
-        $invokeTestsRecord.ShowTimingSummary | Should -BeFalse
-        $invokeTestsRecord.TimingSummaryTop | Should -Be 10
-        $invokeTestsRecord.TimingSummaryTitle | Should -Be 'Pester timing summary'
-        $invokeTestsRecord.TimingSummaryOutputPath | Should -Be ''
+        $invokeTestsRecord.TestType | Should-Be 'All'
+        $invokeTestsRecord.OutputFormat | Should-Be 'Detailed'
+        $invokeTestsRecord.ShowTimingSummary | Should-BeFalsy
+        $invokeTestsRecord.TimingSummaryTop | Should-Be 10
+        $invokeTestsRecord.TimingSummaryTitle | Should-Be 'Pester timing summary'
+        $invokeTestsRecord.TimingSummaryOutputPath | Should-Be ''
     }
 
     It 'propagates the Invoke-Tests.ps1 exit code' {
         $env:FAKE_INVOKE_TESTS_EXIT_CODE = '7'
 
         $null = & $script:PowerShellExecutable -NoProfile -File $script:FakeProject.InvokeDockerTestsPath
-        $LASTEXITCODE | Should -Be 7
+        $LASTEXITCODE | Should-Be 7
     }
 }

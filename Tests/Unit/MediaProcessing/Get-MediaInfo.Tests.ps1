@@ -12,28 +12,28 @@ Describe 'Get-MediaInfo' -Tag 'Unit' {
     Context 'Parameter Validation' {
         It 'Should have Recurse parameter' {
             $command = Get-Command Get-MediaInfo
-            $command.Parameters.ContainsKey('Recurse') | Should -Be $true
+            $command.Parameters.ContainsKey('Recurse') | Should-Be $true
         }
 
         It 'Should not have NoRecursion parameter' {
             $command = Get-Command Get-MediaInfo
-            $command.Parameters.ContainsKey('NoRecursion') | Should -Be $false
+            $command.Parameters.ContainsKey('NoRecursion') | Should-Be $false
         }
 
         It 'Should have Exclude parameter' {
             $command = Get-Command Get-MediaInfo
-            $command.Parameters.ContainsKey('Exclude') | Should -Be $true
+            $command.Parameters.ContainsKey('Exclude') | Should-Be $true
         }
 
         It 'Should have Filter parameter' {
             $command = Get-Command Get-MediaInfo
-            $command.Parameters.ContainsKey('Filter') | Should -Be $true
+            $command.Parameters.ContainsKey('Filter') | Should-Be $true
         }
 
         It 'Should have default Path value' {
             $command = Get-Command Get-MediaInfo
             $pathParam = $command.Parameters['Path']
-            $pathParam.Attributes.Where({$_ -is [System.Management.Automation.ParameterAttribute]})[0].Mandatory | Should -Be $false
+            $pathParam.Attributes.Where({$_ -is [System.Management.Automation.ParameterAttribute]})[0].Mandatory | Should-Be $false
         }
     }
 
@@ -42,13 +42,13 @@ Describe 'Get-MediaInfo' -Tag 'Unit' {
             $command = Get-Command Get-MediaInfo
             $excludeParam = $command.Parameters['Exclude']
             # The default value should be set in the param block
-            $excludeParam.ParameterType.Name | Should -Be 'String[]'
+            $excludeParam.ParameterType.Name | Should-Be 'String[]'
         }
 
         It 'Should have Filter as String array parameter' {
             $command = Get-Command Get-MediaInfo
             $filterParam = $command.Parameters['Filter']
-            $filterParam.ParameterType.Name | Should -Be 'String[]'
+            $filterParam.ParameterType.Name | Should-Be 'String[]'
         }
 
         It 'Should default Filter to the supported media file patterns' {
@@ -68,7 +68,7 @@ Describe 'Get-MediaInfo' -Tag 'Unit' {
 
             foreach ($filter in $expectedFilters)
             {
-                $defaultValueText | Should -Match ([regex]::Escape("'$filter'"))
+                $defaultValueText | Should-MatchString ([regex]::Escape("'$filter'"))
             }
         }
 
@@ -109,10 +109,10 @@ Describe 'Get-MediaInfo' -Tag 'Unit' {
             $results = @(Get-MediaInfo -Path $testRoot -Filter '*.avi', '*.mp4' -FFprobePath $script:fakeFFprobePath)
             $resultNames = @($results.Name)
 
-            $resultNames.Count | Should -Be 2
-            $resultNames | Should -Contain 'video1.mp4'
-            $resultNames | Should -Contain 'video2.avi'
-            $resultNames | Should -Not -Contain 'video2.mkv'
+            $resultNames.Count | Should-Be 2
+            $resultNames | Should-ContainCollection 'video1.mp4'
+            $resultNames | Should-ContainCollection 'video2.avi'
+            $resultNames | Should-NotContainCollection 'video2.mkv'
         }
 
         It 'Should search non-recursively by default' -Skip:(-not $script:HasFFprobe) {

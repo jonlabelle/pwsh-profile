@@ -25,7 +25,7 @@ Describe 'Update-DockerImage' {
         It 'Throws when Docker is not available' {
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
 
-            { Update-DockerImage } | Should -Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
+            { Update-DockerImage } | Should-Throw 'Docker is not installed or not available in PATH. Please install Docker and try again.'
         }
     }
 
@@ -56,9 +56,9 @@ Describe 'Update-DockerImage' {
 
             $result = Update-DockerImage
 
-            $result.Eligible | Should -Be 1
-            $result.Results.Count | Should -Be 1
-            $result.Results[0].Image | Should -Be 'nginx:latest'
+            $result.Eligible | Should-Be 1
+            $result.Results.Count | Should-Be 1
+            $result.Results[0].Image | Should-Be 'nginx:latest'
         }
 
         It 'Skips images with <none> tag' -Skip:(-not $script:dockerAvailable) {
@@ -72,8 +72,8 @@ Describe 'Update-DockerImage' {
 
             $result = Update-DockerImage
 
-            $result.Eligible | Should -Be 1
-            $result.Results[0].Image | Should -Be 'alpine:3.18'
+            $result.Eligible | Should-Be 1
+            $result.Results[0].Image | Should-Be 'alpine:3.18'
         }
 
         It 'Deduplicates images with the same Repository:Tag' -Skip:(-not $script:dockerAvailable) {
@@ -88,7 +88,7 @@ Describe 'Update-DockerImage' {
 
             $result = Update-DockerImage
 
-            $result.Eligible | Should -Be 2
+            $result.Eligible | Should-Be 2
         }
 
         It 'Applies -Filter to select matching images only' -Skip:(-not $script:dockerAvailable) {
@@ -103,8 +103,8 @@ Describe 'Update-DockerImage' {
 
             $result = Update-DockerImage -Filter 'mcr.microsoft.com/*'
 
-            $result.Eligible | Should -Be 2
-            $result.Results | ForEach-Object { $_.Image | Should -BeLike 'mcr.microsoft.com/*' }
+            $result.Eligible | Should-Be 2
+            $result.Results | ForEach-Object { $_.Image | Should-BeLikeString 'mcr.microsoft.com/*' }
         }
 
         It 'Applies -ExcludeFilter to skip matching images' -Skip:(-not $script:dockerAvailable) {
@@ -119,8 +119,8 @@ Describe 'Update-DockerImage' {
 
             $result = Update-DockerImage -ExcludeFilter '*dev*'
 
-            $result.Eligible | Should -Be 2
-            $result.Results | ForEach-Object { $_.Image | Should -Not -BeLike '*dev*' }
+            $result.Eligible | Should-Be 2
+            $result.Results | ForEach-Object { $_.Image | Should-NotBeLikeString '*dev*' }
         }
     }
 
@@ -153,11 +153,11 @@ Describe 'Update-DockerImage' {
 
             $result = Update-DockerImage
 
-            $result.Updated | Should -Be 1
-            $result.Failed | Should -Be 0
-            $result.Results[0].Status | Should -Be 'Success'
-            $result.Results[0].Message | Should -Be 'Updated'
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*nginx:latest*' } -Times 1
+            $result.Updated | Should-Be 1
+            $result.Failed | Should-Be 0
+            $result.Results[0].Status | Should-Be 'Success'
+            $result.Results[0].Message | Should-Be 'Updated'
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*nginx:latest*' } -Times 1
         }
 
         It 'Detects already up-to-date images' -Skip:(-not $script:dockerAvailable) {
@@ -172,9 +172,9 @@ Describe 'Update-DockerImage' {
 
             $result = Update-DockerImage
 
-            $result.Updated | Should -Be 1
-            $result.Results[0].Status | Should -Be 'Success'
-            $result.Results[0].Message | Should -Be 'Already up to date'
+            $result.Updated | Should-Be 1
+            $result.Results[0].Status | Should-Be 'Success'
+            $result.Results[0].Message | Should-Be 'Already up to date'
         }
 
         It 'Reports failure when pull fails' -Skip:(-not $script:dockerAvailable) {
@@ -188,8 +188,8 @@ Describe 'Update-DockerImage' {
 
             $result = Update-DockerImage
 
-            $result.Failed | Should -Be 1
-            $result.Results[0].Status | Should -Be 'Failed'
+            $result.Failed | Should-Be 1
+            $result.Results[0].Status | Should-Be 'Failed'
         }
 
         It 'Returns correct summary counts' -Skip:(-not $script:dockerAvailable) {
@@ -204,11 +204,11 @@ Describe 'Update-DockerImage' {
 
             $result = Update-DockerImage
 
-            $result.TotalImages | Should -Be 3
-            $result.Eligible | Should -Be 2
-            $result.Updated | Should -Be 2
-            $result.Skipped | Should -Be 1
-            $result.Failed | Should -Be 0
+            $result.TotalImages | Should-Be 3
+            $result.Eligible | Should-Be 2
+            $result.Updated | Should-Be 2
+            $result.Skipped | Should-Be 1
+            $result.Failed | Should-Be 0
         }
 
         It 'Returns empty results when no images exist' -Skip:(-not $script:dockerAvailable) {
@@ -216,11 +216,11 @@ Describe 'Update-DockerImage' {
 
             $result = Update-DockerImage
 
-            $result.TotalImages | Should -Be 0
-            $result.Eligible | Should -Be 0
-            $result.Updated | Should -Be 0
-            $result.Failed | Should -Be 0
-            $result.Results.Count | Should -Be 0
+            $result.TotalImages | Should-Be 0
+            $result.Eligible | Should-Be 0
+            $result.Updated | Should-Be 0
+            $result.Failed | Should-Be 0
+            $result.Results.Count | Should-Be 0
         }
     }
 
@@ -258,11 +258,11 @@ Describe 'Update-DockerImage' {
 
             $result = Update-DockerImage -PruneDanglingImages
 
-            $result.DanglingPruneRequested | Should -BeTrue
-            $result.DanglingPruneSucceeded | Should -BeTrue
+            $result.DanglingPruneRequested | Should-BeTruthy
+            $result.DanglingPruneSucceeded | Should-BeTruthy
             $result.DanglingPruneError | Should -BeNullOrEmpty
 
-            Should -Invoke -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' -and $args -contains '--force' } -Times 1
+            Should-Invoke -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' -and $args -contains '--force' } -Times 1
         }
 
         It 'Does not prune dangling images by default' -Skip:(-not $script:dockerAvailable) {
@@ -280,11 +280,11 @@ Describe 'Update-DockerImage' {
 
             $result = Update-DockerImage
 
-            $result.DanglingPruneRequested | Should -BeFalse
-            $result.DanglingPruneSucceeded | Should -BeFalse
-            $result.DanglingPruneError | Should -Be $null
+            $result.DanglingPruneRequested | Should-BeFalsy
+            $result.DanglingPruneSucceeded | Should-BeFalsy
+            $result.DanglingPruneError | Should-Be $null
 
-            Should -Invoke -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' } -Times 0 -Exactly
+            Should-Invoke -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' } -Times 0 -Exactly
         }
 
         It 'Honors -WhatIf and skips dangling prune' -Skip:(-not $script:dockerAvailable) {
@@ -301,12 +301,12 @@ Describe 'Update-DockerImage' {
 
             $result = Update-DockerImage -PruneDanglingImages -WhatIf
 
-            $result.DanglingPruneRequested | Should -BeTrue
-            $result.DanglingPruneSucceeded | Should -BeFalse
-            $result.DanglingPruneError | Should -Be $null
+            $result.DanglingPruneRequested | Should-BeTruthy
+            $result.DanglingPruneSucceeded | Should-BeFalsy
+            $result.DanglingPruneError | Should-Be $null
 
-            Should -Invoke -CommandName docker -ParameterFilter { $args[0] -eq 'pull' } -Times 0 -Exactly
-            Should -Invoke -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' } -Times 0 -Exactly
+            Should-Invoke -CommandName docker -ParameterFilter { $args[0] -eq 'pull' } -Times 0 -Exactly
+            Should-Invoke -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' } -Times 0 -Exactly
         }
     }
 }

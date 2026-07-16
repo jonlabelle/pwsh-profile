@@ -10,82 +10,82 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
     Context 'Parameter Validation' {
         It 'Should have Recurse parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters.ContainsKey('Recurse') | Should -Be $true
+            $command.Parameters.ContainsKey('Recurse') | Should-Be $true
         }
 
         It 'Should have Exclude parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters.ContainsKey('Exclude') | Should -Be $true
+            $command.Parameters.ContainsKey('Exclude') | Should-Be $true
         }
 
         It 'Should have Filter parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters.ContainsKey('Filter') | Should -Be $true
+            $command.Parameters.ContainsKey('Filter') | Should-Be $true
         }
 
         It 'Should have ExifToolPath parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters.ContainsKey('ExifToolPath') | Should -Be $true
+            $command.Parameters.ContainsKey('ExifToolPath') | Should-Be $true
         }
 
         It 'Should have ImageMagickPath parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters.ContainsKey('ImageMagickPath') | Should -Be $true
+            $command.Parameters.ContainsKey('ImageMagickPath') | Should-Be $true
         }
 
         It 'Should have OutputPath parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters.ContainsKey('OutputPath') | Should -Be $true
+            $command.Parameters.ContainsKey('OutputPath') | Should-Be $true
         }
 
         It 'Should have Force parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters.ContainsKey('Force') | Should -Be $true
+            $command.Parameters.ContainsKey('Force') | Should-Be $true
         }
 
         It 'Should have KeepBackup parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters.ContainsKey('KeepBackup') | Should -Be $true
+            $command.Parameters.ContainsKey('KeepBackup') | Should-Be $true
         }
 
         It 'Should have PreserveFileTimestamp parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters.ContainsKey('PreserveFileTimestamp') | Should -Be $true
+            $command.Parameters.ContainsKey('PreserveFileTimestamp') | Should-Be $true
         }
 
         It 'Should have ResetFileTimestamp parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters.ContainsKey('ResetFileTimestamp') | Should -Be $true
+            $command.Parameters.ContainsKey('ResetFileTimestamp') | Should-Be $true
         }
 
         It 'Should have ResetTimestamp parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters.ContainsKey('ResetTimestamp') | Should -Be $true
+            $command.Parameters.ContainsKey('ResetTimestamp') | Should-Be $true
         }
 
         It 'Should have Paranoid parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters.ContainsKey('Paranoid') | Should -Be $true
+            $command.Parameters.ContainsKey('Paranoid') | Should-Be $true
         }
 
         It 'Should have Verify parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters.ContainsKey('Verify') | Should -Be $true
+            $command.Parameters.ContainsKey('Verify') | Should-Be $true
         }
 
         It 'Should have PassThru parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters.ContainsKey('PassThru') | Should -Be $true
+            $command.Parameters.ContainsKey('PassThru') | Should-Be $true
         }
 
         It 'Should scope Force to OutputPath parameter sets' {
             $command = Get-Command Remove-ImageMetadata
             $parameterSetNames = @($command.Parameters['Force'].ParameterSets.Keys)
 
-            $parameterSetNames | Should -Contain 'Output'
-            $parameterSetNames | Should -Contain 'OutputParanoid'
-            $parameterSetNames | Should -Not -Contain 'InPlace'
-            $parameterSetNames | Should -Not -Contain 'InPlaceParanoid'
+            $parameterSetNames | Should-ContainCollection 'Output'
+            $parameterSetNames | Should-ContainCollection 'OutputParanoid'
+            $parameterSetNames | Should-NotContainCollection 'InPlace'
+            $parameterSetNames | Should-NotContainCollection 'InPlaceParanoid'
         }
 
         It 'Should keep timestamp preservation and reset options in separate parameter sets' {
@@ -100,8 +100,8 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $command = Get-Command Remove-ImageMetadata
             $parameterSetNames = @($command.Parameters['ResetTimestamp'].ParameterSets.Keys)
 
-            $parameterSetNames | Should -Contain 'InPlaceResetTimestamp'
-            $parameterSetNames | Should -Contain 'OutputResetTimestamp'
+            $parameterSetNames | Should-ContainCollection 'InPlaceResetTimestamp'
+            $parameterSetNames | Should-ContainCollection 'OutputResetTimestamp'
             @($parameterSetNames | Where-Object { $_ -notmatch 'ResetTimestamp$' }) | Should -BeNullOrEmpty
         }
 
@@ -109,8 +109,8 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $command = Get-Command Remove-ImageMetadata
             $parameterSetNames = @($command.Parameters['ImageMagickPath'].ParameterSets.Keys)
 
-            $parameterSetNames | Should -Contain 'InPlaceParanoid'
-            $parameterSetNames | Should -Contain 'OutputParanoid'
+            $parameterSetNames | Should-ContainCollection 'InPlaceParanoid'
+            $parameterSetNames | Should-ContainCollection 'OutputParanoid'
             @($parameterSetNames | Where-Object { $_ -notmatch 'Paranoid' }) | Should -BeNullOrEmpty
         }
     }
@@ -118,37 +118,37 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
     Context 'Parameter Types' {
         It 'Should have Recurse as Switch parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters['Recurse'].ParameterType.Name | Should -Be 'SwitchParameter'
+            $command.Parameters['Recurse'].ParameterType.Name | Should-Be 'SwitchParameter'
         }
 
         It 'Should have Exclude as String array parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters['Exclude'].ParameterType.Name | Should -Be 'String[]'
+            $command.Parameters['Exclude'].ParameterType.Name | Should-Be 'String[]'
         }
 
         It 'Should have Filter as String array parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters['Filter'].ParameterType.Name | Should -Be 'String[]'
+            $command.Parameters['Filter'].ParameterType.Name | Should-Be 'String[]'
         }
 
         It 'Should have OutputPath as String parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters['OutputPath'].ParameterType.Name | Should -Be 'String'
+            $command.Parameters['OutputPath'].ParameterType.Name | Should-Be 'String'
         }
 
         It 'Should have ResetTimestamp as DateTime parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters['ResetTimestamp'].ParameterType.Name | Should -Be 'DateTime'
+            $command.Parameters['ResetTimestamp'].ParameterType.Name | Should-Be 'DateTime'
         }
 
         It 'Should have Paranoid as Switch parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters['Paranoid'].ParameterType.Name | Should -Be 'SwitchParameter'
+            $command.Parameters['Paranoid'].ParameterType.Name | Should-Be 'SwitchParameter'
         }
 
         It 'Should have Verify as Switch parameter' {
             $command = Get-Command Remove-ImageMetadata
-            $command.Parameters['Verify'].ParameterType.Name | Should -Be 'SwitchParameter'
+            $command.Parameters['Verify'].ParameterType.Name | Should-Be 'SwitchParameter'
         }
 
         It 'Should support pipeline input for Path' {
@@ -162,9 +162,9 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
         It 'Should include file and directory aliases for Path' {
             $command = Get-Command Remove-ImageMetadata
             $aliases = $command.Parameters['Path'].Aliases
-            $aliases | Should -Contain 'FilePath'
-            $aliases | Should -Contain 'FullName'
-            $aliases | Should -Contain 'Directory'
+            $aliases | Should-ContainCollection 'FilePath'
+            $aliases | Should-ContainCollection 'FullName'
+            $aliases | Should-ContainCollection 'Directory'
         }
     }
 
@@ -194,11 +194,11 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             }
 
             $exception | Should -Not -BeNullOrEmpty
-            $exception.Message | Should -BeLike '*Install-PlatformPackage.ps1*'
-            $exception.Message | Should -Not -BeLike '*. ./Functions/SystemAdministration/Install-PlatformPackage.ps1*'
-            $exception.Message | Should -Not -BeLike '*-PackageManager*'
-            $exception.Message | Should -Not -BeLike '*-Id*'
-            $exception.Message | Should -Match '(-Name OliverBetz\.ExifTool|-Name exiftool|-Name libimage-exiftool-perl)'
+            $exception.Message | Should-BeLikeString '*Install-PlatformPackage.ps1*'
+            $exception.Message | Should-NotBeLikeString '*. ./Functions/SystemAdministration/Install-PlatformPackage.ps1*'
+            $exception.Message | Should-NotBeLikeString '*-PackageManager*'
+            $exception.Message | Should-NotBeLikeString '*-Id*'
+            $exception.Message | Should-MatchString '(-Name OliverBetz\.ExifTool|-Name exiftool|-Name libimage-exiftool-perl)'
         }
 
         It 'Should include an Install-PlatformPackage hint when ImageMagick is missing' {
@@ -215,11 +215,11 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             }
 
             $exception | Should -Not -BeNullOrEmpty
-            $exception.Message | Should -BeLike '*Install-PlatformPackage.ps1*'
-            $exception.Message | Should -Not -BeLike '*. ./Functions/SystemAdministration/Install-PlatformPackage.ps1*'
-            $exception.Message | Should -Not -BeLike '*-PackageManager*'
-            $exception.Message | Should -Not -BeLike '*-Id*'
-            $exception.Message | Should -Match '(-Name ImageMagick\.ImageMagick|-Name imagemagick)'
+            $exception.Message | Should-BeLikeString '*Install-PlatformPackage.ps1*'
+            $exception.Message | Should-NotBeLikeString '*. ./Functions/SystemAdministration/Install-PlatformPackage.ps1*'
+            $exception.Message | Should-NotBeLikeString '*-PackageManager*'
+            $exception.Message | Should-NotBeLikeString '*-Id*'
+            $exception.Message | Should-MatchString '(-Name ImageMagick\.ImageMagick|-Name imagemagick)'
         }
     }
 
@@ -243,35 +243,35 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
         It 'Should process image files non-recursively by default with -WhatIf' {
             $results = Remove-ImageMetadata -Path $script:TestRoot -WhatIf -PassThru
 
-            $results.Count | Should -Be 2
-            $results.Name | Should -Contain 'photo1.jpg'
-            $results.Name | Should -Contain 'photo2.png'
-            $results.Name | Should -Not -Contain 'photo3.jpg'
-            $results.Name | Should -Not -Contain 'notes.txt'
+            $results.Count | Should-Be 2
+            $results.Name | Should-ContainCollection 'photo1.jpg'
+            $results.Name | Should-ContainCollection 'photo2.png'
+            $results.Name | Should-NotContainCollection 'photo3.jpg'
+            $results.Name | Should-NotContainCollection 'notes.txt'
         }
 
         It 'Should process recursively when -Recurse is specified with -WhatIf' {
             $results = Remove-ImageMetadata -Path $script:TestRoot -Recurse -WhatIf -PassThru
 
-            $results.Name | Should -Contain 'photo1.jpg'
-            $results.Name | Should -Contain 'photo2.png'
-            $results.Name | Should -Contain 'photo3.jpg'
+            $results.Name | Should-ContainCollection 'photo1.jpg'
+            $results.Name | Should-ContainCollection 'photo2.png'
+            $results.Name | Should-ContainCollection 'photo3.jpg'
         }
 
         It 'Should respect Exclude parameter when using -Recurse with -WhatIf' {
             $results = Remove-ImageMetadata -Path $script:TestRoot -Recurse -Exclude @('.git', 'SubDirectory') -WhatIf -PassThru
 
-            $results.Name | Should -Contain 'photo1.jpg'
-            $results.Name | Should -Contain 'photo2.png'
-            $results.Name | Should -Not -Contain 'photo3.jpg'
-            $results.Name | Should -Not -Contain 'hidden.jpg'
+            $results.Name | Should-ContainCollection 'photo1.jpg'
+            $results.Name | Should-ContainCollection 'photo2.png'
+            $results.Name | Should-NotContainCollection 'photo3.jpg'
+            $results.Name | Should-NotContainCollection 'hidden.jpg'
         }
 
         It 'Should honor custom Filter with -WhatIf' {
             $results = @(Remove-ImageMetadata -Path $script:TestRoot -Filter '*.png' -WhatIf -PassThru)
 
-            $results.Count | Should -Be 1
-            $results.Name | Should -Contain 'photo2.png'
+            $results.Count | Should-Be 1
+            $results.Name | Should-ContainCollection 'photo2.png'
         }
     }
 
@@ -301,15 +301,15 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
 
             $null = Remove-ImageMetadata -Path $missingPath -WhatIf -ErrorAction SilentlyContinue -ErrorVariable errors
 
-            $errors.Count | Should -BeGreaterThan 0
-            $errors[0].Exception.Message | Should -BeLike '*not found*'
+            $errors.Count | Should-BeGreaterThan 0
+            $errors[0].Exception.Message | Should-BeLikeString '*not found*'
         }
 
         It 'Should accept image files from the pipeline with -WhatIf' {
             $result = @(Get-Item -LiteralPath $script:TestImageFile | Remove-ImageMetadata -WhatIf -PassThru)
 
-            $result.Count | Should -Be 1
-            $result.Name | Should -Be 'single-photo.jpg'
+            $result.Count | Should-Be 1
+            $result.Name | Should-Be 'single-photo.jpg'
         }
     }
 
@@ -365,30 +365,30 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $result = Remove-ImageMetadata -Path $script:SampleImage -ExifToolPath $script:FakeExifToolPath -PassThru
 
             $loggedArgs = Get-Content -LiteralPath $script:ExifToolLogPath
-            $loggedArgs | Should -Contain '-overwrite_original'
-            $loggedArgs | Should -Contain '-all='
-            $loggedArgs | Should -Contain $script:SampleImage
-            $result.MetadataRemoved | Should -Be $true
-            $result.ExitCode | Should -Be 0
-            $result.RemovedMetadataTagCount | Should -Be 2
-            $result.RemovedMetadataTags | Should -Contain 'EXIF:Make'
-            $result.RemovedMetadataTags | Should -Contain 'XMP:Title'
+            $loggedArgs | Should-ContainCollection '-overwrite_original'
+            $loggedArgs | Should-ContainCollection '-all='
+            $loggedArgs | Should-ContainCollection $script:SampleImage
+            $result.MetadataRemoved | Should-Be $true
+            $result.ExitCode | Should-Be 0
+            $result.RemovedMetadataTagCount | Should-Be 2
+            $result.RemovedMetadataTags | Should-ContainCollection 'EXIF:Make'
+            $result.RemovedMetadataTags | Should-ContainCollection 'XMP:Title'
         }
 
         It 'Should omit overwrite_original when KeepBackup is specified' {
             Remove-ImageMetadata -Path $script:SampleImage -ExifToolPath $script:FakeExifToolPath -KeepBackup | Out-Null
 
             $loggedArgs = Get-Content -LiteralPath $script:ExifToolLogPath
-            $loggedArgs | Should -Not -Contain '-overwrite_original'
-            $loggedArgs | Should -Contain '-all='
+            $loggedArgs | Should-NotContainCollection '-overwrite_original'
+            $loggedArgs | Should-ContainCollection '-all='
         }
 
         It 'Should pass -P when PreserveFileTimestamp is specified' {
             Remove-ImageMetadata -Path $script:SampleImage -ExifToolPath $script:FakeExifToolPath -PreserveFileTimestamp | Out-Null
 
             $loggedArgs = Get-Content -LiteralPath $script:ExifToolLogPath
-            $loggedArgs | Should -Contain '-P'
-            $loggedArgs | Should -Contain '-all='
+            $loggedArgs | Should-ContainCollection '-P'
+            $loggedArgs | Should-ContainCollection '-all='
         }
     }
 
@@ -449,12 +449,12 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
         It 'Should write sanitized copies to OutputPath without modifying the source path' {
             $result = Remove-ImageMetadata -Path $script:PrivacySourceImage -OutputPath $script:PrivacyOutputDir -ExifToolPath $script:PrivacyFakeExifToolPath -PassThru
 
-            Test-Path -LiteralPath $script:PrivacyOutputImage | Should -Be $true
-            Test-Path -LiteralPath $script:PrivacySourceImage | Should -Be $true
-            $result.SourcePath | Should -Be $script:PrivacySourceImage
-            $result.Path | Should -Be $script:PrivacyOutputImage
-            $result.OutputCopied | Should -Be $true
-            $result.MetadataRemoved | Should -Be $true
+            Test-Path -LiteralPath $script:PrivacyOutputImage | Should-Be $true
+            Test-Path -LiteralPath $script:PrivacySourceImage | Should-Be $true
+            $result.SourcePath | Should-Be $script:PrivacySourceImage
+            $result.Path | Should-Be $script:PrivacyOutputImage
+            $result.OutputCopied | Should-Be $true
+            $result.MetadataRemoved | Should-Be $true
         }
 
         It 'Should not overwrite an existing OutputPath target unless Force is specified' {
@@ -463,9 +463,9 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
 
             $null = Remove-ImageMetadata -Path $script:PrivacySourceImage -OutputPath $script:PrivacyOutputDir -ExifToolPath $script:PrivacyFakeExifToolPath -PassThru -ErrorAction SilentlyContinue -ErrorVariable errors
 
-            $errors.Count | Should -BeGreaterThan 0
-            $errors[0].Exception.Message | Should -BeLike '*already exists*'
-            Get-Content -LiteralPath $script:PrivacyOutputImage | Should -Be 'existing clean image'
+            $errors.Count | Should-BeGreaterThan 0
+            $errors[0].Exception.Message | Should-BeLikeString '*already exists*'
+            Get-Content -LiteralPath $script:PrivacyOutputImage | Should-Be 'existing clean image'
         }
 
         It 'Should overwrite an existing OutputPath target when Force is specified' {
@@ -474,9 +474,9 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
 
             $result = Remove-ImageMetadata -Path $script:PrivacySourceImage -OutputPath $script:PrivacyOutputDir -ExifToolPath $script:PrivacyFakeExifToolPath -Force -PassThru
 
-            Get-Content -LiteralPath $script:PrivacyOutputImage | Should -Be 'source image bytes'
-            $result.MetadataRemoved | Should -Be $true
-            $result.OutputCopied | Should -Be $true
+            Get-Content -LiteralPath $script:PrivacyOutputImage | Should-Be 'source image bytes'
+            $result.MetadataRemoved | Should-Be $true
+            $result.OutputCopied | Should-Be $true
         }
 
         It 'Should reset filesystem timestamps when ResetFileTimestamp is specified' {
@@ -485,33 +485,33 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $result = Remove-ImageMetadata -Path $script:PrivacySourceImage -OutputPath $script:PrivacyOutputDir -ExifToolPath $script:PrivacyFakeExifToolPath -ResetFileTimestamp -ResetTimestamp $resetTimestamp -PassThru
             $outputFile = Get-Item -LiteralPath $script:PrivacyOutputImage
 
-            $result.TimestampReset | Should -Be $true
-            $outputFile.LastWriteTimeUtc.ToString('o') | Should -Be $resetTimestamp.ToString('o')
+            $result.TimestampReset | Should-Be $true
+            $outputFile.LastWriteTimeUtc.ToString('o') | Should-Be $resetTimestamp.ToString('o')
         }
 
         It 'Should reject conflicting timestamp options' {
             { Remove-ImageMetadata -Path $script:PrivacySourceImage -ExifToolPath $script:PrivacyFakeExifToolPath -PreserveFileTimestamp -ResetFileTimestamp } |
-            Should -Throw
+            Should-Throw
         }
 
         It 'Should re-encode through ImageMagick in Paranoid mode' {
             $result = Remove-ImageMetadata -Path $script:PrivacySourceImage -OutputPath $script:PrivacyOutputDir -ExifToolPath $script:PrivacyFakeExifToolPath -ImageMagickPath $script:PrivacyFakeImageMagickPath -Paranoid -PassThru
 
-            Test-Path -LiteralPath $script:PrivacyOutputImage | Should -Be $true
+            Test-Path -LiteralPath $script:PrivacyOutputImage | Should-Be $true
             $imageMagickArgs = Get-Content -LiteralPath $script:PrivacyImageMagickLogPath
-            $imageMagickArgs | Should -Contain $script:PrivacySourceImage
-            $imageMagickArgs | Should -Contain '-strip'
-            $result.Paranoid | Should -Be $true
-            $result.MetadataRemoved | Should -Be $true
+            $imageMagickArgs | Should-ContainCollection $script:PrivacySourceImage
+            $imageMagickArgs | Should-ContainCollection '-strip'
+            $result.Paranoid | Should-Be $true
+            $result.MetadataRemoved | Should-Be $true
         }
 
         It 'Should re-encode in place through ImageMagick in Paranoid mode without Force' {
             $result = Remove-ImageMetadata -Path $script:PrivacySourceImage -ExifToolPath $script:PrivacyFakeExifToolPath -ImageMagickPath $script:PrivacyFakeImageMagickPath -Paranoid -PassThru
 
-            Get-Content -LiteralPath $script:PrivacySourceImage | Should -Be 're-encoded image bytes'
-            $result.Path | Should -Be $script:PrivacySourceImage
-            $result.Paranoid | Should -Be $true
-            $result.MetadataRemoved | Should -Be $true
+            Get-Content -LiteralPath $script:PrivacySourceImage | Should-Be 're-encoded image bytes'
+            $result.Path | Should-Be $script:PrivacySourceImage
+            $result.Paranoid | Should-Be $true
+            $result.MetadataRemoved | Should-Be $true
         }
 
         It 'Should surface remaining metadata tag values when output-path verification is incomplete' {
@@ -529,13 +529,13 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $result = Remove-ImageMetadata -Path $script:PrivacySourceImage -OutputPath $script:PrivacyOutputDir -ExifToolPath $script:PrivacyFakeExifToolPath -Verify -PassThru
 
             $result | Should -Not -BeNullOrEmpty
-            $result.Verified | Should -Be $false
-            $result.Path | Should -Be $script:PrivacyOutputImage
-            $result.OutputCopied | Should -Be $true
-            $result.RemainingMetadataTags | Should -Contain '[EXIF] Make = Test Camera'
-            $result.RemainingMetadataTags | Should -Contain '[XMP] Title = Private Album'
-            Should -Invoke -CommandName Get-ImageMetadata -Times 1 -Exactly -ParameterFilter { $Path -eq $script:PrivacySourceImage }
-            Should -Invoke -CommandName Get-ImageMetadata -Times 2 -Exactly -ParameterFilter { $Path -eq $script:PrivacyOutputImage }
+            $result.Verified | Should-Be $false
+            $result.Path | Should-Be $script:PrivacyOutputImage
+            $result.OutputCopied | Should-Be $true
+            $result.RemainingMetadataTags | Should-ContainCollection '[EXIF] Make = Test Camera'
+            $result.RemainingMetadataTags | Should-ContainCollection '[XMP] Title = Private Album'
+            Should-Invoke -CommandName Get-ImageMetadata -Times 1 -Exactly -ParameterFilter { $Path -eq $script:PrivacySourceImage }
+            Should-Invoke -CommandName Get-ImageMetadata -Times 2 -Exactly -ParameterFilter { $Path -eq $script:PrivacyOutputImage }
         }
 
         It 'Should surface remaining metadata tag values when in-place verification is incomplete' {
@@ -553,12 +553,12 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $result = Remove-ImageMetadata -Path $script:PrivacySourceImage -ExifToolPath $script:PrivacyFakeExifToolPath -Verify -PassThru
 
             $result | Should -Not -BeNullOrEmpty
-            $result.Verified | Should -Be $false
-            $result.Path | Should -Be $script:PrivacySourceImage
-            $result.OutputCopied | Should -Be $false
-            $result.RemainingMetadataTags | Should -Contain '[GPS] GPSLatitude = 41.88'
-            $result.RemainingMetadataTags | Should -Contain '[IPTC] Keywords = private, home'
-            Should -Invoke -CommandName Get-ImageMetadata -Times 3 -Exactly -ParameterFilter { $Path -eq $script:PrivacySourceImage }
+            $result.Verified | Should-Be $false
+            $result.Path | Should-Be $script:PrivacySourceImage
+            $result.OutputCopied | Should-Be $false
+            $result.RemainingMetadataTags | Should-ContainCollection '[GPS] GPSLatitude = 41.88'
+            $result.RemainingMetadataTags | Should-ContainCollection '[IPTC] Keywords = private, home'
+            Should-Invoke -CommandName Get-ImageMetadata -Times 3 -Exactly -ParameterFilter { $Path -eq $script:PrivacySourceImage }
         }
     }
 }

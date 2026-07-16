@@ -35,38 +35,38 @@ Describe 'Remove-OldFile' {
         It 'Should have mandatory OlderThan parameter' {
             $command = Get-Command Remove-OldFile
             $olderThanParam = $command.Parameters['OlderThan']
-            $olderThanParam.Attributes.Mandatory | Should -Contain $true
+            $olderThanParam.Attributes.Mandatory | Should-ContainCollection $true
         }
 
         It 'Should validate OlderThan is positive integer' {
             $command = Get-Command Remove-OldFile
             $olderThanParam = $command.Parameters['OlderThan']
             $validateRange = $olderThanParam.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateRangeAttribute] }
-            $validateRange.MinRange | Should -Be 1
-            $validateRange.MaxRange | Should -Be ([Int32]::MaxValue)
+            $validateRange.MinRange | Should-Be 1
+            $validateRange.MaxRange | Should-Be ([Int32]::MaxValue)
         }
 
         It 'Should have optional Path parameter with default value' {
             $command = Get-Command Remove-OldFile
             $pathParam = $command.Parameters['Path']
-            $pathParam.Attributes.Mandatory | Should -Not -Contain $true
+            $pathParam.Attributes.Mandatory | Should-NotContainCollection $true
         }
 
         It 'Should accept pipeline input for Path' {
             $command = Get-Command Remove-OldFile
             $pathParam = $command.Parameters['Path']
-            $pathParam.Attributes.ValueFromPipeline | Should -Contain $true
+            $pathParam.Attributes.ValueFromPipeline | Should-ContainCollection $true
         }
 
         It 'Should validate Unit parameter has correct values' {
             $command = Get-Command Remove-OldFile
             $unitParam = $command.Parameters['Unit']
             $validateSet = $unitParam.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }
-            $validateSet.ValidValues | Should -Contain 'Days'
-            $validateSet.ValidValues | Should -Contain 'Hours'
-            $validateSet.ValidValues | Should -Contain 'Months'
-            $validateSet.ValidValues | Should -Contain 'Years'
-            $validateSet.ValidValues.Count | Should -Be 4
+            $validateSet.ValidValues | Should-ContainCollection 'Days'
+            $validateSet.ValidValues | Should-ContainCollection 'Hours'
+            $validateSet.ValidValues | Should-ContainCollection 'Months'
+            $validateSet.ValidValues | Should-ContainCollection 'Years'
+            $validateSet.ValidValues.Count | Should-Be 4
         }
 
         It 'Should have default Unit value of Days' {
@@ -77,15 +77,15 @@ Describe 'Remove-OldFile' {
 
         It 'Should support ShouldProcess (WhatIf/Confirm)' {
             $command = Get-Command Remove-OldFile
-            $command.Parameters.ContainsKey('WhatIf') | Should -Be $true
-            $command.Parameters.ContainsKey('Confirm') | Should -Be $true
+            $command.Parameters.ContainsKey('WhatIf') | Should-Be $true
+            $command.Parameters.ContainsKey('Confirm') | Should-Be $true
         }
 
         It 'Should expose optional Recurse switch' {
             $command = Get-Command Remove-OldFile
             $recurseParam = $command.Parameters['Recurse']
             $recurseParam | Should -Not -BeNullOrEmpty
-            $recurseParam.Attributes.Mandatory | Should -Not -Contain $true
+            $recurseParam.Attributes.Mandatory | Should-NotContainCollection $true
         }
 
         It 'Should have OutputType attribute defined' {
@@ -111,8 +111,8 @@ Describe 'Remove-OldFile' {
             (Get-Item $testFile).LastWriteTime = $oldDate
 
             $result = Remove-OldFile -Path $script:testDir -OlderThan 5 -Unit Days -WhatIf
-            $result.OldestDate | Should -BeOfType [DateTime]
-            $result.OldestDate.Date | Should -Be (Get-Date).AddDays(-5).Date
+            $result.OldestDate | Should-HaveType ([DateTime])
+            $result.OldestDate.Date | Should-Be (Get-Date).AddDays(-5).Date
         }
 
         It 'Should calculate cutoff date for Hours unit' {
@@ -120,11 +120,11 @@ Describe 'Remove-OldFile' {
             'test' | Set-Content -Path $testFile
 
             $result = Remove-OldFile -Path $script:testDir -OlderThan 24 -Unit Hours -WhatIf
-            $result.OldestDate | Should -BeOfType [DateTime]
+            $result.OldestDate | Should-HaveType ([DateTime])
             # Allow small time difference for test execution
             $expectedDate = (Get-Date).AddHours(-24)
-            $result.OldestDate | Should -BeGreaterThan $expectedDate.AddMinutes(-1)
-            $result.OldestDate | Should -BeLessThan $expectedDate.AddMinutes(1)
+            $result.OldestDate | Should-BeGreaterThan $expectedDate.AddMinutes(-1)
+            $result.OldestDate | Should-BeLessThan $expectedDate.AddMinutes(1)
         }
 
         It 'Should calculate cutoff date for Months unit' {
@@ -132,10 +132,10 @@ Describe 'Remove-OldFile' {
             'test' | Set-Content -Path $testFile
 
             $result = Remove-OldFile -Path $script:testDir -OlderThan 3 -Unit Months -WhatIf
-            $result.OldestDate | Should -BeOfType [DateTime]
+            $result.OldestDate | Should-HaveType ([DateTime])
             $expectedDate = (Get-Date).AddMonths(-3)
             # Month calculations can vary by day, so check within reason
-            $result.OldestDate.Date | Should -Be $expectedDate.Date
+            $result.OldestDate.Date | Should-Be $expectedDate.Date
         }
 
         It 'Should calculate cutoff date for Years unit' {
@@ -143,9 +143,9 @@ Describe 'Remove-OldFile' {
             'test' | Set-Content -Path $testFile
 
             $result = Remove-OldFile -Path $script:testDir -OlderThan 1 -Unit Years -WhatIf
-            $result.OldestDate | Should -BeOfType [DateTime]
+            $result.OldestDate | Should-HaveType ([DateTime])
             $expectedDate = (Get-Date).AddYears(-1)
-            $result.OldestDate.Date | Should -Be $expectedDate.Date
+            $result.OldestDate.Date | Should-Be $expectedDate.Date
         }
     }
 
@@ -174,7 +174,7 @@ Describe 'Remove-OldFile' {
         It 'Should handle non-existent path gracefully' {
             $nonExistentPath = Join-Path -Path $TestDrive -ChildPath 'NonExistent'
 
-            { Remove-OldFile -Path $nonExistentPath -OlderThan 1 -ErrorAction Stop } | Should -Throw
+            { Remove-OldFile -Path $nonExistentPath -OlderThan 1 -ErrorAction Stop } | Should-Throw
         }
     }
 
@@ -188,28 +188,28 @@ Describe 'Remove-OldFile' {
             $result = Remove-OldFile -Path $script:testDir -OlderThan 1 -WhatIf
 
             $result | Should -Not -BeNullOrEmpty
-            $result.PSObject.Properties.Name | Should -Contain 'FilesRemoved'
-            $result.PSObject.Properties.Name | Should -Contain 'DirectoriesRemoved'
-            $result.PSObject.Properties.Name | Should -Contain 'TotalSpaceFreed'
-            $result.PSObject.Properties.Name | Should -Contain 'TotalSpaceFreedMB'
-            $result.PSObject.Properties.Name | Should -Contain 'Errors'
-            $result.PSObject.Properties.Name | Should -Contain 'OldestDate'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'FilesRemoved'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'DirectoriesRemoved'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'TotalSpaceFreed'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'TotalSpaceFreedMB'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'Errors'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'OldestDate'
         }
 
         It 'Should initialize counters to zero with WhatIf' {
             $result = Remove-OldFile -Path $script:testDir -OlderThan 1 -WhatIf
 
-            $result.FilesRemoved | Should -Be 0
-            $result.DirectoriesRemoved | Should -Be 0
-            $result.TotalSpaceFreed | Should -Be 0
-            $result.Errors | Should -Be 0
+            $result.FilesRemoved | Should-Be 0
+            $result.DirectoriesRemoved | Should-Be 0
+            $result.TotalSpaceFreed | Should-Be 0
+            $result.Errors | Should-Be 0
         }
 
         It 'Should include OldestDate in summary' {
             $result = Remove-OldFile -Path $script:testDir -OlderThan 7 -Unit Days -WhatIf
 
-            $result.OldestDate | Should -BeOfType [DateTime]
-            $result.OldestDate | Should -BeLessThan (Get-Date)
+            $result.OldestDate | Should-HaveType ([DateTime])
+            $result.OldestDate | Should-BeLessThan (Get-Date)
         }
     }
 
@@ -229,13 +229,13 @@ Describe 'Remove-OldFile' {
 
             Remove-OldFile -Path $script:testDir -OlderThan 7 -WhatIf
 
-            Test-Path $testFile | Should -Be $true
+            Test-Path $testFile | Should-Be $true
         }
 
         It 'Should report zero files removed with WhatIf' {
             $result = Remove-OldFile -Path $script:testDir -OlderThan 7 -WhatIf
 
-            $result.FilesRemoved | Should -Be 0
+            $result.FilesRemoved | Should-Be 0
         }
     }
 
@@ -254,9 +254,9 @@ Describe 'Remove-OldFile' {
 
             $result = Remove-OldFile -Path $root -OlderThan 30 -WhatIf
 
-            $result.FilesRemoved | Should -Be 0
-            Test-Path $rootFile | Should -BeTrue
-            Test-Path $childFile | Should -BeTrue
+            $result.FilesRemoved | Should-Be 0
+            Test-Path $rootFile | Should-BeTruthy
+            Test-Path $childFile | Should-BeTruthy
         }
     }
 
@@ -277,9 +277,9 @@ Describe 'Remove-OldFile' {
 
             $result = Remove-OldFile -Path $root -OlderThan 30 -ExcludeDirectory 'Keep*' -Recurse -Confirm:$false
 
-            $result.FilesRemoved | Should -Be 1
-            Test-Path $keptFile | Should -BeTrue
-            Test-Path $removedFile | Should -BeFalse
+            $result.FilesRemoved | Should-Be 1
+            Test-Path $keptFile | Should-BeTruthy
+            Test-Path $removedFile | Should-BeFalsy
         }
     }
 }

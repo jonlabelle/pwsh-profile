@@ -1,4 +1,4 @@
-﻿#Requires -Modules Pester
+#Requires -Modules Pester
 
 BeforeAll {
     # Suppress progress bars to prevent freezing in non-interactive environments
@@ -25,26 +25,26 @@ Describe 'install.ps1 integration tests' {
             {
                 & $script:installScript -ProfileRoot $profileRoot -RepositoryUrl $script:repoRoot -Verbose:$false
 
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Microsoft.PowerShell_profile.ps1') | Should -BeTrue
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Microsoft.PowerShell_profile.ps1') | Should-BeTruthy
                 $gitConfigPath = Join-Path -Path $profileRoot -ChildPath '.git/config'
-                Test-Path $gitConfigPath | Should -BeTrue
+                Test-Path $gitConfigPath | Should-BeTruthy
                 $gitConfigContent = Get-Content $gitConfigPath -Raw
                 $originMatch = [regex]::Match(
                     $gitConfigContent,
                     '^\s*url\s*=\s*(.+)$',
                     [System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor [System.Text.RegularExpressions.RegexOptions]::Multiline
                 )
-                $originMatch.Success | Should -BeTrue -Because 'git clone should record the remote origin URL'
+                $originMatch.Success | Should-BeTruthy -Because 'git clone should record the remote origin URL'
 
                 $originUrl = [regex]::Unescape($originMatch.Groups[1].Value.Trim())
                 $resolvedOrigin = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($originUrl)
                 $resolvedRepoRoot = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($script:repoRoot)
-                $resolvedOrigin | Should -Be $resolvedRepoRoot
+                $resolvedOrigin | Should-Be $resolvedRepoRoot
 
                 $profileParent = Split-Path -Parent $profileRoot
                 $profileLeaf = Split-Path -Leaf $profileRoot
                 $backupPattern = "$profileLeaf-backup-*"
-                (Get-ChildItem -Path $profileParent -Directory -Filter $backupPattern).Count | Should -Be 1
+                (Get-ChildItem -Path $profileParent -Directory -Filter $backupPattern).Count | Should-Be 1
             }
             finally
             {
@@ -76,25 +76,25 @@ Describe 'install.ps1 integration tests' {
             {
                 & $script:installScript -ProfileRoot $profileRoot -LocalSourcePath $script:repoRoot -Verbose:$false
 
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Microsoft.PowerShell_profile.ps1') | Should -BeTrue
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Microsoft.PowerShell_profile.ps1') | Should-BeTruthy
 
                 foreach ($name in @('Functions/Local', 'Help', 'Modules', 'PSReadLine', 'Scripts'))
                 {
                     $nameDir = Join-Path -Path $profileRoot -ChildPath $name
                     $preservedFile = Join-Path -Path $nameDir -ChildPath 'original.txt'
-                    Test-Path $preservedFile | Should -BeTrue
-                    (Get-Content $preservedFile) | Should -Be "original-$name"
+                    Test-Path $preservedFile | Should-BeTruthy
+                    (Get-Content $preservedFile) | Should-Be "original-$name"
                 }
 
                 $configFile = Join-Path -Path $profileRoot -ChildPath 'powershell.config.json'
-                Test-Path $configFile | Should -BeTrue
-                (Get-Content $configFile -Raw).Trim() | Should -Be '{ "experimentalFeatures": [] }'
+                Test-Path $configFile | Should-BeTruthy
+                (Get-Content $configFile -Raw).Trim() | Should-Be '{ "experimentalFeatures": [] }'
 
                 $profileParent = Split-Path -Parent $profileRoot
                 $profileLeaf = Split-Path -Leaf $profileRoot
                 $backupPattern = "$profileLeaf-backup-*"
                 $backups = Get-ChildItem -Path $profileParent -Directory -Filter $backupPattern
-                $backups.Count | Should -Be 1
+                $backups.Count | Should-Be 1
             }
             finally
             {
@@ -143,15 +143,15 @@ Describe 'install.ps1 integration tests' {
 
                 & $script:installScript -ProfileRoot $profileRoot -LocalSourcePath $sourceRoot -SkipBackup -Verbose:$false
 
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Microsoft.PowerShell_profile.ps1') | Should -BeTrue
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'stale-root.ps1') | Should -BeFalse
-                Test-Path (Join-Path -Path $staleFunctionPath -ChildPath 'stale.ps1') | Should -BeFalse
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Functions/New/new.ps1') | Should -BeTrue
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Microsoft.PowerShell_profile.ps1') | Should-BeTruthy
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'stale-root.ps1') | Should-BeFalsy
+                Test-Path (Join-Path -Path $staleFunctionPath -ChildPath 'stale.ps1') | Should-BeFalsy
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Functions/New/new.ps1') | Should-BeTruthy
 
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Functions/Local/original.ps1') | Should -BeTrue
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Functions/Local/source-only.ps1') | Should -BeFalse
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Modules/UserModule/UserModule.psm1') | Should -BeTrue
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Modules/SourceModule/SourceModule.psm1') | Should -BeFalse
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Functions/Local/original.ps1') | Should-BeTruthy
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Functions/Local/source-only.ps1') | Should-BeFalsy
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Modules/UserModule/UserModule.psm1') | Should-BeTruthy
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Modules/SourceModule/SourceModule.psm1') | Should-BeFalsy
             }
             finally
             {
@@ -221,16 +221,16 @@ Describe 'install.ps1 integration tests' {
 
                 { & $script:installScript -ProfileRoot $profileRoot -LocalSourcePath $sourceRoot -Verbose:$false } | Should -Not -Throw
 
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Microsoft.PowerShell_profile.ps1') | Should -BeTrue
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'stale-root.ps1') | Should -BeFalse
-                Test-Path $lockedModuleFile | Should -BeTrue
-                (Get-Content $lockedModuleFile) | Should -Be 'locked module content'
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Modules/SourceModule/SourceModule.psm1') | Should -BeFalse
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Microsoft.PowerShell_profile.ps1') | Should-BeTruthy
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'stale-root.ps1') | Should-BeFalsy
+                Test-Path $lockedModuleFile | Should-BeTruthy
+                (Get-Content $lockedModuleFile) | Should-Be 'locked module content'
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Modules/SourceModule/SourceModule.psm1') | Should-BeFalsy
 
                 $backup = Get-ChildItem -Path (Split-Path -Parent $profileRoot) -Directory -Filter 'WindowsPowerShell-backup-*' | Select-Object -First 1
                 $backup | Should -Not -BeNullOrEmpty
-                Test-Path (Join-Path -Path $backup.FullName -ChildPath 'stale-root.ps1') | Should -BeTrue
-                Test-Path (Join-Path -Path $backup.FullName -ChildPath 'Modules/PSReadLine/2.3.6/PSReadLine.dll') | Should -BeFalse
+                Test-Path (Join-Path -Path $backup.FullName -ChildPath 'stale-root.ps1') | Should-BeTruthy
+                Test-Path (Join-Path -Path $backup.FullName -ChildPath 'Modules/PSReadLine/2.3.6/PSReadLine.dll') | Should-BeFalsy
             }
             finally
             {
@@ -273,8 +273,8 @@ Describe 'install.ps1 integration tests' {
 
                 & $script:installScript -ProfileRoot $profileRoot -LocalSourcePath $sourceRoot -SkipBackup -SkipPreserveDirectories -Verbose:$false
 
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Microsoft.PowerShell_profile.ps1') | Should -BeTrue
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'fsmonitor--daemon.ipc') | Should -BeFalse
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Microsoft.PowerShell_profile.ps1') | Should-BeTruthy
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'fsmonitor--daemon.ipc') | Should-BeFalsy
             }
             finally
             {
@@ -309,9 +309,9 @@ Describe 'install.ps1 integration tests' {
 
                 & $script:installScript -ProfileRoot $profileRoot -RepositoryUrl $remoteRepo -SkipPreserveDirectories -Verbose:$false
 
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Microsoft.PowerShell_profile.ps1') | Should -BeTrue
-                (Get-Content (Join-Path -Path $profileRoot -ChildPath 'Microsoft.PowerShell_profile.ps1')) | Should -Be '# git remote profile'
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Modules/RemoteModule.psm1') | Should -BeTrue
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Microsoft.PowerShell_profile.ps1') | Should-BeTruthy
+                (Get-Content (Join-Path -Path $profileRoot -ChildPath 'Microsoft.PowerShell_profile.ps1')) | Should-Be '# git remote profile'
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Modules/RemoteModule.psm1') | Should-BeTruthy
             }
             finally
             {
@@ -343,12 +343,12 @@ Describe 'install.ps1 integration tests' {
                 $profileParent = Split-Path -Parent $profileRoot
                 $profileLeaf = Split-Path -Leaf $profileRoot
                 $backupPattern = "$profileLeaf-backup-*"
-                (Get-ChildItem -Path $profileParent -Directory -Filter $backupPattern -ErrorAction SilentlyContinue).Count | Should -Be 0
+                (Get-ChildItem -Path $profileParent -Directory -Filter $backupPattern -ErrorAction SilentlyContinue).Count | Should-Be 0
 
                 foreach ($name in @('Functions/Local', 'Help', 'Modules', 'PSReadLine', 'Scripts'))
                 {
                     $preservedFile = Join-Path -Path (Join-Path -Path $profileRoot -ChildPath $name) -ChildPath 'original.txt'
-                    Test-Path $preservedFile | Should -BeFalse
+                    Test-Path $preservedFile | Should-BeFalsy
                 }
             }
             finally
@@ -370,7 +370,7 @@ Describe 'install.ps1 integration tests' {
 
             try
             {
-                { & $script:installScript -ProfileRoot $profileRoot -RestorePath $missingBackup -Verbose:$false } | Should -Throw
+                { & $script:installScript -ProfileRoot $profileRoot -RestorePath $missingBackup -Verbose:$false } | Should-Throw
             }
             finally
             {
@@ -401,19 +401,19 @@ Describe 'install.ps1 integration tests' {
 
                 # Functions/Local exists in the repo, so check if user files were NOT preserved
                 $funcLocalTestFile = Join-Path -Path (Join-Path -Path $profileRoot -ChildPath 'Functions/Local') -ChildPath 'test.txt'
-                Test-Path $funcLocalTestFile | Should -BeFalse
+                Test-Path $funcLocalTestFile | Should-BeFalsy
 
                 # These directories should be reinstalled fresh (no preserved user files)
                 foreach ($name in @('Help', 'Modules', 'PSReadLine'))
                 {
                     $testFile = Join-Path -Path (Join-Path -Path $profileRoot -ChildPath $name) -ChildPath 'test.txt'
-                    Test-Path $testFile | Should -BeFalse
+                    Test-Path $testFile | Should-BeFalsy
                 }
 
                 $profileParent = Split-Path -Parent $profileRoot
                 $profileLeaf = Split-Path -Leaf $profileRoot
                 $backupPattern = "$profileLeaf-backup-*"
-                (Get-ChildItem -Path $profileParent -Directory -Filter $backupPattern -ErrorAction SilentlyContinue).Count | Should -Be 0
+                (Get-ChildItem -Path $profileParent -Directory -Filter $backupPattern -ErrorAction SilentlyContinue).Count | Should-Be 0
             }
             finally
             {
@@ -450,7 +450,7 @@ Describe 'install.ps1 integration tests' {
 
                 & $script:installScript -ProfileRoot $profileRoot -RepositoryUrl $remoteRepo -SkipBackup -SkipPreserveDirectories -Verbose:$false
 
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'cloned.txt') | Should -BeTrue
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'cloned.txt') | Should-BeTruthy
             }
             finally
             {
@@ -486,19 +486,19 @@ Describe 'install.ps1 integration tests' {
                 & $script:installScript -ProfileRoot $profileRoot -RestorePath $backupRoot -Verbose:$false
 
                 $restoredProfile = Join-Path -Path $profileRoot -ChildPath 'profile.ps1'
-                Test-Path $restoredProfile | Should -BeTrue
-                (Get-Content $restoredProfile) | Should -Be 'restored profile'
+                Test-Path $restoredProfile | Should-BeTruthy
+                (Get-Content $restoredProfile) | Should-Be 'restored profile'
 
                 $modulesFile = Join-Path -Path (Join-Path -Path $profileRoot -ChildPath 'Modules') -ChildPath 'module.psm1'
-                Test-Path $modulesFile | Should -BeTrue
-                (Get-Content (Join-Path -Path $profileRoot -ChildPath 'powershell.config.json') -Raw).Trim() | Should -Be '{ "restored": true }'
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'stale.ps1') | Should -BeFalse
+                Test-Path $modulesFile | Should-BeTruthy
+                (Get-Content (Join-Path -Path $profileRoot -ChildPath 'powershell.config.json') -Raw).Trim() | Should-Be '{ "restored": true }'
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'stale.ps1') | Should-BeFalsy
 
                 # Verify no backup was created
                 $profileParent = Split-Path -Parent $profileRoot
                 $profileLeaf = Split-Path -Leaf $profileRoot
                 $backupPattern = "$profileLeaf-backup-*"
-                (Get-ChildItem -Path $profileParent -Directory -Filter $backupPattern -ErrorAction SilentlyContinue).Count | Should -Be 0
+                (Get-ChildItem -Path $profileParent -Directory -Filter $backupPattern -ErrorAction SilentlyContinue).Count | Should-Be 0
             }
             finally
             {
@@ -528,12 +528,12 @@ Describe 'install.ps1 integration tests' {
                 & $script:installScript -ProfileRoot $profileRoot -RestorePath $backupRoot -BackupPath $explicitBackup -Verbose:$false
 
                 # Verify restore happened
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'restored.ps1') | Should -BeTrue
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'current.ps1') | Should -BeFalse
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'restored.ps1') | Should-BeTruthy
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'current.ps1') | Should-BeFalsy
 
                 # Verify backup was created with the pre-restore content
-                Test-Path (Join-Path -Path $explicitBackup -ChildPath 'current.ps1') | Should -BeTrue
-                (Get-Content (Join-Path -Path $explicitBackup -ChildPath 'current.ps1')) | Should -Be 'current profile'
+                Test-Path (Join-Path -Path $explicitBackup -ChildPath 'current.ps1') | Should-BeTruthy
+                (Get-Content (Join-Path -Path $explicitBackup -ChildPath 'current.ps1')) | Should-Be 'current profile'
             }
             finally
             {
@@ -566,9 +566,9 @@ Describe 'install.ps1 integration tests' {
                 $modulesFile = Join-Path -Path (Join-Path -Path $profileRoot -ChildPath 'Modules') -ChildPath 'original.txt'
                 $helpFile = Join-Path -Path (Join-Path -Path $profileRoot -ChildPath 'Help') -ChildPath 'original.txt'
 
-                Test-Path $scriptsFile | Should -BeTrue
-                Test-Path $modulesFile | Should -BeFalse
-                Test-Path $helpFile | Should -BeFalse
+                Test-Path $scriptsFile | Should-BeTruthy
+                Test-Path $modulesFile | Should-BeFalsy
+                Test-Path $helpFile | Should-BeFalsy
             }
             finally
             {
@@ -589,7 +589,7 @@ Describe 'install.ps1 integration tests' {
 
             try
             {
-                { & $script:installScript -ProfileRoot $profileRoot -RestorePath $missingBackup -Verbose:$false } | Should -Throw
+                { & $script:installScript -ProfileRoot $profileRoot -RestorePath $missingBackup -Verbose:$false } | Should-Throw
             }
             finally
             {
@@ -620,12 +620,12 @@ Describe 'install.ps1 integration tests' {
 
                 $profileParent = Split-Path -Parent $profileRoot
                 $profileLeaf = Split-Path -Leaf $profileRoot
-                (Get-ChildItem -Path $profileParent -Directory -Filter "$profileLeaf-backup-*").Count | Should -Be 0
+                (Get-ChildItem -Path $profileParent -Directory -Filter "$profileLeaf-backup-*").Count | Should-Be 0
 
                 foreach ($name in @('Functions/Local', 'Help', 'Modules', 'PSReadLine', 'Scripts'))
                 {
                     $preservedFile = Join-Path -Path (Join-Path -Path $profileRoot -ChildPath $name) -ChildPath 'keep.txt'
-                    Test-Path $preservedFile | Should -BeFalse
+                    Test-Path $preservedFile | Should-BeFalsy
                 }
             }
             finally
@@ -648,7 +648,7 @@ Describe 'install.ps1 integration tests' {
 
             try
             {
-                Should -Throw -ActualValue { & $script:installScript -ProfileRoot $profileRoot -RestorePath $missingRestore -Verbose:$false }
+                Should-Throw -ScriptBlock { & $script:installScript -ProfileRoot $profileRoot -RestorePath $missingRestore -Verbose:$false }
             }
             finally
             {
@@ -675,13 +675,13 @@ Describe 'install.ps1 integration tests' {
 
                 & $script:installScript -ProfileRoot $profileRoot -LocalSourcePath $sourceRoot -WhatIf -Verbose:$false
 
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'current.ps1') | Should -BeTrue
-                (Get-Content (Join-Path -Path $profileRoot -ChildPath 'current.ps1')) | Should -Be 'current profile'
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'installed.ps1') | Should -BeFalse
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'current.ps1') | Should-BeTruthy
+                (Get-Content (Join-Path -Path $profileRoot -ChildPath 'current.ps1')) | Should-Be 'current profile'
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'installed.ps1') | Should-BeFalsy
 
                 $profileParent = Split-Path -Parent $profileRoot
                 $profileLeaf = Split-Path -Leaf $profileRoot
-                (Get-ChildItem -Path $profileParent -Directory -Filter "$profileLeaf-backup-*" -ErrorAction SilentlyContinue).Count | Should -Be 0
+                (Get-ChildItem -Path $profileParent -Directory -Filter "$profileLeaf-backup-*" -ErrorAction SilentlyContinue).Count | Should-Be 0
             }
             finally
             {
@@ -702,7 +702,7 @@ Describe 'install.ps1 integration tests' {
 
                 & $script:installScript -ProfileRoot $profileRoot -RepositoryUrl $script:repoRoot -SkipBackup -SkipPreserveDirectories -WhatIf -Verbose:$false
 
-                Test-Path -Path $profileRoot | Should -BeFalse
+                Test-Path -Path $profileRoot | Should-BeFalsy
             }
             finally
             {
@@ -728,10 +728,10 @@ Describe 'install.ps1 integration tests' {
 
                 & $script:installScript -ProfileRoot $profileRoot -RestorePath $backupRoot -BackupPath $explicitBackup -WhatIf -Verbose:$false
 
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'current.ps1') | Should -BeTrue
-                (Get-Content (Join-Path -Path $profileRoot -ChildPath 'current.ps1')) | Should -Be 'current profile'
-                Test-Path (Join-Path -Path $profileRoot -ChildPath 'restored.ps1') | Should -BeFalse
-                Test-Path -Path $explicitBackup | Should -BeFalse
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'current.ps1') | Should-BeTruthy
+                (Get-Content (Join-Path -Path $profileRoot -ChildPath 'current.ps1')) | Should-Be 'current profile'
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'restored.ps1') | Should-BeFalsy
+                Test-Path -Path $explicitBackup | Should-BeFalsy
             }
             finally
             {

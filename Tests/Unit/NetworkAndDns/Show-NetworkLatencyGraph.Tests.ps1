@@ -12,16 +12,16 @@ Describe 'Show-NetworkLatencyGraph (Data mode)' {
         $data = @(10, 20, 30, 40, 50)
         $result = Show-NetworkLatencyGraph -Data $data -GraphType 'Sparkline'
 
-        $result | Should -BeOfType 'System.String'
-        $result.Length | Should -BeGreaterThan 0
+        $result | Should-HaveType ([System.String])
+        $result.Length | Should-BeGreaterThan 0
     }
 
     It 'includes stats when -ShowStats is set' {
         $data = @(20, 25, 30, 35, 40)
         $result = Show-NetworkLatencyGraph -Data $data -GraphType 'Sparkline' -ShowStats
 
-        $result | Should -Match 'min:'
-        $result | Should -Match 'max:'
-        $result | Should -Match 'avg:'
+        $result | Should-MatchString 'min:'
+        $result | Should-MatchString 'max:'
+        $result | Should-MatchString 'avg:'
     }
 }

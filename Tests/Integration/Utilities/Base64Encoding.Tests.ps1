@@ -23,7 +23,7 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
         It 'Should encode and decode through pipeline' {
             $original = 'Pipeline integration test'
             $result = $original | ConvertTo-Base64 | ConvertFrom-Base64
-            $result | Should -Be $original
+            $result | Should-Be $original
         }
 
         It 'Should handle multiple items through pipeline' {
@@ -31,9 +31,9 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
             $encoded = $items | ConvertTo-Base64
             $decoded = ($encoded -split "`n") | ConvertFrom-Base64
 
-            $decoded -join ',' | Should -Match 'First'
-            $decoded -join ',' | Should -Match 'Second'
-            $decoded -join ',' | Should -Match 'Third'
+            $decoded -join ',' | Should-MatchString 'First'
+            $decoded -join ',' | Should-MatchString 'Second'
+            $decoded -join ',' | Should-MatchString 'Third'
         }
 
         It 'Should work with Get-Content pipeline' {
@@ -57,7 +57,7 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
             ConvertFrom-Base64 -InputObject $encoded -OutputPath $outputFile
 
             $result = Get-Content -Path $outputFile -Raw
-            $result.TrimEnd() | Should -Be $content
+            $result.TrimEnd() | Should-Be $content
         }
 
         It 'Should encode and decode binary file' {
@@ -71,7 +71,7 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
             ConvertFrom-Base64 -InputObject $encoded -OutputPath $outputFile
 
             $result = [System.IO.File]::ReadAllBytes($outputFile)
-            $result | Should -Be $bytes
+            [Convert]::ToBase64String($result) | Should-Be ([Convert]::ToBase64String($bytes))
         }
 
         It 'Should handle large text file' {
@@ -87,7 +87,7 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
 
             $originalContent = Get-Content -Path $sourceFile -Raw
             $decodedContent = Get-Content -Path $outputFile -Raw
-            $decodedContent | Should -Be $originalContent
+            $decodedContent | Should-Be $originalContent
         }
 
         It 'Should handle empty file' {
@@ -96,7 +96,7 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
             '' | Set-Content -Path $sourceFile -NoNewline
 
             $encoded = ConvertTo-Base64 -Path $sourceFile
-            $encoded | Should -Be ''
+            $encoded | Should-Be ''
         }
     }
 
@@ -105,7 +105,7 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
             $original = 'Hello World!?&=subject+query/test'
             $encoded = ConvertTo-Base64 -InputObject $original -UrlSafe
             $decoded = ConvertFrom-Base64 -InputObject $encoded -UrlSafe
-            $decoded | Should -Be $original
+            $decoded | Should-Be $original
         }
 
         It 'Should round-trip with URL-safe encoding for files' {
@@ -116,14 +116,14 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
             $content | Set-Content -Path $sourceFile -NoNewline
 
             $encoded = ConvertTo-Base64 -Path $sourceFile -UrlSafe
-            $encoded | Should -Not -Match '\+'
-            $encoded | Should -Not -Match '/'
-            $encoded | Should -Not -Match '='
+            $encoded | Should-NotMatchString '\+'
+            $encoded | Should-NotMatchString '/'
+            $encoded | Should-NotMatchString '='
 
             ConvertFrom-Base64 -InputObject $encoded -OutputPath $outputFile -UrlSafe
 
             $result = Get-Content -Path $outputFile -Raw
-            $result.TrimEnd() | Should -Be $content
+            $result.TrimEnd() | Should-Be $content
         }
 
         It 'Should handle various padding scenarios with URL-safe encoding' {
@@ -139,7 +139,7 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
             {
                 $encoded = ConvertTo-Base64 -InputObject $str -UrlSafe
                 $decoded = ConvertFrom-Base64 -InputObject $encoded -UrlSafe
-                $decoded | Should -Be $str
+                $decoded | Should-Be $str
             }
         }
     }
@@ -156,7 +156,7 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
             {
                 $encoded = ConvertTo-Base64 -InputObject $case.Content
                 $decoded = ConvertFrom-Base64 -InputObject $encoded
-                $decoded | Should -Be $case.Content -Because $case.Description
+                $decoded | Should-Be $case.Content -Because $case.Description
             }
         }
 
@@ -173,7 +173,7 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
             {
                 $encoded = ConvertTo-Base64 -InputObject $str
                 $decoded = ConvertFrom-Base64 -InputObject $encoded
-                $decoded | Should -Be $str
+                $decoded | Should-Be $str
             }
         }
     }
@@ -187,7 +187,7 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
             $encoded = ConvertTo-Base64 -InputObject $credentials
             $decoded = ConvertFrom-Base64 -InputObject $encoded
 
-            $decoded | Should -Be $credentials
+            $decoded | Should-Be $credentials
         }
 
         It 'Should handle JWT-like tokens (URL-safe)' {
@@ -204,8 +204,8 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
             $decodedHeader = ConvertFrom-Base64 -InputObject $encodedHeader -UrlSafe
             $decodedPayload = ConvertFrom-Base64 -InputObject $encodedPayload -UrlSafe
 
-            $decodedHeader | Should -Be $header
-            $decodedPayload | Should -Be $payload
+            $decodedHeader | Should-Be $header
+            $decodedPayload | Should-Be $payload
         }
 
         It 'Should encode small image file' {
@@ -220,7 +220,7 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
             ConvertFrom-Base64 -InputObject $encoded -OutputPath $outputFile
 
             $result = [System.IO.File]::ReadAllBytes($outputFile)
-            $result | Should -Be $imageBytes
+            [Convert]::ToBase64String($result) | Should-Be ([Convert]::ToBase64String($imageBytes))
         }
 
         It 'Should handle configuration data' {
@@ -233,7 +233,7 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
             $encoded = ConvertTo-Base64 -InputObject $config
             $decoded = ConvertFrom-Base64 -InputObject $encoded
 
-            $decoded | Should -Be $config
+            $decoded | Should-Be $config
         }
     }
 
@@ -242,14 +242,14 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
             $longString = 'A' * 10000
             $encoded = ConvertTo-Base64 -InputObject $longString
             $decoded = ConvertFrom-Base64 -InputObject $encoded
-            $decoded | Should -Be $longString
+            $decoded | Should-Be $longString
         }
 
         It 'Should handle special whitespace characters' {
             $testInput = "Tab:`t Space: NewLine:`n CarriageReturn:`r"
             $encoded = ConvertTo-Base64 -InputObject $testInput
             $decoded = ConvertFrom-Base64 -InputObject $encoded
-            $decoded | Should -Be $testInput
+            $decoded | Should-Be $testInput
         }
 
         It 'Should handle null bytes in binary data' {
@@ -263,7 +263,7 @@ Describe 'Base64 Encoding Integration Tests' -Tag 'Integration' {
             ConvertFrom-Base64 -InputObject $encoded -OutputPath $outputFile
 
             $result = [System.IO.File]::ReadAllBytes($outputFile)
-            $result | Should -Be $bytes
+            [Convert]::ToBase64String($result) | Should-Be ([Convert]::ToBase64String($bytes))
         }
     }
 }

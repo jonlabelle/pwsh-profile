@@ -91,18 +91,18 @@ Describe 'Unprotect-PathWithPassword Unit Tests' {
             # Test that the Path parameter is mandatory by checking the parameter metadata
             $command = Get-Command Unprotect-PathWithPassword
             $pathParam = $command.Parameters['Path']
-            $pathParam.Attributes.Mandatory | Should -Contain $true
+            $pathParam.Attributes.Mandatory | Should-ContainCollection $true
         }
 
         It 'Should accept path from pipeline' {
             # Ensure the encrypted test file exists before piping it
-            Test-Path $script:EncFile1 | Should -Be $true
+            Test-Path $script:EncFile1 | Should-Be $true
             $result = Get-Item $script:EncFile1 | Unprotect-PathWithPassword -Password $script:TestPassword -Force
-            $result.Success | Should -Be $true
+            $result.Success | Should-Be $true
         }
 
         It 'Should throw when path does not exist' {
-            { Unprotect-PathWithPassword -Path 'C:\NonExistent\file.enc' -Password $script:TestPassword } | Should -Throw '*does not exist*'
+            { Unprotect-PathWithPassword -Path 'C:\NonExistent\file.enc' -Password $script:TestPassword } | Should-Throw '*does not exist*'
         }
     }
 
@@ -110,30 +110,30 @@ Describe 'Unprotect-PathWithPassword Unit Tests' {
         It 'Should decrypt a single file successfully' {
             $result = Unprotect-PathWithPassword -Path $script:EncFile1 -Password $script:TestPassword -Force
 
-            $result.Success | Should -Be $true
-            $result.EncryptedPath | Should -Be $script:EncFile1
-            $result.DecryptedPath | Should -Be $script:TestFile1
-            Test-Path $script:TestFile1 | Should -Be $true
+            $result.Success | Should-Be $true
+            $result.EncryptedPath | Should-Be $script:EncFile1
+            $result.DecryptedPath | Should-Be $script:TestFile1
+            Test-Path $script:TestFile1 | Should-Be $true
         }
 
         It 'Should restore original file content correctly' {
             Unprotect-PathWithPassword -Path $script:EncFile1 -Password $script:TestPassword -Force | Out-Null
 
             $content = Get-Content -Path $script:TestFile1 -Raw
-            $content.Trim() | Should -Be 'Test content 1'
+            $content.Trim() | Should-Be 'Test content 1'
         }
 
         It 'Should remove .enc extension by default' {
             $result = Unprotect-PathWithPassword -Path $script:EncFile1 -Password $script:TestPassword -Force
-            $result.DecryptedPath | Should -Be $script:TestFile1
+            $result.DecryptedPath | Should-Be $script:TestFile1
         }
 
         It 'Should respect custom output path' {
             $customOutput = Join-Path -Path $script:TestDir -ChildPath 'custom.decrypted'
             $result = Unprotect-PathWithPassword -Path $script:EncFile1 -Password $script:TestPassword -OutputPath $customOutput -Force
 
-            $result.DecryptedPath | Should -Be $customOutput
-            Test-Path $customOutput | Should -Be $true
+            $result.DecryptedPath | Should-Be $customOutput
+            Test-Path $customOutput | Should-Be $true
         }
 
         It 'Should fail with wrong password' {
@@ -145,8 +145,8 @@ Describe 'Unprotect-PathWithPassword Unit Tests' {
 
             $result = Unprotect-PathWithPassword -Path $script:EncFile1 -Password $script:WrongPassword -ErrorAction SilentlyContinue
 
-            $result.Success | Should -Be $false
-            $result.Error | Should -Match 'Decryption failed|Invalid password'
+            $result.Success | Should-Be $false
+            $result.Error | Should-MatchString 'Decryption failed|Invalid password'
         }
     }
 
@@ -155,18 +155,18 @@ Describe 'Unprotect-PathWithPassword Unit Tests' {
             Unprotect-PathWithPassword -Path $script:TestDir -Password $script:TestPassword -Force | Out-Null
 
             # Should decrypt files in root directory only
-            Test-Path $script:TestFile1 | Should -Be $true
-            Test-Path $script:TestFile2 | Should -Be $true
-            Test-Path $script:TestFile3 | Should -Be $false
+            Test-Path $script:TestFile1 | Should-Be $true
+            Test-Path $script:TestFile2 | Should-Be $true
+            Test-Path $script:TestFile3 | Should-Be $false
         }
 
         It 'Should decrypt .enc files recursively when -Recurse is specified' {
             Unprotect-PathWithPassword -Path $script:TestDir -Password $script:TestPassword -Recurse -Force | Out-Null
 
             # Should decrypt all .enc files including subdirectories
-            Test-Path $script:TestFile1 | Should -Be $true
-            Test-Path $script:TestFile2 | Should -Be $true
-            Test-Path $script:TestFile3 | Should -Be $true
+            Test-Path $script:TestFile1 | Should-Be $true
+            Test-Path $script:TestFile2 | Should-Be $true
+            Test-Path $script:TestFile3 | Should-Be $true
         }
 
         It 'Should only process .enc files in directories' {
@@ -177,10 +177,10 @@ Describe 'Unprotect-PathWithPassword Unit Tests' {
             Unprotect-PathWithPassword -Path $script:TestDir -Password $script:TestPassword -Force | Out-Null
 
             # .enc files should be processed
-            Test-Path $script:TestFile1 | Should -Be $true
-            Test-Path $script:TestFile2 | Should -Be $true
+            Test-Path $script:TestFile1 | Should-Be $true
+            Test-Path $script:TestFile2 | Should-Be $true
             # Regular file should remain unchanged
-            Test-Path $nonEncFile | Should -Be $true
+            Test-Path $nonEncFile | Should-Be $true
         }
     }
 
@@ -188,16 +188,16 @@ Describe 'Unprotect-PathWithPassword Unit Tests' {
         It 'Should remove encrypted file by default' {
             Unprotect-PathWithPassword -Path $script:EncFile1 -Password $script:TestPassword -Force | Out-Null
 
-            Test-Path $script:TestFile1 | Should -Be $true
-            Test-Path $script:EncFile1 | Should -Be $false
+            Test-Path $script:TestFile1 | Should-Be $true
+            Test-Path $script:EncFile1 | Should-Be $false
         }
 
         It 'Should keep encrypted file when -KeepEncrypted is specified' {
             $result = Unprotect-PathWithPassword -Path $script:EncFile1 -Password $script:TestPassword -KeepEncrypted
 
-            $result.Success | Should -Be $true
-            Test-Path $script:TestFile1 | Should -Be $true
-            Test-Path $script:EncFile1 | Should -Be $true
+            $result.Success | Should-Be $true
+            Test-Path $script:TestFile1 | Should-Be $true
+            Test-Path $script:EncFile1 | Should-Be $true
         }
 
         It 'Should overwrite when -Force is specified' {
@@ -206,9 +206,9 @@ Describe 'Unprotect-PathWithPassword Unit Tests' {
 
             $result = Unprotect-PathWithPassword -Path $script:EncFile1 -Password $script:TestPassword -Force
 
-            $result.Success | Should -Be $true
+            $result.Success | Should-Be $true
             $content = Get-Content -Path $script:TestFile1 -Raw
-            $content.Trim() | Should -Be 'Test content 1'
+            $content.Trim() | Should-Be 'Test content 1'
         }
     }
 
@@ -234,7 +234,7 @@ Describe 'Unprotect-PathWithPassword Unit Tests' {
 
                 $result = Unprotect-PathWithPassword -Path $encFile -Password $script:TestPassword
 
-                $result.Success | Should -Be $true
+                $result.Success | Should-Be $true
                 $decryptedContent = Get-Content -Path $testFile -Raw
                 if ($case.Content -eq '')
                 {
@@ -242,7 +242,7 @@ Describe 'Unprotect-PathWithPassword Unit Tests' {
                 }
                 else
                 {
-                    $decryptedContent.TrimEnd("`r", "`n") | Should -Be $case.Content
+                    $decryptedContent.TrimEnd("`r", "`n") | Should-Be $case.Content
                 }
             }
         }

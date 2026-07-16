@@ -26,8 +26,8 @@ Describe 'Test-DnsNameResolution' {
         It 'Tests whether localhost can be resolved using system DNS (Example: Test-DnsNameResolution -Name "localhost")' {
             # Test DNS resolution using the system resolver for cross-platform compatibility
             $result = Test-DnsNameResolution -Name 'localhost'
-            $result | Should -BeOfType [System.Boolean]
-            $result | Should -Be $true
+            $result | Should-HaveType ([System.Boolean])
+            $result | Should-Be $true
         }
 
         It 'Tests whether localhost has an IPv4 (A) record with verbose output (Example: Test-DnsNameResolution -Name "localhost" -Type "A" -Verbose)' {
@@ -36,8 +36,8 @@ Describe 'Test-DnsNameResolution' {
 
             # Extract the boolean result (last item should be the result)
             $result = $verboseOutput | Where-Object { $_ -isnot [System.Management.Automation.VerboseRecord] } | Select-Object -Last 1
-            $result | Should -BeOfType [System.Boolean]
-            $result | Should -Be $true
+            $result | Should-HaveType ([System.Boolean])
+            $result | Should-Be $true
 
             # Check for verbose output
             $verboseMessages = $verboseOutput | Where-Object { $_ -is [System.Management.Automation.VerboseRecord] }
@@ -48,21 +48,21 @@ Describe 'Test-DnsNameResolution' {
     Context 'IPv4 record resolution' {
         It 'Should resolve localhost to IPv4 addresses' {
             $result = Test-DnsNameResolution -Name 'localhost' -Type 'A'
-            $result | Should -Be $true
+            $result | Should-Be $true
         }
 
         It 'Should handle domain names with different cases' {
             $result1 = Test-DnsNameResolution -Name 'LOCALHOST'
             $result2 = Test-DnsNameResolution -Name 'localhost'
-            $result1 | Should -Be $result2
-            $result1 | Should -Be $true
+            $result1 | Should-Be $result2
+            $result1 | Should-Be $true
         }
     }
 
     Context 'IPv6 record resolution' {
         It 'Should test IPv6 resolution for localhost' {
             $result = Test-DnsNameResolution -Name 'localhost' -Type 'AAAA'
-            $result | Should -BeOfType [System.Boolean]
+            $result | Should-HaveType ([System.Boolean])
             # localhost might have IPv6 records depending on system configuration
             # We just verify it returns a boolean
         }
@@ -71,29 +71,29 @@ Describe 'Test-DnsNameResolution' {
     Context 'Invalid domain handling' {
         It 'Should return false for non-existent domains' {
             $result = Test-DnsNameResolution -Name 'this-domain-definitely-does-not-exist-12345.com'
-            $result | Should -Be $false
+            $result | Should-Be $false
         }
 
         It 'Should return false for invalid domain names' {
             $result = Test-DnsNameResolution -Name 'invalid..domain'
-            $result | Should -Be $false
+            $result | Should-Be $false
         }
 
         It 'Should handle malformed domain names gracefully' {
             $result = Test-DnsNameResolution -Name '.....'
-            $result | Should -Be $false
+            $result | Should-Be $false
         }
     }
 
     Context 'Parameter validation' {
         It 'Should require Name parameter' {
-            { Test-DnsNameResolution } | Should -Throw
+            { Test-DnsNameResolution } | Should-Throw
         }
 
         It 'Should reject null or empty Name parameter' {
-            { Test-DnsNameResolution -Name $null } | Should -Throw
-            { Test-DnsNameResolution -Name '' } | Should -Throw
-            { Test-DnsNameResolution -Name '   ' } | Should -Throw
+            { Test-DnsNameResolution -Name $null } | Should-Throw
+            { Test-DnsNameResolution -Name '' } | Should-Throw
+            { Test-DnsNameResolution -Name '   ' } | Should-Throw
         }
 
         It 'Should accept valid DNS record types' {
@@ -103,7 +103,7 @@ Describe 'Test-DnsNameResolution' {
         }
 
         It 'Should reject invalid DNS record types' {
-            { Test-DnsNameResolution -Name 'localhost' -Type 'INVALID' } | Should -Throw
+            { Test-DnsNameResolution -Name 'localhost' -Type 'INVALID' } | Should-Throw
         }
     }
 
@@ -112,18 +112,18 @@ Describe 'Test-DnsNameResolution' {
             $domains = @('localhost', 'localhost')  # Use localhost twice for predictable results
             $results = $domains | Test-DnsNameResolution
 
-            $results | Should -HaveCount 2
-            $results | ForEach-Object { $_ | Should -BeOfType [System.Boolean] }
-            $results | ForEach-Object { $_ | Should -Be $true }
+            $results | Should-BeCollection -Count 2
+            $results | ForEach-Object { $_ | Should-HaveType ([System.Boolean]) }
+            $results | ForEach-Object { $_ | Should-Be $true }
         }
 
         It 'Should handle mixed valid and invalid domains via pipeline' {
             $domains = @('localhost', 'this-definitely-does-not-exist-12345.com')
             $results = $domains | Test-DnsNameResolution
 
-            $results | Should -HaveCount 2
-            $results[0] | Should -Be $true   # localhost should resolve
-            $results[1] | Should -Be $false  # invalid domain should not resolve
+            $results | Should-BeCollection -Count 2
+            $results[0] | Should-Be $true   # localhost should resolve
+            $results[1] | Should-Be $false  # invalid domain should not resolve
         }
     }
 
@@ -131,14 +131,14 @@ Describe 'Test-DnsNameResolution' {
         It 'Should use .NET DNS methods for cross-platform compatibility' {
             # This test verifies the function works on different platforms
             $result = Test-DnsNameResolution -Name 'localhost'
-            $result | Should -BeOfType [System.Boolean]
-            $result | Should -Be $true
+            $result | Should-HaveType ([System.Boolean])
+            $result | Should-Be $true
         }
 
         It 'Should handle system DNS configuration differences across platforms' {
             # Test that it works regardless of platform-specific DNS configuration
             $result = Test-DnsNameResolution -Name 'localhost'
-            $result | Should -Be $true
+            $result | Should-Be $true
         }
     }
 
@@ -152,20 +152,20 @@ Describe 'Test-DnsNameResolution' {
 
             # Verbose messages should contain relevant information
             $verboseText = $verboseMessages | ForEach-Object { $_.Message } | Out-String
-            $verboseText | Should -Match 'DNS'
-            $verboseText | Should -Match 'localhost'
+            $verboseText | Should-MatchString 'DNS'
+            $verboseText | Should-MatchString 'localhost'
         }
 
         It 'Should log different messages for successful and failed resolutions' {
             # Successful resolution
             $successOutput = Test-DnsNameResolution -Name 'localhost' -Verbose 4>&1
             $successVerbose = ($successOutput | Where-Object { $_ -is [System.Management.Automation.VerboseRecord] } | ForEach-Object { $_.Message }) -join ' '
-            $successVerbose | Should -Match '(successful|found)'
+            $successVerbose | Should-MatchString '(successful|found)'
 
             # Failed resolution
             $failOutput = Test-DnsNameResolution -Name 'this-does-not-exist-12345.com' -Verbose 4>&1
             $failVerbose = ($failOutput | Where-Object { $_ -is [System.Management.Automation.VerboseRecord] } | ForEach-Object { $_.Message }) -join ' '
-            $failVerbose | Should -Match '(not found|failed)'
+            $failVerbose | Should-MatchString '(not found|failed)'
         }
     }
 
@@ -173,9 +173,9 @@ Describe 'Test-DnsNameResolution' {
         It 'Should handle network timeouts gracefully' {
             # Test with a domain that might timeout (unreachable)
             $result = Test-DnsNameResolution -Name 'timeout-test-domain-that-does-not-exist.invalid'
-            $result | Should -BeOfType [System.Boolean]
+            $result | Should-HaveType ([System.Boolean])
             # Should return false for unresolvable domains
-            $result | Should -Be $false
+            $result | Should-Be $false
         }
 
         It 'Should return proper result type in all scenarios' {
@@ -186,7 +186,7 @@ Describe 'Test-DnsNameResolution' {
                 (Test-DnsNameResolution -Name 'localhost')
             )
 
-            $results | ForEach-Object { $_ | Should -BeOfType [System.Boolean] }
+            $results | ForEach-Object { $_ | Should-HaveType ([System.Boolean]) }
         }
     }
 }

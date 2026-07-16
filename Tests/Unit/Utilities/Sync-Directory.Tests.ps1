@@ -24,44 +24,44 @@ Describe 'Sync-Directory' -Tag 'Unit' {
 
     Context 'Parameter Validation' {
         It 'Should have mandatory Source parameter' {
-            (Get-Command Sync-Directory).Parameters['Source'].Attributes.Mandatory | Should -BeTrue
+            (Get-Command Sync-Directory).Parameters['Source'].Attributes.Mandatory | Should-BeTruthy
         }
 
         It 'Should have mandatory Destination parameter' {
-            (Get-Command Sync-Directory).Parameters['Destination'].Attributes.Mandatory | Should -BeTrue
+            (Get-Command Sync-Directory).Parameters['Destination'].Attributes.Mandatory | Should-BeTruthy
         }
 
         It 'Should have optional Delete switch' {
-            (Get-Command Sync-Directory).Parameters['Delete'].SwitchParameter | Should -BeTrue
+            (Get-Command Sync-Directory).Parameters['Delete'].SwitchParameter | Should-BeTruthy
         }
 
         It 'Should have optional DryRun switch' {
-            (Get-Command Sync-Directory).Parameters['DryRun'].SwitchParameter | Should -BeTrue
+            (Get-Command Sync-Directory).Parameters['DryRun'].SwitchParameter | Should-BeTruthy
         }
 
         It 'Should have optional ExcludeFiles parameter' {
-            (Get-Command Sync-Directory).Parameters['ExcludeFiles'].ParameterType | Should -Be ([String[]])
+            (Get-Command Sync-Directory).Parameters['ExcludeFiles'].ParameterType | Should-Be ([String[]])
         }
 
         It 'Should have optional ExcludeDirectories parameter' {
-            (Get-Command Sync-Directory).Parameters['ExcludeDirectories'].ParameterType | Should -Be ([String[]])
+            (Get-Command Sync-Directory).Parameters['ExcludeDirectories'].ParameterType | Should-Be ([String[]])
         }
 
         It 'Should have optional ExtraOptions parameter' {
-            (Get-Command Sync-Directory).Parameters['ExtraOptions'].ParameterType | Should -Be ([String[]])
+            (Get-Command Sync-Directory).Parameters['ExtraOptions'].ParameterType | Should-Be ([String[]])
         }
 
         It 'Should have optional ThreadCount parameter' {
-            (Get-Command Sync-Directory).Parameters['ThreadCount'].ParameterType | Should -Be ([Int32])
+            (Get-Command Sync-Directory).Parameters['ThreadCount'].ParameterType | Should-Be ([Int32])
         }
 
         It 'Should not have legacy Exclude parameter' {
-            (Get-Command Sync-Directory).Parameters.ContainsKey('Exclude') | Should -BeFalse
+            (Get-Command Sync-Directory).Parameters.ContainsKey('Exclude') | Should-BeFalsy
         }
 
         It 'Should support ShouldProcess' {
-            (Get-Command Sync-Directory).Parameters.ContainsKey('WhatIf') | Should -BeTrue
-            (Get-Command Sync-Directory).Parameters.ContainsKey('Confirm') | Should -BeTrue
+            (Get-Command Sync-Directory).Parameters.ContainsKey('WhatIf') | Should-BeTruthy
+            (Get-Command Sync-Directory).Parameters.ContainsKey('Confirm') | Should-BeTruthy
         }
     }
 
@@ -71,7 +71,7 @@ Describe 'Sync-Directory' -Tag 'Unit' {
             $TempDest = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ([System.Guid]::NewGuid().ToString())
 
             { Sync-Directory -Source $NonExistentPath -Destination $TempDest -ErrorAction Stop } |
-            Should -Throw '*does not exist*'
+            Should-Throw '*does not exist*'
         }
 
         It 'Should accept tilde expansion in paths' {
@@ -90,7 +90,7 @@ Describe 'Sync-Directory' -Tag 'Unit' {
 
                 # Should return a result object
                 $Result | Should -Not -BeNullOrEmpty
-                $Result.Success | Should -BeTrue
+                $Result.Success | Should-BeTruthy
             }
             finally
             {
@@ -107,7 +107,7 @@ Describe 'Sync-Directory' -Tag 'Unit' {
                 New-Item -ItemType Directory -Path $TempPath -Force | Out-Null
 
                 { Sync-Directory -Source $TempPath -Destination $TempPath -DryRun -ErrorAction Stop } |
-                Should -Throw '*same directory*'
+                Should-Throw '*same directory*'
             }
             finally
             {
@@ -124,7 +124,7 @@ Describe 'Sync-Directory' -Tag 'Unit' {
                 New-Item -ItemType Directory -Path $TestSource -Force | Out-Null
 
                 { Sync-Directory -Source $TestSource -Destination $TestDest -DryRun -ErrorAction Stop } |
-                Should -Throw '*Destination cannot be inside source*'
+                Should-Throw '*Destination cannot be inside source*'
             }
             finally
             {
@@ -141,7 +141,7 @@ Describe 'Sync-Directory' -Tag 'Unit' {
                 New-Item -ItemType Directory -Path $TestSource -Force | Out-Null
 
                 { Sync-Directory -Source $TestSource -Destination $TestDest -Delete -DryRun -ErrorAction Stop } |
-                Should -Throw '*Source cannot be inside destination when -Delete is used*'
+                Should-Throw '*Source cannot be inside destination when -Delete is used*'
             }
             finally
             {
@@ -159,7 +159,7 @@ Describe 'Sync-Directory' -Tag 'Unit' {
                 'file destination' | Out-File -FilePath $TestDestFile
 
                 { Sync-Directory -Source $TestSource -Destination $TestDestFile -DryRun -ErrorAction Stop } |
-                Should -Throw '*exists as a file*'
+                Should-Throw '*exists as a file*'
             }
             finally
             {
@@ -183,13 +183,13 @@ Describe 'Sync-Directory' -Tag 'Unit' {
 
                 if ($IsWindowsPlatform)
                 {
-                    $Result.Platform | Should -Be 'Windows'
-                    $Result.Command | Should -Match 'robocopy'
+                    $Result.Platform | Should-Be 'Windows'
+                    $Result.Command | Should-MatchString 'robocopy'
                 }
                 else
                 {
-                    $Result.Platform | Should -Be 'macOS/Linux'
-                    $Result.Command | Should -Match 'rsync'
+                    $Result.Platform | Should-Be 'macOS/Linux'
+                    $Result.Command | Should-MatchString 'rsync'
                 }
             }
             finally
@@ -216,13 +216,13 @@ Describe 'Sync-Directory' -Tag 'Unit' {
                 $Result = Sync-Directory -Source $TestSource -Destination $TestDest -DryRun
 
                 # DryRun should still succeed
-                $Result.Success | Should -BeTrue
+                $Result.Success | Should-BeTruthy
 
                 # Destination should not be created or should be empty on Windows (robocopy creates dir)
                 if (Test-Path $TestDest)
                 {
                     # If created (robocopy), should be empty
-                    (Get-ChildItem -Path $TestDest -Recurse).Count | Should -Be 0
+                    (Get-ChildItem -Path $TestDest -Recurse).Count | Should-Be 0
                 }
             }
             finally
@@ -245,11 +245,11 @@ Describe 'Sync-Directory' -Tag 'Unit' {
 
                 if ($IsWindowsPlatform)
                 {
-                    $Result.Command | Should -Match '/L' # robocopy list-only mode
+                    $Result.Command | Should-MatchString '/L' # robocopy list-only mode
                 }
                 else
                 {
-                    $Result.Command | Should -Match '--dry-run' # rsync dry-run flag
+                    $Result.Command | Should-MatchString '--dry-run' # rsync dry-run flag
                 }
             }
             finally
@@ -270,9 +270,9 @@ Describe 'Sync-Directory' -Tag 'Unit' {
 
                 $Result = Sync-Directory -Source $TestSource -Destination $TestDest -WhatIf
 
-                $Result.Success | Should -BeTrue
-                $Result.ExitCode | Should -Be 0
-                $Result.Message | Should -Match 'skipped'
+                $Result.Success | Should-BeTruthy
+                $Result.ExitCode | Should-Be 0
+                $Result.Message | Should-MatchString 'skipped'
             }
             finally
             {
@@ -295,14 +295,14 @@ Describe 'Sync-Directory' -Tag 'Unit' {
                 $Result = Sync-Directory -Source $TestSource -Destination $TestDest -DryRun
 
                 $Result | Should -Not -BeNullOrEmpty
-                $Result.PSObject.Properties.Name | Should -Contain 'Platform'
-                $Result.PSObject.Properties.Name | Should -Contain 'Command'
-                $Result.PSObject.Properties.Name | Should -Contain 'ExitCode'
-                $Result.PSObject.Properties.Name | Should -Contain 'Success'
-                $Result.PSObject.Properties.Name | Should -Contain 'Message'
-                $Result.PSObject.Properties.Name | Should -Contain 'StartTime'
-                $Result.PSObject.Properties.Name | Should -Contain 'EndTime'
-                $Result.PSObject.Properties.Name | Should -Contain 'Duration'
+                $Result.PSObject.Properties.Name | Should-ContainCollection 'Platform'
+                $Result.PSObject.Properties.Name | Should-ContainCollection 'Command'
+                $Result.PSObject.Properties.Name | Should-ContainCollection 'ExitCode'
+                $Result.PSObject.Properties.Name | Should-ContainCollection 'Success'
+                $Result.PSObject.Properties.Name | Should-ContainCollection 'Message'
+                $Result.PSObject.Properties.Name | Should-ContainCollection 'StartTime'
+                $Result.PSObject.Properties.Name | Should-ContainCollection 'EndTime'
+                $Result.PSObject.Properties.Name | Should-ContainCollection 'Duration'
             }
             finally
             {
@@ -325,7 +325,7 @@ Describe 'Sync-Directory' -Tag 'Unit' {
                 $Result.StartTime | Should -Not -BeNullOrEmpty
                 $Result.EndTime | Should -Not -BeNullOrEmpty
                 $Result.Duration | Should -Not -BeNullOrEmpty
-                $Result.Duration | Should -BeOfType [TimeSpan]
+                $Result.Duration | Should-HaveType ([TimeSpan])
             }
             finally
             {
@@ -350,13 +350,13 @@ Describe 'Sync-Directory' -Tag 'Unit' {
 
                 if ($IsWindowsPlatform)
                 {
-                    $Result.Command | Should -Match '/XF'
-                    $Result.Command | Should -Match '\*.log'
+                    $Result.Command | Should-MatchString '/XF'
+                    $Result.Command | Should-MatchString '\*.log'
                 }
                 else
                 {
-                    $Result.Command | Should -Match '--exclude=\*.log'
-                    $Result.Command | Should -Match '--exclude=.git'
+                    $Result.Command | Should-MatchString '--exclude=\*.log'
+                    $Result.Command | Should-MatchString '--exclude=.git'
                 }
             }
             finally
@@ -381,15 +381,15 @@ Describe 'Sync-Directory' -Tag 'Unit' {
 
                 if ($IsWindowsPlatform)
                 {
-                    $Result.Command | Should -Match '/XF'
-                    $Result.Command | Should -Match '\*.log'
-                    $Result.Command | Should -Match '/XD'
-                    $Result.Command | Should -Match 'node_modules'
+                    $Result.Command | Should-MatchString '/XF'
+                    $Result.Command | Should-MatchString '\*.log'
+                    $Result.Command | Should-MatchString '/XD'
+                    $Result.Command | Should-MatchString 'node_modules'
                 }
                 else
                 {
-                    $Result.Command | Should -Match '--exclude=\*.log'
-                    $Result.Command | Should -Match '--exclude=node_modules'
+                    $Result.Command | Should-MatchString '--exclude=\*.log'
+                    $Result.Command | Should-MatchString '--exclude=node_modules'
                 }
             }
             finally
@@ -414,11 +414,11 @@ Describe 'Sync-Directory' -Tag 'Unit' {
 
                 if ($IsWindowsPlatform)
                 {
-                    $Result.Command | Should -Match '/MIR'
+                    $Result.Command | Should-MatchString '/MIR'
                 }
                 else
                 {
-                    $Result.Command | Should -Match '--delete'
+                    $Result.Command | Should-MatchString '--delete'
                 }
             }
             finally
@@ -443,15 +443,15 @@ Describe 'Sync-Directory' -Tag 'Unit' {
                 {
                     $ExtraOpts = @('/MT:8', '/R:2')
                     $Result = Sync-Directory -Source $TestSource -Destination $TestDest -ExtraOptions $ExtraOpts -DryRun
-                    $Result.Command | Should -Match '/MT:8'
-                    $Result.Command | Should -Match '/R:2'
+                    $Result.Command | Should-MatchString '/MT:8'
+                    $Result.Command | Should-MatchString '/R:2'
                 }
                 else
                 {
                     $ExtraOpts = @('--compress', '--links')
                     $Result = Sync-Directory -Source $TestSource -Destination $TestDest -ExtraOptions $ExtraOpts -DryRun
-                    $Result.Command | Should -Match '--compress'
-                    $Result.Command | Should -Match '--links'
+                    $Result.Command | Should-MatchString '--compress'
+                    $Result.Command | Should-MatchString '--links'
                 }
             }
             finally
@@ -471,7 +471,7 @@ Describe 'Sync-Directory' -Tag 'Unit' {
                 'test' | Out-File (Join-Path -Path $TestSource -ChildPath 'test.txt')
 
                 { Sync-Directory -Source $TestSource -Destination $TestDest -ThreadCount 0 -DryRun -ErrorAction Stop } |
-                Should -Throw
+                Should-Throw
             }
             finally
             {
@@ -496,7 +496,7 @@ Describe 'Sync-Directory' -Tag 'Unit' {
                 'test' | Out-File (Join-Path -Path $TestSource -ChildPath 'test.txt')
 
                 $Result = Sync-Directory -Source $TestSource -Destination $TestDest -ThreadCount 12 -DryRun
-                $Result.Command | Should -Match '/MT:12'
+                $Result.Command | Should-MatchString '/MT:12'
             }
             finally
             {
@@ -526,7 +526,7 @@ Describe 'Sync-Directory' -Tag 'Unit' {
                 }
 
                 $VerboseMessages | Should -Not -BeNullOrEmpty
-                $VerboseMessages -join ' ' | Should -Match 'Starting Sync-Directory'
+                $VerboseMessages -join ' ' | Should-MatchString 'Starting Sync-Directory'
             }
             finally
             {

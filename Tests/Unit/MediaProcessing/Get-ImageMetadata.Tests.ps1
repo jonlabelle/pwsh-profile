@@ -46,47 +46,47 @@ Describe 'Get-ImageMetadata' -Tag 'Unit' {
     Context 'Parameter Validation' {
         It 'Should have Recurse parameter' {
             $command = Get-Command Get-ImageMetadata
-            $command.Parameters.ContainsKey('Recurse') | Should -Be $true
+            $command.Parameters.ContainsKey('Recurse') | Should-Be $true
         }
 
         It 'Should have Exclude parameter' {
             $command = Get-Command Get-ImageMetadata
-            $command.Parameters.ContainsKey('Exclude') | Should -Be $true
+            $command.Parameters.ContainsKey('Exclude') | Should-Be $true
         }
 
         It 'Should have Filter parameter' {
             $command = Get-Command Get-ImageMetadata
-            $command.Parameters.ContainsKey('Filter') | Should -Be $true
+            $command.Parameters.ContainsKey('Filter') | Should-Be $true
         }
 
         It 'Should have ExifToolPath parameter' {
             $command = Get-Command Get-ImageMetadata
-            $command.Parameters.ContainsKey('ExifToolPath') | Should -Be $true
+            $command.Parameters.ContainsKey('ExifToolPath') | Should-Be $true
         }
 
         It 'Should have Tag parameter' {
             $command = Get-Command Get-ImageMetadata
-            $command.Parameters.ContainsKey('Tag') | Should -Be $true
+            $command.Parameters.ContainsKey('Tag') | Should-Be $true
         }
 
         It 'Should have Flatten parameter' {
             $command = Get-Command Get-ImageMetadata
-            $command.Parameters.ContainsKey('Flatten') | Should -Be $true
+            $command.Parameters.ContainsKey('Flatten') | Should-Be $true
         }
 
         It 'Should have NoEmptyProperties parameter' {
             $command = Get-Command Get-ImageMetadata
-            $command.Parameters.ContainsKey('NoEmptyProperties') | Should -Be $true
+            $command.Parameters.ContainsKey('NoEmptyProperties') | Should-Be $true
         }
 
         It 'Should have Numeric parameter' {
             $command = Get-Command Get-ImageMetadata
-            $command.Parameters.ContainsKey('Numeric') | Should -Be $true
+            $command.Parameters.ContainsKey('Numeric') | Should-Be $true
         }
 
         It 'Should have IncludeRawExifToolData parameter' {
             $command = Get-Command Get-ImageMetadata
-            $command.Parameters.ContainsKey('IncludeRawExifToolData') | Should -Be $true
+            $command.Parameters.ContainsKey('IncludeRawExifToolData') | Should-Be $true
         }
 
         It 'Should accept Path parameter from pipeline and by property name' {
@@ -102,46 +102,46 @@ Describe 'Get-ImageMetadata' -Tag 'Unit' {
             $command = Get-Command Get-ImageMetadata
             $aliases = $command.Parameters['Path'].Aliases
 
-            $aliases | Should -Contain 'FilePath'
-            $aliases | Should -Contain 'FullName'
-            $aliases | Should -Contain 'Directory'
+            $aliases | Should-ContainCollection 'FilePath'
+            $aliases | Should-ContainCollection 'FullName'
+            $aliases | Should-ContainCollection 'Directory'
         }
 
         It 'Should include Tags alias for Tag' {
             $command = Get-Command Get-ImageMetadata
-            $command.Parameters['Tag'].Aliases | Should -Contain 'Tags'
+            $command.Parameters['Tag'].Aliases | Should-ContainCollection 'Tags'
         }
     }
 
     Context 'Parameter Types' {
         It 'Should have Recurse as Switch parameter' {
             $command = Get-Command Get-ImageMetadata
-            $command.Parameters['Recurse'].ParameterType.Name | Should -Be 'SwitchParameter'
+            $command.Parameters['Recurse'].ParameterType.Name | Should-Be 'SwitchParameter'
         }
 
         It 'Should have Exclude as String array parameter' {
             $command = Get-Command Get-ImageMetadata
-            $command.Parameters['Exclude'].ParameterType.Name | Should -Be 'String[]'
+            $command.Parameters['Exclude'].ParameterType.Name | Should-Be 'String[]'
         }
 
         It 'Should have Filter as String array parameter' {
             $command = Get-Command Get-ImageMetadata
-            $command.Parameters['Filter'].ParameterType.Name | Should -Be 'String[]'
+            $command.Parameters['Filter'].ParameterType.Name | Should-Be 'String[]'
         }
 
         It 'Should have Tag as String array parameter' {
             $command = Get-Command Get-ImageMetadata
-            $command.Parameters['Tag'].ParameterType.Name | Should -Be 'String[]'
+            $command.Parameters['Tag'].ParameterType.Name | Should-Be 'String[]'
         }
 
         It 'Should have Flatten as Switch parameter' {
             $command = Get-Command Get-ImageMetadata
-            $command.Parameters['Flatten'].ParameterType.Name | Should -Be 'SwitchParameter'
+            $command.Parameters['Flatten'].ParameterType.Name | Should-Be 'SwitchParameter'
         }
 
         It 'Should have Numeric as Switch parameter' {
             $command = Get-Command Get-ImageMetadata
-            $command.Parameters['Numeric'].ParameterType.Name | Should -Be 'SwitchParameter'
+            $command.Parameters['Numeric'].ParameterType.Name | Should-Be 'SwitchParameter'
         }
     }
 
@@ -160,11 +160,11 @@ Describe 'Get-ImageMetadata' -Tag 'Unit' {
             }
 
             $exception | Should -Not -BeNullOrEmpty
-            $exception.Message | Should -BeLike '*Install-PlatformPackage.ps1*'
-            $exception.Message | Should -Not -BeLike '*. ./Functions/SystemAdministration/Install-PlatformPackage.ps1*'
-            $exception.Message | Should -Not -BeLike '*-PackageManager*'
-            $exception.Message | Should -Not -BeLike '*-Id*'
-            $exception.Message | Should -Match '(-Name OliverBetz\.ExifTool|-Name exiftool|-Name libimage-exiftool-perl)'
+            $exception.Message | Should-BeLikeString '*Install-PlatformPackage.ps1*'
+            $exception.Message | Should-NotBeLikeString '*. ./Functions/SystemAdministration/Install-PlatformPackage.ps1*'
+            $exception.Message | Should-NotBeLikeString '*-PackageManager*'
+            $exception.Message | Should-NotBeLikeString '*-Id*'
+            $exception.Message | Should-MatchString '(-Name OliverBetz\.ExifTool|-Name exiftool|-Name libimage-exiftool-perl)'
         }
     }
 
@@ -190,36 +190,36 @@ Describe 'Get-ImageMetadata' -Tag 'Unit' {
         It 'Should inspect image files non-recursively by default' {
             $results = @(Get-ImageMetadata -Path $script:TestRoot -ExifToolPath $script:FakeExifTool.Path)
 
-            $results.Count | Should -Be 2
-            $results.Name | Should -Contain 'photo1.jpg'
-            $results.Name | Should -Contain 'photo2.png'
-            $results.Name | Should -Not -Contain 'photo3.jpg'
-            $results.Name | Should -Not -Contain 'notes.txt'
+            $results.Count | Should-Be 2
+            $results.Name | Should-ContainCollection 'photo1.jpg'
+            $results.Name | Should-ContainCollection 'photo2.png'
+            $results.Name | Should-NotContainCollection 'photo3.jpg'
+            $results.Name | Should-NotContainCollection 'notes.txt'
         }
 
         It 'Should inspect recursively when -Recurse is specified' {
             $results = @(Get-ImageMetadata -Path $script:TestRoot -Recurse -ExifToolPath $script:FakeExifTool.Path)
 
-            $results.Name | Should -Contain 'photo1.jpg'
-            $results.Name | Should -Contain 'photo2.png'
-            $results.Name | Should -Contain 'photo3.jpg'
-            $results.Name | Should -Not -Contain 'hidden.jpg'
+            $results.Name | Should-ContainCollection 'photo1.jpg'
+            $results.Name | Should-ContainCollection 'photo2.png'
+            $results.Name | Should-ContainCollection 'photo3.jpg'
+            $results.Name | Should-NotContainCollection 'hidden.jpg'
         }
 
         It 'Should respect Exclude parameter when using -Recurse' {
             $results = @(Get-ImageMetadata -Path $script:TestRoot -Recurse -Exclude @('.git', 'SubDirectory') -ExifToolPath $script:FakeExifTool.Path)
 
-            $results.Name | Should -Contain 'photo1.jpg'
-            $results.Name | Should -Contain 'photo2.png'
-            $results.Name | Should -Not -Contain 'photo3.jpg'
-            $results.Name | Should -Not -Contain 'hidden.jpg'
+            $results.Name | Should-ContainCollection 'photo1.jpg'
+            $results.Name | Should-ContainCollection 'photo2.png'
+            $results.Name | Should-NotContainCollection 'photo3.jpg'
+            $results.Name | Should-NotContainCollection 'hidden.jpg'
         }
 
         It 'Should honor custom Filter' {
             $results = @(Get-ImageMetadata -Path $script:TestRoot -Filter '*.png' -ExifToolPath $script:FakeExifTool.Path)
 
-            $results.Count | Should -Be 1
-            $results.Name | Should -Contain 'photo2.png'
+            $results.Count | Should-Be 1
+            $results.Name | Should-ContainCollection 'photo2.png'
         }
     }
 
@@ -240,14 +240,14 @@ Describe 'Get-ImageMetadata' -Tag 'Unit' {
         It 'Should accept an individual image file path' {
             $result = @(Get-ImageMetadata -Path $script:TestImageFile -ExifToolPath $script:FakeExifTool.Path)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'single-photo.jpg'
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'single-photo.jpg'
         }
 
         It 'Should warn when an individual file does not match supported filters' {
             $result = @(Get-ImageMetadata -Path $script:TestNonImageFile -ExifToolPath $script:FakeExifTool.Path -WarningAction SilentlyContinue -WarningVariable warnings)
 
-            $result.Count | Should -Be 0
+            $result.Count | Should-Be 0
             $warnings | Should -Not -BeNullOrEmpty
         }
 
@@ -256,15 +256,15 @@ Describe 'Get-ImageMetadata' -Tag 'Unit' {
 
             $null = Get-ImageMetadata -Path $missingPath -ExifToolPath $script:FakeExifTool.Path -ErrorAction SilentlyContinue -ErrorVariable errors
 
-            $errors.Count | Should -BeGreaterThan 0
-            $errors[0].Exception.Message | Should -BeLike '*not found*'
+            $errors.Count | Should-BeGreaterThan 0
+            $errors[0].Exception.Message | Should-BeLikeString '*not found*'
         }
 
         It 'Should accept image files from the pipeline' {
             $result = @(Get-Item -LiteralPath $script:TestImageFile | Get-ImageMetadata -ExifToolPath $script:FakeExifTool.Path)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'single-photo.jpg'
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'single-photo.jpg'
         }
     }
 
@@ -283,49 +283,49 @@ Describe 'Get-ImageMetadata' -Tag 'Unit' {
             $result = Get-ImageMetadata -Path $script:SampleImage -ExifToolPath $script:FakeExifTool.Path
 
             $loggedArgs = Get-Content -LiteralPath $script:FakeExifTool.LogPath
-            $loggedArgs | Should -Contain '-j'
-            $loggedArgs | Should -Contain '-a'
-            $loggedArgs | Should -Contain '-G1'
-            $loggedArgs | Should -Contain '-struct'
-            $loggedArgs | Should -Contain '-all:all'
-            $loggedArgs | Should -Contain $script:SampleImage
-            $result.Metadata.Keys | Should -Contain 'EXIF:Make'
-            $result.Metadata['EXIF:Make'] | Should -Be 'Test Camera'
-            $result.MetadataTags | Should -Contain 'EXIF:Make'
-            $result.MetadataTags | Should -Contain 'XMP:Title'
-            $result.TagCount | Should -Be $result.MetadataTags.Count
+            $loggedArgs | Should-ContainCollection '-j'
+            $loggedArgs | Should-ContainCollection '-a'
+            $loggedArgs | Should-ContainCollection '-G1'
+            $loggedArgs | Should-ContainCollection '-struct'
+            $loggedArgs | Should-ContainCollection '-all:all'
+            $loggedArgs | Should-ContainCollection $script:SampleImage
+            $result.Metadata.Keys | Should-ContainCollection 'EXIF:Make'
+            $result.Metadata['EXIF:Make'] | Should-Be 'Test Camera'
+            $result.MetadataTags | Should-ContainCollection 'EXIF:Make'
+            $result.MetadataTags | Should-ContainCollection 'XMP:Title'
+            $result.TagCount | Should-Be $result.MetadataTags.Count
         }
 
         It 'Should call ExifTool with selected tags and numeric output' {
             $result = Get-ImageMetadata -Path $script:SampleImage -Tag 'EXIF:Make', 'GPS:all' -Numeric -NoEmptyProperties -IncludeRawExifToolData -ExifToolPath $script:FakeExifTool.Path
 
             $loggedArgs = Get-Content -LiteralPath $script:FakeExifTool.LogPath
-            $loggedArgs | Should -Contain '-EXIF:Make'
-            $loggedArgs | Should -Contain '-GPS:all'
-            $loggedArgs | Should -Contain '-n'
-            $loggedArgs | Should -Not -Contain '-all:all'
-            $result.Metadata.Keys | Should -Contain 'EXIF:Make'
-            $result.Metadata.Keys | Should -Not -Contain 'EXIF:Model'
-            $result.RawExifToolData.PSObject.Properties.Name | Should -Contain 'EXIF:Make'
+            $loggedArgs | Should-ContainCollection '-EXIF:Make'
+            $loggedArgs | Should-ContainCollection '-GPS:all'
+            $loggedArgs | Should-ContainCollection '-n'
+            $loggedArgs | Should-NotContainCollection '-all:all'
+            $result.Metadata.Keys | Should-ContainCollection 'EXIF:Make'
+            $result.Metadata.Keys | Should-NotContainCollection 'EXIF:Model'
+            $result.RawExifToolData.PSObject.Properties.Name | Should-ContainCollection 'EXIF:Make'
         }
 
         It 'Should not add a second dash to tag arguments that already include one' {
             $null = Get-ImageMetadata -Path $script:SampleImage -Tag '-DateTimeOriginal' -ExifToolPath $script:FakeExifTool.Path
 
             $loggedArgs = Get-Content -LiteralPath $script:FakeExifTool.LogPath
-            $loggedArgs | Should -Contain '-DateTimeOriginal'
-            $loggedArgs | Should -Not -Contain '--DateTimeOriginal'
+            $loggedArgs | Should-ContainCollection '-DateTimeOriginal'
+            $loggedArgs | Should-NotContainCollection '--DateTimeOriginal'
         }
 
         It 'Should return flattened metadata rows when Flatten is specified' {
             $rows = @(Get-ImageMetadata -Path $script:SampleImage -Flatten -NoEmptyProperties -ExifToolPath $script:FakeExifTool.Path)
             $makeRow = $rows | Where-Object { $_.MetadataName -eq 'EXIF:Make' }
 
-            $rows.MetadataName | Should -Contain 'EXIF:Make'
-            $rows.MetadataName | Should -Not -Contain 'EXIF:Model'
-            $makeRow.Group | Should -Be 'EXIF'
-            $makeRow.Tag | Should -Be 'Make'
-            $makeRow.Value | Should -Be 'Test Camera'
+            $rows.MetadataName | Should-ContainCollection 'EXIF:Make'
+            $rows.MetadataName | Should-NotContainCollection 'EXIF:Model'
+            $makeRow.Group | Should-Be 'EXIF'
+            $makeRow.Tag | Should-Be 'Make'
+            $makeRow.Value | Should-Be 'Test Camera'
         }
     }
 }

@@ -39,10 +39,10 @@ Describe 'Get-DnsRecord' {
                 & $script:GetDnsRecordImplementation -Name 'example.test' -Server google -Timeout 23
             )
 
-            @($results).Count | Should -Be $expectedTypes.Count
-            ($results.Type -join ',') | Should -Be ($expectedTypes -join ',')
+            @($results).Count | Should-Be $expectedTypes.Count
+            ($results.Type -join ',') | Should-Be ($expectedTypes -join ',')
 
-            Should -Invoke -CommandName Get-DnsRecord -Times $expectedTypes.Count -Exactly -ParameterFilter {
+            Should-Invoke -CommandName Get-DnsRecord -Times $expectedTypes.Count -Exactly -ParameterFilter {
                 $Name -eq 'example.test' -and
                 $Type -in $expectedTypes -and
                 $Server -eq 'google' -and
@@ -63,11 +63,11 @@ Describe 'Get-DnsRecord' {
                 & $script:GetDnsRecordImplementation -Name $Address -Type ANY -UseDNS -ErrorAction Stop
             )
 
-            @($results).Count | Should -Be 1
-            $results[0].Name | Should -Be $Address
-            $results[0].Type | Should -Be $ExpectedType
+            @($results).Count | Should-Be 1
+            $results[0].Name | Should-Be $Address
+            $results[0].Type | Should-Be $ExpectedType
             $results[0].TTL | Should -BeNullOrEmpty
-            $results[0].Data | Should -Be $Address
+            $results[0].Data | Should-Be $Address
         }
 
         It 'Warns and returns before resolving an unsupported native record type' {
@@ -83,9 +83,9 @@ Describe 'Get-DnsRecord' {
                     -ErrorAction Stop
             )
 
-            @($results).Count | Should -Be 0
-            @($warnings).Count | Should -Be 1
-            $warnings[0].Message | Should -Be 'Native DNS resolution only supports A, AAAA, and ANY records. Use DNS-over-HTTPS (default) for MX records.'
+            @($results).Count | Should-Be 0
+            @($warnings).Count | Should-Be 1
+            $warnings[0].Message | Should-Be 'Native DNS resolution only supports A, AAAA, and ANY records. Use DNS-over-HTTPS (default) for MX records.'
         }
     }
 }

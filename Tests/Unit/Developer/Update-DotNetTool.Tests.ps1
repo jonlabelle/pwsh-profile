@@ -130,7 +130,7 @@ Describe 'Update-DotNetTool' {
         It 'Throws when dotnet is not available' {
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'dotnet' } -MockWith { $null }
 
-            { Update-DotNetTool -Path $script:TestDir } | Should -Throw 'dotnet CLI is not installed or not available in PATH. Install the .NET SDK and try again.'
+            { Update-DotNetTool -Path $script:TestDir } | Should-Throw 'dotnet CLI is not installed or not available in PATH. Install the .NET SDK and try again.'
         }
     }
 
@@ -143,19 +143,19 @@ Describe 'Update-DotNetTool' {
 
             $result = Update-DotNetTool -Path $script:TestDir
 
-            $result.Scope | Should -Be 'Local'
-            $result.ManifestPath | Should -Be $manifestPath
-            $result.ToolsFound | Should -Be 1
-            $result.Updated | Should -Be 1
+            $result.Scope | Should-Be 'Local'
+            $result.ManifestPath | Should-Be $manifestPath
+            $result.ToolsFound | Should-Be 1
+            $result.Updated | Should-Be 1
 
             $listCall = $script:DotNetInvocations | Where-Object { $_[0] -eq 'tool' -and $_[1] -eq 'list' } | Select-Object -First 1
             $updateCall = $script:DotNetInvocations | Where-Object { $_[0] -eq 'tool' -and $_[1] -eq 'update' } | Select-Object -First 1
 
-            $listCall | Should -Contain '--local'
-            $updateCall | Should -Contain '--local'
-            $updateCall | Should -Contain '--tool-manifest'
-            $updateCall | Should -Contain $manifestPath
-            $updateCall | Should -Not -Contain '--global'
+            $listCall | Should-ContainCollection '--local'
+            $updateCall | Should-ContainCollection '--local'
+            $updateCall | Should-ContainCollection '--tool-manifest'
+            $updateCall | Should-ContainCollection $manifestPath
+            $updateCall | Should-NotContainCollection '--global'
         }
 
         It 'Finds a local manifest in a parent directory' {
@@ -168,25 +168,25 @@ Describe 'Update-DotNetTool' {
 
             $result = Update-DotNetTool -Path $childDir
 
-            $result.Scope | Should -Be 'Local'
-            $result.ManifestPath | Should -Be $manifestPath
-            $result.WorkingDirectory | Should -Be $childDir
+            $result.Scope | Should-Be 'Local'
+            $result.ManifestPath | Should-Be $manifestPath
+            $result.WorkingDirectory | Should-Be $childDir
         }
 
         It 'Updates global tools when no local manifest exists' {
             $result = Update-DotNetTool -Path $script:TestDir
 
-            $result.Scope | Should -Be 'Global'
+            $result.Scope | Should-Be 'Global'
             $result.ManifestPath | Should -BeNullOrEmpty
-            $result.ToolsFound | Should -Be 1
-            $result.Updated | Should -Be 1
+            $result.ToolsFound | Should-Be 1
+            $result.Updated | Should-Be 1
 
             $listCall = $script:DotNetInvocations | Where-Object { $_[0] -eq 'tool' -and $_[1] -eq 'list' } | Select-Object -First 1
             $updateCall = $script:DotNetInvocations | Where-Object { $_[0] -eq 'tool' -and $_[1] -eq 'update' } | Select-Object -First 1
 
-            $listCall | Should -Contain '--global'
-            $updateCall | Should -Contain '--global'
-            $updateCall | Should -Not -Contain '--local'
+            $listCall | Should-ContainCollection '--global'
+            $updateCall | Should-ContainCollection '--global'
+            $updateCall | Should-NotContainCollection '--local'
         }
 
         It 'Uses global tools when global scope is explicitly requested and a local manifest exists' {
@@ -196,16 +196,16 @@ Describe 'Update-DotNetTool' {
 
             $result = Update-DotNetTool -Path $script:TestDir -Scope Global
 
-            $result.Scope | Should -Be 'Global'
+            $result.Scope | Should-Be 'Global'
             $result.ManifestPath | Should -BeNullOrEmpty
 
             $updateCall = $script:DotNetInvocations | Where-Object { $_[0] -eq 'tool' -and $_[1] -eq 'update' } | Select-Object -First 1
-            $updateCall | Should -Contain '--global'
-            $updateCall | Should -Not -Contain '--local'
+            $updateCall | Should-ContainCollection '--global'
+            $updateCall | Should-NotContainCollection '--local'
         }
 
         It 'Writes an error when local scope is requested without a local manifest' {
-            { Update-DotNetTool -Path $script:TestDir -Scope Local -ErrorAction Stop } | Should -Throw
+            { Update-DotNetTool -Path $script:TestDir -Scope Local -ErrorAction Stop } | Should-Throw
         }
     }
 
@@ -215,11 +215,11 @@ Describe 'Update-DotNetTool' {
 
             $result = Update-DotNetTool -Path $script:TestDir
 
-            $result.ToolsFound | Should -Be 0
-            $result.Updated | Should -Be 0
-            $result.Failed | Should -Be 0
+            $result.ToolsFound | Should-Be 0
+            $result.Updated | Should-Be 0
+            $result.Failed | Should-Be 0
             $script:DotNetInvocations | Where-Object { $_[0] -eq 'tool' -and $_[1] -eq 'update' } | Should -BeNullOrEmpty
-            Should -Invoke -CommandName Write-Host -ParameterFilter {
+            Should-Invoke -CommandName Write-Host -ParameterFilter {
                 $Object -eq 'No .NET global tools found to update.'
             } -Times 1
         }
@@ -229,15 +229,15 @@ Describe 'Update-DotNetTool' {
 
             $result = Update-DotNetTool -Path $script:TestDir
 
-            $result.ToolsFound | Should -Be 2
-            $result.Updated | Should -Be 2
-            $result.Failed | Should -Be 0
+            $result.ToolsFound | Should-Be 2
+            $result.Updated | Should-Be 2
+            $result.Failed | Should-Be 0
 
             $updateCalls = @($script:DotNetInvocations | Where-Object { $_[0] -eq 'tool' -and $_[1] -eq 'update' })
-            $updateCalls.Count | Should -Be 2
-            ($updateCalls | ForEach-Object { $_[2] }) | Should -Contain 'dotnetsay'
-            ($updateCalls | ForEach-Object { $_[2] }) | Should -Contain 'csharpier'
-            Should -Invoke -CommandName Write-Host -ParameterFilter {
+            $updateCalls.Count | Should-Be 2
+            ($updateCalls | ForEach-Object { $_[2] }) | Should-ContainCollection 'dotnetsay'
+            ($updateCalls | ForEach-Object { $_[2] }) | Should-ContainCollection 'csharpier'
+            Should-Invoke -CommandName Write-Host -ParameterFilter {
                 $Object -eq 'Updated 2 of 2 .NET global tool(s).'
             } -Times 1
         }
@@ -251,13 +251,13 @@ Describe 'Update-DotNetTool' {
 
             $result = Update-DotNetTool -Path $script:TestDir -WarningAction SilentlyContinue
 
-            $result.ToolsFound | Should -Be 2
-            $result.Updated | Should -Be 1
-            $result.Failed | Should -Be 1
-            $result.ExitCode | Should -Be 1
+            $result.ToolsFound | Should-Be 2
+            $result.Updated | Should-Be 1
+            $result.Failed | Should-Be 1
+            $result.ExitCode | Should-Be 1
 
-            ($result.Results | Where-Object { $_.PackageId -eq 'dotnetsay' }).Status | Should -Be 'Failed'
-            ($result.Results | Where-Object { $_.PackageId -eq 'csharpier' }).Status | Should -Be 'Success'
+            ($result.Results | Where-Object { $_.PackageId -eq 'dotnetsay' }).Status | Should-Be 'Failed'
+            ($result.Results | Where-Object { $_.PackageId -eq 'csharpier' }).Status | Should-Be 'Success'
         }
 
         It 'Passes update options through to dotnet' {
@@ -265,15 +265,15 @@ Describe 'Update-DotNetTool' {
 
             $updateCall = $script:DotNetInvocations | Where-Object { $_[0] -eq 'tool' -and $_[1] -eq 'update' } | Select-Object -First 1
 
-            $updateCall | Should -Contain '--prerelease'
-            $updateCall | Should -Contain '--interactive'
-            $updateCall | Should -Contain '--ignore-failed-sources'
-            $updateCall | Should -Contain '--no-http-cache'
-            $updateCall | Should -Contain '--disable-parallel'
-            $updateCall | Should -Contain '--framework'
-            $updateCall | Should -Contain 'net8.0'
-            $updateCall | Should -Contain '--verbosity'
-            $updateCall | Should -Contain 'minimal'
+            $updateCall | Should-ContainCollection '--prerelease'
+            $updateCall | Should-ContainCollection '--interactive'
+            $updateCall | Should-ContainCollection '--ignore-failed-sources'
+            $updateCall | Should-ContainCollection '--no-http-cache'
+            $updateCall | Should-ContainCollection '--disable-parallel'
+            $updateCall | Should-ContainCollection '--framework'
+            $updateCall | Should-ContainCollection 'net8.0'
+            $updateCall | Should-ContainCollection '--verbosity'
+            $updateCall | Should-ContainCollection 'minimal'
         }
 
         It 'Falls back to table output when JSON list parsing fails' {
@@ -285,8 +285,8 @@ Describe 'Update-DotNetTool' {
 
             $result = Update-DotNetTool -Path $script:TestDir
 
-            $result.ToolsFound | Should -Be 1
-            $result.Results[0].PackageId | Should -Be 'dotnetsay'
+            $result.ToolsFound | Should-Be 1
+            $result.Results[0].PackageId | Should-Be 'dotnetsay'
         }
     }
 
@@ -296,8 +296,8 @@ Describe 'Update-DotNetTool' {
 
             $result = @(Update-DotNetTool -Path $script:TestDir -Scope Global -ListOutdated)
 
-            $result.Count | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter {
+            $result.Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter {
                 $Object -eq 'No .NET global tools found to check.'
             } -Times 1
         }
@@ -319,11 +319,11 @@ Describe 'Update-DotNetTool' {
 
             $result = @(Update-DotNetTool -Path $script:TestDir -Scope Global -ListOutdated)
 
-            $result.Count | Should -Be 1
-            $result[0].Scope | Should -Be 'Global'
-            $result[0].PackageId | Should -Be 'csharpier'
-            $result[0].CurrentVersion | Should -Be '1.2.5'
-            $result[0].LatestVersion | Should -Be '1.2.6'
+            $result.Count | Should-Be 1
+            $result[0].Scope | Should-Be 'Global'
+            $result[0].PackageId | Should-Be 'csharpier'
+            $result[0].CurrentVersion | Should-Be '1.2.5'
+            $result[0].LatestVersion | Should-Be '1.2.6'
             $script:DotNetInvocations | Where-Object { $_[0] -eq 'tool' -and $_[1] -eq 'update' } | Should -BeNullOrEmpty
         }
 
@@ -342,20 +342,20 @@ Describe 'Update-DotNetTool' {
 
             $result = @(Update-DotNetTool -Path $script:TestDir -Scope Local -ListOutdated)
 
-            $result.Count | Should -Be 1
-            $result[0].Scope | Should -Be 'Local'
-            $result[0].ManifestPath | Should -Be $manifestPath
-            $result[0].PackageId | Should -Be 'dotnetsay'
+            $result.Count | Should-Be 1
+            $result[0].Scope | Should-Be 'Local'
+            $result[0].ManifestPath | Should-Be $manifestPath
+            $result[0].PackageId | Should-Be 'dotnetsay'
 
             $listCall = $script:DotNetInvocations | Where-Object { $_[0] -eq 'tool' -and $_[1] -eq 'list' } | Select-Object -First 1
-            $listCall | Should -Contain '--local'
+            $listCall | Should-ContainCollection '--local'
         }
 
         It 'Passes prerelease through to dotnet tool search in list-outdated mode' {
             $null = Update-DotNetTool -Path $script:TestDir -Scope Global -ListOutdated -Prerelease
 
             $searchCall = $script:DotNetInvocations | Where-Object { $_[0] -eq 'tool' -and $_[1] -eq 'search' } | Select-Object -First 1
-            $searchCall | Should -Contain '--prerelease'
+            $searchCall | Should-ContainCollection '--prerelease'
         }
 
         It 'Writes a message when no outdated tools are found' {
@@ -369,8 +369,8 @@ Describe 'Update-DotNetTool' {
 
             $result = @(Update-DotNetTool -Path $script:TestDir -Scope Global -ListOutdated)
 
-            $result.Count | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter {
+            $result.Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter {
                 $Object -eq 'No outdated .NET global tools found.'
             } -Times 1
         }
@@ -391,11 +391,11 @@ Describe 'Update-DotNetTool' {
 
             $result = @(Update-DotNetTool -Path $script:TestDir -Scope Global -ListOutdated -WarningAction Stop)
 
-            $result.Count | Should -Be 1
-            $result[0].PackageId | Should -Be 'csharpier'
-            $result[0].CurrentVersion | Should -Be '1.2.5'
-            $result[0].LatestVersion | Should -Be '1.2.6'
-            Should -Invoke -CommandName Invoke-RestMethod -ParameterFilter {
+            $result.Count | Should-Be 1
+            $result[0].PackageId | Should-Be 'csharpier'
+            $result[0].CurrentVersion | Should-Be '1.2.5'
+            $result[0].LatestVersion | Should-Be '1.2.6'
+            Should-Invoke -CommandName Invoke-RestMethod -ParameterFilter {
                 $Uri -eq 'https://api.nuget.org/v3-flatcontainer/csharpier/index.json'
             } -Times 1
         }
@@ -405,17 +405,17 @@ Describe 'Update-DotNetTool' {
         It 'Skips update commands when WhatIf is specified' {
             $result = Update-DotNetTool -Path $script:TestDir -WhatIf
 
-            $result.ToolsFound | Should -Be 1
-            $result.Updated | Should -Be 0
-            $result.Skipped | Should -Be 1
-            $result.Results[0].Status | Should -Be 'Skipped'
+            $result.ToolsFound | Should-Be 1
+            $result.Updated | Should-Be 0
+            $result.Skipped | Should-Be 1
+            $result.Results[0].Status | Should-Be 'Skipped'
             $script:DotNetInvocations | Where-Object { $_[0] -eq 'tool' -and $_[1] -eq 'update' } | Should -BeNullOrEmpty
         }
 
         It 'Writes an error for an invalid path' {
             $missingPath = Join-Path -Path $script:TestDir -ChildPath 'missing'
 
-            { Update-DotNetTool -Path $missingPath -ErrorAction Stop } | Should -Throw
+            { Update-DotNetTool -Path $missingPath -ErrorAction Stop } | Should-Throw
         }
     }
 }

@@ -104,30 +104,30 @@ Describe 'Show-ProfileFunction' {
             $output = Show-ProfileFunction 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match 'Active Directory'
-            $outputText | Should -Match 'Developer'
-            $outputText | Should -Match 'Network And Dns'
-            $outputText | Should -Match 'System Administration'
-            $outputText | Should -Match 'Utilities'
+            $outputText | Should-MatchString 'Active Directory'
+            $outputText | Should-MatchString 'Developer'
+            $outputText | Should-MatchString 'Network And Dns'
+            $outputText | Should-MatchString 'System Administration'
+            $outputText | Should-MatchString 'Utilities'
         }
 
         It 'Should display all function names when no -Category is specified' {
             $output = Show-ProfileFunction 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match 'Test-ADCredential'
-            $outputText | Should -Match 'Import-DotEnv'
-            $outputText | Should -Match 'Test-Port'
-            $outputText | Should -Match 'Test-Admin'
-            $outputText | Should -Match 'Format-Byte'
+            $outputText | Should-MatchString 'Test-ADCredential'
+            $outputText | Should-MatchString 'Import-DotEnv'
+            $outputText | Should-MatchString 'Test-Port'
+            $outputText | Should-MatchString 'Test-Admin'
+            $outputText | Should-MatchString 'Format-Byte'
         }
 
         It 'Should show correct total count across all categories' {
             $output = Show-ProfileFunction 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match '7 functions'
-            $outputText | Should -Match '5 categories'
+            $outputText | Should-MatchString '7 functions'
+            $outputText | Should-MatchString '5 categories'
         }
     }
 
@@ -136,39 +136,39 @@ Describe 'Show-ProfileFunction' {
             $output = Show-ProfileFunction -Category 'ActiveDirectory' 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match 'Active Directory'
-            $outputText | Should -Match 'Test-ADCredential'
-            $outputText | Should -Match '1 functions'
-            $outputText | Should -Match '1 categories'
+            $outputText | Should-MatchString 'Active Directory'
+            $outputText | Should-MatchString 'Test-ADCredential'
+            $outputText | Should-MatchString '1 functions'
+            $outputText | Should-MatchString '1 categories'
         }
 
         It 'Should filter to a single category case-insensitively' {
             $output = Show-ProfileFunction -Category 'activedirectory' 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match 'Active Directory'
-            $outputText | Should -Match 'Test-ADCredential'
+            $outputText | Should-MatchString 'Active Directory'
+            $outputText | Should-MatchString 'Test-ADCredential'
         }
 
         It 'Should filter to multiple categories by folder name' {
             $output = Show-ProfileFunction -Category 'Developer', 'Utilities' 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match 'Developer'
-            $outputText | Should -Match 'Import-DotEnv'
-            $outputText | Should -Match 'Utilities'
-            $outputText | Should -Match 'Format-Byte'
-            $outputText | Should -Match '3 functions'
-            $outputText | Should -Match '2 categories'
+            $outputText | Should-MatchString 'Developer'
+            $outputText | Should-MatchString 'Import-DotEnv'
+            $outputText | Should-MatchString 'Utilities'
+            $outputText | Should-MatchString 'Format-Byte'
+            $outputText | Should-MatchString '3 functions'
+            $outputText | Should-MatchString '2 categories'
         }
 
         It 'Should not show categories not requested' {
             $output = Show-ProfileFunction -Category 'Utilities' 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Not -Match 'Active Directory'
-            $outputText | Should -Not -Match 'Developer'
-            $outputText | Should -Not -Match 'Network And Dns'
+            $outputText | Should-NotMatchString 'Active Directory'
+            $outputText | Should-NotMatchString 'Developer'
+            $outputText | Should-NotMatchString 'Network And Dns'
         }
     }
 
@@ -177,75 +177,75 @@ Describe 'Show-ProfileFunction' {
             $output = Show-ProfileFunction -Category 'ad' 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match 'Active Directory'
-            $outputText | Should -Match 'Test-ADCredential'
+            $outputText | Should-MatchString 'Active Directory'
+            $outputText | Should-MatchString 'Test-ADCredential'
         }
 
         It 'Should resolve "dev" to Developer' {
             $output = Show-ProfileFunction -Category 'dev' 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match 'Developer'
-            $outputText | Should -Match 'Import-DotEnv'
+            $outputText | Should-MatchString 'Developer'
+            $outputText | Should-MatchString 'Import-DotEnv'
         }
 
         It 'Should resolve "network" to NetworkAndDns' {
             $output = Show-ProfileFunction -Category 'network' 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match 'Network And Dns'
-            $outputText | Should -Match 'Test-Port'
+            $outputText | Should-MatchString 'Network And Dns'
+            $outputText | Should-MatchString 'Test-Port'
         }
 
         It 'Should resolve "dns" to NetworkAndDns' {
             $output = Show-ProfileFunction -Category 'dns' 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match 'Network And Dns'
+            $outputText | Should-MatchString 'Network And Dns'
         }
 
         It 'Should resolve "sysadmin" to SystemAdministration' {
             $output = Show-ProfileFunction -Category 'sysadmin' 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match 'System Administration'
-            $outputText | Should -Match 'Test-Admin'
+            $outputText | Should-MatchString 'System Administration'
+            $outputText | Should-MatchString 'Test-Admin'
         }
 
         It 'Should resolve "sys" to SystemAdministration' {
             $output = Show-ProfileFunction -Category 'sys' 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match 'System Administration'
+            $outputText | Should-MatchString 'System Administration'
         }
 
         It 'Should resolve "admin" to SystemAdministration' {
             $output = Show-ProfileFunction -Category 'admin' 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match 'System Administration'
+            $outputText | Should-MatchString 'System Administration'
         }
 
         It 'Should resolve "utils" to Utilities' {
             $output = Show-ProfileFunction -Category 'utils' 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match 'Utilities'
-            $outputText | Should -Match 'Format-Byte'
+            $outputText | Should-MatchString 'Utilities'
+            $outputText | Should-MatchString 'Format-Byte'
         }
 
         It 'Should resolve "util" to Utilities' {
             $output = Show-ProfileFunction -Category 'util' 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match 'Utilities'
+            $outputText | Should-MatchString 'Utilities'
         }
 
         It 'Short aliases should be case-insensitive' {
             $output = Show-ProfileFunction -Category 'AD' 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match 'Active Directory'
+            $outputText | Should-MatchString 'Active Directory'
         }
     }
 
@@ -254,23 +254,23 @@ Describe 'Show-ProfileFunction' {
             $output = Show-ProfileFunction -Category 'Active Directory' 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match 'Active Directory'
-            $outputText | Should -Match 'Test-ADCredential'
+            $outputText | Should-MatchString 'Active Directory'
+            $outputText | Should-MatchString 'Test-ADCredential'
         }
 
         It 'Should resolve "Network And Dns" (spaced display name)' {
             $output = Show-ProfileFunction -Category 'Network And Dns' 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match 'Network And Dns'
-            $outputText | Should -Match 'Test-Port'
+            $outputText | Should-MatchString 'Network And Dns'
+            $outputText | Should-MatchString 'Test-Port'
         }
 
         It 'Spaced display names should be case-insensitive' {
             $output = Show-ProfileFunction -Category 'active directory' 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match 'Active Directory'
+            $outputText | Should-MatchString 'Active Directory'
         }
     }
 
@@ -279,28 +279,28 @@ Describe 'Show-ProfileFunction' {
             $output = Show-ProfileFunction 'dev' 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match 'Developer'
-            $outputText | Should -Match 'Import-DotEnv'
+            $outputText | Should-MatchString 'Developer'
+            $outputText | Should-MatchString 'Import-DotEnv'
         }
     }
 
     Context 'Unknown category handling' {
         It 'Should warn for unknown category names' {
             $warnings = Show-ProfileFunction -Category 'bogus' 3>&1
-            ($warnings | Out-String) | Should -Match "Unknown category: 'bogus'"
+            ($warnings | Out-String) | Should-MatchString "Unknown category: 'bogus'"
         }
 
         It 'Should warn no valid categories when all are unknown' {
             $warnings = Show-ProfileFunction -Category 'bogus' 3>&1
-            ($warnings | Out-String) | Should -Match 'No valid categories specified'
+            ($warnings | Out-String) | Should-MatchString 'No valid categories specified'
         }
 
         It 'Should show valid category even if another is unknown' {
             $allOutput = Show-ProfileFunction -Category 'dev', 'bogus' *>&1
             $outputText = ($allOutput | Out-String)
 
-            $outputText | Should -Match 'Developer'
-            $outputText | Should -Match "Unknown category: 'bogus'"
+            $outputText | Should-MatchString 'Developer'
+            $outputText | Should-MatchString "Unknown category: 'bogus'"
         }
     }
 
@@ -309,7 +309,7 @@ Describe 'Show-ProfileFunction' {
             $output = Show-ProfileFunction -Category 'ad' 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match 'Test Active Directory credentials'
+            $outputText | Should-MatchString 'Test Active Directory credentials'
         }
 
         It 'Should display functions sorted alphabetically within a category' {
@@ -319,7 +319,7 @@ Describe 'Show-ProfileFunction' {
             # Get-DotNetVersion should appear before Import-DotEnv
             $dotnetPos = $outputText.IndexOf('Get-DotNetVersion')
             $importPos = $outputText.IndexOf('Import-DotEnv')
-            $dotnetPos | Should -BeLessThan $importPos
+            $dotnetPos | Should-BeLessThan $importPos
         }
     }
 
@@ -328,7 +328,7 @@ Describe 'Show-ProfileFunction' {
             $output = Show-ProfileFunction -Category 'ad' 6>&1
             $outputText = ($output | Out-String)
 
-            $outputText | Should -Match 'Get-Help'
+            $outputText | Should-MatchString 'Get-Help'
         }
 
     }

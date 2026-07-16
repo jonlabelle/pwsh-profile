@@ -1,4 +1,4 @@
-﻿BeforeAll {
+BeforeAll {
     # Suppress progress bars to prevent freezing in non-interactive environments
     $Global:ProgressPreference = 'SilentlyContinue'
 
@@ -11,35 +11,35 @@ Describe 'Show-SystemResourceMonitor' {
     It 'is available as a function' {
         $command = Get-Command -Name 'Show-SystemResourceMonitor' -ErrorAction SilentlyContinue
         $command | Should -Not -BeNullOrEmpty
-        $command.CommandType | Should -Be 'Function'
+        $command.CommandType | Should-Be 'Function'
     }
 
     It 'returns a non-empty dashboard string in one-shot mode' {
         $result = Show-SystemResourceMonitor -NoContinuous -NoColor -BarWidth 16 -HistoryLength 8
 
-        $result | Should -BeOfType 'System.String'
-        $result.Length | Should -BeGreaterThan 0
-        $result | Should -Match 'System Resource Monitor'
-        $result | Should -Match '(?m)^CPU'
-        $result | Should -Match '(?m)^Memory'
-        $result | Should -Match '(?m)^Disk'
-        $result | Should -Match '(?m)^Network'
+        $result | Should-HaveType ([System.String])
+        $result.Length | Should-BeGreaterThan 0
+        $result | Should-MatchString 'System Resource Monitor'
+        $result | Should-MatchString '(?m)^CPU'
+        $result | Should-MatchString '(?m)^Memory'
+        $result | Should-MatchString '(?m)^Disk'
+        $result | Should-MatchString '(?m)^Network'
     }
 
     It 'includes CPU core busy readout in one-shot output' {
         $result = Show-SystemResourceMonitor -NoContinuous -NoColor -BarWidth 16 -HistoryLength 8
 
-        $result | Should -Match '(?m)^CPU.+\S+/\S+ logical cores busy\r?$'
+        $result | Should-MatchString '(?m)^CPU.+\S+/\S+ logical cores busy\r?$'
     }
 
     It 'includes overall summary in title and status metadata in one-shot output' {
         $result = Show-SystemResourceMonitor -NoContinuous -NoColor -BarWidth 16 -HistoryLength 8
 
-        $result | Should -Match '(?m)^System Resource Monitor.+\[[ABCDF]\]'
-        $result | Should -Match '(?m)^Status +\[Platform\].+\[Updated\].+\[Collect\]'
-        $result | Should -Match '(?m)^History +\[Window\] +\d+ samples .+ \[Order\] +oldest (?:→|->) newest\r?$'
-        $result | Should -Match '(?m)^ +[│|] +\[Trend\] +(?:↗ up \| → steady \| ↘ down|\^ up \| = steady \| v down)\r?$'
-        $result | Should -Not -Match '(?m)^Health +Overall:'
+        $result | Should-MatchString '(?m)^System Resource Monitor.+\[[ABCDF]\]'
+        $result | Should-MatchString '(?m)^Status +\[Platform\].+\[Updated\].+\[Collect\]'
+        $result | Should-MatchString '(?m)^History +\[Window\] +\d+ samples .+ \[Order\] +oldest (?:→|->) newest\r?$'
+        $result | Should-MatchString '(?m)^ +[│|] +\[Trend\] +(?:↗ up \| → steady \| ↘ down|\^ up \| = steady \| v down)\r?$'
+        $result | Should-NotMatchString '(?m)^Health +Overall:'
 
         $lines = @($result -split '\r?\n')
         $statusLine = @($lines | Where-Object { $_ -match '^Status +\[Platform\].+\[Updated\].+\[Collect\]' }) | Select-Object -First 1
@@ -58,35 +58,35 @@ Describe 'Show-SystemResourceMonitor' {
         $statusLine | Should -Not -BeNullOrEmpty
         $historyLine | Should -Not -BeNullOrEmpty
         $historyTrendLine | Should -Not -BeNullOrEmpty
-        $dividerIndices.Count | Should -BeGreaterOrEqual 2
+        $dividerIndices.Count | Should-BeGreaterThanOrEqual 2
 
         $statusIndex = [Array]::IndexOf($lines, $statusLine)
         $historyIndex = [Array]::IndexOf($lines, $historyLine)
         $historyTrendIndex = [Array]::IndexOf($lines, $historyTrendLine)
 
-        $statusIndex | Should -Be ($dividerIndices[1] + 2)
-        $lines[$dividerIndices[1] + 1] | Should -Be ''
-        $historyIndex | Should -Be ($statusIndex + 1)
-        $historyTrendIndex | Should -Be ($historyIndex + 1)
+        $statusIndex | Should-Be ($dividerIndices[1] + 2)
+        $lines[$dividerIndices[1] + 1] | Should-Be ''
+        $historyIndex | Should-Be ($statusIndex + 1)
+        $historyTrendIndex | Should-Be ($historyIndex + 1)
     }
 
     It 'returns structured output with -AsObject' {
         $result = Show-SystemResourceMonitor -AsObject -NoContinuous
 
         $result | Should -Not -BeNullOrEmpty
-        $result.Timestamp | Should -BeOfType 'DateTime'
-        $result.PSObject.Properties.Name | Should -Contain 'CpuUsagePercent'
-        $result.PSObject.Properties.Name | Should -Contain 'MemoryUsagePercent'
-        $result.PSObject.Properties.Name | Should -Contain 'DiskUsagePercent'
-        $result.PSObject.Properties.Name | Should -Contain 'NetworkReceiveBytesPerSecond'
-        $result.PSObject.Properties.Name | Should -Contain 'NetworkSendBytesPerSecond'
-        $result.PSObject.Properties.Name | Should -Contain 'NetworkTotalBytesPerSecond'
-        $result.PSObject.Properties.Name | Should -Contain 'NetworkActiveInterfaces'
-        $result.PSObject.Properties.Name | Should -Contain 'Platform'
-        $result.PSObject.Properties.Name | Should -Contain 'OverallLoadPercent'
-        $result.PSObject.Properties.Name | Should -Contain 'HealthGrade'
-        $result.PSObject.Properties.Name | Should -Contain 'Findings'
-        $result.PSObject.Properties.Name | Should -Contain 'CollectMs'
+        $result.Timestamp | Should-HaveType ([DateTime])
+        $result.PSObject.Properties.Name | Should-ContainCollection 'CpuUsagePercent'
+        $result.PSObject.Properties.Name | Should-ContainCollection 'MemoryUsagePercent'
+        $result.PSObject.Properties.Name | Should-ContainCollection 'DiskUsagePercent'
+        $result.PSObject.Properties.Name | Should-ContainCollection 'NetworkReceiveBytesPerSecond'
+        $result.PSObject.Properties.Name | Should-ContainCollection 'NetworkSendBytesPerSecond'
+        $result.PSObject.Properties.Name | Should-ContainCollection 'NetworkTotalBytesPerSecond'
+        $result.PSObject.Properties.Name | Should-ContainCollection 'NetworkActiveInterfaces'
+        $result.PSObject.Properties.Name | Should-ContainCollection 'Platform'
+        $result.PSObject.Properties.Name | Should-ContainCollection 'OverallLoadPercent'
+        $result.PSObject.Properties.Name | Should-ContainCollection 'HealthGrade'
+        $result.PSObject.Properties.Name | Should-ContainCollection 'Findings'
+        $result.PSObject.Properties.Name | Should-ContainCollection 'CollectMs'
     }
 
     It 'returns top processes in structured output by default' {
@@ -94,15 +94,15 @@ Describe 'Show-SystemResourceMonitor' {
         $topProcesses = @($result.TopProcesses)
 
         $result | Should -Not -BeNullOrEmpty
-        $result.PSObject.Properties.Name | Should -Contain 'TopProcesses'
-        $topProcesses.Count | Should -BeLessOrEqual 3
+        $result.PSObject.Properties.Name | Should-ContainCollection 'TopProcesses'
+        $topProcesses.Count | Should-BeLessThanOrEqual 3
 
         if ($topProcesses.Count -gt 0)
         {
-            $topProcesses[0].PSObject.Properties.Name | Should -Contain 'Name'
-            $topProcesses[0].PSObject.Properties.Name | Should -Contain 'Id'
-            $topProcesses[0].PSObject.Properties.Name | Should -Contain 'CpuSeconds'
-            $topProcesses[0].PSObject.Properties.Name | Should -Contain 'WorkingSetMiB'
+            $topProcesses[0].PSObject.Properties.Name | Should-ContainCollection 'Name'
+            $topProcesses[0].PSObject.Properties.Name | Should-ContainCollection 'Id'
+            $topProcesses[0].PSObject.Properties.Name | Should-ContainCollection 'CpuSeconds'
+            $topProcesses[0].PSObject.Properties.Name | Should-ContainCollection 'WorkingSetMiB'
         }
     }
 
@@ -116,10 +116,10 @@ Describe 'Show-SystemResourceMonitor' {
         $result = Show-SystemResourceMonitor -AsObject -NoContinuous -TopProcessCount 10 -TopProcessName $namePattern
         $topProcesses = @($result.TopProcesses)
 
-        $topProcesses.Count | Should -BeGreaterThan 0
+        $topProcesses.Count | Should-BeGreaterThan 0
         foreach ($processInfo in $topProcesses)
         {
-            $processInfo.Name | Should -BeLike $namePattern
+            $processInfo.Name | Should-BeLikeString $namePattern
         }
     }
 
@@ -128,7 +128,7 @@ Describe 'Show-SystemResourceMonitor' {
         $topProcesses = @($result.TopProcesses)
 
         $result | Should -Not -BeNullOrEmpty
-        $topProcesses.Count | Should -Be 0
+        $topProcesses.Count | Should-Be 0
     }
 
     It 'supports process-scoped monitor metrics when process filters are specified' {
@@ -140,10 +140,10 @@ Describe 'Show-SystemResourceMonitor' {
         $result = Show-SystemResourceMonitor -AsObject -NoContinuous -MonitorProcessName $namePattern
 
         $result | Should -Not -BeNullOrEmpty
-        $result.PSObject.Properties.Name | Should -Contain 'MonitorProcessName'
-        $result.PSObject.Properties.Name | Should -Contain 'MonitorProcessMatchCount'
-        @($result.MonitorProcessName) | Should -Contain $namePattern
-        [Int32]$result.MonitorProcessMatchCount | Should -BeGreaterOrEqual 1
+        $result.PSObject.Properties.Name | Should-ContainCollection 'MonitorProcessName'
+        $result.PSObject.Properties.Name | Should-ContainCollection 'MonitorProcessMatchCount'
+        @($result.MonitorProcessName) | Should-ContainCollection $namePattern
+        [Int32]$result.MonitorProcessMatchCount | Should-BeGreaterThanOrEqual 1
         $result.DiskUsagePercent | Should -BeNullOrEmpty
         $result.NetworkTotalBytesPerSecond | Should -BeNullOrEmpty
     }
@@ -166,17 +166,17 @@ Describe 'Show-SystemResourceMonitor' {
         $result = Show-SystemResourceMonitor -AsObject -NoContinuous -MonitorProcessName $plainFilter
 
         $result | Should -Not -BeNullOrEmpty
-        @($result.MonitorProcessName) | Should -Contain $plainFilter
-        [Int32]$result.MonitorProcessMatchCount | Should -BeGreaterOrEqual 1
+        @($result.MonitorProcessName) | Should-ContainCollection $plainFilter
+        [Int32]$result.MonitorProcessMatchCount | Should-BeGreaterThanOrEqual 1
     }
 
     It 'reports zero scoped CPU and memory when process filter has no matches' {
         $result = Show-SystemResourceMonitor -AsObject -NoContinuous -MonitorProcessName '__definitely_not_a_real_process_name_*'
 
         $result | Should -Not -BeNullOrEmpty
-        [Int32]$result.MonitorProcessMatchCount | Should -Be 0
-        $result.CpuUsagePercent | Should -Be 0
-        $result.MemoryUsedGiB | Should -Be 0
+        [Int32]$result.MonitorProcessMatchCount | Should-Be 0
+        $result.CpuUsagePercent | Should-Be 0
+        $result.MemoryUsedGiB | Should-Be 0
     }
 
     It 'does not report intentionally omitted disk as a process-scoped issue' {
@@ -185,9 +185,9 @@ Describe 'Show-SystemResourceMonitor' {
         $dashboard = Show-SystemResourceMonitor -NoContinuous -NoColor -NoTopProcesses -BarWidth 12 -HistoryLength 8 -MonitorProcessName $filter
 
         $sample | Should -Not -BeNullOrEmpty
-        @($sample.Findings) | Should -Not -Contain 'Disk unavailable'
-        $dashboard | Should -Match '(?m)^Findings +\[Issues\] +none\r?$'
-        $dashboard | Should -Not -Match 'Disk unavailable'
+        @($sample.Findings) | Should-NotContainCollection 'Disk unavailable'
+        $dashboard | Should-MatchString '(?m)^Findings +\[Issues\] +none\r?$'
+        $dashboard | Should-NotMatchString 'Disk unavailable'
     }
 
     It 'shows process scope metadata in dashboard output' {
@@ -196,36 +196,36 @@ Describe 'Show-SystemResourceMonitor' {
         $diskLine = @($lines | Where-Object { $_ -match '^Disk' }) | Select-Object -First 1
         $networkLine = @($lines | Where-Object { $_ -match '^Network' }) | Select-Object -First 1
 
-        $result | Should -BeOfType 'System.String'
-        $result | Should -Match '(?m)^Scope +\[Filter\] +__definitely_not_a_real_process_name_\*.+\[Matches\] +0\r?$'
-        $result | Should -Match '(?m)^CPU.+0\.0%'
-        $result | Should -Match '(?m)^Disk.+n/a.+on n/a\r?$'
-        $result | Should -Match '(?m)^Network.+n/a'
-        $diskLine | Should -Not -Match '\?'
-        $networkLine | Should -Not -Match '\?'
+        $result | Should-HaveType ([System.String])
+        $result | Should-MatchString '(?m)^Scope +\[Filter\] +__definitely_not_a_real_process_name_\*.+\[Matches\] +0\r?$'
+        $result | Should-MatchString '(?m)^CPU.+0\.0%'
+        $result | Should-MatchString '(?m)^Disk.+n/a.+on n/a\r?$'
+        $result | Should-MatchString '(?m)^Network.+n/a'
+        $diskLine | Should-NotMatchString '\?'
+        $networkLine | Should-NotMatchString '\?'
     }
 
     It 'supports ASCII-only rendering mode' {
         $result = Show-SystemResourceMonitor -NoContinuous -NoColor -Ascii -BarWidth 12 -HistoryLength 8
 
-        $result | Should -BeOfType 'System.String'
-        $result | Should -Match '(?m)^CPU'
-        $result | Should -Match '(?m)^Status +\[Platform\]'
+        $result | Should-HaveType ([System.String])
+        $result | Should-MatchString '(?m)^CPU'
+        $result | Should-MatchString '(?m)^Status +\[Platform\]'
     }
 
     It 'includes top process visualization by default' {
         $result = Show-SystemResourceMonitor -NoContinuous -NoColor -BarWidth 12 -HistoryLength 8 -TopProcessCount 3
 
-        $result | Should -BeOfType 'System.String'
-        $result | Should -Match '(?m)^Top Processes \(limit: 3\)\r?$'
-        $result | Should -Match '(?m)^  .+ PID +[0-9]+'
+        $result | Should-HaveType ([System.String])
+        $result | Should-MatchString '(?m)^Top Processes \(limit: 3\)\r?$'
+        $result | Should-MatchString '(?m)^  .+ PID +[0-9]+'
     }
 
     It 'shows top process wildcard filter in visualization heading' {
         $result = Show-SystemResourceMonitor -NoContinuous -NoColor -BarWidth 12 -HistoryLength 8 -TopProcessCount 3 -TopProcessName 'pwsh*'
 
-        $result | Should -BeOfType 'System.String'
-        $result | Should -Match '(?m)^Top Processes \(limit: 3\) \| filter: pwsh\*\r?$'
+        $result | Should-HaveType ([System.String])
+        $result | Should-MatchString '(?m)^Top Processes \(limit: 3\) \| filter: pwsh\*\r?$'
     }
 
     It 'uses process scope filter for top process heading when no top process filter is provided' {
@@ -235,8 +235,8 @@ Describe 'Show-SystemResourceMonitor' {
 
         $result = Show-SystemResourceMonitor -NoContinuous -NoColor -BarWidth 12 -HistoryLength 8 -TopProcessCount 3 -MonitorProcessName $namePattern
 
-        $result | Should -BeOfType 'System.String'
-        $result | Should -Match (('(?m)^Top Processes \(limit: 3\) \| filter: {0}\r?$' -f [Regex]::Escape($namePattern)))
+        $result | Should-HaveType ([System.String])
+        $result | Should-MatchString (('(?m)^Top Processes \(limit: 3\) \| filter: {0}\r?$' -f [Regex]::Escape($namePattern)))
     }
 
     It 'formats disk label details for the current platform' {
@@ -253,29 +253,29 @@ Describe 'Show-SystemResourceMonitor' {
 
         if ($isWindowsPlatform)
         {
-            $result | Should -Match '(?m)^Disk.+on [A-Za-z]:\\\r?$'
+            $result | Should-MatchString '(?m)^Disk.+on [A-Za-z]:\\\r?$'
         }
         else
         {
-            $result | Should -Match '(?m)^Disk.+on / \(root fs\)\r?$'
+            $result | Should-MatchString '(?m)^Disk.+on / \(root fs\)\r?$'
         }
     }
 
     It 'supports bounded continuous mode for automation and tests' {
         $results = @(Show-SystemResourceMonitor -AsObject -IntervalSeconds 1 -MaxIterations 2)
 
-        $results.Count | Should -Be 2
-        $results[0].Timestamp | Should -BeOfType 'DateTime'
-        $results[1].Timestamp | Should -BeOfType 'DateTime'
+        $results.Count | Should-Be 2
+        $results[0].Timestamp | Should-HaveType ([DateTime])
+        $results[1].Timestamp | Should-HaveType ([DateTime])
     }
 
     It 'renders continuous output without timestamp refresh noise' {
         $output = Show-SystemResourceMonitor -NoColor -IntervalSeconds 1 -MaxIterations 1 *>&1 | Out-String
 
-        $output | Should -Match '(?m)^System Resource Monitor.+\[[ABCDF]\]'
-        $output | Should -Not -Match 'Refresh #'
-        $output | Should -Not -Match '(?m)^Health +Overall:'
-        $output | Should -Match 'Press (?:Q or Ctrl\+C|Ctrl\+C or q) to stop monitor\.'
+        $output | Should-MatchString '(?m)^System Resource Monitor.+\[[ABCDF]\]'
+        $output | Should-NotMatchString 'Refresh #'
+        $output | Should-NotMatchString '(?m)^Health +Overall:'
+        $output | Should-MatchString 'Press (?:Q or Ctrl\+C|Ctrl\+C or q) to stop monitor\.'
     }
 
     It 'keeps top processes visible in height-constrained continuous output' {
@@ -291,18 +291,18 @@ Describe 'Show-SystemResourceMonitor' {
             $lines.RemoveAt($lines.Count - 1)
         }
 
-        $lines.Count | Should -BeLessOrEqual 16
-        $output | Should -Match '(?m)^System Resource Monitor.+\[[ABCDF]\]'
-        $output | Should -Match '(?m)^Top Processes \(limit: 5\)(?: \| showing: [0-9]+)?\r?$'
-        $output | Should -Match '(?m)^  .+ PID +[0-9]+'
-        $output | Should -Not -Match 'Press Q or Ctrl\+C to stop monitor\.'
+        $lines.Count | Should-BeLessThanOrEqual 16
+        $output | Should-MatchString '(?m)^System Resource Monitor.+\[[ABCDF]\]'
+        $output | Should-MatchString '(?m)^Top Processes \(limit: 5\)(?: \| showing: [0-9]+)?\r?$'
+        $output | Should-MatchString '(?m)^  .+ PID +[0-9]+'
+        $output | Should-NotMatchString 'Press Q or Ctrl\+C to stop monitor\.'
     }
 
     It 'omits top process sections when -NoTopProcesses is used' {
         $dashboard = Show-SystemResourceMonitor -NoContinuous -NoColor -NoTopProcesses -BarWidth 12 -HistoryLength 8
         $sample = Show-SystemResourceMonitor -AsObject -NoContinuous -NoTopProcesses
 
-        $dashboard | Should -Not -Match '(?m)^Top Processes'
-        $sample.PSObject.Properties.Name | Should -Not -Contain 'TopProcesses'
+        $dashboard | Should-NotMatchString '(?m)^Top Processes'
+        $sample.PSObject.Properties.Name | Should-NotContainCollection 'TopProcesses'
     }
 }

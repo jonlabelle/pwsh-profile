@@ -33,12 +33,12 @@ Describe 'Test-TlsProtocol Integration Tests' {
             $result = Test-TlsProtocol -ComputerName 'bing.com' -Protocol Tls12 -Timeout 10000
 
             $result | Should -Not -BeNullOrEmpty
-            $result.Server | Should -Be 'bing.com'
-            $result.Port | Should -Be 443
-            $result.Protocol | Should -Be 'Tls12'
-            $result.Supported | Should -Be $true
-            $result.Status | Should -Be 'Success'
-            $result.ResponseTime | Should -BeGreaterThan ([TimeSpan]::Zero)
+            $result.Server | Should-Be 'bing.com'
+            $result.Port | Should-Be 443
+            $result.Protocol | Should-Be 'Tls12'
+            $result.Supported | Should-Be $true
+            $result.Status | Should-Be 'Success'
+            $result.ResponseTime | Should-BeGreaterThan ([TimeSpan]::Zero)
         }
 
         It 'Should successfully test TLS 1.3 on a modern HTTPS endpoint' {
@@ -46,10 +46,10 @@ Describe 'Test-TlsProtocol Integration Tests' {
             $result = Test-TlsProtocol -ComputerName 'www.cloudflare.com' -Protocol Tls13 -Timeout 10000
 
             $result | Should -Not -BeNullOrEmpty
-            $result.Server | Should -Be 'www.cloudflare.com'
-            $result.Protocol | Should -Be 'Tls13'
+            $result.Server | Should-Be 'www.cloudflare.com'
+            $result.Protocol | Should-Be 'Tls13'
             # TLS 1.3 may or may not be supported depending on the .NET version
-            $result.Supported | Should -BeOfType [Boolean]
+            $result.Supported | Should-HaveType ([Boolean])
             $result.Status | Should -Not -BeNullOrEmpty
         }
 
@@ -58,11 +58,11 @@ Describe 'Test-TlsProtocol Integration Tests' {
             $result = Test-TlsProtocol -ComputerName 'bing.com' -Protocol Tls, Tls11 -Timeout 10000
 
             $result | Should -Not -BeNullOrEmpty
-            $result | Should -HaveCount 2
+            $result | Should-BeCollection -Count 2
 
             # Verify protocols were tested
-            $result[0].Protocol | Should -Be 'Tls'
-            $result[1].Protocol | Should -Be 'Tls11'
+            $result[0].Protocol | Should-Be 'Tls'
+            $result[1].Protocol | Should-Be 'Tls11'
 
             # Each result should have a status
             $result[0].Status | Should -Not -BeNullOrEmpty
@@ -78,18 +78,18 @@ Describe 'Test-TlsProtocol Integration Tests' {
             $result = Test-TlsProtocol -ComputerName 'www.github.com' -Timeout 10000
 
             $result | Should -Not -BeNullOrEmpty
-            $result | Should -HaveCount 4
+            $result | Should-BeCollection -Count 4
 
             # Verify all protocols were tested
             $protocols = $result | Select-Object -ExpandProperty Protocol
-            $protocols | Should -Contain 'Tls'
-            $protocols | Should -Contain 'Tls11'
-            $protocols | Should -Contain 'Tls12'
-            $protocols | Should -Contain 'Tls13'
+            $protocols | Should-ContainCollection 'Tls'
+            $protocols | Should-ContainCollection 'Tls11'
+            $protocols | Should-ContainCollection 'Tls12'
+            $protocols | Should-ContainCollection 'Tls13'
 
             # GitHub should support at least TLS 1.2
             $tls12Result = $result | Where-Object { $_.Protocol -eq 'Tls12' }
-            $tls12Result.Supported | Should -Be $true
+            $tls12Result.Supported | Should-Be $true
         }
     }
 
@@ -98,8 +98,8 @@ Describe 'Test-TlsProtocol Integration Tests' {
             $result = Test-TlsProtocol -ComputerName 'this-host-absolutely-does-not-exist-12345.invalid' -Protocol Tls12 -Timeout 3000
 
             $result | Should -Not -BeNullOrEmpty
-            $result.Supported | Should -Be $false
-            $result.Status | Should -Not -Be 'Success'
+            $result.Supported | Should-Be $false
+            $result.Status | Should-NotBe 'Success'
         }
 
         It 'Should handle connection timeout to unreachable hosts' {
@@ -107,8 +107,8 @@ Describe 'Test-TlsProtocol Integration Tests' {
             $result = Test-TlsProtocol -ComputerName '192.0.2.1' -Protocol Tls12 -Timeout 2000
 
             $result | Should -Not -BeNullOrEmpty
-            $result.Supported | Should -Be $false
-            $result.Status | Should -Match 'timeout|failed'
+            $result.Supported | Should-Be $false
+            $result.Status | Should-MatchString 'timeout|failed'
         }
 
         It 'Should handle non-HTTPS ports gracefully' {
@@ -117,7 +117,7 @@ Describe 'Test-TlsProtocol Integration Tests' {
 
             $result | Should -Not -BeNullOrEmpty
             # Connection might succeed but TLS handshake should fail
-            $result.Supported | Should -Be $false
+            $result.Supported | Should-Be $false
         }
     }
 
@@ -128,8 +128,8 @@ Describe 'Test-TlsProtocol Integration Tests' {
             $stopwatch.Stop()
 
             # Should complete within timeout plus overhead (15 seconds total)
-            $stopwatch.Elapsed.TotalSeconds | Should -BeLessThan 15
-            $result.ResponseTime.TotalSeconds | Should -BeLessThan 10
+            $stopwatch.Elapsed.TotalSeconds | Should-BeLessThan 15
+            $result.ResponseTime.TotalSeconds | Should-BeLessThan 10
         }
 
         It 'Should test multiple protocols efficiently' {
@@ -137,9 +137,9 @@ Describe 'Test-TlsProtocol Integration Tests' {
             $result = Test-TlsProtocol -ComputerName 'www.cloudflare.com' -Protocol Tls12, Tls13 -Timeout 10000
             $stopwatch.Stop()
 
-            $result | Should -HaveCount 2
+            $result | Should-BeCollection -Count 2
             # Testing 2 protocols should complete in reasonable time (30 seconds with overhead)
-            $stopwatch.Elapsed.TotalSeconds | Should -BeLessThan 30
+            $stopwatch.Elapsed.TotalSeconds | Should-BeLessThan 30
         }
     }
 
@@ -149,14 +149,14 @@ Describe 'Test-TlsProtocol Integration Tests' {
             $result = $servers | Test-TlsProtocol -Protocol Tls12 -Timeout 10000
 
             $result | Should -Not -BeNullOrEmpty
-            $result | Should -HaveCount 2
-            $result[0].Server | Should -Be 'bing.com'
-            $result[1].Server | Should -Be 'www.github.com'
+            $result | Should-BeCollection -Count 2
+            $result[0].Server | Should-Be 'bing.com'
+            $result[1].Server | Should-Be 'www.github.com'
 
             # Both should support TLS 1.2
             $result | ForEach-Object {
-                $_.Protocol | Should -Be 'Tls12'
-                $_.Supported | Should -Be $true
+                $_.Protocol | Should-Be 'Tls12'
+                $_.Supported | Should-Be $true
             }
         }
     }
@@ -167,8 +167,8 @@ Describe 'Test-TlsProtocol Integration Tests' {
             $result = Test-TlsProtocol -ComputerName 'bing.com' -Port 443 -Protocol Tls12 -Timeout 10000
 
             $result | Should -Not -BeNullOrEmpty
-            $result.Port | Should -Be 443
-            $result.Supported | Should -Be $true
+            $result.Port | Should-Be 443
+            $result.Supported | Should-Be $true
         }
     }
 }

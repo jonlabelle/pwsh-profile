@@ -60,30 +60,30 @@ Describe 'Set-PathPermission' {
     It 'is available as a function' {
         $command = Get-Command -Name 'Set-PathPermission' -ErrorAction SilentlyContinue
         $command | Should -Not -BeNullOrEmpty
-        $command.CommandType | Should -Be 'Function'
+        $command.CommandType | Should-Be 'Function'
     }
 
     It 'supports ShouldProcess (WhatIf/Confirm)' {
         $command = Get-Command -Name 'Set-PathPermission' -ErrorAction SilentlyContinue
-        $command.Parameters.ContainsKey('WhatIf') | Should -Be $true
-        $command.Parameters.ContainsKey('Confirm') | Should -Be $true
+        $command.Parameters.ContainsKey('WhatIf') | Should-Be $true
+        $command.Parameters.ContainsKey('Confirm') | Should-Be $true
     }
 
     It 'exposes portable and advanced permission parameters' {
         $command = Get-Command -Name 'Set-PathPermission' -ErrorAction SilentlyContinue
 
-        $command.Parameters.ContainsKey('OwnerPermission') | Should -Be $true
-        $command.Parameters.ContainsKey('GroupPermission') | Should -Be $true
-        $command.Parameters.ContainsKey('OtherPermission') | Should -Be $true
-        $command.Parameters.ContainsKey('Mode') | Should -Be $true
-        $command.Parameters.ContainsKey('Permission') | Should -Be $true
-        $command.Parameters.ContainsKey('Rights') | Should -Be $true
-        $command.Parameters.ContainsKey('Idempotent') | Should -Be $true
+        $command.Parameters.ContainsKey('OwnerPermission') | Should-Be $true
+        $command.Parameters.ContainsKey('GroupPermission') | Should-Be $true
+        $command.Parameters.ContainsKey('OtherPermission') | Should-Be $true
+        $command.Parameters.ContainsKey('Mode') | Should-Be $true
+        $command.Parameters.ContainsKey('Permission') | Should-Be $true
+        $command.Parameters.ContainsKey('Rights') | Should-Be $true
+        $command.Parameters.ContainsKey('Idempotent') | Should-Be $true
     }
 
     It 'has a Recurse switch parameter' {
         $command = Get-Command -Name 'Set-PathPermission' -ErrorAction SilentlyContinue
-        $command.Parameters['Recurse'].SwitchParameter | Should -BeTrue
+        $command.Parameters['Recurse'].SwitchParameter | Should-BeTruthy
     }
 
     It 'writes an error for missing paths and continues processing' {
@@ -94,8 +94,8 @@ Describe 'Set-PathPermission' {
             Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }
         )
 
-        $errors.Count | Should -BeGreaterThan 0
-        $errors[0].FullyQualifiedErrorId | Should -Match '^PathNotFound'
+        $errors.Count | Should-BeGreaterThan 0
+        $errors[0].FullyQualifiedErrorId | Should-MatchString '^PathNotFound'
     }
 
     It 'writes an error for non-filesystem providers' {
@@ -104,14 +104,14 @@ Describe 'Set-PathPermission' {
             Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }
         )
 
-        $errors.Count | Should -BeGreaterThan 0
-        $errors[0].FullyQualifiedErrorId | Should -Match '^UnsupportedProvider'
+        $errors.Count | Should-BeGreaterThan 0
+        $errors[0].FullyQualifiedErrorId | Should-MatchString '^UnsupportedProvider'
     }
 
     It 'rejects None combined with another portable permission' {
         {
             Set-PathPermission -Path $script:RegularFile -OwnerPermission None, Read -ErrorAction Stop
-        } | Should -Throw "Permission value 'None' cannot be combined*"
+        } | Should-Throw "Permission value 'None' cannot be combined*"
     }
 
     Context 'Portable Unix permission changes' -Skip:$script:SkipUnixContext {
@@ -119,29 +119,29 @@ Describe 'Set-PathPermission' {
             Set-PathPermission -Path $script:RegularFile -OwnerPermission Read, Write -GroupPermission Read -OtherPermission None
 
             $result = Get-PathPermission -Path $script:RegularFile
-            $result.Octal | Should -Be '640'
+            $result.Octal | Should-Be '640'
         }
 
         It 'preserves unspecified role permissions' {
             Set-PathPermission -Path $script:RegularFile -OwnerPermission Read, Write, Execute
 
             $result = Get-PathPermission -Path $script:RegularFile
-            $result.Octal | Should -Be '744'
+            $result.Octal | Should-Be '744'
         }
 
         It 'supports literal paths containing wildcard characters with the portable API' {
             Set-PathPermission -LiteralPath $script:LiteralWildcardFile -OwnerPermission Read, Write -GroupPermission Read -OtherPermission None
 
             $result = Get-PathPermission -LiteralPath $script:LiteralWildcardFile
-            $result.Octal | Should -Be '640'
+            $result.Octal | Should-Be '640'
         }
 
         It 'applies the requested portable permissions recursively' {
             Set-PathPermission -Path $script:SampleDirectory -OwnerPermission Read, Write, Execute -GroupPermission None -OtherPermission None -Recurse
 
             $results = @(Get-PathPermission -Path $script:SampleDirectory -Recurse)
-            $results.Count | Should -Be 4
-            @($results.Octal | Select-Object -Unique) | Should -Be @('700')
+            $results.Count | Should-Be 4
+            @($results.Octal | Select-Object -Unique) | Should-BeCollection @('700')
         }
 
         It 'does not change permissions when -WhatIf is used with the portable API' {
@@ -150,41 +150,41 @@ Describe 'Set-PathPermission' {
             Set-PathPermission -Path $script:RegularFile -OwnerPermission Read, Write -GroupPermission Read -OtherPermission None -WhatIf
 
             $after = Get-PathPermission -Path $script:RegularFile
-            $after.Octal | Should -Be $before.Octal
+            $after.Octal | Should-Be $before.Octal
         }
 
         It 'returns summary objects with -PassThru for the portable API' {
             $result = Set-PathPermission -Path $script:RegularFile -OwnerPermission Read, Write -GroupPermission Read -OtherPermission None -PassThru
 
-            $result.Path | Should -Be ([System.IO.Path]::GetFullPath($script:RegularFile))
-            $result.Operation | Should -Be 'SetPortablePermission'
-            $result.Applied | Should -BeTrue
-            $result.Skipped | Should -BeFalse
-            $result.OwnerPermission | Should -Be 'Read, Write'
-            $result.GroupPermission | Should -Be 'Read'
-            $result.OtherPermission | Should -Be 'None'
-            $result.Mode | Should -Be '0640'
-            $result.Platform | Should -Be 'Unix'
+            $result.Path | Should-Be ([System.IO.Path]::GetFullPath($script:RegularFile))
+            $result.Operation | Should-Be 'SetPortablePermission'
+            $result.Applied | Should-BeTruthy
+            $result.Skipped | Should-BeFalsy
+            $result.OwnerPermission | Should-Be 'Read, Write'
+            $result.GroupPermission | Should-Be 'Read'
+            $result.OtherPermission | Should-Be 'None'
+            $result.Mode | Should-Be '0640'
+            $result.Platform | Should-Be 'Unix'
         }
 
         It 'skips portable updates that are already compliant when -Idempotent is used' {
             $result = Set-PathPermission -Path $script:RegularFile -OwnerPermission Read, Write -GroupPermission Read -OtherPermission Read -Idempotent -PassThru
 
-            $result.Path | Should -Be ([System.IO.Path]::GetFullPath($script:RegularFile))
-            $result.Operation | Should -Be 'SetPortablePermission'
-            $result.Applied | Should -BeFalse
-            $result.Skipped | Should -BeTrue
-            $result.Reason | Should -Be 'AlreadyCompliant'
-            $result.Mode | Should -Be '0644'
+            $result.Path | Should-Be ([System.IO.Path]::GetFullPath($script:RegularFile))
+            $result.Operation | Should-Be 'SetPortablePermission'
+            $result.Applied | Should-BeFalsy
+            $result.Skipped | Should-BeTruthy
+            $result.Reason | Should-Be 'AlreadyCompliant'
+            $result.Mode | Should-Be '0644'
 
-            (Get-PathPermission -Path $script:RegularFile).Octal | Should -Be '644'
+            (Get-PathPermission -Path $script:RegularFile).Octal | Should-Be '644'
         }
 
         It 'keeps the raw mode escape hatch available' {
             Set-PathPermission -Path $script:RegularFile -Mode 600
 
             $result = Get-PathPermission -Path $script:RegularFile
-            $result.Octal | Should -Be '600'
+            $result.Octal | Should-Be '600'
         }
 
         It 'selects a single chmod executable when multiple application matches are returned' {
@@ -206,23 +206,23 @@ Describe 'Set-PathPermission' {
             Set-PathPermission -Path $script:RegularFile -Mode 600
 
             $result = Get-PathPermission -Path $script:RegularFile
-            $result.Octal | Should -Be '600'
+            $result.Octal | Should-Be '600'
         }
 
         It 'skips raw numeric mode updates that are already compliant when -Idempotent is used' {
             $result = Set-PathPermission -Path $script:RegularFile -Mode 0644 -Idempotent -PassThru
 
-            $result.Operation | Should -Be 'SetMode'
-            $result.Applied | Should -BeFalse
-            $result.Skipped | Should -BeTrue
-            $result.Reason | Should -Be 'AlreadyCompliant'
-            $result.Mode | Should -Be '0644'
+            $result.Operation | Should-Be 'SetMode'
+            $result.Applied | Should-BeFalsy
+            $result.Skipped | Should-BeTruthy
+            $result.Reason | Should-Be 'AlreadyCompliant'
+            $result.Mode | Should-Be '0644'
         }
 
         It 'rejects symbolic raw modes when -Idempotent is used' {
             {
                 Set-PathPermission -Path $script:RegularFile -Mode 'u=rw,go=r' -Idempotent -ErrorAction Stop
-            } | Should -Throw '*numeric octal permissions*'
+            } | Should-Throw '*numeric octal permissions*'
         }
     }
 
@@ -239,7 +239,7 @@ Describe 'Set-PathPermission' {
                     ($_.FileSystemRights -band [System.Security.AccessControl.FileSystemRights]::Read) -eq [System.Security.AccessControl.FileSystemRights]::Read -and
                     ($_.FileSystemRights -band [System.Security.AccessControl.FileSystemRights]::Write) -eq [System.Security.AccessControl.FileSystemRights]::Write
                 }
-            ).Count | Should -BeGreaterThan 0
+            ).Count | Should-BeGreaterThan 0
 
             @(
                 $result.AccessRules | Where-Object {
@@ -247,17 +247,17 @@ Describe 'Set-PathPermission' {
                     [String]$_.AccessControlType -eq 'Allow' -and
                     ($_.FileSystemRights -band [System.Security.AccessControl.FileSystemRights]::Read) -eq [System.Security.AccessControl.FileSystemRights]::Read
                 }
-            ).Count | Should -BeGreaterThan 0
+            ).Count | Should-BeGreaterThan 0
         }
 
         It 'returns portable summary objects with -PassThru on Windows' {
             $result = Set-PathPermission -Path $script:RegularFile -OwnerPermission Read, Write -OtherPermission Read -PassThru
 
-            $result.Path | Should -Be ([System.IO.Path]::GetFullPath($script:RegularFile))
-            $result.Operation | Should -Be 'SetPortablePermission'
-            $result.OwnerPermission | Should -Be 'Read, Write'
-            $result.OtherPermission | Should -Be 'Read'
-            $result.Platform | Should -Be 'Windows'
+            $result.Path | Should-Be ([System.IO.Path]::GetFullPath($script:RegularFile))
+            $result.Operation | Should-Be 'SetPortablePermission'
+            $result.OwnerPermission | Should-Be 'Read, Write'
+            $result.OtherPermission | Should-Be 'Read'
+            $result.Platform | Should-Be 'Windows'
         }
 
         It 'supports named permissions for a specific identity' {
@@ -265,12 +265,12 @@ Describe 'Set-PathPermission' {
 
             $result = Set-PathPermission -Path $script:RegularFile -Identity $currentUser -Permission Read -PassThru
 
-            $result.Operation | Should -Be 'SetPermission'
-            $result.Applied | Should -BeTrue
-            $result.Skipped | Should -BeFalse
-            $result.Identity | Should -Be $currentUser
-            $result.Permission | Should -Be 'Read'
-            $result.AccessType | Should -Be 'Allow'
+            $result.Operation | Should-Be 'SetPermission'
+            $result.Applied | Should-BeTruthy
+            $result.Skipped | Should-BeFalsy
+            $result.Identity | Should-Be $currentUser
+            $result.Permission | Should-Be 'Read'
+            $result.AccessType | Should-Be 'Allow'
 
             $aclResult = Get-PathPermission -Path $script:RegularFile -IncludeAcl
             @(
@@ -279,7 +279,7 @@ Describe 'Set-PathPermission' {
                     [String]$_.AccessControlType -eq 'Allow' -and
                     ($_.FileSystemRights -band [System.Security.AccessControl.FileSystemRights]::Read) -eq [System.Security.AccessControl.FileSystemRights]::Read
                 }
-            ).Count | Should -BeGreaterThan 0
+            ).Count | Should-BeGreaterThan 0
         }
 
         It 'skips identity permission updates that are already compliant when -Idempotent is used' {
@@ -288,12 +288,12 @@ Describe 'Set-PathPermission' {
 
             $result = Set-PathPermission -Path $script:RegularFile -Identity $currentUser -Permission Read -Idempotent -PassThru
 
-            $result.Operation | Should -Be 'SetPermission'
-            $result.Applied | Should -BeFalse
-            $result.Skipped | Should -BeTrue
-            $result.Reason | Should -Be 'AlreadyCompliant'
-            $result.Identity | Should -Be $currentUser
-            $result.Permission | Should -Be 'Read'
+            $result.Operation | Should-Be 'SetPermission'
+            $result.Applied | Should-BeFalsy
+            $result.Skipped | Should-BeTruthy
+            $result.Reason | Should-Be 'AlreadyCompliant'
+            $result.Identity | Should-Be $currentUser
+            $result.Permission | Should-Be 'Read'
         }
 
         It 'keeps the raw rights escape hatch available' {
@@ -301,10 +301,10 @@ Describe 'Set-PathPermission' {
 
             $result = Set-PathPermission -Path $script:RegularFile -Identity $currentUser -Rights Delete -PassThru
 
-            $result.Operation | Should -Be 'SetAccessRule'
-            $result.Applied | Should -BeTrue
-            $result.Skipped | Should -BeFalse
-            $result.Rights | Should -Match 'Delete'
+            $result.Operation | Should-Be 'SetAccessRule'
+            $result.Applied | Should-BeTruthy
+            $result.Skipped | Should-BeFalsy
+            $result.Rights | Should-MatchString 'Delete'
 
             $aclResult = Get-PathPermission -Path $script:RegularFile -IncludeAcl
             @(
@@ -313,7 +313,7 @@ Describe 'Set-PathPermission' {
                     [String]$_.AccessControlType -eq 'Allow' -and
                     ($_.FileSystemRights -band [System.Security.AccessControl.FileSystemRights]::Delete) -eq [System.Security.AccessControl.FileSystemRights]::Delete
                 }
-            ).Count | Should -BeGreaterThan 0
+            ).Count | Should-BeGreaterThan 0
         }
     }
 }

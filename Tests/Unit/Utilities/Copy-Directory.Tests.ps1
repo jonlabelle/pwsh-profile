@@ -33,25 +33,25 @@ Describe 'Copy-Directory' {
         It 'Should have mandatory Source parameter' {
             $command = Get-Command Copy-Directory
             $sourceParam = $command.Parameters['Source']
-            $sourceParam.Attributes.Mandatory | Should -Contain $true
+            $sourceParam.Attributes.Mandatory | Should-ContainCollection $true
         }
 
         It 'Should have mandatory Destination parameter' {
             $command = Get-Command Copy-Directory
             $destParam = $command.Parameters['Destination']
-            $destParam.Attributes.Mandatory | Should -Contain $true
+            $destParam.Attributes.Mandatory | Should-ContainCollection $true
         }
 
         It 'Should have optional ExcludeDirectories parameter' {
             $command = Get-Command Copy-Directory
             $excludeParam = $command.Parameters['ExcludeDirectories']
-            $excludeParam.Attributes.Mandatory | Should -Not -Contain $true
+            $excludeParam.Attributes.Mandatory | Should-NotContainCollection $true
         }
 
         It 'Should have optional ExcludeFiles parameter' {
             $command = Get-Command Copy-Directory
             $excludeParam = $command.Parameters['ExcludeFiles']
-            $excludeParam.Attributes.Mandatory | Should -Not -Contain $true
+            $excludeParam.Attributes.Mandatory | Should-NotContainCollection $true
         }
 
         It 'Should have UpdateMode parameter with correct default' {
@@ -64,31 +64,31 @@ Describe 'Copy-Directory' {
             $command = Get-Command Copy-Directory
             $updateModeParam = $command.Parameters['UpdateMode']
             $validateSet = $updateModeParam.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }
-            $validateSet.ValidValues | Should -Contain 'Skip'
-            $validateSet.ValidValues | Should -Contain 'Overwrite'
-            $validateSet.ValidValues | Should -Contain 'IfNewer'
-            $validateSet.ValidValues | Should -Contain 'Prompt'
-            $validateSet.ValidValues.Count | Should -Be 4
+            $validateSet.ValidValues | Should-ContainCollection 'Skip'
+            $validateSet.ValidValues | Should-ContainCollection 'Overwrite'
+            $validateSet.ValidValues | Should-ContainCollection 'IfNewer'
+            $validateSet.ValidValues | Should-ContainCollection 'Prompt'
+            $validateSet.ValidValues.Count | Should-Be 4
         }
 
         It 'Should support ShouldProcess (WhatIf/Confirm)' {
             $command = Get-Command Copy-Directory
-            $command.Parameters.ContainsKey('WhatIf') | Should -Be $true
-            $command.Parameters.ContainsKey('Confirm') | Should -Be $true
+            $command.Parameters.ContainsKey('WhatIf') | Should-Be $true
+            $command.Parameters.ContainsKey('Confirm') | Should-Be $true
         }
 
         It 'Should expose optional Recurse switch' {
             $command = Get-Command Copy-Directory
             $recurseParam = $command.Parameters['Recurse']
             $recurseParam | Should -Not -BeNullOrEmpty
-            $recurseParam.Attributes.Mandatory | Should -Not -Contain $true
+            $recurseParam.Attributes.Mandatory | Should-NotContainCollection $true
         }
 
         It 'Should have optional ThrottleLimit parameter' {
             $command = Get-Command Copy-Directory
             $throttleParam = $command.Parameters['ThrottleLimit']
             $throttleParam | Should -Not -BeNullOrEmpty
-            $throttleParam.Attributes.Mandatory | Should -Not -Contain $true
+            $throttleParam.Attributes.Mandatory | Should-NotContainCollection $true
         }
 
         It 'Should have ThrottleLimit parameter with ValidateRange(1,32)' {
@@ -96,14 +96,14 @@ Describe 'Copy-Directory' {
             $throttleParam = $command.Parameters['ThrottleLimit']
             $validateRange = $throttleParam.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateRangeAttribute] }
             $validateRange | Should -Not -BeNullOrEmpty
-            $validateRange.MinRange | Should -Be 1
-            $validateRange.MaxRange | Should -Be 32
+            $validateRange.MinRange | Should-Be 1
+            $validateRange.MaxRange | Should-Be 32
         }
 
         It 'Should have ThrottleLimit parameter type Int32' {
             $command = Get-Command Copy-Directory
             $throttleParam = $command.Parameters['ThrottleLimit']
-            $throttleParam.ParameterType | Should -Be ([Int32])
+            $throttleParam.ParameterType | Should-Be ([Int32])
         }
     }
 
@@ -115,7 +115,7 @@ Describe 'Copy-Directory' {
             'content' | Set-Content -Path "$testSource\test.txt"
 
             { Copy-Directory -Source $testSource -Destination $testDest -ThrottleLimit 1 } | Should -Not -Throw
-            Test-Path "$testDest\test.txt" | Should -BeTrue
+            Test-Path "$testDest\test.txt" | Should-BeTruthy
         }
 
         It 'Should accept ThrottleLimit of 8' {
@@ -125,7 +125,7 @@ Describe 'Copy-Directory' {
             'content' | Set-Content -Path "$testSource\test.txt"
 
             { Copy-Directory -Source $testSource -Destination $testDest -ThrottleLimit 8 } | Should -Not -Throw
-            Test-Path "$testDest\test.txt" | Should -BeTrue
+            Test-Path "$testDest\test.txt" | Should-BeTruthy
         }
 
         It 'Should accept ThrottleLimit of 32 (maximum)' {
@@ -135,7 +135,7 @@ Describe 'Copy-Directory' {
             'content' | Set-Content -Path "$testSource\test.txt"
 
             { Copy-Directory -Source $testSource -Destination $testDest -ThrottleLimit 32 } | Should -Not -Throw
-            Test-Path "$testDest\test.txt" | Should -BeTrue
+            Test-Path "$testDest\test.txt" | Should-BeTruthy
         }
 
         It 'Should reject ThrottleLimit of 0' {
@@ -143,7 +143,7 @@ Describe 'Copy-Directory' {
             $testDest = Join-Path -Path $TestDrive -ChildPath 'throttle0_dest'
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
 
-            { Copy-Directory -Source $testSource -Destination $testDest -ThrottleLimit 0 } | Should -Throw
+            { Copy-Directory -Source $testSource -Destination $testDest -ThrottleLimit 0 } | Should-Throw
         }
 
         It 'Should reject ThrottleLimit greater than 32' {
@@ -151,7 +151,7 @@ Describe 'Copy-Directory' {
             $testDest = Join-Path -Path $TestDrive -ChildPath 'throttle33_dest'
             New-Item -ItemType Directory -Path $testSource -Force | Out-Null
 
-            { Copy-Directory -Source $testSource -Destination $testDest -ThrottleLimit 33 } | Should -Throw
+            { Copy-Directory -Source $testSource -Destination $testDest -ThrottleLimit 33 } | Should-Throw
         }
 
         It 'Should disable parallel processing when UpdateMode is Prompt' {
@@ -176,10 +176,10 @@ Describe 'Copy-Directory' {
 
             $result = Copy-Directory -Source $testSource -Destination $testDest -ThrottleLimit 4
 
-            $result.TotalFiles | Should -Be 10
+            $result.TotalFiles | Should-Be 10
             1..10 | ForEach-Object {
-                Test-Path "$testDest\file$_.txt" | Should -BeTrue
-                (Get-Content -Path "$testDest\file$_.txt") | Should -Be "content $_"
+                Test-Path "$testDest\file$_.txt" | Should-BeTruthy
+                (Get-Content -Path "$testDest\file$_.txt") | Should-Be "content $_"
             }
         }
 
@@ -200,9 +200,9 @@ Describe 'Copy-Directory' {
             $resultSeq = Copy-Directory -Source $testSourceSeq -Destination $testDestSeq -ThrottleLimit 1
             $resultPar = Copy-Directory -Source $testSourcePar -Destination $testDestPar -ThrottleLimit 4
 
-            $resultSeq.TotalFiles | Should -Be $resultPar.TotalFiles
-            $resultSeq.FilesSkipped | Should -Be $resultPar.FilesSkipped
-            $resultSeq.FilesOverwritten | Should -Be $resultPar.FilesOverwritten
+            $resultSeq.TotalFiles | Should-Be $resultPar.TotalFiles
+            $resultSeq.FilesSkipped | Should-Be $resultPar.FilesSkipped
+            $resultSeq.FilesOverwritten | Should-Be $resultPar.FilesOverwritten
         }
     }
 
@@ -218,9 +218,9 @@ Describe 'Copy-Directory' {
 
             $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip
 
-            Test-Path (Join-Path -Path $testDest -ChildPath 'root.txt') | Should -BeTrue
-            Test-Path (Join-Path -Path $testDest -ChildPath 'subdir/nested.txt') | Should -BeFalse
-            $result.TotalDirectories | Should -Be 0
+            Test-Path (Join-Path -Path $testDest -ChildPath 'root.txt') | Should-BeTruthy
+            Test-Path (Join-Path -Path $testDest -ChildPath 'subdir/nested.txt') | Should-BeFalsy
+            $result.TotalDirectories | Should-Be 0
         }
     }
 
@@ -237,8 +237,8 @@ Describe 'Copy-Directory' {
 
             $result = Copy-Directory -Source $testSource -Destination $testDest -Recurse
 
-            $result.FilesSkipped | Should -Be 1
-            (Get-Content -Path "$testDest\test.txt") | Should -Be 'old content'
+            $result.FilesSkipped | Should-Be 1
+            (Get-Content -Path "$testDest\test.txt") | Should-Be 'old content'
         }
         It 'Should return PSCustomObject with expected properties' {
             $testSource = Join-Path -Path $TestDrive -ChildPath 'source'
@@ -248,12 +248,12 @@ Describe 'Copy-Directory' {
             $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip -Recurse
 
             $result | Should -Not -BeNullOrEmpty
-            $result.PSObject.Properties.Name | Should -Contain 'TotalFiles'
-            $result.PSObject.Properties.Name | Should -Contain 'TotalDirectories'
-            $result.PSObject.Properties.Name | Should -Contain 'ExcludedDirectories'
-            $result.PSObject.Properties.Name | Should -Contain 'FilesSkipped'
-            $result.PSObject.Properties.Name | Should -Contain 'FilesOverwritten'
-            $result.PSObject.Properties.Name | Should -Contain 'Duration'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'TotalFiles'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'TotalDirectories'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'ExcludedDirectories'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'FilesSkipped'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'FilesOverwritten'
+            $result.PSObject.Properties.Name | Should-ContainCollection 'Duration'
         }
 
         It 'Should have correct property types' {
@@ -263,12 +263,12 @@ Describe 'Copy-Directory' {
 
             $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip -Recurse
 
-            $result.TotalFiles | Should -BeOfType [Int32]
-            $result.TotalDirectories | Should -BeOfType [Int32]
-            $result.ExcludedDirectories | Should -BeOfType [Int32]
-            $result.FilesSkipped | Should -BeOfType [Int32]
-            $result.FilesOverwritten | Should -BeOfType [Int32]
-            $result.Duration | Should -BeOfType [TimeSpan]
+            $result.TotalFiles | Should-HaveType ([Int32])
+            $result.TotalDirectories | Should-HaveType ([Int32])
+            $result.ExcludedDirectories | Should-HaveType ([Int32])
+            $result.FilesSkipped | Should-HaveType ([Int32])
+            $result.FilesOverwritten | Should-HaveType ([Int32])
+            $result.Duration | Should-HaveType ([TimeSpan])
         }
 
         It 'Should have zero values for empty source directory' {
@@ -278,11 +278,11 @@ Describe 'Copy-Directory' {
 
             $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip -Recurse
 
-            $result.TotalFiles | Should -Be 0
-            $result.TotalDirectories | Should -Be 0
-            $result.ExcludedDirectories | Should -Be 0
-            $result.FilesSkipped | Should -Be 0
-            $result.FilesOverwritten | Should -Be 0
+            $result.TotalFiles | Should-Be 0
+            $result.TotalDirectories | Should-Be 0
+            $result.ExcludedDirectories | Should-Be 0
+            $result.FilesSkipped | Should-Be 0
+            $result.FilesOverwritten | Should-Be 0
         }
     }
 
@@ -295,7 +295,7 @@ Describe 'Copy-Directory' {
 
             { Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip -Recurse } | Should -Not -Throw
 
-            Test-Path $testDest | Should -Be $true
+            Test-Path $testDest | Should-Be $true
         }
 
         It 'Should handle relative paths' {
@@ -308,7 +308,7 @@ Describe 'Copy-Directory' {
 
                 { Copy-Directory -Source './relative_source' -Destination './relative_dest' -UpdateMode Skip -Recurse } | Should -Not -Throw
 
-                Test-Path 'relative_dest' | Should -Be $true
+                Test-Path 'relative_dest' | Should-Be $true
             }
             finally
             {
@@ -320,7 +320,7 @@ Describe 'Copy-Directory' {
             $nonExistentSource = Join-Path -Path $TestDrive -ChildPath 'non_existent'
             $testDest = Join-Path -Path $TestDrive -ChildPath 'dest'
 
-            { Copy-Directory -Source $nonExistentSource -Destination $testDest -UpdateMode Skip -Recurse } | Should -Throw
+            { Copy-Directory -Source $nonExistentSource -Destination $testDest -UpdateMode Skip -Recurse } | Should-Throw
         }
 
         It 'Should throw when source and destination are the same directory' {
@@ -330,7 +330,7 @@ Describe 'Copy-Directory' {
 
             {
                 Copy-Directory -Source $testPath -Destination $testPath -UpdateMode Skip -Recurse
-            } | Should -Throw -ExpectedMessage '*same directory*'
+            } | Should-Throw -ExceptionMessage '*same directory*'
         }
 
         It 'Should throw when recursive destination is inside source' {
@@ -341,7 +341,7 @@ Describe 'Copy-Directory' {
 
             {
                 Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip -Recurse
-            } | Should -Throw -ExpectedMessage '*inside the source directory*'
+            } | Should-Throw -ExceptionMessage '*inside the source directory*'
         }
 
         It 'Should throw when destination path exists as a file' {
@@ -353,7 +353,7 @@ Describe 'Copy-Directory' {
 
             {
                 Copy-Directory -Source $testSource -Destination $testDestFile -UpdateMode Skip
-            } | Should -Throw -ExpectedMessage '*exists as a file*'
+            } | Should-Throw -ExceptionMessage '*exists as a file*'
         }
 
         It 'Should allow non-recursive copy when destination is inside source' {
@@ -367,8 +367,8 @@ Describe 'Copy-Directory' {
                 Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip
             } | Should -Not -Throw
 
-            Test-Path (Join-Path -Path $testDest -ChildPath 'root.txt') | Should -BeTrue
-            Test-Path (Join-Path -Path $testDest -ChildPath 'subdir/nested.txt') | Should -BeFalse
+            Test-Path (Join-Path -Path $testDest -ChildPath 'root.txt') | Should-BeTruthy
+            Test-Path (Join-Path -Path $testDest -ChildPath 'subdir/nested.txt') | Should-BeFalsy
         }
     }
 
@@ -384,9 +384,9 @@ Describe 'Copy-Directory' {
 
             $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeDirectories '.git' -UpdateMode Skip -Recurse
 
-            $result.ExcludedDirectories | Should -Be 1
-            Test-Path "$testDest\.git" | Should -Be $false
-            Test-Path "$testDest\include" | Should -Be $true
+            $result.ExcludedDirectories | Should-Be 1
+            Test-Path "$testDest\.git" | Should-Be $false
+            Test-Path "$testDest\include" | Should-Be $true
         }
 
         It 'Should exclude multiple directories' {
@@ -401,11 +401,11 @@ Describe 'Copy-Directory' {
 
             $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeDirectories '.git', 'node_modules', 'bin' -UpdateMode Skip -Recurse
 
-            $result.ExcludedDirectories | Should -Be 3
-            Test-Path "$testDest\.git" | Should -Be $false
-            Test-Path "$testDest\node_modules" | Should -Be $false
-            Test-Path "$testDest\bin" | Should -Be $false
-            Test-Path "$testDest\src" | Should -Be $true
+            $result.ExcludedDirectories | Should-Be 3
+            Test-Path "$testDest\.git" | Should-Be $false
+            Test-Path "$testDest\node_modules" | Should-Be $false
+            Test-Path "$testDest\bin" | Should-Be $false
+            Test-Path "$testDest\src" | Should-Be $true
         }
 
         It 'Should perform case-insensitive directory exclusion' {
@@ -417,8 +417,8 @@ Describe 'Copy-Directory' {
 
             $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeDirectories '.git' -UpdateMode Skip -Recurse
 
-            $result.ExcludedDirectories | Should -Be 1
-            Test-Path "$testDest\.GIT" | Should -Be $false
+            $result.ExcludedDirectories | Should-Be 1
+            Test-Path "$testDest\.GIT" | Should-Be $false
         }
 
         It 'Should support wildcard directory exclusions' {
@@ -434,10 +434,10 @@ Describe 'Copy-Directory' {
 
             $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeDirectories 'cache-*' -UpdateMode Skip -Recurse
 
-            $result.ExcludedDirectories | Should -Be 2
-            Test-Path "$testDest\cache-api" | Should -Be $false
-            Test-Path "$testDest\cache-ui" | Should -Be $false
-            Test-Path "$testDest\src\main.txt" | Should -Be $true
+            $result.ExcludedDirectories | Should-Be 2
+            Test-Path "$testDest\cache-api" | Should-Be $false
+            Test-Path "$testDest\cache-ui" | Should-Be $false
+            Test-Path "$testDest\src\main.txt" | Should-Be $true
         }
 
         It 'Should exclude specified files' {
@@ -453,11 +453,11 @@ Describe 'Copy-Directory' {
 
             $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeFiles 'secret.txt' -UpdateMode Skip -Recurse
 
-            $result.TotalFiles | Should -Be 2
-            Test-Path (Join-Path -Path $testDest -ChildPath 'keep.txt') | Should -BeTrue
-            Test-Path (Join-Path -Path $testDest -ChildPath 'secret.txt') | Should -BeFalse
-            Test-Path (Join-Path -Path $testDest -ChildPath 'nested/keep.md') | Should -BeTrue
-            Test-Path (Join-Path -Path $testDest -ChildPath 'nested/secret.txt') | Should -BeFalse
+            $result.TotalFiles | Should-Be 2
+            Test-Path (Join-Path -Path $testDest -ChildPath 'keep.txt') | Should-BeTruthy
+            Test-Path (Join-Path -Path $testDest -ChildPath 'secret.txt') | Should-BeFalsy
+            Test-Path (Join-Path -Path $testDest -ChildPath 'nested/keep.md') | Should-BeTruthy
+            Test-Path (Join-Path -Path $testDest -ChildPath 'nested/secret.txt') | Should-BeFalsy
         }
 
         It 'Should support wildcard file exclusions' {
@@ -473,11 +473,11 @@ Describe 'Copy-Directory' {
 
             $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeFiles '*.log' -UpdateMode Skip -Recurse
 
-            $result.TotalFiles | Should -Be 2
-            Test-Path (Join-Path -Path $testDest -ChildPath 'keep.txt') | Should -BeTrue
-            Test-Path (Join-Path -Path $testDest -ChildPath 'debug.log') | Should -BeFalse
-            Test-Path (Join-Path -Path $testDest -ChildPath 'nested/trace.log') | Should -BeFalse
-            Test-Path (Join-Path -Path $testDest -ChildPath 'nested/data.json') | Should -BeTrue
+            $result.TotalFiles | Should-Be 2
+            Test-Path (Join-Path -Path $testDest -ChildPath 'keep.txt') | Should-BeTruthy
+            Test-Path (Join-Path -Path $testDest -ChildPath 'debug.log') | Should-BeFalsy
+            Test-Path (Join-Path -Path $testDest -ChildPath 'nested/trace.log') | Should-BeFalsy
+            Test-Path (Join-Path -Path $testDest -ChildPath 'nested/data.json') | Should-BeTruthy
         }
 
         It 'Should perform case-insensitive file exclusion' {
@@ -490,9 +490,9 @@ Describe 'Copy-Directory' {
 
             $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeFiles 'readme.md' -UpdateMode Skip -Recurse
 
-            $result.TotalFiles | Should -Be 1
-            Test-Path (Join-Path -Path $testDest -ChildPath 'README.MD') | Should -BeFalse
-            Test-Path (Join-Path -Path $testDest -ChildPath 'notes.txt') | Should -BeTrue
+            $result.TotalFiles | Should-Be 1
+            Test-Path (Join-Path -Path $testDest -ChildPath 'README.MD') | Should-BeFalsy
+            Test-Path (Join-Path -Path $testDest -ChildPath 'notes.txt') | Should-BeTruthy
         }
 
         It 'Should exclude files and directories when using native tools' {
@@ -514,10 +514,10 @@ Describe 'Copy-Directory' {
 
             $result = Copy-Directory -Source $testSource -Destination $testDest -ExcludeDirectories '.git' -ExcludeFiles '*.log' -UpdateMode Skip -Recurse -UseNativeTools
 
-            $result.TotalFiles | Should -Be 1
-            Test-Path (Join-Path -Path $testDest -ChildPath 'keep.txt') | Should -BeTrue
-            Test-Path (Join-Path -Path $testDest -ChildPath 'debug.log') | Should -BeFalse
-            Test-Path (Join-Path -Path $testDest -ChildPath '.git') | Should -BeFalse
+            $result.TotalFiles | Should-Be 1
+            Test-Path (Join-Path -Path $testDest -ChildPath 'keep.txt') | Should-BeTruthy
+            Test-Path (Join-Path -Path $testDest -ChildPath 'debug.log') | Should-BeFalsy
+            Test-Path (Join-Path -Path $testDest -ChildPath '.git') | Should-BeFalsy
         }
 
         It 'Should accept Skip mode explicitly' {
@@ -532,8 +532,8 @@ Describe 'Copy-Directory' {
 
             $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Skip -Recurse
 
-            $result.FilesSkipped | Should -Be 1
-            (Get-Content -Path "$testDest\test.txt") | Should -Be 'old content'
+            $result.FilesSkipped | Should-Be 1
+            (Get-Content -Path "$testDest\test.txt") | Should-Be 'old content'
         }
 
         It 'Should accept Overwrite mode' {
@@ -548,8 +548,8 @@ Describe 'Copy-Directory' {
 
             $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Overwrite -Recurse
 
-            $result.FilesOverwritten | Should -Be 1
-            (Get-Content -Path "$testDest\test.txt") | Should -Be 'new content'
+            $result.FilesOverwritten | Should-Be 1
+            (Get-Content -Path "$testDest\test.txt") | Should-Be 'new content'
         }
 
         It 'Should accept IfNewer mode' {
@@ -565,8 +565,8 @@ Describe 'Copy-Directory' {
 
             $result = Copy-Directory -Source $testSource -Destination $testDest -UpdateMode IfNewer -Recurse
 
-            $result.FilesOverwritten | Should -Be 1
-            (Get-Content -Path "$testDest\test.txt") | Should -Be 'new content'
+            $result.FilesOverwritten | Should-Be 1
+            (Get-Content -Path "$testDest\test.txt") | Should-Be 'new content'
         }
 
         It 'Should accept Prompt mode' {
@@ -583,7 +583,7 @@ Describe 'Copy-Directory' {
             Copy-Directory -Source $testSource -Destination $testDest -UpdateMode Prompt -WhatIf -Recurse | Out-Null
 
             # With -WhatIf, no actual copy happens
-            (Get-Content -Path "$testDest\test.txt") | Should -Be 'old content'
+            (Get-Content -Path "$testDest\test.txt") | Should-Be 'old content'
         }
     }
 }

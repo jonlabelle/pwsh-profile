@@ -69,18 +69,18 @@ Describe 'Invoke-NetworkDiagnostic (Default continuous mode single iteration via
         $output = Invoke-NetworkDiagnostic -HostName 'example.com' -Count 5 -MaxIterations 1 *>&1 | Out-String
 
         # Verify expected content
-        $output | Should -Match 'Network Diagnostic - Continuous Mode'
-        $output | Should -Match '\[\d{2}:\d{2}:\d{2}\]\s+Refresh #1'
-        $output | Should -Match 'example\.com:443'
-        $output | Should -Match 'Stats'
-        $output | Should -Match 'Quality\s+5/5\s+successful'
-        $output | Should -Match 'Press (Q or )?Ctrl\+C to stop monitoring\.'
-        $output | Should -Not -Match 'Samples per host'
-        $output | Should -Not -Match 'Continuous Mode \(Press Ctrl\+C to stop\)'
+        $output | Should-MatchString 'Network Diagnostic - Continuous Mode'
+        $output | Should-MatchString '\[\d{2}:\d{2}:\d{2}\]\s+Refresh #1'
+        $output | Should-MatchString 'example\.com:443'
+        $output | Should-MatchString 'Stats'
+        $output | Should-MatchString 'Quality\s+5/5\s+successful'
+        $output | Should-MatchString 'Press (Q or )?Ctrl\+C to stop monitoring\.'
+        $output | Should-NotMatchString 'Samples per host'
+        $output | Should-NotMatchString 'Continuous Mode \(Press Ctrl\+C to stop\)'
 
         # Ensure NO timestamp or wait messages
-        $output | Should -Not -Match 'Test completed at:'
-        $output | Should -Not -Match 'Waiting'
+        $output | Should-NotMatchString 'Test completed at:'
+        $output | Should-NotMatchString 'Waiting'
     }
 
     It 'does not sleep for -Interval when final iteration is reached' {
@@ -102,7 +102,7 @@ Describe 'Invoke-NetworkDiagnostic (Default continuous mode single iteration via
 
         Invoke-NetworkDiagnostic -HostName 'example.com' -Count 5 -MaxIterations 1 -Interval 9 *> $null
 
-        Should -Invoke -CommandName Start-Sleep -Times 0 -Exactly -ParameterFilter { $PSBoundParameters.ContainsKey('Seconds') -and $Seconds -eq 9 }
+        Should-Invoke -CommandName Start-Sleep -Times 0 -Exactly -ParameterFilter { $PSBoundParameters.ContainsKey('Seconds') -and $Seconds -eq 9 }
     }
 
     It 'shows per-host trend arrows from previous refresh in continuous mode' {
@@ -140,11 +140,11 @@ Describe 'Invoke-NetworkDiagnostic (Default continuous mode single iteration via
         $output = Invoke-NetworkDiagnostic -HostName 'example.com' -Count 5 -MaxIterations 2 -Interval 1 *>&1 | Out-String
         $upArrowPattern = [Regex]::Escape(([string][char]0x2191))
 
-        Should -ActualValue $output -Match 'Trend'
-        Should -ActualValue $output -Match 'avg'
-        Should -ActualValue $output -Match 'jitter'
-        Should -ActualValue $output -Match 'loss'
-        Should -ActualValue $output -Match $upArrowPattern
+        Should-MatchString -Actual $output -Expected 'Trend'
+        Should-MatchString -Actual $output -Expected 'avg'
+        Should-MatchString -Actual $output -Expected 'jitter'
+        Should-MatchString -Actual $output -Expected 'loss'
+        Should-MatchString -Actual $output -Expected $upArrowPattern
     }
 
     It 'continues when Clear-Host fails in continuous clear render mode' {
@@ -183,7 +183,7 @@ Describe 'Invoke-NetworkDiagnostic (Default continuous mode single iteration via
         $output = Invoke-NetworkDiagnostic -HostName 'example.com' -Count 5 -MaxIterations 2 -Interval 1 -RenderMode Clear *>&1 | Out-String
         $upArrowPattern = [Regex]::Escape(([string][char]0x2191))
 
-        Should -ActualValue $output -Match 'Trend'
-        Should -ActualValue $output -Match $upArrowPattern
+        Should-MatchString -Actual $output -Expected 'Trend'
+        Should-MatchString -Actual $output -Expected $upArrowPattern
     }
 }

@@ -116,9 +116,9 @@ Describe 'GitHub secret functions' {
 
             $result = Set-GitHubSecret -Name 'DEVCONTAINER_PAT' -Value $script:SecretValue -Scope User
 
-            $result.Status | Should -Be 'Created'
-            $script:CapturedSecretSetArguments | Should -Contain '--user'
-            $script:CapturedSecretSetArguments | Should -Not -Contain '--app'
+            $result.Status | Should-Be 'Created'
+            $script:CapturedSecretSetArguments | Should-ContainCollection '--user'
+            $script:CapturedSecretSetArguments | Should-NotContainCollection '--app'
         }
 
         It 'normalizes and de-duplicates selected repositories for -Scope User' {
@@ -161,9 +161,9 @@ Describe 'GitHub secret functions' {
 
             $reposIndex = [Array]::IndexOf($script:CapturedSecretSetArguments, '--repos')
 
-            $result.Status | Should -Be 'Created'
-            $reposIndex | Should -BeGreaterThan -1
-            $script:CapturedSecretSetArguments[$reposIndex + 1] | Should -Be 'octo-org/service-api'
+            $result.Status | Should-Be 'Created'
+            $reposIndex | Should-BeGreaterThan -1
+            $script:CapturedSecretSetArguments[$reposIndex + 1] | Should-Be 'octo-org/service-api'
         }
 
         It 'rejects -SelectedRepository combined with non-selected -Visibility for organization scope' -ForEach @(
@@ -181,7 +181,7 @@ Describe 'GitHub secret functions' {
 
             {
                 Set-GitHubSecret @setGitHubSecretParams
-            } | Should -Throw "*'-Visibility selected'*"
+            } | Should-Throw "*'-Visibility selected'*"
         }
 
         It 'rejects whitespace-only entries in -SelectedRepository for organization scope' {
@@ -195,7 +195,7 @@ Describe 'GitHub secret functions' {
 
             {
                 Set-GitHubSecret @setGitHubSecretParams
-            } | Should -Throw '*empty or whitespace*'
+            } | Should-Throw '*empty or whitespace*'
         }
 
         It 'rejects bare selected repository names for -Scope User' {
@@ -208,7 +208,7 @@ Describe 'GitHub secret functions' {
 
             {
                 Set-GitHubSecret @setGitHubSecretParams
-            } | Should -Throw '*must use OWNER/REPO format*'
+            } | Should-Throw '*must use OWNER/REPO format*'
         }
 
         It 'supports environment scope through -Scope Environment' {
@@ -232,9 +232,9 @@ Describe 'GitHub secret functions' {
             }
             $result = Set-GitHubSecret @setGitHubSecretParams
 
-            $result.Status | Should -Be 'WhatIf'
-            $result.Scope | Should -Be 'Environment'
-            $result.Target | Should -Be "environment 'Production' in octo-org/service-api"
+            $result.Status | Should-Be 'WhatIf'
+            $result.Scope | Should-Be 'Environment'
+            $result.Target | Should-Be "environment 'Production' in octo-org/service-api"
         }
 
         It 'supports organization scope through -Scope Organization' {
@@ -257,9 +257,9 @@ Describe 'GitHub secret functions' {
             }
             $result = Set-GitHubSecret @setGitHubSecretParams
 
-            $result.Status | Should -Be 'WhatIf'
-            $result.Scope | Should -Be 'Organization'
-            $result.Target | Should -Be 'organization octo-org'
+            $result.Status | Should-Be 'WhatIf'
+            $result.Scope | Should-Be 'Organization'
+            $result.Target | Should-Be 'organization octo-org'
         }
 
         It 'rejects non-codespaces applications for -Scope User' {
@@ -272,7 +272,7 @@ Describe 'GitHub secret functions' {
 
             {
                 Set-GitHubSecret @setGitHubSecretParams
-            } | Should -Throw '*User secrets support only the codespaces application*'
+            } | Should-Throw '*User secrets support only the codespaces application*'
         }
 
         It 'rejects invalid secret names before making GitHub calls' -ForEach @(
@@ -282,11 +282,11 @@ Describe 'GitHub secret functions' {
         ) {
             {
                 Set-GitHubSecret -Name $Name -Value $script:SecretValue -Scope Repository -Repository 'octo-org/service-api'
-            } | Should -Throw $Error
+            } | Should-Throw $Error
 
             {
                 Remove-GitHubSecret -Name $Name -Scope Repository -Repository 'octo-org/service-api'
-            } | Should -Throw $Error
+            } | Should-Throw $Error
         }
 
         It 'rejects environment names longer than 255 characters' {
@@ -307,11 +307,11 @@ Describe 'GitHub secret functions' {
 
             {
                 Set-GitHubSecret @setGitHubSecretParams
-            } | Should -Throw '*may not exceed 255 characters*'
+            } | Should-Throw '*may not exceed 255 characters*'
 
             {
                 Remove-GitHubSecret @removeGitHubSecretParams
-            } | Should -Throw '*may not exceed 255 characters*'
+            } | Should-Throw '*may not exceed 255 characters*'
         }
 
         It 'accepts environment names that contain slashes' {
@@ -335,7 +335,7 @@ Describe 'GitHub secret functions' {
             }
             $result = Set-GitHubSecret @setGitHubSecretParams
 
-            $result.Status | Should -Be 'WhatIf'
+            $result.Status | Should-Be 'WhatIf'
         }
 
         It 'rejects secret values larger than 48 KB before making GitHub calls' {
@@ -347,9 +347,9 @@ Describe 'GitHub secret functions' {
 
             {
                 Set-GitHubSecret -Name 'OVERSIZED_SECRET' -Value $tooLargeValue -Scope Repository -Repository 'octo-org/service-api'
-            } | Should -Throw '*48 KB*'
+            } | Should-Throw '*48 KB*'
 
-            Should -Invoke -CommandName gh -Times 0 -Exactly
+            Should-Invoke -CommandName gh -Times 0 -Exactly
         }
 
         It 'skips existing secrets without -Force' {
@@ -365,9 +365,9 @@ Describe 'GitHub secret functions' {
 
             $result = Set-GitHubSecret -Name 'EXISTING_SECRET' -Value $script:SecretValue -Scope Repository -Repository 'octo-org/service-api'
 
-            $result.Status | Should -Be 'Skipped'
-            $result.Changed | Should -BeFalse
-            Should -Invoke -CommandName gh -ParameterFilter { $args[0] -eq 'secret' -and $args[1] -eq 'set' } -Times 0 -Exactly
+            $result.Status | Should-Be 'Skipped'
+            $result.Changed | Should-BeFalsy
+            Should-Invoke -CommandName gh -ParameterFilter { $args[0] -eq 'secret' -and $args[1] -eq 'set' } -Times 0 -Exactly
         }
 
         It 'updates existing secrets when -Force is used' {
@@ -403,10 +403,10 @@ Describe 'GitHub secret functions' {
 
             $result = Set-GitHubSecret -Name 'EXISTING_SECRET' -Value $script:SecretValue -Scope Repository -Repository 'octo-org/service-api' -Force
 
-            $result.Status | Should -Be 'Updated'
-            $result.Changed | Should -BeTrue
-            $script:CapturedSecretSetArguments | Should -Not -Contain '--body'
-            $script:CapturedSecretStandardInput | Should -Be 'SuperSecretValue123!'
+            $result.Status | Should-Be 'Updated'
+            $result.Changed | Should-BeTruthy
+            $script:CapturedSecretSetArguments | Should-NotContainCollection '--body'
+            $script:CapturedSecretStandardInput | Should-Be 'SuperSecretValue123!'
         }
 
         It 'supports WhatIf without calling gh secret set' {
@@ -422,8 +422,8 @@ Describe 'GitHub secret functions' {
 
             $result = Set-GitHubSecret -Name 'NEW_SECRET' -Value $script:SecretValue -Scope Repository -Repository 'octo-org/service-api' -WhatIf
 
-            $result.Status | Should -Be 'WhatIf'
-            Should -Invoke -CommandName gh -ParameterFilter { $args[0] -eq 'secret' -and $args[1] -eq 'set' } -Times 0 -Exactly
+            $result.Status | Should-Be 'WhatIf'
+            Should-Invoke -CommandName gh -ParameterFilter { $args[0] -eq 'secret' -and $args[1] -eq 'set' } -Times 0 -Exactly
         }
 
         It 'throws a clear error when gh is not installed' {
@@ -431,7 +431,7 @@ Describe 'GitHub secret functions' {
 
             {
                 Set-GitHubSecret -Name 'REST_SECRET' -Value $script:SecretValue -Scope Repository -Repository 'octo-org/service-api' -Token $script:TokenValue
-            } | Should -Throw '*GitHub CLI*'
+            } | Should-Throw '*GitHub CLI*'
         }
 
         It 'redacts the secret value and token from thrown errors' {
@@ -471,9 +471,9 @@ Describe 'GitHub secret functions' {
             }
             catch
             {
-                $_.Exception.Message | Should -Not -Match 'SuperSecretValue123!'
-                $_.Exception.Message | Should -Not -Match 'ghp_Abc123Sensitive'
-                $_.Exception.Message | Should -Match '\[REDACTED\]'
+                $_.Exception.Message | Should-NotMatchString 'SuperSecretValue123!'
+                $_.Exception.Message | Should-NotMatchString 'ghp_Abc123Sensitive'
+                $_.Exception.Message | Should-MatchString '\[REDACTED\]'
             }
         }
     }
@@ -537,7 +537,7 @@ Describe 'GitHub secret functions' {
             }
             $result = & $helpers.InvokeGitHubRequest @invokeGitHubRequestParams
 
-            $result.name | Should -Be 'REGION'
+            $result.name | Should-Be 'REGION'
         }
 
         It 'preserves actionable no-token-available message in error output' {
@@ -555,8 +555,8 @@ Describe 'GitHub secret functions' {
             }
             $message = & $helpers.GetFriendlyErrorMessage @getFriendlyErrorMessageParams
 
-            $message | Should -Match 'GH_TOKEN'
-            $message | Should -Not -Match 'authentication failed'
+            $message | Should-MatchString 'GH_TOKEN'
+            $message | Should-NotMatchString 'authentication failed'
         }
 
         It 'uses the resolved git executable path when discovering the current repository' {
@@ -582,7 +582,7 @@ Describe 'GitHub secret functions' {
 
             $result = & $helpers.ResolveCurrentRepository
 
-            $result.NameWithOwner | Should -Be 'octo-org/service-api'
+            $result.NameWithOwner | Should-Be 'octo-org/service-api'
         }
 
         It 'returns null status code from exceptions that have no Response property' {
@@ -600,7 +600,7 @@ Describe 'GitHub secret functions' {
             $bareException = [System.InvalidOperationException]::new('plain message')
             $message = & $helpers.GetExceptionMessage $bareException
 
-            $message | Should -Be 'plain message'
+            $message | Should-Be 'plain message'
         }
 
         It 'quotes native process arguments that contain spaces' {
@@ -608,7 +608,7 @@ Describe 'GitHub secret functions' {
 
             $quoted = & $helpers.QuoteNativeProcessArgument -Argument 'Production Blue'
 
-            $quoted | Should -Be '"Production Blue"'
+            $quoted | Should-Be '"Production Blue"'
         }
 
         It 'uses GH_ENTERPRISE_TOKEN for gh requests to enterprise hosts' {
@@ -663,7 +663,7 @@ Describe 'GitHub secret functions' {
             }
 
             $script:ObservedGhToken | Should -BeNullOrEmpty
-            $script:ObservedEnterpriseToken | Should -Be 'enterprise-token'
+            $script:ObservedEnterpriseToken | Should-Be 'enterprise-token'
         }
     }
 
@@ -681,9 +681,9 @@ Describe 'GitHub secret functions' {
 
             $result = Remove-GitHubSecret -Name 'MISSING_SECRET' -Scope Repository -Repository 'octo-org/service-api'
 
-            $result.Status | Should -Be 'AlreadyAbsent'
-            $result.Changed | Should -BeFalse
-            Should -Invoke -CommandName gh -ParameterFilter { $args[0] -eq 'secret' -and $args[1] -eq 'delete' } -Times 0 -Exactly
+            $result.Status | Should-Be 'AlreadyAbsent'
+            $result.Changed | Should-BeFalsy
+            Should-Invoke -CommandName gh -ParameterFilter { $args[0] -eq 'secret' -and $args[1] -eq 'delete' } -Times 0 -Exactly
         }
 
         It 'disables gh interactive prompts during deletion' {
@@ -709,8 +709,8 @@ Describe 'GitHub secret functions' {
 
             $result = Remove-GitHubSecret -Name 'TO_DELETE' -Scope Repository -Repository 'octo-org/service-api'
 
-            $result.Status | Should -Be 'Removed'
-            $script:ObservedPromptDisabled | Should -Be '1'
+            $result.Status | Should-Be 'Removed'
+            $script:ObservedPromptDisabled | Should-Be '1'
         }
 
         It 'supports WhatIf without deleting the secret' {
@@ -726,8 +726,8 @@ Describe 'GitHub secret functions' {
 
             $result = Remove-GitHubSecret -Name 'TO_DELETE' -Scope Repository -Repository 'octo-org/service-api' -WhatIf
 
-            $result.Status | Should -Be 'WhatIf'
-            Should -Invoke -CommandName gh -ParameterFilter { $args[0] -eq 'secret' -and $args[1] -eq 'delete' } -Times 0 -Exactly
+            $result.Status | Should-Be 'WhatIf'
+            Should-Invoke -CommandName gh -ParameterFilter { $args[0] -eq 'secret' -and $args[1] -eq 'delete' } -Times 0 -Exactly
         }
 
         It 'supports user scope deletion through -Scope User' {
@@ -752,9 +752,9 @@ Describe 'GitHub secret functions' {
 
             $result = Remove-GitHubSecret -Name 'DEVCONTAINER_PAT' -Scope User
 
-            $result.Status | Should -Be 'Removed'
-            $script:CapturedDeleteArguments | Should -Contain '--user'
-            $script:CapturedDeleteArguments | Should -Not -Contain '--app'
+            $result.Status | Should-Be 'Removed'
+            $script:CapturedDeleteArguments | Should-ContainCollection '--user'
+            $script:CapturedDeleteArguments | Should-NotContainCollection '--app'
         }
 
         It 'supports organization scope during removal through -Scope Organization' {
@@ -770,9 +770,9 @@ Describe 'GitHub secret functions' {
 
             $result = Remove-GitHubSecret -Name 'ORG_SECRET' -Scope Organization -Organization 'octo-org'
 
-            $result.Status | Should -Be 'AlreadyAbsent'
-            $result.Scope | Should -Be 'Organization'
-            $result.Target | Should -Be 'organization octo-org'
+            $result.Status | Should-Be 'AlreadyAbsent'
+            $result.Scope | Should-Be 'Organization'
+            $result.Target | Should-Be 'organization octo-org'
         }
     }
 }

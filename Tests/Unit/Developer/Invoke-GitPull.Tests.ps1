@@ -45,19 +45,19 @@ Describe 'Invoke-GitPull' {
 
             $pathParam | Should -Not -BeNullOrEmpty
             $pathParam.Attributes | Where-Object { $_ -is [Parameter] } |
-            ForEach-Object { $_.ValueFromPipeline } | Should -Contain $true
+            ForEach-Object { $_.ValueFromPipeline } | Should-ContainCollection $true
         }
 
         It 'Should have Path parameter that accepts FullName property' {
             $command = Get-Command -Name 'Invoke-GitPull'
             $pathParam = $command.Parameters['Path']
 
-            $pathParam.Aliases | Should -Contain 'FullName'
+            $pathParam.Aliases | Should-ContainCollection 'FullName'
         }
 
         It 'Should have Recurse switch parameter' {
             $command = Get-Command -Name 'Invoke-GitPull'
-            $command.Parameters['Recurse'].SwitchParameter | Should -BeTrue
+            $command.Parameters['Recurse'].SwitchParameter | Should-BeTruthy
         }
 
         It 'Should have Depth parameter with valid range' {
@@ -65,44 +65,44 @@ Describe 'Invoke-GitPull' {
             $depthParam = $command.Parameters['Depth']
 
             $depthParam | Should -Not -BeNullOrEmpty
-            $depthParam.ParameterType | Should -Be ([Int])
+            $depthParam.ParameterType | Should-Be ([Int])
         }
 
         It 'Should have NoRebase switch parameter' {
             $command = Get-Command -Name 'Invoke-GitPull'
-            $command.Parameters['NoRebase'].SwitchParameter | Should -BeTrue
+            $command.Parameters['NoRebase'].SwitchParameter | Should-BeTruthy
         }
 
         It 'Should have Prune switch parameter' {
             $command = Get-Command -Name 'Invoke-GitPull'
-            $command.Parameters['Prune'].SwitchParameter | Should -BeTrue
+            $command.Parameters['Prune'].SwitchParameter | Should-BeTruthy
         }
 
         It 'Should have Force switch parameter' {
             $command = Get-Command -Name 'Invoke-GitPull'
-            $command.Parameters['Force'].SwitchParameter | Should -BeTrue
+            $command.Parameters['Force'].SwitchParameter | Should-BeTruthy
         }
 
         It 'Should have Branch string parameter' {
             $command = Get-Command -Name 'Invoke-GitPull'
             $command.Parameters['Branch'] | Should -Not -BeNullOrEmpty
-            $command.Parameters['Branch'].ParameterType | Should -Be ([String])
+            $command.Parameters['Branch'].ParameterType | Should-Be ([String])
         }
 
         It 'Should have DefaultBranch switch parameter' {
             $command = Get-Command -Name 'Invoke-GitPull'
-            $command.Parameters['DefaultBranch'].SwitchParameter | Should -BeTrue
+            $command.Parameters['DefaultBranch'].SwitchParameter | Should-BeTruthy
         }
 
         It 'Should have Checkout switch parameter' {
             $command = Get-Command -Name 'Invoke-GitPull'
-            $command.Parameters['Checkout'].SwitchParameter | Should -BeTrue
+            $command.Parameters['Checkout'].SwitchParameter | Should-BeTruthy
         }
 
         It 'Should support ShouldProcess (WhatIf/Confirm)' {
             $command = Get-Command -Name 'Invoke-GitPull'
-            $command.Parameters.ContainsKey('WhatIf') | Should -BeTrue
-            $command.Parameters.ContainsKey('Confirm') | Should -BeTrue
+            $command.Parameters.ContainsKey('WhatIf') | Should-BeTruthy
+            $command.Parameters.ContainsKey('Confirm') | Should-BeTruthy
         }
     }
 
@@ -113,8 +113,8 @@ Describe 'Invoke-GitPull' {
             # Should warn but not throw
             $result = Invoke-GitPull -Path $nonExistentPath -WarningAction SilentlyContinue
 
-            $result.RepositoriesSkipped | Should -Be 1
-            $result.RepositoriesProcessed | Should -Be 0
+            $result.RepositoriesSkipped | Should-Be 1
+            $result.RepositoriesProcessed | Should-Be 0
         }
 
         It 'Should handle file path (not directory) gracefully' {
@@ -125,8 +125,8 @@ Describe 'Invoke-GitPull' {
             {
                 $result = Invoke-GitPull -Path $filePath -WarningAction SilentlyContinue
 
-                $result.RepositoriesSkipped | Should -Be 1
-                $result.RepositoriesProcessed | Should -Be 0
+                $result.RepositoriesSkipped | Should-Be 1
+                $result.RepositoriesProcessed | Should-Be 0
             }
             finally
             {
@@ -142,8 +142,8 @@ Describe 'Invoke-GitPull' {
             {
                 $result = Invoke-GitPull -Path $nonGitDir
 
-                $result.RepositoriesSkipped | Should -Be 1
-                $result.RepositoriesProcessed | Should -Be 0
+                $result.RepositoriesSkipped | Should-Be 1
+                $result.RepositoriesProcessed | Should-Be 0
             }
             finally
             {
@@ -161,7 +161,7 @@ Describe 'Invoke-GitPull' {
             {
                 $result = Invoke-GitPull -Path @($dir1, $dir2)
 
-                $result.RepositoriesSkipped | Should -Be 2
+                $result.RepositoriesSkipped | Should-Be 2
             }
             finally
             {
@@ -180,12 +180,12 @@ Describe 'Invoke-GitPull' {
             {
                 $result = Invoke-GitPull -Path $nonGitDir
 
-                $result | Should -BeOfType [PSCustomObject]
-                $result.PSObject.Properties.Name | Should -Contain 'RepositoriesProcessed'
-                $result.PSObject.Properties.Name | Should -Contain 'RepositoriesUpdated'
-                $result.PSObject.Properties.Name | Should -Contain 'RepositoriesSkipped'
-                $result.PSObject.Properties.Name | Should -Contain 'RepositoriesFailed'
-                $result.PSObject.Properties.Name | Should -Contain 'Results'
+                $result | Should-HaveType ([PSCustomObject])
+                $result.PSObject.Properties.Name | Should-ContainCollection 'RepositoriesProcessed'
+                $result.PSObject.Properties.Name | Should-ContainCollection 'RepositoriesUpdated'
+                $result.PSObject.Properties.Name | Should-ContainCollection 'RepositoriesSkipped'
+                $result.PSObject.Properties.Name | Should-ContainCollection 'RepositoriesFailed'
+                $result.PSObject.Properties.Name | Should-ContainCollection 'Results'
             }
             finally
             {
@@ -202,7 +202,7 @@ Describe 'Invoke-GitPull' {
                 $result = Invoke-GitPull -Path $nonGitDir
 
                 # Results should be an array (possibly empty)
-                $result.Results.GetType().IsArray -or $result.Results.Count -eq 0 | Should -BeTrue
+                $result.Results.GetType().IsArray -or $result.Results.Count -eq 0 | Should-BeTruthy
             }
             finally
             {
@@ -255,7 +255,7 @@ Describe 'Invoke-GitPull' {
             {
                 $result = Invoke-GitPull -Path $emptyDir -Recurse
 
-                $result.RepositoriesProcessed | Should -Be 0
+                $result.RepositoriesProcessed | Should-Be 0
             }
             finally
             {
@@ -266,11 +266,11 @@ Describe 'Invoke-GitPull' {
 
     Context 'Branch Parameters' {
         It 'Should throw when -Branch and -DefaultBranch are both specified' {
-            { Invoke-GitPull -Branch 'main' -DefaultBranch } | Should -Throw '*Cannot use*'
+            { Invoke-GitPull -Branch 'main' -DefaultBranch } | Should-Throw '*Cannot use*'
         }
 
         It 'Should throw when -Checkout is used without -Branch or -DefaultBranch' {
-            { Invoke-GitPull -Checkout } | Should -Throw '*Checkout*requires*'
+            { Invoke-GitPull -Checkout } | Should-Throw '*Checkout*requires*'
         }
     }
 
@@ -282,7 +282,7 @@ Describe 'Invoke-GitPull' {
             # Re-dot-source the function to pick up the mock
             . "$PSScriptRoot/../../../Functions/Developer/Invoke-GitPull.ps1"
 
-            { Invoke-GitPull } | Should -Throw '*Git*not*'
+            { Invoke-GitPull } | Should-Throw '*Git*not*'
 
             # Restore the function
             . "$PSScriptRoot/../../../Functions/Developer/Invoke-GitPull.ps1"

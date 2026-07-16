@@ -20,27 +20,27 @@ Describe 'Upgrade-PlatformPackage' {
             $runner = & $script:NewPackageCommandRunner @{}
 
             { Upgrade-PlatformPackage -PackageManager brew -UninstallPrevious -CommandRunner $runner -Confirm:$false } |
-                Should -Throw -ExpectedMessage "*Parameter -UninstallPrevious*package manager 'brew'*only supported by winget*"
+                Should-Throw -ExceptionMessage "*Parameter -UninstallPrevious*package manager 'brew'*only supported by winget*"
 
-            $script:Invocations.Count | Should -Be 0
+            $script:Invocations.Count | Should-Be 0
         }
 
         It 'rejects interactive mode outside winget' {
             $runner = & $script:NewPackageCommandRunner @{}
 
             { Upgrade-PlatformPackage -PackageManager apt -Interactive -CommandRunner $runner -Confirm:$false } |
-                Should -Throw -ExpectedMessage "*Parameter -Interactive*package manager 'apt'*only supported by winget*"
+                Should-Throw -ExceptionMessage "*Parameter -Interactive*package manager 'apt'*only supported by winget*"
 
-            $script:Invocations.Count | Should -Be 0
+            $script:Invocations.Count | Should-Be 0
         }
 
         It 'rejects NoSudo for package managers that do not use sudo' {
             $runner = & $script:NewPackageCommandRunner @{}
 
             { Upgrade-PlatformPackage -PackageManager winget -NoSudo -CommandRunner $runner -Confirm:$false } |
-                Should -Throw -ExpectedMessage "*Parameter -NoSudo*package manager 'winget'*only supported by apt and apk*"
+                Should-Throw -ExceptionMessage "*Parameter -NoSudo*package manager 'winget'*only supported by apt and apk*"
 
-            $script:Invocations.Count | Should -Be 0
+            $script:Invocations.Count | Should-Be 0
         }
     }
 
@@ -71,18 +71,18 @@ Describe 'Upgrade-PlatformPackage' {
 
             $result = @(Upgrade-PlatformPackage -PackageManager brew -SkipRefresh -NonInteractive -CommandRunner $runner)
 
-            $result.Count | Should -Be 2
+            $result.Count | Should-Be 2
 
             $formula = $result | Where-Object { $_.Name -eq 'git' }
-            $formula.PackageManager | Should -Be 'brew'
-            $formula.Type | Should -Be 'Formula'
-            $formula.InstalledVersion | Should -Be '2.43.0'
-            $formula.LatestVersion | Should -Be '2.44.0'
-            (@($formula.UpgradeArguments) -join '|') | Should -Be 'upgrade|git'
+            $formula.PackageManager | Should-Be 'brew'
+            $formula.Type | Should-Be 'Formula'
+            $formula.InstalledVersion | Should-Be '2.43.0'
+            $formula.LatestVersion | Should-Be '2.44.0'
+            (@($formula.UpgradeArguments) -join '|') | Should-Be 'upgrade|git'
 
             $cask = $result | Where-Object { $_.Name -eq 'visual-studio-code' }
-            $cask.Type | Should -Be 'Cask'
-            (@($cask.UpgradeArguments) -join '|') | Should -Be 'upgrade|--cask|visual-studio-code'
+            $cask.Type | Should-Be 'Cask'
+            (@($cask.UpgradeArguments) -join '|') | Should-Be 'upgrade|--cask|visual-studio-code'
         }
 
         It 'keeps AsObject as an alias for NonInteractive discovery' {
@@ -103,10 +103,10 @@ Describe 'Upgrade-PlatformPackage' {
 
             $result = @(Upgrade-PlatformPackage -PackageManager brew -SkipRefresh -AsObject -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'git'
-            (@($result[0].UpgradeArguments) -join '|') | Should -Be 'upgrade|git'
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should -Be 0
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'git'
+            (@($result[0].UpgradeArguments) -join '|') | Should-Be 'upgrade|git'
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should-Be 0
         }
 
         It 'captures Homebrew refresh output and streams upgrade command output when upgrading all packages' {
@@ -130,15 +130,15 @@ Describe 'Upgrade-PlatformPackage' {
 
             $result = Upgrade-PlatformPackage -PackageManager brew -All -CommandRunner $runner -Confirm:$false
 
-            $result.Upgraded | Should -Be 1
-            $result.Failed | Should -Be 0
-            $result.NotSelected | Should -Be 0
+            $result.Upgraded | Should-Be 1
+            $result.Failed | Should-Be 0
+            $result.NotSelected | Should-Be 0
 
-            ($script:Invocations | Where-Object { $_.Key -eq 'brew update --quiet' }).StreamOutput | Should -BeFalse
-            ($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).StreamOutput | Should -BeTrue
+            ($script:Invocations | Where-Object { $_.Key -eq 'brew update --quiet' }).StreamOutput | Should-BeFalsy
+            ($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).StreamOutput | Should-BeTruthy
 
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'brew update output' } -Times 0 -Exactly
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'brew upgrade git output' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'brew update output' } -Times 0 -Exactly
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'brew upgrade git output' } -Times 1
         }
 
         It 'captures Homebrew refresh process output before the picker and streams upgrade process output' {
@@ -229,20 +229,20 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
                 }
             }
 
-            $childExitCode | Should -Be 0
+            $childExitCode | Should-Be 0
             $outputText = $childOutput -join "`n"
-            $outputText | Should -Match 'Refreshing Homebrew package metadata'
-            $outputText | Should -Match 'Upgrade-PlatformPackage - Homebrew'
-            $outputText | Should -Not -Match ([Regex]::Escape('brew update stdout'))
-            $outputText | Should -Not -Match ([Regex]::Escape('brew update stderr'))
-            $outputText | Should -Match ([Regex]::Escape('brew upgrade stdout'))
-            $outputText | Should -Match ([Regex]::Escape('brew upgrade stderr'))
-            $outputText | Should -Match 'RESULT Upgraded=1 Failed=0 NotSelected=0'
+            $outputText | Should-MatchString 'Refreshing Homebrew package metadata'
+            $outputText | Should-MatchString 'Upgrade-PlatformPackage - Homebrew'
+            $outputText | Should-NotMatchString ([Regex]::Escape('brew update stdout'))
+            $outputText | Should-NotMatchString ([Regex]::Escape('brew update stderr'))
+            $outputText | Should-MatchString ([Regex]::Escape('brew upgrade stdout'))
+            $outputText | Should-MatchString ([Regex]::Escape('brew upgrade stderr'))
+            $outputText | Should-MatchString 'RESULT Upgraded=1 Failed=0 NotSelected=0'
 
             $brewInvocations = @(Get-Content -LiteralPath $brewLogPath)
-            $brewInvocations | Should -Contain 'update --quiet'
-            $brewInvocations | Should -Contain 'outdated --json=v2 --greedy'
-            $brewInvocations | Should -Contain 'upgrade git'
+            $brewInvocations | Should-ContainCollection 'update --quiet'
+            $brewInvocations | Should-ContainCollection 'outdated --json=v2 --greedy'
+            $brewInvocations | Should-ContainCollection 'upgrade git'
         }
 
         It 'captures post-upgrade instructions in the result object' {
@@ -269,11 +269,11 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result = Upgrade-PlatformPackage -PackageManager brew -SkipRefresh -All -CommandRunner $runner -Confirm:$false
 
-            $result.Upgraded | Should -Be 1
-            $result.Results[0].CapturedOutput | Should -Contain 'Upgrading python...'
-            $result.Results[0].InformationalOutput | Should -Contain '==> Caveats'
-            $result.InformationalResults.Count | Should -Be 1
-            $result.InformationalResults[0].Lines | Should -Contain 'Add /opt/homebrew/opt/python/libexec/bin to PATH'
+            $result.Upgraded | Should-Be 1
+            $result.Results[0].CapturedOutput | Should-ContainCollection 'Upgrading python...'
+            $result.Results[0].InformationalOutput | Should-ContainCollection '==> Caveats'
+            $result.InformationalResults.Count | Should-Be 1
+            $result.InformationalResults[0].Lines | Should-ContainCollection 'Add /opt/homebrew/opt/python/libexec/bin to PATH'
         }
 
         It 'reports streamed command failures with command context when captured output is unavailable' {
@@ -296,16 +296,16 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result = Upgrade-PlatformPackage -PackageManager brew -SkipRefresh -All -CommandRunner $runner -Confirm:$false -WarningAction SilentlyContinue
 
-            $result.Failed | Should -Be 1
-            $result.Skipped | Should -Be 0
-            $result.NotSelected | Should -Be 0
-            $result.Results[0].Message | Should -Match 'brew upgrade git failed with exit code 42'
-            $result.Results[0].Message | Should -Match 'streamed directly to the console'
-            $result.Results[0].InformationalOutput | Should -HaveCount 1
-            $result.Results[0].InformationalOutput[0] | Should -BeExactly $result.Results[0].Message
-            $result.InformationalResults | Should -HaveCount 1
-            $result.InformationalResults[0].Lines | Should -HaveCount 1
-            $result.InformationalResults[0].Lines[0] | Should -BeExactly $result.Results[0].Message
+            $result.Failed | Should-Be 1
+            $result.Skipped | Should-Be 0
+            $result.NotSelected | Should-Be 0
+            $result.Results[0].Message | Should-MatchString 'brew upgrade git failed with exit code 42'
+            $result.Results[0].Message | Should-MatchString 'streamed directly to the console'
+            $result.Results[0].InformationalOutput | Should-BeCollection -Count 1
+            $result.Results[0].InformationalOutput[0] | Should-BeString $result.Results[0].Message -CaseSensitive
+            $result.InformationalResults | Should-BeCollection -Count 1
+            $result.InformationalResults[0].Lines | Should-BeCollection -Count 1
+            $result.InformationalResults[0].Lines[0] | Should-BeString $result.Results[0].Message -CaseSensitive
         }
 
         It 'does not read stale LASTEXITCODE for unstructured command runner output' {
@@ -362,9 +362,9 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
                 $result = Upgrade-PlatformPackage -PackageManager brew -SkipRefresh -All -CommandRunner $runner -Confirm:$false
 
-                $result.Upgraded | Should -Be 1
-                $result.Failed | Should -Be 0
-                $result.Results[0].ExitCode | Should -Be 0
+                $result.Upgraded | Should-Be 1
+                $result.Failed | Should-Be 0
+                $result.Results[0].ExitCode | Should-Be 0
             }
             finally
             {
@@ -391,12 +391,12 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result = @(Upgrade-PlatformPackage -PackageManager apt -SkipRefresh -NonInteractive -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'openssl'
-            $result[0].PackageManager | Should -Be 'apt'
-            $result[0].InstalledVersion | Should -Be '3.0.2-0ubuntu1.14'
-            $result[0].LatestVersion | Should -Be '3.0.2-0ubuntu1.15'
-            (@($result[0].UpgradeArguments) -join '|') | Should -Be 'install|--only-upgrade|-y|openssl'
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'openssl'
+            $result[0].PackageManager | Should-Be 'apt'
+            $result[0].InstalledVersion | Should-Be '3.0.2-0ubuntu1.14'
+            $result[0].LatestVersion | Should-Be '3.0.2-0ubuntu1.15'
+            (@($result[0].UpgradeArguments) -join '|') | Should-Be 'install|--only-upgrade|-y|openssl'
         }
 
         It 'parses apk version output and keeps hyphenated package names' {
@@ -409,16 +409,16 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result = @(Upgrade-PlatformPackage -PackageManager apk -SkipRefresh -NonInteractive -CommandRunner $runner)
 
-            $result.Count | Should -Be 2
+            $result.Count | Should-Be 2
 
             $busybox = $result | Where-Object { $_.Name -eq 'busybox' }
-            $busybox.InstalledVersion | Should -Be '1.36.1-r19'
-            $busybox.LatestVersion | Should -Be '1.36.1-r20'
-            (@($busybox.UpgradeArguments) -join '|') | Should -Be 'add|--upgrade|busybox'
+            $busybox.InstalledVersion | Should-Be '1.36.1-r19'
+            $busybox.LatestVersion | Should-Be '1.36.1-r20'
+            (@($busybox.UpgradeArguments) -join '|') | Should-Be 'add|--upgrade|busybox'
 
             $requests = $result | Where-Object { $_.Name -eq 'py3-requests' }
-            $requests.InstalledVersion | Should -Be '2.31.0-r0'
-            $requests.LatestVersion | Should -Be '2.32.0-r0'
+            $requests.InstalledVersion | Should-Be '2.31.0-r0'
+            $requests.LatestVersion | Should-Be '2.32.0-r0'
         }
     }
 
@@ -447,11 +447,11 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result = Upgrade-PlatformPackage -PackageManager brew -SkipRefresh -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Selected | Should -Be 0
-            $result.NotSelected | Should -Be 1
-            $result.Upgraded | Should -Be 0
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should -Be 0
-            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 4
+            $result.Selected | Should-Be 0
+            $result.NotSelected | Should-Be 1
+            $result.Upgraded | Should-Be 0
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should-Be 0
+            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should-Be 4
         }
 
         It 'shows keyboard help from the upgrade picker' {
@@ -483,13 +483,13 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result = Upgrade-PlatformPackage -PackageManager brew -SkipRefresh -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Selected | Should -Be 0
-            $result.Upgraded | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  Enter upgrade  V details  A toggle all  F: [all]" } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  0 selected" -and $ForegroundColor -eq 'White' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Upgrade-PlatformPackage Help' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Enter: ' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'upgrade selected packages' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+            $result.Selected | Should-Be 0
+            $result.Upgraded | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  Enter upgrade  V details  A toggle all  F: [all]" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  0 selected" -and $ForegroundColor -eq 'White' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Upgrade-PlatformPackage Help' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Enter: ' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'upgrade selected packages' -and $ForegroundColor -eq 'DarkGray' } -Times 1
         }
 
         It 'renders only the current viewport for long upgrade lists' {
@@ -513,10 +513,10 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $null = Upgrade-PlatformPackage -PackageManager brew -SkipRefresh -CommandRunner $runner -KeyReader $keyReader -PickerPageSize 2 -Confirm:$false
 
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-01*' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-02*' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-03*' } -Times 0 -Exactly
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-04*' } -Times 0 -Exactly
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-01*' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-02*' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-03*' } -Times 0 -Exactly
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-04*' } -Times 0 -Exactly
         }
 
         It 'filters picker results by package name when F is pressed' {
@@ -547,11 +547,11 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result = Upgrade-PlatformPackage -PackageManager brew -SkipRefresh -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Upgraded | Should -Be 1
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should -Be 1
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade curl' }).Count | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: g' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[g\]' } -Times 1
+            $result.Upgraded | Should-Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should-Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade curl' }).Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: g' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[g\]' } -Times 1
         }
 
         It 'treats lowercase q as filter text instead of cancel' {
@@ -582,11 +582,11 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result = Upgrade-PlatformPackage -PackageManager brew -SkipRefresh -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Upgraded | Should -Be 1
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade jq' }).Count | Should -Be 1
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: q' } -Times 1
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[q\]' } -Times 1
+            $result.Upgraded | Should-Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade jq' }).Count | Should-Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: q' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[q\]' } -Times 1
         }
 
         It 'upgrades only the visible package when filtering duplicate winget ids by source' {
@@ -636,11 +636,11 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result = Upgrade-PlatformPackage -PackageManager winget -SkipRefresh -FilterSource msstore -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Selected | Should -Be 1
-            $result.Upgraded | Should -Be 1
-            @($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source winget --accept-package-agreements --accept-source-agreements' }).Count | Should -Be 0
-            ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source msstore --accept-package-agreements --accept-source-agreements' }).StreamOutput | Should -BeTrue
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[msstore\]' } -Times 1
+            $result.Selected | Should-Be 1
+            $result.Upgraded | Should-Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source winget --accept-package-agreements --accept-source-agreements' }).Count | Should-Be 0
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source msstore --accept-package-agreements --accept-source-agreements' }).StreamOutput | Should-BeTruthy
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[msstore\]' } -Times 1
         }
 
         It 'toggles interactive mode for the current winget picker row' {
@@ -673,11 +673,11 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result = Upgrade-PlatformPackage -PackageManager winget -SkipRefresh -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            $result.Upgraded | Should -Be 1
-            ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source winget --accept-package-agreements --accept-source-agreements --interactive' }).StreamOutput | Should -BeTrue
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'U remove old version\s+I interactive installer' } -Times 3
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match '^\s+Sel\s+RmOld\s+UI\s+' } -Times 3
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match '^> \[x\] \[ \]\s+\[I\]' } -Times 1
+            $result.Upgraded | Should-Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source winget --accept-package-agreements --accept-source-agreements --interactive' }).StreamOutput | Should-BeTruthy
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'U remove old version\s+I interactive installer' } -Times 3
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match '^\s+Sel\s+RmOld\s+UI\s+' } -Times 3
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match '^> \[x\] \[ \]\s+\[I\]' } -Times 1
         }
 
         It 'does not suppress terminal echo when a custom key reader drives winget details' -Skip:($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
@@ -716,9 +716,9 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result = Upgrade-PlatformPackage -PackageManager winget -SkipRefresh -CommandRunner $runner -KeyReader $keyReader -TerminalEchoController $terminalEchoController -Confirm:$false
 
-            $result.Selected | Should -Be 0
-            $echoActions.Count | Should -Be 0
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
+            $result.Selected | Should-Be 0
+            $echoActions.Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
         }
 
         It 'restores terminal echo when winget details throw in the console key reader flow' -Skip:($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
@@ -776,9 +776,9 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             {
                 Upgrade-PlatformPackage -PackageManager winget -SkipRefresh -CommandRunner $runner -KeyReader $keyReader -TreatKeyReaderAsConsoleKeyReader -TerminalEchoController $terminalEchoController -Confirm:$false
-            } | Should -Throw -ExpectedMessage '*winget details failed*'
+            } | Should-Throw -ExceptionMessage '*winget details failed*'
 
-            ($echoActions -join '|') | Should -Be 'Disable|Restore:saved-stty-state'
+            ($echoActions -join '|') | Should-Be 'Disable|Restore:saved-stty-state'
         }
 
         It 'keeps winget picker table rows within the current console width' {
@@ -850,13 +850,13 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
                 }
             )
 
-            $tableLines.Count | Should -BeGreaterThan 1
-            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+RmOld\s+UI\s+' } | Select-Object -First 1) | Should -Match '\bInst\b'
-            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+RmOld\s+UI\s+' } | Select-Object -First 1) | Should -Match '\bAvail\b'
-            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+RmOld\s+UI\s+' } | Select-Object -First 1) | Should -Match '\bTyp\b'
-            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+RmOld\s+UI\s+' } | Select-Object -First 1) | Should -Match '\bSrc\b'
-            ($tableLines | Where-Object { $_ -match '^[> ] \[[ x]\] \[[ U]\]\s+\[[ I]\]\s+' } | Select-Object -First 1) | Should -Match 'homebrew/core'
-            (($tableLines | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum) | Should -BeLessOrEqual $limit
+            $tableLines.Count | Should-BeGreaterThan 1
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+RmOld\s+UI\s+' } | Select-Object -First 1) | Should-MatchString '\bInst\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+RmOld\s+UI\s+' } | Select-Object -First 1) | Should-MatchString '\bAvail\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+RmOld\s+UI\s+' } | Select-Object -First 1) | Should-MatchString '\bTyp\b'
+            ($tableLines | Where-Object { $_ -match '^\s+Sel\s+RmOld\s+UI\s+' } | Select-Object -First 1) | Should-MatchString '\bSrc\b'
+            ($tableLines | Where-Object { $_ -match '^[> ] \[[ x]\] \[[ U]\]\s+\[[ I]\]\s+' } | Select-Object -First 1) | Should-MatchString 'homebrew/core'
+            (($tableLines | ForEach-Object { $_.Length } | Measure-Object -Maximum).Maximum) | Should-BeLessThanOrEqual $limit
         }
     }
 
@@ -884,9 +884,9 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result = @(Upgrade-PlatformPackage -PackageManager winget -NonInteractive -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            ($script:Invocations | Where-Object { $_.Key -eq 'winget source update' }).StreamOutput | Should -BeFalse
-            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like 'Updating all sources*' -or $Object -like 'Updating source:*' } -Times 0 -Exactly
+            $result.Count | Should-Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget source update' }).StreamOutput | Should-BeFalsy
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like 'Updating all sources*' -or $Object -like 'Updating source:*' } -Times 0 -Exactly
         }
 
         It 'falls back to table parsing when JSON output is unavailable' {
@@ -903,13 +903,13 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result = @(Upgrade-PlatformPackage -PackageManager winget -SkipRefresh -NonInteractive -CommandRunner $runner)
 
-            $result.Count | Should -Be 2
+            $result.Count | Should-Be 2
 
             $powershell = $result | Where-Object { $_.Name -eq 'PowerShell' }
-            $powershell.Id | Should -Be 'Microsoft.PowerShell'
-            $powershell.InstalledVersion | Should -Be '7.4.1'
-            $powershell.LatestVersion | Should -Be '7.4.2'
-            (@($powershell.UpgradeArguments) -join '|') | Should -Be 'upgrade|--id|Microsoft.PowerShell|--exact|--source|winget|--accept-package-agreements|--accept-source-agreements'
+            $powershell.Id | Should-Be 'Microsoft.PowerShell'
+            $powershell.InstalledVersion | Should-Be '7.4.1'
+            $powershell.LatestVersion | Should-Be '7.4.2'
+            (@($powershell.UpgradeArguments) -join '|') | Should-Be 'upgrade|--id|Microsoft.PowerShell|--exact|--source|winget|--accept-package-agreements|--accept-source-agreements'
         }
 
         It 'passes the package source to winget upgrade commands' {
@@ -937,8 +937,8 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result = Upgrade-PlatformPackage -PackageManager winget -SkipRefresh -All -CommandRunner $runner -Confirm:$false
 
-            $result.Upgraded | Should -Be 1
-            ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source msstore --accept-package-agreements --accept-source-agreements' }).StreamOutput | Should -BeTrue
+            $result.Upgraded | Should-Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source msstore --accept-package-agreements --accept-source-agreements' }).StreamOutput | Should-BeTruthy
         }
 
         It 'passes interactive mode to winget upgrades' {
@@ -964,8 +964,8 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result = Upgrade-PlatformPackage -PackageManager winget -SkipRefresh -All -Interactive -CommandRunner $runner -Confirm:$false
 
-            $result.Upgraded | Should -Be 1
-            ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source winget --accept-package-agreements --accept-source-agreements --interactive' }).StreamOutput | Should -BeTrue
+            $result.Upgraded | Should-Be 1
+            ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source winget --accept-package-agreements --accept-source-agreements --interactive' }).StreamOutput | Should-BeTruthy
         }
 
         It 'decodes winget uninstall command failures when streamed output is unavailable' {
@@ -993,14 +993,14 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result = Upgrade-PlatformPackage -PackageManager winget -SkipRefresh -All -CommandRunner $runner -Confirm:$false -WarningAction SilentlyContinue
 
-            $result.Upgraded | Should -Be 0
-            $result.Failed | Should -Be 1
-            $result.Results[0].ExitCode | Should -Be -1978335184
-            $result.Results[0].Message | Should -Match '0x8A150030'
-            $result.Results[0].Message | Should -Match 'APPINSTALLER_CLI_ERROR_EXEC_UNINSTALL_COMMAND_FAILED'
-            $result.Results[0].Message | Should -Match 'Running uninstall command failed'
-            $result.Results[0].Message | Should -Match 'winget uninstall --id JohnMacFarlane\.Pandoc --exact --source winget'
-            $result.Results[0].Message | Should -Match 'winget install --id JohnMacFarlane\.Pandoc --exact --source winget'
+            $result.Upgraded | Should-Be 0
+            $result.Failed | Should-Be 1
+            $result.Results[0].ExitCode | Should-Be -1978335184
+            $result.Results[0].Message | Should-MatchString '0x8A150030'
+            $result.Results[0].Message | Should-MatchString 'APPINSTALLER_CLI_ERROR_EXEC_UNINSTALL_COMMAND_FAILED'
+            $result.Results[0].Message | Should-MatchString 'Running uninstall command failed'
+            $result.Results[0].Message | Should-MatchString 'winget uninstall --id JohnMacFarlane\.Pandoc --exact --source winget'
+            $result.Results[0].Message | Should-MatchString 'winget install --id JohnMacFarlane\.Pandoc --exact --source winget'
         }
     }
 
@@ -1033,8 +1033,8 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result = @(Upgrade-PlatformPackage -PackageManager brew -SkipRefresh -NonInteractive -IncludePackage 'git*' -ExcludePackage 'git-lfs' -CommandRunner $runner)
 
-            $result.Count | Should -Be 1
-            $result[0].Name | Should -Be 'git'
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'git'
         }
 
         It 'honors -WhatIf for refresh and upgrade commands' {
@@ -1056,13 +1056,13 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
             $result = Upgrade-PlatformPackage -PackageManager brew -All -WhatIf -CommandRunner $runner
 
             $result | Should -Not -BeNullOrEmpty
-            $result.Selected | Should -Be 1
-            $result.NotSelected | Should -Be 0
-            $result.Upgraded | Should -Be 0
-            $result.Skipped | Should -Be 1
+            $result.Selected | Should-Be 1
+            $result.NotSelected | Should-Be 0
+            $result.Upgraded | Should-Be 0
+            $result.Skipped | Should-Be 1
 
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew update --quiet' }).Count | Should -Be 0
-            @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should -Be 0
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew update --quiet' }).Count | Should-Be 0
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should-Be 0
         }
     }
 }
