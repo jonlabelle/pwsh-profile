@@ -560,8 +560,8 @@ Describe 'Extract-Archive' {
 
     Context 'Missing dependency handling' {
         It 'Skips tar archives when tar dependency is missing' {
-            Mock -CommandName Get-Command { $null }
             Mock -CommandName Get-Command -MockWith { return $null } -ParameterFilter { $Name -contains 'tar' -or $Name -eq 'tar' }
+            Mock -CommandName Get-Command -MockWith { [PSCustomObject]@{ Name = '7z'; Source = '7z' } } -ParameterFilter { ($Name -contains '7z') -or ($Name -contains '7za') -or $Name -eq '7z' -or $Name -eq '7za' }
 
             $root = Join-Path -Path $TestDrive -ChildPath 'missing-tar'
             New-Item -ItemType Directory -Path $root -Force | Out-Null
@@ -576,7 +576,7 @@ Describe 'Extract-Archive' {
         }
 
         It 'Skips 7z/rar archives when 7z dependency is missing' {
-            Mock -CommandName Get-Command { $null }
+            Mock -CommandName Get-Command -MockWith { [PSCustomObject]@{ Name = 'tar'; Source = 'tar' } } -ParameterFilter { $Name -contains 'tar' -or $Name -eq 'tar' }
             Mock -CommandName Get-Command -MockWith { return $null } -ParameterFilter { ($Name -contains '7z') -or ($Name -contains '7za') -or $Name -eq '7z' -or $Name -eq '7za' }
 
             $root = Join-Path -Path $TestDrive -ChildPath 'missing-7z'

@@ -64,6 +64,13 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
 
         $script:PandocShimInvocations = @()
         $script:PandocShimExitCode = 0
+
+        Mock -CommandName Get-Command -MockWith {
+            foreach ($commandName in @($Name))
+            {
+                $ExecutionContext.SessionState.InvokeCommand.GetCommand($commandName, [System.Management.Automation.CommandTypes]::All)
+            }
+        }
     }
 
     AfterEach {
@@ -78,8 +85,6 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
     Context 'Prerequisite validation' {
         It 'Throws when Pandoc is not installed' {
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'pandoc' } -MockWith { $null }
-            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'Get-EncodingFromName' } -MockWith { $null }
-            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'Get-FileEncoding' } -MockWith { $null }
 
             { ConvertTo-Markdown -InputObject 'https://example.com' } |
             Should -Throw 'Pandoc is not installed or not available in PATH. Please install Pandoc and try again.'
@@ -104,8 +109,6 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
                     Source = '/usr/local/bin/pandoc'
                 }
             }
-            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'Get-EncodingFromName' } -MockWith { $null }
-            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'Get-FileEncoding' } -MockWith { $null }
         }
 
         It 'Converts a local file path and auto-saves markdown when -OutputPath is omitted' {
@@ -178,11 +181,6 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
                     Name = $script:PandocCommandName
                     Source = '/usr/local/bin/pandoc'
                 }
-            }
-            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'Get-EncodingFromName' } -MockWith { $null }
-            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'Get-FileEncoding' } -MockWith { $null }
-            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'ConvertTo-Markdown' } -MockWith {
-                $ExecutionContext.SessionState.InvokeCommand.GetCommand('ConvertTo-Markdown', [System.Management.Automation.CommandTypes]::Function)
             }
         }
 
@@ -311,8 +309,6 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
                     Source = '/usr/local/bin/pandoc'
                 }
             }
-            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'Get-EncodingFromName' } -MockWith { $null }
-            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'Get-FileEncoding' } -MockWith { $null }
         }
 
         It 'Throws when pandoc returns a non-zero exit code' {

@@ -472,7 +472,7 @@ Describe 'Invoke-SqlFluff' {
                 if ($PathType -eq 'Container') { return $false }
                 return $true
             }
-            Mock -CommandName Test-Path -ParameterFilter { $LiteralPath -and $LiteralPath -like '*/.sqlfluff' } -MockWith { $false }
+            Mock -CommandName Test-Path -ParameterFilter { $LiteralPath -and $LiteralPath -match '(^|[\\/])\.sqlfluff$' } -MockWith { $false }
 
             Invoke-SqlFluff -Mode lint -Path $script:SqlFile | Out-Null
 
