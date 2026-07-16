@@ -219,7 +219,7 @@ Describe 'Update-DotNetTool' {
             $result.Updated | Should -Be 0
             $result.Failed | Should -Be 0
             $script:DotNetInvocations | Where-Object { $_[0] -eq 'tool' -and $_[1] -eq 'update' } | Should -BeNullOrEmpty
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter {
+            Should -Invoke -CommandName Write-Host -ParameterFilter {
                 $Object -eq 'No .NET global tools found to update.'
             } -Times 1
         }
@@ -237,7 +237,7 @@ Describe 'Update-DotNetTool' {
             $updateCalls.Count | Should -Be 2
             ($updateCalls | ForEach-Object { $_[2] }) | Should -Contain 'dotnetsay'
             ($updateCalls | ForEach-Object { $_[2] }) | Should -Contain 'csharpier'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter {
+            Should -Invoke -CommandName Write-Host -ParameterFilter {
                 $Object -eq 'Updated 2 of 2 .NET global tool(s).'
             } -Times 1
         }
@@ -297,7 +297,7 @@ Describe 'Update-DotNetTool' {
             $result = @(Update-DotNetTool -Path $script:TestDir -Scope Global -ListOutdated)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter {
+            Should -Invoke -CommandName Write-Host -ParameterFilter {
                 $Object -eq 'No .NET global tools found to check.'
             } -Times 1
         }
@@ -370,7 +370,7 @@ Describe 'Update-DotNetTool' {
             $result = @(Update-DotNetTool -Path $script:TestDir -Scope Global -ListOutdated)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter {
+            Should -Invoke -CommandName Write-Host -ParameterFilter {
                 $Object -eq 'No outdated .NET global tools found.'
             } -Times 1
         }
@@ -395,7 +395,7 @@ Describe 'Update-DotNetTool' {
             $result[0].PackageId | Should -Be 'csharpier'
             $result[0].CurrentVersion | Should -Be '1.2.5'
             $result[0].LatestVersion | Should -Be '1.2.6'
-            Assert-MockCalled -CommandName Invoke-RestMethod -ParameterFilter {
+            Should -Invoke -CommandName Invoke-RestMethod -ParameterFilter {
                 $Uri -eq 'https://api.nuget.org/v3-flatcontainer/csharpier/index.json'
             } -Times 1
         }

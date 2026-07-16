@@ -114,7 +114,7 @@ jobs:
       - name: Install Pester module
         if: steps.cache-psmodules.outputs.cache-hit != 'true'
         shell: pwsh
-        run: Install-Module Pester -MinimumVersion '5.0.0' -MaximumVersion '5.99.99' -Force -SkipPublisherCheck -ErrorAction Stop
+        run: Install-Module Pester -MinimumVersion '6.0.0' -MaximumVersion '6.999.999' -Force -SkipPublisherCheck -ErrorAction Stop
 
       - name: Run PSScriptAnalyzer
         shell: pwsh
@@ -184,7 +184,7 @@ jobs:
       - name: Install Pester module
         if: steps.cache-psmodules.outputs.cache-hit != 'true'
         shell: powershell
-        run: Install-Module Pester -MinimumVersion '5.0.0' -MaximumVersion '5.99.99' -Force -SkipPublisherCheck -ErrorAction Stop
+        run: Install-Module Pester -MinimumVersion '6.0.0' -MaximumVersion '6.999.999' -Force -SkipPublisherCheck -ErrorAction Stop
 
       - name: Run PSScriptAnalyzer
         shell: powershell

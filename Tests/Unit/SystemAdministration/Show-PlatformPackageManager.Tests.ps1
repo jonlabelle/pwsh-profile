@@ -25,12 +25,12 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like 'Manager: Auto -> *' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Installed packages*' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Export installed*' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Direct install*' } -Times 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Dependencies*' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like 'Manager: Auto -> *' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Installed packages*' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Export installed*' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Direct install*' } -Times 0 -Exactly
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Dependencies*' } -Times 1
     }
 
     It 'selects the upgrade workflow by default' {
@@ -46,9 +46,9 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager brew -PromptReader $promptReader -KeyReader $keyReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Upgrade-PlatformPackage -Times 1
-        Assert-MockCalled -CommandName Install-PlatformPackage -Times 0
-        Assert-MockCalled -CommandName Show-InstalledPlatformPackage -Times 0
+        Should -Invoke -CommandName Upgrade-PlatformPackage -Times 1
+        Should -Invoke -CommandName Install-PlatformPackage -Times 0 -Exactly
+        Should -Invoke -CommandName Show-InstalledPlatformPackage -Times 0 -Exactly
     }
 
     It 'exposes ShouldProcess safety switches for delegated operations' {
@@ -109,15 +109,15 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager brew -CommandRunner $runner -PromptReader $promptReader -KeyReader $keyReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Show-InstalledPlatformPackage -ParameterFilter {
+        Should -Invoke -CommandName Show-InstalledPlatformPackage -ParameterFilter {
             $PackageManager -eq 'brew' -and
             $null -ne $CommandRunner -and
             $null -ne $KeyReader -and
             $ReturnToPlatformPackageManagerOnBackKey
         } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Installed Packages' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*git*' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*gh*' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Installed Packages' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*git*' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*gh*' } -Times 1
     }
 
     It 'returns from the installed package browser to the manager menu on Backspace' {
@@ -135,10 +135,10 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager brew -CommandRunner $runner -PromptReader $promptReader -KeyReader $keyReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 2
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Show-InstalledPlatformPackage - Homebrew' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Installed Packages' } -Times 0
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 2
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Show-InstalledPlatformPackage - Homebrew' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Installed Packages' } -Times 0 -Exactly
     }
 
     It 'does not expose numbers outside 1-6 as valid actions' {
@@ -147,8 +147,8 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager winget -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Direct install*' } -Times 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Choose 1-6 or Q.' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Direct install*' } -Times 0 -Exactly
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Choose 1-6 or Q.' } -Times 1
     }
 
     It 'supports arrow key navigation in the manager menu' {
@@ -175,7 +175,7 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager apt -NoSudo -PromptReader $promptReader -KeyReader $keyReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Install-PlatformPackage -ParameterFilter {
+        Should -Invoke -CommandName Install-PlatformPackage -ParameterFilter {
             $Query -eq 'git' -and
             $PackageManager -eq 'apt' -and
             $NoSudo -and
@@ -194,11 +194,11 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PromptReader $promptReader -KeyReader $keyReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager Help' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'B: ' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'browse installed packages' -and $ForegroundColor -eq 'DarkGray' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'E: ' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'export installed packages' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager Help' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'B: ' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'browse installed packages' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'E: ' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'export installed packages' -and $ForegroundColor -eq 'DarkGray' } -Times 1
     }
 
     It 'routes installed package export through Show-InstalledPlatformPackage from the manager shortcut' {
@@ -223,7 +223,7 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager brew -CommandRunner { } -PromptReader $promptReader -KeyReader $keyReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Show-InstalledPlatformPackage -ParameterFilter {
+        Should -Invoke -CommandName Show-InstalledPlatformPackage -ParameterFilter {
             $PackageManager -eq 'brew' -and
             $ExportPath -eq $exportPath -and
             $ExportFormat -eq 'Json' -and
@@ -232,8 +232,8 @@ Describe 'Show-PlatformPackageManager' {
             $null -ne $ExportCancelRequested -and
             $NonInteractive
         } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Export Installed Packages' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Export completed.' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Export Installed Packages' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Export completed.' } -Times 1
     }
 
     It 'shows keyboard help from a manager result screen' {
@@ -261,9 +261,9 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager brew -PromptReader $promptReader -KeyReader $keyReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager Help' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Any key or Enter: ' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'return to the manager menu' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager Help' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Any key or Enter: ' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'return to the manager menu' -and $ForegroundColor -eq 'DarkGray' } -Times 1
     }
 
     It 'routes search installs through Install-PlatformPackage with NoSudo forwarded' {
@@ -285,7 +285,7 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager apt -NoSudo -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Install-PlatformPackage -ParameterFilter {
+        Should -Invoke -CommandName Install-PlatformPackage -ParameterFilter {
             $Query -eq 'git' -and
             $PackageManager -eq 'apt' -and
             $NoSudo -and
@@ -326,18 +326,18 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager winget -FilterSource msstore -SkipRefresh -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Install-PlatformPackage -ParameterFilter {
+        Should -Invoke -CommandName Install-PlatformPackage -ParameterFilter {
             $Query -eq 'git' -and
             $PackageManager -eq 'winget' -and
             $FilterSource -eq 'msstore' -and
             $ReturnToPlatformPackageManagerOnBackKey
         } -Times 1
-        Assert-MockCalled -CommandName Upgrade-PlatformPackage -ParameterFilter {
+        Should -Invoke -CommandName Upgrade-PlatformPackage -ParameterFilter {
             $PackageManager -eq 'winget' -and
             $FilterSource -eq 'msstore' -and
             $ReturnToPlatformPackageManagerOnBackKey
         } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*FilterSource=msstore*' } -Times 3
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*FilterSource=msstore*' } -Times 3
     }
 
     It 'forwards interactive mode to winget install and upgrade workflows' {
@@ -348,13 +348,13 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager winget -Interactive -SkipRefresh -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Install-PlatformPackage -ParameterFilter {
+        Should -Invoke -CommandName Install-PlatformPackage -ParameterFilter {
             $PackageManager -eq 'winget' -and $Interactive
         } -Times 1
-        Assert-MockCalled -CommandName Upgrade-PlatformPackage -ParameterFilter {
+        Should -Invoke -CommandName Upgrade-PlatformPackage -ParameterFilter {
             $PackageManager -eq 'winget' -and $Interactive
         } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Interactive*' } -Times 3
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Interactive*' } -Times 3
     }
 
     It 'routes upgrade options and forwards winget uninstall-previous' {
@@ -379,8 +379,8 @@ Describe 'Show-PlatformPackageManager' {
 
         $result.Count | Should -Be 0
         ($script:Invocations | Where-Object { $_.Key -eq 'winget upgrade --id Git.Git --exact --source winget --accept-package-agreements --accept-source-agreements --uninstall-previous' }).StreamOutput | Should -BeTrue
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'winget upgrade output' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Upgraded' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'winget upgrade output' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Upgraded' } -Times 1
     }
 
     It 'routes remove options and forwards purge behavior' {
@@ -406,8 +406,8 @@ Describe 'Show-PlatformPackageManager' {
 
         $result.Count | Should -Be 0
         ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall --cask --zap visual-studio-code' }).StreamOutput | Should -BeTrue
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew zap output' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Removed' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'brew zap output' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Removed' } -Times 1
     }
 
     It 'returns from the removal picker to the manager menu on Delete' {
@@ -430,9 +430,9 @@ Describe 'Show-PlatformPackageManager' {
         )
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 2
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Remove-PlatformPackage - Homebrew' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 2
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Remove-PlatformPackage - Homebrew' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
         @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should -Be 0
     }
 
@@ -457,8 +457,8 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager winget -SkipRefresh -CommandRunner $runner -PromptReader $promptReader -KeyReader $keyReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Upgraded: 1' -and $ForegroundColor -eq 'Green' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Failed: 0' -and $ForegroundColor -eq 'Green' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Upgraded: 1' -and $ForegroundColor -eq 'Green' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Failed: 0' -and $ForegroundColor -eq 'Green' } -Times 1
     }
 
     It 'shows a green status indicator after a successful install' {
@@ -480,7 +480,7 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager apt -NoSudo -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Installed: 1' -and $ForegroundColor -eq 'Green' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Installed: 1' -and $ForegroundColor -eq 'Green' } -Times 1
     }
 
     It 'shows captured informational output on the manager result screen' {
@@ -513,9 +513,9 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager brew -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Additional output' -and $ForegroundColor -eq 'Cyan' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'python' -and $ForegroundColor -eq 'White' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq '  ==> Caveats' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Additional output' -and $ForegroundColor -eq 'Cyan' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'python' -and $ForegroundColor -eq 'White' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq '  ==> Caveats' -and $ForegroundColor -eq 'DarkGray' } -Times 1
     }
 
     It 'keeps detail rows within the separator width while retaining the full additional output' {
@@ -570,7 +570,7 @@ Describe 'Show-PlatformPackageManager' {
             Where-Object { -not [String]::IsNullOrWhiteSpace($_) -and $_.Length -gt $detailSeparator.Length }
         ) | Should -HaveCount 0
         $detailTable | Should -Not -Match ([Regex]::Escape($script:FullFailureMessage))
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter {
+        Should -Invoke -CommandName Write-Host -ParameterFilter {
             $Object -eq "  $script:FullFailureMessage" -and $ForegroundColor -eq 'DarkGray'
         } -Times 1
     }
@@ -594,8 +594,8 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager apt -NoSudo -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Installed: 1' -and $ForegroundColor -eq 'Red' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Failed: 1' -and $ForegroundColor -eq 'Red' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Installed: 1' -and $ForegroundColor -eq 'Red' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Failed: 1' -and $ForegroundColor -eq 'Red' } -Times 1
     }
 
     It 'shows a yellow status indicator when packages were skipped but none failed' {
@@ -617,8 +617,8 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager apt -NoSudo -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Installed: 2' -and $ForegroundColor -eq 'Yellow' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Skipped: 1' -and $ForegroundColor -eq 'Yellow' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Installed: 2' -and $ForegroundColor -eq 'Yellow' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Skipped: 1' -and $ForegroundColor -eq 'Yellow' } -Times 1
     }
 
     It 'does not show a status indicator for dependency lookups' {
@@ -630,7 +630,7 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager brew -CommandRunner $runner -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'Installed:|Upgraded:|Removed:' } -Times 0
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Installed:|Upgraded:|Removed:' } -Times 0 -Exactly
     }
 
     It 'returns directly to the menu without a result screen when a search query is cancelled' {
@@ -639,7 +639,7 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager apt -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Search and Install Packages' } -Times 0
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Search and Install Packages' } -Times 0 -Exactly
     }
 
     It 'returns directly to the menu without a result screen when no packages are selected in the picker' {
@@ -661,8 +661,8 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager apt -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Install-PlatformPackage -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Search and Install Packages' } -Times 0
+        Should -Invoke -CommandName Install-PlatformPackage -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Search and Install Packages' } -Times 0 -Exactly
     }
 
     It 'shows a notification in the menu when search returns no matches' {
@@ -684,8 +684,8 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager winget -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Install-PlatformPackage -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*No packages matched the requested search query*' } -Times 1
+        Should -Invoke -CommandName Install-PlatformPackage -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*No packages matched the requested search query*' } -Times 1
     }
 
     It 'shows a notification in the menu when winget search returns no registry matches' {
@@ -698,7 +698,7 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager winget -CommandRunner $runner -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*No packages matched the requested search query*' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*No packages matched the requested search query*' } -Times 1
     }
 
     It 'shows a notification in the menu when no packages are available for upgrade' {
@@ -720,8 +720,8 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager brew -SkipRefresh -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Upgrade-PlatformPackage -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*No packages are currently available for upgrade*' } -Times 1
+        Should -Invoke -CommandName Upgrade-PlatformPackage -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*No packages are currently available for upgrade*' } -Times 1
     }
 
     It 'shows a notification in the menu when no installed packages matched for removal' {
@@ -748,11 +748,11 @@ Describe 'Show-PlatformPackageManager' {
         )
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Remove-PlatformPackage -ParameterFilter {
+        Should -Invoke -CommandName Remove-PlatformPackage -ParameterFilter {
             $PackageManager -eq 'brew' -and
             $ReturnToPlatformPackageManagerOnBackKey
         } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*No installed packages matched the requested filters*' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*No installed packages matched the requested filters*' } -Times 1
     }
 
     It 'does not show a notification when no packages are selected in the picker but packages are available' {
@@ -774,7 +774,7 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager brew -SkipRefresh -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*No packages*' } -Times 0
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*No packages*' } -Times 0 -Exactly
     }
 
     It 'shows dependency records from the manager' {
@@ -786,8 +786,8 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager brew -CommandRunner $runner -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*Relationship*' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*git -> gettext*' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Relationship*' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*git -> gettext*' } -Times 1
     }
 
     It 'explains that winget reverse dependency lookup is unavailable' {
@@ -796,7 +796,7 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager winget -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*winget does not expose reverse dependency metadata*' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*winget does not expose reverse dependency metadata*' } -Times 1
     }
 
     It 'rejects partial Both dependency lookup for winget' {
@@ -805,7 +805,7 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager winget -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like "*Direction 'Both' is not supported by winget*Choose DependsOn*" } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like "*Direction 'Both' is not supported by winget*Choose DependsOn*" } -Times 1
     }
 
     It 'keeps action results on a dedicated screen until the next action is chosen' {
@@ -817,7 +817,7 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager brew -CommandRunner $runner -PromptReader $promptReader)
 
         $result.Count | Should -Be 0
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 1
-        Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Package Dependencies' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 1
+        Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Package Dependencies' } -Times 1
     }
 }

@@ -242,6 +242,48 @@ Describe 'install.ps1 integration tests' {
                 }
             }
         }
+
+        It 'skips Unix named pipes in a local source without opening them' {
+            $isCoreUnix = $PSVersionTable.PSVersion.Major -ge 6 -and -not (Get-Variable -Name IsWindows -ValueOnly -ErrorAction SilentlyContinue)
+            if (-not $isCoreUnix)
+            {
+                Set-ItResult -Skipped -Because 'Unix special-file behavior only applies to PowerShell Core on Unix hosts.'
+                return
+            }
+
+            $mkfifoCommand = Get-Command -Name mkfifo -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $mkfifoCommand)
+            {
+                Set-ItResult -Skipped -Because 'mkfifo is required to create a named pipe for this regression test.'
+                return
+            }
+
+            $testRoot = Join-Path -Path $TestDrive -ChildPath ('InstallUnixSpecialFile_{0}' -f ([guid]::NewGuid().ToString('N')))
+            $profileRoot = Join-Path -Path $testRoot -ChildPath 'ProfileRoot'
+            $sourceRoot = Join-Path -Path $testRoot -ChildPath 'SourceRoot'
+
+            try
+            {
+                New-Item -ItemType Directory -Path $profileRoot -Force | Out-Null
+                New-Item -ItemType Directory -Path $sourceRoot -Force | Out-Null
+                Set-Content -Path (Join-Path -Path $sourceRoot -ChildPath 'Microsoft.PowerShell_profile.ps1') -Value '# installed profile'
+
+                $pipePath = Join-Path -Path $sourceRoot -ChildPath 'fsmonitor--daemon.ipc'
+                & $mkfifoCommand.Source $pipePath
+
+                & $script:installScript -ProfileRoot $profileRoot -LocalSourcePath $sourceRoot -SkipBackup -SkipPreserveDirectories -Verbose:$false
+
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'Microsoft.PowerShell_profile.ps1') | Should -BeTrue
+                Test-Path (Join-Path -Path $profileRoot -ChildPath 'fsmonitor--daemon.ipc') | Should -BeFalse
+            }
+            finally
+            {
+                if (Test-Path -Path $testRoot)
+                {
+                    Remove-TestDirectory -Path $testRoot
+                }
+            }
+        }
     }
     Context 'Install via git clone' {
         It 'clones from RepositoryUrl when git is available' -Skip:($null -eq $script:gitExecutable) {

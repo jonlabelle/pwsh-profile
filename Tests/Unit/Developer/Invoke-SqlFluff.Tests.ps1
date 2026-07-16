@@ -155,7 +155,7 @@ Describe 'Invoke-SqlFluff' {
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
 
             { Invoke-SqlFluff -Mode lint -Path $script:SqlFile } | Should -Not -Throw
-            Assert-MockCalled -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -Times 0 -Exactly
+            Should -Invoke -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -Times 0 -Exactly
         }
 
         It 'Falls back to Docker when local SQLFluff is not available' {
@@ -360,6 +360,11 @@ Describe 'Invoke-SqlFluff' {
         }
 
         It 'Defaults to --dialect ansi when no config file and no dialect are provided' {
+            Mock -CommandName Test-Path {
+                param([string[]]$LiteralPath, [string[]]$Path, [string]$PathType)
+                if ($PathType -eq 'Container') { return $false }
+                return $true
+            }
             Mock -CommandName Test-Path -ParameterFilter {
                 $LiteralPath -and $LiteralPath -match '(^|[\\/])\.sqlfluff$'
             } -MockWith { $false }
@@ -462,7 +467,12 @@ Describe 'Invoke-SqlFluff' {
             # Create a mock scenario where the default config doesn't exist
             # The function defaults to $HOME/.sqlfluff - we just check args don't include --config
             # when no config is explicitly provided and no default exists.
-            Mock -CommandName Test-Path -ParameterFilter { $LiteralPath -and $LiteralPath -like '*/.sqlfluff' } -MockWith { $false }
+            Mock -CommandName Test-Path {
+                param([string[]]$LiteralPath, [string[]]$Path, [string]$PathType)
+                if ($PathType -eq 'Container') { return $false }
+                return $true
+            }
+            Mock -CommandName Test-Path -ParameterFilter { $LiteralPath -and $LiteralPath -match '(^|[\\/])\.sqlfluff$' } -MockWith { $false }
 
             Invoke-SqlFluff -Mode lint -Path $script:SqlFile | Out-Null
 

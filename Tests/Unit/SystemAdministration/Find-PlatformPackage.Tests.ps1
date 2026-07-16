@@ -339,9 +339,9 @@ Describe 'Find-PlatformPackage' {
             $result = @(Find-PlatformPackage -PackageManager brew -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: git' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  I install  V details  A toggle all' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "1-3 of 3 visible  $([char]0x00B7)  3 total  $([char]0x00B7)  0 selected  $([char]0x00B7)  source: All" -and $ForegroundColor -eq 'White' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: git' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  I install  V details  A toggle all' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-3 of 3 visible  $([char]0x00B7)  3 total  $([char]0x00B7)  0 selected  $([char]0x00B7)  source: All" -and $ForegroundColor -eq 'White' } -Times 1
             @($script:HostOutputRecords | Where-Object { $_.ForegroundColor -eq [ConsoleColor]::DarkGray -and $_.Object -like '*git*' }).Count | Should -BeGreaterOrEqual 2
             @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should -Be 4
         }
@@ -374,7 +374,7 @@ Describe 'Find-PlatformPackage' {
             $result.Count | Should -Be 0
             @($script:Invocations | Where-Object { $_.Key -eq 'brew search --formulae git' }).Count | Should -Be 1
             @($script:Invocations | Where-Object { $_.Key -eq 'brew search --casks code' }).Count | Should -Be 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: code' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: code' } -Times 1
         }
 
         It 'shows keyboard help from the search result picker' {
@@ -400,9 +400,9 @@ Describe 'Find-PlatformPackage' {
             $result = @(Find-PlatformPackage -PackageManager brew -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Find-PlatformPackage Help' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq '/: ' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'start a new search' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Find-PlatformPackage Help' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq '/: ' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'start a new search' -and $ForegroundColor -eq 'DarkGray' } -Times 1
         }
 
         It 'returns selected packages when PassThru is used' {
@@ -428,7 +428,7 @@ Describe 'Find-PlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  I install  V details  A toggle all' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  I install  V details  A toggle all' } -Times 1
         }
 
         It 'opens the result picker with the requested source filter' {
@@ -483,8 +483,8 @@ Describe 'Find-PlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Source | Should -Be 'msstore'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[msstore\]' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*winget*' -and $Object -notlike '*msstore*' } -Times 0
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[msstore\]' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*winget*' -and $Object -notlike '*msstore*' } -Times 0 -Exactly
         }
 
         It 'keeps picker table rows within the current console width' {
@@ -561,7 +561,7 @@ Describe 'Find-PlatformPackage' {
 
             $result.Count | Should -Be 1
             $result[0].Name | Should -Be 'git'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  I install  V details  A toggle all' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  I install  V details  A toggle all' } -Times 1
         }
 
         It 'installs the selected package from the interactive browser' {
@@ -589,7 +589,7 @@ Describe 'Find-PlatformPackage' {
             $result.Selected | Should -Be 1
             $result.Installed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew install git' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew install git output' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'brew install git output' } -Times 1
         }
 
         It 'loads missing winget descriptions only when D is pressed' {
@@ -641,9 +641,9 @@ Describe 'Find-PlatformPackage' {
             $result = @(Find-PlatformPackage -PackageManager winget -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
 
             $result.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: <press V to load>' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: retrieving description...' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: <press V to load>' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: retrieving description...' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
             @($script:Invocations | Where-Object { $_.Key -eq 'winget show --id Git.Git --exact --accept-source-agreements --output json' }).Count | Should -Be 1
         }
 
@@ -694,7 +694,7 @@ Describe 'Find-PlatformPackage' {
 
             $result.Count | Should -Be 0
             $echoActions.Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Description: Distributed version control system' } -Times 1
         }
 
         It 'restores terminal echo when winget details throw in the console key reader flow' -Skip:($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {

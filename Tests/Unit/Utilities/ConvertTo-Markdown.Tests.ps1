@@ -64,6 +64,20 @@ Describe 'ConvertTo-Markdown' -Tag 'Unit' {
 
         $script:PandocShimInvocations = @()
         $script:PandocShimExitCode = 0
+
+        Mock -CommandName Get-Command -MockWith {
+            foreach ($commandName in @($Name))
+            {
+                try
+                {
+                    $ExecutionContext.SessionState.InvokeCommand.GetCommand($commandName, [System.Management.Automation.CommandTypes]::All)
+                }
+                catch
+                {
+                    $null
+                }
+            }
+        }
     }
 
     AfterEach {

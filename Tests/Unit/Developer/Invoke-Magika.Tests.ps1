@@ -171,7 +171,7 @@ Describe 'Invoke-Magika' {
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith { $null }
 
             { Invoke-Magika -Path $script:SampleFile } | Should -Not -Throw
-            Assert-MockCalled -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -Times 0 -Exactly
+            Should -Invoke -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -Times 0 -Exactly
         }
 
         It 'Falls back to Docker when local Magika is not available' {

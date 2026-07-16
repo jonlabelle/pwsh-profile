@@ -50,7 +50,7 @@ Describe 'Export-InstalledPlatformPackage' {
         $exportedPackages = Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json
         $exportedPackages.Count | Should -Be 2
         ($exportedPackages | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should -Be '2.44.0'
-        Assert-MockCalled -CommandName Write-Host -Times 0
+        Should -Invoke -CommandName Write-Host -Times 0 -Exactly
     }
 
     It 'exports CSV with direct dependencies' {
@@ -94,8 +94,8 @@ Describe 'Export-InstalledPlatformPackage' {
         $exportedPackages.Count | Should -Be 1
         $exportedPackages[0].DependsOn | Should -Be 'openssl'
         $exportedPackages[0].RequiredBy | Should -Be ''
-        Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
-        Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 0
+        Should -Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
+        Should -Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 0 -Exactly
     }
 
     It 'exports CSV with both dependency directions when DependencyMode is Both' {
@@ -152,8 +152,8 @@ Describe 'Export-InstalledPlatformPackage' {
         $exportedPackages.Count | Should -Be 1
         $exportedPackages[0].DependsOn | Should -Be 'openssl'
         $exportedPackages[0].RequiredBy | Should -Be 'git-extras'
-        Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
-        Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
+        Should -Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
+        Should -Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
     }
 
     It 'rejects Both dependency export mode for winget records' {

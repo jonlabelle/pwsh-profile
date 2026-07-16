@@ -91,7 +91,7 @@ Describe 'Remove-PlatformPackage' {
 
             ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).StreamOutput | Should -BeTrue
 
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew uninstall git output' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'brew uninstall git output' } -Times 1
         }
 
         It 'captures post-removal instructions in the result object' {
@@ -342,9 +342,9 @@ Describe 'Remove-PlatformPackage' {
             $result.NotSelected | Should -Be 0
             $result.Removed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A toggle all  F: [all]" } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Nav: Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel" } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  0 selected" -and $ForegroundColor -eq 'White' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A toggle all  F: [all]" } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Nav: Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel" } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  0 selected" -and $ForegroundColor -eq 'White' } -Times 1
         }
 
         It 'shows keyboard help from the removal picker' {
@@ -367,9 +367,9 @@ Describe 'Remove-PlatformPackage' {
 
             $result.Selected | Should -Be 0
             $result.Removed | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Remove-PlatformPackage Help' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'P: ' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'toggle purge/zap removal for the current package' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Remove-PlatformPackage Help' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'P: ' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'toggle purge/zap removal for the current package' -and $ForegroundColor -eq 'DarkGray' } -Times 1
         }
 
         It 'treats Ctrl+C as a cancel command' {
@@ -413,8 +413,8 @@ Describe 'Remove-PlatformPackage' {
 
             $result.Selected | Should -Be 0
             $result.Removed | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A toggle all  F: [all]" } -Times 3
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 0
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A toggle all  F: [all]" } -Times 3
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 0 -Exactly
             @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should -Be 0
         }
 
@@ -438,8 +438,8 @@ Describe 'Remove-PlatformPackage' {
 
             $result.Selected | Should -Be 0
             $result.Removed | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A toggle all  F: [all]" } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A toggle all  F: [all]" } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
             @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should -Be 0
         }
 
@@ -460,10 +460,10 @@ Describe 'Remove-PlatformPackage' {
 
             $null = Remove-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PickerPageSize 2 -Confirm:$false
 
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-01*' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-02*' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-03*' } -Times 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-04*' } -Times 0
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-01*' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-02*' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-03*' } -Times 0 -Exactly
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*pkg-04*' } -Times 0 -Exactly
         }
 
         It 'allows purge behavior to be toggled for the selected package' {
@@ -487,8 +487,8 @@ Describe 'Remove-PlatformPackage' {
 
             $result.Removed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall --cask --zap visual-studio-code' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*P purge/zap*' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'brew zap output' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*P purge/zap*' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'brew zap output' } -Times 1
         }
 
         It 'shows both dependency directions from the removal picker with D' {
@@ -526,13 +526,13 @@ Describe 'Remove-PlatformPackage' {
             $result = Remove-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
             $result.Removed | Should -Be 0
-            Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
-            Assert-MockCalled -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Resolving dependencies...' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn + RequiredBy]' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn]' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [RequiredBy]' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/Delete/LeftArrow to return to the package list.' } -Times 2
+            Should -Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
+            Should -Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Resolving dependencies...' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn + RequiredBy]' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn]' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [RequiredBy]' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/Delete/LeftArrow to return to the package list.' } -Times 2
         }
 
         It 'returns from dependency view to the removal picker on <Name> when manager navigation is enabled' -TestCases @(
@@ -571,9 +571,9 @@ Describe 'Remove-PlatformPackage' {
 
             $result.Selected | Should -Be 0
             $result.Removed | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A toggle all  F: [all]" } -Times 2
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Remove-PlatformPackage Dependencies - Homebrew' } -Times 2
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/Delete/LeftArrow to return to the package list.' } -Times 2
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A toggle all  F: [all]" } -Times 2
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Remove-PlatformPackage Dependencies - Homebrew' } -Times 2
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/Delete/LeftArrow to return to the package list.' } -Times 2
         }
 
         It 'filters picker results by package name when F is pressed' {
@@ -600,8 +600,8 @@ Describe 'Remove-PlatformPackage' {
             $result.Removed | Should -Be 1
             @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should -Be 1
             @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall curl' }).Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: g' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[g\]' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: g' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[g\]' } -Times 1
         }
 
         It 'treats lowercase q as filter text instead of cancel' {
@@ -628,8 +628,8 @@ Describe 'Remove-PlatformPackage' {
             $result.Removed | Should -Be 1
             @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall jq' }).Count | Should -Be 1
             @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should -Be 0
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: q' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[q\]' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: q' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[q\]' } -Times 1
         }
     }
 
@@ -722,8 +722,8 @@ Describe 'Remove-PlatformPackage' {
 
             $result.Removed | Should -Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'winget uninstall --id Microsoft.PowerShell --exact --source winget --accept-source-agreements --purge' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -clike '*Purge*' } -Times 1
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -eq 'winget purge output' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -clike '*Purge*' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'winget purge output' } -Times 1
         }
 
         It 'keeps picker table rows within the current console width' {
@@ -808,7 +808,7 @@ Describe 'Remove-PlatformPackage' {
 
             $null = Remove-PlatformPackage -PackageManager winget -CommandRunner $runner -KeyReader $keyReader -Confirm:$false
 
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[winget\]' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[winget\]' } -Times 1
         }
 
         It 'removes only the visible package when filtering duplicate winget ids by source' {
@@ -854,7 +854,7 @@ Describe 'Remove-PlatformPackage' {
             $result.Removed | Should -Be 1
             @($script:Invocations | Where-Object { $_.Key -eq 'winget uninstall --id Git.Git --exact --source winget --accept-source-agreements' }).Count | Should -Be 0
             ($script:Invocations | Where-Object { $_.Key -eq 'winget uninstall --id Git.Git --exact --source msstore --accept-source-agreements' }).StreamOutput | Should -BeTrue
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[msstore\]' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'S: \[msstore\]' } -Times 1
         }
     }
 

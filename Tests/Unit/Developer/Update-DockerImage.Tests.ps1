@@ -157,7 +157,7 @@ Describe 'Update-DockerImage' {
             $result.Failed | Should -Be 0
             $result.Results[0].Status | Should -Be 'Success'
             $result.Results[0].Message | Should -Be 'Updated'
-            Assert-MockCalled -CommandName Write-Host -ParameterFilter { $Object -like '*nginx:latest*' } -Times 1
+            Should -Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*nginx:latest*' } -Times 1
         }
 
         It 'Detects already up-to-date images' -Skip:(-not $script:dockerAvailable) {
@@ -262,7 +262,7 @@ Describe 'Update-DockerImage' {
             $result.DanglingPruneSucceeded | Should -BeTrue
             $result.DanglingPruneError | Should -BeNullOrEmpty
 
-            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' -and $args -contains '--force' } -Times 1
+            Should -Invoke -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' -and $args -contains '--force' } -Times 1
         }
 
         It 'Does not prune dangling images by default' -Skip:(-not $script:dockerAvailable) {
@@ -284,7 +284,7 @@ Describe 'Update-DockerImage' {
             $result.DanglingPruneSucceeded | Should -BeFalse
             $result.DanglingPruneError | Should -Be $null
 
-            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' } -Times 0
+            Should -Invoke -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' } -Times 0 -Exactly
         }
 
         It 'Honors -WhatIf and skips dangling prune' -Skip:(-not $script:dockerAvailable) {
@@ -305,8 +305,8 @@ Describe 'Update-DockerImage' {
             $result.DanglingPruneSucceeded | Should -BeFalse
             $result.DanglingPruneError | Should -Be $null
 
-            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'pull' } -Times 0
-            Assert-MockCalled -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' } -Times 0
+            Should -Invoke -CommandName docker -ParameterFilter { $args[0] -eq 'pull' } -Times 0 -Exactly
+            Should -Invoke -CommandName docker -ParameterFilter { $args[0] -eq 'image' -and $args[1] -eq 'prune' } -Times 0 -Exactly
         }
     }
 }

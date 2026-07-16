@@ -4,17 +4,14 @@
     Runs Pester tests for the PowerShell Profile project with cross-version compatibility.
 
 .DESCRIPTION
-    This script runs unit and integration tests using Pester, automatically detecting
-    the installed Pester version and using the appropriate syntax for compatibility
-    with Pester 4.x and 5.x.
+    This script runs unit and integration tests using Pester.
 
     Requirements:
-    - Pester 4.0 through 5.x (Pester 3.x and 6.x are not supported)
-    - Test files must be compatible with the installed Pester version
+    - Pester 6.x
+    - Test files must be compatible with Pester 6
 
     Features:
     - Cross-platform compatibility (Windows, macOS, Linux)
-    - Automatic Pester version detection and syntax adaptation
     - Support for unit and integration test separation
     - Configurable output verbosity
     - NUnit XML test results generation
@@ -32,7 +29,7 @@
     - 'Detailed': Comprehensive output including test names and timing (default)
     - 'Diagnostic': Maximum verbosity for debugging
 
-    Note: The actual available output formats depend on the Pester version installed.
+    Supported values: 'Normal', 'Detailed', 'Diagnostic'.
 
 .PARAMETER PassThru
     When specified, returns the Pester test results object for further processing
@@ -79,10 +76,8 @@
     Runs all tests and appends the timing summary to test-timing-summary.md.
 
 .NOTES
-    Requires Pester module to be installed. The script will automatically detect
-    the Pester version and use the appropriate syntax:
-    - Pester 5.x: Uses PesterConfiguration object
-    - Pester 4.x: Uses parameter-based syntax
+    Requires Pester 6.x to be installed:
+        Install-Module -Name Pester -MinimumVersion 6.0.0 -MaximumVersion 6.999.999 -Force -SkipPublisherCheck
 #>
 
 [CmdletBinding()]
@@ -144,14 +139,12 @@ $TestTimingSummaryScriptPath = Join-Parts -BasePath $ScriptDirectory -PathSegmen
 # Import Pester if not already loaded
 if (-not (Get-Module Pester -ListAvailable))
 {
-    Write-Error 'Pester module is not installed. Please install Pester 5.x first: Install-Module -Name Pester -MinimumVersion 5.0.0 -MaximumVersion 5.99.99 -Force -SkipPublisherCheck'
+    Write-Error 'Pester module is not installed. Please install Pester 6.x: Install-Module -Name Pester -MinimumVersion 6.0.0 -MaximumVersion 6.999.999 -Force -SkipPublisherCheck'
     exit 1
 }
 
-# Pester 6 changed mock/assertion behavior used throughout the test suite, so stay
-# on the supported 4.x/5.x range until the tests are migrated intentionally.
 $availablePesterModules = Get-Module Pester -ListAvailable | Sort-Object Version -Descending
-$compatiblePesterModules = $availablePesterModules | Where-Object { $_.Version.Major -ge 4 -and $_.Version.Major -lt 6 }
+$compatiblePesterModules = $availablePesterModules | Where-Object { $_.Version.Major -eq 6 }
 $selectedPesterModule = $compatiblePesterModules | Select-Object -First 1
 
 if (-not $selectedPesterModule)
@@ -159,10 +152,10 @@ if (-not $selectedPesterModule)
     Write-Error @"
 No compatible Pester version is available.
 
-This test suite currently supports Pester 4.x and 5.x. Pester 6.x introduced mock/assertion behavior changes that are not compatible with these tests.
+This test suite requires Pester 6.x.
 
-Please install Pester 5.x:
-    Install-Module -Name Pester -MinimumVersion 5.0.0 -MaximumVersion 5.99.99 -Force -SkipPublisherCheck
+Please install Pester 6.x:
+    Install-Module -Name Pester -MinimumVersion 6.0.0 -MaximumVersion 6.999.999 -Force -SkipPublisherCheck
 
 Available Pester versions:
 $($availablePesterModules | ForEach-Object { "  - $($_.Version.ToString()) at $($_.ModuleBase)" } | Out-String)
@@ -192,145 +185,62 @@ if (-not $testPathsToRun)
 
 Write-Host "Running $TestType tests from: $($testPathsToRun -join ', ')" -ForegroundColor Green
 
-# Check Pester version and configure accordingly
+# Verify the imported Pester version
 $installedPesterVersion = (Get-Module Pester).Version
-$isPesterVersion5 = $installedPesterVersion -and $installedPesterVersion.Major -eq 5
 
-# Check for unsupported Pester versions
-if ($installedPesterVersion -and ($installedPesterVersion.Major -lt 4 -or $installedPesterVersion.Major -ge 6))
+if ($installedPesterVersion -and $installedPesterVersion.Major -ne 6)
 {
     Write-Error @"
 Pester version $($installedPesterVersion.ToString()) is not supported.
 
-This test suite supports Pester 4.x and 5.x due to the following features and compatibility requirements:
+This test suite requires Pester 6.x.
 
-- BeforeAll/BeforeEach blocks (introduced in Pester 4.0)
-- Improved parameter validation
-- Better cross-platform support
-- Pester 4.x/5.x mock/assertion semantics used by the current tests
+Please install Pester 6.x:
 
-The script attempted to use the latest compatible available version, but an unsupported version was imported.
-
-Please install Pester 5.x:
-
-    Install-Module -Name Pester -MinimumVersion 5.0.0 -MaximumVersion 5.99.99 -Force -SkipPublisherCheck
+    Install-Module -Name Pester -MinimumVersion 6.0.0 -MaximumVersion 6.999.999 -Force -SkipPublisherCheck
 
 Current Pester installation: $($selectedPesterModule.ModuleBase)
 "@
     exit 1
 }
 
-# Validate and map OutputFormat based on Pester version capabilities
-$ValidOutputFormats = if ($isPesterVersion5)
-{
-    @('Normal', 'Detailed', 'Diagnostic')
-}
-else
-{
-    @('Normal', 'Detailed')
-}
+# Validate OutputFormat
+$ValidOutputFormats = @('Normal', 'Detailed', 'Diagnostic')
 
 if ($OutputFormat -notin $ValidOutputFormats)
 {
-    Write-Error "Invalid OutputFormat '$OutputFormat'. Valid values for Pester $($installedPesterVersion.ToString()) are: $($ValidOutputFormats -join ', ')"
+    Write-Error "Invalid OutputFormat '$OutputFormat'. Valid values are: $($ValidOutputFormats -join ', ')"
     exit 1
 }
 
-# Determine which Pester syntax to use based on version and available types
-if ($isPesterVersion5 -and ([System.Management.Automation.PSTypeName]'PesterConfiguration').Type)
+# Configure and run Pester 6
+Write-Verbose "Using Pester $($installedPesterVersion.ToString()) with configuration object syntax"
+$PesterConfiguration = New-PesterConfiguration
+$PesterConfiguration.Run.Path = $testPathsToRun
+$PesterConfiguration.Run.Exit = $false
+$PesterConfiguration.Run.PassThru = $true
+$PesterConfiguration.Output.Verbosity = $OutputFormat
+
+# NUnit XML results
+$PesterConfiguration.TestResult.Enabled = $true
+$PesterConfiguration.TestResult.OutputFormat = 'NUnitXml'
+$PesterConfiguration.TestResult.OutputPath = $NUnitResultsPath
+
+# Run tests
+$previousProgressPreference = $global:ProgressPreference
+try
 {
-    # Pester 5.x syntax
-    Write-Verbose "Using Pester $($installedPesterVersion.ToString()) with configuration object syntax"
-    $PesterConfiguration = [PesterConfiguration]::Default
-    $PesterConfiguration.Run.Path = $testPathsToRun
-    $PesterConfiguration.Run.Exit = $false
-    $PesterConfiguration.Run.PassThru = $true
-    $PesterConfiguration.Output.Verbosity = $OutputFormat
-
-    # NUnit XML results
-    $PesterConfiguration.TestResult.Enabled = $true
-    $PesterConfiguration.TestResult.OutputFormat = 'NUnitXml'
-    $PesterConfiguration.TestResult.OutputPath = $NUnitResultsPath
-
-    # Run tests
-    $previousProgressPreference = $global:ProgressPreference
-    try
-    {
-        $global:ProgressPreference = 'SilentlyContinue'
-        $pesterTestResults = Invoke-Pester -Configuration $PesterConfiguration
-    }
-    catch
-    {
-        Write-Error "Error running tests: $($_.Exception.Message)"
-        exit 1
-    }
-    finally
-    {
-        $global:ProgressPreference = $previousProgressPreference
-    }
+    $global:ProgressPreference = 'SilentlyContinue'
+    $pesterTestResults = Invoke-Pester -Configuration $PesterConfiguration
 }
-else
+catch
 {
-    # Pester 4.x syntax
-    Write-Verbose "Using Pester $($installedPesterVersion.ToString()) with parameter-based syntax"
-    $invokePesterParams = @{
-        Path = $testPathsToRun
-        PassThru = $true
-    }
-
-    # Handle OutputFormat for Pester 4.x when available
-    if ($installedPesterVersion -and $installedPesterVersion.Major -ge 4)
-    {
-        try
-        {
-            $invokePesterCommand = Get-Command Invoke-Pester -Module Pester
-            $outputFormatParameter = $invokePesterCommand.Parameters['OutputFormat']
-            if ($outputFormatParameter -and $outputFormatParameter.Attributes.ValidateSet)
-            {
-                $validOutputFormatSet = $outputFormatParameter.Attributes.ValidateSet.ValidValues
-                if ($OutputFormat -in $validOutputFormatSet)
-                {
-                    $invokePesterParams.OutputFormat = $OutputFormat
-                }
-                else
-                {
-                    Write-Warning "OutputFormat '$OutputFormat' not supported in Pester $($installedPesterVersion.ToString()). Valid values: $($validOutputFormatSet -join ', '). Using default."
-                }
-            }
-            elseif ($outputFormatParameter)
-            {
-                $invokePesterParams.OutputFormat = $OutputFormat
-            }
-        }
-        catch
-        {
-            Write-Warning "Could not determine OutputFormat support in Pester $($installedPesterVersion.ToString()). Using default output format."
-        }
-    }
-
-    # NUnit XML results (Pester 4.x)
-    if ($installedPesterVersion -and $installedPesterVersion.Major -ge 4)
-    {
-        $invokePesterParams.OutputFile = $NUnitResultsPath
-        $invokePesterParams.OutputFormat = 'NUnitXml'
-    }
-
-    # Run tests
-    $previousProgressPreference = $global:ProgressPreference
-    try
-    {
-        $global:ProgressPreference = 'SilentlyContinue'
-        $pesterTestResults = Invoke-Pester @invokePesterParams
-    }
-    catch
-    {
-        Write-Error "Error running tests: $($_.Exception.Message)"
-        exit 1
-    }
-    finally
-    {
-        $global:ProgressPreference = $previousProgressPreference
-    }
+    Write-Error "Error running tests: $($_.Exception.Message)"
+    exit 1
+}
+finally
+{
+    $global:ProgressPreference = $previousProgressPreference
 }
 
 # Output results summary

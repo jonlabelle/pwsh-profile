@@ -107,9 +107,9 @@ Describe 'GitHub repository topic functions' {
             $result.Status | Should -Be 'Unchanged'
             $result.Changed | Should -BeFalse
             $result.Topics | Should -Be @('powershell', 'automation')
-            Assert-MockCalled -CommandName gh -ParameterFilter {
+            Should -Invoke -CommandName gh -ParameterFilter {
                 $args[0] -eq 'api' -and $args -contains 'PUT'
-            } -Times 0
+            } -Times 0 -Exactly
         }
 
         It 'normalizes topic names and adds only missing topics' {
@@ -199,9 +199,9 @@ Describe 'GitHub repository topic functions' {
             $result.Status | Should -Be 'AlreadyAbsent'
             $result.Changed | Should -BeFalse
             $result.Topics | Should -Be @('powershell', 'automation')
-            Assert-MockCalled -CommandName gh -ParameterFilter {
+            Should -Invoke -CommandName gh -ParameterFilter {
                 $args[0] -eq 'api' -and $args -contains 'PUT'
-            } -Times 0
+            } -Times 0 -Exactly
         }
 
         It 'removes only requested existing topics and preserves unrelated topics' {

@@ -10,7 +10,7 @@ on:
     paths:
       - ".github/workflows/**"
   schedule:
-    - cron: "0 0 * * 1"  # Weekly on Monday at midnight UTC
+    - cron: "0 0 * * 1" # Weekly on Monday at midnight UTC
   workflow_dispatch:
 
 # Cancel any in-progress runs when a new commit is pushed
@@ -35,6 +35,8 @@ jobs:
         uses: github/codeql-action/init@main
         with:
           languages: actions
+          build-mode: none
+          queries: security-and-quality
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@main

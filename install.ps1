@@ -549,6 +549,75 @@ function Remove-ProfileContentsExceptPreserved
     }
 }
 
+function Test-IsPowerShellCoreUnix
+{
+    param()
+
+    if ($PSVersionTable.PSVersion.Major -lt 6)
+    {
+        return $false
+    }
+
+    $isWindowsValue = Get-Variable -Name IsWindows -ValueOnly -ErrorAction SilentlyContinue
+    return -not $isWindowsValue
+}
+
+function Get-UnixFileType
+{
+    param(
+        [Parameter(Mandatory)]
+        [string]$LiteralPath
+    )
+
+    $statCommand = Get-Command -Name stat -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $statCommand)
+    {
+        return $null
+    }
+
+    try
+    {
+        $bsdFileType = & $statCommand.Source -f '%HT' $LiteralPath 2>$null | Select-Object -First 1
+        if ($LASTEXITCODE -eq 0 -and $bsdFileType -match '^(Regular File|Directory|Symbolic Link|Fifo File|Socket|Character Special File|Block Special File)$')
+        {
+            return $bsdFileType
+        }
+
+        $gnuFileType = & $statCommand.Source -c '%F' $LiteralPath 2>$null | Select-Object -First 1
+        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($gnuFileType))
+        {
+            return $gnuFileType
+        }
+    }
+    catch
+    {
+        return $null
+    }
+
+    return $null
+}
+
+function Test-PathIsUnixSpecialFile
+{
+    param(
+        [Parameter(Mandatory)]
+        [string]$LiteralPath
+    )
+
+    if (-not (Test-IsPowerShellCoreUnix))
+    {
+        return $false
+    }
+
+    $fileType = Get-UnixFileType -LiteralPath $LiteralPath
+    if ([string]::IsNullOrWhiteSpace($fileType))
+    {
+        return $false
+    }
+
+    return $fileType -match '(?i)\b(fifo|socket|character|block|device|pipe)\b'
+}
+
 function Copy-ProfileItem
 {
     param(
@@ -582,6 +651,13 @@ function Copy-ProfileItem
             $childDestination = Join-Path -Path $DestinationPath -ChildPath $_.Name
             Copy-ProfileItem -SourcePath $_.FullName -DestinationPath $childDestination -ExcludedSourcePaths $ExcludedSourcePaths
         }
+        return
+    }
+
+    # Skip Unix sockets, named pipes, and device files without opening them.
+    if (Test-PathIsUnixSpecialFile -LiteralPath $SourcePath)
+    {
+        Write-Verbose "Skipping non-copyable special file: $SourcePath"
         return
     }
 
