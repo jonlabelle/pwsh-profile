@@ -97,6 +97,15 @@ Describe 'Search-DelimitedFile' {
             $validateSet.ValidValues | Should-BeCollection @('AsNeeded', 'Always', 'Never')
         }
 
+        It 'exposes InputFormat with Auto, CSV, and TSV modes' {
+            $inputFormatParameter = (Get-Command -Name Search-DelimitedFile).Parameters.InputFormat
+            $validateSet = $inputFormatParameter.Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }
+
+            $inputFormatParameter.ParameterType | Should-Be ([String])
+            $inputFormatParameter.Aliases | Should-ContainCollection 'Format'
+            $validateSet.ValidValues | Should-BeCollection @('Auto', 'CSV', 'TSV')
+        }
+
         It 'exposes IncludeRowNumber as a switch parameter' {
             $rowNumberParameter = (Get-Command -Name Search-DelimitedFile).Parameters.IncludeRowNumber
 
@@ -250,6 +259,48 @@ Describe 'Search-DelimitedFile' {
 
             { Search-DelimitedFile -Path $path -Delimiter ',' -Criteria @{ Name = @('West') } -ErrorAction Stop } |
             Should-Throw "*Available columns: Connection`tName`tData*"
+        }
+
+        It 'parses a file as CSV when InputFormat CSV is specified' {
+            $path = Initialize-DelimitedTestFile -Name 'events.tsv' -Content "Id,Level,Message`n1,Error,Timed out"
+
+            $result = @(Search-DelimitedFile -Path $path -InputFormat CSV -Criteria @{ Level = '^Error$' })
+
+            $result.Count | Should-Be 1
+            $result[0].Id | Should-Be '1'
+        }
+
+        It 'parses a file as TSV when InputFormat TSV is specified' {
+            $path = Initialize-DelimitedTestFile -Name 'events.csv' -Content "Id`tLevel`tMessage`n1`tError`tTimed out"
+
+            $result = @(Search-DelimitedFile -Path $path -InputFormat TSV -Criteria @{ Level = '^Error$' })
+
+            $result.Count | Should-Be 1
+            $result[0].Id | Should-Be '1'
+        }
+
+        It 'does not detect a tab delimiter when InputFormat CSV is specified' {
+            $path = Initialize-DelimitedTestFile -Name 'events.tsv' -Content "Id`tLevel`tMessage`n1`tError`tTimed out"
+
+            { Search-DelimitedFile -Path $path -InputFormat CSV -Criteria @{ Level = '^Error$' } -ErrorAction Stop } |
+            Should-Throw "*Available columns: Id`tLevel`tMessage*"
+        }
+
+        It 'rejects Delimiter with every explicit InputFormat' {
+            foreach ($inputFormat in 'CSV', 'TSV')
+            {
+                { Search-DelimitedFile -Path $script:csvPath -InputFormat $inputFormat -Delimiter ',' -Criteria @{ Name = '^Alice$' } } |
+                Should-Throw "*Delimiter cannot be combined with InputFormat '$inputFormat'*"
+            }
+        }
+
+        It 'allows Delimiter when InputFormat Auto is explicitly specified' {
+            $path = Initialize-DelimitedTestFile -Name 'items.txt' -Content "Name|State`nAlice|NY"
+
+            $result = @(Search-DelimitedFile -Path $path -InputFormat Auto -Delimiter '|' -Criteria @{ State = '^NY$' })
+
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'Alice'
         }
 
         It 'preserves empty TSV fields from adjacent and trailing tabs' {
@@ -842,6 +893,17 @@ Alice,Active,"one,two"
             $exportedRows.Name | Should-ContainCollection 'Dave'
         }
 
+        It 'unifies columns when aggregating CSV output from different source schemas' {
+            $statePath = Initialize-DelimitedTestFile -Name 'people-state.csv' -Content "Name,State`nAlice,NY"
+            $cityPath = Initialize-DelimitedTestFile -Name 'people-city.csv' -Content "Name,City`nBob,Boston"
+            $outputPath = Join-Path -Path $TestDrive -ChildPath 'combined.csv'
+
+            Search-DelimitedFile -Path $statePath, $cityPath -Criteria @{ Name = 'Alice|Bob' } -OutputPath $outputPath
+
+            $lines = (Get-Content -LiteralPath $outputPath -Raw) -split '\r?\n' | Where-Object { $_ }
+            $lines | Should-BeCollection @('Name,State,City', 'Alice,NY,', 'Bob,,Boston')
+        }
+
         It 'writes an empty JSON array when no rows match' {
             $outputPath = Join-Path -Path $TestDrive -ChildPath 'empty.json'
 
@@ -1017,6 +1079,12 @@ Alice,Active,"one,two"
             { Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = '(unclosed' } } | Should-Throw '*Invalid regular expression*'
         }
 
+        It 'rejects empty criterion values before processing input paths' {
+            $missingPath = Join-Path -Path $TestDrive -ChildPath 'missing.csv'
+
+            { Search-DelimitedFile -Path $missingPath -Criteria @{ Name = @() } -ErrorAction Stop } | Should-Throw '*must contain at least one pattern*'
+        }
+
         It 'requires Literal when Exact is used' {
             { Search-DelimitedFile -Path $script:csvPath -Criteria @{ Name = 'Alice' } -Exact } | Should-Throw '*requires Literal*'
         }
@@ -1031,6 +1099,13 @@ Alice,Active,"one,two"
 
         It 'rejects out-of-range column indexes' {
             { Search-DelimitedFile -Path $script:csvPath -Criteria @{ 10 = 'value' } -ErrorAction Stop } | Should-Throw '*outside the valid range*'
+        }
+
+        It 'rejects UInt64 column indexes larger than Int64' {
+            $criteria = @{}
+            $criteria[[UInt64]::MaxValue] = 'value'
+
+            { Search-DelimitedFile -Path $script:csvPath -Criteria $criteria -ErrorAction Stop } | Should-Throw '*outside the valid range*'
         }
 
         It 'rejects a custom header with the wrong field count' {

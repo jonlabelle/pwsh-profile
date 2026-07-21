@@ -20,10 +20,12 @@ function Search-DelimitedFile
         and so on, or use -Header to assign custom names. Use -MatchColumnsOnly to return only the
         columns referenced by the criteria.
 
-        When -Delimiter is omitted, tab is inferred for .tsv and .tab files and comma is used for
-        all other files. If the default comma delimiter leaves a tab-containing first record as one
-        column, the file is retried as tab-delimited. An explicit delimiter applies to every input
-        file and disables delimiter inference.
+        InputFormat controls whether each file is processed automatically (the default), strictly
+        as CSV, or strictly as TSV. In Auto mode, tab is inferred for files with .tsv or .tab
+        extensions when -Delimiter is omitted. All other files use comma. If the default comma
+        delimiter leaves a tab-containing first record as one column, the file is retried as
+        tab-delimited.
+        An explicit delimiter applies to every input file and disables delimiter inference.
 
     .PARAMETER Path
         One or more file paths, directory paths, or wildcard patterns. Paths can also be supplied
@@ -45,7 +47,12 @@ function Search-DelimitedFile
     .PARAMETER Delimiter
         The character separating fields. When omitted, .tsv and .tab files use a tab and all
         other files use a comma. Supply this parameter for pipe-delimited, semicolon-delimited,
-        or other character-delimited formats.
+        or other character-delimited formats. Cannot be combined with InputFormat CSV or TSV.
+
+    .PARAMETER InputFormat
+        Determines how input files are parsed. Auto (the default) preserves delimiter inference,
+        including extension and tab-header detection. CSV always uses a comma, and TSV always uses
+        a tab, regardless of file extension. CSV and TSV cannot be combined with -Delimiter.
 
     .PARAMETER Filter
         One or more wildcard file-name patterns used when Path identifies a directory. The
@@ -122,6 +129,8 @@ function Search-DelimitedFile
 
         CSV and TSV output preserve source header text, including duplicate header names. Pipeline
         and JSON output continue to use generated unique property names for duplicate headers.
+        When aggregate CSV or TSV output combines files with different result columns, the output
+        uses their ordered union. Columns missing from a source row are written as empty fields.
 
     .PARAMETER OutputFileNameSuffix
         Appends text to output file names before the file extension. Requires OutputPath. For
@@ -174,6 +183,11 @@ function Search-DelimitedFile
         PS > Search-DelimitedFile './events.tsv' @{ Level = 'error|critical'; Message = 'timeout' }
 
         Infers a tab delimiter and returns rows where both regular expressions match.
+
+    .EXAMPLE
+        PS > Search-DelimitedFile './events.log' @{ Level = 'error|critical' } -InputFormat TSV
+
+        Parses a tab-separated file whose extension does not identify its format.
 
     .EXAMPLE
         PS > Search-DelimitedFile './data.txt' @{ 0 = '^A'; 2 = 'done' } -Delimiter '|' -NoHeader
@@ -313,6 +327,11 @@ function Search-DelimitedFile
 
         [Parameter()]
         [Char]$Delimiter,
+
+        [Parameter()]
+        [Alias('Format')]
+        [ValidateSet('Auto', 'CSV', 'TSV')]
+        [String]$InputFormat = 'Auto',
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
@@ -604,12 +623,16 @@ function Search-DelimitedFile
 
             $resolved = New-Object System.Collections.ArrayList
 
-            foreach ($entry in $Criteria.GetEnumerator())
+            foreach ($entry in $criteriaEntries)
             {
                 $columnName = $null
 
                 if (Test-IsIntegerKey -Key $entry.Key)
                 {
+                    if ($entry.Key -is [UInt64] -and $entry.Key -gt [UInt64][Int64]::MaxValue)
+                    {
+                        throw "Column index $($entry.Key) is outside the valid range 0 through $($ColumnNames.Count - 1)."
+                    }
                     $columnIndex = [Int64]$entry.Key
                     if ($columnIndex -lt 0 -or $columnIndex -ge $ColumnNames.Count)
                     {
@@ -635,25 +658,9 @@ function Search-DelimitedFile
                     }
                 }
 
-                $patterns = @($entry.Value)
-                if ($patterns.Count -eq 0 -or $null -eq $entry.Value)
-                {
-                    throw "Criterion for column '$columnName' must contain at least one pattern."
-                }
-
-                $stringPatterns = New-Object System.Collections.ArrayList
-                foreach ($pattern in $patterns)
-                {
-                    if ($null -eq $pattern)
-                    {
-                        throw "Criterion for column '$columnName' cannot contain a null pattern."
-                    }
-                    [void]$stringPatterns.Add([String]$pattern)
-                }
-
                 [void]$resolved.Add([PSCustomObject]@{
                         ColumnName = $columnName
-                        Patterns = [String[]]$stringPatterns.ToArray()
+                        Patterns = $entry.Patterns
                     })
             }
 
@@ -667,20 +674,15 @@ function Search-DelimitedFile
                 [Object]$Value,
 
                 [Parameter(Mandatory)]
-                [String[]]$Patterns
+                [Object[]]$Patterns
             )
 
             $text = if ($null -eq $Value) { [String]::Empty } else { [String]$Value }
-            $comparison = if ($CaseSensitive) { [StringComparison]::Ordinal } else { [StringComparison]::OrdinalIgnoreCase }
-            $regexOptions = [System.Text.RegularExpressions.RegexOptions]::CultureInvariant
-            if (-not $CaseSensitive)
-            {
-                $regexOptions = $regexOptions -bor [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
-            }
 
-            foreach ($pattern in $Patterns)
+            if ($Literal)
             {
-                if ($Literal)
+                $comparison = if ($CaseSensitive) { [StringComparison]::Ordinal } else { [StringComparison]::OrdinalIgnoreCase }
+                foreach ($pattern in $Patterns)
                 {
                     if ($Exact -and [String]::Equals($text, $pattern, $comparison))
                     {
@@ -691,9 +693,15 @@ function Search-DelimitedFile
                         return $true
                     }
                 }
-                elseif ([System.Text.RegularExpressions.Regex]::IsMatch($text, $pattern, $regexOptions))
+            }
+            else
+            {
+                foreach ($pattern in $Patterns)
                 {
-                    return $true
+                    if ($pattern.IsMatch($text))
+                    {
+                        return $true
+                    }
                 }
             }
 
@@ -770,6 +778,9 @@ function Search-DelimitedFile
                 [Parameter()]
                 [String[]]$HeaderNames,
 
+                [Parameter()]
+                [String[]]$PropertyNames,
+
                 [Parameter(Mandatory)]
                 [Char]$FieldDelimiter,
 
@@ -792,10 +803,13 @@ function Search-DelimitedFile
                 return
             }
 
-            $propertyNames = [String[]]@($Records[0].PSObject.Properties | ForEach-Object { $_.Name })
-            if ($null -eq $HeaderNames -or $HeaderNames.Count -ne $propertyNames.Count)
+            if ($null -eq $PropertyNames -or $PropertyNames.Count -eq 0)
             {
-                $HeaderNames = $propertyNames
+                $PropertyNames = [String[]]@($Records[0].PSObject.Properties | ForEach-Object { $_.Name })
+            }
+            if ($null -eq $HeaderNames -or $HeaderNames.Count -ne $PropertyNames.Count)
+            {
+                $HeaderNames = $PropertyNames
             }
 
             $lines = New-Object 'System.Collections.Generic.List[String]'
@@ -804,20 +818,22 @@ function Search-DelimitedFile
             for ($recordIndex = 0; $recordIndex -lt $Records.Count; $recordIndex++)
             {
                 $record = $Records[$recordIndex]
-                $fields = foreach ($propertyName in $propertyNames)
+                $fields = New-Object 'System.Collections.Generic.List[Object]'
+                foreach ($propertyName in $PropertyNames)
                 {
                     $property = $record.PSObject.Properties[$propertyName]
-                    if ($null -eq $property)
+                    $fieldValue = if ($null -eq $property -or $null -eq $property.Value)
                     {
-                        $null
+                        [String]::Empty
                     }
                     else
                     {
                         $property.Value
                     }
+                    [void]$fields.Add($fieldValue)
                 }
 
-                $lines.Add((ConvertTo-DelimitedRecord -Fields $fields -FieldDelimiter $FieldDelimiter -QuoteMode $QuoteMode))
+                $lines.Add((ConvertTo-DelimitedRecord -Fields $fields.ToArray() -FieldDelimiter $FieldDelimiter -QuoteMode $QuoteMode))
             }
 
             [System.IO.File]::WriteAllText($FilePath, (($lines.ToArray() -join [Environment]::NewLine) + [Environment]::NewLine), $TextEncoding)
@@ -924,6 +940,10 @@ function Search-DelimitedFile
         {
             throw 'Exact requires Literal.'
         }
+        if ($InputFormat -ne 'Auto' -and $PSBoundParameters.ContainsKey('Delimiter'))
+        {
+            throw "Delimiter cannot be combined with InputFormat '$InputFormat'. Use InputFormat Auto to specify a custom delimiter."
+        }
 
         $writeOutputPath = $PSBoundParameters.ContainsKey('OutputPath')
         $outputFileNameSuffixWasSpecified = $PSBoundParameters.ContainsKey('OutputFileNameSuffix')
@@ -931,7 +951,9 @@ function Search-DelimitedFile
         $resolvedOutputPath = $null
         $resolvedOutputDirectory = $null
         $outputFormat = $null
-        $outputHeaderNames = $null
+        $outputPropertyNames = New-Object 'System.Collections.Generic.List[String]'
+        $outputPropertyNameSet = New-Object 'System.Collections.Generic.HashSet[String]' ([StringComparer]::OrdinalIgnoreCase)
+        $outputHeaderNames = New-Object 'System.Collections.Generic.List[String]'
         $outputRecords = New-Object 'System.Collections.Generic.List[Object]'
         $sourceOutputGroups = New-Object 'System.Collections.Generic.Dictionary[String,Object]' ([StringComparer]::OrdinalIgnoreCase)
 
@@ -1030,28 +1052,57 @@ function Search-DelimitedFile
             }
         }
 
-        $criteriaEntries = @($Criteria.GetEnumerator())
-        if (-not $Literal)
+        $criteriaEntries = New-Object System.Collections.ArrayList
+        $regexOptions = [System.Text.RegularExpressions.RegexOptions]::CultureInvariant
+        if (-not $CaseSensitive)
         {
-            foreach ($entry in $criteriaEntries)
-            {
-                foreach ($pattern in @($entry.Value))
-                {
-                    if ($null -eq $pattern)
-                    {
-                        throw "Criterion '$($entry.Key)' cannot contain a null pattern."
-                    }
+            $regexOptions = $regexOptions -bor [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+        }
 
+        foreach ($entry in $Criteria.GetEnumerator())
+        {
+            $patterns = @($entry.Value)
+            if ($null -eq $entry.Value -or $patterns.Count -eq 0)
+            {
+                throw "Criterion '$($entry.Key)' must contain at least one pattern."
+            }
+
+            $stringPatterns = New-Object System.Collections.ArrayList
+            foreach ($pattern in $patterns)
+            {
+                if ($null -eq $pattern)
+                {
+                    throw "Criterion '$($entry.Key)' cannot contain a null pattern."
+                }
+                [void]$stringPatterns.Add([String]$pattern)
+            }
+
+            $preparedPatterns = if ($Literal)
+            {
+                [String[]]$stringPatterns.ToArray()
+            }
+            else
+            {
+                $compiledPatterns = New-Object System.Collections.ArrayList
+                foreach ($pattern in $stringPatterns)
+                {
                     try
                     {
-                        [void][System.Text.RegularExpressions.Regex]::IsMatch([String]::Empty, [String]$pattern)
+                        [void]$compiledPatterns.Add((New-Object System.Text.RegularExpressions.Regex($pattern, $regexOptions)))
                     }
                     catch [System.ArgumentException]
                     {
                         throw "Invalid regular expression for criterion '$($entry.Key)': $($_.Exception.Message)"
                     }
                 }
+
+                $compiledPatterns.ToArray()
             }
+
+            [void]$criteriaEntries.Add([PSCustomObject]@{
+                    Key = $entry.Key
+                    Patterns = $preparedPatterns
+                })
         }
 
         if ($PSBoundParameters.ContainsKey('Header'))
@@ -1216,17 +1267,25 @@ function Search-DelimitedFile
                     }
 
                     $delimiterWasExplicit = $PSBoundParameters.ContainsKey('Delimiter')
-                    $fileDelimiter = if ($delimiterWasExplicit)
+                    $fileDelimiter = switch ($InputFormat)
                     {
-                        $Delimiter
-                    }
-                    elseif ([System.IO.Path]::GetExtension($filePath) -iin @('.tsv', '.tab'))
-                    {
-                        [Char]9
-                    }
-                    else
-                    {
-                        [Char]','
+                        'CSV' { [Char]','; break }
+                        'TSV' { [Char]9; break }
+                        default
+                        {
+                            if ($delimiterWasExplicit)
+                            {
+                                $Delimiter
+                            }
+                            elseif ([System.IO.Path]::GetExtension($filePath) -iin @('.tsv', '.tab'))
+                            {
+                                [Char]9
+                            }
+                            else
+                            {
+                                [Char]','
+                            }
+                        }
                     }
 
                     Write-Verbose "Searching '$filePath' with delimiter '$fileDelimiter'."
@@ -1248,7 +1307,8 @@ function Search-DelimitedFile
                         continue
                     }
 
-                    if (-not $delimiterWasExplicit -and
+                    if ($InputFormat -eq 'Auto' -and
+                        -not $delimiterWasExplicit -and
                         $fileDelimiter -ne [Char]9 -and
                         $firstFields.Count -eq 1 -and
                         [String]$firstFields[0] -like "*`t*")
@@ -1460,9 +1520,14 @@ function Search-DelimitedFile
                                         }
                                         else
                                         {
-                                            if ($null -eq $outputHeaderNames)
+                                            for ($outputColumnIndex = 0; $outputColumnIndex -lt $delimitedOutputPropertyNames.Count; $outputColumnIndex++)
                                             {
-                                                $outputHeaderNames = $delimitedOutputHeaderNames
+                                                $outputPropertyName = $delimitedOutputPropertyNames[$outputColumnIndex]
+                                                if ($outputPropertyNameSet.Add($outputPropertyName))
+                                                {
+                                                    $outputPropertyNames.Add($outputPropertyName)
+                                                    $outputHeaderNames.Add($delimitedOutputHeaderNames[$outputColumnIndex])
+                                                }
                                             }
                                             $outputRecords.Add($resultObject)
                                         }
@@ -1563,11 +1628,11 @@ function Search-DelimitedFile
                     }
                     'Csv'
                     {
-                        Write-DelimitedOutputPath -FilePath $resolvedOutputPath -Records $outputRecords -HeaderNames $outputHeaderNames -FieldDelimiter ',' -QuoteMode $UseQuotes -TextEncoding $utf8Encoding
+                        Write-DelimitedOutputPath -FilePath $resolvedOutputPath -Records $outputRecords -HeaderNames $outputHeaderNames -PropertyNames ([String[]]$outputPropertyNames.ToArray()) -FieldDelimiter ',' -QuoteMode $UseQuotes -TextEncoding $utf8Encoding
                     }
                     'Tsv'
                     {
-                        Write-DelimitedOutputPath -FilePath $resolvedOutputPath -Records $outputRecords -HeaderNames $outputHeaderNames -FieldDelimiter ([Char]9) -QuoteMode $UseQuotes -TextEncoding $utf8Encoding
+                        Write-DelimitedOutputPath -FilePath $resolvedOutputPath -Records $outputRecords -HeaderNames $outputHeaderNames -PropertyNames ([String[]]$outputPropertyNames.ToArray()) -FieldDelimiter ([Char]9) -QuoteMode $UseQuotes -TextEncoding $utf8Encoding
                     }
                 }
 
