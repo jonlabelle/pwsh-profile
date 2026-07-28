@@ -12,6 +12,13 @@
 BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
+    # Provides a command target for Pester. Get-DnsRecord defines its real
+    # implementation locally when it runs.
+    function Resolve-NativeDnsHostEntry
+    {
+        throw 'Resolve-NativeDnsHostEntry must be mocked by tests that use host names.'
+    }
+
     . "$PSScriptRoot/../../../Functions/NetworkAndDns/Get-DnsRecord.ps1"
 
     # Capture the implementation so recursive Get-DnsRecord calls can be mocked
@@ -52,7 +59,7 @@ Describe 'Get-DnsRecord' {
         }
     }
 
-    Context 'Native DNS ANY queries' {
+    Context 'Native DNS queries' {
         It 'Labels <Address> as an <ExpectedType> record' -TestCases @(
             @{ Address = '127.0.0.1'; ExpectedType = 'A' }
             @{ Address = '::1'; ExpectedType = 'AAAA' }
@@ -70,6 +77,83 @@ Describe 'Get-DnsRecord' {
             $results[0].Data | Should-Be $Address
         }
 
+        It 'Preserves a canonical CNAME and attributes addresses to its target for ANY queries' {
+            Mock -CommandName Resolve-NativeDnsHostEntry -MockWith {
+                $hostEntry = [System.Net.IPHostEntry]::new()
+                $hostEntry.HostName = 'target.example.test'
+                $hostEntry.Aliases = @()
+                $hostEntry.AddressList = @(
+                    [System.Net.IPAddress]::Parse('192.0.2.25'),
+                    [System.Net.IPAddress]::Parse('2001:db8::25')
+                )
+                $hostEntry
+            }
+
+            $results = @(
+                & $script:GetDnsRecordImplementation -Name 'alias.example.test' -UseDNS -ErrorAction Stop
+            )
+
+            @($results).Count | Should-Be 3
+            ($results.Type -join ',') | Should-Be 'CNAME,A,AAAA'
+            $results[0].Name | Should-Be 'alias.example.test'
+            $results[0].Data | Should-Be 'target.example.test'
+            $results[1].Name | Should-Be 'target.example.test'
+            $results[1].Data | Should-Be '192.0.2.25'
+            $results[2].Name | Should-Be 'target.example.test'
+            $results[2].Data | Should-Be '2001:db8::25'
+
+            Should-Invoke -CommandName Resolve-NativeDnsHostEntry -Times 1 -Exactly
+        }
+
+        It 'Returns only the canonical alias for an explicit native CNAME query' {
+            Mock -CommandName Resolve-NativeDnsHostEntry -MockWith {
+                $hostEntry = [System.Net.IPHostEntry]::new()
+                $hostEntry.HostName = 'target.example.test'
+                $hostEntry.Aliases = @()
+                $hostEntry.AddressList = @([System.Net.IPAddress]::Parse('192.0.2.25'))
+                $hostEntry
+            }
+
+            $results = @(
+                & $script:GetDnsRecordImplementation `
+                    -Name 'alias.example.test' `
+                    -Type CNAME `
+                    -UseDNS `
+                    -ErrorAction Stop
+            )
+
+            @($results).Count | Should-Be 1
+            $results[0].Name | Should-Be 'alias.example.test'
+            $results[0].Type | Should-Be 'CNAME'
+            $results[0].TTL | Should -BeNullOrEmpty
+            $results[0].Data | Should-Be 'target.example.test'
+        }
+
+        It 'Does not report DNS search-suffix expansion as a CNAME' {
+            Mock -CommandName Resolve-NativeDnsHostEntry -MockWith {
+                $hostEntry = [System.Net.IPHostEntry]::new()
+                $hostEntry.HostName = 'server.search.example.test'
+                $hostEntry.Aliases = @()
+                $hostEntry.AddressList = @([System.Net.IPAddress]::Parse('192.0.2.50'))
+                $hostEntry
+            }
+
+            $warnings = @()
+            $results = @(
+                & $script:GetDnsRecordImplementation `
+                    -Name 'server' `
+                    -Type CNAME `
+                    -UseDNS `
+                    -WarningAction SilentlyContinue `
+                    -WarningVariable warnings `
+                    -ErrorAction Stop
+            )
+
+            @($results).Count | Should-Be 0
+            @($warnings).Count | Should-Be 1
+            $warnings[0].Message | Should-Be "No CNAME records found for 'server'"
+        }
+
         It 'Warns and returns before resolving an unsupported native record type' {
             $warnings = @()
 
@@ -85,7 +169,7 @@ Describe 'Get-DnsRecord' {
 
             @($results).Count | Should-Be 0
             @($warnings).Count | Should-Be 1
-            $warnings[0].Message | Should-Be 'Native DNS resolution only supports A, AAAA, and ANY records. Use DNS-over-HTTPS (default) for MX records.'
+            $warnings[0].Message | Should-Be 'Native DNS resolution only supports A, AAAA, CNAME, and ANY records. Use DNS-over-HTTPS (default) for MX records.'
         }
     }
 }

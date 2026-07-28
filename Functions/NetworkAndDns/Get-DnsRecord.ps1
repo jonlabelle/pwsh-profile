@@ -9,7 +9,8 @@ function Get-DnsRecord
         This function provides cross-platform DNS resolution using DNS-over-HTTPS (DoH) APIs for comprehensive record type support.
         The default ANY query fans out to each forward record type included in the expansion because most resolvers restrict direct
         ANY responses per RFC 8482.
-        Native .NET DNS resolution is also available for A and AAAA queries; native ANY returns both available address families.
+        Native .NET DNS resolution is also available for A, AAAA, and CNAME queries. Native ANY returns a canonical
+        CNAME when the system resolver supplies one, followed by both available address families.
 
         Uses Cloudflare's DNS-over-HTTPS API (1.1.1.1) by default for maximum compatibility and privacy.
 
@@ -31,8 +32,9 @@ function Get-DnsRecord
 
     .PARAMETER UseDNS
         Use native DNS resolution instead of DNS-over-HTTPS.
-        Native DNS supports A and AAAA record types reliably across platforms.
-        When Type is ANY, both available address families are returned. Other record types produce a warning and no output.
+        Native DNS supports A, AAAA, and canonical CNAME resolution across platforms.
+        When Type is ANY, a canonical CNAME (when present) and both available address families are returned.
+        Other record types produce a warning and no output. Native results do not include TTL values.
 
     .PARAMETER Timeout
         Request timeout in seconds for DNS-over-HTTPS queries.
@@ -114,6 +116,16 @@ function Get-DnsRecord
         Uses native DNS resolution with the default ANY type to return locally resolved A and AAAA addresses.
 
     .EXAMPLE
+        PS > Get-DnsRecord -Name 'alias.example.test' -UseDNS
+
+        Name                Type  TTL Data
+        ----                ----  --- ----
+        alias.example.test  CNAME     target.example.test
+        target.example.test A         192.0.2.25
+
+        Uses native DNS resolution and preserves the canonical CNAME instead of attributing the target address to the alias.
+
+    .EXAMPLE
         PS > Get-DnsRecord -Name 'example.com' -Type MX
 
         Query MX records using an alternative DoH provider.
@@ -140,9 +152,9 @@ function Get-DnsRecord
 
         Network Requirements:
         - Requires internet connectivity to reach DoH providers
-        - If DoH is blocked, use -UseDNS for native A or AAAA resolution; the default ANY type returns both
+        - If DoH is blocked, use -UseDNS for native A, AAAA, or canonical CNAME resolution
 
-        For air-gapped or restricted environments, use -UseDNS with A, AAAA, or ANY.
+        For air-gapped or restricted environments, use -UseDNS with A, AAAA, CNAME, or ANY.
 
         Author: Jon LaBelle
         License: MIT
@@ -199,6 +211,18 @@ function Get-DnsRecord
             CAA = 257
             ANY = 255
         }
+
+        # Keep the system-resolver call behind a local command so native DNS behavior
+        # can be tested without relying on an external network.
+        function Resolve-NativeDnsHostEntry
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$QueryName
+            )
+
+            [System.Net.Dns]::GetHostEntry($QueryName)
+        }
     }
 
     process
@@ -209,42 +233,99 @@ function Get-DnsRecord
         {
             if ($UseDNS)
             {
-                # Use native .NET DNS resolution (limited to A/AAAA)
+                # Use native .NET DNS resolution (limited to A/AAAA and canonical CNAME)
                 Write-Verbose 'Using native DNS resolution'
 
-                if ($Type -notin @('A', 'AAAA', 'ANY'))
+                if ($Type -notin @('A', 'AAAA', 'CNAME', 'ANY'))
                 {
-                    Write-Warning "Native DNS resolution only supports A, AAAA, and ANY records. Use DNS-over-HTTPS (default) for $Type records."
+                    Write-Warning "Native DNS resolution only supports A, AAAA, CNAME, and ANY records. Use DNS-over-HTTPS (default) for $Type records."
                     return
                 }
 
-                $addresses = [System.Net.Dns]::GetHostAddresses($Name)
+                $literalAddress = $null
+                $isLiteralAddress = [System.Net.IPAddress]::TryParse($Name, [ref]$literalAddress)
+                $addresses = @()
+                $canonicalName = $Name.TrimEnd('.')
+                $canonicalNameDiffers = $false
+                $isCanonicalAlias = $false
 
-                if ($Type -eq 'A')
+                if ($isLiteralAddress)
                 {
-                    $addresses = $addresses | Where-Object { $_.AddressFamily -eq 'InterNetwork' }
+                    $addresses = @($literalAddress)
                 }
-                elseif ($Type -eq 'AAAA')
+                else
                 {
-                    $addresses = $addresses | Where-Object { $_.AddressFamily -eq 'InterNetworkV6' }
+                    $hostEntry = Resolve-NativeDnsHostEntry -QueryName $Name
+                    $addresses = @($hostEntry.AddressList)
+
+                    if (-not [String]::IsNullOrWhiteSpace($hostEntry.HostName))
+                    {
+                        $canonicalName = $hostEntry.HostName.TrimEnd('.')
+                        $queryName = $Name.TrimEnd('.')
+                        $canonicalNameDiffers = -not [String]::Equals(
+                            $queryName,
+                            $canonicalName,
+                            [StringComparison]::OrdinalIgnoreCase
+                        )
+
+                        # A single-label lookup can be expanded with a DNS search suffix.
+                        # That produces a canonical FQDN but is not itself a CNAME record.
+                        $isSearchSuffixExpansion = (
+                            $queryName.IndexOf('.') -lt 0 -and
+                            $canonicalName.StartsWith(
+                                "$queryName.",
+                                [StringComparison]::OrdinalIgnoreCase
+                            )
+                        )
+                        $isCanonicalAlias = $canonicalNameDiffers -and -not $isSearchSuffixExpansion
+                    }
                 }
 
-                foreach ($addr in $addresses)
+                if (($Type -eq 'CNAME' -or $Type -eq 'ANY') -and $isCanonicalAlias)
                 {
-                    $resolvedType = if ($Type -eq 'ANY')
-                    {
-                        if ($addr.AddressFamily -eq 'InterNetwork') { 'A' } else { 'AAAA' }
-                    }
-                    else
-                    {
-                        $Type
-                    }
-
                     [PSCustomObject]@{
                         Name = $Name
-                        Type = $resolvedType
+                        Type = 'CNAME'
                         TTL = $null
-                        Data = $addr.ToString()
+                        Data = $canonicalName
+                    }
+                }
+
+                if ($Type -eq 'CNAME')
+                {
+                    if (-not $isCanonicalAlias)
+                    {
+                        Write-Warning "No CNAME records found for '$Name'"
+                    }
+                }
+                else
+                {
+                    if ($Type -eq 'A')
+                    {
+                        $addresses = $addresses | Where-Object { $_.AddressFamily -eq 'InterNetwork' }
+                    }
+                    elseif ($Type -eq 'AAAA')
+                    {
+                        $addresses = $addresses | Where-Object { $_.AddressFamily -eq 'InterNetworkV6' }
+                    }
+
+                    foreach ($addr in $addresses)
+                    {
+                        $resolvedType = if ($Type -eq 'ANY')
+                        {
+                            if ($addr.AddressFamily -eq 'InterNetwork') { 'A' } else { 'AAAA' }
+                        }
+                        else
+                        {
+                            $Type
+                        }
+
+                        [PSCustomObject]@{
+                            Name = if ($canonicalNameDiffers) { $canonicalName } else { $Name }
+                            Type = $resolvedType
+                            TTL = $null
+                            Data = $addr.ToString()
+                        }
                     }
                 }
             }
