@@ -494,9 +494,37 @@ function Test-TlsProtocol
                 {
                     $stopwatch.Stop()
 
-                    # Provide helpful error messages
-                    $errorMessage = $_.Exception.Message
-                    if ($errorMessage -match 'Authentication failed')
+                    # PowerShell wraps exceptions thrown by .NET method calls in a
+                    # MethodInvocationException. Inspect the underlying exception so
+                    # common peer resets and timeouts receive useful, stable statuses.
+                    $handshakeException = $_.Exception
+                    $baseException = $handshakeException.GetBaseException()
+                    $errorMessage = $baseException.Message
+                    $exceptionText = $handshakeException.ToString()
+                    $socketError = $null
+
+                    if ($baseException -is [System.Net.Sockets.SocketException])
+                    {
+                        $socketError = $baseException.SocketErrorCode
+                    }
+
+                    if ($socketError -eq [System.Net.Sockets.SocketError]::TimedOut -or
+                        $exceptionText -match 'timed out')
+                    {
+                        $result.Status = 'Handshake timeout'
+                    }
+                    elseif ($socketError -in @(
+                            [System.Net.Sockets.SocketError]::ConnectionAborted,
+                            [System.Net.Sockets.SocketError]::ConnectionReset,
+                            [System.Net.Sockets.SocketError]::Shutdown
+                        ) -or
+                        $exceptionText -match 'remote party has closed|unexpected EOF|0 bytes from the transport stream')
+                    {
+                        # Servers commonly reject an unsupported ClientHello by closing
+                        # the connection instead of returning a TLS protocol-version alert.
+                        $result.Status = 'Not supported by server (connection closed during handshake)'
+                    }
+                    elseif ($exceptionText -match 'Authentication failed')
                     {
                         $result.Status = 'Not supported by server'
                     }
@@ -506,7 +534,7 @@ function Test-TlsProtocol
                     }
 
                     $result.ResponseTime = $stopwatch.Elapsed
-                    Write-Verbose "$targetProtocol handshake error: $errorMessage"
+                    Write-Verbose "$targetProtocol handshake error ($($baseException.GetType().FullName)): $errorMessage"
                 }
             }
             catch
