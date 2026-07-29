@@ -1,5 +1,9 @@
 #Requires -Modules Pester
 
+$script:IsWindowsTest = if ($PSVersionTable.PSVersion.Major -lt 6) { $true } else { $IsWindows }
+$script:IsMacOSTest = if ($PSVersionTable.PSVersion.Major -lt 6) { $false } else { $IsMacOS }
+$script:IsLinuxTest = if ($PSVersionTable.PSVersion.Major -lt 6) { $false } else { $IsLinux }
+
 BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
@@ -9,6 +13,43 @@ BeforeAll {
     $script:DefaultSystemInfo = @(Get-SystemInfo -WarningAction SilentlyContinue)[0]
     $script:VolumeSystemInfo = @(Get-SystemInfo -AllVolumes -WarningAction SilentlyContinue)[0]
     $script:PrivateVolumeSystemInfo = @(Get-SystemInfo -AllVolumes -NoPII -WarningAction SilentlyContinue)[0]
+}
+
+Describe 'Get-SystemInfo operating system details' -Tag 'Unit' {
+    It 'reports the operating system version as a separate property' {
+        $script:DefaultSystemInfo | Should -Not -BeNullOrEmpty
+        $script:DefaultSystemInfo.PSObject.Properties.Name |
+            Should-ContainCollection 'OperatingSystemVersion'
+        $script:DefaultSystemInfo.OperatingSystem | Should -Not -BeNullOrEmpty
+        $script:DefaultSystemInfo.OperatingSystemVersion | Should -Not -BeNullOrEmpty
+    }
+
+    It 'reports the Windows version and build without changing the friendly caption' -Skip:(-not $script:IsWindowsTest) {
+        $operatingSystem = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
+        $expectedVersion = "$($operatingSystem.Version) Build $($operatingSystem.BuildNumber)"
+
+        $script:DefaultSystemInfo.OperatingSystem | Should-Be $operatingSystem.Caption
+        $script:DefaultSystemInfo.OperatingSystemVersion | Should-Be $expectedVersion
+    }
+
+    It 'reports the macOS product version separately' -Skip:(-not $script:IsMacOSTest) {
+        $expectedVersion = ([string](sw_vers -productVersion)).Trim()
+
+        $script:DefaultSystemInfo.OperatingSystemVersion | Should-Be $expectedVersion
+        $script:DefaultSystemInfo.OperatingSystem | Should-MatchString ([regex]::Escape($expectedVersion))
+    }
+
+    It 'reports the Linux distribution version separately' -Skip:(-not $script:IsLinuxTest) {
+        $versionId = Get-Content '/etc/os-release' -ErrorAction Stop |
+            Where-Object { $_ -match '^VERSION_ID=' } |
+            Select-Object -First 1
+        $expectedVersion = (
+            $versionId -replace '^VERSION_ID=', '' -replace '"', '' -replace "'", ''
+        ).Trim()
+
+        $expectedVersion | Should -Not -BeNullOrEmpty
+        $script:DefaultSystemInfo.OperatingSystemVersion | Should-Be $expectedVersion
+    }
 }
 
 Describe 'Get-SystemInfo volume details' -Tag 'Unit' {

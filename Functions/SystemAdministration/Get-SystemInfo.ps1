@@ -68,33 +68,34 @@ function Get-SystemInfo
     .EXAMPLE
         PS > Get-SystemInfo -NoEmptyProps -NoPII
 
-        OperatingSystem       : macOS Tahoe 26.3
-        OSArchitecture        : arm64
-        CPUArchitecture       : arm64
-        CPUName               : Apple M4 Pro
-        CPUCores              : 12
-        CPULogicalProcessors  : 12
-        HyperthreadingEnabled : False
-        GPUName               : Apple M4 Pro
-        Monitors              : Displays (3024 x 1964 Retina)
-        NetworkAdapters       : Ethernet Adapter (en4) (Ethernet), Ethernet Adapter (en5) (Ethernet), Ethernet Adapter (en6) (Ethernet),
-                                Thunderbolt Bridge (Ethernet), Wi-Fi (AirPort)
-        TotalMemoryGB         : 24
-        FreeMemoryGB          : 12.39
-        PageFileTotalGB       : 0.94
-        PageFileUsedGB        : 0.94
-        SystemDriveTotalGB    : 460.43
-        SystemDriveUsedGB     : 11.45
-        SystemDriveFreeGB     : 292.16
-        PhysicalDisks         : APPLE SSD AP0512Z (500.3 GB, Apple Fabric), APPLE SSD AP0512Z (494.4 GB, Apple Fabric)
-        Manufacturer          : Apple Inc.
-        Model                 : MacBook Pro (14-inch, 2024) - Mac16,8
-        IsVirtualMachine      : False
-        SystemLoadAverage     : 1.25 (1m), 1.78 (5m), 1.82 (15m)
-        ProcessCount          : 709
-        ThreadCount           : 2603
-        BatteryStatus         : Fully Charged
-        BatteryChargePercent  : 100
+        OperatingSystem        : macOS Tahoe 26.3
+        OperatingSystemVersion : 26.3
+        OSArchitecture         : arm64
+        CPUArchitecture        : arm64
+        CPUName                : Apple M4 Pro
+        CPUCores               : 12
+        CPULogicalProcessors   : 12
+        HyperthreadingEnabled  : False
+        GPUName                : Apple M4 Pro
+        Monitors               : Displays (3024 x 1964 Retina)
+        NetworkAdapters        : Ethernet Adapter (en4) (Ethernet), Ethernet Adapter (en5) (Ethernet), Ethernet Adapter (en6) (Ethernet),
+                                 Thunderbolt Bridge (Ethernet), Wi-Fi (AirPort)
+        TotalMemoryGB          : 24
+        FreeMemoryGB           : 12.39
+        PageFileTotalGB        : 0.94
+        PageFileUsedGB         : 0.94
+        SystemDriveTotalGB     : 460.43
+        SystemDriveUsedGB      : 11.45
+        SystemDriveFreeGB      : 292.16
+        PhysicalDisks          : APPLE SSD AP0512Z (500.3 GB, Apple Fabric), APPLE SSD AP0512Z (494.4 GB, Apple Fabric)
+        Manufacturer           : Apple Inc.
+        Model                  : MacBook Pro (14-inch, 2024) - Mac16,8
+        IsVirtualMachine       : False
+        SystemLoadAverage      : 1.25 (1m), 1.78 (5m), 1.82 (15m)
+        ProcessCount           : 709
+        ThreadCount            : 2603
+        BatteryStatus          : Fully Charged
+        BatteryChargePercent   : 100
 
         Gets system information from the local computer while excluding personally identifiable information
         and any properties that have null or empty values, resulting in a concise output of only populated properties.
@@ -146,7 +147,8 @@ function Get-SystemInfo
         - Domain: Domain name (Windows only, null for workgroup or non-Windows)
         - IPAddresses: Array of IP addresses assigned to the computer
         - Username: Current logged-in username
-        - OperatingSystem: Operating system name and version
+        - OperatingSystem: Friendly operating system name (may include the version on some platforms)
+        - OperatingSystemVersion: Operating system version and, on Windows, the build number
         - OSArchitecture: Operating system architecture (32-bit/64-bit)
         - CPUArchitecture: Processor architecture
         - CPUName: Processor name/model
@@ -531,6 +533,7 @@ function Get-SystemInfo
                         IPAddresses = $null
                         Username = $null
                         OperatingSystem = $null
+                        OperatingSystemVersion = $null
                         OSArchitecture = $null
                         CPUArchitecture = $null
                         CPUName = $null
@@ -614,6 +617,20 @@ function Get-SystemInfo
                             # Get OS information
                             $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
                             $systemInfo.OperatingSystem = $os.Caption
+                            $osVersion = ([string]$os.Version).Trim()
+                            $osBuildNumber = ([string]$os.BuildNumber).Trim()
+                            if ($osVersion -and $osBuildNumber)
+                            {
+                                $systemInfo.OperatingSystemVersion = "$osVersion Build $osBuildNumber"
+                            }
+                            elseif ($osVersion)
+                            {
+                                $systemInfo.OperatingSystemVersion = $osVersion
+                            }
+                            elseif ($osBuildNumber)
+                            {
+                                $systemInfo.OperatingSystemVersion = "Build $osBuildNumber"
+                            }
                             $systemInfo.OSArchitecture = $os.OSArchitecture
                             $systemInfo.TotalMemoryGB = [Math]::Round($os.TotalVisibleMemorySize / 1MB, 2)
                             $systemInfo.FreeMemoryGB = [Math]::Round($os.FreePhysicalMemory / 1MB, 2)
@@ -1121,6 +1138,7 @@ function Get-SystemInfo
                             # Get OS version and name
                             $osVersion = sw_vers -productVersion 2>$null
                             $osName = sw_vers -productName 2>$null
+                            $systemInfo.OperatingSystemVersion = ([string]$osVersion).Trim()
 
                             # Try to get the macOS release name (e.g., Sequoia, Sonoma, Ventura)
                             $osReleaseName = $null
@@ -1960,6 +1978,14 @@ function Get-SystemInfo
                                 {
                                     $systemInfo.OperatingSystem = ($prettyName -replace 'PRETTY_NAME=', '' -replace '"', '').Trim()
                                 }
+
+                                $versionId = $osRelease | Where-Object { $_ -match '^VERSION_ID=' } | Select-Object -First 1
+                                if ($versionId)
+                                {
+                                    $systemInfo.OperatingSystemVersion = (
+                                        $versionId -replace '^VERSION_ID=', '' -replace '"', '' -replace "'", ''
+                                    ).Trim()
+                                }
                             }
 
                             # Get architecture
@@ -2769,6 +2795,7 @@ function Get-SystemInfo
                             Domain = $null
                             IPAddresses = $null
                             OperatingSystem = $null
+                            OperatingSystemVersion = $null
                             OSArchitecture = $null
                             CPUArchitecture = $null
                             CPUName = $null
@@ -2836,6 +2863,20 @@ function Get-SystemInfo
                             # Get OS information
                             $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
                             $systemInfo.OperatingSystem = $os.Caption
+                            $osVersion = ([string]$os.Version).Trim()
+                            $osBuildNumber = ([string]$os.BuildNumber).Trim()
+                            if ($osVersion -and $osBuildNumber)
+                            {
+                                $systemInfo.OperatingSystemVersion = "$osVersion Build $osBuildNumber"
+                            }
+                            elseif ($osVersion)
+                            {
+                                $systemInfo.OperatingSystemVersion = $osVersion
+                            }
+                            elseif ($osBuildNumber)
+                            {
+                                $systemInfo.OperatingSystemVersion = "Build $osBuildNumber"
+                            }
                             $systemInfo.OSArchitecture = $os.OSArchitecture
                             $systemInfo.TotalMemoryGB = [Math]::Round($os.TotalVisibleMemorySize / 1MB, 2)
                             $systemInfo.FreeMemoryGB = [Math]::Round($os.FreePhysicalMemory / 1MB, 2)
