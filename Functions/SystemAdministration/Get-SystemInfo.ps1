@@ -8,7 +8,8 @@ function Get-SystemInfo
         Retrieves comprehensive system information including CPU architecture, processor speed,
         temperature (when available), operating system details, computer model and name, memory
         information, page file/swap usage, GPU/video card details, physical disk specifications,
-        audio devices, monitor/display information, input devices (keyboard and mouse), network
+        optional drive/volume details, audio devices, monitor/display information, input devices
+        (keyboard and mouse), network
         adapters, battery status (for laptops), virtualization detection, system load metrics,
         process and thread counts, and other hardware specifications. Supports both local and
         remote computer queries.
@@ -29,6 +30,7 @@ function Get-SystemInfo
         - Virtualization detection (VM type identification)
         - System load average (macOS and Linux)
         - Memory and page file/swap usage
+        - Detailed drive/volume usage (when AllVolumes is specified)
         - Process and thread counts
 
         Compatible with PowerShell Desktop 5.1 and PowerShell Core 6.2+ on Windows, macOS, and Linux.
@@ -47,12 +49,21 @@ function Get-SystemInfo
     .PARAMETER NoPII
         Excludes private and personally identifiable information from the output. When specified, the following
         properties will be omitted: ComputerName, HostName, Domain, IPAddresses, Username, SerialNumber,
-        BIOSVersion, TimeZone, LastBootTime, and Uptime.
+        BIOSVersion, TimeZone, LastBootTime, and Uptime. When AllVolumes is also specified, Name,
+        MountPoint, and VolumeLabel are omitted from each volume.
 
     .PARAMETER NoEmptyProps
         Excludes properties with null or empty values from the output. This provides cleaner results by only
         showing properties that have actual values, which is particularly useful for cross-platform scenarios
         where certain properties may not be available on all operating systems.
+
+    .PARAMETER AllVolumes
+        Includes a Volumes property containing details for every drive or mounted volume reported by the
+        operating system. Each volume includes its name, mount point, label, file system, drive type,
+        readiness, total/used/free/available space in GB, and used/free percentages.
+
+        Use AllDrives as an alias. When combined with NoPII, identifying volume fields (Name,
+        MountPoint, and VolumeLabel) are omitted while capacity and file system details are retained.
 
     .EXAMPLE
         PS > Get-SystemInfo -NoEmptyProps -NoPII
@@ -120,6 +131,11 @@ function Get-SystemInfo
         Gets system information and excludes any properties that have null or empty values,
         resulting in a cleaner output showing only populated properties.
 
+    .EXAMPLE
+        PS > (Get-SystemInfo -AllVolumes).Volumes | Format-List
+
+        Gets system information and displays detailed information for every available drive or mounted volume.
+
     .OUTPUTS
         System.Object[]
 
@@ -153,6 +169,7 @@ function Get-SystemInfo
         - SystemDriveTotalGB: Total system drive capacity in GB
         - SystemDriveUsedGB: Used space on system drive in GB
         - SystemDriveFreeGB: Free space on system drive in GB
+        - Volumes: Detailed drive/volume objects (only present when AllVolumes is specified)
         - PhysicalDisks: Physical disk information (embedded drives only, excludes USB/removable)
         - AudioDevices: Audio device names
         - Manufacturer: Computer manufacturer
@@ -202,7 +219,11 @@ function Get-SystemInfo
         [Switch]$NoPII,
 
         [Parameter()]
-        [Switch]$NoEmptyProps
+        [Switch]$NoEmptyProps,
+
+        [Parameter()]
+        [Alias('AllDrives')]
+        [Switch]$AllVolumes
     )
 
     begin
@@ -395,6 +416,96 @@ function Get-SystemInfo
                 }
 
                 $item.PSObject.Properties.Remove('ModelFriendlyName')
+            }
+        }
+
+        # Helper function to collect structured drive/volume details across platforms
+        function Get-SystemVolumeInfo
+        {
+            $volumeInfo = New-Object System.Collections.ArrayList
+
+            try
+            {
+                $drives = [System.IO.DriveInfo]::GetDrives() | Sort-Object -Property Name
+            }
+            catch
+            {
+                Write-Verbose "Could not enumerate drives or volumes: $($_.Exception.Message)"
+                return $volumeInfo.ToArray()
+            }
+
+            foreach ($drive in @($drives))
+            {
+                try
+                {
+                    $isReady = $drive.IsReady
+                    $volume = [ordered]@{
+                        PSTypeName = 'SystemInfo.Volume'
+                        Name = $drive.Name
+                        MountPoint = $drive.RootDirectory.FullName
+                        VolumeLabel = $null
+                        FileSystem = $null
+                        DriveType = [string]$drive.DriveType
+                        IsReady = $isReady
+                        TotalSizeGB = $null
+                        UsedSpaceGB = $null
+                        FreeSpaceGB = $null
+                        AvailableFreeSpaceGB = $null
+                        UsedPercent = $null
+                        FreePercent = $null
+                    }
+
+                    if ($isReady)
+                    {
+                        $totalSize = [double]$drive.TotalSize
+                        $freeSpace = [double]$drive.TotalFreeSpace
+                        $availableFreeSpace = [double]$drive.AvailableFreeSpace
+                        $usedSpace = $totalSize - $freeSpace
+
+                        $volume.VolumeLabel = $drive.VolumeLabel
+                        $volume.FileSystem = $drive.DriveFormat
+                        $volume.TotalSizeGB = [Math]::Round($totalSize / 1GB, 2)
+                        $volume.UsedSpaceGB = [Math]::Round($usedSpace / 1GB, 2)
+                        $volume.FreeSpaceGB = [Math]::Round($freeSpace / 1GB, 2)
+                        $volume.AvailableFreeSpaceGB = [Math]::Round($availableFreeSpace / 1GB, 2)
+
+                        if ($totalSize -gt 0)
+                        {
+                            $volume.UsedPercent = [Math]::Round(($usedSpace / $totalSize) * 100, 2)
+                            $volume.FreePercent = [Math]::Round(($freeSpace / $totalSize) * 100, 2)
+                        }
+                    }
+
+                    [void]$volumeInfo.Add([PSCustomObject]$volume)
+                }
+                catch
+                {
+                    Write-Verbose "Could not retrieve details for drive or volume '$($drive.Name)': $($_.Exception.Message)"
+                }
+            }
+
+            return $volumeInfo.ToArray()
+        }
+
+        # Helper function to remove identifying fields from nested volume details
+        function Protect-SystemVolumePII
+        {
+            param(
+                [Parameter(Mandatory = $true)]
+                [Object]$SystemInfo
+            )
+
+            $volumesProperty = $SystemInfo.PSObject.Properties['Volumes']
+            if (-not $volumesProperty)
+            {
+                return
+            }
+
+            foreach ($volume in @($volumesProperty.Value))
+            {
+                $volume.PSObject.Properties.Remove('Name')
+                $volume.PSObject.Properties.Remove('MountPoint')
+                $volume.PSObject.Properties.Remove('VolumeLabel')
             }
         }
 
@@ -2572,6 +2683,12 @@ function Get-SystemInfo
                     # Merge friendly model names into Model and remove ModelFriendlyName from output
                     Merge-ModelName -SystemInfo $systemInfo
 
+                    if ($AllVolumes)
+                    {
+                        $volumes = @(Get-SystemVolumeInfo)
+                        $systemInfo | Add-Member -MemberType NoteProperty -Name 'Volumes' -Value $volumes
+                    }
+
                     # Apply privacy filter if requested
                     if ($NoPII)
                     {
@@ -2585,6 +2702,7 @@ function Get-SystemInfo
                         $systemInfo.PSObject.Properties.Remove('TimeZone')
                         $systemInfo.PSObject.Properties.Remove('LastBootTime')
                         $systemInfo.PSObject.Properties.Remove('Uptime')
+                        Protect-SystemVolumePII -SystemInfo $systemInfo
                     }
 
                     # Remove null/empty properties if requested
@@ -2641,6 +2759,8 @@ function Get-SystemInfo
                     $session = New-PSSession @sessionParams
 
                     $remoteResults = Invoke-Command -Session $session -ScriptBlock {
+                        $shouldIncludeAllVolumes = [bool]$args[0]
+
                         $systemInfo = [PSCustomObject]@{
                             Username = $null
                             PSTypeName = 'SystemInfo.Result'
@@ -3227,8 +3347,74 @@ function Get-SystemInfo
                             Write-Warning "Failed to retrieve some system information: $($_.Exception.Message)"
                         }
 
+                        if ($shouldIncludeAllVolumes)
+                        {
+                            $volumeInfo = New-Object System.Collections.ArrayList
+
+                            try
+                            {
+                                $drives = [System.IO.DriveInfo]::GetDrives() | Sort-Object -Property Name
+
+                                foreach ($drive in @($drives))
+                                {
+                                    try
+                                    {
+                                        $isReady = $drive.IsReady
+                                        $volume = [ordered]@{
+                                            PSTypeName = 'SystemInfo.Volume'
+                                            Name = $drive.Name
+                                            MountPoint = $drive.RootDirectory.FullName
+                                            VolumeLabel = $null
+                                            FileSystem = $null
+                                            DriveType = [string]$drive.DriveType
+                                            IsReady = $isReady
+                                            TotalSizeGB = $null
+                                            UsedSpaceGB = $null
+                                            FreeSpaceGB = $null
+                                            AvailableFreeSpaceGB = $null
+                                            UsedPercent = $null
+                                            FreePercent = $null
+                                        }
+
+                                        if ($isReady)
+                                        {
+                                            $totalSize = [double]$drive.TotalSize
+                                            $freeSpace = [double]$drive.TotalFreeSpace
+                                            $availableFreeSpace = [double]$drive.AvailableFreeSpace
+                                            $usedSpace = $totalSize - $freeSpace
+
+                                            $volume.VolumeLabel = $drive.VolumeLabel
+                                            $volume.FileSystem = $drive.DriveFormat
+                                            $volume.TotalSizeGB = [Math]::Round($totalSize / 1GB, 2)
+                                            $volume.UsedSpaceGB = [Math]::Round($usedSpace / 1GB, 2)
+                                            $volume.FreeSpaceGB = [Math]::Round($freeSpace / 1GB, 2)
+                                            $volume.AvailableFreeSpaceGB = [Math]::Round($availableFreeSpace / 1GB, 2)
+
+                                            if ($totalSize -gt 0)
+                                            {
+                                                $volume.UsedPercent = [Math]::Round(($usedSpace / $totalSize) * 100, 2)
+                                                $volume.FreePercent = [Math]::Round(($freeSpace / $totalSize) * 100, 2)
+                                            }
+                                        }
+
+                                        [void]$volumeInfo.Add([PSCustomObject]$volume)
+                                    }
+                                    catch
+                                    {
+                                        Write-Verbose "Could not retrieve details for drive or volume '$($drive.Name)': $($_.Exception.Message)"
+                                    }
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not enumerate drives or volumes: $($_.Exception.Message)"
+                            }
+
+                            $systemInfo | Add-Member -MemberType NoteProperty -Name 'Volumes' -Value @($volumeInfo.ToArray())
+                        }
+
                         return $systemInfo
-                    }
+                    } -ArgumentList ([bool]$AllVolumes)
 
                     if ($remoteResults)
                     {
@@ -3248,6 +3434,7 @@ function Get-SystemInfo
                             $remoteResults.PSObject.Properties.Remove('TimeZone')
                             $remoteResults.PSObject.Properties.Remove('LastBootTime')
                             $remoteResults.PSObject.Properties.Remove('Uptime')
+                            Protect-SystemVolumePII -SystemInfo $remoteResults
                         }
 
                         # Remove null/empty properties if requested
