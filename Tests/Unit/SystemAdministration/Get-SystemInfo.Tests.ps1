@@ -20,6 +20,8 @@ Describe 'Get-SystemInfo operating system details' -Tag 'Unit' {
         $script:DefaultSystemInfo | Should -Not -BeNullOrEmpty
         $script:DefaultSystemInfo.PSObject.Properties.Name |
             Should-ContainCollection 'OperatingSystemVersion'
+        $script:DefaultSystemInfo.PSObject.Properties.Name |
+            Should-ContainCollection 'OperatingSystemRelease'
         $script:DefaultSystemInfo.OperatingSystem | Should -Not -BeNullOrEmpty
         $script:DefaultSystemInfo.OperatingSystemVersion | Should -Not -BeNullOrEmpty
     }
@@ -30,6 +32,30 @@ Describe 'Get-SystemInfo operating system details' -Tag 'Unit' {
 
         $script:DefaultSystemInfo.OperatingSystem | Should-Be $operatingSystem.Caption
         $script:DefaultSystemInfo.OperatingSystemVersion | Should-Be $expectedVersion
+    }
+
+    It 'reports the associated Windows release from the installed release metadata' -Skip:(-not $script:IsWindowsTest) {
+        $operatingSystem = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
+        $currentVersion = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction Stop
+        $releaseVersion = ([string]$currentVersion.DisplayVersion).Trim()
+        if (-not $releaseVersion)
+        {
+            $releaseVersion = ([string]$currentVersion.ReleaseId).Trim()
+        }
+
+        $windowsProductFamily = (([string]$operatingSystem.Caption) -replace '^Microsoft\s+', '').Trim()
+        if ($operatingSystem.Caption -match '(?i)\b(Windows Server(?:\s+\d{4}(?:\s+R2)?)?)\b')
+        {
+            $windowsProductFamily = $matches[1]
+        }
+        elseif ($operatingSystem.Caption -match '(?i)\b(Windows\s+(?:\d+(?:\.\d+)?|Vista|XP))\b')
+        {
+            $windowsProductFamily = $matches[1]
+        }
+
+        $releaseVersion | Should -Not -BeNullOrEmpty
+        $script:DefaultSystemInfo.OperatingSystemRelease |
+            Should-Be "$windowsProductFamily Version $releaseVersion"
     }
 
     It 'reports the macOS product version separately' -Skip:(-not $script:IsMacOSTest) {

@@ -148,6 +148,7 @@ function Get-SystemInfo
         - IPAddresses: Array of IP addresses assigned to the computer
         - Username: Current logged-in username
         - OperatingSystem: Friendly operating system name (may include the version on some platforms)
+        - OperatingSystemRelease: Associated Windows release, such as "Windows 11 Version 25H2"
         - OperatingSystemVersion: Operating system version and, on Windows, the build number
         - OSArchitecture: Operating system architecture (32-bit/64-bit)
         - CPUArchitecture: Processor architecture
@@ -533,6 +534,7 @@ function Get-SystemInfo
                         IPAddresses = $null
                         Username = $null
                         OperatingSystem = $null
+                        OperatingSystemRelease = $null
                         OperatingSystemVersion = $null
                         OSArchitecture = $null
                         CPUArchitecture = $null
@@ -631,6 +633,38 @@ function Get-SystemInfo
                             {
                                 $systemInfo.OperatingSystemVersion = "Build $osBuildNumber"
                             }
+
+                            # Get the associated Windows release (for example, Windows 11 Version 25H2)
+                            try
+                            {
+                                $currentVersion = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction Stop
+                                $releaseVersion = ([string]$currentVersion.DisplayVersion).Trim()
+                                if (-not $releaseVersion)
+                                {
+                                    # DisplayVersion replaced ReleaseId beginning with Windows 10 version 20H2
+                                    $releaseVersion = ([string]$currentVersion.ReleaseId).Trim()
+                                }
+
+                                if ($releaseVersion)
+                                {
+                                    $windowsProductFamily = (([string]$os.Caption) -replace '^Microsoft\s+', '').Trim()
+                                    if ($os.Caption -match '(?i)\b(Windows Server(?:\s+\d{4}(?:\s+R2)?)?)\b')
+                                    {
+                                        $windowsProductFamily = $matches[1]
+                                    }
+                                    elseif ($os.Caption -match '(?i)\b(Windows\s+(?:\d+(?:\.\d+)?|Vista|XP))\b')
+                                    {
+                                        $windowsProductFamily = $matches[1]
+                                    }
+
+                                    $systemInfo.OperatingSystemRelease = "$windowsProductFamily Version $releaseVersion"
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve the associated Windows release: $($_.Exception.Message)"
+                            }
+
                             $systemInfo.OSArchitecture = $os.OSArchitecture
                             $systemInfo.TotalMemoryGB = [Math]::Round($os.TotalVisibleMemorySize / 1MB, 2)
                             $systemInfo.FreeMemoryGB = [Math]::Round($os.FreePhysicalMemory / 1MB, 2)
@@ -2795,6 +2829,7 @@ function Get-SystemInfo
                             Domain = $null
                             IPAddresses = $null
                             OperatingSystem = $null
+                            OperatingSystemRelease = $null
                             OperatingSystemVersion = $null
                             OSArchitecture = $null
                             CPUArchitecture = $null
@@ -2877,6 +2912,38 @@ function Get-SystemInfo
                             {
                                 $systemInfo.OperatingSystemVersion = "Build $osBuildNumber"
                             }
+
+                            # Get the associated Windows release (for example, Windows 11 Version 25H2)
+                            try
+                            {
+                                $currentVersion = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction Stop
+                                $releaseVersion = ([string]$currentVersion.DisplayVersion).Trim()
+                                if (-not $releaseVersion)
+                                {
+                                    # DisplayVersion replaced ReleaseId beginning with Windows 10 version 20H2
+                                    $releaseVersion = ([string]$currentVersion.ReleaseId).Trim()
+                                }
+
+                                if ($releaseVersion)
+                                {
+                                    $windowsProductFamily = (([string]$os.Caption) -replace '^Microsoft\s+', '').Trim()
+                                    if ($os.Caption -match '(?i)\b(Windows Server(?:\s+\d{4}(?:\s+R2)?)?)\b')
+                                    {
+                                        $windowsProductFamily = $matches[1]
+                                    }
+                                    elseif ($os.Caption -match '(?i)\b(Windows\s+(?:\d+(?:\.\d+)?|Vista|XP))\b')
+                                    {
+                                        $windowsProductFamily = $matches[1]
+                                    }
+
+                                    $systemInfo.OperatingSystemRelease = "$windowsProductFamily Version $releaseVersion"
+                                }
+                            }
+                            catch
+                            {
+                                Write-Verbose "Could not retrieve the associated Windows release: $($_.Exception.Message)"
+                            }
+
                             $systemInfo.OSArchitecture = $os.OSArchitecture
                             $systemInfo.TotalMemoryGB = [Math]::Round($os.TotalVisibleMemorySize / 1MB, 2)
                             $systemInfo.FreeMemoryGB = [Math]::Round($os.FreePhysicalMemory / 1MB, 2)
