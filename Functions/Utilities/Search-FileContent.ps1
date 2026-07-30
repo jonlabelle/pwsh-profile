@@ -495,11 +495,12 @@ function Search-FileContent
         # Color codes for formatted output (only if not Simple mode)
         if (-not $Simple -and -not $FilesOnly)
         {
-            $colorReset = "`e[0m"
-            $colorFile = "`e[90m"      # Dark gray for file paths
-            $colorLineNum = "`e[90m"   # Dark gray for line numbers
-            $colorMatch = "`e[96m"     # Bright cyan for matches
-            $colorContext = "`e[90m"   # Gray for context
+            $escapeCharacter = [String][Char]27
+            $colorReset = $escapeCharacter + '[0m'
+            $colorFile = $escapeCharacter + '[38;5;244m'
+            $colorLineNum = $escapeCharacter + '[38;5;244m'
+            $colorMatch = $escapeCharacter + '[38;5;37m'
+            $colorContext = $escapeCharacter + '[38;5;244m'
         }
 
         # Function to check if file is binary

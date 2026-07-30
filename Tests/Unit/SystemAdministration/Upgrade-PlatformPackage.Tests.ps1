@@ -486,10 +486,14 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
             $result.Selected | Should-Be 0
             $result.Upgraded | Should-Be 0
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  Enter upgrade  V details  A toggle all  F: [all]" } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  0 selected" -and $ForegroundColor -eq 'White' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  0 selected" } -Times 1
+            $escapeCharacter = [String][Char]27
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[38;5;37m" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[38;5;244m" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[0m" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Upgrade-PlatformPackage Help' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Enter: ' } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'upgrade selected packages' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'upgrade selected packages' } -Times 1
         }
 
         It 'renders only the current viewport for long upgrade lists' {

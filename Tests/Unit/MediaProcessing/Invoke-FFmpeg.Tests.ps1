@@ -98,6 +98,31 @@ Describe 'Invoke-FFmpeg' -Tag 'Unit' {
             $messages | Should-MatchString "Processing: 'secondary-video.mov'"
             $messages | Should-NotMatchString 'default-video.mkv'
         }
+
+        It 'Uses the monochrome summary palette and keeps its Boolean result ANSI-free' {
+            $script:ThemeHostOutput = [System.Collections.Generic.List[String]]::new()
+            Mock -CommandName Write-Host -MockWith {
+                if ($null -ne $Object)
+                {
+                    $script:ThemeHostOutput.Add([String]$Object)
+                }
+            }
+
+            $result = Invoke-FFmpeg -Path $script:filterTestRoot -Filter '*.avi', '*.mov' -FFmpegPath $script:fakeFFmpegPath -WhatIf
+            $escapeCharacter = [String][Char]27
+            $ansiPattern = "$escapeCharacter\[[0-9;]*m"
+            $rawOutput = $script:ThemeHostOutput -join ''
+            $codes = @([Regex]::Matches($rawOutput, $ansiPattern).Value | Sort-Object -Unique)
+
+            $result | Should-Be $true
+            $codes.Count | Should-Be 4
+            $codes | Should-ContainCollection "$escapeCharacter[38;5;37m"
+            $codes | Should-ContainCollection "$escapeCharacter[38;5;244m"
+            $codes | Should-ContainCollection "$escapeCharacter[33m"
+            $codes | Should-ContainCollection "$escapeCharacter[0m"
+            $codes | Should-NotContainCollection "$escapeCharacter[91m"
+            ([String]$result) | Should-NotMatchString ([Regex]::Escape($escapeCharacter))
+        }
     }
 
     Context 'Default Behavior' {

@@ -1,4 +1,4 @@
-function Show-PlatformPackageManager
+﻿function Show-PlatformPackageManager
 {
     <#
     .SYNOPSIS
@@ -124,6 +124,49 @@ function Show-PlatformPackageManager
 
     begin
     {
+        $packageThemeEscape = [String][Char]27
+        $packageThemeAccent = $packageThemeEscape + '[38;5;37m'
+        $packageThemeMuted = $packageThemeEscape + '[38;5;244m'
+        $packageThemeWarning = $packageThemeEscape + '[33m'
+        $packageThemeCritical = $packageThemeEscape + '[91m'
+        $packageThemeReset = $packageThemeEscape + '[0m'
+
+        function Write-PackageThemeText
+        {
+            param(
+                [Parameter(Position = 0)]
+                [AllowNull()]
+                [Object]$Object = '',
+
+                [Parameter()]
+                [Switch]$NoNewline,
+
+                [Parameter()]
+                [AllowNull()]
+                [Object]$ForegroundColor
+            )
+
+            $text = if ($null -eq $Object) { '' } else { [String]$Object }
+            $color = switch ([String]$ForegroundColor)
+            {
+                { $_ -in 'Green', 'DarkGreen', 'Cyan', 'DarkCyan' } { $packageThemeAccent; break }
+                { $_ -in 'Gray', 'DarkGray' } { $packageThemeMuted; break }
+                { $_ -in 'Yellow', 'DarkYellow' } { $packageThemeWarning; break }
+                { $_ -in 'Red', 'DarkRed' } { $packageThemeCritical; break }
+                default { '' }
+            }
+
+            if (-not $color)
+            {
+                Write-Host $text -NoNewline:$NoNewline.IsPresent
+                return
+            }
+
+            Write-Host $color -NoNewline
+            Write-Host $text -NoNewline
+            Write-Host $packageThemeReset -NoNewline:$NoNewline.IsPresent
+        }
+
         function Get-PlatformPackageManagerDependencyPath
         {
             param(
@@ -250,7 +293,7 @@ function Show-PlatformPackageManager
                         [Console]::Write($Text.Substring($cursor, $match.Index - $cursor))
                     }
 
-                    Write-Host $match.Value -NoNewline -ForegroundColor DarkGray
+                    Write-PackageThemeText $match.Value -NoNewline -ForegroundColor DarkGray
                     $cursor = $match.Index + $match.Length
                 }
 
@@ -424,9 +467,9 @@ function Show-PlatformPackageManager
                     [PSCustomObject]$Item
                 )
 
-                Write-Host '  - ' -NoNewline -ForegroundColor White
-                Write-Host "$($Item.Shortcut): " -NoNewline -ForegroundColor White
-                Write-Host $Item.Description -ForegroundColor DarkGray
+                Write-PackageThemeText '  - ' -NoNewline -ForegroundColor White
+                Write-PackageThemeText "$($Item.Shortcut): " -NoNewline -ForegroundColor White
+                Write-PackageThemeText $Item.Description -ForegroundColor DarkGray
             }
 
             $helpItems = switch ($Topic)
@@ -526,10 +569,10 @@ function Show-PlatformPackageManager
                 Write-PlatformPackageManagerHelpItem -Item $item
             }
 
-            Write-Host ''
+            Write-PackageThemeText ''
             if ($KeyReader -or -not $PromptReader)
             {
-                Write-Host 'Press any key to return to the menu. Q/Esc/Ctrl+C quits.' -ForegroundColor DarkGray
+                Write-PackageThemeText 'Press any key to return to the menu. Q/Esc/Ctrl+C quits.' -ForegroundColor DarkGray
                 $null = Read-PlatformPackageManagerKey
             }
             else
@@ -637,10 +680,10 @@ function Show-PlatformPackageManager
 
             while ($true)
             {
-                Write-Host 'Export format:' -ForegroundColor White
-                Write-Host '  1. JSON' -ForegroundColor White
-                Write-Host '  2. CSV' -ForegroundColor White
-                Write-Host '  ?. Help' -ForegroundColor DarkGray
+                Write-PackageThemeText 'Export format:' -ForegroundColor White
+                Write-PackageThemeText '  1. JSON' -ForegroundColor White
+                Write-PackageThemeText '  2. CSV' -ForegroundColor White
+                Write-PackageThemeText '  ?. Help' -ForegroundColor DarkGray
 
                 $value = Read-PlatformPackageManagerInput -Prompt "Select format for $Path [1, ? for help]"
                 if ($null -eq $value)
@@ -659,7 +702,7 @@ function Show-PlatformPackageManager
                     { $_ -in @('1', 'j', 'json') } { return 'Json' }
                     { $_ -in @('2', 'c', 'csv') } { return 'Csv' }
                     '?' { Show-PlatformPackageManagerHelp -Topic ExportFormat }
-                    default { Write-Host 'Choose 1 or 2.' -ForegroundColor DarkGray }
+                    default { Write-PackageThemeText 'Choose 1 or 2.' -ForegroundColor DarkGray }
                 }
             }
         }
@@ -668,11 +711,11 @@ function Show-PlatformPackageManager
         {
             while ($true)
             {
-                Write-Host 'Dependency export:' -ForegroundColor White
-                Write-Host '  1. Packages only' -ForegroundColor White
-                Write-Host '  2. Direct dependencies' -ForegroundColor White
-                Write-Host '  3. Direct + required-by relationships' -ForegroundColor White
-                Write-Host '  ?. Help' -ForegroundColor DarkGray
+                Write-PackageThemeText 'Dependency export:' -ForegroundColor White
+                Write-PackageThemeText '  1. Packages only' -ForegroundColor White
+                Write-PackageThemeText '  2. Direct dependencies' -ForegroundColor White
+                Write-PackageThemeText '  3. Direct + required-by relationships' -ForegroundColor White
+                Write-PackageThemeText '  ?. Help' -ForegroundColor DarkGray
 
                 $value = Read-PlatformPackageManagerInput -Prompt 'Select dependency mode [1, ? for help]'
                 if ($null -eq $value)
@@ -692,7 +735,7 @@ function Show-PlatformPackageManager
                     { $_ -in @('2', 'd', 'dependson', 'depends on', 'dependencies') } { return 'DependsOn' }
                     { $_ -in @('3', 'b', 'both', 'all') } { return 'Both' }
                     '?' { Show-PlatformPackageManagerHelp -Topic ExportDependencyMode }
-                    default { Write-Host 'Choose 1, 2, or 3.' -ForegroundColor DarkGray }
+                    default { Write-PackageThemeText 'Choose 1, 2, or 3.' -ForegroundColor DarkGray }
                 }
             }
         }
@@ -728,7 +771,7 @@ function Show-PlatformPackageManager
                     { $_ -in @('y', 'yes') } { return $true }
                     { $_ -in @('n', 'no') } { return $false }
                     '?' { Show-PlatformPackageManagerHelp -Topic YesNo }
-                    default { Write-Host 'Enter y or n.' -ForegroundColor DarkGray }
+                    default { Write-PackageThemeText 'Enter y or n.' -ForegroundColor DarkGray }
                 }
             }
         }
@@ -737,11 +780,11 @@ function Show-PlatformPackageManager
         {
             while ($true)
             {
-                Write-Host 'Dependency direction:' -ForegroundColor White
-                Write-Host '  1. Depends on' -ForegroundColor White
-                Write-Host '  2. Required by' -ForegroundColor White
-                Write-Host '  3. Both' -ForegroundColor White
-                Write-Host '  ?. Help' -ForegroundColor DarkGray
+                Write-PackageThemeText 'Dependency direction:' -ForegroundColor White
+                Write-PackageThemeText '  1. Depends on' -ForegroundColor White
+                Write-PackageThemeText '  2. Required by' -ForegroundColor White
+                Write-PackageThemeText '  3. Both' -ForegroundColor White
+                Write-PackageThemeText '  ?. Help' -ForegroundColor DarkGray
 
                 $value = Read-PlatformPackageManagerInput -Prompt 'Select direction [1, ? for help]'
                 if ($null -eq $value)
@@ -761,7 +804,7 @@ function Show-PlatformPackageManager
                     { $_ -in @('2', 'requiredby', 'required by', 'uses') } { return 'RequiredBy' }
                     { $_ -in @('3', 'both', 'all') } { return 'Both' }
                     '?' { Show-PlatformPackageManagerHelp -Topic DependencyDirection }
-                    default { Write-Host 'Choose 1, 2, or 3.' -ForegroundColor DarkGray }
+                    default { Write-PackageThemeText 'Choose 1, 2, or 3.' -ForegroundColor DarkGray }
                 }
             }
         }
@@ -969,16 +1012,16 @@ function Show-PlatformPackageManager
             }
 
             $rule = '=' * $ruleWidth
-            Write-Host $rule -ForegroundColor DarkGray
-            Write-Host $Title -ForegroundColor Cyan
+            Write-PackageThemeText $rule -ForegroundColor DarkGray
+            Write-PackageThemeText $Title -ForegroundColor Cyan
             if (-not [String]::IsNullOrWhiteSpace($Subtitle))
             {
-                Write-Host $Subtitle -ForegroundColor White
+                Write-PackageThemeText $Subtitle -ForegroundColor White
             }
 
-            Write-Host (Get-PlatformPackageManagerStatusText) -ForegroundColor DarkGray
-            Write-Host $rule -ForegroundColor DarkGray
-            Write-Host ''
+            Write-PackageThemeText (Get-PlatformPackageManagerStatusText) -ForegroundColor DarkGray
+            Write-PackageThemeText $rule -ForegroundColor DarkGray
+            Write-PackageThemeText ''
         }
 
         function Format-PlatformPackageManagerTableMessage
@@ -1213,8 +1256,8 @@ function Show-PlatformPackageManager
 
                 if (-not [String]::IsNullOrWhiteSpace($Result.Message))
                 {
-                    Write-Host $Result.Message -ForegroundColor White
-                    Write-Host ''
+                    Write-PackageThemeText $Result.Message -ForegroundColor White
+                    Write-PackageThemeText ''
                 }
 
                 if ($Result.RecordCount -gt 0)
@@ -1228,15 +1271,15 @@ function Show-PlatformPackageManager
                         $table = Format-PlatformPackageManagerResultTable -InputObject $Result.Records
                         if (-not [String]::IsNullOrWhiteSpace($table))
                         {
-                            Write-Host $table
-                            Write-Host ''
+                            Write-PackageThemeText $table
+                            Write-PackageThemeText ''
                         }
                     }
 
                     $detailRecords = @(Get-PlatformPackageManagerNestedResults -InputObject $Result.Records)
                     if ($detailRecords.Count -gt 0)
                     {
-                        Write-Host 'Details' -ForegroundColor Cyan
+                        Write-PackageThemeText 'Details' -ForegroundColor Cyan
                         $sepWidth = 78
                         try
                         {
@@ -1251,19 +1294,19 @@ function Show-PlatformPackageManager
                             Write-Verbose "Unable to determine the console buffer width; using $sepWidth characters. $($_.Exception.Message)"
                         }
 
-                        Write-Host ('-' * $sepWidth) -ForegroundColor DarkGray
+                        Write-PackageThemeText ('-' * $sepWidth) -ForegroundColor DarkGray
                         $detailTable = Format-PlatformPackageManagerResultTable -InputObject $detailRecords -MaximumWidth $sepWidth
                         if (-not [String]::IsNullOrWhiteSpace($detailTable))
                         {
-                            Write-Host $detailTable
-                            Write-Host ''
+                            Write-PackageThemeText $detailTable
+                            Write-PackageThemeText ''
                         }
                     }
 
                     $informationalResults = @(Get-PlatformPackageManagerInformationalResults -Records $Result.Records)
                     if ($informationalResults.Count -gt 0)
                     {
-                        Write-Host 'Additional output' -ForegroundColor Cyan
+                        Write-PackageThemeText 'Additional output' -ForegroundColor Cyan
                         $sepWidth = 78
                         try
                         {
@@ -1278,7 +1321,7 @@ function Show-PlatformPackageManager
                             Write-Verbose "Unable to determine the console buffer width; using $sepWidth characters. $($_.Exception.Message)"
                         }
 
-                        Write-Host ('-' * $sepWidth) -ForegroundColor DarkGray
+                        Write-PackageThemeText ('-' * $sepWidth) -ForegroundColor DarkGray
 
                         foreach ($informationalResult in $informationalResults)
                         {
@@ -1293,15 +1336,15 @@ function Show-PlatformPackageManager
 
                             if (-not [String]::IsNullOrWhiteSpace($label))
                             {
-                                Write-Host $label -ForegroundColor White
+                                Write-PackageThemeText $label -ForegroundColor White
                             }
 
                             foreach ($line in @($informationalResult.Lines | Where-Object { -not [String]::IsNullOrWhiteSpace("$($_)") }))
                             {
-                                Write-Host "  $line" -ForegroundColor DarkGray
+                                Write-PackageThemeText "  $line" -ForegroundColor DarkGray
                             }
 
-                            Write-Host ''
+                            Write-PackageThemeText ''
                         }
                     }
                 }
@@ -1309,11 +1352,11 @@ function Show-PlatformPackageManager
                 $statusIndicator = Get-PlatformPackageManagerOperationStatusIndicator -Records $Result.Records
                 if ($null -ne $statusIndicator)
                 {
-                    Write-Host $statusIndicator.Text -ForegroundColor $statusIndicator.Color
-                    Write-Host ''
+                    Write-PackageThemeText $statusIndicator.Text -ForegroundColor $statusIndicator.Color
+                    Write-PackageThemeText ''
                 }
 
-                Write-Host 'Any key: return to menu  Q/Esc/Ctrl+C: quit  ?: help' -ForegroundColor DarkGray
+                Write-PackageThemeText 'Any key: return to menu  Q/Esc/Ctrl+C: quit  ?: help' -ForegroundColor DarkGray
 
                 $isQuit = $false
                 if ($KeyReader -or -not $PromptReader)
@@ -1674,30 +1717,30 @@ function Show-PlatformPackageManager
 
             Clear-Host
             Write-PlatformPackageManagerHeader -Title 'Platform Package Manager' -Subtitle 'Unified native package management workflows'
-            Write-Host ('{0,-3} {1,-7} {2,-24} {3}' -f '', 'Action', 'Workflow', 'Purpose') -ForegroundColor DarkGray
-            Write-Host ('{0,-3} {1,-7} {2,-24} {3}' -f '', '------', '--------', '-------') -ForegroundColor DarkGray
+            Write-PackageThemeText ('{0,-3} {1,-7} {2,-24} {3}' -f '', 'Action', 'Workflow', 'Purpose') -ForegroundColor DarkGray
+            Write-PackageThemeText ('{0,-3} {1,-7} {2,-24} {3}' -f '', '------', '--------', '-------') -ForegroundColor DarkGray
             for ($i = 0; $i -lt $Options.Count; $i++)
             {
                 $marker = if ($i -eq $SelectedIndex) { '>' } else { ' ' }
                 $accentColor = if ($i -eq $SelectedIndex) { 'Cyan' } else { 'DarkGray' }
                 $workflowColor = if ($i -eq $SelectedIndex) { 'Cyan' } else { 'White' }
-                Write-Host ('{0,-3} ' -f $marker) -NoNewline -ForegroundColor $accentColor
-                Write-Host ('{0,-7} ' -f "[$($Options[$i].Choice)]") -NoNewline -ForegroundColor $accentColor
-                Write-Host ('{0,-24} ' -f $Options[$i].Workflow) -NoNewline -ForegroundColor $workflowColor
-                Write-Host $Options[$i].Purpose -ForegroundColor DarkGray
+                Write-PackageThemeText ('{0,-3} ' -f $marker) -NoNewline -ForegroundColor $accentColor
+                Write-PackageThemeText ('{0,-7} ' -f "[$($Options[$i].Choice)]") -NoNewline -ForegroundColor $accentColor
+                Write-PackageThemeText ('{0,-24} ' -f $Options[$i].Workflow) -NoNewline -ForegroundColor $workflowColor
+                Write-PackageThemeText $Options[$i].Purpose -ForegroundColor DarkGray
             }
 
-            Write-Host ''
+            Write-PackageThemeText ''
             if (-not [String]::IsNullOrWhiteSpace($Notification))
             {
-                Write-Host "  ! $Notification" -ForegroundColor DarkYellow
-                Write-Host ''
+                Write-PackageThemeText "  ! $Notification" -ForegroundColor DarkYellow
+                Write-PackageThemeText ''
             }
 
             if ($SelectedIndex -ge 0)
             {
-                Write-Host 'Up/Down: choose  Enter: run  1-6/Q: jump  ?: help' -ForegroundColor DarkGray
-                Write-Host ''
+                Write-PackageThemeText 'Up/Down: choose  Enter: run  1-6/Q: jump  ?: help' -ForegroundColor DarkGray
+                Write-PackageThemeText ''
             }
         }
 

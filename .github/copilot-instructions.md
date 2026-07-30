@@ -139,6 +139,31 @@ powershell -NoProfile -File ".\Functions\Category\Function.ps1"
 pwsh -NoProfile -File ".\Functions\Category\Function.ps1"
 ```
 
+### Graphical Console Output
+
+Use this convention only for functions that intentionally render a dashboard, graph, framed report, picker, or other rich console UI. Ordinary progress and one-line status messages are not theme targets.
+
+[`Show-FileStorageMetric`](../Functions/Utilities/Show-FileStorageMetric.ps1) is the visual reference, but other functions should retain layouts appropriate to their content.
+
+Use one fixed monochrome palette:
+
+- Accent: `ESC[38;5;37m` for titles, frames, selected rows, filled bars, and healthy emphasis
+- Muted: `ESC[38;5;244m` for metadata, hints, dividers, empty bars, and secondary labels
+- Primary: the terminal's default foreground for values and body text
+- Reset: `ESC[0m` after every styled segment
+
+Keep yellow only for real warnings, skipped/WhatIf states, or degraded metrics. Keep red only for real errors, failures, unreachable states, or critical metrics. Do not use decorative green, magenta, bright cyan, or yellow.
+
+Implementation requirements:
+
+- Define the three ANSI sequences locally in the graphical function; do not add a public theme command, theme registry, or `-Theme` parameter.
+- Do not add terminal capability detection or compatibility fallbacks for the theme.
+- Preserve an existing `-NoColor` or `-Ascii` option, but do not add one solely for the theme.
+- Format, truncate, and pad plain text before applying ANSI so escape bytes never affect visible-width calculations.
+- Keep ANSI out of object, CSV, JSON, and other programmatic output.
+- Ensure each rendered line ends in a reset and add focused tests for the exact Accent, Muted, and Reset codes.
+- Save PowerShell files containing literal Unicode as UTF-8 with BOM.
+
 ## Function Development Patterns
 
 ### Standard Function Structure

@@ -31,6 +31,12 @@ Describe 'Show-PlatformPackageManager' {
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Export installed*' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Direct install*' } -Times 0 -Exactly
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Dependencies*' } -Times 1
+        $escapeCharacter = [String][Char]27
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[38;5;37m" } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[38;5;244m" } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[0m" } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[33m" } -Times 0 -Exactly
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[91m" } -Times 0 -Exactly
     }
 
     It 'selects the upgrade workflow by default' {
@@ -196,9 +202,9 @@ Describe 'Show-PlatformPackageManager' {
         $result.Count | Should-Be 0
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager Help' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'B: ' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'browse installed packages' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'browse installed packages' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'E: ' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'export installed packages' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'export installed packages' } -Times 1
     }
 
     It 'routes installed package export through Show-InstalledPlatformPackage from the manager shortcut' {
@@ -263,7 +269,7 @@ Describe 'Show-PlatformPackageManager' {
         $result.Count | Should-Be 0
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager Help' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Any key or Enter: ' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'return to the manager menu' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'return to the manager menu' } -Times 1
     }
 
     It 'routes search installs through Install-PlatformPackage with NoSudo forwarded' {
@@ -436,7 +442,7 @@ Describe 'Show-PlatformPackageManager' {
         @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should-Be 0
     }
 
-    It 'shows a green status indicator after a successful upgrade' {
+    It 'shows an accent status indicator after a successful upgrade' {
         $runner = & $script:NewPackageCommandRunner @{
             'winget upgrade --accept-source-agreements --output json' = Get-TestCommandResponse -ExitCode 1 -Output @('Unrecognized argument: --output')
             'winget upgrade --accept-source-agreements' = Get-TestCommandResponse -Output @(
@@ -457,11 +463,13 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager winget -SkipRefresh -CommandRunner $runner -PromptReader $promptReader -KeyReader $keyReader)
 
         $result.Count | Should-Be 0
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Upgraded: 1' -and $ForegroundColor -eq 'Green' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Failed: 0' -and $ForegroundColor -eq 'Green' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Upgraded: 1' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Failed: 0' } -Times 1
+        $escapeCharacter = [String][Char]27
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[38;5;37m" } -Times 1
     }
 
-    It 'shows a green status indicator after a successful install' {
+    It 'shows an accent status indicator after a successful install' {
         Mock -CommandName Install-PlatformPackage -MockWith {
             [PSCustomObject]@{
                 PackageManager = 'apt'
@@ -480,7 +488,9 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager apt -NoSudo -PromptReader $promptReader)
 
         $result.Count | Should-Be 0
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Installed: 1' -and $ForegroundColor -eq 'Green' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Installed: 1' } -Times 1
+        $escapeCharacter = [String][Char]27
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[38;5;37m" } -Times 1
     }
 
     It 'shows captured informational output on the manager result screen' {
@@ -513,9 +523,9 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager brew -PromptReader $promptReader)
 
         $result.Count | Should-Be 0
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Additional output' -and $ForegroundColor -eq 'Cyan' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'python' -and $ForegroundColor -eq 'White' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq '  ==> Caveats' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Additional output' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'python' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq '  ==> Caveats' } -Times 1
     }
 
     It 'keeps detail rows within the separator width while retaining the full additional output' {
@@ -571,7 +581,7 @@ Describe 'Show-PlatformPackageManager' {
         ) | Should-BeCollection -Count 0
         $detailTable | Should-NotMatchString ([Regex]::Escape($script:FullFailureMessage))
         Should-Invoke -CommandName Write-Host -ParameterFilter {
-            $Object -eq "  $script:FullFailureMessage" -and $ForegroundColor -eq 'DarkGray'
+            $Object -eq "  $script:FullFailureMessage"
         } -Times 1
     }
 
@@ -594,8 +604,10 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager apt -NoSudo -PromptReader $promptReader)
 
         $result.Count | Should-Be 0
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Installed: 1' -and $ForegroundColor -eq 'Red' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Failed: 1' -and $ForegroundColor -eq 'Red' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Installed: 1' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Failed: 1' } -Times 1
+        $escapeCharacter = [String][Char]27
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[91m" } -Times 1
     }
 
     It 'shows a yellow status indicator when packages were skipped but none failed' {
@@ -617,8 +629,10 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager apt -NoSudo -PromptReader $promptReader)
 
         $result.Count | Should-Be 0
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Installed: 2' -and $ForegroundColor -eq 'Yellow' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Skipped: 1' -and $ForegroundColor -eq 'Yellow' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Installed: 2' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Skipped: 1' } -Times 1
+        $escapeCharacter = [String][Char]27
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[33m" } -Times 1
     }
 
     It 'does not show a status indicator for dependency lookups' {

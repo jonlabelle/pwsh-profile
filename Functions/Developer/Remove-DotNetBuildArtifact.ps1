@@ -343,18 +343,24 @@ function Remove-DotNetBuildArtifact
         }
 
         # Display summary
-        Write-Host "`nCleanup Summary:" -ForegroundColor Cyan
-        Write-Host "  Projects found: $($stats.ProjectsFound)" -ForegroundColor White
-        Write-Host "  Folders removed: $($stats.FoldersRemoved)" -ForegroundColor White
+        $summaryEscape = [String][Char]27
+        $summaryAccent = $summaryEscape + '[38;5;37m'
+        $summaryMuted = $summaryEscape + '[38;5;244m'
+        $summaryCritical = $summaryEscape + '[91m'
+        $summaryReset = $summaryEscape + '[0m'
+
+        Write-Host "`n${summaryAccent}Cleanup Summary:$summaryReset"
+        Write-Host "${summaryMuted}  Projects found: $summaryReset $($stats.ProjectsFound)"
+        Write-Host "${summaryMuted}  Folders removed:$summaryReset ${summaryAccent}$($stats.FoldersRemoved)$summaryReset"
 
         if (-not $NoSizeCalculation -and $stats.TotalSpaceFreed -gt 0)
         {
-            Write-Host "  Space freed: $spaceFreedFormatted" -ForegroundColor Green
+            Write-Host "${summaryMuted}  Space freed:    $summaryReset ${summaryAccent}$spaceFreedFormatted$summaryReset"
         }
 
         if ($stats.Errors -gt 0)
         {
-            Write-Host "  Errors: $($stats.Errors)" -ForegroundColor Red
+            Write-Host "${summaryMuted}  Errors:         $summaryReset ${summaryCritical}$($stats.Errors)$summaryReset"
         }
 
         Write-Verbose 'Cleanup completed'

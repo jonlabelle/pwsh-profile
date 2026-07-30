@@ -92,6 +92,49 @@ function Export-InstalledPlatformPackage
     {
         $packageRecords = New-Object 'System.Collections.Generic.List[PSCustomObject]'
 
+        $packageThemeEscape = [String][Char]27
+        $packageThemeAccent = $packageThemeEscape + '[38;5;37m'
+        $packageThemeMuted = $packageThemeEscape + '[38;5;244m'
+        $packageThemeWarning = $packageThemeEscape + '[33m'
+        $packageThemeCritical = $packageThemeEscape + '[91m'
+        $packageThemeReset = $packageThemeEscape + '[0m'
+
+        function Write-PackageThemeText
+        {
+            param(
+                [Parameter(Position = 0)]
+                [AllowNull()]
+                [Object]$Object = '',
+
+                [Parameter()]
+                [Switch]$NoNewline,
+
+                [Parameter()]
+                [AllowNull()]
+                [Object]$ForegroundColor
+            )
+
+            $text = if ($null -eq $Object) { '' } else { [String]$Object }
+            $color = switch ([String]$ForegroundColor)
+            {
+                { $_ -in 'Green', 'DarkGreen', 'Cyan', 'DarkCyan' } { $packageThemeAccent; break }
+                { $_ -in 'Gray', 'DarkGray' } { $packageThemeMuted; break }
+                { $_ -in 'Yellow', 'DarkYellow' } { $packageThemeWarning; break }
+                { $_ -in 'Red', 'DarkRed' } { $packageThemeCritical; break }
+                default { '' }
+            }
+
+            if (-not $color)
+            {
+                Write-Host $text -NoNewline:$NoNewline.IsPresent
+                return
+            }
+
+            Write-Host $color -NoNewline
+            Write-Host $text -NoNewline
+            Write-Host $packageThemeReset -NoNewline:$NoNewline.IsPresent
+        }
+
         function Get-ExportDependencyPathIfNeeded
         {
             param(
@@ -273,34 +316,34 @@ function Export-InstalledPlatformPackage
             }
 
             Clear-Host
-            Write-Host 'Exporting installed packages...' -ForegroundColor Cyan
+            Write-PackageThemeText 'Exporting installed packages...' -ForegroundColor Cyan
             if ($PackageCount -gt 0 -and $PackageIndex -gt 0)
             {
-                Write-Host "Package: $PackageIndex of $PackageCount - $($PackageRecord.Name)" -ForegroundColor White
+                Write-PackageThemeText "Package: $PackageIndex of $PackageCount - $($PackageRecord.Name)" -ForegroundColor White
             }
             else
             {
-                Write-Host "Package: $($PackageRecord.Name)" -ForegroundColor White
+                Write-PackageThemeText "Package: $($PackageRecord.Name)" -ForegroundColor White
             }
 
             if (-not [String]::IsNullOrWhiteSpace($Direction))
             {
-                Write-Host "Resolving: $Direction" -ForegroundColor White
+                Write-PackageThemeText "Resolving: $Direction" -ForegroundColor White
             }
 
             if (-not [String]::IsNullOrWhiteSpace($ExportPath))
             {
-                Write-Host "File: $ExportPath" -ForegroundColor DarkGray
+                Write-PackageThemeText "File: $ExportPath" -ForegroundColor DarkGray
             }
 
-            Write-Host ''
+            Write-PackageThemeText ''
             if ($CancelRequested)
             {
-                Write-Host 'Esc cancels between dependency lookups. Ctrl+C stops the current lookup.' -ForegroundColor DarkGray
+                Write-PackageThemeText 'Esc cancels between dependency lookups. Ctrl+C stops the current lookup.' -ForegroundColor DarkGray
             }
             else
             {
-                Write-Host 'Ctrl+C stops the current lookup.' -ForegroundColor DarkGray
+                Write-PackageThemeText 'Ctrl+C stops the current lookup.' -ForegroundColor DarkGray
             }
         }
 

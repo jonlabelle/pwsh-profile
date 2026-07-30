@@ -197,6 +197,11 @@
     {
         Write-Verbose 'Starting JWT token decoding'
 
+        $escapeCharacter = [String][Char]27
+        $themeAccent = $escapeCharacter + '[38;5;37m'
+        $themeMuted = $escapeCharacter + '[38;5;244m'
+        $themeReset = $escapeCharacter + '[0m'
+
         # Define standard JWT claim descriptions (kept short to avoid line wrapping)
         $claimDescriptions = @{
             # Standard header claims
@@ -558,14 +563,14 @@
                 [Boolean]$UseUtc
             )
 
-            Write-Host $Title -ForegroundColor Green
-            Write-Host '──────────────────────────────────────────────────────────────' -ForegroundColor DarkGray
+            Write-Host "$themeAccent$Title$themeReset"
+            Write-Host "$themeMuted──────────────────────────────────────────────────────────────$themeReset"
 
             $properties = @($Data.PSObject.Properties)
 
             if ($properties.Count -eq 0)
             {
-                Write-Host '  <empty>' -ForegroundColor DarkGray
+                Write-Host "$themeMuted  <empty>$themeReset"
                 Write-Host ''
                 return
             }
@@ -577,12 +582,12 @@
             {
                 $formattedValue = Format-JwtValue -ClaimName $property.Name -Value $property.Value -UseUtc:$UseUtc
 
-                Write-Host ("  {0,-$labelWidth}: " -f $property.Name) -NoNewline -ForegroundColor Yellow
-                Write-Host $formattedValue -NoNewline -ForegroundColor White
+                Write-Host ("$themeMuted  {0,-$labelWidth}: $themeReset" -f $property.Name) -NoNewline
+                Write-Host $formattedValue -NoNewline
 
                 if ($claimDescriptions.ContainsKey($property.Name))
                 {
-                    Write-Host "  # $($claimDescriptions[$property.Name])" -ForegroundColor DarkGray
+                    Write-Host "$themeMuted  # $($claimDescriptions[$property.Name])$themeReset"
                 }
                 else
                 {
@@ -651,9 +656,9 @@
             {
                 # Display pretty formatted output (default behavior)
                 Write-Host ''
-                Write-Host '═══════════════════════════════════════════════════════════════' -ForegroundColor Cyan
-                Write-Host '  JWT TOKEN DECODED' -ForegroundColor Cyan
-                Write-Host '═══════════════════════════════════════════════════════════════' -ForegroundColor Cyan
+                Write-Host "$themeAccent═══════════════════════════════════════════════════════════════$themeReset"
+                Write-Host "$themeAccent  JWT TOKEN DECODED$themeReset"
+                Write-Host "$themeAccent═══════════════════════════════════════════════════════════════$themeReset"
                 Write-Host ''
 
                 Write-JwtSection -Title 'HEADER' -Data $header -UseUtc:$NoLocalTimeConversion
@@ -662,13 +667,13 @@
                 if ($IncludeSignature)
                 {
                     Write-Host ''
-                    Write-Host 'SIGNATURE' -ForegroundColor Green
-                    Write-Host '──────────────────────────────────────────────────────────────' -ForegroundColor DarkGray
-                    Write-Host "  $($parts[2])" -ForegroundColor White
+                    Write-Host "${themeAccent}SIGNATURE$themeReset"
+                    Write-Host "$themeMuted──────────────────────────────────────────────────────────────$themeReset"
+                    Write-Host "  $($parts[2])"
                 }
 
                 Write-Host ''
-                Write-Host '═══════════════════════════════════════════════════════════════' -ForegroundColor Cyan
+                Write-Host "$themeAccent═══════════════════════════════════════════════════════════════$themeReset"
                 Write-Host ''
             }
         }

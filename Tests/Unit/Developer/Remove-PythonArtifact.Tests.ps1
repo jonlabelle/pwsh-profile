@@ -325,6 +325,32 @@ Describe 'Remove-PythonArtifact' {
         }
     }
 
+    Context 'Summary theme' {
+        It 'Uses only the healthy monochrome roles and keeps the result object ANSI-free' {
+            $script:ThemeHostOutput = [System.Collections.Generic.List[String]]::new()
+            Mock -CommandName Write-Host -MockWith {
+                if ($null -ne $Object)
+                {
+                    $script:ThemeHostOutput.Add([String]$Object)
+                }
+            }
+
+            $result = Remove-PythonArtifact -Path $script:TestRoot
+            $escapeCharacter = [String][Char]27
+            $ansiPattern = "$escapeCharacter\[[0-9;]*m"
+            $rawOutput = $script:ThemeHostOutput -join ''
+            $codes = @([Regex]::Matches($rawOutput, $ansiPattern).Value | Sort-Object -Unique)
+
+            $codes.Count | Should-Be 3
+            $codes | Should-ContainCollection "$escapeCharacter[38;5;37m"
+            $codes | Should-ContainCollection "$escapeCharacter[38;5;244m"
+            $codes | Should-ContainCollection "$escapeCharacter[0m"
+            $codes | Should-NotContainCollection "$escapeCharacter[33m"
+            $codes | Should-NotContainCollection "$escapeCharacter[91m"
+            ($result | ConvertTo-Json -Depth 5) | Should-NotMatchString ([Regex]::Escape($escapeCharacter))
+        }
+    }
+
     Context 'Return value' {
         It 'Should return a PSCustomObject with all expected properties' {
             $result = Remove-PythonArtifact -Path $script:TestRoot

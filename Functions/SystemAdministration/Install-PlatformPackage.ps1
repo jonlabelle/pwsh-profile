@@ -182,6 +182,49 @@ function Install-PlatformPackage
     {
         $pipelinePackages = New-Object 'System.Collections.Generic.List[Object]'
 
+        $packageThemeEscape = [String][Char]27
+        $packageThemeAccent = $packageThemeEscape + '[38;5;37m'
+        $packageThemeMuted = $packageThemeEscape + '[38;5;244m'
+        $packageThemeWarning = $packageThemeEscape + '[33m'
+        $packageThemeCritical = $packageThemeEscape + '[91m'
+        $packageThemeReset = $packageThemeEscape + '[0m'
+
+        function Write-PackageThemeText
+        {
+            param(
+                [Parameter(Position = 0)]
+                [AllowNull()]
+                [Object]$Object = '',
+
+                [Parameter()]
+                [Switch]$NoNewline,
+
+                [Parameter()]
+                [AllowNull()]
+                [Object]$ForegroundColor
+            )
+
+            $text = if ($null -eq $Object) { '' } else { [String]$Object }
+            $color = switch ([String]$ForegroundColor)
+            {
+                { $_ -in 'Green', 'DarkGreen', 'Cyan', 'DarkCyan' } { $packageThemeAccent; break }
+                { $_ -in 'Gray', 'DarkGray' } { $packageThemeMuted; break }
+                { $_ -in 'Yellow', 'DarkYellow' } { $packageThemeWarning; break }
+                { $_ -in 'Red', 'DarkRed' } { $packageThemeCritical; break }
+                default { '' }
+            }
+
+            if (-not $color)
+            {
+                Write-Host $text -NoNewline:$NoNewline.IsPresent
+                return
+            }
+
+            Write-Host $color -NoNewline
+            Write-Host $text -NoNewline
+            Write-Host $packageThemeReset -NoNewline:$NoNewline.IsPresent
+        }
+
         function Get-DependencyPathIfNeeded
         {
             param(
@@ -526,7 +569,7 @@ function Install-PlatformPackage
 
                         if ($StreamOutput)
                         {
-                            $result.Output | ForEach-Object { Write-Host "$_" }
+                            $result.Output | ForEach-Object { Write-PackageThemeText "$_" }
                         }
 
                         return $result
@@ -541,7 +584,7 @@ function Install-PlatformPackage
 
                         if ($StreamOutput)
                         {
-                            $result.Output | ForEach-Object { Write-Host "$_" }
+                            $result.Output | ForEach-Object { Write-PackageThemeText "$_" }
                         }
 
                         return $result
@@ -550,7 +593,7 @@ function Install-PlatformPackage
 
                 if ($StreamOutput)
                 {
-                    $runnerOutputItems | ForEach-Object { Write-Host "$_" }
+                    $runnerOutputItems | ForEach-Object { Write-PackageThemeText "$_" }
                 }
 
                 return [PSCustomObject]@{
@@ -604,7 +647,7 @@ function Install-PlatformPackage
                     & $Command @Arguments 2>&1 | ForEach-Object {
                         $line = "$($_)"
                         [void]$capturedOutput.Add($line)
-                        Write-Host $line
+                        Write-PackageThemeText $line
                     }
 
                     return [PSCustomObject]@{
@@ -623,7 +666,7 @@ function Install-PlatformPackage
             {
                 if ($StreamOutput)
                 {
-                    Write-Host "$($_.Exception.Message)"
+                    Write-PackageThemeText "$($_.Exception.Message)"
                 }
 
                 return [PSCustomObject]@{
@@ -1448,11 +1491,11 @@ function Install-PlatformPackage
                         $lineColor = Get-PickerFrameLineColor -Line $line
                         if ($null -eq $lineColor)
                         {
-                            Write-Host $lineText
+                            Write-PackageThemeText $lineText
                         }
                         else
                         {
-                            Write-Host $lineText -ForegroundColor $lineColor
+                            Write-PackageThemeText $lineText -ForegroundColor $lineColor
                         }
                     }
 
@@ -1499,32 +1542,24 @@ function Install-PlatformPackage
                 try
                 {
                     [Console]::SetCursorPosition(0, 0)
-                    $originalForegroundColor = [Console]::ForegroundColor
-                    try
+                    for ($lineIndex = 0; $lineIndex -lt $frameLines.Count; $lineIndex++)
                     {
-                        for ($lineIndex = 0; $lineIndex -lt $frameLines.Count; $lineIndex++)
+                        if ($lineIndex -gt 0)
                         {
-                            if ($lineIndex -gt 0)
-                            {
-                                [Console]::Write("`r`n")
-                            }
-
-                            $line = $frameLines[$lineIndex]
-                            if ($null -eq $line.ForegroundColor)
-                            {
-                                [Console]::ForegroundColor = $originalForegroundColor
-                            }
-                            else
-                            {
-                                [Console]::ForegroundColor = $line.ForegroundColor
-                            }
-
-                            [Console]::Write($line.Text)
+                            [Console]::Write("`r`n")
                         }
-                    }
-                    finally
-                    {
-                        [Console]::ForegroundColor = $originalForegroundColor
+
+                        $line = $frameLines[$lineIndex]
+                        $lineColor = switch ([String]$line.ForegroundColor)
+                        {
+                            { $_ -in 'Green', 'DarkGreen', 'Cyan', 'DarkCyan' } { $packageThemeAccent; break }
+                            { $_ -in 'Gray', 'DarkGray' } { $packageThemeMuted; break }
+                            { $_ -in 'Yellow', 'DarkYellow' } { $packageThemeWarning; break }
+                            { $_ -in 'Red', 'DarkRed' } { $packageThemeCritical; break }
+                            default { '' }
+                        }
+                        $lineText = if ($lineColor) { "$lineColor$($line.Text)$packageThemeReset" } else { $line.Text }
+                        [Console]::Write($lineText)
                     }
                     $pickerRenderState.RenderedLineCount = $frameLines.Count
                 }
@@ -1538,11 +1573,11 @@ function Install-PlatformPackage
                         $fallbackLineColor = Get-PickerFrameLineColor -Line $fallbackLine
                         if ($null -eq $fallbackLineColor)
                         {
-                            Write-Host $fallbackLineText
+                            Write-PackageThemeText $fallbackLineText
                         }
                         else
                         {
-                            Write-Host $fallbackLineText -ForegroundColor $fallbackLineColor
+                            Write-PackageThemeText $fallbackLineText -ForegroundColor $fallbackLineColor
                         }
                     }
                 }
@@ -1773,9 +1808,9 @@ function Install-PlatformPackage
                         [String]$Description
                     )
 
-                    Write-Host '  - ' -NoNewline -ForegroundColor White
-                    Write-Host "$Shortcut`: " -NoNewline -ForegroundColor White
-                    Write-Host $Description -ForegroundColor DarkGray
+                    Write-PackageThemeText '  - ' -NoNewline -ForegroundColor White
+                    Write-PackageThemeText "$Shortcut`: " -NoNewline -ForegroundColor White
+                    Write-PackageThemeText $Description -ForegroundColor DarkGray
                 }
 
                 $restoreInPlaceRedraw = $pickerRenderState.UseInPlaceRedraw
@@ -1783,15 +1818,15 @@ function Install-PlatformPackage
                 $pickerRenderState.RenderedLineCount = 0
 
                 Clear-Host
-                Write-Host 'Install-PlatformPackage Help' -ForegroundColor Cyan
-                Write-Host ''
-                Write-Host 'Navigation' -ForegroundColor White
+                Write-PackageThemeText 'Install-PlatformPackage Help' -ForegroundColor Cyan
+                Write-PackageThemeText ''
+                Write-PackageThemeText 'Navigation' -ForegroundColor White
                 Write-PackagePickerHelpItem -Shortcut 'Up/Down' -Description 'move one package'
                 Write-PackagePickerHelpItem -Shortcut 'PageUp/PageDown' -Description 'move one page'
                 Write-PackagePickerHelpItem -Shortcut 'Home/End' -Description 'move to the first or last package'
 
-                Write-Host ''
-                Write-Host 'Selection' -ForegroundColor White
+                Write-PackageThemeText ''
+                Write-PackageThemeText 'Selection' -ForegroundColor White
                 Write-PackagePickerHelpItem -Shortcut 'Space' -Description 'select or clear the current package'
                 Write-PackagePickerHelpItem -Shortcut 'A' -Description 'select or clear all visible packages'
                 Write-PackagePickerHelpItem -Shortcut 'Enter' -Description 'install selected packages, or the current package if none are selected'
@@ -1803,19 +1838,19 @@ function Install-PlatformPackage
 
                 if ($hasSourceFilter)
                 {
-                    Write-Host ''
-                    Write-Host 'Source Filter' -ForegroundColor White
+                    Write-PackageThemeText ''
+                    Write-PackageThemeText 'Source Filter' -ForegroundColor White
                     Write-PackagePickerHelpItem -Shortcut 'S' -Description "cycle source: $($availableSources -join ' | ')"
                 }
 
-                Write-Host ''
-                Write-Host 'Other Actions' -ForegroundColor White
+                Write-PackageThemeText ''
+                Write-PackageThemeText 'Other Actions' -ForegroundColor White
                 Write-PackagePickerHelpItem -Shortcut 'V' -Description 'load a missing winget description when available'
                 Write-PackagePickerHelpItem -Shortcut 'Q, Esc, or Ctrl+C' -Description 'cancel installation'
                 Write-PackagePickerHelpItem -Shortcut '?' -Description 'show this help'
 
-                Write-Host ''
-                Write-Host 'Press any key to return to the picker. Q/Esc/Ctrl+C cancels.' -ForegroundColor DarkGray
+                Write-PackageThemeText ''
+                Write-PackageThemeText 'Press any key to return to the picker. Q/Esc/Ctrl+C cancels.' -ForegroundColor DarkGray
 
                 $helpKey = & $KeyReader
                 Clear-Host
@@ -2255,8 +2290,8 @@ function Install-PlatformPackage
                 }
             }
 
-            Write-Host ''
-            Write-Host "Installing $targetDescription with $($Manager.DisplayName)..." -ForegroundColor White
+            Write-PackageThemeText ''
+            Write-PackageThemeText "Installing $targetDescription with $($Manager.DisplayName)..." -ForegroundColor White
 
             $installArguments = Get-PackageInstallArguments -Manager $Manager -Package $Package
             $invocation = Resolve-PackageManagerInvocation -Manager $Manager -Arguments $installArguments
@@ -2322,7 +2357,7 @@ function Install-PlatformPackage
 
                 if ($candidatePackages.Count -eq 0)
                 {
-                    Write-Host 'No packages matched the requested query.' -ForegroundColor White
+                    Write-PackageThemeText 'No packages matched the requested query.' -ForegroundColor White
                 }
                 else
                 {
@@ -2330,7 +2365,7 @@ function Install-PlatformPackage
                     $notSelected = $candidatePackages.Count - $selectedPackages.Count
                     if ($selectedPackages.Count -eq 0)
                     {
-                        Write-Host 'No packages selected for installation.' -ForegroundColor White
+                        Write-PackageThemeText 'No packages selected for installation.' -ForegroundColor White
                     }
                 }
             }

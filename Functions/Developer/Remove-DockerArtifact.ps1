@@ -627,24 +627,31 @@ function Remove-DockerArtifact
             Errors = $stats.Errors
         }
 
-        Write-Host "`nDocker Cleanup Summary:" -ForegroundColor Cyan
-        Write-Host "  Containers pruned : $($result.ContainersPruned)" -ForegroundColor White
-        Write-Host "  Volumes pruned    : $($result.VolumesPruned)" -ForegroundColor White
-        Write-Host "  Buildx builders   : $($result.BuildxBuildersPruned)" -ForegroundColor White
-        Write-Host "  Build history     : $($result.BuildHistoryPruned)" -ForegroundColor White
-        Write-Host "  Image mode        : $($result.ImageMode)" -ForegroundColor White
+        $summaryEscape = [String][Char]27
+        $summaryAccent = $summaryEscape + '[38;5;37m'
+        $summaryMuted = $summaryEscape + '[38;5;244m'
+        $summaryWarning = $summaryEscape + '[33m'
+        $summaryCritical = $summaryEscape + '[91m'
+        $summaryReset = $summaryEscape + '[0m'
+
+        Write-Host "`n${summaryAccent}Docker Cleanup Summary:$summaryReset"
+        Write-Host "${summaryMuted}  Containers pruned:$summaryReset $($result.ContainersPruned)"
+        Write-Host "${summaryMuted}  Volumes pruned:   $summaryReset $($result.VolumesPruned)"
+        Write-Host "${summaryMuted}  Buildx builders:  $summaryReset $($result.BuildxBuildersPruned)"
+        Write-Host "${summaryMuted}  Build history:    $summaryReset $($result.BuildHistoryPruned)"
+        Write-Host "${summaryMuted}  Image mode:       $summaryReset $($result.ImageMode)"
 
         if ($isWhatIf)
         {
-            Write-Host "  Estimated reclaimable: $($result.EstimatedReclaimable)" -ForegroundColor Yellow
-            Write-Host '  No changes made (WhatIf).' -ForegroundColor Yellow
+            Write-Host "${summaryMuted}  Estimated reclaimable:$summaryReset ${summaryWarning}$($result.EstimatedReclaimable)$summaryReset"
+            Write-Host "${summaryWarning}  No changes made (WhatIf).$summaryReset"
         }
 
-        Write-Host "  Space freed       : $($result.TotalSpaceFreed)" -ForegroundColor Green
+        Write-Host "${summaryMuted}  Space freed:      $summaryReset ${summaryAccent}$($result.TotalSpaceFreed)$summaryReset"
 
         if ($result.Errors -gt 0)
         {
-            Write-Host "  Errors            : $($result.Errors)" -ForegroundColor Red
+            Write-Host "${summaryMuted}  Errors:           $summaryReset ${summaryCritical}$($result.Errors)$summaryReset"
         }
 
         Write-Verbose 'Docker cleanup completed'

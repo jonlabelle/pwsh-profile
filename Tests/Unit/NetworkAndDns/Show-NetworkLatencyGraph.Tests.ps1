@@ -24,4 +24,61 @@ Describe 'Show-NetworkLatencyGraph (Data mode)' {
         $result | Should-MatchString 'max:'
         $result | Should-MatchString 'avg:'
     }
+
+    Context 'Console theme' {
+        BeforeAll {
+            $escapeCharacter = [String][Char]27
+            $ansiPattern = "$escapeCharacter\[[0-9;]*m"
+        }
+
+        It 'uses only the accent, muted, and reset codes for healthy sparkline data' {
+            $result = Show-NetworkLatencyGraph -Data @(10, 12, 14, 16) -GraphType 'Sparkline' -ShowStats
+            $codes = [Regex]::Matches($result, $ansiPattern).Value | Sort-Object -Unique
+
+            $codes.Count | Should-Be 3
+            $codes | Should-ContainCollection "$escapeCharacter[38;5;37m"
+            $codes | Should-ContainCollection "$escapeCharacter[38;5;244m"
+            $codes | Should-ContainCollection "$escapeCharacter[0m"
+        }
+
+        It 'uses the same monochrome palette in time-series and distribution graphs' {
+            foreach ($graphType in 'TimeSeries', 'Distribution')
+            {
+                $parameters = @{
+                    Data = @(10, 12, 14, 16)
+                    GraphType = $graphType
+                }
+                if ($graphType -eq 'TimeSeries')
+                {
+                    $parameters.Width = 20
+                    $parameters.Height = 5
+                    $parameters.ShowStats = $true
+                }
+
+                $result = Show-NetworkLatencyGraph @parameters
+                $codes = [Regex]::Matches($result, $ansiPattern).Value | Sort-Object -Unique
+
+                $codes.Count | Should-Be 3
+                $codes | Should-ContainCollection "$escapeCharacter[38;5;37m"
+                $codes | Should-ContainCollection "$escapeCharacter[38;5;244m"
+                $codes | Should-ContainCollection "$escapeCharacter[0m"
+            }
+        }
+
+        It 'emits no ANSI sequences when NoColor is requested' {
+            $result = Show-NetworkLatencyGraph -Data @(10, 20, 30, 40) -GraphType 'Sparkline' -ShowStats -NoColor
+
+            $result | Should-NotMatchString ([Regex]::Escape($escapeCharacter))
+        }
+
+        It 'preserves readable graph text after ANSI sequences are removed' {
+            $result = Show-NetworkLatencyGraph -Data @(10, 20, 30, 40) -GraphType 'Sparkline' -ShowStats
+            $plainText = [Regex]::Replace($result, $ansiPattern, '')
+
+            $plainText | Should-MatchString 'min:'
+            $plainText | Should-MatchString 'max:'
+            $plainText | Should-MatchString 'avg:'
+            $plainText | Should-MatchString 'jitter:'
+        }
+    }
 }

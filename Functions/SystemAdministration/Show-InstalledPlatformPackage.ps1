@@ -184,6 +184,49 @@ function Show-InstalledPlatformPackage
 
     begin
     {
+        $packageThemeEscape = [String][Char]27
+        $packageThemeAccent = $packageThemeEscape + '[38;5;37m'
+        $packageThemeMuted = $packageThemeEscape + '[38;5;244m'
+        $packageThemeWarning = $packageThemeEscape + '[33m'
+        $packageThemeCritical = $packageThemeEscape + '[91m'
+        $packageThemeReset = $packageThemeEscape + '[0m'
+
+        function Write-PackageThemeText
+        {
+            param(
+                [Parameter(Position = 0)]
+                [AllowNull()]
+                [Object]$Object = '',
+
+                [Parameter()]
+                [Switch]$NoNewline,
+
+                [Parameter()]
+                [AllowNull()]
+                [Object]$ForegroundColor
+            )
+
+            $text = if ($null -eq $Object) { '' } else { [String]$Object }
+            $color = switch ([String]$ForegroundColor)
+            {
+                { $_ -in 'Green', 'DarkGreen', 'Cyan', 'DarkCyan' } { $packageThemeAccent; break }
+                { $_ -in 'Gray', 'DarkGray' } { $packageThemeMuted; break }
+                { $_ -in 'Yellow', 'DarkYellow' } { $packageThemeWarning; break }
+                { $_ -in 'Red', 'DarkRed' } { $packageThemeCritical; break }
+                default { '' }
+            }
+
+            if (-not $color)
+            {
+                Write-Host $text -NoNewline:$NoNewline.IsPresent
+                return
+            }
+
+            Write-Host $color -NoNewline
+            Write-Host $text -NoNewline
+            Write-Host $packageThemeReset -NoNewline:$NoNewline.IsPresent
+        }
+
         function Get-DependencyPathIfNeeded
         {
             param(
@@ -746,12 +789,12 @@ function Show-InstalledPlatformPackage
                     while ($true)
                     {
                         Clear-Host
-                        Write-Host 'Filter installed packages' -ForegroundColor Cyan
-                        Write-Host 'Type package name text to match Name or Id.' -ForegroundColor DarkGray
-                        Write-Host ''
-                        Write-Host "Current filter: $workingFilter" -ForegroundColor White
-                        Write-Host ''
-                        Write-Host 'Enter: apply filter  Backspace: delete  Ctrl+U: clear  Esc/Ctrl+C: cancel' -ForegroundColor DarkGray
+                        Write-PackageThemeText 'Filter installed packages' -ForegroundColor Cyan
+                        Write-PackageThemeText 'Type package name text to match Name or Id.' -ForegroundColor DarkGray
+                        Write-PackageThemeText ''
+                        Write-PackageThemeText "Current filter: $workingFilter" -ForegroundColor White
+                        Write-PackageThemeText ''
+                        Write-PackageThemeText 'Enter: apply filter  Backspace: delete  Ctrl+U: clear  Esc/Ctrl+C: cancel' -ForegroundColor DarkGray
 
                         $filterKey = & $KeyReader
                         $isFilterControlC = $filterKey.Key -eq [ConsoleKey]::C -and (($filterKey.Modifiers -band [ConsoleModifiers]::Control) -eq [ConsoleModifiers]::Control)
@@ -1262,11 +1305,11 @@ function Show-InstalledPlatformPackage
                         $lineColor = Get-PickerFrameLineColor -Line $line
                         if ($null -eq $lineColor)
                         {
-                            Write-Host $lineText
+                            Write-PackageThemeText $lineText
                         }
                         else
                         {
-                            Write-Host $lineText -ForegroundColor $lineColor
+                            Write-PackageThemeText $lineText -ForegroundColor $lineColor
                         }
                     }
 
@@ -1313,34 +1356,25 @@ function Show-InstalledPlatformPackage
                 try
                 {
                     [Console]::SetCursorPosition(0, 0)
-                    $originalForegroundColor = [Console]::ForegroundColor
-                    try
+                    for ($lineIndex = 0; $lineIndex -lt $frameLines.Count; $lineIndex++)
                     {
-                        for ($lineIndex = 0; $lineIndex -lt $frameLines.Count; $lineIndex++)
+                        if ($lineIndex -gt 0)
                         {
-                            if ($lineIndex -gt 0)
-                            {
-                                [Console]::Write("`r`n")
-                            }
-
-                            $line = $frameLines[$lineIndex]
-                            if ($null -eq $line.ForegroundColor)
-                            {
-                                [Console]::ForegroundColor = $originalForegroundColor
-                            }
-                            else
-                            {
-                                [Console]::ForegroundColor = $line.ForegroundColor
-                            }
-
-                            [Console]::Write($line.Text)
+                            [Console]::Write("`r`n")
                         }
-                    }
-                    finally
-                    {
-                        [Console]::ForegroundColor = $originalForegroundColor
-                    }
 
+                        $line = $frameLines[$lineIndex]
+                        $lineColor = switch ([String]$line.ForegroundColor)
+                        {
+                            { $_ -in 'Green', 'DarkGreen', 'Cyan', 'DarkCyan' } { $packageThemeAccent; break }
+                            { $_ -in 'Gray', 'DarkGray' } { $packageThemeMuted; break }
+                            { $_ -in 'Yellow', 'DarkYellow' } { $packageThemeWarning; break }
+                            { $_ -in 'Red', 'DarkRed' } { $packageThemeCritical; break }
+                            default { '' }
+                        }
+                        $lineText = if ($lineColor) { "$lineColor$($line.Text)$packageThemeReset" } else { $line.Text }
+                        [Console]::Write($lineText)
+                    }
                     $pickerRenderState.RenderedLineCount = $frameLines.Count
                 }
                 catch
@@ -1353,11 +1387,11 @@ function Show-InstalledPlatformPackage
                         $fallbackLineColor = Get-PickerFrameLineColor -Line $fallbackLine
                         if ($null -eq $fallbackLineColor)
                         {
-                            Write-Host $fallbackLineText
+                            Write-PackageThemeText $fallbackLineText
                         }
                         else
                         {
-                            Write-Host $fallbackLineText -ForegroundColor $fallbackLineColor
+                            Write-PackageThemeText $fallbackLineText -ForegroundColor $fallbackLineColor
                         }
                     }
                 }
@@ -1561,9 +1595,9 @@ function Show-InstalledPlatformPackage
                         [String]$Description
                     )
 
-                    Write-Host '  - ' -NoNewline -ForegroundColor White
-                    Write-Host "$Shortcut`: " -NoNewline -ForegroundColor White
-                    Write-Host $Description -ForegroundColor DarkGray
+                    Write-PackageThemeText '  - ' -NoNewline -ForegroundColor White
+                    Write-PackageThemeText "$Shortcut`: " -NoNewline -ForegroundColor White
+                    Write-PackageThemeText $Description -ForegroundColor DarkGray
                 }
 
                 $restoreInPlaceRedraw = $pickerRenderState.UseInPlaceRedraw
@@ -1571,26 +1605,26 @@ function Show-InstalledPlatformPackage
                 $pickerRenderState.RenderedLineCount = 0
 
                 Clear-Host
-                Write-Host 'Show-InstalledPlatformPackage Help' -ForegroundColor Cyan
-                Write-Host ''
-                Write-Host 'Navigation' -ForegroundColor White
+                Write-PackageThemeText 'Show-InstalledPlatformPackage Help' -ForegroundColor Cyan
+                Write-PackageThemeText ''
+                Write-PackageThemeText 'Navigation' -ForegroundColor White
                 Write-PackagePickerHelpItem -Shortcut 'Up/Down' -Description 'move one package'
                 Write-PackagePickerHelpItem -Shortcut 'PageUp/PageDown' -Description 'move one page'
                 Write-PackagePickerHelpItem -Shortcut 'Home/End' -Description 'move to the first or last package'
 
                 if ($hasSourceFilter)
                 {
-                    Write-Host ''
-                    Write-Host 'Source Filter' -ForegroundColor White
+                    Write-PackageThemeText ''
+                    Write-PackageThemeText 'Source Filter' -ForegroundColor White
                     Write-PackagePickerHelpItem -Shortcut 'S' -Description "cycle source: $($availableSources -join ' | ')"
                 }
 
-                Write-Host ''
-                Write-Host 'Name Filter' -ForegroundColor White
+                Write-PackageThemeText ''
+                Write-PackageThemeText 'Name Filter' -ForegroundColor White
                 Write-PackagePickerHelpItem -Shortcut 'F' -Description 'set a name/id filter (blank value clears it)'
 
-                Write-Host ''
-                Write-Host 'Actions' -ForegroundColor White
+                Write-PackageThemeText ''
+                Write-PackageThemeText 'Actions' -ForegroundColor White
                 Write-PackagePickerHelpItem -Shortcut 'D' -Description 'open or close the dependency view for the current package'
                 Write-PackagePickerHelpItem -Shortcut 'B' -Description 'return to the package list from the dependency view'
                 Write-PackagePickerHelpItem -Shortcut 'V' -Description 'load a missing winget description when available'
@@ -1607,8 +1641,8 @@ function Show-InstalledPlatformPackage
                     Write-PackagePickerHelpItem -Shortcut 'Enter' -Description 'return selected packages, or the current package if none are selected'
                 }
 
-                Write-Host ''
-                Write-Host 'Press any key to return to the picker. Q/Esc/Ctrl+C exits.' -ForegroundColor DarkGray
+                Write-PackageThemeText ''
+                Write-PackageThemeText 'Press any key to return to the picker. Q/Esc/Ctrl+C exits.' -ForegroundColor DarkGray
 
                 $helpKey = & $KeyReader
                 Clear-Host
@@ -1636,13 +1670,13 @@ function Show-InstalledPlatformPackage
                     while ($true)
                     {
                         Clear-Host
-                        Write-Host "$Action package" -ForegroundColor Cyan
-                        Write-Host ''
-                        Write-Host "Package: $($Package.Name)" -ForegroundColor White
-                        Write-Host "Id: $($Package.Id)" -ForegroundColor White
-                        Write-Host "Source: $($Package.Source)" -ForegroundColor White
-                        Write-Host ''
-                        Write-Host "Press Y to $($Action.ToLowerInvariant()) this package, or N to cancel." -ForegroundColor DarkGray
+                        Write-PackageThemeText "$Action package" -ForegroundColor Cyan
+                        Write-PackageThemeText ''
+                        Write-PackageThemeText "Package: $($Package.Name)" -ForegroundColor White
+                        Write-PackageThemeText "Id: $($Package.Id)" -ForegroundColor White
+                        Write-PackageThemeText "Source: $($Package.Source)" -ForegroundColor White
+                        Write-PackageThemeText ''
+                        Write-PackageThemeText "Press Y to $($Action.ToLowerInvariant()) this package, or N to cancel." -ForegroundColor DarkGray
 
                         $confirmKey = & $KeyReader
                         if ($confirmKey.Key -eq [ConsoleKey]::Y)
@@ -1695,18 +1729,18 @@ function Show-InstalledPlatformPackage
                     while ($true)
                     {
                         Clear-Host
-                        Write-Host 'Export installed packages' -ForegroundColor Cyan
-                        Write-Host ''
-                        Write-Host "Scope: $ScopeDescription" -ForegroundColor White
-                        Write-Host 'Formats: .json and .csv are supported. The format is inferred from the file extension.' -ForegroundColor DarkGray
-                        Write-Host ''
-                        Write-Host "File: $workingPath" -ForegroundColor White
+                        Write-PackageThemeText 'Export installed packages' -ForegroundColor Cyan
+                        Write-PackageThemeText ''
+                        Write-PackageThemeText "Scope: $ScopeDescription" -ForegroundColor White
+                        Write-PackageThemeText 'Formats: .json and .csv are supported. The format is inferred from the file extension.' -ForegroundColor DarkGray
+                        Write-PackageThemeText ''
+                        Write-PackageThemeText "File: $workingPath" -ForegroundColor White
                         if (-not [String]::IsNullOrWhiteSpace($validationMessage))
                         {
-                            Write-Host $validationMessage -ForegroundColor DarkYellow
+                            Write-PackageThemeText $validationMessage -ForegroundColor DarkYellow
                         }
-                        Write-Host ''
-                        Write-Host 'Enter: continue  Backspace: delete  Ctrl+U: clear  Esc/Ctrl+C: cancel' -ForegroundColor DarkGray
+                        Write-PackageThemeText ''
+                        Write-PackageThemeText 'Enter: continue  Backspace: delete  Ctrl+U: clear  Esc/Ctrl+C: cancel' -ForegroundColor DarkGray
 
                         $pathKey = & $KeyReader
                         if (Test-PackageTextPromptCancelKey -KeyInfo $pathKey)
@@ -1797,12 +1831,12 @@ function Show-InstalledPlatformPackage
                     while ($true)
                     {
                         Clear-Host
-                        Write-Host 'Choose export format' -ForegroundColor Cyan
-                        Write-Host ''
-                        Write-Host "File: $Path" -ForegroundColor White
-                        Write-Host 'The file extension does not identify a supported format.' -ForegroundColor DarkYellow
-                        Write-Host ''
-                        Write-Host 'J: JSON  C: CSV  Esc/Ctrl+C: cancel' -ForegroundColor DarkGray
+                        Write-PackageThemeText 'Choose export format' -ForegroundColor Cyan
+                        Write-PackageThemeText ''
+                        Write-PackageThemeText "File: $Path" -ForegroundColor White
+                        Write-PackageThemeText 'The file extension does not identify a supported format.' -ForegroundColor DarkYellow
+                        Write-PackageThemeText ''
+                        Write-PackageThemeText 'J: JSON  C: CSV  Esc/Ctrl+C: cancel' -ForegroundColor DarkGray
 
                         $formatKey = & $KeyReader
                         if (Test-PackageTextPromptCancelKey -KeyInfo $formatKey)
@@ -1848,14 +1882,14 @@ function Show-InstalledPlatformPackage
                     while ($true)
                     {
                         Clear-Host
-                        Write-Host 'Export installed packages' -ForegroundColor Cyan
-                        Write-Host ''
-                        Write-Host "Scope: $ScopeDescription" -ForegroundColor White
-                        Write-Host "Format: $Format" -ForegroundColor White
-                        Write-Host ''
-                        Write-Host 'Include dependency relationships in the export?' -ForegroundColor White
-                        Write-Host 'Dependency lookup can be slow for large exports.' -ForegroundColor DarkYellow
-                        Write-Host 'D/Y: direct dependencies  B: direct + required-by  N/Enter: packages only  Esc/Ctrl+C: cancel' -ForegroundColor DarkGray
+                        Write-PackageThemeText 'Export installed packages' -ForegroundColor Cyan
+                        Write-PackageThemeText ''
+                        Write-PackageThemeText "Scope: $ScopeDescription" -ForegroundColor White
+                        Write-PackageThemeText "Format: $Format" -ForegroundColor White
+                        Write-PackageThemeText ''
+                        Write-PackageThemeText 'Include dependency relationships in the export?' -ForegroundColor White
+                        Write-PackageThemeText 'Dependency lookup can be slow for large exports.' -ForegroundColor DarkYellow
+                        Write-PackageThemeText 'D/Y: direct dependencies  B: direct + required-by  N/Enter: packages only  Esc/Ctrl+C: cancel' -ForegroundColor DarkGray
 
                         $dependencyKey = & $KeyReader
                         if (Test-PackageTextPromptCancelKey -KeyInfo $dependencyKey)
@@ -1994,12 +2028,12 @@ function Show-InstalledPlatformPackage
                 try
                 {
                     Clear-Host
-                    Write-Host 'Exporting installed packages...' -ForegroundColor Cyan
-                    Write-Host "Scope: $($exportTarget.ScopeDescription)" -ForegroundColor White
-                    Write-Host "File: $exportPath" -ForegroundColor White
+                    Write-PackageThemeText 'Exporting installed packages...' -ForegroundColor Cyan
+                    Write-PackageThemeText "Scope: $($exportTarget.ScopeDescription)" -ForegroundColor White
+                    Write-PackageThemeText "File: $exportPath" -ForegroundColor White
                     if ($dependencyChoice.Include)
                     {
-                        Write-Host 'Resolving dependencies...' -ForegroundColor DarkGray
+                        Write-PackageThemeText 'Resolving dependencies...' -ForegroundColor DarkGray
                     }
 
                     $exportTreatControlCAsInputChanged = $false
@@ -2854,7 +2888,7 @@ function Show-InstalledPlatformPackage
 
         if (-not [String]::IsNullOrWhiteSpace($ExportPath) -and -not $CommandRunner)
         {
-            Write-Host 'Loading packages...' -ForegroundColor Cyan
+            Write-PackageThemeText 'Loading packages...' -ForegroundColor Cyan
         }
 
         $installedPackages = @(Get-PlatformPackage @getPlatformPackageParameters)
@@ -2891,7 +2925,7 @@ function Show-InstalledPlatformPackage
         if ($installedPackages.Count -eq 0)
         {
             $hasInputFilter = $Name.Count -gt 0 -or $ExcludePackage.Count -gt 0 -or -not [String]::IsNullOrWhiteSpace($FilterSource)
-            Write-Host (if ($hasInputFilter) { 'No installed packages matched the requested filters.' } else { 'No installed packages found.' }) -ForegroundColor White
+            Write-PackageThemeText (if ($hasInputFilter) { 'No installed packages matched the requested filters.' } else { 'No installed packages found.' }) -ForegroundColor White
             return @()
         }
 

@@ -51,10 +51,10 @@
         COLOR THRESHOLDS:
 
         Metrics are color-coded based on industry standards:
-        - Latency: Green <50ms | Yellow 50-99ms | Red ≥100ms
-        - Jitter: Green <10ms | Yellow 10-29ms | Red ≥30ms
-        - Packet Loss: Green 0% | Yellow 1-9% | Red ≥10%
-        - DNS Resolution: Green <50ms | Yellow 50-149ms | Red ≥150ms
+        - Latency: Teal <50ms | Yellow 50-99ms | Red ≥100ms
+        - Jitter: Teal <10ms | Yellow 10-29ms | Red ≥30ms
+        - Packet Loss: Teal 0% | Yellow 1-9% | Red ≥10%
+        - DNS Resolution: Teal <50ms | Yellow 50-149ms | Red ≥150ms
 
         Note: The "Findings" line uses higher thresholds for flagging issues:
         - Latency flagged at ≥100ms (yellow) or ≥200ms (red)
@@ -432,8 +432,7 @@
         POWERSHELL 5.1 BEHAVIOR:
         - PowerShell Desktop 5.1 does not support ANSI cursor control for in-place updates
         - Console is cleared between iterations using Clear-Host in continuous mode
-        - ANSI colors are automatically disabled on 5.1 to prevent escape codes in output
-        - PowerShell Core (6+) supports ANSI colors and in-place rendering
+        - The dashboard uses the same ANSI color theme on every PowerShell version
         - In continuous mode on Core, the default RenderMode is InPlace; use -RenderMode Clear for a full-screen refresh each loop or -RenderMode Stack to append output without clearing
 
         Author: Jon LaBelle
@@ -505,26 +504,67 @@
     {
         Write-Verbose 'Starting network diagnostics'
 
+        # Local console theme: teal accent, dark-white muted text, and semantic alerts.
+        $escapeCharacter = [String][Char]27
+        $themeAccent = $escapeCharacter + '[38;5;37m'
+        $themeMuted = $escapeCharacter + '[38;5;244m'
+        $themeWarning = $escapeCharacter + '[33m'
+        $themeCritical = $escapeCharacter + '[91m'
+        $themeReset = $escapeCharacter + '[0m'
+
+        function Write-DiagnosticHost
+        {
+            param(
+                [Parameter(Position = 0)]
+                [AllowNull()]
+                [Object]$Object = '',
+
+                [Parameter()]
+                [Switch]$NoNewline,
+
+                [Parameter()]
+                [AllowNull()]
+                [String]$ForegroundColor
+            )
+
+            $text = if ($null -eq $Object) { '' } else { [String]$Object }
+            $color = switch ($ForegroundColor)
+            {
+                { $_ -in 'Green', 'DarkGreen', 'Cyan', 'DarkCyan' } { $themeAccent; break }
+                { $_ -in 'Gray', 'DarkGray' } { $themeMuted; break }
+                { $_ -in 'Yellow', 'DarkYellow' } { $themeWarning; break }
+                { $_ -in 'Red', 'DarkRed' } { $themeCritical; break }
+                default { '' }
+            }
+
+            if ($color)
+            {
+                $text = "$color$text$themeReset"
+            }
+
+            Write-Host $text -NoNewline:$NoNewline.IsPresent
+        }
+
         # Shared threshold constants for consistent color coding across all output
         # These align with industry standards for network quality assessment
         $script:Thresholds = @{
             Latency = @{
-                Good = 50      # Green: < 50ms - suitable for real-time apps
+                Good = 50      # Accent: < 50ms - suitable for real-time apps
                 Warning = 100  # Yellow: 50-100ms - noticeable for interactive apps
                 Critical = 200 # Red: > 200ms - degraded experience
             }
             Jitter = @{
-                Good = 10      # Green: < 10ms - excellent for VoIP/gaming
+                Good = 10      # Accent: < 10ms - excellent for VoIP/gaming
                 Warning = 30   # Yellow: 10-30ms - acceptable for most apps
                 Critical = 50  # Red: > 50ms - unsuitable for real-time
             }
             PacketLoss = @{
-                Good = 0       # Green: 0% - perfect connectivity
+                Good = 0       # Accent: 0% - perfect connectivity
                 Warning = 2    # Yellow: 0-2% - minor issues
                 Critical = 10  # Red: > 10% - significant problems
             }
             Dns = @{
-                Good = 50      # Green: < 50ms - fast DNS
+                Good = 50      # Accent: < 50ms - fast DNS
                 Warning = 100  # Yellow: 50-100ms - acceptable
                 Critical = 150 # Red: > 150ms - slow DNS
             }
@@ -843,10 +883,8 @@
                 return $segments
             }
 
-            # Only use ANSI clear tail on PowerShell Core
-            $clearTail = if ($InPlace -and $PSVersionTable.PSVersion.Major -ge 6) { "`e[K" } else { '' }
-            # Only use ANSI reset codes on PowerShell Core
-            $resetEsc = if ($PSVersionTable.PSVersion.Major -ge 6) { "`e[0m" } else { '' }
+            $clearTail = if ($InPlace) { $escapeCharacter + '[K' } else { '' }
+            $resetEsc = $themeReset
 
             function Write-FramePrefix
             {
@@ -855,10 +893,10 @@
                     [string]$Text = ''
                 )
 
-                Write-Host ([char]0x2551) -NoNewline -ForegroundColor $FrameColor
+                Write-DiagnosticHost ([char]0x2551) -NoNewline -ForegroundColor $FrameColor
                 if (-not [string]::IsNullOrEmpty($Text))
                 {
-                    Write-Host $Text -NoNewline
+                    Write-DiagnosticHost $Text -NoNewline -ForegroundColor DarkGray
                 }
             }
 
@@ -875,10 +913,10 @@
 
             if ($Results.Count -eq 0)
             {
-                Write-Host $clearTail
-                Write-Host '  No results to display. All connection attempts may have failed.' -ForegroundColor Red
-                Write-Host ("  Check your internet connection or firewall settings.$clearTail") -ForegroundColor Yellow
-                Write-Host $clearTail
+                Write-DiagnosticHost $clearTail
+                Write-DiagnosticHost '  No results to display. All connection attempts may have failed.' -ForegroundColor Red
+                Write-DiagnosticHost ("  Check your internet connection or firewall settings.$clearTail") -ForegroundColor Yellow
+                Write-DiagnosticHost $clearTail
                 $linesPrintedLocal += 3
 
                 if ($ReturnLineCount)
@@ -958,16 +996,16 @@
                     'D' { 'Poor' }
                     default { 'Critical' }
                 }
-                Write-Host ("$([char]0x2554)$([char]0x2550) $statusIcon ") -ForegroundColor $statusColor -NoNewline
-                Write-Host "$($result.HostName):$($result.Port)" -ForegroundColor $statusColor -NoNewline
-                Write-Host ' [' -ForegroundColor DarkGray -NoNewline
-                Write-Host "$healthGrade $gradeLabel" -ForegroundColor $gradeColor -NoNewline
-                Write-Host ']' -ForegroundColor DarkGray -NoNewline
+                Write-DiagnosticHost ("$([char]0x2554)$([char]0x2550) $statusIcon ") -ForegroundColor $statusColor -NoNewline
+                Write-DiagnosticHost "$($result.HostName):$($result.Port)" -ForegroundColor $statusColor -NoNewline
+                Write-DiagnosticHost ' [' -ForegroundColor DarkGray -NoNewline
+                Write-DiagnosticHost "$healthGrade $gradeLabel" -ForegroundColor $gradeColor -NoNewline
+                Write-DiagnosticHost ']' -ForegroundColor DarkGray -NoNewline
                 if ($elapsedText)
                 {
-                    Write-Host "$elapsedText" -ForegroundColor DarkGray -NoNewline
+                    Write-DiagnosticHost "$elapsedText" -ForegroundColor DarkGray -NoNewline
                 }
-                Write-Host $clearTail -ForegroundColor $statusColor
+                Write-DiagnosticHost $clearTail -ForegroundColor $statusColor
                 $linesPrintedLocal++
 
                 if ($SummaryOnly)
@@ -975,41 +1013,41 @@
                     if ($null -ne $result.LatencyAvg)
                     {
                         Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Summary')
-                        Write-Host 'avg ' -NoNewline -ForegroundColor Gray
+                        Write-DiagnosticHost 'avg ' -NoNewline -ForegroundColor Gray
                         $avgColor = if ($result.LatencyAvg -lt $t.Latency.Good) { 'Green' } elseif ($result.LatencyAvg -lt $t.Latency.Warning) { 'Yellow' } else { 'Red' }
-                        Write-Host "$($result.LatencyAvg)ms" -NoNewline -ForegroundColor $avgColor
-                        Write-Host ' | jitter ' -NoNewline -ForegroundColor Gray
+                        Write-DiagnosticHost "$($result.LatencyAvg)ms" -NoNewline -ForegroundColor $avgColor
+                        Write-DiagnosticHost ' | jitter ' -NoNewline -ForegroundColor Gray
                         $jitterColor = if ($result.Jitter -lt $t.Jitter.Good) { 'Green' } elseif ($result.Jitter -lt $t.Jitter.Warning) { 'Yellow' } else { 'Red' }
-                        Write-Host "$($result.Jitter)ms" -NoNewline -ForegroundColor $jitterColor
-                        Write-Host ' | loss ' -NoNewline -ForegroundColor Gray
+                        Write-DiagnosticHost "$($result.Jitter)ms" -NoNewline -ForegroundColor $jitterColor
+                        Write-DiagnosticHost ' | loss ' -NoNewline -ForegroundColor Gray
                         $lossColor = if ($result.PacketLoss -eq $t.PacketLoss.Good) { 'Green' } elseif ($result.PacketLoss -lt $t.PacketLoss.Critical) { 'Yellow' } else { 'Red' }
-                        Write-Host "$($result.PacketLoss)%" -NoNewline -ForegroundColor $lossColor
-                        Write-Host ' | success ' -NoNewline -ForegroundColor Gray
+                        Write-DiagnosticHost "$($result.PacketLoss)%" -NoNewline -ForegroundColor $lossColor
+                        Write-DiagnosticHost ' | success ' -NoNewline -ForegroundColor Gray
                         $qualityColor = if ($successRate -ge 98) { 'Green' } elseif ($successRate -ge 90) { 'Yellow' } else { 'Red' }
-                        Write-Host "$($result.SamplesSuccess)/$($result.SamplesTotal)" -NoNewline -ForegroundColor $qualityColor
+                        Write-DiagnosticHost "$($result.SamplesSuccess)/$($result.SamplesTotal)" -NoNewline -ForegroundColor $qualityColor
                         if ($null -ne $result.DnsResolution)
                         {
-                            Write-Host ' | dns ' -NoNewline -ForegroundColor Gray
+                            Write-DiagnosticHost ' | dns ' -NoNewline -ForegroundColor Gray
                             $dnsColor = if ($result.DnsResolution -lt $t.Dns.Good) { 'Green' } elseif ($result.DnsResolution -lt $t.Dns.Critical) { 'Yellow' } else { 'Red' }
-                            Write-Host "$($result.DnsResolution)ms" -NoNewline -ForegroundColor $dnsColor
+                            Write-DiagnosticHost "$($result.DnsResolution)ms" -NoNewline -ForegroundColor $dnsColor
                         }
                         if ($flags.Count -gt 0)
                         {
                             $flagPreview = ($flags | Select-Object -First 2 | ForEach-Object { $_.Text }) -join ', '
                             $flagColor = ($flags | Select-Object -First 1).Color
-                            Write-Host ' | flags ' -NoNewline -ForegroundColor Gray
-                            Write-Host $flagPreview -NoNewline -ForegroundColor $flagColor
+                            Write-DiagnosticHost ' | flags ' -NoNewline -ForegroundColor Gray
+                            Write-DiagnosticHost $flagPreview -NoNewline -ForegroundColor $flagColor
                             if ($flags.Count -gt 2)
                             {
-                                Write-Host " +$($flags.Count - 2)" -NoNewline -ForegroundColor DarkGray
+                                Write-DiagnosticHost " +$($flags.Count - 2)" -NoNewline -ForegroundColor DarkGray
                             }
                         }
-                        Write-Host $clearTail
+                        Write-DiagnosticHost $clearTail
                     }
                     else
                     {
                         Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Summary')
-                        Write-Host ("No successful connections$clearTail") -ForegroundColor Red
+                        Write-DiagnosticHost ("No successful connections$clearTail") -ForegroundColor Red
                     }
                     $linesPrintedLocal++
 
@@ -1023,26 +1061,26 @@
                             {
                                 if ($trendIndex -gt 0)
                                 {
-                                    Write-Host ' | ' -NoNewline -ForegroundColor DarkGray
+                                    Write-DiagnosticHost ' | ' -NoNewline -ForegroundColor DarkGray
                                 }
-                                Write-Host $segment.Text -NoNewline -ForegroundColor $segment.Color
+                                Write-DiagnosticHost $segment.Text -NoNewline -ForegroundColor $segment.Color
                                 $trendIndex++
                             }
-                            Write-Host $clearTail
+                            Write-DiagnosticHost $clearTail
                         }
                         elseif ($null -eq $previousResult)
                         {
-                            Write-Host ("baseline (next refresh shows deltas)$clearTail") -ForegroundColor DarkGray
+                            Write-DiagnosticHost ("baseline (next refresh shows deltas)$clearTail") -ForegroundColor DarkGray
                         }
                         else
                         {
-                            Write-Host ("insufficient data for trend$clearTail") -ForegroundColor DarkGray
+                            Write-DiagnosticHost ("insufficient data for trend$clearTail") -ForegroundColor DarkGray
                         }
                         $linesPrintedLocal++
                     }
 
-                    Write-Host (([string][char]0x255A + ([string][char]0x2550) * 79 + $clearTail)) -ForegroundColor $statusColor
-                    Write-Host
+                    Write-DiagnosticHost (([string][char]0x255A + ([string][char]0x2550) * 79 + $clearTail)) -ForegroundColor $statusColor
+                    Write-DiagnosticHost
                     $linesPrintedLocal += 2
                     continue
                 }
@@ -1054,7 +1092,7 @@
                     if ($result.LatencyData.Count -gt 0)
                     {
                         Write-FramePrefix -FrameColor $statusColor
-                        Write-Host ("$resetEsc$clearTail")
+                        Write-DiagnosticHost ("$resetEsc$clearTail")
                         $graph = & $getCachedGraph $result.LatencyData 'TimeSeries' 70 8 $true $Style
                         $graphLineCount = 0
 
@@ -1068,9 +1106,9 @@
                                 # Skip empty lines at the end
                                 if ($line.Trim() -or $graphLineCount -eq 0)
                                 {
-                                    # Use Write-Host for better Unicode handling in modern terminals
+                                    # Use Write-DiagnosticHost for better Unicode handling in modern terminals
                                     Write-FramePrefix -FrameColor $statusColor -Text '  '
-                                    Write-Host ("$line$clearTail")
+                                    Write-DiagnosticHost ("$line$clearTail")
                                     $graphLineCount++
                                 }
                             }
@@ -1078,7 +1116,7 @@
                         else
                         {
                             Write-FramePrefix -FrameColor $statusColor -Text '  '
-                            Write-Host ("Graph data unavailable$clearTail") -ForegroundColor DarkGray
+                            Write-DiagnosticHost ("Graph data unavailable$clearTail") -ForegroundColor DarkGray
                             $graphLineCount = 1
                         }
                         $linesPrintedLocal += ($graphLineCount + 1)
@@ -1092,13 +1130,13 @@
                     {
                         Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Latency')
                         # Use default color to preserve ANSI codes in sparkline
-                        Write-Host ("$resetEsc$sparkline$resetEsc$clearTail")
+                        Write-DiagnosticHost ("$resetEsc$sparkline$resetEsc$clearTail")
                         $linesPrintedLocal++
                     }
                     else
                     {
                         Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Latency')
-                        Write-Host ("$resetEsc$sparkline$resetEsc$clearTail") -ForegroundColor Red
+                        Write-DiagnosticHost ("$resetEsc$sparkline$resetEsc$clearTail") -ForegroundColor Red
                         $linesPrintedLocal++
                     }
 
@@ -1106,45 +1144,45 @@
                     if ($null -ne $result.LatencyAvg)
                     {
                         Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Stats')
-                        Write-Host 'min: ' -NoNewline -ForegroundColor Gray
-                        Write-Host "$($result.LatencyMin)ms" -NoNewline -ForegroundColor Green
-                        Write-Host ' | max: ' -NoNewline -ForegroundColor Gray
+                        Write-DiagnosticHost 'min: ' -NoNewline -ForegroundColor Gray
+                        Write-DiagnosticHost "$($result.LatencyMin)ms" -NoNewline -ForegroundColor Green
+                        Write-DiagnosticHost ' | max: ' -NoNewline -ForegroundColor Gray
                         $maxColor = if ($result.LatencyMax -lt $t.Latency.Good) { 'Green' } elseif ($result.LatencyMax -lt $t.Latency.Warning) { 'Yellow' } else { 'Red' }
-                        Write-Host "$($result.LatencyMax)ms" -NoNewline -ForegroundColor $maxColor
-                        Write-Host ' | avg: ' -NoNewline -ForegroundColor Gray
+                        Write-DiagnosticHost "$($result.LatencyMax)ms" -NoNewline -ForegroundColor $maxColor
+                        Write-DiagnosticHost ' | avg: ' -NoNewline -ForegroundColor Gray
                         $avgColor = if ($result.LatencyAvg -lt $t.Latency.Good) { 'Green' } elseif ($result.LatencyAvg -lt $t.Latency.Warning) { 'Yellow' } else { 'Red' }
-                        Write-Host "$($result.LatencyAvg)ms" -NoNewline -ForegroundColor $avgColor
-                        Write-Host ' | jitter: ' -NoNewline -ForegroundColor Gray
+                        Write-DiagnosticHost "$($result.LatencyAvg)ms" -NoNewline -ForegroundColor $avgColor
+                        Write-DiagnosticHost ' | jitter: ' -NoNewline -ForegroundColor Gray
                         $jitterColor = if ($result.Jitter -lt $t.Jitter.Good) { 'Green' } elseif ($result.Jitter -lt $t.Jitter.Warning) { 'Yellow' } else { 'Red' }
-                        Write-Host "$($result.Jitter)ms" -NoNewline -ForegroundColor $jitterColor
-                        Write-Host ' | samples: ' -NoNewline -ForegroundColor Gray
-                        Write-Host ("$($result.SamplesTotal)$clearTail") -ForegroundColor Cyan
+                        Write-DiagnosticHost "$($result.Jitter)ms" -NoNewline -ForegroundColor $jitterColor
+                        Write-DiagnosticHost ' | samples: ' -NoNewline -ForegroundColor Gray
+                        Write-DiagnosticHost ("$($result.SamplesTotal)$clearTail") -ForegroundColor Cyan
                         $linesPrintedLocal++
                     }
                     else
                     {
                         Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Stats')
-                        Write-Host ("No successful connections$clearTail") -ForegroundColor Red
+                        Write-DiagnosticHost ("No successful connections$clearTail") -ForegroundColor Red
                         $linesPrintedLocal++
                     }
                 }
 
                 # Packet loss and success rate with color coding
                 Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Quality')
-                Write-Host "$($result.SamplesSuccess)/$($result.SamplesTotal)" -NoNewline -ForegroundColor Cyan
+                Write-DiagnosticHost "$($result.SamplesSuccess)/$($result.SamplesTotal)" -NoNewline -ForegroundColor Cyan
                 $qualityColor = if ($successRate -ge 98) { 'Green' } elseif ($successRate -ge 90) { 'Yellow' } else { 'Red' }
-                Write-Host ' successful (' -NoNewline
-                Write-Host "$successRate%" -NoNewline -ForegroundColor $qualityColor
-                Write-Host ') | Packet Loss: ' -NoNewline
+                Write-DiagnosticHost ' successful (' -NoNewline
+                Write-DiagnosticHost "$successRate%" -NoNewline -ForegroundColor $qualityColor
+                Write-DiagnosticHost ') | Packet Loss: ' -NoNewline
                 $lossColor = if ($result.PacketLoss -eq $t.PacketLoss.Good) { 'Green' } elseif ($result.PacketLoss -lt $t.PacketLoss.Critical) { 'Yellow' } else { 'Red' }
-                Write-Host "$($result.PacketLoss)%" -NoNewline -ForegroundColor $lossColor
+                Write-DiagnosticHost "$($result.PacketLoss)%" -NoNewline -ForegroundColor $lossColor
                 # Visual quality bar
                 $barWidth = 10
                 $filledCount = [Math]::Round(($successRate / 100) * $barWidth)
                 $emptyCount = $barWidth - $filledCount
-                Write-Host ' ' -NoNewline
-                Write-Host (([string][char]0x2588) * $filledCount) -NoNewline -ForegroundColor $qualityColor
-                Write-Host (([string][char]0x2591) * $emptyCount + $clearTail) -ForegroundColor DarkGray
+                Write-DiagnosticHost ' ' -NoNewline
+                Write-DiagnosticHost (([string][char]0x2588) * $filledCount) -NoNewline -ForegroundColor $qualityColor
+                Write-DiagnosticHost (([string][char]0x2591) * $emptyCount + $clearTail) -ForegroundColor DarkGray
                 $linesPrintedLocal++
 
                 if ($ShowTrend)
@@ -1157,20 +1195,20 @@
                         {
                             if ($trendIndex -gt 0)
                             {
-                                Write-Host ' | ' -NoNewline -ForegroundColor DarkGray
+                                Write-DiagnosticHost ' | ' -NoNewline -ForegroundColor DarkGray
                             }
-                            Write-Host $segment.Text -NoNewline -ForegroundColor $segment.Color
+                            Write-DiagnosticHost $segment.Text -NoNewline -ForegroundColor $segment.Color
                             $trendIndex++
                         }
-                        Write-Host $clearTail
+                        Write-DiagnosticHost $clearTail
                     }
                     elseif ($null -eq $previousResult)
                     {
-                        Write-Host ("baseline (next refresh shows deltas)$clearTail") -ForegroundColor DarkGray
+                        Write-DiagnosticHost ("baseline (next refresh shows deltas)$clearTail") -ForegroundColor DarkGray
                     }
                     else
                     {
-                        Write-Host ("insufficient data for trend$clearTail") -ForegroundColor DarkGray
+                        Write-DiagnosticHost ("insufficient data for trend$clearTail") -ForegroundColor DarkGray
                     }
                     $linesPrintedLocal++
                 }
@@ -1179,7 +1217,7 @@
                 Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Findings')
                 if ($flags.Count -eq 0)
                 {
-                    Write-Host ("Healthy $($script:StatusIcons.Healthy)$clearTail") -ForegroundColor Green
+                    Write-DiagnosticHost ("Healthy $($script:StatusIcons.Healthy)$clearTail") -ForegroundColor Green
                 }
                 else
                 {
@@ -1188,12 +1226,12 @@
                     {
                         if ($flagIndex -gt 0)
                         {
-                            Write-Host ' | ' -NoNewline -ForegroundColor DarkGray
+                            Write-DiagnosticHost ' | ' -NoNewline -ForegroundColor DarkGray
                         }
-                        Write-Host $flag.Text -NoNewline -ForegroundColor $flag.Color
+                        Write-DiagnosticHost $flag.Text -NoNewline -ForegroundColor $flag.Color
                         $flagIndex++
                     }
-                    Write-Host $clearTail
+                    Write-DiagnosticHost $clearTail
                 }
                 $linesPrintedLocal++
 
@@ -1202,8 +1240,8 @@
                 {
                     Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'DNS')
                     $dnsColor = if ($result.DnsResolution -lt $t.Dns.Good) { 'Green' } elseif ($result.DnsResolution -lt $t.Dns.Critical) { 'Yellow' } else { 'Red' }
-                    Write-Host "$($result.DnsResolution)ms" -NoNewline -ForegroundColor $dnsColor
-                    Write-Host (" resolution time$clearTail")
+                    Write-DiagnosticHost "$($result.DnsResolution)ms" -NoNewline -ForegroundColor $dnsColor
+                    Write-DiagnosticHost (" resolution time$clearTail")
                     $linesPrintedLocal++
                 }
 
@@ -1217,8 +1255,8 @@
                     Write-Verbose "Failed to reset console color: $($_.Exception.Message)"
                 }
 
-                Write-Host (([string][char]0x255A + ([string][char]0x2550) * 79 + $clearTail)) -ForegroundColor $statusColor
-                Write-Host
+                Write-DiagnosticHost (([string][char]0x255A + ([string][char]0x2550) * 79 + $clearTail)) -ForegroundColor $statusColor
+                Write-DiagnosticHost
                 $linesPrintedLocal += 2
             }
 
@@ -1460,13 +1498,13 @@
                 # Print a single header line each refresh with timestamp and iteration.
                 $timestamp = (Get-Date).ToString('HH:mm:ss')
                 $headerRule = ([string][char]0x2550) * 3
-                Write-Host "$headerRule " -ForegroundColor DarkGray -NoNewline
-                Write-Host 'Network Diagnostic - Continuous Mode' -ForegroundColor White -NoNewline
-                Write-Host " $headerRule " -ForegroundColor DarkGray -NoNewline
-                Write-Host "[$timestamp]" -ForegroundColor Cyan -NoNewline
-                Write-Host ' ' -NoNewline
-                Write-Host "Refresh #$iteration" -ForegroundColor White
-                Write-Host
+                Write-DiagnosticHost "$headerRule " -ForegroundColor DarkGray -NoNewline
+                Write-DiagnosticHost 'Network Diagnostic - Continuous Mode' -ForegroundColor White -NoNewline
+                Write-DiagnosticHost " $headerRule " -ForegroundColor DarkGray -NoNewline
+                Write-DiagnosticHost "[$timestamp]" -ForegroundColor Cyan -NoNewline
+                Write-DiagnosticHost ' ' -NoNewline
+                Write-DiagnosticHost "Refresh #$iteration" -ForegroundColor White
+                Write-DiagnosticHost
             }
             $linesPrinted = if ($Continuous) { 2 } else { 0 }
 
@@ -1500,7 +1538,7 @@
                 {
                     $linesPrinted += [int]$countOut
                 }
-                Write-Host 'Press Q or Ctrl+C to stop monitoring.' -ForegroundColor DarkGray
+                Write-DiagnosticHost 'Press Q or Ctrl+C to stop monitoring.' -ForegroundColor DarkGray
                 $linesPrinted++
 
                 $nextSnapshot = @{}

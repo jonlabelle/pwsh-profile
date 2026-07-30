@@ -200,4 +200,44 @@ Describe 'Remove-DockerArtifact' {
             $result.TotalSpaceFreed | Should-Be '0 bytes'
         }
     }
+
+    Context 'Summary theme' {
+        It 'Uses warning color only for WhatIf status and keeps the result object ANSI-free' {
+            function docker
+            {
+                @()
+            }
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'docker' } -MockWith {
+                [PSCustomObject]@{
+                    Name = 'docker'
+                    Source = 'test-docker'
+                }
+            }
+            Mock -CommandName docker -MockWith { @() }
+            $global:LASTEXITCODE = 0
+
+            $script:ThemeHostOutput = [System.Collections.Generic.List[String]]::new()
+            Mock -CommandName Write-Host -MockWith {
+                if ($null -ne $Object)
+                {
+                    $script:ThemeHostOutput.Add([String]$Object)
+                }
+            }
+
+            $result = Remove-DockerArtifact -WhatIf
+            $escapeCharacter = [String][Char]27
+            $ansiPattern = "$escapeCharacter\[[0-9;]*m"
+            $rawOutput = $script:ThemeHostOutput -join ''
+            $codes = @([Regex]::Matches($rawOutput, $ansiPattern).Value | Sort-Object -Unique)
+
+            $codes.Count | Should-Be 4
+            $codes | Should-ContainCollection "$escapeCharacter[38;5;37m"
+            $codes | Should-ContainCollection "$escapeCharacter[38;5;244m"
+            $codes | Should-ContainCollection "$escapeCharacter[33m"
+            $codes | Should-ContainCollection "$escapeCharacter[0m"
+            $codes | Should-NotContainCollection "$escapeCharacter[91m"
+            ($result | ConvertTo-Json -Depth 5) | Should-NotMatchString ([Regex]::Escape($escapeCharacter))
+        }
+    }
 }

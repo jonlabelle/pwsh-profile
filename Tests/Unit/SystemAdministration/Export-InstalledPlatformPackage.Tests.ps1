@@ -53,6 +53,42 @@ Describe 'Export-InstalledPlatformPackage' {
         Should-Invoke -CommandName Write-Host -Times 0 -Exactly
     }
 
+    It 'uses the accent and muted palette for progress output' {
+        $package = [PSCustomObject]@{
+            Name = 'git'
+            Id = 'git'
+            PackageManager = 'brew'
+            PackageManagerDisplayName = 'Homebrew'
+            Type = 'Formula'
+            InstalledVersion = '2.44.0'
+            Source = 'homebrew/formula'
+            Publisher = 'Homebrew'
+            Description = ''
+            Notes = ''
+        }
+        $script:ThemeOutput = [System.Collections.Generic.List[String]]::new()
+        Mock -CommandName Write-Host -MockWith {
+            param([Object]$Object)
+            if ($null -ne $Object)
+            {
+                $script:ThemeOutput.Add([String]$Object)
+            }
+        }
+
+        $exportPath = Join-Path -Path $TestDrive -ChildPath 'packages-progress.json'
+        $null = Export-InstalledPlatformPackage -Package $package -Path $exportPath -ShowProgress
+
+        $escapeCharacter = [String][Char]27
+        $codes = @($script:ThemeOutput | Where-Object { $_ -match ([Regex]::Escape($escapeCharacter) + '\[[0-9;]*m') } | Sort-Object -Unique)
+
+        $codes.Count | Should-Be 3
+        $codes | Should-ContainCollection "$escapeCharacter[38;5;37m"
+        $codes | Should-ContainCollection "$escapeCharacter[38;5;244m"
+        $codes | Should-ContainCollection "$escapeCharacter[0m"
+        $script:ThemeOutput | Should-ContainCollection 'Exporting installed packages...'
+        $script:ThemeOutput | Should-ContainCollection "File: $exportPath"
+    }
+
     It 'exports CSV with direct dependencies' {
         $package = [PSCustomObject]@{
             Name = 'git'

@@ -1,4 +1,4 @@
-function Invoke-GitPull
+﻿function Invoke-GitPull
 {
     <#
     .SYNOPSIS
@@ -692,21 +692,28 @@ function Invoke-GitPull
         }
 
         # Summary
+        $summaryEscape = [String][Char]27
+        $summaryAccent = $summaryEscape + '[38;5;37m'
+        $summaryMuted = $summaryEscape + '[38;5;244m'
+        $summaryWarning = $summaryEscape + '[33m'
+        $summaryCritical = $summaryEscape + '[91m'
+        $summaryReset = $summaryEscape + '[0m'
+
         Write-Host ''
-        Write-Host 'Summary:' -ForegroundColor Cyan
-        Write-Host "  Repositories processed: $($stats.RepositoriesProcessed)" -ForegroundColor Gray
-        Write-Host "  Updated successfully:   $($stats.RepositoriesUpdated)" -ForegroundColor Green
+        Write-Host "${summaryAccent}Summary:$summaryReset"
+        Write-Host "${summaryMuted}  Repositories processed:$summaryReset $($stats.RepositoriesProcessed)"
+        Write-Host "${summaryMuted}  Updated successfully:  $summaryReset ${summaryAccent}$($stats.RepositoriesUpdated)$summaryReset"
         if ($stats.RepositoriesAlreadyUpToDate -gt 0)
         {
-            Write-Host "  Already up to date:     $($stats.RepositoriesAlreadyUpToDate)" -ForegroundColor DarkGreen
+            Write-Host "${summaryMuted}  Already up to date:    $summaryReset $($stats.RepositoriesAlreadyUpToDate)"
         }
         if ($stats.RepositoriesSkipped -gt 0)
         {
-            Write-Host "  Skipped (not Git):      $($stats.RepositoriesSkipped)" -ForegroundColor Yellow
+            Write-Host "${summaryMuted}  Skipped (not Git):     $summaryReset ${summaryWarning}$($stats.RepositoriesSkipped)$summaryReset"
         }
         if ($stats.RepositoriesFailed -gt 0)
         {
-            Write-Host "  Failed:                 $($stats.RepositoriesFailed)" -ForegroundColor Red
+            Write-Host "${summaryMuted}  Failed:                $summaryReset ${summaryCritical}$($stats.RepositoriesFailed)$summaryReset"
         }
 
         # Return summary object

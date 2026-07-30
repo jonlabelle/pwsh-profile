@@ -372,13 +372,19 @@ function Rename-VideoSeasonFile
 
         if ($processedCount -gt 0)
         {
-            Write-Host "`nSummary: " -ForegroundColor Magenta -NoNewline
-            Write-Host "Processed $processedCount files across $($Path.Count) path(s), renamed $renamedCount files" -ForegroundColor White
+            $summaryEscape = [String][Char]27
+            $summaryAccent = $summaryEscape + '[38;5;37m'
+            $summaryMuted = $summaryEscape + '[38;5;244m'
+            $summaryReset = $summaryEscape + '[0m'
+
+            Write-Host "`n${summaryAccent}Summary:$summaryReset"
+            Write-Host "${summaryMuted}  Processed:$summaryReset $processedCount"
+            Write-Host "${summaryMuted}  Paths:    $summaryReset $($Path.Count)"
+            Write-Host "${summaryMuted}  Renamed:  $summaryReset ${summaryAccent}$renamedCount$summaryReset"
 
             if ($elapsedTime.TotalSeconds -ge 1)
             {
-                Write-Host 'Elapsed time: ' -ForegroundColor Cyan -NoNewline
-                Write-Host "$elapsedFormatted" -ForegroundColor White
+                Write-Host "${summaryMuted}  Elapsed:  $summaryReset $elapsedFormatted"
             }
         }
 

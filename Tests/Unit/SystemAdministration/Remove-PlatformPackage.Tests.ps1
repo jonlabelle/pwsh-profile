@@ -344,7 +344,11 @@ Describe 'Remove-PlatformPackage' {
             ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).StreamOutput | Should-BeTruthy
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A toggle all  F: [all]" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Nav: Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel" } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  0 selected" -and $ForegroundColor -eq 'White' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  0 selected" } -Times 1
+            $escapeCharacter = [String][Char]27
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[38;5;37m" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[38;5;244m" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[0m" } -Times 1
         }
 
         It 'shows keyboard help from the removal picker' {
@@ -369,7 +373,7 @@ Describe 'Remove-PlatformPackage' {
             $result.Removed | Should-Be 0
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Remove-PlatformPackage Help' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'P: ' } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'toggle purge/zap removal for the current package' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'toggle purge/zap removal for the current package' } -Times 1
         }
 
         It 'treats Ctrl+C as a cancel command' {

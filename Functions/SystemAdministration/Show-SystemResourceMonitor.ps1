@@ -315,21 +315,8 @@
             }
         }
 
-        $supportsAnsi = $false
-        if (-not $NoColor)
-        {
-            try
-            {
-                if ($PSVersionTable.PSVersion.Major -ge 7 -and ($hostSupportsVirtualTerminal -or ((-not $isWindowsPlatform) -and $hasUsableAnsiTerm)))
-                {
-                    $supportsAnsi = $true
-                }
-            }
-            catch
-            {
-                $supportsAnsi = $false
-            }
-        }
+        # Color is the default dashboard presentation; -NoColor is the explicit plain-text mode.
+        $supportsAnsi = -not $NoColor.IsPresent
 
         $supportsUnicode = -not $Ascii
         if ($supportsUnicode)
@@ -352,7 +339,12 @@
             }
         }
 
-        $ansiReset = if ($supportsAnsi) { "$([char]27)[0m" } else { '' }
+        $escapeCharacter = [String][Char]27
+        $ansiAccent = if ($supportsAnsi) { $escapeCharacter + '[38;5;37m' } else { '' }
+        $ansiMuted = if ($supportsAnsi) { $escapeCharacter + '[38;5;244m' } else { '' }
+        $ansiWarning = if ($supportsAnsi) { $escapeCharacter + '[33m' } else { '' }
+        $ansiCritical = if ($supportsAnsi) { $escapeCharacter + '[91m' } else { '' }
+        $ansiReset = if ($supportsAnsi) { $escapeCharacter + '[0m' } else { '' }
 
         $statusIcons = @{
             Healthy = if ($supportsUnicode) { [String][char]0x2713 } else { '+' }
@@ -658,14 +650,13 @@
                 return $Grade
             }
 
-            $esc = [char]27
             $gradeColor = switch ($Grade)
             {
-                'A' { "$esc[32m" }
-                'B' { "$esc[36m" }
-                'C' { "$esc[33m" }
-                'D' { "$esc[33m" }
-                default { "$esc[31m" }
+                'A' { $ansiAccent }
+                'B' { $ansiAccent }
+                'C' { $ansiWarning }
+                'D' { $ansiWarning }
+                default { $ansiCritical }
             }
 
             return $gradeColor + $Grade + $ansiReset
@@ -1078,9 +1069,9 @@
             }
 
             $value = [Double]$Percent
-            if ($value -lt 60) { return "$([char]27)[32m" }
-            if ($value -lt 85) { return "$([char]27)[33m" }
-            return "$([char]27)[31m"
+            if ($value -lt 60) { return $ansiAccent }
+            if ($value -lt 85) { return $ansiWarning }
+            return $ansiCritical
         }
 
         function Add-Color
@@ -1119,8 +1110,22 @@
                 return $Text
             }
 
-            $darkGray = "$([char]27)[90m"
-            return $darkGray + $Text + $ansiReset
+            return $ansiMuted + $Text + $ansiReset
+        }
+
+        function Add-AccentText
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$Text
+            )
+
+            if (-not $supportsAnsi)
+            {
+                return $Text
+            }
+
+            return $ansiAccent + $Text + $ansiReset
         }
 
         function Test-ProcessNameFilterMatch
@@ -2268,23 +2273,30 @@
             }
 
             $divider = $dividerChar * $dividerLength
-            $gradeText = Format-HealthGrade -Grade $healthGrade
             $overallSummaryPlain = ('{0} {1} [{2}] {3}' -f (Format-Percent -Percent $overallLoad).Trim(), $overallStatus, $healthGrade, $statusIcon)
-            $overallSummaryDisplay = ('{0} {1} [{2}] {3}' -f (Format-Percent -Percent $overallLoad).Trim(), $overallStatus, $gradeText, $statusIcon)
             $titleText = 'System Resource Monitor'
 
             $titleLine = $titleText
             $titlePadding = $divider.Length - $titleText.Length - $overallSummaryPlain.Length
             if ($titlePadding -ge 2)
             {
-                $titleLine = $titleText + (' ' * $titlePadding) + $overallSummaryDisplay
+                $titleLine = $titleText + (' ' * $titlePadding) + $overallSummaryPlain
             }
             else
             {
-                $titleLine = $titleText + '  ' + $overallSummaryDisplay
+                $titleLine = $titleText + '  ' + $overallSummaryPlain
             }
 
             $titleLine = & $limitText $titleLine $renderedMaxWidth
+            if ($supportsAnsi)
+            {
+                $titleLine = $titleLine.Replace($titleText, (Add-AccentText -Text $titleText))
+                $gradeMarker = "[$healthGrade]"
+                if ($titleLine.Contains($gradeMarker))
+                {
+                    $titleLine = $titleLine.Replace($gradeMarker, ('[' + (Format-HealthGrade -Grade $healthGrade) + ']'))
+                }
+            }
             $historyOrderText = if ($supportsUnicode) { 'oldest → newest' } else { 'oldest -> newest' }
             $trendLegendText = if ($supportsUnicode) { '↗ up | → steady | ↘ down' } else { '^ up | = steady | v down' }
             $statusLine = & $limitText ('Status   {0,-10} {1,-12}  {2}  {3,-9} {4,-19}  {2}  {5,-9} {6}' -f '[Platform]', $Sample.Platform, $statusSeparator, '[Updated]', $Sample.Timestamp.ToString('yyyy-MM-dd HH:mm:ss'), '[Collect]', $collectText) $renderedMaxWidth
@@ -2299,6 +2311,7 @@
             $findingsText = if ($sampleFindings.Count -eq 0) { 'none' } else { $sampleFindings -join "  $statusSeparator  " }
             $findingsLine = Add-SubtleText -Text (& $limitText ('Findings {0,-10} {1}' -f '[Issues]', $findingsText) $renderedMaxWidth)
 
+            $accentDivider = Add-AccentText -Text $divider
             $subtleDivider = Add-SubtleText -Text $divider
             $scopeLine = $null
 
@@ -2394,7 +2407,7 @@
 
                 $baseLines = @(
                     $titleLine,
-                    $divider,
+                    $accentDivider,
                     $cpuLine,
                     $memoryLine,
                     $diskLine,
@@ -2552,7 +2565,7 @@
                 $lines += @(
                     '',
                     $subtleDivider,
-                    (Add-SubtleText -Text (& $limitText $topProcessHeader $renderedMaxWidth))
+                    (Add-AccentText -Text (& $limitText $topProcessHeader $renderedMaxWidth))
                 )
 
                 if ($topRowsToRender -gt 0)

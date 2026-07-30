@@ -146,10 +146,12 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -ExportPath $exportPath -ExportFormat Csv -ExportDependencyMode Both -ShowExportProgress)
 
             $result.Count | Should-Be 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Exporting installed packages...' -and $ForegroundColor -eq 'Cyan' } -Times 2
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Package: 1 of 1 - git' -and $ForegroundColor -eq 'White' } -Times 2
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Resolving: DependsOn' -and $ForegroundColor -eq 'White' } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Resolving: RequiredBy' -and $ForegroundColor -eq 'White' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Exporting installed packages...' } -Times 2
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Package: 1 of 1 - git' } -Times 2
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Resolving: DependsOn' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Resolving: RequiredBy' } -Times 1
+            $escapeCharacter = [String][Char]27
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[38;5;37m" } -Times 2
         }
     }
 
@@ -169,7 +171,11 @@ Describe 'Show-InstalledPlatformPackage' {
             $result.Count | Should-Be 0
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Nav: Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit' } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  filter: all" -and $ForegroundColor -eq 'White' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  filter: all" } -Times 1
+            $escapeCharacter = [String][Char]27
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[38;5;37m" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[38;5;244m" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[0m" } -Times 1
             @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should-Be 2
         }
 
@@ -323,13 +329,13 @@ Describe 'Show-InstalledPlatformPackage' {
             $result.Count | Should-Be 0
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Show-InstalledPlatformPackage Help' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'D: ' } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'open or close the dependency view for the current package' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'open or close the dependency view for the current package' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'B: ' } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'return to the package list from the dependency view' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'return to the package list from the dependency view' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'V: ' } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'load a missing winget description when available' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'load a missing winget description when available' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'E: ' } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'export visible packages, or selected packages when any are selected, to JSON or CSV' -and $ForegroundColor -eq 'DarkGray' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'export visible packages, or selected packages when any are selected, to JSON or CSV' } -Times 1
         }
 
         It 'loads missing winget descriptions only when V is pressed' {

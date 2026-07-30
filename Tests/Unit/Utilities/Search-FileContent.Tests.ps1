@@ -642,4 +642,42 @@ USER-NAME = cssConstant
             $results.Variation | Should-ContainCollection 'user-name'
         }
     }
+
+    Context 'Formatted output theme' {
+        It 'Should use only the monochrome dashboard palette' {
+            $testFile = Join-Path -Path $TestDrive -ChildPath 'themed-search.txt'
+            'before MATCH after' | Set-Content -LiteralPath $testFile
+
+            $script:ThemeHostOutput = [System.Collections.Generic.List[String]]::new()
+            Mock -CommandName Write-Host -MockWith {
+                if ($null -ne $Object)
+                {
+                    [void]$script:ThemeHostOutput.Add([String]$Object)
+                }
+            }
+
+            Search-FileContent -Pattern 'MATCH' -Path $testFile
+            $output = $script:ThemeHostOutput -join [Environment]::NewLine
+            $ansiCodes = @(
+                [Regex]::Matches($output, "$([Char]27)\[(?<Code>[0-9;]+)m") |
+                ForEach-Object { $_.Groups['Code'].Value } |
+                Sort-Object -Unique
+            )
+
+            $ansiCodes | Should-ContainCollection '38;5;37'
+            $ansiCodes | Should-ContainCollection '38;5;244'
+            $ansiCodes | Should-ContainCollection '0'
+            $ansiCodes.Count | Should-Be 3
+        }
+
+        It 'Should keep simple output free of ANSI sequences' {
+            $testFile = Join-Path -Path $TestDrive -ChildPath 'simple-search.txt'
+            'before MATCH after' | Set-Content -LiteralPath $testFile
+
+            $result = Search-FileContent -Pattern 'MATCH' -Path $testFile -Simple
+            $serialized = $result | ConvertTo-Json -Depth 5
+
+            $serialized | Should-NotMatchString ([Regex]::Escape([String][Char]27))
+        }
+    }
 }

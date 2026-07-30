@@ -128,6 +128,10 @@ function Show-ProfileFunction
     {
         Write-Verbose 'Starting Show-ProfileFunction'
         $skipProcessing = $false
+        $escapeCharacter = [String][Char]27
+        $themeAccent = $escapeCharacter + '[38;5;37m'
+        $themeMuted = $escapeCharacter + '[38;5;244m'
+        $themeReset = $escapeCharacter + '[0m'
 
         # Get the Functions directory path relative to the profile script
         $profilePath = $PROFILE
@@ -256,12 +260,12 @@ function Show-ProfileFunction
                 # Display category header with blank line before (except first)
                 if ($firstCategory)
                 {
-                    Write-Host "`n${categoryDisplay}:" -ForegroundColor Cyan
+                    Write-Host "`n$themeAccent${categoryDisplay}:$themeReset"
                     $firstCategory = $false
                 }
                 else
                 {
-                    Write-Host "`n${categoryDisplay}:" -ForegroundColor Cyan
+                    Write-Host "`n$themeAccent${categoryDisplay}:$themeReset"
                 }
 
                 # Sort functions within category
@@ -384,38 +388,45 @@ function Show-ProfileFunction
                     }
 
                     # Format and display the function with description
-                    Write-Host '  - ' -ForegroundColor Yellow -NoNewline
-                    Write-Host $functionName -ForegroundColor Green -NoNewline
+                    Write-Host "$themeMuted  - $themeReset" -NoNewline
+                    Write-Host "$themeAccent$functionName$themeReset" -NoNewline
 
                     # Display aliases if available
                     if ($aliases.Count -gt 0)
                     {
-                        Write-Host ' (' -ForegroundColor Gray -NoNewline
-                        Write-Host ($aliases -join ', ') -ForegroundColor DarkGray -NoNewline
-                        # Write-Host '*' -ForegroundColor Gray -NoNewline
-                        Write-Host ')' -ForegroundColor Gray -NoNewline
+                        Write-Host "$themeMuted (" -NoNewline
+                        Write-Host ($aliases -join ', ') -NoNewline
+                        Write-Host ")$themeReset" -NoNewline
                     }
 
-                    Write-Host ' - ' -ForegroundColor Yellow -NoNewline
-                    Write-Host $synopsis -ForegroundColor White
+                    Write-Host "$themeMuted - $themeReset" -NoNewline
+                    Write-Host $synopsis
                 }
             }
 
             # Display summary statistics
             $displayedCount = ($functionsByCategory | ForEach-Object { $_.Group.Count } | Measure-Object -Sum).Sum
             $categoryCount = @($functionsByCategory).Count
-            Write-Host "`nTotal: " -ForegroundColor Cyan -NoNewline
-            Write-Host "$displayedCount functions " -ForegroundColor White -NoNewline
-            Write-Host 'across ' -ForegroundColor Cyan -NoNewline
-            Write-Host "$categoryCount categories" -ForegroundColor White
+            Write-Host "`n$themeAccent" -NoNewline
+            Write-Host 'Total: ' -NoNewline
+            Write-Host $themeReset -NoNewline
+            Write-Host "$displayedCount functions " -NoNewline
+            Write-Host "$themeMuted" -NoNewline
+            Write-Host 'across ' -NoNewline
+            Write-Host $themeReset -NoNewline
+            Write-Host "$categoryCount categories"
 
-            Write-Host "`nAliases shown in parentheses are only created if they don't already exist in the environment." -ForegroundColor DarkGray
+            Write-Host "`n${themeMuted}Aliases shown in parentheses are only created if they don't already exist in the environment.$themeReset"
 
             # Add helpful footer
-            Write-Host "`nFor full details about any function, use: " -ForegroundColor Gray -NoNewline
-            Write-Host 'Get-Help <Function-Name>' -ForegroundColor White
-            Write-Host 'Example: ' -ForegroundColor Gray -NoNewline
-            Write-Host 'Get-Help Test-Port -Full' -ForegroundColor White
+            Write-Host "`n${themeMuted}For full details about any function, use: $themeReset" -NoNewline
+            Write-Host "$themeAccent" -NoNewline
+            Write-Host 'Get-Help <Function-Name>' -NoNewline
+            Write-Host $themeReset
+            Write-Host "${themeMuted}Example: $themeReset" -NoNewline
+            Write-Host "$themeAccent" -NoNewline
+            Write-Host 'Get-Help Test-Port -Full' -NoNewline
+            Write-Host $themeReset
         }
         catch
         {

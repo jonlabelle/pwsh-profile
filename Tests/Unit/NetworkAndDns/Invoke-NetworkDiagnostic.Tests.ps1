@@ -41,6 +41,10 @@ BeforeAll {
             [switch]$ShowStats,
             [switch]$NoColor
         )
+        if ($null -ne $script:GraphTypes)
+        {
+            $script:GraphTypes.Add($GraphType)
+        }
         return 'SPARK'
     }
 
@@ -103,6 +107,93 @@ Describe 'Invoke-NetworkDiagnostic (Default continuous mode single iteration via
         Invoke-NetworkDiagnostic -HostName 'example.com' -Count 5 -MaxIterations 1 -Interval 9 *> $null
 
         Should-Invoke -CommandName Start-Sleep -Times 0 -Exactly -ParameterFilter { $PSBoundParameters.ContainsKey('Seconds') -and $Seconds -eq 9 }
+    }
+
+    It 'uses the accent, muted, and reset codes for a healthy diagnostic card' {
+        $script:MockMetrics = [PSCustomObject]@{
+            HostName = 'example.com'
+            Port = 443
+            SamplesTotal = 5
+            SamplesSuccess = 5
+            PacketLoss = 0
+            LatencyMin = 20.0
+            LatencyMax = 24.0
+            LatencyAvg = 22.0
+            Jitter = 1.5
+            DnsResolution = $null
+            LatencyData = @(20, 21, 22, 23, 24)
+        }
+        $script:ThemeWrites = [System.Collections.Generic.List[String]]::new()
+        Mock -CommandName Write-Host {
+            param([Object]$Object)
+            if ($null -ne $Object)
+            {
+                $script:ThemeWrites.Add([String]$Object)
+            }
+        }
+
+        Invoke-NetworkDiagnostic -HostName 'example.com' -Count 5 -Continuous:$false *> $null
+
+        $escapeCharacter = [String][Char]27
+        $ansiPattern = "$escapeCharacter\[[0-9;]*m"
+        $rawOutput = $script:ThemeWrites -join ''
+        $codes = [Regex]::Matches($rawOutput, $ansiPattern).Value | Sort-Object -Unique
+        $plainText = [Regex]::Replace($rawOutput, $ansiPattern, '')
+
+        $codes.Count | Should-Be 3
+        $codes | Should-ContainCollection "$escapeCharacter[38;5;37m"
+        $codes | Should-ContainCollection "$escapeCharacter[38;5;244m"
+        $codes | Should-ContainCollection "$escapeCharacter[0m"
+        $plainText | Should-MatchString 'example\.com:443'
+        $plainText | Should-MatchString 'Healthy'
+    }
+
+    It 'renders the compact SummaryOnly view without full metric rows' {
+        $script:MockMetrics = [PSCustomObject]@{
+            HostName = 'example.com'
+            Port = 443
+            SamplesTotal = 5
+            SamplesSuccess = 5
+            PacketLoss = 0
+            LatencyMin = 20.0
+            LatencyMax = 24.0
+            LatencyAvg = 22.0
+            Jitter = 1.5
+            DnsResolution = 8.0
+            LatencyData = @(20, 21, 22, 23, 24)
+        }
+
+        $output = Invoke-NetworkDiagnostic -HostName 'example.com' -Count 5 -Continuous:$false -SummaryOnly *>&1 | Out-String
+
+        $output | Should-MatchString 'Summary\s+avg\s+22ms'
+        $output | Should-MatchString 'dns\s+8ms'
+        $output | Should-NotMatchString 'Stats\s+'
+        $output | Should-NotMatchString 'Quality\s+'
+        $output | Should-NotMatchString 'Findings\s+'
+    }
+
+    It 'routes ShowGraph output through the TimeSeries renderer' {
+        $script:MockMetrics = [PSCustomObject]@{
+            HostName = 'example.com'
+            Port = 443
+            SamplesTotal = 5
+            SamplesSuccess = 5
+            PacketLoss = 0
+            LatencyMin = 20.0
+            LatencyMax = 24.0
+            LatencyAvg = 22.0
+            Jitter = 1.5
+            DnsResolution = $null
+            LatencyData = @(20, 21, 22, 23, 24)
+        }
+        $script:GraphTypes = [System.Collections.Generic.List[String]]::new()
+
+        $output = Invoke-NetworkDiagnostic -HostName 'example.com' -Count 5 -Continuous:$false -ShowGraph *>&1 | Out-String
+
+        $script:GraphTypes | Should-ContainCollection 'TimeSeries'
+        $script:GraphTypes | Should-NotContainCollection 'Sparkline'
+        $output | Should-MatchString 'SPARK'
+        $output | Should-NotMatchString 'Stats\s+'
     }
 
     It 'shows per-host trend arrows from previous refresh in continuous mode' {

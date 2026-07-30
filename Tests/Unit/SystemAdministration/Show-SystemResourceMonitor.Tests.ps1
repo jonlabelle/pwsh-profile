@@ -1,4 +1,4 @@
-BeforeAll {
+﻿BeforeAll {
     # Suppress progress bars to prevent freezing in non-interactive environments
     $Global:ProgressPreference = 'SilentlyContinue'
 
@@ -24,6 +24,29 @@ Describe 'Show-SystemResourceMonitor' {
         $result | Should-MatchString '(?m)^Memory'
         $result | Should-MatchString '(?m)^Disk'
         $result | Should-MatchString '(?m)^Network'
+    }
+
+    It 'uses the dashboard palette and preserves readable text' {
+        $result = Show-SystemResourceMonitor -NoContinuous -NoTopProcesses -BarWidth 12 -HistoryLength 8
+        $escapeCharacter = [String][Char]27
+        $ansiPattern = "$escapeCharacter\[[0-9;]*m"
+        $codes = @([Regex]::Matches($result, $ansiPattern).Value | Sort-Object -Unique)
+        $allowedCodes = @(
+            "$escapeCharacter[38;5;37m",
+            "$escapeCharacter[38;5;244m",
+            "$escapeCharacter[33m",
+            "$escapeCharacter[91m",
+            "$escapeCharacter[0m"
+        )
+        $unexpectedCodes = @($codes | Where-Object { $_ -notin $allowedCodes })
+        $plainText = [Regex]::Replace($result, $ansiPattern, '')
+
+        $unexpectedCodes.Count | Should-Be 0
+        $codes | Should-ContainCollection "$escapeCharacter[38;5;37m"
+        $codes | Should-ContainCollection "$escapeCharacter[38;5;244m"
+        $codes | Should-ContainCollection "$escapeCharacter[0m"
+        $plainText | Should-MatchString '(?m)^System Resource Monitor'
+        $plainText | Should-MatchString '(?m)^Status +\[Platform\]'
     }
 
     It 'includes CPU core busy readout in one-shot output' {
@@ -87,6 +110,7 @@ Describe 'Show-SystemResourceMonitor' {
         $result.PSObject.Properties.Name | Should-ContainCollection 'HealthGrade'
         $result.PSObject.Properties.Name | Should-ContainCollection 'Findings'
         $result.PSObject.Properties.Name | Should-ContainCollection 'CollectMs'
+        ($result | ConvertTo-Json -Depth 5) | Should-NotMatchString ([Regex]::Escape([String][Char]27))
     }
 
     It 'returns top processes in structured output by default' {

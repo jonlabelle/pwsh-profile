@@ -264,6 +264,42 @@ Describe 'Invoke-GitPull' {
         }
     }
 
+    Context 'Summary theme' {
+        It 'Uses the monochrome palette without adding ANSI to the result object' {
+            $nonGitDir = Join-Path -Path $script:TestDir -ChildPath "theme-test-$(Get-Random)"
+            New-Item -Path $nonGitDir -ItemType Directory -Force | Out-Null
+            $script:ThemeHostOutput = [System.Collections.Generic.List[String]]::new()
+
+            Mock -CommandName Write-Host -MockWith {
+                if ($null -ne $Object)
+                {
+                    $script:ThemeHostOutput.Add([String]$Object)
+                }
+            }
+
+            try
+            {
+                $result = Invoke-GitPull -Path $nonGitDir
+                $escapeCharacter = [String][Char]27
+                $ansiPattern = "$escapeCharacter\[[0-9;]*m"
+                $rawOutput = $script:ThemeHostOutput -join ''
+                $codes = @([Regex]::Matches($rawOutput, $ansiPattern).Value | Sort-Object -Unique)
+
+                $codes.Count | Should-Be 4
+                $codes | Should-ContainCollection "$escapeCharacter[38;5;37m"
+                $codes | Should-ContainCollection "$escapeCharacter[38;5;244m"
+                $codes | Should-ContainCollection "$escapeCharacter[33m"
+                $codes | Should-ContainCollection "$escapeCharacter[0m"
+                $codes | Should-NotContainCollection "$escapeCharacter[91m"
+                ($result | ConvertTo-Json -Depth 5) | Should-NotMatchString ([Regex]::Escape($escapeCharacter))
+            }
+            finally
+            {
+                Remove-Item -Path $nonGitDir -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
     Context 'Branch Parameters' {
         It 'Should throw when -Branch and -DefaultBranch are both specified' {
             { Invoke-GitPull -Branch 'main' -DefaultBranch } | Should-Throw '*Cannot use*'

@@ -1,4 +1,4 @@
-function Invoke-FFmpeg
+﻿function Invoke-FFmpeg
 {
     <#
     .SYNOPSIS
@@ -1450,14 +1450,24 @@ function Invoke-FFmpeg
         $elapsedTime = Format-ElapsedTime -StartTime $script:scriptStartTime -EndTime $scriptEndTime
 
         # Summary
-        Write-Host '----------------------------------------' -ForegroundColor Cyan
-        Write-Host 'Summary:' -ForegroundColor Cyan
-        Write-Host "  Total processed: $script:totalProcessed" -ForegroundColor Cyan
-        Write-Host "  Successful: $script:totalSuccessful" -ForegroundColor $(if ($script:totalSuccessful -gt 0) { 'Green' }else { 'Cyan' })
-        Write-Host "  Skipped: $script:totalSkipped" -ForegroundColor $(if ($script:totalSkipped -gt 0) { 'Yellow' }else { 'Cyan' })
-        Write-Host "  Failed: $script:totalFailed" -ForegroundColor $(if ($script:totalFailed -gt 0) { 'Red' }else { 'Cyan' })
-        Write-Host "  Total time: $elapsedTime" -ForegroundColor Cyan
-        Write-Host '----------------------------------------' -ForegroundColor Cyan
+        $summaryEscape = [String][Char]27
+        $summaryAccent = $summaryEscape + '[38;5;37m'
+        $summaryMuted = $summaryEscape + '[38;5;244m'
+        $summaryWarning = $summaryEscape + '[33m'
+        $summaryCritical = $summaryEscape + '[91m'
+        $summaryReset = $summaryEscape + '[0m'
+        $successfulValue = if ($script:totalSuccessful -gt 0) { "$summaryAccent$script:totalSuccessful$summaryReset" } else { "$script:totalSuccessful" }
+        $skippedValue = if ($script:totalSkipped -gt 0) { "$summaryWarning$script:totalSkipped$summaryReset" } else { "$script:totalSkipped" }
+        $failedValue = if ($script:totalFailed -gt 0) { "$summaryCritical$script:totalFailed$summaryReset" } else { "$script:totalFailed" }
+
+        Write-Host "${summaryMuted}----------------------------------------$summaryReset"
+        Write-Host "${summaryAccent}Summary:$summaryReset"
+        Write-Host "${summaryMuted}  Total processed:$summaryReset $script:totalProcessed"
+        Write-Host "${summaryMuted}  Successful:     $summaryReset $successfulValue"
+        Write-Host "${summaryMuted}  Skipped:        $summaryReset $skippedValue"
+        Write-Host "${summaryMuted}  Failed:         $summaryReset $failedValue"
+        Write-Host "${summaryMuted}  Total time:     $summaryReset $elapsedTime"
+        Write-Host "${summaryMuted}----------------------------------------$summaryReset"
 
         # Return success if no errors occurred
         return ($script:totalFailed -eq 0)

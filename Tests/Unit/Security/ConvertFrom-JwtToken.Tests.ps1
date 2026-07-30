@@ -331,5 +331,35 @@ Describe 'ConvertFrom-JwtToken Unit Tests' {
             # This should not throw and should return object with signature
             { ConvertFrom-JwtToken -Token $script:ValidToken -AsObject -IncludeSignature } | Should -Not -Throw
         }
+
+        It 'Should use only the monochrome dashboard palette for formatted output' {
+            $script:ThemeHostOutput = [System.Collections.Generic.List[String]]::new()
+            Mock -CommandName Write-Host -MockWith {
+                if ($null -ne $Object)
+                {
+                    [void]$script:ThemeHostOutput.Add([String]$Object)
+                }
+            }
+
+            ConvertFrom-JwtToken -Token $script:ValidToken -IncludeSignature
+            $output = $script:ThemeHostOutput -join [Environment]::NewLine
+            $ansiCodes = @(
+                [Regex]::Matches($output, "$([Char]27)\[(?<Code>[0-9;]+)m") |
+                ForEach-Object { $_.Groups['Code'].Value } |
+                Sort-Object -Unique
+            )
+
+            $ansiCodes | Should-ContainCollection '38;5;37'
+            $ansiCodes | Should-ContainCollection '38;5;244'
+            $ansiCodes | Should-ContainCollection '0'
+            $ansiCodes.Count | Should-Be 3
+        }
+
+        It 'Should keep object output free of ANSI sequences' {
+            $result = ConvertFrom-JwtToken -Token $script:ValidToken -AsObject -IncludeSignature
+            $serialized = $result | ConvertTo-Json -Depth 10
+
+            $serialized | Should-NotMatchString ([Regex]::Escape([String][Char]27))
+        }
     }
 }

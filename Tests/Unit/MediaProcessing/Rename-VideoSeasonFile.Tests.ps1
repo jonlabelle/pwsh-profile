@@ -70,6 +70,29 @@ Describe 'Rename-VideoSeasonFile' -Tag 'Unit' {
             # Test with -WhatIf to avoid actual file operations
             { Rename-VideoSeasonFile -Path $testRoot -Recurse -Exclude @('.git', 'SubDirectory') -WhatIf } | Should -Not -Throw
         }
+
+        It 'Uses only the healthy monochrome roles in its summary' {
+            $script:ThemeHostOutput = [System.Collections.Generic.List[String]]::new()
+            Mock -CommandName Write-Host -MockWith {
+                if ($null -ne $Object)
+                {
+                    $script:ThemeHostOutput.Add([String]$Object)
+                }
+            }
+
+            Rename-VideoSeasonFile -Path $testRoot -WhatIf
+            $escapeCharacter = [String][Char]27
+            $ansiPattern = "$escapeCharacter\[[0-9;]*m"
+            $rawOutput = $script:ThemeHostOutput -join ''
+            $codes = @([Regex]::Matches($rawOutput, $ansiPattern).Value | Sort-Object -Unique)
+
+            $codes.Count | Should-Be 3
+            $codes | Should-ContainCollection "$escapeCharacter[38;5;37m"
+            $codes | Should-ContainCollection "$escapeCharacter[38;5;244m"
+            $codes | Should-ContainCollection "$escapeCharacter[0m"
+            $codes | Should-NotContainCollection "$escapeCharacter[33m"
+            $codes | Should-NotContainCollection "$escapeCharacter[91m"
+        }
     }
 
     Context 'Pattern Matching' {

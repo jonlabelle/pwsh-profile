@@ -448,24 +448,30 @@ function Remove-GitIgnoredFile
         }
 
         # Display summary
-        Write-Host "`nCleanup Summary:" -ForegroundColor Cyan
+        $summaryEscape = [String][Char]27
+        $summaryAccent = $summaryEscape + '[38;5;37m'
+        $summaryMuted = $summaryEscape + '[38;5;244m'
+        $summaryCritical = $summaryEscape + '[91m'
+        $summaryReset = $summaryEscape + '[0m'
+
+        Write-Host "`n${summaryAccent}Cleanup Summary:$summaryReset"
 
         if ($Recurse)
         {
-            Write-Host "  Repositories processed: $($stats.RepositoriesProcessed)" -ForegroundColor White
+            Write-Host "${summaryMuted}  Repositories processed:$summaryReset $($stats.RepositoriesProcessed)"
         }
 
-        Write-Host "  Files removed: $($stats.FilesRemoved)" -ForegroundColor White
-        Write-Host "  Directories removed: $($stats.DirectoriesRemoved)" -ForegroundColor White
+        Write-Host "${summaryMuted}  Files removed:      $summaryReset ${summaryAccent}$($stats.FilesRemoved)$summaryReset"
+        Write-Host "${summaryMuted}  Directories removed:$summaryReset ${summaryAccent}$($stats.DirectoriesRemoved)$summaryReset"
 
         if (-not $NoSizeCalculation -and $stats.TotalSpaceFreed -gt 0)
         {
-            Write-Host "  Space freed: $spaceFreedFormatted" -ForegroundColor Green
+            Write-Host "${summaryMuted}  Space freed:        $summaryReset ${summaryAccent}$spaceFreedFormatted$summaryReset"
         }
 
         if ($stats.Errors -gt 0)
         {
-            Write-Host "  Errors: $($stats.Errors)" -ForegroundColor Red
+            Write-Host "${summaryMuted}  Errors:             $summaryReset ${summaryCritical}$($stats.Errors)$summaryReset"
         }
 
         Write-Verbose 'Cleanup completed'

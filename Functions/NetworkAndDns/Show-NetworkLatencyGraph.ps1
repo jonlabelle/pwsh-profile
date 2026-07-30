@@ -75,13 +75,13 @@
         ┌──────────────┬─────────┐       ┌──────────────┬─────────┐
         │ Value        │ Color   │       │ Value        │ Color   │
         ├──────────────┼─────────┤       ├──────────────┼─────────┤
-        │ <50ms        │ Green   │       │ <10ms        │ Green   │
+        │ <50ms        │ Teal    │       │ <10ms        │ Teal    │
         │ 50-99ms      │ Yellow  │       │ 10-29ms      │ Yellow  │
         │ ≥100ms       │ Red     │       │ ≥30ms        │ Red     │
         └──────────────┴─────────┘       └──────────────┴─────────┘
 
         These thresholds align with industry standards for real-time applications:
-        - Green: Excellent for VoIP, gaming, and video conferencing
+        - Teal: Excellent for VoIP, gaming, and video conferencing
         - Yellow: Acceptable for most applications, may affect real-time quality
         - Red: Poor performance, likely to cause noticeable issues
 
@@ -517,45 +517,27 @@
 
         $script:SupportsUnicode = Test-UnicodeSupport
 
-        # ANSI color palette (respects -NoColor and OutputRendering=PlainText)
-        # Enhanced detection for Windows PowerShell compatibility
+        # Local console theme. -NoColor is the explicit plain-text mode.
+        $escapeCharacter = [String][Char]27
         $supportsColor = -not $NoColor.IsPresent
-        if ($PSVersionTable.PSVersion.Major -lt 6)
-        {
-            # PowerShell 5.1 and earlier don't support ANSI colors reliably
-            $supportsColor = $false
-            Write-Verbose 'ANSI colors disabled for PowerShell 5.1 compatibility'
-        }
-        elseif ($supportsColor -and $PSStyle -and $PSStyle.OutputRendering -eq 'PlainText')
-        {
-            $supportsColor = $false
-            Write-Verbose 'ANSI colors disabled due to PlainText output rendering'
-        }
-        elseif ($supportsColor -and $host.Name -eq 'Windows PowerShell ISE Host')
-        {
-            # PowerShell ISE doesn't support ANSI escape sequences
-            $supportsColor = $false
-            Write-Verbose 'ANSI colors disabled for PowerShell ISE compatibility'
-        }
 
         $script:Palette = [PSCustomObject]@{
-            Reset = if ($supportsColor) { "`e[0m" } else { '' }
-            Green = if ($supportsColor) { "`e[32m" } else { '' }
-            Yellow = if ($supportsColor) { "`e[33m" } else { '' }
-            Red = if ($supportsColor) { "`e[91m" } else { '' }  # Bright red (91) for better visibility across terminal themes
-            Cyan = if ($supportsColor) { "`e[36m" } else { '' }
-            Gray = if ($supportsColor) { "`e[90m" } else { '' }
+            Reset = if ($supportsColor) { $escapeCharacter + '[0m' } else { '' }
+            Accent = if ($supportsColor) { $escapeCharacter + '[38;5;37m' } else { '' }
+            Muted = if ($supportsColor) { $escapeCharacter + '[38;5;244m' } else { '' }
+            Warning = if ($supportsColor) { $escapeCharacter + '[33m' } else { '' }
+            Critical = if ($supportsColor) { $escapeCharacter + '[91m' } else { '' }
         }
 
         # Threshold constants for color coding in this function
         # Uses unique name to avoid conflicts with caller's $script:Thresholds
         $script:GraphThresholds = @{
             Latency = @{
-                Good = 50      # Green: < 50ms - suitable for real-time apps
+                Good = 50      # Accent: < 50ms - suitable for real-time apps
                 Warning = 100  # Yellow: 50-100ms - noticeable for interactive apps
             }
             Jitter = @{
-                Good = 10      # Green: < 10ms - excellent for VoIP/gaming
+                Good = 10      # Accent: < 10ms - excellent for VoIP/gaming
                 Warning = 30   # Yellow: 10-30ms - acceptable for most apps
             }
         }
@@ -563,17 +545,17 @@
         function script:Get-LatencyColor
         {
             param([double]$Value)
-            if ($Value -lt $script:GraphThresholds.Latency.Good) { return $script:Palette.Green }
-            if ($Value -lt $script:GraphThresholds.Latency.Warning) { return $script:Palette.Yellow }
-            return $script:Palette.Red
+            if ($Value -lt $script:GraphThresholds.Latency.Good) { return $script:Palette.Accent }
+            if ($Value -lt $script:GraphThresholds.Latency.Warning) { return $script:Palette.Warning }
+            return $script:Palette.Critical
         }
 
         function script:Get-JitterColor
         {
             param([double]$Value)
-            if ($Value -lt $script:GraphThresholds.Jitter.Good) { return $script:Palette.Green }
-            if ($Value -lt $script:GraphThresholds.Jitter.Warning) { return $script:Palette.Yellow }
-            return $script:Palette.Red
+            if ($Value -lt $script:GraphThresholds.Jitter.Good) { return $script:Palette.Accent }
+            if ($Value -lt $script:GraphThresholds.Jitter.Warning) { return $script:Palette.Warning }
+            return $script:Palette.Critical
         }
 
         function script:Get-Jitter
@@ -709,17 +691,17 @@
                                 'Dots'
                                 {
                                     $dotChar = if ($script:SupportsUnicode) { '●' } else { '*' }
-                                    [void]$rowBuilder.Append("${script:Palette.Gray}$dotChar${script:Palette.Reset}")
+                                    [void]$rowBuilder.Append("$($script:Palette.Muted)$dotChar$($script:Palette.Reset)")
                                 }
                                 'Bars'
                                 {
                                     $barChar = if ($script:SupportsUnicode) { '▁' } else { '_' }
-                                    [void]$rowBuilder.Append("${script:Palette.Gray}$barChar${script:Palette.Reset}")
+                                    [void]$rowBuilder.Append("$($script:Palette.Muted)$barChar$($script:Palette.Reset)")
                                 }
                                 'Line'
                                 {
                                     $dotChar = if ($script:SupportsUnicode) { '●' } else { '*' }
-                                    [void]$rowBuilder.Append("${script:Palette.Gray}$dotChar${script:Palette.Reset}")
+                                    [void]$rowBuilder.Append("$($script:Palette.Muted)$dotChar$($script:Palette.Reset)")
                                 }
                             }
                         }
@@ -739,7 +721,7 @@
                             {
                                 # Use Unicode bullet if supported, otherwise asterisk
                                 $dotChar = if ($script:SupportsUnicode) { '●' } else { '*' }
-                                [void]$rowBuilder.Append("$pointColor$dotChar${script:Palette.Reset}")
+                                [void]$rowBuilder.Append("$pointColor$dotChar$($script:Palette.Reset)")
                             }
                             else
                             {
@@ -752,7 +734,7 @@
                             $shouldFill = ($Height - 1 - $row) -le ($Height - 1 - $scaledRow)
                             if ($shouldFill)
                             {
-                                [void]$rowBuilder.Append("$pointColor█${script:Palette.Reset}")
+                                [void]$rowBuilder.Append("$pointColor█$($script:Palette.Reset)")
                             }
                             else
                             {
@@ -765,7 +747,7 @@
                             if ($scaledRow -eq $row)
                             {
                                 $dotChar = if ($script:SupportsUnicode) { '●' } else { '*' }
-                                [void]$rowBuilder.Append("$pointColor$dotChar${script:Palette.Reset}")
+                                [void]$rowBuilder.Append("$pointColor$dotChar$($script:Palette.Reset)")
                             }
                             elseif ($col -gt 0 -and $null -ne $scaledPoints[$col - 1])
                             {
@@ -780,7 +762,7 @@
                                 if (($prevRow -lt $row -and $currRow -gt $row) -or ($prevRow -gt $row -and $currRow -lt $row))
                                 {
                                     $lineChar = if ($script:SupportsUnicode) { '│' } else { '|' }
-                                    [void]$rowBuilder.Append("$connectorColor$lineChar${script:Palette.Reset}")
+                                    [void]$rowBuilder.Append("$connectorColor$lineChar$($script:Palette.Reset)")
                                 }
                                 else
                                 {
@@ -800,7 +782,7 @@
                 [void]$output.AppendLine($rowBuilder.ToString())
             }
 
-            [void]$output.Append("${script:Palette.Reset}     +")
+            [void]$output.Append("$($script:Palette.Reset)     +")
             [void]$output.AppendLine(('-' * $pointsToPlot) + $script:Palette.Reset)
 
             if ($ShowStats)
@@ -809,14 +791,14 @@
                 # Count valid vs failed samples to avoid duplicate or confusing sample display
                 $validCount = @($Data | Where-Object { $null -ne $_ }).Count
                 $failedCount = @($Data | Where-Object { $null -eq $_ }).Count
-                $statsLine = "     $($script:Palette.Gray)Min: $($script:Palette.Cyan)$([Math]::Round($Min, 1))ms$($script:Palette.Reset)$($script:Palette.Gray) | Max: $($script:Palette.Cyan)$([Math]::Round($Max, 1))ms$($script:Palette.Reset)$($script:Palette.Gray) | Avg: $avgColor$([Math]::Round($Avg, 1))ms$($script:Palette.Reset)"
+                $statsLine = "     $($script:Palette.Muted)Min: $($script:Palette.Accent)$([Math]::Round($Min, 1))ms$($script:Palette.Reset)$($script:Palette.Muted) | Max: $($script:Palette.Accent)$([Math]::Round($Max, 1))ms$($script:Palette.Reset)$($script:Palette.Muted) | Avg: $avgColor$([Math]::Round($Avg, 1))ms$($script:Palette.Reset)"
                 if ($null -ne $Jitter)
                 {
                     $jitterColor = script:Get-JitterColor -Value $Jitter
-                    $statsLine += "$($script:Palette.Gray) | Jitter: $jitterColor$([Math]::Round($Jitter, 1))ms$($script:Palette.Reset)"
+                    $statsLine += "$($script:Palette.Muted) | Jitter: $jitterColor$([Math]::Round($Jitter, 1))ms$($script:Palette.Reset)"
                 }
-                $statsLine += "$($script:Palette.Gray) | Samples: $($script:Palette.Cyan)$validCount$($script:Palette.Reset)"
-                if ($failedCount -gt 0) { $statsLine += "$($script:Palette.Gray) | Failed: $($script:Palette.Red)$failedCount$($script:Palette.Reset)" }
+                $statsLine += "$($script:Palette.Muted) | Samples: $($script:Palette.Accent)$validCount$($script:Palette.Reset)"
+                if ($failedCount -gt 0) { $statsLine += "$($script:Palette.Muted) | Failed: $($script:Palette.Critical)$failedCount$($script:Palette.Reset)" }
                 [void]$output.AppendLine($statsLine + $script:Palette.Reset)
             }
 
@@ -927,8 +909,8 @@
 
                 $clearTail = if ($effectiveRender -eq 'InPlace') { "`e[K" } else { '' }
                 $timestamp = (Get-Date).ToString('HH:mm:ss')
-                Write-Host "${script:Palette.Cyan}Network Latency Graph - Iteration $iteration ${script:Palette.Gray}[$timestamp]${script:Palette.Cyan} (Press Ctrl+C to stop)${script:Palette.Reset}$clearTail"
-                Write-Host "${script:Palette.Gray}Host: $HostName | Interval: ${Interval}s | Samples: $Count | Port: $Port${script:Palette.Reset}$clearTail"
+                Write-Host "$($script:Palette.Accent)Network Latency Graph - Iteration $iteration $($script:Palette.Muted)[$timestamp]$($script:Palette.Accent) (Press Ctrl+C to stop)$($script:Palette.Reset)$clearTail"
+                Write-Host "$($script:Palette.Muted)Host: $HostName | Interval: ${Interval}s | Samples: $Count | Port: $Port$($script:Palette.Reset)$clearTail"
                 Write-Host "$clearTail"
 
                 # Collect metrics
@@ -958,7 +940,7 @@
                                 if ($null -eq $value)
                                 {
                                     # Use lowest bar in gray - same width as other bars, visually consistent
-                                    [void]$sparkline.Append("${script:Palette.Gray}$($script:SparkChars[0])${script:Palette.Reset}")
+                                    [void]$sparkline.Append("$($script:Palette.Muted)$($script:SparkChars[0])$($script:Palette.Reset)")
                                 }
                                 else
                                 {
@@ -970,18 +952,18 @@
                                         $index = [Math]::Min(7, [Math]::Max(0, $index))
                                     }
                                     $color = script:Get-LatencyColor -Value $value
-                                    [void]$sparkline.Append("$color$($script:SparkChars[$index])${script:Palette.Reset}")
+                                    [void]$sparkline.Append("$color$($script:SparkChars[$index])$($script:Palette.Reset)")
                                 }
                             }
                             $result = $sparkline.ToString()
                             if ($ShowStats)
                             {
-                                $statsText = " ${script:Palette.Gray}(min: ${script:Palette.Cyan}$([Math]::Round($min, 1))ms${script:Palette.Reset}${script:Palette.Gray}, max: ${script:Palette.Cyan}$([Math]::Round($max, 1))ms${script:Palette.Reset}${script:Palette.Gray}, avg: "
+                                $statsText = " $($script:Palette.Muted)(min: $($script:Palette.Accent)$([Math]::Round($min, 1))ms$($script:Palette.Reset)$($script:Palette.Muted), max: $($script:Palette.Accent)$([Math]::Round($max, 1))ms$($script:Palette.Reset)$($script:Palette.Muted), avg: "
                                 $avgColor = script:Get-LatencyColor -Value $avg
-                                $statsText += "$avgColor$([Math]::Round($avg, 1))ms${script:Palette.Reset}${script:Palette.Gray}"
-                                if ($null -ne $jitter) { $statsText += ", jitter: $(script:Get-JitterColor -Value $jitter)$([Math]::Round($jitter, 1))ms${script:Palette.Reset}${script:Palette.Gray}" }
-                                if ($failedCount -gt 0) { $statsText += ", failed: ${script:Palette.Red}$failedCount${script:Palette.Reset}${script:Palette.Gray}" }
-                                $statsText += ")${script:Palette.Reset}"
+                                $statsText += "$avgColor$([Math]::Round($avg, 1))ms$($script:Palette.Reset)$($script:Palette.Muted)"
+                                if ($null -ne $jitter) { $statsText += ", jitter: $(script:Get-JitterColor -Value $jitter)$([Math]::Round($jitter, 1))ms$($script:Palette.Reset)$($script:Palette.Muted)" }
+                                if ($failedCount -gt 0) { $statsText += ", failed: $($script:Palette.Critical)$failedCount$($script:Palette.Reset)$($script:Palette.Muted)" }
+                                $statsText += ")$($script:Palette.Reset)"
                                 $result += $statsText
                             }
                             $result
@@ -1012,7 +994,7 @@
                             # Precompute bar width scaling factor
                             $barWidthScale = ($Width - 20) / $maxCount
                             $clearTail = if ($effectiveRender -eq 'InPlace') { "`e[K" } else { '' }
-                            [void]$output.AppendLine("${script:Palette.Cyan}Latency Distribution:${script:Palette.Reset}$clearTail")
+                            [void]$output.AppendLine("$($script:Palette.Accent)Latency Distribution:$($script:Palette.Reset)$clearTail")
                             for ($i = 0; $i -lt $numBuckets; $i++)
                             {
                                 $rangeStart = [Math]::Round($min + ($i * $bucketSize), 1)
@@ -1021,11 +1003,11 @@
                                 # Use precomputed scale factor to reduce repeated division
                                 $barWidth = [Int32][Math]::Floor($itemCount * $barWidthScale)
                                 $midpoint = ($rangeStart + $rangeEnd) / 2
-                                $barColor = if ($midpoint -lt 50) { $script:Palette.Green } elseif ($midpoint -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
+                                $barColor = if ($midpoint -lt 50) { $script:Palette.Accent } elseif ($midpoint -lt 100) { $script:Palette.Warning } else { $script:Palette.Critical }
                                 $label = "$rangeStart-$rangeEnd ms".PadRight(15)
                                 $bar = $barColor + ([char]0x2588).ToString() * $barWidth + $script:Palette.Reset
                                 $percentage = if ($validData.Count -gt 0) { [Math]::Round(($itemCount / $validData.Count) * 100, 1) } else { 0 }
-                                [void]$output.AppendLine("${script:Palette.Gray}$label${script:Palette.Reset} $bar ${script:Palette.Cyan}$itemCount${script:Palette.Reset} ${script:Palette.Gray}($percentage%)${script:Palette.Reset}$clearTail")
+                                [void]$output.AppendLine("$($script:Palette.Muted)$label$($script:Palette.Reset) $bar $($script:Palette.Accent)$itemCount$($script:Palette.Reset) $($script:Palette.Muted)($percentage%)$($script:Palette.Reset)$clearTail")
                             }
                             $output.ToString()
                         }
@@ -1035,18 +1017,18 @@
                 }
                 else
                 {
-                    Write-Host "${script:Palette.Red}No successful connections${script:Palette.Reset}"
+                    Write-Host "$($script:Palette.Critical)No successful connections$($script:Palette.Reset)"
                 }
 
                 Write-Host
-                # Packet loss and jitter with dynamic color coding (green=good, yellow=medium, red=bad)
+                # Packet loss and jitter use the accent for healthy values and semantic warning/critical colors.
                 $clearTail = if ($effectiveRender -eq 'InPlace') { "`e[K" } else { '' }
 
                 # Use individual Write-Host calls with explicit -ForegroundColor to ensure proper color isolation
-                Write-Host "$($script:Palette.Gray)Packet Loss: " -NoNewline
+                Write-Host "$($script:Palette.Muted)Packet Loss: " -NoNewline
                 if ($metrics.PacketLoss -eq 0)
                 {
-                    Write-Host "$($metrics.PacketLoss)%" -ForegroundColor Green -NoNewline
+                    Write-Host "$($script:Palette.Accent)$($metrics.PacketLoss)%$($script:Palette.Reset)" -NoNewline
                 }
                 elseif ($metrics.PacketLoss -lt 5)
                 {
@@ -1056,10 +1038,10 @@
                 {
                     Write-Host "$($metrics.PacketLoss)%" -ForegroundColor Red -NoNewline
                 }
-                Write-Host "$($script:Palette.Reset)$($script:Palette.Gray) | Jitter: " -NoNewline
+                Write-Host "$($script:Palette.Reset)$($script:Palette.Muted) | Jitter: " -NoNewline
                 if ($metrics.Jitter -lt 10)
                 {
-                    Write-Host "$($metrics.Jitter)ms" -ForegroundColor Green -NoNewline
+                    Write-Host "$($script:Palette.Accent)$($metrics.Jitter)ms$($script:Palette.Reset)" -NoNewline
                 }
                 elseif ($metrics.Jitter -lt 30)
                 {
@@ -1091,7 +1073,7 @@
                 {
                     if ($null -eq $value)
                     {
-                        [void]$sparkline.Append("${script:Palette.Red}$failChar${script:Palette.Reset}")
+                        [void]$sparkline.Append("$($script:Palette.Critical)$failChar$($script:Palette.Reset)")
                     }
                     else
                     {
@@ -1107,7 +1089,7 @@
                             $index = [Math]::Min(7, [Math]::Max(0, $index))
                         }
                         $color = script:Get-LatencyColor -Value $value
-                        [void]$sparkline.Append("$color$($script:SparkChars[$index])${script:Palette.Reset}")
+                        [void]$sparkline.Append("$color$($script:SparkChars[$index])$($script:Palette.Reset)")
                     }
                 }
 
@@ -1115,21 +1097,21 @@
 
                 if ($ShowStats)
                 {
-                    $statsText = " ${script:Palette.Reset}${script:Palette.Gray}(min: ${script:Palette.Cyan}$([Math]::Round($min, 1))ms${script:Palette.Reset}${script:Palette.Gray}, max: ${script:Palette.Cyan}$([Math]::Round($max, 1))ms${script:Palette.Reset}${script:Palette.Gray}, avg: "
+                    $statsText = " $($script:Palette.Reset)$($script:Palette.Muted)(min: $($script:Palette.Accent)$([Math]::Round($min, 1))ms$($script:Palette.Reset)$($script:Palette.Muted), max: $($script:Palette.Accent)$([Math]::Round($max, 1))ms$($script:Palette.Reset)$($script:Palette.Muted), avg: "
 
                     # Color avg based on value using threshold helper
                     $avgColor = script:Get-LatencyColor -Value $avg
-                    $statsText += "$avgColor$([Math]::Round($avg, 1))ms${script:Palette.Reset}${script:Palette.Gray}"
+                    $statsText += "$avgColor$([Math]::Round($avg, 1))ms$($script:Palette.Reset)$($script:Palette.Muted)"
                     if ($null -ne $jitter)
                     {
-                        $statsText += ", jitter: $(script:Get-JitterColor -Value $jitter)$([Math]::Round($jitter, 1))ms${script:Palette.Reset}${script:Palette.Gray}"
+                        $statsText += ", jitter: $(script:Get-JitterColor -Value $jitter)$([Math]::Round($jitter, 1))ms$($script:Palette.Reset)$($script:Palette.Muted)"
                     }
 
                     if ($failedCount -gt 0)
                     {
-                        $statsText += ", failed: ${script:Palette.Red}$failedCount${script:Palette.Reset}${script:Palette.Gray}"
+                        $statsText += ", failed: $($script:Palette.Critical)$failedCount$($script:Palette.Reset)$($script:Palette.Muted)"
                     }
-                    $statsText += ")${script:Palette.Reset}"
+                    $statsText += ")$($script:Palette.Reset)"
                     $result += $statsText
                 }
 
@@ -1173,7 +1155,7 @@
                 # Precompute bar width scaling factor
                 $barWidthScale = ($Width - 20) / $maxCount
 
-                [void]$output.AppendLine("${script:Palette.Cyan}Latency Distribution:${script:Palette.Reset}")
+                [void]$output.AppendLine("$($script:Palette.Accent)Latency Distribution:$($script:Palette.Reset)")
 
                 for ($i = 0; $i -lt $bucketCount; $i++)
                 {
@@ -1185,13 +1167,13 @@
 
                     # Color bar based on range midpoint
                     $midpoint = ($rangeStart + $rangeEnd) / 2
-                    $barColor = if ($midpoint -lt 50) { $script:Palette.Green } elseif ($midpoint -lt 100) { $script:Palette.Yellow } else { $script:Palette.Red }
+                    $barColor = if ($midpoint -lt 50) { $script:Palette.Accent } elseif ($midpoint -lt 100) { $script:Palette.Warning } else { $script:Palette.Critical }
 
                     $label = "$rangeStart-$rangeEnd ms".PadRight(15)
-                    $bar = "$barColor" + ([char]0x2588 * $barWidth) + "$($script:Palette.Reset)"
+                    $bar = "$barColor" + (([char]0x2588).ToString() * $barWidth) + "$($script:Palette.Reset)"
                     $percentage = if ($validData.Count -gt 0) { [Math]::Round(($bucketItemCount / $validData.Count) * 100, 1) } else { 0 }
 
-                    [void]$output.AppendLine("${script:Palette.Gray}$label${script:Palette.Reset} $bar ${script:Palette.Cyan}$bucketItemCount${script:Palette.Reset} ${script:Palette.Gray}($percentage`%)${script:Palette.Reset}")
+                    [void]$output.AppendLine("$($script:Palette.Muted)$label$($script:Palette.Reset) $bar $($script:Palette.Accent)$bucketItemCount$($script:Palette.Reset) $($script:Palette.Muted)($percentage`%)$($script:Palette.Reset)")
                 }
 
                 return $script:Palette.Reset + $output.ToString() + $script:Palette.Reset

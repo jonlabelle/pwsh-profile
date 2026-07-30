@@ -330,6 +330,48 @@ Describe 'Show-ProfileFunction' {
 
             $outputText | Should-MatchString 'Get-Help'
         }
+    }
 
+    Context 'Console theme' {
+        It 'Should use only the monochrome dashboard palette' {
+            $script:ThemeHostOutput = [System.Collections.Generic.List[String]]::new()
+            Mock -CommandName Write-Host -MockWith {
+                if ($null -ne $Object)
+                {
+                    [void]$script:ThemeHostOutput.Add([String]$Object)
+                }
+            }
+
+            Show-ProfileFunction -Category 'ad'
+            $output = $script:ThemeHostOutput -join [Environment]::NewLine
+            $ansiCodes = @(
+                [Regex]::Matches($output, "$([Char]27)\[(?<Code>[0-9;]+)m") |
+                ForEach-Object { $_.Groups['Code'].Value } |
+                Sort-Object -Unique
+            )
+
+            $ansiCodes | Should-ContainCollection '38;5;37'
+            $ansiCodes | Should-ContainCollection '38;5;244'
+            $ansiCodes | Should-ContainCollection '0'
+            $ansiCodes.Count | Should-Be 3
+        }
+
+        It 'Should preserve output text after ANSI is removed' {
+            $script:ThemeHostOutput = [System.Collections.Generic.List[String]]::new()
+            Mock -CommandName Write-Host -MockWith {
+                if ($null -ne $Object)
+                {
+                    [void]$script:ThemeHostOutput.Add([String]$Object)
+                }
+            }
+
+            Show-ProfileFunction -Category 'ad'
+            $output = $script:ThemeHostOutput -join [Environment]::NewLine
+            $plainOutput = $output -replace "$([Char]27)\[[0-9;]+m", ''
+
+            $plainOutput | Should-MatchString 'Active Directory'
+            $plainOutput | Should-MatchString 'Test-ADCredential'
+            $plainOutput | Should-MatchString 'Test Active Directory credentials'
+        }
     }
 }
