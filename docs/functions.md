@@ -159,6 +159,7 @@
 - [`Search-DelimitedFile`](../Functions/Utilities/Search-DelimitedFile.ps1) - Searches CSV, TSV, and other character-delimited files using multi-column criteria.
 - [`Search-FileContent`](../Functions/Utilities/Search-FileContent.ps1) - Searches file contents with context, filtering, and colorized output.
 - [`Set-FileEncoding`](../Functions/Utilities/Set-FileEncoding.ps1) - Converts one or more text files to a specified encoding.
+- [`Show-FileStorageMetric`](../Functions/Utilities/Show-FileStorageMetric.ps1) - Calculates file storage statistics and displays a Unicode card dashboard with daily, type, directory, and largest-file summaries.
 - [`Sync-Directory`](../Functions/Utilities/Sync-Directory.ps1) - Synchronizes directories using `rsync` on macOS/Linux or `robocopy` on Windows.
 
 ---
