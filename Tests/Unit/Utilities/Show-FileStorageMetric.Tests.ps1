@@ -106,8 +106,9 @@ Describe 'Show-FileStorageMetric' {
                 Sort-Object -Unique
             )
             $ansiCodes | Should -Contain '38;5;37'
+            $ansiCodes | Should -Contain '38;5;244'
             $ansiCodes | Should -Contain '0'
-            $ansiCodes.Count | Should -Be 2
+            $ansiCodes.Count | Should -Be 3
         }
 
         It 'limits dashboard date rows without truncating structured daily data' {

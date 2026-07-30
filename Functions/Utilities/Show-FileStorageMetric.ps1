@@ -8,8 +8,8 @@
         Scans one or more file-system paths, applies file-name, date, and size criteria,
         and calculates storage statistics. The default output is a compact text dashboard
         with daily activity bars, file-type totals, top directories, and largest files.
-        Unicode framing and a single teal ANSI accent give the dashboard a restrained
-        monochrome appearance.
+        Unicode framing, a teal ANSI accent, and charcoal-grey secondary text give the
+        dashboard a restrained monochrome appearance.
 
         Use -AsObject for automation. The returned report contains raw byte values and
         nested DailyBreakdown, ExtensionBreakdown, PathBreakdown, DirectoryBreakdown,
@@ -672,6 +672,7 @@
             $statusDot = [String][Char]0x25CF
             $escapeCharacter = [String][Char]27
             $accentStart = $escapeCharacter + '[38;5;37m'
+            $mutedStart = $escapeCharacter + '[38;5;244m'
             $accentReset = $escapeCharacter + '[0m'
 
             function Format-DashboardAccent
@@ -683,6 +684,50 @@
                 )
 
                 return $accentStart + $Text + $accentReset
+            }
+
+            function Format-DashboardMuted
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [AllowEmptyString()]
+                    [String]$Text
+                )
+
+                return $mutedStart + $Text + $accentReset
+            }
+
+            function Get-DashboardBar
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [Double]$Percentage,
+
+                    [Parameter(Mandatory)]
+                    [Int32]$Width
+                )
+
+                $plainBar = Get-GraphBar -Percentage $Percentage -Width $Width
+                $emptyCharacter = [String][Char]0x2591
+                $emptyStartIndex = $plainBar.IndexOf($emptyCharacter)
+                if ($emptyStartIndex -lt 0)
+                {
+                    return Format-DashboardAccent -Text $plainBar
+                }
+
+                $filledText = $plainBar.Substring(0, $emptyStartIndex)
+                $emptyText = $plainBar.Substring($emptyStartIndex)
+                $styledBar = ''
+                if ($filledText.Length -gt 0)
+                {
+                    $styledBar += Format-DashboardAccent -Text $filledText
+                }
+                if ($emptyText.Length -gt 0)
+                {
+                    $styledBar += Format-DashboardMuted -Text $emptyText
+                }
+
+                return $styledBar
             }
 
             function Get-DashboardLeftRight
@@ -709,13 +754,22 @@
                 param(
                     [Parameter(Mandatory)]
                     [AllowEmptyString()]
-                    [String]$Text
+                    [String]$Text,
+
+                    [Parameter()]
+                    [Switch]$Muted
                 )
 
                 $contentWidth = $dashboardWidth - 4
                 $content = Limit-StorageText -Text $Text -Width $contentWidth
+                $paddedContent = ' ' + $content.PadRight($contentWidth) + ' '
+                if ($Muted)
+                {
+                    $paddedContent = Format-DashboardMuted -Text $paddedContent
+                }
+
                 return (Format-DashboardAccent -Text $vertical) +
-                    ' ' + $content.PadRight($contentWidth) + ' ' +
+                    $paddedContent +
                     (Format-DashboardAccent -Text $vertical)
             }
 
@@ -745,7 +799,7 @@
                     (Format-DashboardAccent -Text ($topLeft + ($horizontal * $innerWidth) + $topRight)),
                     ($accentVertical + (Format-DashboardAccent -Text $labelText) + $accentVertical),
                     ($accentVertical + $valueText + $accentVertical),
-                    ($accentVertical + $hintText + $accentVertical),
+                    ($accentVertical + (Format-DashboardMuted -Text $hintText) + $accentVertical),
                     (Format-DashboardAccent -Text ($bottomLeft + ($horizontal * $innerWidth) + $bottomRight))
                 )
             }
@@ -821,18 +875,18 @@
 
             [void]$lines.Add((Format-DashboardAccent -Text ($topLeft + ($horizontal * ($dashboardWidth - 2)) + $topRight)))
             [void]$lines.Add((Get-DashboardFrameLine -Text $headerTitle))
-            [void]$lines.Add((Get-DashboardFrameLine -Text $scopeText))
-            [void]$lines.Add((Get-DashboardFrameLine -Text $filterText))
-            [void]$lines.Add((Get-DashboardFrameLine -Text $sizeText))
+            [void]$lines.Add((Get-DashboardFrameLine -Text $scopeText -Muted))
+            [void]$lines.Add((Get-DashboardFrameLine -Text $filterText -Muted))
+            [void]$lines.Add((Get-DashboardFrameLine -Text $sizeText -Muted))
 
             $visibleRootCount = [Math]::Min(2, $Report.Paths.Count)
             for ($rootIndex = 0; $rootIndex -lt $visibleRootCount; $rootIndex++)
             {
-                [void]$lines.Add((Get-DashboardFrameLine -Text ('root {0:N0}: {1}' -f ($rootIndex + 1), $Report.Paths[$rootIndex])))
+                [void]$lines.Add((Get-DashboardFrameLine -Text ('root {0:N0}: {1}' -f ($rootIndex + 1), $Report.Paths[$rootIndex]) -Muted))
             }
             if ($Report.Paths.Count -gt $visibleRootCount)
             {
-                [void]$lines.Add((Get-DashboardFrameLine -Text ('+ {0:N0} more root(s)' -f ($Report.Paths.Count - $visibleRootCount))))
+                [void]$lines.Add((Get-DashboardFrameLine -Text ('+ {0:N0} more root(s)' -f ($Report.Paths.Count - $visibleRootCount)) -Muted))
             }
             [void]$lines.Add((Format-DashboardAccent -Text ($bottomLeft + ($horizontal * ($dashboardWidth - 2)) + $bottomRight)))
 
@@ -875,16 +929,16 @@
 
             [void]$lines.Add('')
             [void]$lines.Add((Format-DashboardAccent -Text $dailyHeading))
-            [void]$lines.Add('DATE'.PadRight(12) + 'FILES'.PadRight(15) + 'SHARE'.PadRight($dailyBarWidth + 4) + 'STORAGE'.PadLeft(12) + '   %')
+            [void]$lines.Add((Format-DashboardMuted -Text ('DATE'.PadRight(12) + 'FILES'.PadRight(15) + 'SHARE'.PadRight($dailyBarWidth + 4) + 'STORAGE'.PadLeft(12) + '   %')))
             if ($dailyRowsToShow.Count -eq 0)
             {
-                [void]$lines.Add('(no date groups)')
+                [void]$lines.Add((Format-DashboardMuted -Text '(no date groups)'))
             }
             else
             {
                 foreach ($row in $dailyRowsToShow)
                 {
-                    $dailyBar = Format-DashboardAccent -Text (Get-GraphBar -Percentage $row.PercentOfTotalBytes -Width $dailyBarWidth)
+                    $dailyBar = Get-DashboardBar -Percentage $row.PercentOfTotalBytes -Width $dailyBarWidth
                     $dailyLine = '{0:yyyy-MM-dd}  {1,10:N0}     {2}  {3,12}  {4,6:N1}%' -f
                         $row.Date,
                         $row.FileCount,
@@ -896,8 +950,9 @@
             }
             if ($dailyRows.Count -gt $dailyRowsToShow.Count)
             {
-                [void]$lines.Add(('{0} {1:N0} earlier date group(s) omitted; use -AsObject for all rows.' -f
-                        $bullet, ($dailyRows.Count - $dailyRowsToShow.Count)))
+                $omittedDateText = '{0} {1:N0} earlier date group(s) omitted; use -AsObject for all rows.' -f
+                    $bullet, ($dailyRows.Count - $dailyRowsToShow.Count)
+                [void]$lines.Add((Format-DashboardMuted -Text $omittedDateText))
             }
 
             $panelWidth = 51
@@ -957,7 +1012,7 @@
             if ($Report.ExtensionBreakdown.Count -gt $extensionRows.Count -or
                 $Report.DirectoryBreakdown.Count -gt $directoryRows.Count)
             {
-                [void]$lines.Add($bullet + ' Additional type or directory rows are available with -AsObject.')
+                [void]$lines.Add((Format-DashboardMuted -Text ($bullet + ' Additional type or directory rows are available with -AsObject.')))
             }
 
             if ($Report.Paths.Count -gt 1)
@@ -972,7 +1027,7 @@
                 foreach ($row in $pathRows)
                 {
                     $pathFormat = '{0,-' + $pathLabelWidth + '} {1} {2,10} {3,6:N1}%'
-                    $pathBar = Format-DashboardAccent -Text (Get-GraphBar -Percentage $row.PercentOfTotalBytes -Width $rootBarWidth)
+                    $pathBar = Get-DashboardBar -Percentage $row.PercentOfTotalBytes -Width $rootBarWidth
                     $pathLine = $pathFormat -f
                         (Limit-StorageText -Text ([String]$row.Path) -Width $pathLabelWidth),
                         $pathBar,
@@ -1050,7 +1105,7 @@
             if ($Report.CsvPath)
             {
                 $csvStatus = if ($Report.CsvExported) { 'written' } else { 'not written' }
-                [void]$lines.Add((Get-DashboardFrameLine -Text ('CSV  {0}  {1}  {2}' -f $csvStatus, $Report.CsvGroupBy, $Report.CsvPath)))
+                [void]$lines.Add((Get-DashboardFrameLine -Text ('CSV  {0}  {1}  {2}' -f $csvStatus, $Report.CsvGroupBy, $Report.CsvPath) -Muted))
             }
             [void]$lines.Add((Format-DashboardAccent -Text ($bottomLeft + ($horizontal * ($dashboardWidth - 2)) + $bottomRight)))
 
