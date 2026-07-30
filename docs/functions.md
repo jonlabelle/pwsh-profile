@@ -28,7 +28,7 @@
 
 - [`ConvertTo-CidrNotation`](../Functions/NetworkAndDns/ConvertTo-CidrNotation.ps1) - Converts between subnet mask, CIDR prefix length, and wildcard mask formats.
 - [`Get-DnsRecord`](../Functions/NetworkAndDns/Get-DnsRecord.ps1) - Retrieves DNS records for a specified domain name.
-- [`Get-IPAddress`](../Functions/NetworkAndDns/Get-IPAddress.ps1) - Retrieves local network interface IP addresses or public external IP address.
+- [`Get-IPAddress`](../Functions/NetworkAndDns/Get-IPAddress.ps1) - Retrieves local interface addresses, CIDR ranges, scopes, and the public-facing address.
 - [`Get-IPSubnet`](../Functions/NetworkAndDns/Get-IPSubnet.ps1) - Calculates IP subnet information including network address, broadcast address, and subnet mask.
 - [`Get-NetworkMetric`](../Functions/NetworkAndDns/Get-NetworkMetric.ps1) - Collects network performance metrics for a target host.
 - [`Get-NetworkProcess`](../Functions/NetworkAndDns/Get-NetworkProcess.ps1) - Shows local network ports and the processes using them.
