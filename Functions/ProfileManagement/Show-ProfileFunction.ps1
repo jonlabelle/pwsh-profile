@@ -260,12 +260,12 @@ function Show-ProfileFunction
                 # Display category header with blank line before (except first)
                 if ($firstCategory)
                 {
-                    Write-Host "`n$themeAccent${categoryDisplay}:$themeReset"
+                    Write-Host "`n$themeMuted${categoryDisplay}:$themeReset"
                     $firstCategory = $false
                 }
                 else
                 {
-                    Write-Host "`n$themeAccent${categoryDisplay}:$themeReset"
+                    Write-Host "`n$themeMuted${categoryDisplay}:$themeReset"
                 }
 
                 # Sort functions within category
@@ -394,9 +394,7 @@ function Show-ProfileFunction
                     # Display aliases if available
                     if ($aliases.Count -gt 0)
                     {
-                        Write-Host "$themeMuted (" -NoNewline
-                        Write-Host ($aliases -join ', ') -NoNewline
-                        Write-Host ")$themeReset" -NoNewline
+                        Write-Host "$themeMuted ($($aliases -join ', '))$themeReset" -NoNewline
                     }
 
                     Write-Host "$themeMuted - $themeReset" -NoNewline
@@ -407,26 +405,18 @@ function Show-ProfileFunction
             # Display summary statistics
             $displayedCount = ($functionsByCategory | ForEach-Object { $_.Group.Count } | Measure-Object -Sum).Sum
             $categoryCount = @($functionsByCategory).Count
-            Write-Host "`n$themeAccent" -NoNewline
-            Write-Host 'Total: ' -NoNewline
-            Write-Host $themeReset -NoNewline
+            Write-Host "`n${themeAccent}Total: $themeReset" -NoNewline
             Write-Host "$displayedCount functions " -NoNewline
-            Write-Host "$themeMuted" -NoNewline
-            Write-Host 'across ' -NoNewline
-            Write-Host $themeReset -NoNewline
+            Write-Host "${themeMuted}across $themeReset" -NoNewline
             Write-Host "$categoryCount categories"
 
             Write-Host "`n${themeMuted}Aliases shown in parentheses are only created if they don't already exist in the environment.$themeReset"
 
             # Add helpful footer
             Write-Host "`n${themeMuted}For full details about any function, use: $themeReset" -NoNewline
-            Write-Host "$themeAccent" -NoNewline
-            Write-Host 'Get-Help <Function-Name>' -NoNewline
-            Write-Host $themeReset
+            Write-Host "${themeAccent}Get-Help <Function-Name>$themeReset"
             Write-Host "${themeMuted}Example: $themeReset" -NoNewline
-            Write-Host "$themeAccent" -NoNewline
-            Write-Host 'Get-Help Test-Port -Full' -NoNewline
-            Write-Host $themeReset
+            Write-Host "${themeAccent}Get-Help Test-Port -Full$themeReset"
         }
         catch
         {

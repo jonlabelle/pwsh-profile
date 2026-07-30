@@ -446,7 +446,7 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $tableLines = @(
                 $script:HostOutput |
-                ForEach-Object { "$_" } |
+                ForEach-Object { ([String]::Join('', [String[]]$_)) -replace "$([Char]27)\[[0-9;]*m", '' } |
                 Where-Object {
                     $_ -match '^\s+Name\s+' -or
                     $_ -match '^>\s+'

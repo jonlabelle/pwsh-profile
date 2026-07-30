@@ -70,6 +70,11 @@ function $($func.Name)
     Write-Output 'mock'
 }
 "@
+            if ($func.Name -eq 'Test-ADCredential')
+            {
+                $funcContent += "`nSet-Alias -Name 'tad' -Value 'Test-ADCredential'`n"
+            }
+
             $funcFile = Join-Path -Path $catDir -ChildPath "$($func.Name).ps1"
             [System.IO.File]::WriteAllText($funcFile, $funcContent, [System.Text.UTF8Encoding]::new($false))
         }
@@ -354,6 +359,27 @@ Describe 'Show-ProfileFunction' {
             $ansiCodes | Should-ContainCollection '38;5;244'
             $ansiCodes | Should-ContainCollection '0'
             $ansiCodes.Count | Should-Be 3
+        }
+
+        It 'Should distinguish muted categories and aliases from accent function names' {
+            $script:ThemeHostOutput = [System.Collections.Generic.List[String]]::new()
+            Mock -CommandName Write-Host -MockWith {
+                if ($null -ne $Object)
+                {
+                    [void]$script:ThemeHostOutput.Add([String]$Object)
+                }
+            }
+
+            Show-ProfileFunction -Category 'ad'
+            $output = $script:ThemeHostOutput -join [Environment]::NewLine
+            $escapeCharacter = [String][Char]27
+            $accent = "$escapeCharacter[38;5;37m"
+            $muted = "$escapeCharacter[38;5;244m"
+            $reset = "$escapeCharacter[0m"
+
+            $output | Should -Match ([Regex]::Escape("${muted}Active Directory:${reset}"))
+            $output | Should -Match ([Regex]::Escape("${accent}Test-ADCredential${reset}"))
+            $output | Should -Match ([Regex]::Escape("${muted} (tad)${reset}"))
         }
 
         It 'Should preserve output text after ANSI is removed' {

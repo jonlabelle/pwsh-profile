@@ -847,7 +847,7 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
             $limit = [Math]::Max(60, $limit)
             $tableLines = @(
                 $script:HostOutput |
-                ForEach-Object { "$_" } |
+                ForEach-Object { ([String]::Join('', [String[]]$_)) -replace "$([Char]27)\[[0-9;]*m", '' } |
                 Where-Object {
                     $_ -match '^\s+Sel\s+RmOld\s+UI\s+' -or
                     $_ -match '^[> ] \[[ x]\] \[[ U]\]\s+\[[ I]\]\s+'

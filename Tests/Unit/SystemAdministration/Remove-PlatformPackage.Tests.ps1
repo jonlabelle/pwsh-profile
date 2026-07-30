@@ -759,7 +759,7 @@ Describe 'Remove-PlatformPackage' {
 
             $tableLines = @(
                 $script:HostOutput |
-                ForEach-Object { "$_" } |
+                ForEach-Object { ([String]::Join('', [String[]]$_)) -replace "$([Char]27)\[[0-9;]*m", '' } |
                 Where-Object {
                     $_ -match '^\s+Sel\s+Purge\s+' -or
                     $_ -match '^[> ] \[[ x]\] \[[ p]\]\s+'

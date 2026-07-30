@@ -222,9 +222,7 @@ function Show-InstalledPlatformPackage
                 return
             }
 
-            Write-Host $color -NoNewline
-            Write-Host $text -NoNewline
-            Write-Host $packageThemeReset -NoNewline:$NoNewline.IsPresent
+            Write-Host -Object @($color, $text, $packageThemeReset) -Separator '' -NoNewline:$NoNewline.IsPresent
         }
 
         function Get-DependencyPathIfNeeded

@@ -37,6 +37,13 @@ Describe 'Show-PlatformPackageManager' {
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[0m" } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[33m" } -Times 0 -Exactly
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[91m" } -Times 0 -Exactly
+        Should-Invoke -CommandName Write-Host -ParameterFilter {
+            $Separator -eq '' -and
+            $Object.Count -eq 3 -and
+            $Object[0] -eq "$escapeCharacter[38;5;37m" -and
+            $Object[1] -eq 'Platform Package Manager' -and
+            $Object[2] -eq "$escapeCharacter[0m"
+        } -Times 1
     }
 
     It 'selects the upgrade workflow by default' {
@@ -571,8 +578,12 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager winget -SkipRefresh -PromptReader $promptReader)
 
         $result.Count | Should-Be 0
-        $detailSeparator = @($script:RenderedOutput | Where-Object { "$_" -match '^-{40,}$' })[0]
-        $detailTable = @($script:RenderedOutput | Where-Object { "$_" -match 'InstalledVersion' })[0]
+        $renderedText = @(
+            $script:RenderedOutput |
+            ForEach-Object { ([String]::Join('', [String[]]$_)) -replace "$([Char]27)\[[0-9;]*m", '' }
+        )
+        $detailSeparator = @($renderedText | Where-Object { $_ -match '^-{40,}$' })[0]
+        $detailTable = @($renderedText | Where-Object { $_ -match 'InstalledVersion' })[0]
         $detailSeparator | Should -Not -BeNullOrEmpty
         $detailTable | Should -Not -BeNullOrEmpty
         @(

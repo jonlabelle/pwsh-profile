@@ -71,7 +71,7 @@ Describe 'Export-InstalledPlatformPackage' {
             param([Object]$Object)
             if ($null -ne $Object)
             {
-                $script:ThemeOutput.Add([String]$Object)
+                $script:ThemeOutput.Add((@($Object) -join ''))
             }
         }
 
@@ -79,14 +79,20 @@ Describe 'Export-InstalledPlatformPackage' {
         $null = Export-InstalledPlatformPackage -Package $package -Path $exportPath -ShowProgress
 
         $escapeCharacter = [String][Char]27
-        $codes = @($script:ThemeOutput | Where-Object { $_ -match ([Regex]::Escape($escapeCharacter) + '\[[0-9;]*m') } | Sort-Object -Unique)
+        $ansiPattern = [Regex]::Escape($escapeCharacter) + '\[[0-9;]*m'
+        $codes = @(
+            $script:ThemeOutput |
+            ForEach-Object { [Regex]::Matches($_, $ansiPattern).Value } |
+            Sort-Object -Unique
+        )
+        $plainOutput = @($script:ThemeOutput | ForEach-Object { $_ -replace $ansiPattern, '' })
 
         $codes.Count | Should-Be 3
         $codes | Should-ContainCollection "$escapeCharacter[38;5;37m"
         $codes | Should-ContainCollection "$escapeCharacter[38;5;244m"
         $codes | Should-ContainCollection "$escapeCharacter[0m"
-        $script:ThemeOutput | Should-ContainCollection 'Exporting installed packages...'
-        $script:ThemeOutput | Should-ContainCollection "File: $exportPath"
+        $plainOutput | Should-ContainCollection 'Exporting installed packages...'
+        $plainOutput | Should-ContainCollection "File: $exportPath"
     }
 
     It 'exports CSV with direct dependencies' {

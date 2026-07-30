@@ -1024,8 +1024,8 @@
                 # Packet loss and jitter use the accent for healthy values and semantic warning/critical colors.
                 $clearTail = if ($effectiveRender -eq 'InPlace') { "`e[K" } else { '' }
 
-                # Use individual Write-Host calls with explicit -ForegroundColor to ensure proper color isolation
-                Write-Host "$($script:Palette.Muted)Packet Loss: " -NoNewline
+                # Keep each styled segment self-contained so color state cannot leak between host writes.
+                Write-Host "$($script:Palette.Muted)Packet Loss: $($script:Palette.Reset)" -NoNewline
                 if ($metrics.PacketLoss -eq 0)
                 {
                     Write-Host "$($script:Palette.Accent)$($metrics.PacketLoss)%$($script:Palette.Reset)" -NoNewline
@@ -1038,7 +1038,7 @@
                 {
                     Write-Host "$($metrics.PacketLoss)%" -ForegroundColor Red -NoNewline
                 }
-                Write-Host "$($script:Palette.Reset)$($script:Palette.Muted) | Jitter: " -NoNewline
+                Write-Host "$($script:Palette.Muted) | Jitter: $($script:Palette.Reset)" -NoNewline
                 if ($metrics.Jitter -lt 10)
                 {
                     Write-Host "$($script:Palette.Accent)$($metrics.Jitter)ms$($script:Palette.Reset)" -NoNewline
