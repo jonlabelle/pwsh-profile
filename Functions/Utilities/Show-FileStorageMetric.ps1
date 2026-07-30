@@ -15,6 +15,19 @@
         nested DailyBreakdown, ExtensionBreakdown, PathBreakdown, DirectoryBreakdown,
         and LargestFiles collections.
 
+        The dashboard includes a capacity forecast by default. It extrapolates the average
+        retained bytes per calendar day in a separate 30-day growth window, recommends
+        capacity at 30, 90, and 365 days with 20 percent headroom, and reports the current
+        capacity of file-system volumes containing the resolved paths when available.
+        Use ProjectionDays, GrowthWindowDays, and CapacityHeadroomPercent to tune it, or
+        NoCapacityProjection to omit it.
+
+        The forecast is an acquisition-rate estimate from a point-in-time scan, not a
+        measurement of net growth. Deletions, deduplication, compression, and future size
+        changes cannot be inferred. The current selected-data baseline applies file-name
+        and size criteria across all dates, while the main report retains its requested
+        date window.
+
         Days is inclusive of the reference date. For example, -Days 0 includes only the
         reference calendar date, while -Days 2 includes the reference date and the two
         preceding calendar dates. The default reference date is today. Use -AllDates to
@@ -63,6 +76,27 @@
     .PARAMETER MaximumSizeBytes
         Optional maximum file size in bytes.
 
+    .PARAMETER ProjectionDays
+        One or more future horizons, in days, for the storage-capacity forecast.
+        Duplicate horizons are removed and results are ordered from shortest to longest.
+        Defaults to 30, 90, and 365.
+
+    .PARAMETER GrowthWindowDays
+        Number of calendar days used to estimate average retained-byte growth. The window
+        ends on ReferenceDate and includes zero-activity dates. It is independent of Days
+        so the default one-day metrics report still receives a useful forecast. Defaults
+        to 30.
+
+    .PARAMETER CapacityHeadroomPercent
+        Percentage of projected capacity to leave unused. Required capacity is calculated
+        so projected usage does not exceed the remaining percentage. Defaults to 20.
+        Valid values are 0 through 99.
+
+    .PARAMETER NoCapacityProjection
+        Omits growth and volume-capacity calculations from the report and dashboard.
+        Cannot be combined with explicitly supplied projection settings or Projection
+        and Volume CSV groupings.
+
     .PARAMETER Top
         Number of largest files to include in the dashboard and LargestFiles collection.
         Use zero to omit the largest-files section. Defaults to 5.
@@ -83,7 +117,9 @@
 
     .PARAMETER CsvGroupBy
         Selects the flat record set exported through CsvPath:
-        Summary, Day, Extension, Path, Directory, or File. Defaults to Day.
+        Summary, Day, Extension, Path, Directory, File, Projection, or Volume.
+        Projection and Volume are available when capacity projection is enabled.
+        Defaults to Day.
 
     .PARAMETER OverwriteCsv
         Allows CsvPath to overwrite an existing file. Requires CsvPath.
@@ -119,6 +155,14 @@
         PS > Get-ChildItem -Directory ./projects | Show-FileStorageMetric -Filter '*.zip' -AllDates -Recurse -AsObject
 
         Aggregates matching ZIP files from directory paths received through the pipeline.
+
+    .EXAMPLE
+        PS > $report = Show-FileStorageMetric -Path ./archive -Days 30 -DateField CreationTime -Recurse -ProjectionDays 30, 90, 365 -CapacityHeadroomPercent 20 -AsObject
+        PS > $report.GrowthProjection.Projections
+        PS > $report.VolumeBreakdown
+
+        Projects retained storage additions at three horizons, recommends selected-data
+        capacity with 20 percent headroom, and returns current volume-capacity details.
 
     .OUTPUTS
         System.String
@@ -180,6 +224,22 @@
         [Nullable[Int64]]$MaximumSizeBytes,
 
         [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [ValidateRange(1, 365000)]
+        [Int32[]]$ProjectionDays = @(30, 90, 365),
+
+        [Parameter()]
+        [ValidateRange(1, 365000)]
+        [Int32]$GrowthWindowDays = 30,
+
+        [Parameter()]
+        [ValidateRange(0, 99)]
+        [Double]$CapacityHeadroomPercent = 20,
+
+        [Parameter()]
+        [Switch]$NoCapacityProjection,
+
+        [Parameter()]
         [ValidateRange(0, 100)]
         [Int32]$Top = 5,
 
@@ -198,7 +258,7 @@
         [String]$CsvPath,
 
         [Parameter()]
-        [ValidateSet('Summary', 'Day', 'Extension', 'Path', 'Directory', 'File')]
+        [ValidateSet('Summary', 'Day', 'Extension', 'Path', 'Directory', 'File', 'Projection', 'Volume')]
         [String]$CsvGroupBy = 'Day',
 
         [Parameter()]
@@ -210,6 +270,9 @@
         $inputPaths = New-Object 'System.Collections.Generic.List[String]'
         $daysWasSpecified = $PSBoundParameters.ContainsKey('Days')
         $referenceDateWasSpecified = $PSBoundParameters.ContainsKey('ReferenceDate')
+        $projectionDaysWasSpecified = $PSBoundParameters.ContainsKey('ProjectionDays')
+        $growthWindowDaysWasSpecified = $PSBoundParameters.ContainsKey('GrowthWindowDays')
+        $capacityHeadroomWasSpecified = $PSBoundParameters.ContainsKey('CapacityHeadroomPercent')
         $csvGroupByWasSpecified = $PSBoundParameters.ContainsKey('CsvGroupBy')
 
         function Test-WildcardPatternMatch
@@ -358,6 +421,157 @@
             }
 
             return [Math]::Round([Double](($Value / $Total) * 100), 2)
+        }
+
+        function Get-FileStorageVolumeInventory
+        {
+            $volumeInventory = New-Object 'System.Collections.Generic.List[Object]'
+
+            try
+            {
+                $drives = @([System.IO.DriveInfo]::GetDrives())
+            }
+            catch
+            {
+                Write-Verbose "Could not enumerate file-system volumes: $($_.Exception.Message)"
+                return [Object[]]@()
+            }
+
+            foreach ($drive in $drives)
+            {
+                try
+                {
+                    $isReady = [Boolean]$drive.IsReady
+                    $mountPoint = [String]$drive.Name
+                    try
+                    {
+                        if ($drive.RootDirectory -and
+                            -not [String]::IsNullOrWhiteSpace($drive.RootDirectory.FullName))
+                        {
+                            $mountPoint = [String]$drive.RootDirectory.FullName
+                        }
+                    }
+                    catch
+                    {
+                        Write-Verbose "Could not resolve the mount point for volume '$($drive.Name)': $($_.Exception.Message)"
+                    }
+
+                    try
+                    {
+                        $mountPoint = [System.IO.Path]::GetFullPath($mountPoint)
+                    }
+                    catch
+                    {
+                        Write-Verbose "Could not normalize volume mount point '$mountPoint'; using the provider-supplied value."
+                    }
+
+                    $volumeProperties = [Ordered]@{
+                        PSTypeName         = 'FileStorageMetric.VolumeSource'
+                        Name               = [String]$drive.Name
+                        MountPoint         = $mountPoint
+                        DriveType          = [String]$drive.DriveType
+                        DriveFormat        = $null
+                        IsReady            = $isReady
+                        CapacityBytes      = $null
+                        UsedBytes          = $null
+                        TotalFreeBytes     = $null
+                        AvailableFreeBytes = $null
+                        UsedPercent        = $null
+                    }
+
+                    if ($isReady)
+                    {
+                        [Int64]$capacityBytes = $drive.TotalSize
+                        [Int64]$totalFreeBytes = $drive.TotalFreeSpace
+                        [Int64]$availableFreeBytes = $drive.AvailableFreeSpace
+                        [Int64]$usedBytes = $capacityBytes - $totalFreeBytes
+
+                        $volumeProperties.DriveFormat = [String]$drive.DriveFormat
+                        $volumeProperties.CapacityBytes = $capacityBytes
+                        $volumeProperties.UsedBytes = $usedBytes
+                        $volumeProperties.TotalFreeBytes = $totalFreeBytes
+                        $volumeProperties.AvailableFreeBytes = $availableFreeBytes
+                        if ($capacityBytes -gt 0)
+                        {
+                            $volumeProperties.UsedPercent = [Math]::Round(
+                                ([Double]$usedBytes / [Double]$capacityBytes) * 100,
+                                2)
+                        }
+                    }
+
+                    [void]$volumeInventory.Add([PSCustomObject]$volumeProperties)
+                }
+                catch
+                {
+                    Write-Verbose "Could not inspect file-system volume '$($drive.Name)': $($_.Exception.Message)"
+                }
+            }
+
+            return [Object[]]$volumeInventory.ToArray()
+        }
+
+        function Resolve-FileStorageVolume
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$FileSystemPath,
+
+                [Parameter(Mandatory)]
+                [AllowEmptyCollection()]
+                [Object[]]$Volume,
+
+                [Parameter(Mandatory)]
+                [StringComparison]$PathComparison
+            )
+
+            try
+            {
+                $normalizedPath = [System.IO.Path]::GetFullPath($FileSystemPath)
+            }
+            catch
+            {
+                $normalizedPath = $FileSystemPath
+            }
+
+            $bestMatch = $null
+            $bestMatchLength = -1
+            $directorySeparator = [String][System.IO.Path]::DirectorySeparatorChar
+            $alternateSeparator = [String][System.IO.Path]::AltDirectorySeparatorChar
+
+            foreach ($currentVolume in @($Volume))
+            {
+                $mountPoint = [String]$currentVolume.MountPoint
+                if ([String]::IsNullOrWhiteSpace($mountPoint))
+                {
+                    continue
+                }
+
+                try
+                {
+                    $mountPoint = [System.IO.Path]::GetFullPath($mountPoint)
+                }
+                catch
+                {
+                    Write-Verbose "Could not normalize volume mount point '$mountPoint' while resolving '$normalizedPath'."
+                }
+
+                $mountPointWithSeparator = $mountPoint
+                if (-not $mountPoint.EndsWith($directorySeparator) -and
+                    -not $mountPoint.EndsWith($alternateSeparator))
+                {
+                    $mountPointWithSeparator += $directorySeparator
+                }
+
+                $isMatch = $normalizedPath.Equals($mountPoint, $PathComparison) -or
+                    $normalizedPath.StartsWith($mountPointWithSeparator, $PathComparison)
+                if ($isMatch -and $mountPoint.Length -gt $bestMatchLength)
+                {
+                    $bestMatch = $currentVolume
+                    $bestMatchLength = $mountPoint.Length
+                }
+            }
+
+            return $bestMatch
         }
 
         function Add-StorageBucketRecord
@@ -598,6 +812,89 @@
                                 LastWriteTime  = $_.LastWriteTime.ToString('o')
                                 LastAccessTime = $_.LastAccessTime.ToString('o')
                                 SourcePath     = $_.SourcePath
+                            }
+                        }
+                    )
+                }
+                'Projection'
+                {
+                    $columns = @(
+                        'Method', 'DateField', 'ObservationStartDate', 'ObservationEndDate',
+                        'ObservationDayCount', 'ObservedBytes', 'ObservedGrowthBytesPerDay',
+                        'ObservedGrowthBytesPerWeek', 'ObservedGrowthBytesPer30DayMonth',
+                        'ObservedGrowthBytesPerYear', 'CapacityHeadroomPercent', 'HorizonDays',
+                        'ProjectionDate', 'ProjectedAdditionalBytes', 'ProjectedSelectedBytes',
+                        'RequiredSelectedCapacityBytes'
+                    )
+                    $records = @(
+                        foreach ($projection in @($Report.GrowthProjection.Projections))
+                        {
+                            [PSCustomObject][Ordered]@{
+                                Method                           = $Report.GrowthProjection.Method
+                                DateField                        = $Report.GrowthProjection.DateField
+                                ObservationStartDate             = if ($Report.GrowthProjection.ObservationStartDate) { $Report.GrowthProjection.ObservationStartDate.ToString('yyyy-MM-dd') } else { $null }
+                                ObservationEndDate               = if ($Report.GrowthProjection.ObservationEndDate) { $Report.GrowthProjection.ObservationEndDate.ToString('yyyy-MM-dd') } else { $null }
+                                ObservationDayCount              = $Report.GrowthProjection.ObservationDayCount
+                                ObservedBytes                    = $Report.GrowthProjection.ObservedBytes
+                                ObservedGrowthBytesPerDay        = $Report.GrowthProjection.ObservedGrowthBytesPerDay
+                                ObservedGrowthBytesPerWeek       = $Report.GrowthProjection.ObservedGrowthBytesPerWeek
+                                ObservedGrowthBytesPer30DayMonth = $Report.GrowthProjection.ObservedGrowthBytesPer30DayMonth
+                                ObservedGrowthBytesPerYear       = $Report.GrowthProjection.ObservedGrowthBytesPerYear
+                                CapacityHeadroomPercent          = $Report.GrowthProjection.CapacityHeadroomPercent
+                                HorizonDays                      = $projection.HorizonDays
+                                ProjectionDate                   = $projection.ProjectionDate.ToString('yyyy-MM-dd')
+                                ProjectedAdditionalBytes         = $projection.ProjectedAdditionalBytes
+                                ProjectedSelectedBytes           = $projection.ProjectedSelectedBytes
+                                RequiredSelectedCapacityBytes    = $projection.RequiredSelectedCapacityBytes
+                            }
+                        }
+                    )
+                }
+                'Volume'
+                {
+                    $columns = @(
+                        'MountPoint', 'DriveType', 'DriveFormat', 'IsReady', 'CapacityBytes',
+                        'UsedBytes', 'TotalFreeBytes', 'AvailableFreeBytes', 'UsedPercent',
+                        'CurrentSelectedFileCount', 'CurrentSelectedBytes', 'ObservedFileCount',
+                        'ObservedBytes', 'ObservedGrowthBytesPerDay',
+                        'EstimatedDaysUntilAvailableSpaceExhausted',
+                        'EstimatedAvailableSpaceExhaustionDate', 'HorizonDays', 'ProjectionDate',
+                        'ProjectedAdditionalBytes', 'ProjectedUsedBytes', 'ProjectedUsedPercent',
+                        'ProjectedAvailableFreeBytes', 'RequiredCapacityBytes',
+                        'AdditionalCapacityRequiredBytes', 'MeetsCapacityTarget'
+                    )
+                    $records = @(
+                        foreach ($volumeRow in @($Report.VolumeBreakdown))
+                        {
+                            foreach ($volumeProjection in @($volumeRow.Projections))
+                            {
+                                [PSCustomObject][Ordered]@{
+                                    MountPoint                                = $volumeRow.MountPoint
+                                    DriveType                                 = $volumeRow.DriveType
+                                    DriveFormat                               = $volumeRow.DriveFormat
+                                    IsReady                                   = $volumeRow.IsReady
+                                    CapacityBytes                             = $volumeRow.CapacityBytes
+                                    UsedBytes                                 = $volumeRow.UsedBytes
+                                    TotalFreeBytes                            = $volumeRow.TotalFreeBytes
+                                    AvailableFreeBytes                        = $volumeRow.AvailableFreeBytes
+                                    UsedPercent                               = $volumeRow.UsedPercent
+                                    CurrentSelectedFileCount                  = $volumeRow.CurrentSelectedFileCount
+                                    CurrentSelectedBytes                      = $volumeRow.CurrentSelectedBytes
+                                    ObservedFileCount                         = $volumeRow.ObservedFileCount
+                                    ObservedBytes                             = $volumeRow.ObservedBytes
+                                    ObservedGrowthBytesPerDay                 = $volumeRow.ObservedGrowthBytesPerDay
+                                    EstimatedDaysUntilAvailableSpaceExhausted = $volumeRow.EstimatedDaysUntilAvailableSpaceExhausted
+                                    EstimatedAvailableSpaceExhaustionDate     = if ($volumeRow.EstimatedAvailableSpaceExhaustionDate) { $volumeRow.EstimatedAvailableSpaceExhaustionDate.ToString('yyyy-MM-dd') } else { $null }
+                                    HorizonDays                               = $volumeProjection.HorizonDays
+                                    ProjectionDate                            = $volumeProjection.ProjectionDate.ToString('yyyy-MM-dd')
+                                    ProjectedAdditionalBytes                  = $volumeProjection.ProjectedAdditionalBytes
+                                    ProjectedUsedBytes                        = $volumeProjection.ProjectedUsedBytes
+                                    ProjectedUsedPercent                      = $volumeProjection.ProjectedUsedPercent
+                                    ProjectedAvailableFreeBytes               = $volumeProjection.ProjectedAvailableFreeBytes
+                                    RequiredCapacityBytes                     = $volumeProjection.RequiredCapacityBytes
+                                    AdditionalCapacityRequiredBytes           = $volumeProjection.AdditionalCapacityRequiredBytes
+                                    MeetsCapacityTarget                       = $volumeProjection.MeetsCapacityTarget
+                                }
                             }
                         }
                     )
@@ -907,6 +1204,99 @@
                 [void]$lines.Add(' ' + $cardLine + ' ')
             }
 
+            if ($null -ne $Report.PSObject.Properties['GrowthProjection'])
+            {
+                $growth = $Report.GrowthProjection
+                $forecastHeading = Get-DashboardLeftRight `
+                    -Left ($statusDot + ' CAPACITY FORECAST') `
+                    -Right ('{0:N0}-day retained-byte average' -f $growth.ObservationDayCount) `
+                    -Width $dashboardWidth
+                $rateText = 'RATE  {0}/day  {1}  {2}/week  {1}  observed {3} in {4:N0} file(s)' -f
+                    (Format-StorageSize -Bytes $growth.ObservedGrowthBytesPerDay),
+                    $bullet,
+                    (Format-StorageSize -Bytes $growth.ObservedGrowthBytesPerWeek),
+                    (Format-StorageSize -Bytes $growth.ObservedBytes),
+                    $growth.ObservedFileCount
+                $baselineText = 'CURRENT SELECTED  {0} in {1:N0} file(s), all dates  {2}  HEADROOM  {3:G}%' -f
+                    (Format-StorageSize -Bytes $growth.CurrentSelectedBytes),
+                    $growth.CurrentSelectedFileCount,
+                    $bullet,
+                    $growth.CapacityHeadroomPercent
+
+                [void]$lines.Add('')
+                [void]$lines.Add((Format-DashboardAccent -Text $forecastHeading))
+                [void]$lines.Add($rateText)
+                [void]$lines.Add((Format-DashboardMuted -Text $baselineText))
+                [void]$lines.Add((Format-DashboardMuted -Text (
+                            'DAYS'.PadLeft(6) + '  ' +
+                            'THROUGH'.PadRight(12) +
+                            'ADDED'.PadLeft(14) +
+                            'PROJECTED'.PadLeft(16) +
+                            'CAPACITY NEEDED'.PadLeft(20))))
+
+                $forecastRows = @($growth.Projections | Select-Object -First $DisplayLimit)
+                foreach ($projection in $forecastRows)
+                {
+                    $forecastLine = '{0,6:N0}  {1:yyyy-MM-dd}  {2,14}  {3,16}  {4,20}' -f
+                        $projection.HorizonDays,
+                        $projection.ProjectionDate,
+                        (Format-StorageSize -Bytes $projection.ProjectedAdditionalBytes),
+                        (Format-StorageSize -Bytes $projection.ProjectedSelectedBytes),
+                        (Format-StorageSize -Bytes $projection.RequiredSelectedCapacityBytes)
+                    [void]$lines.Add($forecastLine)
+                }
+                if ($growth.Projections.Count -gt $forecastRows.Count)
+                {
+                    [void]$lines.Add((Format-DashboardMuted -Text ('{0} {1:N0} additional horizon(s) available with -AsObject.' -f
+                                $bullet, ($growth.Projections.Count - $forecastRows.Count))))
+                }
+
+                [void]$lines.Add((Format-DashboardMuted -Text (
+                            $bullet + ' Estimate uses retained ' + $growth.DateField +
+                            ' bytes; deletions and compression are not observable.')))
+
+                $volumeRows = @($Report.VolumeBreakdown)
+                $volumeHeading = Get-DashboardLeftRight `
+                    -Left ($statusDot + ' VOLUME CAPACITY') `
+                    -Right ('{0:N0} volume(s) / {1}' -f $volumeRows.Count, $growth.VolumeCapacityStatus) `
+                    -Width $dashboardWidth
+                [void]$lines.Add('')
+                [void]$lines.Add((Format-DashboardAccent -Text $volumeHeading))
+                if ($volumeRows.Count -eq 0)
+                {
+                    [void]$lines.Add((Format-DashboardMuted -Text '(volume capacity unavailable)'))
+                }
+                else
+                {
+                    $longestHorizonDays = @($growth.Projections | Select-Object -Last 1)[0].HorizonDays
+                    [void]$lines.Add((Format-DashboardMuted -Text (
+                                'MOUNT'.PadRight(24) +
+                                'USED'.PadLeft(13) + ' / ' +
+                                'CAPACITY'.PadLeft(12) +
+                                'AVAILABLE'.PadLeft(13) +
+                                (('{0:N0}D NEED' -f $longestHorizonDays).PadLeft(17)) +
+                                'GAP'.PadLeft(13))))
+                    $visibleVolumeRows = @($volumeRows | Select-Object -First ([Math]::Min($DisplayLimit, 6)))
+                    foreach ($volume in $visibleVolumeRows)
+                    {
+                        $longestVolumeProjection = @($volume.Projections | Select-Object -Last 1)[0]
+                        $volumeLine = '{0,-24} {1,12} / {2,12} {3,12} {4,16} {5,12}' -f
+                            (Limit-StorageText -Text ([String]$volume.MountPoint) -Width 24),
+                            (Format-StorageSize -Bytes $volume.UsedBytes),
+                            (Format-StorageSize -Bytes $volume.CapacityBytes),
+                            (Format-StorageSize -Bytes $volume.AvailableFreeBytes),
+                            (Format-StorageSize -Bytes $longestVolumeProjection.RequiredCapacityBytes),
+                            (Format-StorageSize -Bytes $longestVolumeProjection.AdditionalCapacityRequiredBytes)
+                        [void]$lines.Add($volumeLine)
+                    }
+                    if ($volumeRows.Count -gt $visibleVolumeRows.Count)
+                    {
+                        [void]$lines.Add((Format-DashboardMuted -Text ('{0} {1:N0} additional volume(s) available with -AsObject.' -f
+                                    $bullet, ($volumeRows.Count - $visibleVolumeRows.Count))))
+                    }
+                }
+            }
+
             $dailyRows = @($Report.DailyBreakdown)
             $dailyRowsToShow = if ($dailyRows.Count -gt $DisplayLimit)
             {
@@ -1153,6 +1543,27 @@
             throw 'CsvGroupBy requires CsvPath.'
         }
 
+        if ($NoCapacityProjection -and
+            ($projectionDaysWasSpecified -or $growthWindowDaysWasSpecified -or $capacityHeadroomWasSpecified))
+        {
+            throw 'NoCapacityProjection cannot be combined with ProjectionDays, GrowthWindowDays, or CapacityHeadroomPercent.'
+        }
+
+        if ($NoCapacityProjection -and $CsvGroupBy -in @('Projection', 'Volume'))
+        {
+            throw "CsvGroupBy $CsvGroupBy cannot be used with NoCapacityProjection."
+        }
+
+        $capacityProjectionEnabled = -not [Boolean]$NoCapacityProjection
+        $normalizedProjectionDays = if ($capacityProjectionEnabled)
+        {
+            [Int32[]]@($ProjectionDays | Sort-Object -Unique)
+        }
+        else
+        {
+            [Int32[]]@()
+        }
+
         $normalizedFilters = @(
             foreach ($fileFilter in @($Filter))
             {
@@ -1179,6 +1590,27 @@
         $referenceCalendarDate = $ReferenceDate.Date
         $dateWindowStart = if ($AllDates) { $null } else { $referenceCalendarDate.AddDays(-$Days) }
         $dateWindowEndExclusive = if ($AllDates) { $null } else { $referenceCalendarDate.AddDays(1) }
+        if ($capacityProjectionEnabled)
+        {
+            try
+            {
+                $growthWindowStart = $referenceCalendarDate.AddDays(-($GrowthWindowDays - 1))
+                $growthWindowEndExclusive = $referenceCalendarDate.AddDays(1)
+                foreach ($projectionDayCount in $normalizedProjectionDays)
+                {
+                    [void]$referenceCalendarDate.AddDays($projectionDayCount)
+                }
+            }
+            catch
+            {
+                throw "Projection settings exceed the supported date range for ReferenceDate $($referenceCalendarDate.ToString('yyyy-MM-dd')). Reduce GrowthWindowDays or ProjectionDays."
+            }
+        }
+        else
+        {
+            $growthWindowStart = $null
+            $growthWindowEndExclusive = $null
+        }
 
         $resolvedCsvPath = $null
         if (-not [String]::IsNullOrWhiteSpace($CsvPath))
@@ -1267,12 +1699,57 @@
             }
         }
 
+        $pathComparison = if ($isWindowsPlatform)
+        {
+            [StringComparison]::OrdinalIgnoreCase
+        }
+        else
+        {
+            [StringComparison]::Ordinal
+        }
+        $volumeInventory = [Object[]]@()
+        $volumeByMountPoint = [System.Collections.Generic.Dictionary[String, Object]]::new($pathComparer)
+        $selectedVolumeKeys = [System.Collections.Generic.HashSet[String]]::new($pathComparer)
+        $directoryVolumeCache = [System.Collections.Generic.Dictionary[String, Object]]::new($pathComparer)
+        $volumeCapacityMetrics = [System.Collections.Generic.Dictionary[String, Object]]::new($pathComparer)
+        [Int32]$unresolvedVolumePathCount = 0
+
+        if ($capacityProjectionEnabled)
+        {
+            $volumeInventory = @(Get-FileStorageVolumeInventory)
+            foreach ($volumeInfo in $volumeInventory)
+            {
+                if (-not $volumeByMountPoint.ContainsKey($volumeInfo.MountPoint))
+                {
+                    $volumeByMountPoint.Add($volumeInfo.MountPoint, $volumeInfo)
+                }
+            }
+
+            foreach ($resolvedRoot in $resolvedRoots)
+            {
+                $rootVolume = Resolve-FileStorageVolume -FileSystemPath $resolvedRoot.Path `
+                    -Volume $volumeInventory -PathComparison $pathComparison
+                if ($null -ne $rootVolume)
+                {
+                    [void]$selectedVolumeKeys.Add($rootVolume.MountPoint)
+                }
+                else
+                {
+                    $unresolvedVolumePathCount++
+                }
+            }
+        }
+
         $seenFilePaths = [System.Collections.Generic.HashSet[String]]::new($pathComparer)
         $matchingFiles = New-Object 'System.Collections.Generic.List[Object]'
         $enumerationErrors = New-Object 'System.Collections.Generic.List[String]'
         [Int32]$scannedFileCount = 0
         [Int32]$nameMatchedFileCount = 0
         [Int32]$duplicateFileCount = 0
+        [Int32]$capacityScopeFileCount = 0
+        [Decimal]$capacityScopeBytes = 0
+        [Int32]$growthObservedFileCount = 0
+        [Decimal]$growthObservedBytes = 0
 
         foreach ($root in $resolvedRoots)
         {
@@ -1350,16 +1827,87 @@
                     continue
                 }
 
-                if (-not $AllDates -and
-                    ($fileDate -lt $dateWindowStart -or $fileDate -ge $dateWindowEndExclusive))
-                {
-                    continue
-                }
                 if ($lengthBytes -lt $MinimumSizeBytes)
                 {
                     continue
                 }
                 if ($null -ne $MaximumSizeBytes -and $lengthBytes -gt $MaximumSizeBytes)
+                {
+                    continue
+                }
+
+                $directoryName = if ([String]::IsNullOrWhiteSpace($file.DirectoryName))
+                {
+                    '(root)'
+                }
+                else
+                {
+                    $file.DirectoryName
+                }
+                $volumeCacheKey = if ($directoryName -eq '(root)')
+                {
+                    $fullFilePath
+                }
+                else
+                {
+                    $directoryName
+                }
+                $fileVolume = $null
+                if ($capacityProjectionEnabled)
+                {
+                    $capacityScopeFileCount++
+                    $capacityScopeBytes += [Decimal]$lengthBytes
+                    $isInGrowthWindow = $fileDate -ge $growthWindowStart -and
+                        $fileDate -lt $growthWindowEndExclusive
+                    if ($isInGrowthWindow)
+                    {
+                        $growthObservedFileCount++
+                        $growthObservedBytes += [Decimal]$lengthBytes
+                    }
+
+                    if ($directoryVolumeCache.ContainsKey($volumeCacheKey))
+                    {
+                        $fileVolume = $directoryVolumeCache[$volumeCacheKey]
+                    }
+                    else
+                    {
+                        $fileVolume = Resolve-FileStorageVolume -FileSystemPath $fullFilePath `
+                            -Volume $volumeInventory -PathComparison $pathComparison
+                        $directoryVolumeCache.Add($volumeCacheKey, $fileVolume)
+                    }
+
+                    if ($null -ne $fileVolume)
+                    {
+                        [void]$selectedVolumeKeys.Add($fileVolume.MountPoint)
+                        if (-not $volumeCapacityMetrics.ContainsKey($fileVolume.MountPoint))
+                        {
+                            $volumeCapacityMetrics.Add(
+                                $fileVolume.MountPoint,
+                                [PSCustomObject]@{
+                                    CurrentSelectedFileCount = 0
+                                    CurrentSelectedBytes     = [Decimal]0
+                                    ObservedFileCount        = 0
+                                    ObservedBytes            = [Decimal]0
+                                })
+                        }
+
+                        $currentVolumeMetrics = $volumeCapacityMetrics[$fileVolume.MountPoint]
+                        $currentVolumeMetrics.CurrentSelectedFileCount++
+                        $currentVolumeMetrics.CurrentSelectedBytes += [Decimal]$lengthBytes
+                        if ($isInGrowthWindow)
+                        {
+                            $currentVolumeMetrics.ObservedFileCount++
+                            $currentVolumeMetrics.ObservedBytes += [Decimal]$lengthBytes
+                        }
+                    }
+                    else
+                    {
+                        $unresolvedVolumePathCount++
+                    }
+                }
+
+                if (-not $AllDates -and
+                    ($fileDate -lt $dateWindowStart -or $fileDate -ge $dateWindowEndExclusive))
                 {
                     continue
                 }
@@ -1372,28 +1920,21 @@
                 {
                     $file.Extension.ToLowerInvariant()
                 }
-                $directoryName = if ([String]::IsNullOrWhiteSpace($file.DirectoryName))
-                {
-                    '(root)'
-                }
-                else
-                {
-                    $file.DirectoryName
-                }
 
-                [void]$matchingFiles.Add([PSCustomObject]@{
-                        PSTypeName     = 'FileStorageMetric.File'
-                        Path           = $fullFilePath
-                        Name           = $file.Name
-                        Directory      = $directoryName
-                        Extension      = $extension
-                        LengthBytes    = $lengthBytes
-                        FileDate       = $fileDate
-                        CreationTime   = [DateTime]$file.CreationTime
-                        LastWriteTime  = [DateTime]$file.LastWriteTime
-                        LastAccessTime = [DateTime]$file.LastAccessTime
-                        SourcePath     = $root.Path
-                    })
+                $fileProperties = [Ordered]@{
+                    PSTypeName     = 'FileStorageMetric.File'
+                    Path           = $fullFilePath
+                    Name           = $file.Name
+                    Directory      = $directoryName
+                    Extension      = $extension
+                    LengthBytes    = $lengthBytes
+                    FileDate       = $fileDate
+                    CreationTime   = [DateTime]$file.CreationTime
+                    LastWriteTime  = [DateTime]$file.LastWriteTime
+                    LastAccessTime = [DateTime]$file.LastAccessTime
+                    SourcePath     = $root.Path
+                }
+                [void]$matchingFiles.Add([PSCustomObject]$fileProperties)
             }
         }
 
@@ -1572,9 +2113,212 @@
             $null
         }
 
-        $report = [PSCustomObject]@{
+        $generatedAt = Get-Date
+        $growthProjection = $null
+        $volumeRows = [Object[]]@()
+        if ($capacityProjectionEnabled)
+        {
+            [Decimal]$observedGrowthBytesPerDay = [Math]::Round(
+                ($growthObservedBytes / [Decimal]$GrowthWindowDays),
+                2)
+            [Decimal]$usableCapacityRatio = [Decimal]1 -
+                ([Decimal]$CapacityHeadroomPercent / [Decimal]100)
+            $projectionRows = New-Object 'System.Collections.Generic.List[Object]'
+
+            foreach ($projectionDayCount in $normalizedProjectionDays)
+            {
+                [Decimal]$projectedAdditionalBytes = [Math]::Ceiling(
+                    $observedGrowthBytesPerDay * [Decimal]$projectionDayCount)
+                [Decimal]$projectedSelectedBytes = $capacityScopeBytes + $projectedAdditionalBytes
+                [Decimal]$requiredSelectedCapacityBytes = [Math]::Ceiling(
+                    $projectedSelectedBytes / $usableCapacityRatio)
+
+                [void]$projectionRows.Add([PSCustomObject][Ordered]@{
+                        PSTypeName                    = 'FileStorageMetric.CapacityProjection'
+                        HorizonDays                  = $projectionDayCount
+                        ProjectionDate               = $referenceCalendarDate.AddDays($projectionDayCount)
+                        ProjectedAdditionalBytes     = $projectedAdditionalBytes
+                        ProjectedSelectedBytes       = $projectedSelectedBytes
+                        RequiredSelectedCapacityBytes = $requiredSelectedCapacityBytes
+                    })
+            }
+
+            $volumeRowList = New-Object 'System.Collections.Generic.List[Object]'
+            [Int32]$volumeWithCapacityCount = 0
+            foreach ($volumeKey in @($selectedVolumeKeys | Sort-Object))
+            {
+                if (-not $volumeByMountPoint.ContainsKey($volumeKey))
+                {
+                    continue
+                }
+
+                $sourceVolume = $volumeByMountPoint[$volumeKey]
+                $currentVolumeMetrics = if ($volumeCapacityMetrics.ContainsKey($volumeKey))
+                {
+                    $volumeCapacityMetrics[$volumeKey]
+                }
+                else
+                {
+                    [PSCustomObject]@{
+                        CurrentSelectedFileCount = 0
+                        CurrentSelectedBytes     = [Decimal]0
+                        ObservedFileCount        = 0
+                        ObservedBytes            = [Decimal]0
+                    }
+                }
+                [Decimal]$volumeGrowthBytesPerDay = [Math]::Round(
+                    ([Decimal]$currentVolumeMetrics.ObservedBytes / [Decimal]$GrowthWindowDays),
+                    2)
+                $estimatedDaysUntilAvailableSpaceExhausted = $null
+                $estimatedAvailableSpaceExhaustionDate = $null
+                $availableSpaceExhaustionStatus = 'CapacityUnavailable'
+
+                if ($null -ne $sourceVolume.AvailableFreeBytes)
+                {
+                    $volumeWithCapacityCount++
+                    if ($volumeGrowthBytesPerDay -gt 0)
+                    {
+                        $estimatedDaysUntilAvailableSpaceExhausted = [Math]::Round(
+                            ([Decimal]$sourceVolume.AvailableFreeBytes / $volumeGrowthBytesPerDay),
+                            2)
+                        $availableSpaceExhaustionStatus = 'Projected'
+                        try
+                        {
+                            $estimatedAvailableSpaceExhaustionDate = $referenceCalendarDate.AddDays(
+                                [Math]::Ceiling([Double]$estimatedDaysUntilAvailableSpaceExhausted))
+                        }
+                        catch
+                        {
+                            $estimatedAvailableSpaceExhaustionDate = $null
+                            $availableSpaceExhaustionStatus = 'BeyondDateRange'
+                        }
+                    }
+                    else
+                    {
+                        $availableSpaceExhaustionStatus = 'NoObservedGrowth'
+                    }
+                }
+
+                $volumeProjectionRows = New-Object 'System.Collections.Generic.List[Object]'
+                foreach ($projectionDayCount in $normalizedProjectionDays)
+                {
+                    [Decimal]$volumeProjectedAdditionalBytes = [Math]::Ceiling(
+                        $volumeGrowthBytesPerDay * [Decimal]$projectionDayCount)
+                    $projectedUsedBytes = $null
+                    $projectedUsedPercent = $null
+                    $projectedAvailableFreeBytes = $null
+                    $requiredCapacityBytes = $null
+                    $additionalCapacityRequiredBytes = $null
+                    $meetsCapacityTarget = $null
+
+                    if ($null -ne $sourceVolume.CapacityBytes -and
+                        $null -ne $sourceVolume.UsedBytes -and
+                        $null -ne $sourceVolume.AvailableFreeBytes)
+                    {
+                        $projectedUsedBytes = [Decimal]$sourceVolume.UsedBytes +
+                            $volumeProjectedAdditionalBytes
+                        $projectedAvailableFreeBytes = [Decimal]$sourceVolume.AvailableFreeBytes -
+                            $volumeProjectedAdditionalBytes
+                        $requiredCapacityBytes = [Math]::Ceiling(
+                            $projectedUsedBytes / $usableCapacityRatio)
+                        [Decimal]$capacityGapBytes = $requiredCapacityBytes -
+                            [Decimal]$sourceVolume.CapacityBytes
+                        $additionalCapacityRequiredBytes = if ($capacityGapBytes -gt 0)
+                        {
+                            $capacityGapBytes
+                        }
+                        else
+                        {
+                            [Decimal]0
+                        }
+
+                        if ([Decimal]$sourceVolume.CapacityBytes -gt 0)
+                        {
+                            $projectedUsedPercent = [Math]::Round(
+                                [Double](($projectedUsedBytes / [Decimal]$sourceVolume.CapacityBytes) * 100),
+                                2)
+                        }
+                        $meetsCapacityTarget = $additionalCapacityRequiredBytes -eq 0 -and
+                            $projectedAvailableFreeBytes -ge 0
+                    }
+
+                    [void]$volumeProjectionRows.Add([PSCustomObject][Ordered]@{
+                            PSTypeName                      = 'FileStorageMetric.VolumeCapacityProjection'
+                            HorizonDays                    = $projectionDayCount
+                            ProjectionDate                 = $referenceCalendarDate.AddDays($projectionDayCount)
+                            ProjectedAdditionalBytes       = $volumeProjectedAdditionalBytes
+                            ProjectedUsedBytes             = $projectedUsedBytes
+                            ProjectedUsedPercent           = $projectedUsedPercent
+                            ProjectedAvailableFreeBytes    = $projectedAvailableFreeBytes
+                            RequiredCapacityBytes          = $requiredCapacityBytes
+                            AdditionalCapacityRequiredBytes = $additionalCapacityRequiredBytes
+                            MeetsCapacityTarget            = $meetsCapacityTarget
+                        })
+                }
+
+                [void]$volumeRowList.Add([PSCustomObject][Ordered]@{
+                        PSTypeName                                  = 'FileStorageMetric.Volume'
+                        MountPoint                                  = $sourceVolume.MountPoint
+                        DriveType                                   = $sourceVolume.DriveType
+                        DriveFormat                                 = $sourceVolume.DriveFormat
+                        IsReady                                     = $sourceVolume.IsReady
+                        CapacityBytes                               = $sourceVolume.CapacityBytes
+                        UsedBytes                                   = $sourceVolume.UsedBytes
+                        TotalFreeBytes                              = $sourceVolume.TotalFreeBytes
+                        AvailableFreeBytes                          = $sourceVolume.AvailableFreeBytes
+                        UsedPercent                                = $sourceVolume.UsedPercent
+                        CurrentSelectedFileCount                    = $currentVolumeMetrics.CurrentSelectedFileCount
+                        CurrentSelectedBytes                        = $currentVolumeMetrics.CurrentSelectedBytes
+                        ObservedFileCount                           = $currentVolumeMetrics.ObservedFileCount
+                        ObservedBytes                               = $currentVolumeMetrics.ObservedBytes
+                        ObservedGrowthBytesPerDay                   = $volumeGrowthBytesPerDay
+                        EstimatedDaysUntilAvailableSpaceExhausted   = $estimatedDaysUntilAvailableSpaceExhausted
+                        EstimatedAvailableSpaceExhaustionDate       = $estimatedAvailableSpaceExhaustionDate
+                        AvailableSpaceExhaustionStatus              = $availableSpaceExhaustionStatus
+                        Projections                                 = [Object[]]$volumeProjectionRows.ToArray()
+                    })
+            }
+            $volumeRows = [Object[]]$volumeRowList.ToArray()
+            $volumeCapacityStatus = if ($volumeRows.Count -eq 0 -or $volumeWithCapacityCount -eq 0)
+            {
+                'Unavailable'
+            }
+            elseif ($volumeWithCapacityCount -lt $volumeRows.Count -or $unresolvedVolumePathCount -gt 0)
+            {
+                'Partial'
+            }
+            else
+            {
+                'Available'
+            }
+
+            $growthProjection = [PSCustomObject][Ordered]@{
+                PSTypeName                           = 'FileStorageMetric.GrowthProjection'
+                Status                               = if ($growthObservedFileCount -gt 0) { 'Ready' } else { 'NoActivity' }
+                Method                               = 'AverageRetainedBytesPerCalendarDay'
+                DateField                            = $DateField
+                ObservationStartDate                 = $growthWindowStart
+                ObservationEndDate                   = $referenceCalendarDate
+                ObservationDayCount                  = $GrowthWindowDays
+                ObservedFileCount                    = $growthObservedFileCount
+                ObservedBytes                        = $growthObservedBytes
+                CurrentSelectedFileCount             = $capacityScopeFileCount
+                CurrentSelectedBytes                 = $capacityScopeBytes
+                ObservedGrowthBytesPerDay            = $observedGrowthBytesPerDay
+                ObservedGrowthBytesPerWeek           = [Math]::Round($observedGrowthBytesPerDay * [Decimal]7, 2)
+                ObservedGrowthBytesPer30DayMonth      = [Math]::Round($observedGrowthBytesPerDay * [Decimal]30, 2)
+                ObservedGrowthBytesPerYear            = [Math]::Round($observedGrowthBytesPerDay * [Decimal]365, 2)
+                CapacityHeadroomPercent               = $CapacityHeadroomPercent
+                VolumeCapacityStatus                  = $volumeCapacityStatus
+                UnresolvedVolumePathCount             = $unresolvedVolumePathCount
+                Caveat                               = "Estimates extrapolate retained bytes grouped by $DateField and cannot account for deletions, deduplication, compression, or future file-size changes."
+                Projections                           = [Object[]]$projectionRows.ToArray()
+            }
+        }
+
+        $reportProperties = [Ordered]@{
             PSTypeName                  = 'FileStorageMetric.Report'
-            GeneratedAt                 = Get-Date
+            GeneratedAt                 = $generatedAt
             Paths                       = [String[]]@($resolvedRoots | ForEach-Object { $_.Path })
             Filter                      = [String[]]$normalizedFilters
             Exclude                     = [String[]]$normalizedExclusions
@@ -1618,6 +2362,12 @@
             CsvGroupBy                  = if ($resolvedCsvPath) { $CsvGroupBy } else { $null }
             CsvExported                 = $false
         }
+        if ($capacityProjectionEnabled)
+        {
+            $reportProperties.GrowthProjection = $growthProjection
+            $reportProperties.VolumeBreakdown = $volumeRows
+        }
+        $report = [PSCustomObject]$reportProperties
 
         if ($resolvedCsvPath -and $PSCmdlet.ShouldProcess($resolvedCsvPath, "Export $CsvGroupBy file storage metrics to CSV"))
         {
