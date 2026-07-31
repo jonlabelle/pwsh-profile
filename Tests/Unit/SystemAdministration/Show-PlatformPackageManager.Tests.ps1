@@ -26,7 +26,7 @@ Describe 'Show-PlatformPackageManager' {
 
         $result.Count | Should-Be 0
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like 'Manager: Auto -> *' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like "Manager: Auto $([Char]0x2192) *" } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Installed packages*' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Export installed*' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Direct install*' } -Times 0 -Exactly

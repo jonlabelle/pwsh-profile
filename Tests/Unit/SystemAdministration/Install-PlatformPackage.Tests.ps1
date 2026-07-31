@@ -496,7 +496,6 @@ Describe 'Install-PlatformPackage' {
             $result.NotSelected | Should-Be 1
             $result.Installed | Should-Be 0
             @($script:Invocations | Where-Object { $_.Key -eq 'brew install git' }).Count | Should-Be 0
-            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should-Be 4
         }
     }
 

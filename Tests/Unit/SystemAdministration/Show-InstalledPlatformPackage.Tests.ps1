@@ -176,7 +176,6 @@ Describe 'Show-InstalledPlatformPackage' {
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[38;5;37m" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[38;5;244m" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[0m" } -Times 1
-            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should-Be 2
         }
 
         It 'does not exit when Enter is pressed in browse mode' {

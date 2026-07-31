@@ -393,7 +393,6 @@ Describe 'Remove-PlatformPackage' {
             $result.NotSelected | Should-Be 1
             $result.Removed | Should-Be 0
             @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should-Be 0
-            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should-Be 4
         }
 
         It 'ignores Backspace and Delete as manager navigation when not launched by the manager' {

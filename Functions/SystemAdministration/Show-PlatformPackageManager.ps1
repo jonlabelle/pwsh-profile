@@ -130,6 +130,17 @@
         $packageThemeWarning = $packageThemeEscape + '[33m'
         $packageThemeCritical = $packageThemeEscape + '[91m'
         $packageThemeReset = $packageThemeEscape + '[0m'
+        $packageThemeHorizontal = [String][Char]0x2500
+        $packageThemeVertical = [String][Char]0x2502
+        $packageThemeTopLeft = [String][Char]0x256D
+        $packageThemeTopRight = [String][Char]0x256E
+        $packageThemeBottomLeft = [String][Char]0x2570
+        $packageThemeBottomRight = [String][Char]0x256F
+        $packageThemeStatus = [String][Char]0x25CF
+        $packageThemeBullet = [String][Char]0x2022
+        $packageThemeCursor = [String][Char]0x203A
+        $packageThemeArrow = [String][Char]0x2192
+        $packageThemeKeyboard = [String][Char]0x2328
 
         function Write-PackageThemeText
         {
@@ -163,6 +174,130 @@
             }
 
             Write-Host -Object @($color, $text, $packageThemeReset) -Separator '' -NoNewline:$NoNewline.IsPresent
+        }
+
+        function Get-PlatformPackageManagerDashboardWidth
+        {
+            $dashboardWidth = 96
+            try
+            {
+                $bufferWidth = [Console]::BufferWidth
+                if ($bufferWidth -gt 0)
+                {
+                    $dashboardWidth = [Math]::Min(104, [Math]::Max(60, $bufferWidth - 1))
+                }
+            }
+            catch
+            {
+                Write-Verbose "Unable to determine the console buffer width; using $dashboardWidth characters. $($_.Exception.Message)"
+            }
+
+            return $dashboardWidth
+        }
+
+        function Write-PlatformPackageManagerPanelBorder
+        {
+            param(
+                [Parameter(Mandatory)]
+                [ValidateSet('Top', 'Bottom')]
+                [String]$Position,
+
+                [Parameter()]
+                [String]$Title = ''
+            )
+
+            $width = Get-PlatformPackageManagerDashboardWidth
+            if ($Position -eq 'Bottom')
+            {
+                Write-PackageThemeText ($packageThemeBottomLeft + ($packageThemeHorizontal * ($width - 2)) + $packageThemeBottomRight) -ForegroundColor Cyan
+                return
+            }
+
+            if ([String]::IsNullOrWhiteSpace($Title))
+            {
+                Write-PackageThemeText ($packageThemeTopLeft + ($packageThemeHorizontal * ($width - 2)) + $packageThemeTopRight) -ForegroundColor Cyan
+                return
+            }
+
+            $titleToken = " $packageThemeStatus $($Title.ToUpperInvariant()) "
+            $titleToken = $titleToken.Substring(0, [Math]::Min($titleToken.Length, $width - 4))
+            $ruleWidth = [Math]::Max(0, $width - $titleToken.Length - 3)
+            Write-PackageThemeText ($packageThemeTopLeft + $packageThemeHorizontal + $titleToken + ($packageThemeHorizontal * $ruleWidth) + $packageThemeTopRight) -ForegroundColor Cyan
+        }
+
+        function Write-PlatformPackageManagerPanelLine
+        {
+            param(
+                [Parameter()]
+                [AllowEmptyCollection()]
+                [Object[]]$Segment = @()
+            )
+
+            $contentWidth = (Get-PlatformPackageManagerDashboardWidth) - 4
+            $remainingWidth = $contentWidth
+            Write-PackageThemeText "$packageThemeVertical " -NoNewline -ForegroundColor Cyan
+
+            foreach ($item in @($Segment))
+            {
+                if ($remainingWidth -le 0)
+                {
+                    break
+                }
+
+                $segmentText = if ($null -eq $item)
+                {
+                    ''
+                }
+                elseif ($item -is [String])
+                {
+                    [String]$item
+                }
+                elseif ($item.PSObject.Properties['Text'])
+                {
+                    [String]$item.Text
+                }
+                else
+                {
+                    [String]$item
+                }
+
+                if ($segmentText.Length -gt $remainingWidth)
+                {
+                    if ($remainingWidth -eq 1)
+                    {
+                        $segmentText = $segmentText.Substring(0, 1)
+                    }
+                    else
+                    {
+                        $segmentText = $segmentText.Substring(0, $remainingWidth - 1) + [String][Char]0x2026
+                    }
+                }
+
+                $segmentColor = if ($item -isnot [String] -and $item.PSObject.Properties['Color'])
+                {
+                    $item.Color
+                }
+                else
+                {
+                    $null
+                }
+
+                if ($null -eq $segmentColor)
+                {
+                    Write-PackageThemeText $segmentText -NoNewline
+                }
+                else
+                {
+                    Write-PackageThemeText $segmentText -NoNewline -ForegroundColor $segmentColor
+                }
+                $remainingWidth -= $segmentText.Length
+            }
+
+            if ($remainingWidth -gt 0)
+            {
+                Write-PackageThemeText (' ' * $remainingWidth) -NoNewline
+            }
+            Write-PackageThemeText " $packageThemeVertical" -ForegroundColor Cyan
         }
 
         function Get-PlatformPackageManagerDependencyPath
@@ -881,7 +1016,7 @@
 
             $managerText = if ($PackageManager -eq 'Auto')
             {
-                "Auto -> $(Get-PlatformPackageManagerDetectedName)"
+                "Auto $packageThemeArrow $(Get-PlatformPackageManagerDetectedName)"
             }
             else
             {
@@ -889,8 +1024,7 @@
             }
 
             $flagText = if ($flags.Count -gt 0) { $flags -join ', ' } else { 'none' }
-            $dot = [char]0x00B7
-            return "Manager: $managerText  $dot  Top: $Top  $dot  Flags: $flagText"
+            return "Manager: $managerText  $packageThemeBullet  Top: $Top  $packageThemeBullet  Flags: $flagText"
         }
 
         function Test-PlatformPackageManagerCommandAvailable
@@ -995,30 +1129,30 @@
                 [String]$Subtitle
             )
 
-            $ruleWidth = 78
-            try
-            {
-                $w = [Console]::BufferWidth
-                if ($w -gt 0)
-                {
-                    $ruleWidth = [Math]::Max(40, $w - 1)
-                }
-            }
-            catch
-            {
-                Write-Verbose "Unable to determine the console buffer width; using $ruleWidth characters. $($_.Exception.Message)"
-            }
-
-            $rule = '=' * $ruleWidth
-            Write-PackageThemeText $rule -ForegroundColor DarkGray
-            Write-PackageThemeText $Title -ForegroundColor Cyan
+            Write-PlatformPackageManagerPanelBorder -Position Top
+            Write-PlatformPackageManagerPanelLine -Segment @(
+                [PSCustomObject]@{ Text = $Title; Color = 'Cyan' }
+            )
             if (-not [String]::IsNullOrWhiteSpace($Subtitle))
             {
-                Write-PackageThemeText $Subtitle -ForegroundColor White
+                Write-PlatformPackageManagerPanelLine -Segment @(
+                    [PSCustomObject]@{ Text = $Subtitle; Color = 'White' }
+                )
             }
 
-            Write-PackageThemeText (Get-PlatformPackageManagerStatusText) -ForegroundColor DarkGray
-            Write-PackageThemeText $rule -ForegroundColor DarkGray
+            $statusParts = (Get-PlatformPackageManagerStatusText) -split [Regex]::Escape("  $packageThemeBullet  Flags: "), 2
+            Write-PlatformPackageManagerPanelLine -Segment @(
+                [PSCustomObject]@{ Text = "$packageThemeStatus READY  "; Color = 'Cyan' }
+                [PSCustomObject]@{ Text = $statusParts[0]; Color = 'DarkGray' }
+            )
+            if ($statusParts.Count -gt 1)
+            {
+                Write-PlatformPackageManagerPanelLine -Segment @(
+                    [PSCustomObject]@{ Text = "$packageThemeBullet OPTIONS  "; Color = 'Cyan' }
+                    [PSCustomObject]@{ Text = "Flags: $($statusParts[1])"; Color = 'DarkGray' }
+                )
+            }
+            Write-PlatformPackageManagerPanelBorder -Position Bottom
             Write-PackageThemeText ''
         }
 
@@ -1664,36 +1798,43 @@
             @(
                 [PSCustomObject]@{
                     Choice = '1'
+                    Symbol = [String][Char]0x2191
                     Workflow = 'Upgrade packages'
                     Purpose = 'Review or upgrade outdated packages'
                 }
                 [PSCustomObject]@{
                     Choice = '2'
+                    Symbol = '+'
                     Workflow = 'Search and install'
                     Purpose = 'Search the registry and optionally install results'
                 }
                 [PSCustomObject]@{
                     Choice = '3'
+                    Symbol = [String][Char]0x25A6
                     Workflow = 'Installed packages'
                     Purpose = 'Browse or filter installed package records'
                 }
                 [PSCustomObject]@{
                     Choice = '4'
+                    Symbol = [String][Char]0x2212
                     Workflow = 'Remove packages'
                     Purpose = 'Review or remove installed packages'
                 }
                 [PSCustomObject]@{
                     Choice = '5'
+                    Symbol = [String][Char]0x25C7
                     Workflow = 'Dependencies'
                     Purpose = 'Inspect dependency relationships'
                 }
                 [PSCustomObject]@{
                     Choice = '6'
+                    Symbol = [String][Char]0x2193
                     Workflow = 'Export installed'
                     Purpose = 'Write installed package records to JSON or CSV'
                 }
                 [PSCustomObject]@{
                     Choice = 'Q'
+                    Symbol = [String][Char]0x00D7
                     Workflow = 'Quit'
                     Purpose = 'Exit the manager'
                 }
@@ -1715,29 +1856,47 @@
 
             Clear-Host
             Write-PlatformPackageManagerHeader -Title 'Platform Package Manager' -Subtitle 'Unified native package management workflows'
-            Write-PackageThemeText ('{0,-3} {1,-7} {2,-24} {3}' -f '', 'Action', 'Workflow', 'Purpose') -ForegroundColor DarkGray
-            Write-PackageThemeText ('{0,-3} {1,-7} {2,-24} {3}' -f '', '------', '--------', '-------') -ForegroundColor DarkGray
+            Write-PlatformPackageManagerPanelBorder -Position Top -Title 'Workflows'
+            Write-PlatformPackageManagerPanelLine -Segment @(
+                [PSCustomObject]@{ Text = ('{0,-4} {1,-7} {2,-3} {3,-24} {4}' -f '', 'Action', '', 'Workflow', 'Purpose'); Color = 'DarkGray' }
+            )
             for ($i = 0; $i -lt $Options.Count; $i++)
             {
-                $marker = if ($i -eq $SelectedIndex) { '>' } else { ' ' }
+                $marker = if ($i -eq $SelectedIndex) { $packageThemeCursor } else { ' ' }
                 $accentColor = if ($i -eq $SelectedIndex) { 'Cyan' } else { 'DarkGray' }
                 $workflowColor = if ($i -eq $SelectedIndex) { 'Cyan' } else { 'White' }
-                Write-PackageThemeText ('{0,-3} ' -f $marker) -NoNewline -ForegroundColor $accentColor
-                Write-PackageThemeText ('{0,-7} ' -f "[$($Options[$i].Choice)]") -NoNewline -ForegroundColor $accentColor
-                Write-PackageThemeText ('{0,-24} ' -f $Options[$i].Workflow) -NoNewline -ForegroundColor $workflowColor
-                Write-PackageThemeText $Options[$i].Purpose -ForegroundColor DarkGray
+                Write-PlatformPackageManagerPanelLine -Segment @(
+                    [PSCustomObject]@{ Text = ('{0,-4} ' -f $marker); Color = $accentColor }
+                    [PSCustomObject]@{ Text = ('{0,-7} ' -f "[$($Options[$i].Choice)]"); Color = $accentColor }
+                    [PSCustomObject]@{ Text = ('{0,-3} ' -f $Options[$i].Symbol); Color = $accentColor }
+                    [PSCustomObject]@{ Text = ('{0,-24} ' -f $Options[$i].Workflow); Color = $workflowColor }
+                    [PSCustomObject]@{ Text = $Options[$i].Purpose; Color = 'DarkGray' }
+                )
             }
+            Write-PlatformPackageManagerPanelBorder -Position Bottom
 
             Write-PackageThemeText ''
             if (-not [String]::IsNullOrWhiteSpace($Notification))
             {
-                Write-PackageThemeText "  ! $Notification" -ForegroundColor DarkYellow
+                Write-PlatformPackageManagerPanelBorder -Position Top -Title 'Notice'
+                Write-PlatformPackageManagerPanelLine -Segment @(
+                    [PSCustomObject]@{ Text = "$packageThemeStatus "; Color = 'DarkYellow' }
+                    [PSCustomObject]@{ Text = $Notification; Color = 'DarkYellow' }
+                )
+                Write-PlatformPackageManagerPanelBorder -Position Bottom
                 Write-PackageThemeText ''
             }
 
             if ($SelectedIndex -ge 0)
             {
-                Write-PackageThemeText 'Up/Down: choose  Enter: run  1-6/Q: jump  ?: help' -ForegroundColor DarkGray
+                Write-PlatformPackageManagerPanelBorder -Position Top -Title 'Controls'
+                Write-PlatformPackageManagerPanelLine -Segment @(
+                    [PSCustomObject]@{ Text = "$packageThemeKeyboard  "; Color = 'Cyan' }
+                    [PSCustomObject]@{ Text = 'Up/Down choose  '; Color = 'DarkGray' }
+                    [PSCustomObject]@{ Text = 'Enter run  '; Color = 'White' }
+                    [PSCustomObject]@{ Text = '1-6/Q jump  ?: help'; Color = 'DarkGray' }
+                )
+                Write-PlatformPackageManagerPanelBorder -Position Bottom
                 Write-PackageThemeText ''
             }
         }

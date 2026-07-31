@@ -2088,7 +2088,8 @@ function Upgrade-PlatformPackage
 
                     if ($windowHeight -gt 0)
                     {
-                        $reservedRows = 16
+                        # Reserve the fixed picker chrome, including the rounded top and bottom borders.
+                        $reservedRows = 18
                         return [Math]::Min([Math]::Max(1, $windowHeight - $reservedRows), [Math]::Max(1, $ItemCount))
                     }
                 }
@@ -2237,10 +2238,10 @@ function Upgrade-PlatformPackage
                 )
 
                 $minimumWidths = @{
-                    Name = 12
-                    Id = 14
-                    Installed = 8
-                    Latest = 8
+                    Name = 8
+                    Id = 10
+                    Installed = 7
+                    Latest = 7
                     Type = 3
                     Source = 5
                 }
@@ -2276,7 +2277,7 @@ function Upgrade-PlatformPackage
                 Type = Get-PackagePickerTextMaximum -Values @($allPackages | ForEach-Object { Get-PackageTypeDisplay -Type $_.Type }) -Minimum 3 -Maximum 7
                 Source = Get-PackagePickerTextMaximum -Values @($allPackages | ForEach-Object { $_.Source }) -Minimum 5 -Maximum 32
             }
-            $columnWidths = Compress-PackagePickerTableWidths -ColumnWidths $columnWidths -MaximumWidth $pickerFrameWidth -IncludesUninstallPrevious:$showUninstallPrevious -IncludesInteractive:$showInteractive
+            $columnWidths = Compress-PackagePickerTableWidths -ColumnWidths $columnWidths -MaximumWidth ($pickerFrameWidth - 4) -IncludesUninstallPrevious:$showUninstallPrevious -IncludesInteractive:$showInteractive
             $nameWidth = [Int32]$columnWidths.Name
             $idWidth = [Int32]$columnWidths.Id
             $installedWidth = [Int32]$columnWidths.Installed
@@ -2372,22 +2373,54 @@ function Upgrade-PlatformPackage
                     [Object[]]$Lines = @()
                 )
 
+                $boxHorizontal = [String][Char]0x2500
+                $boxVertical = [String][Char]0x2502
+                $boxTopLeft = [String][Char]0x256D
+                $boxTopRight = [String][Char]0x256E
+                $boxBottomLeft = [String][Char]0x2570
+                $boxBottomRight = [String][Char]0x256F
+                $statusDot = [String][Char]0x25CF
+
                 if (-not $pickerRenderState.UseInPlaceRedraw)
                 {
                     Invoke-PickerClearHost
+                    $boxWidth = $pickerFrameWidth
+                    foreach ($line in $Lines)
+                    {
+                        $boxWidth = [Math]::Max($boxWidth, (Get-PickerFrameLineText -Line $line).Length + 4)
+                    }
+
+                    $titleToken = " $statusDot PACKAGE PICKER "
+                    $topRuleWidth = [Math]::Max(0, $boxWidth - $titleToken.Length - 3)
+                    Write-PackageThemeText ($boxTopLeft + $boxHorizontal + $titleToken + ($boxHorizontal * $topRuleWidth) + $boxTopRight) -ForegroundColor Cyan
                     foreach ($line in $Lines)
                     {
                         $lineText = Get-PickerFrameLineText -Line $line
                         $lineColor = Get-PickerFrameLineColor -Line $line
-                        if ($null -eq $lineColor)
+                        Write-PackageThemeText "$boxVertical " -NoNewline -ForegroundColor Cyan
+                        if ([String]::IsNullOrEmpty($lineText))
                         {
-                            Write-PackageThemeText $lineText
+                            Write-PackageThemeText (' ' * ($boxWidth - 4)) -NoNewline
+                        }
+                        elseif ($null -eq $lineColor)
+                        {
+                            Write-PackageThemeText $lineText -NoNewline
                         }
                         else
                         {
-                            Write-PackageThemeText $lineText -ForegroundColor $lineColor
+                            Write-PackageThemeText $lineText -NoNewline -ForegroundColor $lineColor
                         }
+                        if (-not [String]::IsNullOrEmpty($lineText))
+                        {
+                            $paddingWidth = $boxWidth - $lineText.Length - 4
+                            if ($paddingWidth -gt 0)
+                            {
+                                Write-PackageThemeText (' ' * $paddingWidth) -NoNewline
+                            }
+                        }
+                        Write-PackageThemeText " $boxVertical" -ForegroundColor Cyan
                     }
+                    Write-PackageThemeText ($boxBottomLeft + ($boxHorizontal * ($boxWidth - 2)) + $boxBottomRight) -ForegroundColor Cyan
 
                     return
                 }
@@ -2400,9 +2433,10 @@ function Upgrade-PlatformPackage
 
                 # Writing exactly to the console width can trigger terminal auto-wrap,
                 # which causes cursor jitter/artifacts in some Windows hosts.
-                $frameWidth = [Math]::Max(1, ([Int32]$pickerRenderState.ConsoleBufferWidth - 1))
-                $blankLine = ''.PadRight($frameWidth)
-                $frameLines = @()
+                $frameWidth = [Math]::Max(8, ([Int32]$pickerRenderState.ConsoleBufferWidth - 1))
+                $contentWidth = [Math]::Max(1, $frameWidth - 4)
+                $blankLine = ''.PadRight($contentWidth)
+                $bodyLines = @()
                 foreach ($line in $Lines)
                 {
                     $lineColor = Get-PickerFrameLineColor -Line $line
@@ -2410,24 +2444,32 @@ function Upgrade-PlatformPackage
 
                     if ([String]::IsNullOrEmpty($text))
                     {
-                        $frameLines += Format-PickerFrameLine -Text $blankLine -ForegroundColor $lineColor
+                        $bodyLines += Format-PickerFrameLine -Text $blankLine -ForegroundColor $lineColor
                         continue
                     }
 
                     $remaining = $text
-                    while ($remaining.Length -gt $frameWidth)
+                    while ($remaining.Length -gt $contentWidth)
                     {
-                        $frameLines += Format-PickerFrameLine -Text $remaining.Substring(0, $frameWidth) -ForegroundColor $lineColor
-                        $remaining = $remaining.Substring($frameWidth)
+                        $bodyLines += Format-PickerFrameLine -Text $remaining.Substring(0, $contentWidth) -ForegroundColor $lineColor
+                        $remaining = $remaining.Substring($contentWidth)
                     }
 
-                    $frameLines += Format-PickerFrameLine -Text $remaining.PadRight($frameWidth) -ForegroundColor $lineColor
+                    $bodyLines += Format-PickerFrameLine -Text $remaining.PadRight($contentWidth) -ForegroundColor $lineColor
                 }
 
-                while ($frameLines.Count -lt $pickerRenderState.RenderedLineCount)
+                while ($bodyLines.Count -lt [Math]::Max(0, $pickerRenderState.RenderedLineCount - 2))
                 {
-                    $frameLines += Format-PickerFrameLine -Text $blankLine
+                    $bodyLines += Format-PickerFrameLine -Text $blankLine
                 }
+
+                $titleToken = " $statusDot PACKAGE PICKER "
+                $topRuleWidth = [Math]::Max(0, $frameWidth - $titleToken.Length - 3)
+                $frameLines = @(
+                    (Format-PickerFrameLine -Text ($boxTopLeft + $boxHorizontal + $titleToken + ($boxHorizontal * $topRuleWidth) + $boxTopRight) -ForegroundColor Cyan)
+                ) + $bodyLines + @(
+                    (Format-PickerFrameLine -Text ($boxBottomLeft + ($boxHorizontal * ($frameWidth - 2)) + $boxBottomRight) -ForegroundColor Cyan)
+                )
 
                 try
                 {
@@ -2443,7 +2485,15 @@ function Upgrade-PlatformPackage
                             { $_ -in 'Red', 'DarkRed' } { $packageThemeCritical; break }
                             default { '' }
                         }
-                        $lineText = if ($lineColor) { "$lineColor$($line.Text)$packageThemeReset" } else { $line.Text }
+                        if ($lineIndex -eq 0 -or $lineIndex -eq ($frameLines.Count - 1))
+                        {
+                            $lineText = "$packageThemeAccent$($line.Text)$packageThemeReset"
+                        }
+                        else
+                        {
+                            $bodyText = if ($lineColor) { "$lineColor$($line.Text)$packageThemeReset" } else { $line.Text }
+                            $lineText = "$packageThemeAccent$boxVertical $packageThemeReset$bodyText$packageThemeAccent $boxVertical$packageThemeReset"
+                        }
                         [Console]::Write($lineText)
 
                         if ($lineIndex -lt ($frameLines.Count - 1))
@@ -2457,20 +2507,7 @@ function Upgrade-PlatformPackage
                 catch
                 {
                     $pickerRenderState.UseInPlaceRedraw = $false
-                    Invoke-PickerClearHost
-                    foreach ($fallbackLine in $Lines)
-                    {
-                        $fallbackLineText = Get-PickerFrameLineText -Line $fallbackLine
-                        $fallbackLineColor = Get-PickerFrameLineColor -Line $fallbackLine
-                        if ($null -eq $fallbackLineColor)
-                        {
-                            Write-PackageThemeText $fallbackLineText
-                        }
-                        else
-                        {
-                            Write-PackageThemeText $fallbackLineText -ForegroundColor $fallbackLineColor
-                        }
-                    }
+                    Write-PickerFrame -Lines $Lines
                 }
             }
 

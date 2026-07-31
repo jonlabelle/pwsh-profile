@@ -346,7 +346,6 @@ Describe 'Find-PlatformPackage' {
             @($script:HostOutput | Where-Object { $_ -eq "$escapeCharacter[38;5;37m" }).Count | Should-BeGreaterThanOrEqual 1
             @($script:HostOutput | Where-Object { $_ -eq "$escapeCharacter[38;5;244m" }).Count | Should-BeGreaterThanOrEqual 2
             @($script:HostOutput | Where-Object { $_ -eq "$escapeCharacter[0m" }).Count | Should-BeGreaterThanOrEqual 1
-            @($script:HostOutput | Where-Object { [String]::IsNullOrEmpty([String]$_) }).Count | Should-Be 4
         }
 
         It 'allows a new query to be entered from the interactive browser' {
