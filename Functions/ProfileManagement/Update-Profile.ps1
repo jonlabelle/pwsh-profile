@@ -128,7 +128,10 @@ function Update-Profile
                 Write-Host ''
                 foreach ($line in $gitLog)
                 {
-                    $cleanLine = $line -replace '^\w+\s+', '' -replace '\s*\([^)]+\)\s*$', ''
+                    $cleanLine = $line `
+                        -replace '^[0-9a-fA-F]+\s+', '' `
+                        -replace '^\([^)]+\)\s+', '' `
+                        -replace '^([A-Za-z]+)(?:\([^)]+\))(!?:)', '$1$2'
                     Write-Host "  - $cleanLine" -ForegroundColor Gray
                 }
                 Write-Host ''

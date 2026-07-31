@@ -19,7 +19,10 @@ BeforeAll {
             [Int32]$Length = 0,
 
             [Parameter()]
-            [Nullable[DateTime]]$LastWriteTime
+            [Nullable[DateTime]]$LastWriteTime,
+
+            [Parameter()]
+            [Nullable[DateTime]]$LastAccessTime
         )
 
         $parentPath = Split-Path -Path $Path -Parent
@@ -41,6 +44,11 @@ BeforeAll {
         if ($null -ne $LastWriteTime)
         {
             [System.IO.File]::SetLastWriteTime($Path, $LastWriteTime)
+        }
+
+        if ($null -ne $LastAccessTime)
+        {
+            [System.IO.File]::SetLastAccessTime($Path, $LastAccessTime)
         }
 
         return $Path
@@ -309,15 +317,19 @@ Describe 'Show-FileStorageMetric' {
         It 'uses DateField for both filtering and daily grouping' {
             $referenceDate = [DateTime]'2025-02-15'
             $filePath = Join-Path -Path $script:TestRoot -ChildPath 'historical.log'
-            New-StorageMetricTestFile -Path $filePath -Length 10 -LastWriteTime $referenceDate.AddHours(8) | Out-Null
+            New-StorageMetricTestFile `
+                -Path $filePath `
+                -Length 10 `
+                -LastWriteTime $referenceDate.AddHours(8) `
+                -LastAccessTime $referenceDate.AddDays(-1).AddHours(8) | Out-Null
 
             $lastWriteReport = Show-FileStorageMetric -Path $script:TestRoot -DateField LastWriteTime -ReferenceDate $referenceDate -AsObject
-            $creationReport = Show-FileStorageMetric -Path $script:TestRoot -DateField CreationTime -ReferenceDate $referenceDate -AsObject
+            $lastAccessReport = Show-FileStorageMetric -Path $script:TestRoot -DateField LastAccessTime -ReferenceDate $referenceDate -AsObject
 
             $lastWriteReport.FileCount | Should -Be 1
             $lastWriteReport.DailyBreakdown[0].FileCount | Should -Be 1
-            $creationReport.FileCount | Should -Be 0
-            $creationReport.DailyBreakdown[0].FileCount | Should -Be 0
+            $lastAccessReport.FileCount | Should -Be 0
+            $lastAccessReport.DailyBreakdown[0].FileCount | Should -Be 0
         }
 
         It 'includes all dates and only active date groups with AllDates' {
