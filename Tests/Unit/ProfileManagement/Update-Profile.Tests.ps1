@@ -172,7 +172,7 @@ Describe 'Update-Profile' {
             $hostOutput | Should-NotContainCollection 'Updates:'
         }
 
-        It 'Prints cleaned commit summary bullets when HEAD changes' {
+        It 'Prints commit summary bullets with semantic scopes when HEAD changes' {
             $profileRoot = New-UpdateProfileTestRoot -GitRepository
             $script:RevParseCount = 0
             $script:GitBehavior = {
@@ -202,7 +202,7 @@ Describe 'Update-Profile' {
                 {
                     $global:LASTEXITCODE = 0
                     return @(
-                        '2222222 (HEAD -> main, origin/main) feat(profile): add updater coverage',
+                        '2222222 (HEAD -> main, origin/main) feat(Update-Profile): add updater coverage',
                         '3333333 docs: refresh update notes'
                     )
                 }
@@ -214,14 +214,13 @@ Describe 'Update-Profile' {
             $hostOutput = @(Update-Profile -ProfileRoot $profileRoot -ErrorAction Stop 6>&1 | ForEach-Object { [String]$_ })
 
             $hostOutput | Should-ContainCollection 'Updates:'
-            $hostOutput | Should-ContainCollection '  - feat: add updater coverage'
+            $hostOutput | Should-ContainCollection '  - feat(Update-Profile): add updater coverage'
             $hostOutput | Should-ContainCollection '  - docs: refresh update notes'
             $hostOutput | Should-ContainCollection 'Profile updated successfully! Restart your PowerShell session to reload your profile.'
 
             $output = $hostOutput -join "`n"
             $output | Should-NotMatchString '2222222'
             $output | Should-NotMatchString 'HEAD -> main'
-            $output | Should-NotMatchString '\(profile\)'
 
             Remove-Variable -Name RevParseCount -Scope Script -ErrorAction SilentlyContinue
         }
