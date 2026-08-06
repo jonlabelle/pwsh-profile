@@ -36,7 +36,7 @@
 - [`Get-PublicDnsServer`](../Functions/NetworkAndDns/Get-PublicDnsServer.ps1) - Returns a curated list of well-known public DNS servers.
 - [`Get-ReverseDns`](../Functions/NetworkAndDns/Get-ReverseDns.ps1) - Performs reverse DNS (PTR) lookups for IP addresses.
 - [`Get-Whois`](../Functions/NetworkAndDns/Get-Whois.ps1) - Performs WHOIS lookups for domain names and IP addresses.
-- [`Invoke-NetworkDiagnostic`](../Functions/NetworkAndDns/Invoke-NetworkDiagnostic.ps1) - Performs comprehensive network diagnostics with visual output.
+- [`Invoke-NetworkDiagnostics`](../Functions/NetworkAndDns/Invoke-NetworkDiagnostics.ps1) - Performs comprehensive network diagnostics with visual output.
 - [`Invoke-Ping`](../Functions/NetworkAndDns/Invoke-Ping.ps1) - Sends ICMP echo requests to test network connectivity.
 - [`Resolve-GeoIP`](../Functions/NetworkAndDns/Resolve-GeoIP.ps1) - Resolves IP addresses to geographic location information.
 - [`Send-TcpRequest`](../Functions/NetworkAndDns/Send-TcpRequest.ps1) - Sends a TCP request to a remote computer and returns the response.
@@ -159,7 +159,7 @@
 - [`Search-DelimitedFile`](../Functions/Utilities/Search-DelimitedFile.ps1) - Searches CSV, TSV, and other character-delimited files using multi-column criteria.
 - [`Search-FileContent`](../Functions/Utilities/Search-FileContent.ps1) - Searches file contents with context, filtering, and colorized output.
 - [`Set-FileEncoding`](../Functions/Utilities/Set-FileEncoding.ps1) - Converts one or more text files to a specified encoding.
-- [`Show-FileStorageMetric`](../Functions/Utilities/Show-FileStorageMetric.ps1) - Calculates file storage statistics and displays a Unicode card dashboard with daily, type, directory, and largest-file summaries.
+- [`Show-FileStorageMetrics`](../Functions/Utilities/Show-FileStorageMetrics.ps1) - Calculates file storage statistics and displays a Unicode card dashboard with daily, type, directory, and largest-file summaries.
 - [`Sync-Directory`](../Functions/Utilities/Sync-Directory.ps1) - Synchronizes directories using `rsync` on macOS/Linux or `robocopy` on Windows.
 
 ---

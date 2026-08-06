@@ -64,21 +64,21 @@ Test-DnsNameResolution github.com
 Get-CertificateExpiration github.com
 
 # Run a one-shot network diagnostic
-Invoke-NetworkDiagnostic 'bing.com', 'microsoft.com' -MaxIterations 1
+Invoke-NetworkDiagnostics 'bing.com', 'microsoft.com' -MaxIterations 1
 ```
 
 ## Screenshots
 
-### Invoke-NetworkDiagnostic
+### Invoke-NetworkDiagnostics
 
 Runs network and DNS checks for multiple hosts, then renders live latency graphs.
 
 ```powershell
 PS > 'www.google.com', 'www.cloudflare.com' |
-    Invoke-NetworkDiagnostic -Port 80 -Interval 2 -IncludeDns
+    Invoke-NetworkDiagnostics -Port 80 -Interval 2 -IncludeDns
 ```
 
-![Invoke-NetworkDiagnostic screenshot](resources/screenshots/Invoke-NetworkDiagnostic.png "Invoke-NetworkDiagnostic in action")
+![Invoke-NetworkDiagnostics screenshot](resources/screenshots/Invoke-NetworkDiagnostics.png "Invoke-NetworkDiagnostics in action")
 
 <details>
 <summary><strong>Show-PlatformPackageManager</strong></summary>

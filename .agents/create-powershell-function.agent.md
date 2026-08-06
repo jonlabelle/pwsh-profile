@@ -118,7 +118,7 @@ if (-not (Get-Command -Name 'aliasname' -ErrorAction SilentlyContinue)) {
 
 **If the function intentionally renders a dashboard, graph, framed report, picker, or other rich console UI:**
 
-- Use `Show-FileStorageMetric` as the visual-theme reference without copying its dashboard layout when another layout better fits the data
+- Use `Show-FileStorageMetrics` as the visual-theme reference without copying its dashboard layout when another layout better fits the data
 - Use Accent `ESC[38;5;37m`, Muted `ESC[38;5;244m`, terminal-default Primary text, and Reset `ESC[0m`
 - Reserve yellow and red for genuine warning and failure semantics; do not use decorative green, magenta, bright cyan, or yellow
 - Define the ANSI sequences locally; do not create a public theme API, theme selector, capability detector, or compatibility fallback

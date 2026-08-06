@@ -88,7 +88,7 @@
         RELATED FUNCTIONS:
         This function is designed to work with:
         - Get-NetworkMetric: Auto-loaded in continuous mode to collect latency samples
-        - Invoke-NetworkDiagnostic: Calls Show-NetworkLatencyGraph to generate sparkline and time-series graphs
+        - Invoke-NetworkDiagnostics: Calls Show-NetworkLatencyGraph to generate sparkline and time-series graphs
 
         Can also be used standalone with pre-collected latency data arrays.
 
@@ -354,7 +354,7 @@
         PS > Show-NetworkLatencyGraph -HostName 'critical-service.com' -GraphType TimeSeries -Continuous -Interval 5
         PS > # Watch for pattern changes during maintenance
         PS > # When issue detected, switch to detailed diagnostic:
-        PS > Invoke-NetworkDiagnostic -HostName 'critical-service.com' -ShowGraph -Count 200
+        PS > Invoke-NetworkDiagnostics -HostName 'critical-service.com' -ShowGraph -Count 200
 
         Live monitoring with auto-refresh. Graph updates every 5 seconds showing current
         state. Catch the exact moment when performance degrades.

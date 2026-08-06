@@ -3,7 +3,7 @@
 BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
-    $script:FunctionPath = Join-Path -Path $PSScriptRoot -ChildPath '../../../Functions/Utilities/Show-FileStorageMetric.ps1'
+    $script:FunctionPath = Join-Path -Path $PSScriptRoot -ChildPath '../../../Functions/Utilities/Show-FileStorageMetrics.ps1'
     $script:FunctionPath = [System.IO.Path]::GetFullPath($script:FunctionPath)
     . $script:FunctionPath
 
@@ -55,7 +55,7 @@ BeforeAll {
     }
 }
 
-Describe 'Show-FileStorageMetric' {
+Describe 'Show-FileStorageMetrics' {
     BeforeEach {
         $script:TestRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "show-file-storage-metric-$(Get-Random)"
         New-Item -Path $script:TestRoot -ItemType Directory -Force | Out-Null
@@ -70,7 +70,7 @@ Describe 'Show-FileStorageMetric' {
 
     Context 'Command contract and presentation' {
         It 'is available with the expected core defaults' {
-            $command = Get-Command -Name 'Show-FileStorageMetric' -ErrorAction Stop
+            $command = Get-Command -Name 'Show-FileStorageMetrics' -ErrorAction Stop
 
             $command.CommandType | Should -Be 'Function'
             $command.Parameters.Keys | Should -Contain 'Path'
@@ -85,7 +85,7 @@ Describe 'Show-FileStorageMetric' {
 
             $filePath = Join-Path -Path $script:TestRoot -ChildPath 'today.txt'
             New-StorageMetricTestFile -Path $filePath -Length 10 | Out-Null
-            $result = Show-FileStorageMetric -Path $script:TestRoot -AsObject
+            $result = Show-FileStorageMetrics -Path $script:TestRoot -AsObject
 
             $result.Days | Should -Be 0
             $result.DateField | Should -Be 'CreationTime'
@@ -101,7 +101,7 @@ Describe 'Show-FileStorageMetric' {
             $filePath = Join-Path -Path $script:TestRoot -ChildPath 'sample.bin'
             New-StorageMetricTestFile -Path $filePath -Length 2048 | Out-Null
 
-            $result = Show-FileStorageMetric -Path $script:TestRoot
+            $result = Show-FileStorageMetrics -Path $script:TestRoot
 
             $result | Should -BeOfType ([String])
             $result | Should -Match 'FILE STORAGE / DASHBOARD'
@@ -132,8 +132,8 @@ Describe 'Show-FileStorageMetric' {
             $filePath = Join-Path -Path $script:TestRoot -ChildPath 'sample.bin'
             New-StorageMetricTestFile -Path $filePath -Length 32 -LastWriteTime $referenceDate | Out-Null
 
-            $dashboard = Show-FileStorageMetric -Path $script:TestRoot -DateField LastWriteTime -ReferenceDate $referenceDate -Days 5 -DisplayLimit 2
-            $report = Show-FileStorageMetric -Path $script:TestRoot -DateField LastWriteTime -ReferenceDate $referenceDate -Days 5 -DisplayLimit 2 -AsObject
+            $dashboard = Show-FileStorageMetrics -Path $script:TestRoot -DateField LastWriteTime -ReferenceDate $referenceDate -Days 5 -DisplayLimit 2
+            $report = Show-FileStorageMetrics -Path $script:TestRoot -DateField LastWriteTime -ReferenceDate $referenceDate -Days 5 -DisplayLimit 2 -AsObject
 
             $dashboard | Should -Match '4 earlier date group\(s\) omitted'
             @($report.DailyBreakdown).Count | Should -Be 6
@@ -143,7 +143,7 @@ Describe 'Show-FileStorageMetric' {
             $filePath = Join-Path -Path $script:TestRoot -ChildPath 'sample.log'
             New-StorageMetricTestFile -Path $filePath -Length 100 | Out-Null
 
-            $result = Show-FileStorageMetric -Path $script:TestRoot -AsObject
+            $result = Show-FileStorageMetrics -Path $script:TestRoot -AsObject
 
             $result.PSObject.TypeNames | Should -Contain 'FileStorageMetric.Report'
             $result.PSObject.Properties.Name | Should -Contain 'DailyBreakdown'
@@ -163,11 +163,11 @@ Describe 'Show-FileStorageMetric' {
         }
 
         It 'provides parseable help examples' {
-            $help = Get-Help -Name 'Show-FileStorageMetric' -Examples
+            $help = Get-Help -Name 'Show-FileStorageMetrics' -Examples
             $exampleText = $help.Examples.Example | Out-String
 
             @($help.Examples.Example).Count | Should -BeGreaterThan 0
-            $exampleText | Should -Match 'Show-FileStorageMetric'
+            $exampleText | Should -Match 'Show-FileStorageMetrics'
             $exampleText | Should -Match 'CsvPath'
             $exampleText | Should -Match 'ProjectionDays'
         }
@@ -189,7 +189,7 @@ Describe 'Show-FileStorageMetric' {
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'skip.log') -Length 30 | Out-Null
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'other.json') -Length 40 | Out-Null
 
-            $result = Show-FileStorageMetric -Path $script:TestRoot -Filter '*.log', '*.txt' -Exclude 'skip*' -AllDates -AsObject
+            $result = Show-FileStorageMetrics -Path $script:TestRoot -Filter '*.log', '*.txt' -Exclude 'skip*' -AllDates -AsObject
 
             $result.ScannedFileCount | Should -Be 4
             $result.NameMatchedFileCount | Should -Be 2
@@ -204,8 +204,8 @@ Describe 'Show-FileStorageMetric' {
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'root.log') -Length 10 | Out-Null
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'nested/child.log') -Length 20 | Out-Null
 
-            $flat = Show-FileStorageMetric -Path $script:TestRoot -Filter '*.log' -AllDates -AsObject
-            $recursive = Show-FileStorageMetric -Path $script:TestRoot -Filter '*.log' -AllDates -Recurse -AsObject
+            $flat = Show-FileStorageMetrics -Path $script:TestRoot -Filter '*.log' -AllDates -AsObject
+            $recursive = Show-FileStorageMetrics -Path $script:TestRoot -Filter '*.log' -AllDates -Recurse -AsObject
 
             $flat.FileCount | Should -Be 1
             $recursive.FileCount | Should -Be 2
@@ -218,7 +218,7 @@ Describe 'Show-FileStorageMetric' {
             New-StorageMetricTestFile -Path (Join-Path -Path $firstRoot -ChildPath 'one.log') -Length 10 | Out-Null
             New-StorageMetricTestFile -Path (Join-Path -Path $secondRoot -ChildPath 'two.txt') -Length 20 | Out-Null
 
-            $result = Show-FileStorageMetric -Path $firstRoot, $secondRoot -Filter '*.log' -AllDates -AsObject
+            $result = Show-FileStorageMetrics -Path $firstRoot, $secondRoot -Filter '*.log' -AllDates -AsObject
 
             $result.Paths.Count | Should -Be 2
             $result.PathBreakdown.Count | Should -Be 2
@@ -233,7 +233,7 @@ Describe 'Show-FileStorageMetric' {
             New-StorageMetricTestFile -Path (Join-Path -Path $secondRoot -ChildPath 'two.log') -Length 20 | Out-Null
 
             $result = Get-ChildItem -LiteralPath $script:TestRoot -Directory |
-                Show-FileStorageMetric -Filter '*.log' -AllDates -AsObject
+                Show-FileStorageMetrics -Filter '*.log' -AllDates -AsObject
 
             $result.Paths.Count | Should -Be 2
             $result.FileCount | Should -Be 2
@@ -246,7 +246,7 @@ Describe 'Show-FileStorageMetric' {
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'three.txt') -Length 30 | Out-Null
             $wildcardPath = Join-Path -Path $script:TestRoot -ChildPath '*.log'
 
-            $result = Show-FileStorageMetric -Path $wildcardPath -AllDates -AsObject
+            $result = Show-FileStorageMetrics -Path $wildcardPath -AllDates -AsObject
 
             $result.Paths.Count | Should -Be 2
             $result.FileCount | Should -Be 2
@@ -257,7 +257,7 @@ Describe 'Show-FileStorageMetric' {
             $nestedRoot = Join-Path -Path $script:TestRoot -ChildPath 'nested'
             New-StorageMetricTestFile -Path (Join-Path -Path $nestedRoot -ChildPath 'one.log') -Length 25 | Out-Null
 
-            $result = Show-FileStorageMetric -Path $script:TestRoot, $nestedRoot -Filter '*.log' -AllDates -Recurse -AsObject
+            $result = Show-FileStorageMetrics -Path $script:TestRoot, $nestedRoot -Filter '*.log' -AllDates -Recurse -AsObject
 
             $result.FileCount | Should -Be 1
             $result.TotalBytes | Should -Be 25
@@ -269,7 +269,7 @@ Describe 'Show-FileStorageMetric' {
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'two.log') -Length 20 | Out-Null
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'LICENSE') -Length 30 | Out-Null
 
-            $result = Show-FileStorageMetric -Path $script:TestRoot -AllDates -AsObject
+            $result = Show-FileStorageMetrics -Path $script:TestRoot -AllDates -AsObject
             $logGroup = $result.ExtensionBreakdown | Where-Object Extension -eq '.log'
             $noExtensionGroup = $result.ExtensionBreakdown | Where-Object Extension -eq '(none)'
 
@@ -287,7 +287,7 @@ Describe 'Show-FileStorageMetric' {
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'yesterday.log') -Length 20 -LastWriteTime $referenceDate.AddDays(-1).AddHours(12) | Out-Null
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'older.log') -Length 30 -LastWriteTime $referenceDate.AddDays(-3).AddHours(12) | Out-Null
 
-            $result = Show-FileStorageMetric -Path $script:TestRoot -DateField LastWriteTime -ReferenceDate $referenceDate -Days 2 -AsObject
+            $result = Show-FileStorageMetrics -Path $script:TestRoot -DateField LastWriteTime -ReferenceDate $referenceDate -Days 2 -AsObject
 
             $result.FileCount | Should -Be 2
             $result.TotalBytes | Should -Be 30
@@ -306,7 +306,7 @@ Describe 'Show-FileStorageMetric' {
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'yesterday.log') -Length 20 -LastWriteTime $referenceDate.AddDays(-1).AddHours(23) | Out-Null
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'tomorrow.log') -Length 30 -LastWriteTime $referenceDate.AddDays(1) | Out-Null
 
-            $result = Show-FileStorageMetric -Path $script:TestRoot -DateField LastWriteTime -ReferenceDate $referenceDate -AsObject
+            $result = Show-FileStorageMetrics -Path $script:TestRoot -DateField LastWriteTime -ReferenceDate $referenceDate -AsObject
 
             $result.FileCount | Should -Be 1
             $result.TotalBytes | Should -Be 10
@@ -323,8 +323,8 @@ Describe 'Show-FileStorageMetric' {
                 -LastWriteTime $referenceDate.AddHours(8) `
                 -LastAccessTime $referenceDate.AddDays(-1).AddHours(8) | Out-Null
 
-            $lastWriteReport = Show-FileStorageMetric -Path $script:TestRoot -DateField LastWriteTime -ReferenceDate $referenceDate -AsObject
-            $lastAccessReport = Show-FileStorageMetric -Path $script:TestRoot -DateField LastAccessTime -ReferenceDate $referenceDate -AsObject
+            $lastWriteReport = Show-FileStorageMetrics -Path $script:TestRoot -DateField LastWriteTime -ReferenceDate $referenceDate -AsObject
+            $lastAccessReport = Show-FileStorageMetrics -Path $script:TestRoot -DateField LastAccessTime -ReferenceDate $referenceDate -AsObject
 
             $lastWriteReport.FileCount | Should -Be 1
             $lastWriteReport.DailyBreakdown[0].FileCount | Should -Be 1
@@ -338,7 +338,7 @@ Describe 'Show-FileStorageMetric' {
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'first.log') -Length 10 -LastWriteTime $firstDate | Out-Null
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'second.log') -Length 20 -LastWriteTime $secondDate | Out-Null
 
-            $result = Show-FileStorageMetric -Path $script:TestRoot -DateField LastWriteTime -AllDates -AsObject
+            $result = Show-FileStorageMetrics -Path $script:TestRoot -DateField LastWriteTime -AllDates -AsObject
 
             $result.FileCount | Should -Be 2
             $result.DailyBreakdown.Count | Should -Be 2
@@ -356,7 +356,7 @@ Describe 'Show-FileStorageMetric' {
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'twenty.bin') -Length 20 | Out-Null
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'thirty.bin') -Length 30 | Out-Null
 
-            $result = Show-FileStorageMetric -Path $script:TestRoot -AllDates -AsObject
+            $result = Show-FileStorageMetrics -Path $script:TestRoot -AllDates -AsObject
 
             $result.FileCount | Should -Be 4
             $result.TotalBytes | Should -Be 60
@@ -374,7 +374,7 @@ Describe 'Show-FileStorageMetric' {
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'medium.bin') -Length 15 | Out-Null
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'large.bin') -Length 25 | Out-Null
 
-            $result = Show-FileStorageMetric -Path $script:TestRoot -AllDates -MinimumSizeBytes 10 -MaximumSizeBytes 20 -AsObject
+            $result = Show-FileStorageMetrics -Path $script:TestRoot -AllDates -MinimumSizeBytes 10 -MaximumSizeBytes 20 -AsObject
 
             $result.ScannedFileCount | Should -Be 3
             $result.NameMatchedFileCount | Should -Be 3
@@ -388,7 +388,7 @@ Describe 'Show-FileStorageMetric' {
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'medium.bin') -Length 15 | Out-Null
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'large.bin') -Length 25 | Out-Null
 
-            $result = Show-FileStorageMetric -Path $script:TestRoot -AllDates -Top 2 -AsObject
+            $result = Show-FileStorageMetrics -Path $script:TestRoot -AllDates -Top 2 -AsObject
 
             $result.LargestFiles.Count | Should -Be 2
             $result.LargestFiles[0].Name | Should -Be 'large.bin'
@@ -399,8 +399,8 @@ Describe 'Show-FileStorageMetric' {
         It 'returns useful zero and null values when no files match' {
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'sample.txt') -Length 10 | Out-Null
 
-            $result = Show-FileStorageMetric -Path $script:TestRoot -Filter '*.missing' -AllDates -AsObject
-            $dashboard = Show-FileStorageMetric -Path $script:TestRoot -Filter '*.missing' -AllDates
+            $result = Show-FileStorageMetrics -Path $script:TestRoot -Filter '*.missing' -AllDates -AsObject
+            $dashboard = Show-FileStorageMetrics -Path $script:TestRoot -Filter '*.missing' -AllDates
 
             $result.FileCount | Should -Be 0
             $result.TotalBytes | Should -Be 0
@@ -424,7 +424,7 @@ Describe 'Show-FileStorageMetric' {
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'window-start.log') -Length 60 -LastWriteTime $referenceDate.AddDays(-29) | Out-Null
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'today.log') -Length 30 -LastWriteTime $referenceDate | Out-Null
 
-            $result = Show-FileStorageMetric -Path $script:TestRoot -Filter '*.log' `
+            $result = Show-FileStorageMetrics -Path $script:TestRoot -Filter '*.log' `
                 -DateField LastWriteTime -ReferenceDate $referenceDate -Days 0 `
                 -GrowthWindowDays 30 -ProjectionDays 30, 10, 30 `
                 -CapacityHeadroomPercent 20 -AsObject
@@ -454,7 +454,7 @@ Describe 'Show-FileStorageMetric' {
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'one.log') -Length 60 -LastWriteTime $referenceDate.AddDays(-29) | Out-Null
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'two.log') -Length 30 -LastWriteTime $referenceDate | Out-Null
 
-            $result = Show-FileStorageMetric -Path $script:TestRoot -Filter '*.log' `
+            $result = Show-FileStorageMetrics -Path $script:TestRoot -Filter '*.log' `
                 -DateField LastWriteTime -ReferenceDate $referenceDate -Days 0 `
                 -GrowthWindowDays 30 -ProjectionDays 10 -CapacityHeadroomPercent 20 -AsObject
             $volume = $result.VolumeBreakdown | Where-Object MountPoint -eq ([System.IO.Path]::GetPathRoot($script:TestRoot))
@@ -490,8 +490,8 @@ Describe 'Show-FileStorageMetric' {
         It 'can omit capacity projection work and presentation explicitly' {
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'sample.log') -Length 10 | Out-Null
 
-            $report = Show-FileStorageMetric -Path $script:TestRoot -AllDates -NoCapacityProjection -AsObject
-            $dashboard = Show-FileStorageMetric -Path $script:TestRoot -AllDates -NoCapacityProjection
+            $report = Show-FileStorageMetrics -Path $script:TestRoot -AllDates -NoCapacityProjection -AsObject
+            $dashboard = Show-FileStorageMetrics -Path $script:TestRoot -AllDates -NoCapacityProjection
 
             $report.PSObject.Properties.Name | Should -Not -Contain 'GrowthProjection'
             $report.PSObject.Properties.Name | Should -Not -Contain 'VolumeBreakdown'
@@ -508,7 +508,7 @@ Describe 'Show-FileStorageMetric' {
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'yesterday.log') -Length 20 -LastWriteTime $referenceDate.AddDays(-1) | Out-Null
             $csvPath = Join-Path -Path $script:TestRoot -ChildPath 'daily.csv'
 
-            $result = Show-FileStorageMetric -Path $script:TestRoot -Filter '*.log' -DateField LastWriteTime -ReferenceDate $referenceDate -Days 2 -CsvPath $csvPath -AsObject
+            $result = Show-FileStorageMetrics -Path $script:TestRoot -Filter '*.log' -DateField LastWriteTime -ReferenceDate $referenceDate -Days 2 -CsvPath $csvPath -AsObject
             $csvRows = @(Import-Csv -LiteralPath $csvPath)
             $bytes = [System.IO.File]::ReadAllBytes($csvPath)
 
@@ -529,7 +529,7 @@ Describe 'Show-FileStorageMetric' {
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'two.log') -Length 20 | Out-Null
             $csvPath = Join-Path -Path $script:TestRoot -ChildPath 'files.csv'
 
-            $result = Show-FileStorageMetric -Path $script:TestRoot -Filter '*.log' -AllDates -CsvPath $csvPath -CsvGroupBy File -AsObject
+            $result = Show-FileStorageMetrics -Path $script:TestRoot -Filter '*.log' -AllDates -CsvPath $csvPath -CsvGroupBy File -AsObject
             $csvRows = @(Import-Csv -LiteralPath $csvPath)
 
             $result.FileCount | Should -Be 2
@@ -547,13 +547,13 @@ Describe 'Show-FileStorageMetric' {
             $projectionCsvPath = Join-Path -Path $script:TestRoot -ChildPath 'projections.csv'
             $volumeCsvPath = Join-Path -Path $script:TestRoot -ChildPath 'volumes.csv'
 
-            $projectionReport = Show-FileStorageMetric -Path $script:TestRoot -Filter '*.log' `
+            $projectionReport = Show-FileStorageMetrics -Path $script:TestRoot -Filter '*.log' `
                 -DateField LastWriteTime -ReferenceDate $referenceDate -Days 0 `
                 -GrowthWindowDays 30 -ProjectionDays 7, 30 -CsvPath $projectionCsvPath `
                 -CsvGroupBy Projection -AsObject
             $projectionRows = @(Import-Csv -LiteralPath $projectionCsvPath)
 
-            $volumeReport = Show-FileStorageMetric -Path $script:TestRoot -Filter '*.log' `
+            $volumeReport = Show-FileStorageMetrics -Path $script:TestRoot -Filter '*.log' `
                 -DateField LastWriteTime -ReferenceDate $referenceDate -Days 0 `
                 -GrowthWindowDays 30 -ProjectionDays 7, 30 -CsvPath $volumeCsvPath `
                 -CsvGroupBy Volume -AsObject
@@ -574,7 +574,7 @@ Describe 'Show-FileStorageMetric' {
         It 'writes a header-only CSV when an exported grouping has no records' {
             $csvPath = Join-Path -Path $script:TestRoot -ChildPath 'extensions.csv'
 
-            $result = Show-FileStorageMetric -Path $script:TestRoot -Filter '*.missing' -AllDates -CsvPath $csvPath -CsvGroupBy Extension -AsObject
+            $result = Show-FileStorageMetrics -Path $script:TestRoot -Filter '*.missing' -AllDates -CsvPath $csvPath -CsvGroupBy Extension -AsObject
             $lines = @(Get-Content -LiteralPath $csvPath)
             $csvRows = @(Import-Csv -LiteralPath $csvPath)
 
@@ -590,10 +590,10 @@ Describe 'Show-FileStorageMetric' {
             $csvPath = Join-Path -Path $script:TestRoot -ChildPath 'report.csv'
             [System.IO.File]::WriteAllText($csvPath, 'existing')
 
-            { Show-FileStorageMetric -Path $script:TestRoot -Filter '*.log' -AllDates -CsvPath $csvPath -AsObject } |
+            { Show-FileStorageMetrics -Path $script:TestRoot -Filter '*.log' -AllDates -CsvPath $csvPath -AsObject } |
                 Should -Throw '*Use OverwriteCsv to replace it*'
 
-            $result = Show-FileStorageMetric -Path $script:TestRoot -Filter '*.log' -AllDates -CsvPath $csvPath -OverwriteCsv -AsObject
+            $result = Show-FileStorageMetrics -Path $script:TestRoot -Filter '*.log' -AllDates -CsvPath $csvPath -OverwriteCsv -AsObject
 
             $result.CsvExported | Should -BeTrue
             $result.FileCount | Should -Be 1
@@ -604,7 +604,7 @@ Describe 'Show-FileStorageMetric' {
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'sample.log') -Length 10 | Out-Null
             $csvPath = Join-Path -Path $script:TestRoot -ChildPath 'report.csv'
 
-            $result = Show-FileStorageMetric -Path $script:TestRoot -Filter '*.log' -AllDates -CsvPath $csvPath -AsObject -WhatIf
+            $result = Show-FileStorageMetrics -Path $script:TestRoot -Filter '*.log' -AllDates -CsvPath $csvPath -AsObject -WhatIf
 
             $result.FileCount | Should -Be 1
             $result.CsvExported | Should -BeFalse
@@ -614,37 +614,37 @@ Describe 'Show-FileStorageMetric' {
 
     Context 'Preflight validation' {
         It 'rejects AllDates with explicitly supplied Days' {
-            { Show-FileStorageMetric -Path $script:TestRoot -AllDates -Days 0 -AsObject } |
+            { Show-FileStorageMetrics -Path $script:TestRoot -AllDates -Days 0 -AsObject } |
                 Should -Throw '*AllDates cannot be combined with Days*'
         }
 
         It 'rejects AllDates with explicitly supplied ReferenceDate' {
-            { Show-FileStorageMetric -Path $script:TestRoot -AllDates -ReferenceDate ([DateTime]'2026-01-01') -AsObject } |
+            { Show-FileStorageMetrics -Path $script:TestRoot -AllDates -ReferenceDate ([DateTime]'2026-01-01') -AsObject } |
                 Should -Throw '*AllDates cannot be combined with ReferenceDate*'
         }
 
         It 'rejects an inverted size range' {
-            { Show-FileStorageMetric -Path $script:TestRoot -AllDates -MinimumSizeBytes 20 -MaximumSizeBytes 10 -AsObject } |
+            { Show-FileStorageMetrics -Path $script:TestRoot -AllDates -MinimumSizeBytes 20 -MaximumSizeBytes 10 -AsObject } |
                 Should -Throw '*MinimumSizeBytes cannot be greater than MaximumSizeBytes*'
         }
 
         It 'rejects CsvGroupBy and OverwriteCsv without CsvPath' {
-            { Show-FileStorageMetric -Path $script:TestRoot -AllDates -CsvGroupBy File -AsObject } |
+            { Show-FileStorageMetrics -Path $script:TestRoot -AllDates -CsvGroupBy File -AsObject } |
                 Should -Throw '*CsvGroupBy requires CsvPath*'
-            { Show-FileStorageMetric -Path $script:TestRoot -AllDates -OverwriteCsv -AsObject } |
+            { Show-FileStorageMetrics -Path $script:TestRoot -AllDates -OverwriteCsv -AsObject } |
                 Should -Throw '*OverwriteCsv requires CsvPath*'
         }
 
         It 'rejects projection settings and groupings when projection is disabled' {
             $projectionCsvPath = Join-Path -Path $script:TestRoot -ChildPath 'projection.csv'
 
-            { Show-FileStorageMetric -Path $script:TestRoot -AllDates -NoCapacityProjection -ProjectionDays 30 -AsObject } |
+            { Show-FileStorageMetrics -Path $script:TestRoot -AllDates -NoCapacityProjection -ProjectionDays 30 -AsObject } |
                 Should -Throw '*NoCapacityProjection cannot be combined with ProjectionDays*'
-            { Show-FileStorageMetric -Path $script:TestRoot -AllDates -NoCapacityProjection -GrowthWindowDays 7 -AsObject } |
+            { Show-FileStorageMetrics -Path $script:TestRoot -AllDates -NoCapacityProjection -GrowthWindowDays 7 -AsObject } |
                 Should -Throw '*NoCapacityProjection cannot be combined with*GrowthWindowDays*'
-            { Show-FileStorageMetric -Path $script:TestRoot -AllDates -NoCapacityProjection -CapacityHeadroomPercent 10 -AsObject } |
+            { Show-FileStorageMetrics -Path $script:TestRoot -AllDates -NoCapacityProjection -CapacityHeadroomPercent 10 -AsObject } |
                 Should -Throw '*NoCapacityProjection cannot be combined with*CapacityHeadroomPercent*'
-            { Show-FileStorageMetric -Path $script:TestRoot -AllDates -NoCapacityProjection -CsvPath $projectionCsvPath -CsvGroupBy Projection -AsObject } |
+            { Show-FileStorageMetrics -Path $script:TestRoot -AllDates -NoCapacityProjection -CsvPath $projectionCsvPath -CsvGroupBy Projection -AsObject } |
                 Should -Throw '*CsvGroupBy Projection cannot be used with NoCapacityProjection*'
         }
 
@@ -652,16 +652,16 @@ Describe 'Show-FileStorageMetric' {
             $missingDirectoryCsv = Join-Path -Path $script:TestRoot -ChildPath 'missing/report.csv'
             $wrongExtension = Join-Path -Path $script:TestRoot -ChildPath 'report.json'
 
-            { Show-FileStorageMetric -Path $script:TestRoot -AllDates -CsvPath $missingDirectoryCsv -AsObject } |
+            { Show-FileStorageMetrics -Path $script:TestRoot -AllDates -CsvPath $missingDirectoryCsv -AsObject } |
                 Should -Throw '*parent directory does not exist*'
-            { Show-FileStorageMetric -Path $script:TestRoot -AllDates -CsvPath $wrongExtension -AsObject } |
+            { Show-FileStorageMetrics -Path $script:TestRoot -AllDates -CsvPath $wrongExtension -AsObject } |
                 Should -Throw '*must use a .csv extension*'
         }
 
         It 'rejects missing paths with an actionable message' {
             $missingPath = Join-Path -Path $script:TestRoot -ChildPath 'missing'
 
-            { Show-FileStorageMetric -Path $missingPath -AllDates -AsObject } |
+            { Show-FileStorageMetrics -Path $missingPath -AllDates -AsObject } |
                 Should -Throw '*Path not found or inaccessible*'
         }
     }

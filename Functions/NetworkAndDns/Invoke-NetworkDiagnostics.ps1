@@ -1,4 +1,4 @@
-﻿function Invoke-NetworkDiagnostic
+﻿function Invoke-NetworkDiagnostics
 {
     <#
     .SYNOPSIS
@@ -182,104 +182,104 @@
         Degree of parallelism when testing multiple hosts on PowerShell 7+ (default: logical core count, minimum 2)
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'bing.com'
+        PS > Invoke-NetworkDiagnostics -HostName 'bing.com'
 
         Starts continuous monitoring of bing.com with default settings (20 samples,
         port 443). Press Ctrl+C to stop.
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'bing.com' -Continuous:$false
+        PS > Invoke-NetworkDiagnostics -HostName 'bing.com' -Continuous:$false
 
         Runs a single diagnostic cycle and exits.
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'bing.com', '1.1.1.1', 'github.com' -Count 30
+        PS > Invoke-NetworkDiagnostics -HostName 'bing.com', '1.1.1.1', 'github.com' -Count 30
 
         Tests multiple hosts with 30 samples each
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'dns.google' -Port 53 -IncludeDns -ShowGraph
+        PS > Invoke-NetworkDiagnostics -HostName 'dns.google' -Port 53 -IncludeDns -ShowGraph
 
         Tests DNS server with detailed graph and DNS resolution metrics
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'cloudflare.com' -Continuous -Interval 10
+        PS > Invoke-NetworkDiagnostics -HostName 'cloudflare.com' -Continuous -Interval 10
 
         Continuously monitors cloudflare.com, updating every 10 seconds until Ctrl+C is pressed
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'bing.com' -Continuous -ShowGraph -Interval 5
+        PS > Invoke-NetworkDiagnostics -HostName 'bing.com' -Continuous -ShowGraph -Interval 5
 
         Monitor with detailed time-series graphs, auto-refreshing every 5 seconds
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'api.example.com' -ShowGraph -Style Dots
+        PS > Invoke-NetworkDiagnostics -HostName 'api.example.com' -ShowGraph -Style Dots
 
         Test with clean dot plot visualization (default style, easiest to read)
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'api.example.com' -ShowGraph -Style Bars
+        PS > Invoke-NetworkDiagnostics -HostName 'api.example.com' -ShowGraph -Style Bars
 
         Test with bar chart visualization showing magnitude from baseline
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'api.example.com' -ShowGraph -Style Line
+        PS > Invoke-NetworkDiagnostics -HostName 'api.example.com' -ShowGraph -Style Line
 
         Test with line plot visualization connecting data points
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'cloudflare.com' -Continuous -Interval 2 -RenderMode InPlace
+        PS > Invoke-NetworkDiagnostics -HostName 'cloudflare.com' -Continuous -Interval 2 -RenderMode InPlace
 
         PowerShell Core: refreshes the same output block in place (no stacking)
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'cloudflare.com' -Continuous -Interval 2 -RenderMode Clear
+        PS > Invoke-NetworkDiagnostics -HostName 'cloudflare.com' -Continuous -Interval 2 -RenderMode Clear
 
         Force screen clear between iterations (useful if in-place rendering isn't desired)
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'cloudflare.com' -Continuous -Interval 2 -RenderMode Stack -MaxIterations 1
+        PS > Invoke-NetworkDiagnostics -HostName 'cloudflare.com' -Continuous -Interval 2 -RenderMode Stack -MaxIterations 1
 
         Append a single iteration (good for logs/tests); no clear or in-place refresh
 
     .EXAMPLE
-        PS > 'bing.com', 'cloudflare.com' | Invoke-NetworkDiagnostic -Count 50
+        PS > 'bing.com', 'cloudflare.com' | Invoke-NetworkDiagnostics -Count 50
 
         Tests hosts via pipeline with 50 samples each
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName '8.8.8.8', '1.1.1.1' -Port 53 -IncludeDns -Count 30
+        PS > Invoke-NetworkDiagnostics -HostName '8.8.8.8', '1.1.1.1' -Port 53 -IncludeDns -Count 30
 
         Compare DNS server performance (Google DNS vs Cloudflare DNS) including DNS resolution time
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'cloudflare.com' -Count 10 -SampleDelayMilliseconds 10 -Interval 1 -Continuous -MaxIterations 1
+        PS > Invoke-NetworkDiagnostics -HostName 'cloudflare.com' -Count 10 -SampleDelayMilliseconds 10 -Interval 1 -Continuous -MaxIterations 1
 
         Faster sampling cadence by reducing delay between samples while keeping interval short
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'github.com' -Continuous -Interval 2 -Count 15
+        PS > Invoke-NetworkDiagnostics -HostName 'github.com' -Continuous -Interval 2 -Count 15
 
         Quick continuous monitoring with 2-second refresh for troubleshooting intermittent issues
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'api.example.com' -Port 8080 -Count 100 -ShowGraph
+        PS > Invoke-NetworkDiagnostics -HostName 'api.example.com' -Port 8080 -Count 100 -ShowGraph
 
         Test custom API endpoint on port 8080 with 100 samples and detailed graph
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'database.local' -Port 3306 -Timeout 5000 -Count 50
+        PS > Invoke-NetworkDiagnostics -HostName 'database.local' -Port 3306 -Timeout 5000 -Count 50
 
         Test database server connectivity with 5-second timeout per connection
 
     .EXAMPLE
         PS > $hosts = Get-Content hosts.txt
-        PS > Invoke-NetworkDiagnostic -HostName $hosts -Count 25
+        PS > Invoke-NetworkDiagnostics -HostName $hosts -Count 25
 
         Test multiple hosts from a file with 25 samples each
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'vpn.company.com' -Port 443 -Continuous -ShowGraph
+        PS > Invoke-NetworkDiagnostics -HostName 'vpn.company.com' -Port 443 -Continuous -ShowGraph
 
         Monitor VPN gateway continuously with visual graphs (default 5-second interval)
 
@@ -289,19 +289,19 @@
         Quick test using the 'netdiag' alias with 10 samples
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'bing.com','cloudflare.com','github.com' -Count 15 -SummaryOnly
+        PS > Invoke-NetworkDiagnostics -HostName 'bing.com','cloudflare.com','github.com' -Count 15 -SummaryOnly
 
         Parallel tests (PowerShell 7+) with a compact summary-only view for multiple hosts
 
     .EXAMPLE
-        PS > Invoke-NetworkDiagnostic -HostName 'api.example.com','db.example.com' -Continuous -Interval 3 -ThrottleLimit 4
+        PS > Invoke-NetworkDiagnostics -HostName 'api.example.com','db.example.com' -Continuous -Interval 3 -ThrottleLimit 4
 
         Continuous monitoring of multiple hosts with capped parallelism (PowerShell 7+)
 
     .EXAMPLE
         PS > # TROUBLESHOOTING: Intermittent connectivity issues
         PS > # Problem: Users report occasional disconnections or slowness
-        PS > Invoke-NetworkDiagnostic -HostName 'vpn.company.com' -Continuous -Interval 2
+        PS > Invoke-NetworkDiagnostics -HostName 'vpn.company.com' -Continuous -Interval 2
 
         Monitor continuously to catch sporadic failures. Look for sparkline graphs showing
         periodic spikes or gray bars at baseline indicating packet loss.
@@ -309,7 +309,7 @@
     .EXAMPLE
         PS > # TROUBLESHOOTING: Network path degradation
         PS > # Problem: Application performance degrading over time
-        PS > Invoke-NetworkDiagnostic -HostName 'api.example.com' -ShowGraph -Count 100
+        PS > Invoke-NetworkDiagnostics -HostName 'api.example.com' -ShowGraph -Count 100
 
         Monitor latency trends with visual graphs. Look for ascending latency trend or
         increasing jitter values indicating network congestion.
@@ -317,7 +317,7 @@
     .EXAMPLE
         PS > # TROUBLESHOOTING: VoIP quality issues
         PS > # Problem: VoIP calls dropping or video conferencing issues
-        PS > Invoke-NetworkDiagnostic -HostName 'teams.microsoft.com' -Port 443 -Count 200
+        PS > Invoke-NetworkDiagnostics -HostName 'teams.microsoft.com' -Port 443 -Count 200
 
         Measure packet loss percentage over sustained period. Packet loss > 2% indicates
         quality issues affecting real-time applications.
@@ -325,7 +325,7 @@
     .EXAMPLE
         PS > # TROUBLESHOOTING: DNS resolution problems
         PS > # Problem: Slow website loading or application startup delays
-        PS > Invoke-NetworkDiagnostic -HostName 'github.com' -IncludeDns -Count 50
+        PS > Invoke-NetworkDiagnostics -HostName 'github.com' -IncludeDns -Count 50
 
         Include DNS resolution time in metrics. Look for DNS resolution > 100ms or highly
         variable DNS times indicating DNS server performance issues.
@@ -333,7 +333,7 @@
     .EXAMPLE
         PS > # TROUBLESHOOTING: Choosing between CDN endpoints
         PS > # Problem: Need to select optimal server from multiple options
-        PS > Invoke-NetworkDiagnostic -HostName 'cdn1.example.com','cdn2.example.com' -Count 100
+        PS > Invoke-NetworkDiagnostics -HostName 'cdn1.example.com','cdn2.example.com' -Count 100
 
         Test multiple hosts simultaneously to compare performance. Choose endpoint with
         lowest average latency, lower jitter, and zero packet loss.
@@ -341,7 +341,7 @@
     .EXAMPLE
         PS > # TROUBLESHOOTING: Service availability during maintenance
         PS > # Problem: Need to verify service uptime during maintenance window
-        PS > Invoke-NetworkDiagnostic -HostName 'database.local' -Port 5432 -Continuous
+        PS > Invoke-NetworkDiagnostics -HostName 'database.local' -Port 5432 -Continuous
 
         Continuous monitoring with auto-refresh. Watch for success rate dropping below 100%
         or sudden latency spikes indicating service issues.
@@ -349,7 +349,7 @@
     .EXAMPLE
         PS > # TROUBLESHOOTING: Real-time application performance
         PS > # Problem: Gaming or real-time apps experiencing inconsistent performance
-        PS > Invoke-NetworkDiagnostic -HostName 'game-server.net' -Port 27015 -ShowGraph -Count 200
+        PS > Invoke-NetworkDiagnostics -HostName 'game-server.net' -Port 27015 -ShowGraph -Count 200
 
         Monitor jitter (latency variance) over time. Jitter > 30ms indicates unstable
         connection unsuitable for real-time applications.
@@ -357,7 +357,7 @@
     .EXAMPLE
         PS > # TROUBLESHOOTING: Firewall port accessibility
         PS > # Problem: Verify specific ports are accessible after firewall changes
-        PS > Invoke-NetworkDiagnostic -HostName 'smtp.company.com' -Port 587 -Count 20
+        PS > Invoke-NetworkDiagnostics -HostName 'smtp.company.com' -Port 587 -Count 20
 
         Test custom ports with detailed metrics. 100% packet loss indicates port blocked
         by firewall or security policy.
@@ -370,7 +370,7 @@
         PS > $metrics = Get-NetworkMetric -HostName 'website.com' -Count 50
         PS > Show-NetworkLatencyGraph -Data $metrics.LatencyData -GraphType TimeSeries -ShowStats
         PS > # Step 3: Check if DNS is the culprit
-        PS > Invoke-NetworkDiagnostic -HostName 'website.com' -IncludeDns -Count 30
+        PS > Invoke-NetworkDiagnostics -HostName 'website.com' -IncludeDns -Count 30
 
         Progressive diagnosis workflow. Compare LatencyAvg vs DnsResolution to identify
         whether issue is network latency or DNS performance.
@@ -381,7 +381,7 @@
         PS > $api2 = Get-NetworkMetric -HostName 'api-us-west.example.com' -Port 8080 -Count 100
         PS > Show-NetworkLatencyGraph -Data $api1.LatencyData -GraphType Sparkline -ShowStats
         PS > Show-NetworkLatencyGraph -Data $api2.LatencyData -GraphType Sparkline -ShowStats
-        PS > Invoke-NetworkDiagnostic -HostName 'api-us-east.example.com','api-us-west.example.com' -Port 8080 -Count 100 -ShowGraph
+        PS > Invoke-NetworkDiagnostics -HostName 'api-us-east.example.com','api-us-west.example.com' -Port 8080 -Count 100 -ShowGraph
 
         Compare multiple API endpoints. Visualize side-by-side, then run comprehensive
         diagnostic to choose endpoint with best performance characteristics.
@@ -389,7 +389,7 @@
     .EXAMPLE
         PS > # WORKFLOW: Diagnosing intermittent connection drops
         PS > # Step 1: Monitor continuously to catch failures
-        PS > Invoke-NetworkDiagnostic -HostName 'vpn.company.com' -Continuous -Interval 3
+        PS > Invoke-NetworkDiagnostics -HostName 'vpn.company.com' -Continuous -Interval 3
         PS > # Step 2: When drops occur, collect detailed samples
         PS > $metrics = Get-NetworkMetric -HostName 'vpn.company.com' -Count 200 -SampleDelayMilliseconds 50
         PS > # Step 3: Analyze distribution pattern
@@ -401,7 +401,7 @@
     .EXAMPLE
         PS > # WORKFLOW: Real-time application baseline comparison
         PS > $baseline = Get-NetworkMetric -HostName 'game-server.net' -Port 27015 -Count 100
-        PS > Invoke-NetworkDiagnostic -HostName 'game-server.net' -Port 27015 -Continuous -ShowGraph -Interval 5
+        PS > Invoke-NetworkDiagnostics -HostName 'game-server.net' -Port 27015 -Continuous -ShowGraph -Interval 5
         PS > "Baseline Jitter: $($baseline.Jitter)ms"  # Should be < 20ms for gaming
 
         Baseline during good period, then monitor during problems. Jitter increase > 50%
@@ -414,7 +414,7 @@
         >>       $host,$port = $svc -split ':'
         >>       Get-NetworkMetric -HostName $host -Port $port -Count 10 | Select-Object HostName,Port,PacketLoss,LatencyAvg
         >>   }
-        PS > Invoke-NetworkDiagnostic -HostName 'db.company.com' -Port 5432 -ShowGraph -Count 100
+        PS > Invoke-NetworkDiagnostics -HostName 'db.company.com' -Port 5432 -ShowGraph -Count 100
 
         Quick parallel test of critical services, then deep dive on problematic ones.
         Identify whether issues are service-specific or systemic network problems.
@@ -438,9 +438,9 @@
         Author: Jon LaBelle
         License: MIT
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Invoke-NetworkDiagnostic.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Invoke-NetworkDiagnostics.ps1
 
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Invoke-NetworkDiagnostic.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/NetworkAndDns/Invoke-NetworkDiagnostics.ps1
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidDefaultValueSwitchParameter', '')]
     [CmdletBinding()]
@@ -1616,11 +1616,11 @@ if (-not (Get-Command -Name 'netdiag' -ErrorAction SilentlyContinue))
 {
     try
     {
-        Write-Verbose "Creating 'netdiag' alias for Invoke-NetworkDiagnostic"
-        Set-Alias -Name 'netdiag' -Value 'Invoke-NetworkDiagnostic' -Force -ErrorAction Stop
+        Write-Verbose "Creating 'netdiag' alias for Invoke-NetworkDiagnostics"
+        Set-Alias -Name 'netdiag' -Value 'Invoke-NetworkDiagnostics' -Force -ErrorAction Stop
     }
     catch
     {
-        Write-Warning "Invoke-NetworkDiagnostic: Could not create 'netdiag' alias: $($_.Exception.Message)"
+        Write-Warning "Invoke-NetworkDiagnostics: Could not create 'netdiag' alias: $($_.Exception.Message)"
     }
 }

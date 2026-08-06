@@ -143,7 +143,7 @@ pwsh -NoProfile -File ".\Functions\Category\Function.ps1"
 
 Use this convention only for functions that intentionally render a dashboard, graph, framed report, picker, or other rich console UI. Ordinary progress and one-line status messages are not theme targets.
 
-[`Show-FileStorageMetric`](../Functions/Utilities/Show-FileStorageMetric.ps1) is the visual reference, but other functions should retain layouts appropriate to their content.
+[`Show-FileStorageMetrics`](../Functions/Utilities/Show-FileStorageMetrics.ps1) is the visual reference, but other functions should retain layouts appropriate to their content.
 
 Use one fixed monochrome palette:
 

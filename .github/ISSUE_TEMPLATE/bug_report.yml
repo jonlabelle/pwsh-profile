@@ -58,7 +58,7 @@ body:
       description: Which function is affected (if applicable)
       options:
         - "Select a function..."
-        - "Invoke-NetworkDiagnostic"
+        - "Invoke-NetworkDiagnostics"
         - "Test-Port"
         - "Test-DnsNameResolution"
         - "Get-IPAddress"

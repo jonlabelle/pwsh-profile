@@ -1,4 +1,4 @@
-﻿function Show-FileStorageMetric
+﻿function Show-FileStorageMetrics
 {
     <#
     .SYNOPSIS
@@ -125,39 +125,39 @@
         Allows CsvPath to overwrite an existing file. Requires CsvPath.
 
     .EXAMPLE
-        PS > Show-FileStorageMetric
+        PS > Show-FileStorageMetrics
 
         Displays metrics for files created today in the current directory.
 
     .EXAMPLE
-        PS > Show-FileStorageMetric -Path ./logs -Filter '*.log', '*.json' -Days 7 -DateField LastWriteTime -Recurse
+        PS > Show-FileStorageMetrics -Path ./logs -Filter '*.log', '*.json' -Days 7 -DateField LastWriteTime -Recurse
 
         Displays an eight-date report (today plus the preceding seven dates) for log and
         JSON files, grouped by LastWriteTime.
 
     .EXAMPLE
-        PS > $report = Show-FileStorageMetric -Path ./media -Filter '*.jpg', '*.png' -AllDates -Recurse -AsObject
+        PS > $report = Show-FileStorageMetrics -Path ./media -Filter '*.jpg', '*.png' -AllDates -Recurse -AsObject
         PS > $report.ExtensionBreakdown | Sort-Object TotalBytes -Descending
 
         Returns structured metrics for all matching image files.
 
     .EXAMPLE
-        PS > Show-FileStorageMetric -Path ./exports -Days 30 -DateField LastWriteTime -CsvPath ./daily-storage.csv
+        PS > Show-FileStorageMetrics -Path ./exports -Days 30 -DateField LastWriteTime -CsvPath ./daily-storage.csv
 
         Displays the dashboard and exports the daily breakdown to a UTF-8 CSV file.
 
     .EXAMPLE
-        PS > Show-FileStorageMetric -Path ./artifacts -AllDates -Recurse -CsvPath ./files.csv -CsvGroupBy File -AsObject
+        PS > Show-FileStorageMetrics -Path ./artifacts -AllDates -Recurse -CsvPath ./files.csv -CsvGroupBy File -AsObject
 
         Returns a structured report and exports one CSV row per matching file.
 
     .EXAMPLE
-        PS > Get-ChildItem -Directory ./projects | Show-FileStorageMetric -Filter '*.zip' -AllDates -Recurse -AsObject
+        PS > Get-ChildItem -Directory ./projects | Show-FileStorageMetrics -Filter '*.zip' -AllDates -Recurse -AsObject
 
         Aggregates matching ZIP files from directory paths received through the pipeline.
 
     .EXAMPLE
-        PS > $report = Show-FileStorageMetric -Path ./archive -Days 30 -DateField CreationTime -Recurse -ProjectionDays 30, 90, 365 -CapacityHeadroomPercent 20 -AsObject
+        PS > $report = Show-FileStorageMetrics -Path ./archive -Days 30 -DateField CreationTime -Recurse -ProjectionDays 30, 90, 365 -CapacityHeadroomPercent 20 -AsObject
         PS > $report.GrowthProjection.Projections
         PS > $report.VolumeBreakdown
 
@@ -174,10 +174,10 @@
 
         Author: Jon LaBelle
         License: MIT
-        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Show-FileStorageMetric.ps1
+        Source: https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Show-FileStorageMetrics.ps1
 
     .LINK
-        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Show-FileStorageMetric.ps1
+        https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/Utilities/Show-FileStorageMetrics.ps1
     #>
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([System.String], [System.Management.Automation.PSCustomObject])]

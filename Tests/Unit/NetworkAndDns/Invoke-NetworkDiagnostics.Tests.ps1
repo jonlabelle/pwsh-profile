@@ -2,7 +2,7 @@ BeforeAll {
     # Suppress progress bars to prevent freezing in non-interactive environments
     $Global:ProgressPreference = 'SilentlyContinue'
 
-    $invokePath = Join-Path -Path $PSScriptRoot -ChildPath '..\..\..\Functions\NetworkAndDns\Invoke-NetworkDiagnostic.ps1'
+    $invokePath = Join-Path -Path $PSScriptRoot -ChildPath '..\..\..\Functions\NetworkAndDns\Invoke-NetworkDiagnostics.ps1'
     $invokePath = [System.IO.Path]::GetFullPath($invokePath)
 
     function Get-NetworkMetric
@@ -51,7 +51,7 @@ BeforeAll {
     . $invokePath
 }
 
-Describe 'Invoke-NetworkDiagnostic (Default continuous mode single iteration via -MaxIterations)' {
+Describe 'Invoke-NetworkDiagnostics (Default continuous mode single iteration via -MaxIterations)' {
     It 'prints expected output and shows stop hint' {
         # Prepare canned metrics
         $script:MockLatencies = @(61, 62, 63, 64, 65)
@@ -70,7 +70,7 @@ Describe 'Invoke-NetworkDiagnostic (Default continuous mode single iteration via
         }
 
         # Capture output
-        $output = Invoke-NetworkDiagnostic -HostName 'example.com' -Count 5 -MaxIterations 1 *>&1 | Out-String
+        $output = Invoke-NetworkDiagnostics -HostName 'example.com' -Count 5 -MaxIterations 1 *>&1 | Out-String
 
         # Verify expected content
         $output | Should-MatchString 'Network Diagnostic - Continuous Mode'
@@ -104,7 +104,7 @@ Describe 'Invoke-NetworkDiagnostic (Default continuous mode single iteration via
 
         Mock -CommandName Start-Sleep {}
 
-        Invoke-NetworkDiagnostic -HostName 'example.com' -Count 5 -MaxIterations 1 -Interval 9 *> $null
+        Invoke-NetworkDiagnostics -HostName 'example.com' -Count 5 -MaxIterations 1 -Interval 9 *> $null
 
         Should-Invoke -CommandName Start-Sleep -Times 0 -Exactly -ParameterFilter { $PSBoundParameters.ContainsKey('Seconds') -and $Seconds -eq 9 }
     }
@@ -132,7 +132,7 @@ Describe 'Invoke-NetworkDiagnostic (Default continuous mode single iteration via
             }
         }
 
-        Invoke-NetworkDiagnostic -HostName 'example.com' -Count 5 -Continuous:$false *> $null
+        Invoke-NetworkDiagnostics -HostName 'example.com' -Count 5 -Continuous:$false *> $null
 
         $escapeCharacter = [String][Char]27
         $ansiPattern = "$escapeCharacter\[[0-9;]*m"
@@ -163,7 +163,7 @@ Describe 'Invoke-NetworkDiagnostic (Default continuous mode single iteration via
             LatencyData = @(20, 21, 22, 23, 24)
         }
 
-        $output = Invoke-NetworkDiagnostic -HostName 'example.com' -Count 5 -Continuous:$false -SummaryOnly *>&1 | Out-String
+        $output = Invoke-NetworkDiagnostics -HostName 'example.com' -Count 5 -Continuous:$false -SummaryOnly *>&1 | Out-String
 
         $output | Should-MatchString 'Summary\s+avg\s+22ms'
         $output | Should-MatchString 'dns\s+8ms'
@@ -188,7 +188,7 @@ Describe 'Invoke-NetworkDiagnostic (Default continuous mode single iteration via
         }
         $script:GraphTypes = [System.Collections.Generic.List[String]]::new()
 
-        $output = Invoke-NetworkDiagnostic -HostName 'example.com' -Count 5 -Continuous:$false -ShowGraph *>&1 | Out-String
+        $output = Invoke-NetworkDiagnostics -HostName 'example.com' -Count 5 -Continuous:$false -ShowGraph *>&1 | Out-String
 
         $script:GraphTypes | Should-ContainCollection 'TimeSeries'
         $script:GraphTypes | Should-NotContainCollection 'Sparkline'
@@ -228,7 +228,7 @@ Describe 'Invoke-NetworkDiagnostic (Default continuous mode single iteration via
 
         Mock -CommandName Start-Sleep {}
 
-        $output = Invoke-NetworkDiagnostic -HostName 'example.com' -Count 5 -MaxIterations 2 -Interval 1 *>&1 | Out-String
+        $output = Invoke-NetworkDiagnostics -HostName 'example.com' -Count 5 -MaxIterations 2 -Interval 1 *>&1 | Out-String
         $upArrowPattern = [Regex]::Escape(([string][char]0x2191))
 
         Should-MatchString -Actual $output -Expected 'Trend'
@@ -271,7 +271,7 @@ Describe 'Invoke-NetworkDiagnostic (Default continuous mode single iteration via
         Mock -CommandName Start-Sleep {}
         Mock -CommandName Clear-Host { throw [System.IO.IOException]::new('The handle is invalid.') }
 
-        $output = Invoke-NetworkDiagnostic -HostName 'example.com' -Count 5 -MaxIterations 2 -Interval 1 -RenderMode Clear *>&1 | Out-String
+        $output = Invoke-NetworkDiagnostics -HostName 'example.com' -Count 5 -MaxIterations 2 -Interval 1 -RenderMode Clear *>&1 | Out-String
         $upArrowPattern = [Regex]::Escape(([string][char]0x2191))
 
         Should-MatchString -Actual $output -Expected 'Trend'
