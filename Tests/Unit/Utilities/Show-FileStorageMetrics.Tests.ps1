@@ -81,7 +81,8 @@ Describe 'Show-FileStorageMetrics' {
             $command.Parameters.Keys | Should -Contain 'ProjectionDays'
             $command.Parameters.Keys | Should -Contain 'GrowthWindowDays'
             $command.Parameters.Keys | Should -Contain 'CapacityHeadroomPercent'
-            $command.Parameters.Keys | Should -Contain 'NoCapacityProjection'
+            $command.Parameters.Keys | Should -Contain 'IncludeCapacityProjection'
+            $command.Parameters.Keys | Should -Not -Contain 'NoCapacityProjection'
 
             $filePath = Join-Path -Path $script:TestRoot -ChildPath 'today.txt'
             New-StorageMetricTestFile -Path $filePath -Length 10 | Out-Null
@@ -93,8 +94,8 @@ Describe 'Show-FileStorageMetrics' {
             @($result.Filter) | Should -Contain '*'
             $result.DateWindowStart | Should -Be $result.ReferenceDate
             $result.DateWindowEnd | Should -Be $result.ReferenceDate
-            $result.GrowthProjection.ObservationDayCount | Should -Be 30
-            (@($result.GrowthProjection.Projections.HorizonDays) -join ',') | Should -Be '30,90,365'
+            $result.PSObject.Properties.Name | Should -Not -Contain 'GrowthProjection'
+            $result.PSObject.Properties.Name | Should -Not -Contain 'VolumeBreakdown'
         }
 
         It 'returns a graphical dashboard string by default' {
@@ -106,8 +107,8 @@ Describe 'Show-FileStorageMetrics' {
             $result | Should -BeOfType ([String])
             $result | Should -Match 'FILE STORAGE / DASHBOARD'
             $result | Should -Match 'TOTAL STORAGE'
-            $result | Should -Match 'CAPACITY FORECAST'
-            $result | Should -Match 'VOLUME CAPACITY'
+            $result | Should -Not -Match 'CAPACITY FORECAST'
+            $result | Should -Not -Match 'VOLUME CAPACITY'
             $result | Should -Match 'DAILY STORAGE'
             $result | Should -Match 'FILE TYPE MIX'
             $result | Should -Match 'DIRECTORY HOTSPOTS'
@@ -143,7 +144,7 @@ Describe 'Show-FileStorageMetrics' {
             $filePath = Join-Path -Path $script:TestRoot -ChildPath 'sample.log'
             New-StorageMetricTestFile -Path $filePath -Length 100 | Out-Null
 
-            $result = Show-FileStorageMetrics -Path $script:TestRoot -AsObject
+            $result = Show-FileStorageMetrics -Path $script:TestRoot -IncludeCapacityProjection -AsObject
 
             $result.PSObject.TypeNames | Should -Contain 'FileStorageMetric.Report'
             $result.PSObject.Properties.Name | Should -Contain 'DailyBreakdown'
@@ -158,6 +159,7 @@ Describe 'Show-FileStorageMetrics' {
             $result.LargestFiles[0].PSObject.TypeNames | Should -Contain 'FileStorageMetric.File'
             $result.GrowthProjection.PSObject.TypeNames | Should -Contain 'FileStorageMetric.GrowthProjection'
             $result.GrowthProjection.Projections[0].PSObject.TypeNames | Should -Contain 'FileStorageMetric.CapacityProjection'
+            (@($result.GrowthProjection.Projections.HorizonDays) -join ',') | Should -Be '30,90,365'
             $result.VolumeBreakdown[0].PSObject.TypeNames | Should -Contain 'FileStorageMetric.Volume'
             $result.VolumeBreakdown[0].Projections[0].PSObject.TypeNames | Should -Contain 'FileStorageMetric.VolumeCapacityProjection'
         }
@@ -410,9 +412,8 @@ Describe 'Show-FileStorageMetrics' {
             $result.DirectoryBreakdown.Count | Should -Be 0
             $result.PathBreakdown.Count | Should -Be 1
             $result.PathBreakdown[0].FileCount | Should -Be 0
-            $result.GrowthProjection.Status | Should -Be 'NoActivity'
-            $result.GrowthProjection.ObservedGrowthBytesPerDay | Should -Be 0
-            $result.GrowthProjection.CurrentSelectedBytes | Should -Be 0
+            $result.PSObject.Properties.Name | Should -Not -Contain 'GrowthProjection'
+            $result.PSObject.Properties.Name | Should -Not -Contain 'VolumeBreakdown'
             $dashboard | Should -Match '\(no matching files\)'
         }
     }
@@ -487,11 +488,11 @@ Describe 'Show-FileStorageMetrics' {
             $volumeProjection.AdditionalCapacityRequiredBytes | Should -Be $expectedCapacityGap
         }
 
-        It 'can omit capacity projection work and presentation explicitly' {
+        It 'does not include capacity projection work and presentation by default' {
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'sample.log') -Length 10 | Out-Null
 
-            $report = Show-FileStorageMetrics -Path $script:TestRoot -AllDates -NoCapacityProjection -AsObject
-            $dashboard = Show-FileStorageMetrics -Path $script:TestRoot -AllDates -NoCapacityProjection
+            $report = Show-FileStorageMetrics -Path $script:TestRoot -AllDates -AsObject
+            $dashboard = Show-FileStorageMetrics -Path $script:TestRoot -AllDates
 
             $report.PSObject.Properties.Name | Should -Not -Contain 'GrowthProjection'
             $report.PSObject.Properties.Name | Should -Not -Contain 'VolumeBreakdown'
@@ -502,6 +503,21 @@ Describe 'Show-FileStorageMetrics' {
     }
 
     Context 'CSV export' {
+        It 'enables capacity projection for a Projection CSV export' {
+            $referenceDate = [DateTime]'2026-05-10'
+            New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'sample.log') -Length 60 -LastWriteTime $referenceDate | Out-Null
+            $csvPath = Join-Path -Path $script:TestRoot -ChildPath 'projections.csv'
+
+            $result = Show-FileStorageMetrics -Path $script:TestRoot -Filter '*.log' `
+                -DateField LastWriteTime -ReferenceDate $referenceDate -Days 0 `
+                -CsvPath $csvPath -CsvGroupBy Projection -AsObject
+            $csvRows = @(Import-Csv -LiteralPath $csvPath)
+
+            $result.PSObject.Properties.Name | Should -Contain 'GrowthProjection'
+            (@($result.GrowthProjection.Projections.HorizonDays) -join ',') | Should -Be '30,90,365'
+            $csvRows.Count | Should -Be 3
+        }
+
         It 'exports the daily breakdown as UTF-8 with BOM by default' {
             $referenceDate = [DateTime]'2026-05-10'
             New-StorageMetricTestFile -Path (Join-Path -Path $script:TestRoot -ChildPath 'today.log') -Length 10 -LastWriteTime $referenceDate | Out-Null
@@ -633,19 +649,6 @@ Describe 'Show-FileStorageMetrics' {
                 Should -Throw '*CsvGroupBy requires CsvPath*'
             { Show-FileStorageMetrics -Path $script:TestRoot -AllDates -OverwriteCsv -AsObject } |
                 Should -Throw '*OverwriteCsv requires CsvPath*'
-        }
-
-        It 'rejects projection settings and groupings when projection is disabled' {
-            $projectionCsvPath = Join-Path -Path $script:TestRoot -ChildPath 'projection.csv'
-
-            { Show-FileStorageMetrics -Path $script:TestRoot -AllDates -NoCapacityProjection -ProjectionDays 30 -AsObject } |
-                Should -Throw '*NoCapacityProjection cannot be combined with ProjectionDays*'
-            { Show-FileStorageMetrics -Path $script:TestRoot -AllDates -NoCapacityProjection -GrowthWindowDays 7 -AsObject } |
-                Should -Throw '*NoCapacityProjection cannot be combined with*GrowthWindowDays*'
-            { Show-FileStorageMetrics -Path $script:TestRoot -AllDates -NoCapacityProjection -CapacityHeadroomPercent 10 -AsObject } |
-                Should -Throw '*NoCapacityProjection cannot be combined with*CapacityHeadroomPercent*'
-            { Show-FileStorageMetrics -Path $script:TestRoot -AllDates -NoCapacityProjection -CsvPath $projectionCsvPath -CsvGroupBy Projection -AsObject } |
-                Should -Throw '*CsvGroupBy Projection cannot be used with NoCapacityProjection*'
         }
 
         It 'rejects invalid CSV targets before scanning' {
