@@ -93,6 +93,32 @@ $aliasLine
         [System.IO.File]::WriteAllText($filePath, $content, [System.Text.UTF8Encoding]::new($false))
     }
 
+    $privateDir = Join-Path -Path $script:TestFunctionsDir -ChildPath 'Developer/Private'
+    New-Item -Path $privateDir -ItemType Directory -Force | Out-Null
+    $privateFunctionPath = Join-Path -Path $privateDir -ChildPath 'Invoke-DockerPrivateHelper.ps1'
+    $privateFunctionContent = @"
+function Invoke-DockerPrivateHelper
+{
+    <#
+    .SYNOPSIS
+        Internal Docker helper that must not appear in search results.
+    #>
+    [CmdletBinding()]
+    param()
+    'mock'
+}
+"@
+    [System.IO.File]::WriteAllText($privateFunctionPath, $privateFunctionContent, [System.Text.UTF8Encoding]::new($false))
+
+    $internalHelperPath = Join-Path -Path $script:TestFunctionsDir -ChildPath 'Developer/GitHubConfigurationHelpers.ps1'
+    $internalHelperContent = @"
+<#
+.SYNOPSIS
+    Internal GitHub configuration helpers that must not appear in search results.
+#>
+"@
+    [System.IO.File]::WriteAllText($internalHelperPath, $internalHelperContent, [System.Text.UTF8Encoding]::new($false))
+
     # Create a mock profile file so the function can resolve the Functions path
     $profileFile = Join-Path -Path $script:TestRoot -ChildPath 'Microsoft.PowerShell_profile.ps1'
     [System.IO.File]::WriteAllText($profileFile, '# mock profile', [System.Text.UTF8Encoding]::new($false))
@@ -168,6 +194,18 @@ Describe 'Find-ProfileFunction' {
         It 'Should apply Top result limiting' {
             $results = @(Find-ProfileFunction -Query 'docker' -Top 1)
             $results.Count | Should-Be 1
+        }
+
+        It 'Should exclude functions under Private directories' {
+            $results = @(Find-ProfileFunction -Query 'docker')
+            $results.Name | Should -Not -Contain 'Invoke-DockerPrivateHelper'
+        }
+
+        It 'Should exclude internal helper scripts that are not profile functions' {
+            $results = @(Find-ProfileFunction -Query 'githubconfigurationhelpers' 3>&1 |
+                Where-Object { $_.PSObject.Properties['Name'] })
+
+            $results | Should -BeNullOrEmpty
         }
     }
 

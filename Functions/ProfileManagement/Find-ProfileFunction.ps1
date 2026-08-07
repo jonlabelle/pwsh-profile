@@ -8,6 +8,9 @@ function Find-ProfileFunction
         Scans the profile `Functions` directory, extracts metadata from each function file,
         and returns ranked matches based on keyword relevance.
 
+        Only public function scripts eligible for profile auto-loading are searched.
+        Internal helper scripts and files under `Private` directories are excluded.
+
         Search matching considers:
         - Function name
         - Function synopsis (from comment-based help)
@@ -448,7 +451,8 @@ function Find-ProfileFunction
 
         try
         {
-            $functionFiles = Get-ChildItem -Path $functionsPath -Filter '*.ps1' -File -Recurse
+            $functionFiles = Get-ChildItem -Path $functionsPath -Filter '*-*.ps1' -File -Recurse |
+            Where-Object { $_.FullName -notmatch '[\\/]Private[\\/]' }
 
             if ($resolvedCategories.Count -gt 0)
             {
