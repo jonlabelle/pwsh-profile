@@ -11,6 +11,8 @@
 .NOTES
     These integration tests validate real-world network scenarios including:
     - Testing against actual remote HTTPS services
+    - Testing implicit TLS and explicit STARTTLS mail services
+    - Opt-in PostgreSQL, MySQL, and SQL Server endpoints supplied through environment variables
     - TLS protocol version support validation
     - Network timeout handling
     - Performance characteristics
@@ -30,15 +32,23 @@ Describe 'Test-TlsProtocol Integration Tests' {
     Context 'Real-world TLS protocol testing' {
         It 'Should successfully test TLS 1.2 on a known HTTPS endpoint' {
             # Test against a reliable public endpoint that supports TLS 1.2
-            $result = Test-TlsProtocol -ComputerName 'bing.com' -Protocol Tls12 -Timeout 10000
+            $result = Test-TlsProtocol -ComputerName 'bing.com' -Protocol Tls12 -Timeout 10000 -Full
 
             $result | Should -Not -BeNullOrEmpty
             $result.Server | Should-Be 'bing.com'
             $result.Port | Should-Be 443
             $result.Protocol | Should-Be 'Tls12'
-            $result.Supported | Should-Be $true
+            $result.TlsHandshakeSupported | Should-Be $true
+            ($null -eq $result.ServiceConnectionSupported) | Should-Be $true
+            $result.PSObject.Properties.Name | Should-NotContainCollection 'Supported'
             $result.Status | Should-Be 'Success'
             $result.ResponseTime | Should-BeGreaterThan ([TimeSpan]::Zero)
+            $result.NegotiatedProtocol | Should-Be 'Tls12'
+            $result.ValidationScope | Should-Be 'TlsHandshake'
+            $result.ApplicationPolicyStatus | Should-Be 'NotEvaluated'
+            $result.CertificateSubject | Should -Not -BeNullOrEmpty
+            $result.CertificateValid | Should-Be $true
+            $result.SecurityStatus | Should-Be 'Pass'
         }
 
         It 'Should successfully test TLS 1.3 on a modern HTTPS endpoint' {
@@ -90,6 +100,90 @@ Describe 'Test-TlsProtocol Integration Tests' {
             # GitHub should support at least TLS 1.2
             $tls12Result = $result | Where-Object { $_.Protocol -eq 'Tls12' }
             $tls12Result.Supported | Should-Be $true
+        }
+    }
+
+    Context 'Non-HTTPS TLS services' {
+        It 'Should test implicit TLS on an IMAP service' {
+            $result = Test-TlsProtocol -ComputerName 'imap.gmail.com' -Port 993 -Protocol Tls12 -Timeout 10000 -Full
+
+            $result | Should -Not -BeNullOrEmpty
+            $result.Service | Should-Be 'Direct'
+            $result.Port | Should-Be 993
+            $result.TlsHandshakeSupported | Should-Be $true
+            $result.NegotiatedProtocol | Should-Be 'Tls12'
+            $result.CertificateValid | Should-Be $true
+        }
+
+        It 'Should negotiate SMTP STARTTLS before testing TLS' {
+            $result = Test-TlsProtocol -ComputerName 'smtp.gmail.com' -Port 587 -Protocol Tls12 -Timeout 10000 -Full -Service Smtp
+
+            $result | Should -Not -BeNullOrEmpty
+            $result.Service | Should-Be 'Smtp'
+            $result.Negotiation | Should-Be 'StartTls'
+            $result.StartTlsAdvertised | Should-Be $true
+            $result.TlsHandshakeSupported | Should-Be $true
+            $result.NegotiatedProtocol | Should-Be 'Tls12'
+            $result.CertificateValid | Should-Be $true
+        }
+    }
+
+    Context 'Configured SQL platform endpoints' {
+        It 'Should test a configured PostgreSQL endpoint' -Skip:([String]::IsNullOrWhiteSpace($env:TLS_TEST_POSTGRESQL_HOST)) {
+            $parameters = @{
+                ComputerName = $env:TLS_TEST_POSTGRESQL_HOST
+                Service = 'PostgreSql'
+                Protocol = 'Tls12'
+                Timeout = 10000
+                Full = $true
+            }
+            if ($env:TLS_TEST_POSTGRESQL_PORT) { $parameters.Port = [Int]$env:TLS_TEST_POSTGRESQL_PORT }
+
+            $result = Test-TlsProtocol @parameters
+
+            $result.TlsHandshakeSupported | Should-Be $true
+            $result.Negotiation | Should-Be 'PostgreSqlSslRequest'
+            $result.NegotiatedProtocol | Should-Be 'Tls12'
+        }
+
+        It 'Should test a configured MySQL endpoint' -Skip:([String]::IsNullOrWhiteSpace($env:TLS_TEST_MYSQL_HOST)) {
+            $parameters = @{
+                ComputerName = $env:TLS_TEST_MYSQL_HOST
+                Service = 'MySql'
+                Protocol = 'Tls12'
+                Timeout = 10000
+                Full = $true
+            }
+            if ($env:TLS_TEST_MYSQL_PORT) { $parameters.Port = [Int]$env:TLS_TEST_MYSQL_PORT }
+
+            $result = Test-TlsProtocol @parameters
+
+            $result.TlsHandshakeSupported | Should-Be $true
+            $result.Negotiation | Should-Be 'MySqlSslRequest'
+            $result.NegotiatedProtocol | Should-Be 'Tls12'
+        }
+
+        It 'Should test a configured SQL Server TDS 7.x endpoint' -Skip:([String]::IsNullOrWhiteSpace($env:TLS_TEST_SQLSERVER_HOST)) {
+            $parameters = @{
+                ComputerName = $env:TLS_TEST_SQLSERVER_HOST
+                Service = 'SqlServer'
+                Protocol = 'Tls12'
+                Timeout = 10000
+                Full = $true
+            }
+            if ($env:TLS_TEST_SQLSERVER_PORT) { $parameters.Port = [Int]$env:TLS_TEST_SQLSERVER_PORT }
+
+            $result = Test-TlsProtocol @parameters
+
+            $result.TlsHandshakeSupported | Should-Be $true
+            ($null -eq $result.ServiceConnectionSupported) | Should-Be $true
+            $result.Status | Should-MatchString 'Transport handshake succeeded'
+            $result.Negotiation | Should-Be 'Tds7Prelogin'
+            $result.NegotiatedProtocol | Should-Be 'Tls12'
+            $result.ValidationScope | Should-Be 'ServiceNegotiationAndTlsHandshake'
+            $result.ApplicationPolicyStatus | Should-Be 'NotEvaluated'
+            $result.SecurityStatus | Should-Be 'Warning'
+            $result.SecurityFindings -join ' ' | Should-MatchString 'SQL Server application/login policy was not evaluated'
         }
     }
 
