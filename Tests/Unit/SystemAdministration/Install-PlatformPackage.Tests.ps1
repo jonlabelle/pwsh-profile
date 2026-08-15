@@ -138,6 +138,9 @@ Describe 'Install-PlatformPackage' {
             $result.Selected | Should-Be 1
             $result.Installed | Should-Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew install --cask visual-studio-code' }).StreamOutput | Should-BeTruthy
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like "*$([char]0x25CF) CONTROLS*" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) PACKAGE DETAILS" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) SELECTION" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter install  V details  A toggle all' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  1 selected" } -Times 1
             $escapeCharacter = [String][Char]27
@@ -186,6 +189,8 @@ Describe 'Install-PlatformPackage' {
 
             $result.Selected | Should-Be 0
             $result.Installed | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) NAVIGATION" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) RETURN" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Install-PlatformPackage Help' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Enter: ' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'install selected packages, or the current package if none are selected' } -Times 1
@@ -216,7 +221,7 @@ Describe 'Install-PlatformPackage' {
             $result.Results[0].Message | Should-Be 'Package is already installed'
             @($script:Invocations | Where-Object { $_.Key -eq 'brew install jq' }).Count | Should-Be 0
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current: jq' } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Id: jq | Source: homebrew/core | Publisher: Homebrew | Installed: yes' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Id: jq  $([char]0x2022)  Source: homebrew/core  $([char]0x2022)  Publisher: Homebrew  $([char]0x2022)  Installed: yes" } -Times 1
             $escapeCharacter = [String][Char]27
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[38;5;244m" } -Times 2
         }

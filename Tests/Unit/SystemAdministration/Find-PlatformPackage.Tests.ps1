@@ -339,8 +339,11 @@ Describe 'Find-PlatformPackage' {
             $result = @(Find-PlatformPackage -PackageManager brew -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
 
             $result.Count | Should-Be 0
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: git' } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  I install  V details  A toggle all' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like "*$([char]0x25CF) CONTROLS*" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) PACKAGE DETAILS" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) SELECTION" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Registry query: git' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Space select  I install  V details  A toggle all' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-3 of 3 visible  $([char]0x00B7)  3 total  $([char]0x00B7)  0 selected  $([char]0x00B7)  source: All" } -Times 1
             $escapeCharacter = [String][Char]27
             @($script:HostOutput | Where-Object { $_ -eq "$escapeCharacter[38;5;37m" }).Count | Should-BeGreaterThanOrEqual 1
@@ -376,7 +379,7 @@ Describe 'Find-PlatformPackage' {
             $result.Count | Should-Be 0
             @($script:Invocations | Where-Object { $_.Key -eq 'brew search --formulae git' }).Count | Should-Be 1
             @($script:Invocations | Where-Object { $_.Key -eq 'brew search --casks code' }).Count | Should-Be 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Search: code' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Registry query: code' } -Times 1
         }
 
         It 'shows keyboard help from the search result picker' {
@@ -402,6 +405,8 @@ Describe 'Find-PlatformPackage' {
             $result = @(Find-PlatformPackage -PackageManager brew -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
 
             $result.Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) NAVIGATION" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) RETURN" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Find-PlatformPackage Help' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq '/: ' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'start a new search' } -Times 1
@@ -430,7 +435,7 @@ Describe 'Find-PlatformPackage' {
 
             $result.Count | Should-Be 1
             $result[0].Name | Should-Be 'git'
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  I install  V details  A toggle all' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Space select  Enter return  I install  V details  A toggle all' } -Times 1
         }
 
         It 'opens the result picker with the requested source filter' {
@@ -563,7 +568,7 @@ Describe 'Find-PlatformPackage' {
 
             $result.Count | Should-Be 1
             $result[0].Name | Should-Be 'git'
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  I install  V details  A toggle all' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Space select  Enter return  I install  V details  A toggle all' } -Times 1
         }
 
         It 'installs the selected package from the interactive browser' {

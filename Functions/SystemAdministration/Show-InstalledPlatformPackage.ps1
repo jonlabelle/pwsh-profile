@@ -191,6 +191,12 @@ function Show-InstalledPlatformPackage
         $packageThemeCritical = $packageThemeEscape + '[91m'
         $packageThemeReset = $packageThemeEscape + '[0m'
 
+        if (-not (Get-Command -Name ConvertTo-PlatformPackagePickerLayout -ErrorAction SilentlyContinue))
+        {
+            $pickerLayoutPath = Join-Path -Path $PSScriptRoot -ChildPath 'Private/ConvertTo-PlatformPackagePickerLayout.ps1'
+            . $pickerLayoutPath
+        }
+
         function Write-PackageThemeText
         {
             param(
@@ -952,7 +958,7 @@ function Show-InstalledPlatformPackage
                     if ($windowHeight -gt 0)
                     {
                         # Reserve the fixed picker chrome, including the rounded top and bottom borders.
-                        $reservedRows = 19
+                        $reservedRows = 27
                         return [Math]::Min([Math]::Max(1, $windowHeight - $reservedRows), [Math]::Max(1, $ItemCount))
                     }
                 }
@@ -1295,57 +1301,43 @@ function Show-InstalledPlatformPackage
                     [Object[]]$Lines = @()
                 )
 
-                $boxHorizontal = [String][Char]0x2500
                 $boxVertical = [String][Char]0x2502
-                $boxTopLeft = [String][Char]0x256D
-                $boxTopRight = [String][Char]0x256E
-                $boxBottomLeft = [String][Char]0x2570
-                $boxBottomRight = [String][Char]0x256F
                 $statusDot = [String][Char]0x25CF
 
-                if (-not $pickerRenderState.UseInPlaceRedraw)
+                $controlIndex = -1
+                for ($lineIndex = 0; $lineIndex -lt $Lines.Count; $lineIndex++)
                 {
-                    Clear-Host
-                    $boxWidth = $pickerFrameWidth
-                    foreach ($line in $Lines)
+                    if ((Get-PickerFrameLineText -Line $Lines[$lineIndex]) -eq "$statusDot CONTROLS")
                     {
-                        $boxWidth = [Math]::Max($boxWidth, (Get-PickerFrameLineText -Line $line).Length + 4)
+                        $controlIndex = $lineIndex
+                        break
                     }
-
-                    $titleToken = " $statusDot PACKAGE PICKER "
-                    $topRuleWidth = [Math]::Max(0, $boxWidth - $titleToken.Length - 3)
-                    Write-PackageThemeText ($boxTopLeft + $boxHorizontal + $titleToken + ($boxHorizontal * $topRuleWidth) + $boxTopRight) -ForegroundColor Cyan
-                    foreach ($line in $Lines)
-                    {
-                        $lineText = Get-PickerFrameLineText -Line $line
-                        $lineColor = Get-PickerFrameLineColor -Line $line
-                        Write-PackageThemeText "$boxVertical " -NoNewline -ForegroundColor Cyan
-                        if ([String]::IsNullOrEmpty($lineText))
-                        {
-                            Write-PackageThemeText (' ' * ($boxWidth - 4)) -NoNewline
-                        }
-                        elseif ($null -eq $lineColor)
-                        {
-                            Write-PackageThemeText $lineText -NoNewline
-                        }
-                        else
-                        {
-                            Write-PackageThemeText $lineText -NoNewline -ForegroundColor $lineColor
-                        }
-                        if (-not [String]::IsNullOrEmpty($lineText))
-                        {
-                            $paddingWidth = $boxWidth - $lineText.Length - 4
-                            if ($paddingWidth -gt 0)
-                            {
-                                Write-PackageThemeText (' ' * $paddingWidth) -NoNewline
-                            }
-                        }
-                        Write-PackageThemeText " $boxVertical" -ForegroundColor Cyan
-                    }
-                    Write-PackageThemeText ($boxBottomLeft + ($boxHorizontal * ($boxWidth - 2)) + $boxBottomRight) -ForegroundColor Cyan
-
-                    return
                 }
+
+                $headerLines = if ($controlIndex -gt 0) { @($Lines[0..($controlIndex - 1)]) } else { @($Lines | Select-Object -First 2) }
+                $footerLines = @()
+                $bodyStartIndex = $headerLines.Count
+                if ($controlIndex -ge 0)
+                {
+                    $bodyStartIndex = $Lines.Count
+                    for ($lineIndex = $controlIndex + 1; $lineIndex -lt $Lines.Count; $lineIndex++)
+                    {
+                        if ([String]::IsNullOrEmpty((Get-PickerFrameLineText -Line $Lines[$lineIndex])))
+                        {
+                            $bodyStartIndex = $lineIndex + 1
+                            break
+                        }
+
+                        $footerLines += $Lines[$lineIndex]
+                    }
+                }
+
+                $bodyLines = if ($bodyStartIndex -lt $Lines.Count) { @($Lines[$bodyStartIndex..($Lines.Count - 1)]) } else { @() }
+                $bodyTitle = if ((Get-PickerFrameLineText -Line $headerLines[0]) -like '*Dependencies*') { 'RELATIONSHIPS' } else { 'INSTALLED PACKAGES' }
+                $bodyLines = @(
+                    (Format-PickerFrameLine -Text "$statusDot $bodyTitle" -ForegroundColor Cyan)
+                    ''
+                ) + $bodyLines
 
                 $currentBufferWidth = Get-PickerConsoleBufferWidth
                 if ($currentBufferWidth -gt 0)
@@ -1353,57 +1345,53 @@ function Show-InstalledPlatformPackage
                     $pickerRenderState.ConsoleBufferWidth = $currentBufferWidth
                 }
 
-                # Writing exactly to the console width can trigger terminal auto-wrap,
-                # which causes cursor jitter/artifacts in some Windows hosts.
-                $frameWidth = [Math]::Max(8, ([Int32]$pickerRenderState.ConsoleBufferWidth - 1))
+                $frameWidth = $pickerFrameWidth
+                if ($pickerRenderState.UseInPlaceRedraw -and $pickerRenderState.ConsoleBufferWidth -gt 0)
+                {
+                    $frameWidth = [Math]::Max(40, ([Int32]$pickerRenderState.ConsoleBufferWidth - 1))
+                }
+
                 $contentWidth = [Math]::Max(1, $frameWidth - 4)
-                $blankLine = ''.PadRight($contentWidth)
-                $bodyLines = @()
-                foreach ($line in $Lines)
-                {
-                    $lineColor = Get-PickerFrameLineColor -Line $line
-                    $text = Get-PickerFrameLineText -Line $line
+                $outputLines = @(ConvertTo-PlatformPackagePickerLayout -HeaderLines $headerLines -BodyLines $bodyLines -FooterLines $footerLines -FrameWidth $frameWidth -MinimumLineCount $pickerRenderState.RenderedLineCount -AllowWidthExpansion:(-not $pickerRenderState.UseInPlaceRedraw))
+                $frameWidth = $outputLines[0].Text.Length
+                $contentWidth = $frameWidth - 4
 
-                    if ([String]::IsNullOrEmpty($text))
+                if (-not $pickerRenderState.UseInPlaceRedraw)
+                {
+                    Clear-Host
+                    foreach ($line in $outputLines)
                     {
-                        $bodyLines += Format-PickerFrameLine -Text $blankLine -ForegroundColor $lineColor
-                        continue
+                        if ($line.Kind -eq 'Border')
+                        {
+                            Write-PackageThemeText $line.Text -ForegroundColor Cyan
+                        }
+                        elseif ($line.Kind -eq 'Panel')
+                        {
+                            Write-PackageThemeText "$boxVertical " -NoNewline -ForegroundColor Cyan
+                            Write-PackageThemeText $line.Text -NoNewline -ForegroundColor $line.ForegroundColor
+                            Write-PackageThemeText (' ' * ([Math]::Max(0, $contentWidth - $line.Text.Length))) -NoNewline
+                            Write-PackageThemeText " $boxVertical" -ForegroundColor Cyan
+                        }
+                        else
+                        {
+                            Write-PackageThemeText $line.Text -ForegroundColor $line.ForegroundColor
+                        }
                     }
 
-                    $remaining = $text
-                    while ($remaining.Length -gt $contentWidth)
-                    {
-                        $bodyLines += Format-PickerFrameLine -Text $remaining.Substring(0, $contentWidth) -ForegroundColor $lineColor
-                        $remaining = $remaining.Substring($contentWidth)
-                    }
-
-                    $bodyLines += Format-PickerFrameLine -Text $remaining.PadRight($contentWidth) -ForegroundColor $lineColor
+                    return
                 }
-
-                while ($bodyLines.Count -lt [Math]::Max(0, $pickerRenderState.RenderedLineCount - 2))
-                {
-                    $bodyLines += Format-PickerFrameLine -Text $blankLine
-                }
-
-                $titleToken = " $statusDot PACKAGE PICKER "
-                $topRuleWidth = [Math]::Max(0, $frameWidth - $titleToken.Length - 3)
-                $frameLines = @(
-                    (Format-PickerFrameLine -Text ($boxTopLeft + $boxHorizontal + $titleToken + ($boxHorizontal * $topRuleWidth) + $boxTopRight) -ForegroundColor Cyan)
-                ) + $bodyLines + @(
-                    (Format-PickerFrameLine -Text ($boxBottomLeft + ($boxHorizontal * ($frameWidth - 2)) + $boxBottomRight) -ForegroundColor Cyan)
-                )
 
                 try
                 {
                     [Console]::SetCursorPosition(0, 0)
-                    for ($lineIndex = 0; $lineIndex -lt $frameLines.Count; $lineIndex++)
+                    for ($lineIndex = 0; $lineIndex -lt $outputLines.Count; $lineIndex++)
                     {
                         if ($lineIndex -gt 0)
                         {
                             [Console]::Write("`r`n")
                         }
 
-                        $line = $frameLines[$lineIndex]
+                        $line = $outputLines[$lineIndex]
                         $lineColor = switch ([String]$line.ForegroundColor)
                         {
                             { $_ -in 'Green', 'DarkGreen', 'Cyan', 'DarkCyan' } { $packageThemeAccent; break }
@@ -1412,18 +1400,24 @@ function Show-InstalledPlatformPackage
                             { $_ -in 'Red', 'DarkRed' } { $packageThemeCritical; break }
                             default { '' }
                         }
-                        if ($lineIndex -eq 0 -or $lineIndex -eq ($frameLines.Count - 1))
+                        if ($line.Kind -eq 'Border')
                         {
                             $lineText = "$packageThemeAccent$($line.Text)$packageThemeReset"
                         }
+                        elseif ($line.Kind -eq 'Panel')
+                        {
+                            $panelText = $line.Text.PadRight($contentWidth)
+                            $styledText = if ($lineColor) { "$lineColor$panelText$packageThemeReset" } else { $panelText }
+                            $lineText = "$packageThemeAccent$boxVertical $packageThemeReset$styledText$packageThemeAccent $boxVertical$packageThemeReset"
+                        }
                         else
                         {
-                            $bodyText = if ($lineColor) { "$lineColor$($line.Text)$packageThemeReset" } else { $line.Text }
-                            $lineText = "$packageThemeAccent$boxVertical $packageThemeReset$bodyText$packageThemeAccent $boxVertical$packageThemeReset"
+                            $plainText = $line.Text.PadRight($frameWidth)
+                            $lineText = if ($lineColor) { "$lineColor$plainText$packageThemeReset" } else { $plainText }
                         }
                         [Console]::Write($lineText)
                     }
-                    $pickerRenderState.RenderedLineCount = $frameLines.Count
+                    $pickerRenderState.RenderedLineCount = $outputLines.Count
                 }
                 catch
                 {
@@ -1640,9 +1634,11 @@ function Show-InstalledPlatformPackage
                 $pickerRenderState.RenderedLineCount = 0
 
                 Clear-Host
+                Write-PackageThemeText "$([char]0x25CF) " -NoNewline -ForegroundColor Cyan
                 Write-PackageThemeText 'Show-InstalledPlatformPackage Help' -ForegroundColor Cyan
+                Write-PackageThemeText 'Keyboard reference for installed package browsing.' -ForegroundColor DarkGray
                 Write-PackageThemeText ''
-                Write-PackageThemeText 'Navigation' -ForegroundColor White
+                Write-PackageThemeText "$([char]0x25CF) NAVIGATION" -ForegroundColor Cyan
                 Write-PackagePickerHelpItem -Shortcut 'Up/Down' -Description 'move one package'
                 Write-PackagePickerHelpItem -Shortcut 'PageUp/PageDown' -Description 'move one page'
                 Write-PackagePickerHelpItem -Shortcut 'Home/End' -Description 'move to the first or last package'
@@ -1650,16 +1646,16 @@ function Show-InstalledPlatformPackage
                 if ($hasSourceFilter)
                 {
                     Write-PackageThemeText ''
-                    Write-PackageThemeText 'Source Filter' -ForegroundColor White
+                    Write-PackageThemeText "$([char]0x25CF) SOURCE FILTER" -ForegroundColor Cyan
                     Write-PackagePickerHelpItem -Shortcut 'S' -Description "cycle source: $($availableSources -join ' | ')"
                 }
 
                 Write-PackageThemeText ''
-                Write-PackageThemeText 'Name Filter' -ForegroundColor White
+                Write-PackageThemeText "$([char]0x25CF) NAME FILTER" -ForegroundColor Cyan
                 Write-PackagePickerHelpItem -Shortcut 'F' -Description 'set a name/id filter (blank value clears it)'
 
                 Write-PackageThemeText ''
-                Write-PackageThemeText 'Actions' -ForegroundColor White
+                Write-PackageThemeText "$([char]0x25CF) ACTIONS" -ForegroundColor Cyan
                 Write-PackagePickerHelpItem -Shortcut 'D' -Description 'open or close the dependency view for the current package'
                 Write-PackagePickerHelpItem -Shortcut 'B' -Description 'return to the package list from the dependency view'
                 Write-PackagePickerHelpItem -Shortcut 'V' -Description 'load a missing winget description when available'
@@ -1671,12 +1667,15 @@ function Show-InstalledPlatformPackage
 
                 if ($EnableSelection)
                 {
+                    Write-PackageThemeText ''
+                    Write-PackageThemeText "$([char]0x25CF) SELECTION" -ForegroundColor Cyan
                     Write-PackagePickerHelpItem -Shortcut 'Space' -Description 'select or clear the current package'
                     Write-PackagePickerHelpItem -Shortcut 'A' -Description 'select or clear all visible packages'
                     Write-PackagePickerHelpItem -Shortcut 'Enter' -Description 'return selected packages, or the current package if none are selected'
                 }
 
                 Write-PackageThemeText ''
+                Write-PackageThemeText "$([char]0x25CF) RETURN" -ForegroundColor Cyan
                 Write-PackageThemeText 'Press any key to return to the picker. Q/Esc/Ctrl+C exits.' -ForegroundColor DarkGray
 
                 $helpKey = & $KeyReader
@@ -2302,7 +2301,7 @@ function Show-InstalledPlatformPackage
                     -not $wingetDescriptionAttempted.ContainsKey($currentPackageLookupKey)
 
                     $frameLines = @(
-                        (Format-PickerFrameLine -Text "Show-InstalledPlatformPackage - $($InstalledPackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
+                        (Format-PickerFrameLine -Text "INSTALLED PACKAGES / $($InstalledPackages[0].PackageManagerDisplayName.ToUpperInvariant())" -ForegroundColor Cyan)
                     )
 
                     if ($showDependencyPanel -and $null -ne $currentPackage -and $dependencyPanelPackageKey -ne $currentPackageLookupKey)
@@ -2354,17 +2353,17 @@ function Show-InstalledPlatformPackage
                         }
 
                         $frameLines = @(
-                            (Format-PickerFrameLine -Text "Show-InstalledPlatformPackage Dependencies - $($InstalledPackages[0].PackageManagerDisplayName)" -ForegroundColor Cyan)
+                            (Format-PickerFrameLine -Text "PACKAGE RELATIONSHIPS / $($InstalledPackages[0].PackageManagerDisplayName.ToUpperInvariant())" -ForegroundColor Cyan)
                             (Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount (-1) -FilterText ($dependencyFilterSummary -join "  $([char]0x00B7)  ")) -ForegroundColor White)
-                            ''
+                            (Format-PickerFrameLine -Text "$([char]0x25CF) CONTROLS" -ForegroundColor Cyan)
                             (Format-PickerFrameLine -Text "Keys: B/Backspace/Delete/LeftArrow back  V details  E export  ${nameFilterHint}" -ForegroundColor DarkGray)
                             (Format-PickerFrameLine -Text "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" -ForegroundColor DarkGray)
-                            ''
+                            (Format-PickerFrameLine -Text "$([char]0x25CF) PACKAGE DETAILS" -ForegroundColor Cyan)
                             (Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor DarkGray)
                             (Format-PickerFrameLine -Text ('Id: {0} | Source: {1} | Publisher: {2}' -f $currentPackage.Id, $currentSource, $currentPublisher) -ForegroundColor DarkGray)
                             (Format-PickerFrameLine -Text ('Version: {0}' -f $currentVersion) -ForegroundColor DarkGray)
                             (Format-PickerFrameLine -Text ('Description: {0}' -f $currentDescription) -ForegroundColor DarkGray)
-                            ''
+                            (Format-PickerFrameLine -Text "$([char]0x25CF) RELATIONSHIPS" -ForegroundColor Cyan)
                             (Format-PickerFrameLine -Text 'Dependencies [DependsOn + RequiredBy]' -ForegroundColor White)
                         )
 
@@ -2396,7 +2395,7 @@ function Show-InstalledPlatformPackage
                             }
                         }
 
-                        $frameLines += ''
+                        $frameLines += Format-PickerFrameLine -Text "$([char]0x25CF) NAVIGATION" -ForegroundColor Cyan
                         $frameLines += Format-PickerFrameLine -Text 'Press B/Backspace/Delete/LeftArrow to return to the package list.' -ForegroundColor DarkGray
                         Write-PickerFrame -Lines $frameLines
 
@@ -2428,6 +2427,7 @@ function Show-InstalledPlatformPackage
                                 $filterSummary += "source: $($availableSources[$sourceFilterIndex])"
                             }
                             $frameLines += Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedKeys.Count -FilterText ($filterSummary -join "  $([char]0x00B7)  ")) -ForegroundColor White
+                            $frameLines += Format-PickerFrameLine -Text "$([char]0x25CF) CONTROLS" -ForegroundColor Cyan
                             $frameLines += Format-PickerFrameLine -Text "Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A toggle all  F: [$nameFilterHintValue]" -ForegroundColor DarkGray
                             $frameLines += Format-PickerFrameLine -Text "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" -ForegroundColor DarkGray
                             if ($ReturnToPlatformPackageManagerOnBackKey)
@@ -2446,6 +2446,7 @@ function Show-InstalledPlatformPackage
                                 $filterSummary += "source: $($availableSources[$sourceFilterIndex])"
                             }
                             $frameLines += Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -FilterText ($filterSummary -join "  $([char]0x00B7)  ")) -ForegroundColor White
+                            $frameLines += Format-PickerFrameLine -Text "$([char]0x25CF) CONTROLS" -ForegroundColor Cyan
                             $frameLines += Format-PickerFrameLine -Text "Keys: D deps  V details  E export  R remove  U upgrade  F: [$nameFilterHintValue]" -ForegroundColor DarkGray
                             $frameLines += Format-PickerFrameLine -Text "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" -ForegroundColor DarkGray
                             if ($ReturnToPlatformPackageManagerOnBackKey)
@@ -2576,7 +2577,7 @@ function Show-InstalledPlatformPackage
                             'n/a'
                         }
 
-                        $frameLines += ''
+                        $frameLines += Format-PickerFrameLine -Text "$([char]0x25CF) PACKAGE DETAILS" -ForegroundColor Cyan
                         $frameLines += Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor DarkGray
                         $frameLines += Format-PickerFrameLine -Text ('Id: {0} | Source: {1} | Publisher: {2}' -f $currentPackage.Id, $currentSource, $currentPublisher) -ForegroundColor DarkGray
                         $frameLines += Format-PickerFrameLine -Text ('Version: {0}' -f $currentVersion) -ForegroundColor DarkGray
@@ -2584,13 +2585,13 @@ function Show-InstalledPlatformPackage
 
                         if (-not [String]::IsNullOrWhiteSpace($actionStatus))
                         {
-                            $frameLines += ''
+                            $frameLines += Format-PickerFrameLine -Text "$([char]0x25CF) STATUS" -ForegroundColor Cyan
                             $frameLines += Format-PickerFrameLine -Text ("Status: $actionStatus") -ForegroundColor $actionStatusColor
                         }
 
                         if ($EnableSelection)
                         {
-                            $frameLines += ''
+                            $frameLines += Format-PickerFrameLine -Text "$([char]0x25CF) SELECTION" -ForegroundColor Cyan
                             $selCount = $selectedKeys.Count
                             $totalCount = $allPackages.Count
                             $countText = if ($hasSourceFilter -and $availableSources[$sourceFilterIndex] -ne 'All')
