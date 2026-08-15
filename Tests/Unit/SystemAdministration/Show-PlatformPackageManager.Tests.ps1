@@ -31,6 +31,8 @@ Describe 'Show-PlatformPackageManager' {
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Export installed*' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Direct install*' } -Times 0 -Exactly
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Dependencies*' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([Char]0x2022) OPTIONS  " } -Times 0 -Exactly
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Flags: none' } -Times 0 -Exactly
         $escapeCharacter = [String][Char]27
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[38;5;37m" } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[38;5;244m" } -Times 1
@@ -149,7 +151,7 @@ Describe 'Show-PlatformPackageManager' {
 
         $result.Count | Should-Be 0
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 2
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Show-InstalledPlatformPackage - Homebrew' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'INSTALLED PACKAGES / HOMEBREW' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Installed Packages' } -Times 0 -Exactly
     }
@@ -208,6 +210,7 @@ Describe 'Show-PlatformPackageManager' {
 
         $result.Count | Should-Be 0
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager Help' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) SHORTCUTS" } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'B: ' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'browse installed packages' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'E: ' } -Times 1
@@ -351,6 +354,8 @@ Describe 'Show-PlatformPackageManager' {
             $ReturnToPlatformPackageManagerOnBackKey
         } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*FilterSource=msstore*' } -Times 3
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([Char]0x2022) OPTIONS  " } -Times 3
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Flags: SkipRefresh, FilterSource=msstore' } -Times 3
     }
 
     It 'forwards interactive mode to winget install and upgrade workflows' {
@@ -444,7 +449,7 @@ Describe 'Show-PlatformPackageManager' {
 
         $result.Count | Should-Be 0
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 2
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Remove-PlatformPackage - Homebrew' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'PACKAGE REMOVAL / HOMEBREW' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
         @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should-Be 0
     }
@@ -530,7 +535,8 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager brew -PromptReader $promptReader)
 
         $result.Count | Should-Be 0
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Additional output' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) ADDITIONAL OUTPUT" } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) STATUS" } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'python' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq '  ==> Caveats' } -Times 1
     }

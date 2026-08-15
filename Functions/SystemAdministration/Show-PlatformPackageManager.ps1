@@ -697,19 +697,32 @@
                 }
             }
 
+            Write-PlatformPackageManagerSectionHeading -Title 'Shortcuts'
             foreach ($item in $helpItems)
             {
                 Write-PlatformPackageManagerHelpItem -Item $item
             }
 
             Write-PackageThemeText ''
+            Write-PlatformPackageManagerPanelBorder -Position Top -Title 'Navigation'
             if ($KeyReader -or -not $PromptReader)
             {
-                Write-PackageThemeText 'Press any key to return to the menu. Q/Esc/Ctrl+C quits.' -ForegroundColor DarkGray
+                Write-PlatformPackageManagerPanelLine -Segment @(
+                    [PSCustomObject]@{ Text = "$packageThemeKeyboard  "; Color = 'Cyan' }
+                    [PSCustomObject]@{ Text = 'Any key return  Q/Esc/Ctrl+C quit'; Color = 'DarkGray' }
+                )
+                Write-PlatformPackageManagerPanelBorder -Position Bottom
+                Write-PackageThemeText ''
                 $null = Read-PlatformPackageManagerKey
             }
             else
             {
+                Write-PlatformPackageManagerPanelLine -Segment @(
+                    [PSCustomObject]@{ Text = "$packageThemeKeyboard  "; Color = 'Cyan' }
+                    [PSCustomObject]@{ Text = 'Enter return'; Color = 'DarkGray' }
+                )
+                Write-PlatformPackageManagerPanelBorder -Position Bottom
+                Write-PackageThemeText ''
                 $null = Read-PlatformPackageManagerInput -Prompt 'Press Enter to return'
             }
         }
@@ -1023,8 +1036,13 @@
                 $PackageManager
             }
 
-            $flagText = if ($flags.Count -gt 0) { $flags -join ', ' } else { 'none' }
-            return "Manager: $managerText  $packageThemeBullet  Top: $Top  $packageThemeBullet  Flags: $flagText"
+            $statusText = "Manager: $managerText  $packageThemeBullet  Top: $Top"
+            if ($flags.Count -gt 0)
+            {
+                $statusText += "  $packageThemeBullet  Flags: $($flags -join ', ')"
+            }
+
+            return $statusText
         }
 
         function Test-PlatformPackageManagerCommandAvailable
@@ -1136,10 +1154,11 @@
             if (-not [String]::IsNullOrWhiteSpace($Subtitle))
             {
                 Write-PlatformPackageManagerPanelLine -Segment @(
-                    [PSCustomObject]@{ Text = $Subtitle; Color = 'White' }
+                    [PSCustomObject]@{ Text = $Subtitle; Color = 'DarkGray' }
                 )
             }
 
+            Write-PlatformPackageManagerPanelLine
             $statusParts = (Get-PlatformPackageManagerStatusText) -split [Regex]::Escape("  $packageThemeBullet  Flags: "), 2
             Write-PlatformPackageManagerPanelLine -Segment @(
                 [PSCustomObject]@{ Text = "$packageThemeStatus READY  "; Color = 'Cyan' }
@@ -1174,6 +1193,17 @@
             }
 
             return $Text.Substring(0, $MaximumLength - 3) + '...'
+        }
+
+        function Write-PlatformPackageManagerSectionHeading
+        {
+            param(
+                [Parameter(Mandatory)]
+                [ValidateNotNullOrEmpty()]
+                [String]$Title
+            )
+
+            Write-PackageThemeText "$packageThemeStatus $($Title.ToUpperInvariant())" -ForegroundColor Cyan
         }
 
         function Format-PlatformPackageManagerResultTable
@@ -1388,6 +1418,7 @@
 
                 if (-not [String]::IsNullOrWhiteSpace($Result.Message))
                 {
+                    Write-PlatformPackageManagerSectionHeading -Title 'Summary'
                     Write-PackageThemeText $Result.Message -ForegroundColor White
                     Write-PackageThemeText ''
                 }
@@ -1403,6 +1434,7 @@
                         $table = Format-PlatformPackageManagerResultTable -InputObject $Result.Records
                         if (-not [String]::IsNullOrWhiteSpace($table))
                         {
+                            Write-PlatformPackageManagerSectionHeading -Title 'Results'
                             Write-PackageThemeText $table
                             Write-PackageThemeText ''
                         }
@@ -1411,7 +1443,7 @@
                     $detailRecords = @(Get-PlatformPackageManagerNestedResults -InputObject $Result.Records)
                     if ($detailRecords.Count -gt 0)
                     {
-                        Write-PackageThemeText 'Details' -ForegroundColor Cyan
+                        Write-PlatformPackageManagerSectionHeading -Title 'Details'
                         $sepWidth = 78
                         try
                         {
@@ -1438,7 +1470,7 @@
                     $informationalResults = @(Get-PlatformPackageManagerInformationalResults -Records $Result.Records)
                     if ($informationalResults.Count -gt 0)
                     {
-                        Write-PackageThemeText 'Additional output' -ForegroundColor Cyan
+                        Write-PlatformPackageManagerSectionHeading -Title 'Additional output'
                         $sepWidth = 78
                         try
                         {
@@ -1484,11 +1516,26 @@
                 $statusIndicator = Get-PlatformPackageManagerOperationStatusIndicator -Records $Result.Records
                 if ($null -ne $statusIndicator)
                 {
+                    Write-PlatformPackageManagerSectionHeading -Title 'Status'
                     Write-PackageThemeText $statusIndicator.Text -ForegroundColor $statusIndicator.Color
                     Write-PackageThemeText ''
                 }
 
-                Write-PackageThemeText 'Any key: return to menu  Q/Esc/Ctrl+C: quit  ?: help' -ForegroundColor DarkGray
+                $controlText = if ($KeyReader -or -not $PromptReader)
+                {
+                    'Any key return  Q/Esc/Ctrl+C quit  ?: help'
+                }
+                else
+                {
+                    'Enter return  Q quit  ?: help'
+                }
+                Write-PlatformPackageManagerPanelBorder -Position Top -Title 'Controls'
+                Write-PlatformPackageManagerPanelLine -Segment @(
+                    [PSCustomObject]@{ Text = "$packageThemeKeyboard  "; Color = 'Cyan' }
+                    [PSCustomObject]@{ Text = $controlText; Color = 'DarkGray' }
+                )
+                Write-PlatformPackageManagerPanelBorder -Position Bottom
+                Write-PackageThemeText ''
 
                 $isQuit = $false
                 if ($KeyReader -or -not $PromptReader)
@@ -1860,8 +1907,14 @@
             Write-PlatformPackageManagerPanelLine -Segment @(
                 [PSCustomObject]@{ Text = ('{0,-4} {1,-7} {2,-3} {3,-24} {4}' -f '', 'Action', '', 'Workflow', 'Purpose'); Color = 'DarkGray' }
             )
+            Write-PlatformPackageManagerPanelLine
             for ($i = 0; $i -lt $Options.Count; $i++)
             {
+                if ($Options[$i].Choice -eq 'Q')
+                {
+                    Write-PlatformPackageManagerPanelLine
+                }
+
                 $marker = if ($i -eq $SelectedIndex) { $packageThemeCursor } else { ' ' }
                 $accentColor = if ($i -eq $SelectedIndex) { 'Cyan' } else { 'DarkGray' }
                 $workflowColor = if ($i -eq $SelectedIndex) { 'Cyan' } else { 'White' }

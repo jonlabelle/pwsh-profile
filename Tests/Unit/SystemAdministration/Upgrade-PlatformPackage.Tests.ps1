@@ -232,7 +232,7 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
             $childExitCode | Should-Be 0
             $outputText = $childOutput -join "`n"
             $outputText | Should-MatchString 'Refreshing Homebrew package metadata'
-            $outputText | Should-MatchString 'Upgrade-PlatformPackage - Homebrew'
+            $outputText | Should-MatchString 'PACKAGE UPGRADES / HOMEBREW'
             $outputText | Should-NotMatchString ([Regex]::Escape('brew update stdout'))
             $outputText | Should-NotMatchString ([Regex]::Escape('brew update stderr'))
             $outputText | Should-MatchString ([Regex]::Escape('brew upgrade stdout'))
@@ -451,6 +451,9 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
             $result.NotSelected | Should-Be 1
             $result.Upgraded | Should-Be 0
             @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like "*$([char]0x25CF) CONTROLS*" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) PACKAGE DETAILS" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) SELECTION" } -Times 1
         }
 
         It 'shows keyboard help from the upgrade picker' {
@@ -484,6 +487,8 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
 
             $result.Selected | Should-Be 0
             $result.Upgraded | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) NAVIGATION" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) RETURN" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  Enter upgrade  V details  A toggle all  F: [all]" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  0 selected" } -Times 1
             $escapeCharacter = [String][Char]27
@@ -553,6 +558,8 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
             $result.Upgraded | Should-Be 1
             @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should-Be 1
             @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade curl' }).Count | Should-Be 0
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) FILTER" } -Times 2
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) CONTROLS" } -Times 2
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: g' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[g\]' } -Times 1
         }
