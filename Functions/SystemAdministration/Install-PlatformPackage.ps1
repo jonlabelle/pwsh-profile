@@ -1986,6 +1986,10 @@ function Install-PlatformPackage
                         'Keys: Space select  Enter install  V details  A toggle all'
                     }
                     $navigationHint = "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel"
+                    if ($ReturnToPlatformPackageManagerOnBackKey)
+                    {
+                        $navigationHint += '  Backspace/Delete: menu'
+                    }
                     $headerLines = @(
                         (Format-PickerFrameLine -Text "PACKAGE INSTALL / $($allPackages[0].PackageManagerDisplayName.ToUpperInvariant())" -ForegroundColor Cyan)
                         (Format-PickerFrameLine -Text "Registry query: $QueryText" -ForegroundColor DarkGray)
@@ -1995,10 +1999,6 @@ function Install-PlatformPackage
                         (Format-PickerFrameLine -Text $selectionHint -ForegroundColor White)
                         (Format-PickerFrameLine -Text $navigationHint -ForegroundColor DarkGray)
                     )
-                    if ($ReturnToPlatformPackageManagerOnBackKey)
-                    {
-                        $footerLines += Format-PickerFrameLine -Text 'Backspace/Delete: manager menu' -ForegroundColor DarkGray
-                    }
                     $bodyLines = @()
                     if ($showInteractive)
                     {

@@ -221,7 +221,7 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should-Be 0
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 3
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 0 -Exactly
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Backspace/Delete: menu' } -Times 0 -Exactly
         }
 
         It 'returns to the manager menu on <Name> when manager navigation is enabled' -TestCases @(
@@ -243,7 +243,7 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should-Be 0
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Nav: Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit  Backspace/Delete: menu' } -Times 1
         }
 
         It 'renders only the current viewport for long package lists' {

@@ -2874,6 +2874,7 @@ function Find-PlatformPackage
                     $sourceHint = if ($hasSourceFilter) { "S: [$($availableSources[$sourceFilterIndex])]  " } else { '' }
                     $sourceSummary = if ($hasSourceFilter) { "source: $($availableSources[$sourceFilterIndex])" } else { '' }
                     $selectedSummary = if ($EnableSelection) { $selectedKeys.Count } else { -1 }
+                    $managerNavigationHint = if ($ReturnToPlatformPackageManagerOnBackKey) { '  Backspace/Delete: menu' } else { '' }
                     $headerLines = @(
                         (Format-PickerFrameLine -Text "PACKAGE SEARCH / $($allPackages[0].PackageManagerDisplayName.ToUpperInvariant())" -ForegroundColor Cyan)
                         (Format-PickerFrameLine -Text ('Registry query: {0}' -f $QueryText) -ForegroundColor DarkGray)
@@ -2892,11 +2893,7 @@ function Find-PlatformPackage
                     {
                         $footerLines += Format-PickerFrameLine -Text 'I install current  V details' -ForegroundColor White
                     }
-                    $footerLines += Format-PickerFrameLine -Text "${sourceHint}/ search  Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" -ForegroundColor DarkGray
-                    if ($ReturnToPlatformPackageManagerOnBackKey)
-                    {
-                        $footerLines += Format-PickerFrameLine -Text 'Backspace/Delete manager menu' -ForegroundColor DarkGray
-                    }
+                    $footerLines += Format-PickerFrameLine -Text "${sourceHint}/ search  Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit$managerNavigationHint" -ForegroundColor DarkGray
                     $bodyLines = @()
 
                     if ($visiblePackages.Count -eq 0)

@@ -2882,6 +2882,10 @@ function Upgrade-PlatformPackage
                         $filterSummary += "source: $($availableSources[$sourceFilterIndex])"
                     }
                     $navigationHint = "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel"
+                    if ($ReturnToPlatformPackageManagerOnBackKey)
+                    {
+                        $navigationHint += '  Backspace/Delete: menu'
+                    }
                     $headerLines = @(
                         (Format-PickerFrameLine -Text "PACKAGE UPGRADES / $($allPackages[0].PackageManagerDisplayName.ToUpperInvariant())" -ForegroundColor Cyan)
                         (Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedKeys.Count -FilterText ($filterSummary -join "  $([char]0x00B7)  ")) -ForegroundColor White)
@@ -2890,10 +2894,6 @@ function Upgrade-PlatformPackage
                         (Format-PickerFrameLine -Text $selectionHint -ForegroundColor White)
                         (Format-PickerFrameLine -Text $navigationHint -ForegroundColor DarkGray)
                     )
-                    if ($ReturnToPlatformPackageManagerOnBackKey)
-                    {
-                        $footerLines += Format-PickerFrameLine -Text 'Backspace/Delete: manager menu' -ForegroundColor DarkGray
-                    }
                     $bodyLines = @()
                     if ($visiblePackages.Count -eq 0)
                     {

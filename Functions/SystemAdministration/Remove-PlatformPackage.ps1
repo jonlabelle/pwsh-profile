@@ -3188,6 +3188,10 @@ function Remove-PlatformPackage
                             $filterSummary += "source: $($availableSources[$sourceFilterIndex])"
                         }
                         $navigationHint = "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel"
+                        if ($ReturnToPlatformPackageManagerOnBackKey)
+                        {
+                            $navigationHint += '  Backspace/Delete: menu'
+                        }
                         $frameLines = @(
                             (Format-PickerFrameLine -Text "PACKAGE REMOVAL / $($allPackages[0].PackageManagerDisplayName.ToUpperInvariant())" -ForegroundColor Cyan)
                             (Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedKeys.Count -FilterText ($filterSummary -join "  $([char]0x00B7)  ")) -ForegroundColor White)
@@ -3195,10 +3199,6 @@ function Remove-PlatformPackage
                             (Format-PickerFrameLine -Text $selectionHint -ForegroundColor DarkGray)
                             (Format-PickerFrameLine -Text $navigationHint -ForegroundColor DarkGray)
                         )
-                        if ($ReturnToPlatformPackageManagerOnBackKey)
-                        {
-                            $frameLines += Format-PickerFrameLine -Text 'Backspace/Delete: manager menu' -ForegroundColor DarkGray
-                        }
                         $frameLines += ''
                         if ($showPurge)
                         {

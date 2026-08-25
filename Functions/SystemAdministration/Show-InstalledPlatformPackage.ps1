@@ -2439,6 +2439,7 @@ function Show-InstalledPlatformPackage
                     }
                     else
                     {
+                        $managerNavigationHint = if ($ReturnToPlatformPackageManagerOnBackKey) { '  Backspace/Delete: menu' } else { '' }
                         if ($EnableSelection)
                         {
                             $filterSummary = @("filter: $nameFilterHintValue")
@@ -2449,11 +2450,7 @@ function Show-InstalledPlatformPackage
                             $frameLines += Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedKeys.Count -FilterText ($filterSummary -join "  $([char]0x00B7)  ")) -ForegroundColor White
                             $frameLines += Format-PickerFrameLine -Text "$([char]0x25CF) CONTROLS" -ForegroundColor Cyan
                             $frameLines += Format-PickerFrameLine -Text "Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A toggle all  F: [$nameFilterHintValue]" -ForegroundColor DarkGray
-                            $frameLines += Format-PickerFrameLine -Text "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" -ForegroundColor DarkGray
-                            if ($ReturnToPlatformPackageManagerOnBackKey)
-                            {
-                                $frameLines += Format-PickerFrameLine -Text 'Backspace/Delete: manager menu' -ForegroundColor DarkGray
-                            }
+                            $frameLines += Format-PickerFrameLine -Text "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit$managerNavigationHint" -ForegroundColor DarkGray
                             $frameLines += ''
                             $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray
                             $frameLines += Format-PickerFrameLine -Text ('- {0} {1} {2} {3} {4} {5}' -f '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
@@ -2468,11 +2465,7 @@ function Show-InstalledPlatformPackage
                             $frameLines += Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -FilterText ($filterSummary -join "  $([char]0x00B7)  ")) -ForegroundColor White
                             $frameLines += Format-PickerFrameLine -Text "$([char]0x25CF) CONTROLS" -ForegroundColor Cyan
                             $frameLines += Format-PickerFrameLine -Text "Keys: D deps  V details  E export  R remove  U upgrade  F: [$nameFilterHintValue]" -ForegroundColor DarkGray
-                            $frameLines += Format-PickerFrameLine -Text "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" -ForegroundColor DarkGray
-                            if ($ReturnToPlatformPackageManagerOnBackKey)
-                            {
-                                $frameLines += Format-PickerFrameLine -Text 'Backspace/Delete: manager menu' -ForegroundColor DarkGray
-                            }
+                            $frameLines += Format-PickerFrameLine -Text "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit$managerNavigationHint" -ForegroundColor DarkGray
                             $frameLines += ''
                             $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4}' -f (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray
                             $frameLines += Format-PickerFrameLine -Text ('- {0} {1} {2} {3} {4}' -f ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray

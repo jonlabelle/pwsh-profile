@@ -422,7 +422,7 @@ Describe 'Remove-PlatformPackage' {
             $result.Selected | Should-Be 0
             $result.Removed | Should-Be 0
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A toggle all  F: [all]" } -Times 3
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 0 -Exactly
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Backspace/Delete: menu' } -Times 0 -Exactly
             @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should-Be 0
         }
 
@@ -447,7 +447,7 @@ Describe 'Remove-PlatformPackage' {
             $result.Selected | Should-Be 0
             $result.Removed | Should-Be 0
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A toggle all  F: [all]" } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Nav: Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel  Backspace/Delete: menu' } -Times 1
             @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should-Be 0
         }
 
