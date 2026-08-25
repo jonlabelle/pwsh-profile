@@ -1275,6 +1275,30 @@ function Install-PlatformPackage
                 return [Math]::Max(0, $bufferWidth)
             }
 
+            function Get-PickerConsoleWindowHeight
+            {
+                $windowHeight = 0
+
+                try
+                {
+                    if ($Host -and $Host.UI -and $Host.UI.RawUI)
+                    {
+                        $windowHeight = [Int32]$Host.UI.RawUI.WindowSize.Height
+                    }
+
+                    if ($windowHeight -le 0 -and -not [Console]::IsOutputRedirected)
+                    {
+                        $windowHeight = [Int32][Console]::WindowHeight
+                    }
+                }
+                catch
+                {
+                    $windowHeight = 0
+                }
+
+                return [Math]::Max(0, $windowHeight)
+            }
+
             function Get-PackagePickerKey
             {
                 param(
@@ -1435,6 +1459,7 @@ function Install-PlatformPackage
             $pickerRenderState = @{
                 UseInPlaceRedraw = $false
                 ConsoleBufferWidth = 0
+                ConsoleWindowHeight = 0
                 RenderedLineCount = 0
             }
 
@@ -1716,6 +1741,52 @@ function Install-PlatformPackage
                 }
             }
 
+            function Read-PackagePickerNavigationKey
+            {
+                if (-not $usingConsoleKeyReader)
+                {
+                    return (& $KeyReader)
+                }
+
+                while ($true)
+                {
+                    try
+                    {
+                        $currentBufferWidth = Get-PickerConsoleBufferWidth
+                        $currentWindowHeight = Get-PickerConsoleWindowHeight
+                        $widthChanged = $currentBufferWidth -gt 0 -and $currentBufferWidth -ne $pickerRenderState.ConsoleBufferWidth
+                        $heightChanged = $currentWindowHeight -gt 0 -and $currentWindowHeight -ne $pickerRenderState.ConsoleWindowHeight
+
+                        if ($widthChanged -or $heightChanged)
+                        {
+                            if ($currentBufferWidth -gt 0)
+                            {
+                                $pickerRenderState.ConsoleBufferWidth = $currentBufferWidth
+                            }
+                            if ($currentWindowHeight -gt 0)
+                            {
+                                $pickerRenderState.ConsoleWindowHeight = $currentWindowHeight
+                            }
+
+                            $pickerRenderState.RenderedLineCount = 0
+                            Clear-Host
+                            return $null
+                        }
+
+                        if ([Console]::KeyAvailable)
+                        {
+                            return [Console]::ReadKey($true)
+                        }
+                    }
+                    catch
+                    {
+                        return (& $KeyReader)
+                    }
+
+                    [Threading.Thread]::Sleep(50)
+                }
+            }
+
             function Disable-PickerTerminalEcho
             {
                 if (-not $usePickerTerminalEchoControl)
@@ -1895,6 +1966,7 @@ function Install-PlatformPackage
                     $restoreTreatControlCAsInput = $true
 
                     $pickerRenderState.ConsoleBufferWidth = Get-PickerConsoleBufferWidth
+                    $pickerRenderState.ConsoleWindowHeight = Get-PickerConsoleWindowHeight
                     if ($pickerRenderState.ConsoleBufferWidth -gt 0)
                     {
                         try
@@ -2017,7 +2089,11 @@ function Install-PlatformPackage
                         $bodyLines += Format-PickerFrameLine -Text 'No packages match this source filter. Press S to cycle.' -ForegroundColor DarkYellow
                         Write-PickerFrame -HeaderLines $headerLines -BodyLines $bodyLines -FooterLines $footerLines
 
-                        $key = & $KeyReader
+                        $key = Read-PackagePickerNavigationKey
+                        if ($null -eq $key)
+                        {
+                            continue
+                        }
                         if (Test-PackagePickerManagerBackKey -KeyInfo $key)
                         {
                             Clear-PickerFrame
@@ -2156,7 +2232,11 @@ function Install-PlatformPackage
                         continue
                     }
 
-                    $key = & $KeyReader
+                    $key = Read-PackagePickerNavigationKey
+                    if ($null -eq $key)
+                    {
+                        continue
+                    }
                     if (Test-PackagePickerManagerBackKey -KeyInfo $key)
                     {
                         Clear-PickerFrame
