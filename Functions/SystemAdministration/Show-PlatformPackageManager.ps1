@@ -556,7 +556,7 @@
         {
             param(
                 [Parameter()]
-                [ValidateSet('Menu', 'Result', 'SearchQuery', 'ExportPath', 'ExportFormat', 'ExportDependencyMode', 'DependencyPackage', 'DependencyDirection', 'YesNo')]
+                [ValidateSet('Menu', 'Result', 'SearchQuery', 'ExportPath', 'ExportFormat', 'ExportDependencyMode', 'DependencyDirection', 'YesNo')]
                 [String]$Topic = 'Menu'
             )
 
@@ -569,7 +569,6 @@
                 'ExportPath' { 'Export path prompt help' }
                 'ExportFormat' { 'Export format help' }
                 'ExportDependencyMode' { 'Export dependency help' }
-                'DependencyPackage' { 'Dependency package prompt help' }
                 'DependencyDirection' { 'Dependency direction help' }
                 'YesNo' { 'Confirmation prompt help' }
                 default { 'Keyboard shortcuts' }
@@ -650,15 +649,6 @@
                         Get-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
                     )
                 }
-                'DependencyPackage'
-                {
-                    @(
-                        Get-PlatformPackageManagerHelpItem -Shortcut 'Text' -Description 'enter one or more package names or ids'
-                        Get-PlatformPackageManagerHelpItem -Shortcut 'Comma' -Description 'separate multiple packages in one lookup'
-                        Get-PlatformPackageManagerHelpItem -Shortcut 'Blank' -Description 'cancel the dependency workflow'
-                        Get-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
-                    )
-                }
                 'DependencyDirection'
                 {
                     @(
@@ -724,54 +714,6 @@
                 Write-PlatformPackageManagerPanelBorder -Position Bottom
                 Write-PackageThemeText ''
                 $null = Read-PlatformPackageManagerInput -Prompt 'Press Enter to return'
-            }
-        }
-
-        function ConvertFrom-PlatformPackageManagerListInput
-        {
-            param(
-                [Parameter()]
-                [String]$Value
-            )
-
-            if ([String]::IsNullOrWhiteSpace($Value))
-            {
-                return @()
-            }
-
-            return @(
-                $Value -split ',' |
-                ForEach-Object { "$_".Trim() } |
-                Where-Object { -not [String]::IsNullOrWhiteSpace($_) }
-            )
-        }
-
-        function Read-PlatformPackageManagerList
-        {
-            param(
-                [Parameter(Mandatory)]
-                [String]$Prompt,
-
-                [Parameter()]
-                [ValidateSet('DependencyPackage')]
-                [String]$HelpTopic = 'DependencyPackage'
-            )
-
-            while ($true)
-            {
-                $value = Read-PlatformPackageManagerInput -Prompt "$Prompt (? for help)"
-                if ($null -eq $value)
-                {
-                    return @()
-                }
-
-                if ($value.Trim() -eq '?')
-                {
-                    Show-PlatformPackageManagerHelp -Topic $HelpTopic
-                    continue
-                }
-
-                return @(ConvertFrom-PlatformPackageManagerListInput -Value $value)
             }
         }
 
@@ -1754,10 +1696,18 @@
 
         function Invoke-PlatformPackageManagerDependencyView
         {
-            $package = @(Read-PlatformPackageManagerList -Prompt 'Package name or id (comma-separated)')
+            $pickerParameters = Get-PlatformPackageManagerCommonParameters
+            $pickerParameters.PassThru = $true
+            $pickerParameters.PickerMode = 'Dependency'
+            Add-PlatformPackageManagerPickerParameters -Parameters $pickerParameters
+
+            $package = @(Invoke-PlatformPackageManagerFunction -FunctionName 'Show-InstalledPlatformPackage' -FileName 'Show-InstalledPlatformPackage.ps1' -Parameters $pickerParameters -Invocation {
+                    param([Hashtable]$InvocationParameters)
+                    Show-InstalledPlatformPackage @InvocationParameters
+                })
             if ($package.Count -eq 0)
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message 'Dependency lookup cancelled; at least one package is required.' -AutoReturn)
+                return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message 'Dependency lookup cancelled; no packages were selected.' -AutoReturn)
             }
 
             $direction = Read-PlatformPackageDependencyDirection

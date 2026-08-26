@@ -152,7 +152,7 @@ Describe 'Show-PlatformPackageManager' {
         $result.Count | Should-Be 0
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 2
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'INSTALLED PACKAGES / HOMEBREW' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Backspace/Delete: menu*' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Installed Packages' } -Times 0 -Exactly
     }
 
@@ -450,7 +450,7 @@ Describe 'Show-PlatformPackageManager' {
         $result.Count | Should-Be 0
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 2
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'PACKAGE REMOVAL / HOMEBREW' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Backspace/Delete: manager menu' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Backspace/Delete: menu*' } -Times 1
         @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should-Be 0
     }
 
@@ -654,13 +654,22 @@ Describe 'Show-PlatformPackageManager' {
 
     It 'does not show a status indicator for dependency lookups' {
         $runner = & $script:NewPackageCommandRunner @{
-            'brew deps --direct git' = Get-TestCommandResponse -Output @('gettext')
+            'brew deps --direct --formula git' = Get-TestCommandResponse -Output @('gettext')
         }
-        $promptReader = & $script:NewPromptReader @('5', 'git', '1', 'n', 'q')
+        Mock -CommandName Show-InstalledPlatformPackage -MockWith {
+            [PSCustomObject]@{ Name = 'git'; Id = 'git'; Type = 'Formula' }
+        }
+        $promptReader = & $script:NewPromptReader @('5', '1', 'n', 'q')
 
         $result = @(Show-PlatformPackageManager -PackageManager brew -CommandRunner $runner -PromptReader $promptReader)
 
         $result.Count | Should-Be 0
+        Should-Invoke -CommandName Show-InstalledPlatformPackage -ParameterFilter {
+            $PackageManager -eq 'brew' -and
+            $PassThru -and
+            $PickerMode -eq 'Dependency' -and
+            $ReturnToPlatformPackageManagerOnBackKey
+        } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'Installed:|Upgraded:|Removed:' } -Times 0 -Exactly
     }
 
@@ -810,9 +819,12 @@ Describe 'Show-PlatformPackageManager' {
 
     It 'shows dependency records from the manager' {
         $runner = & $script:NewPackageCommandRunner @{
-            'brew deps --direct git' = Get-TestCommandResponse -Output @('gettext')
+            'brew deps --direct --formula git' = Get-TestCommandResponse -Output @('gettext')
         }
-        $promptReader = & $script:NewPromptReader @('5', 'git', '1', 'n', 'q')
+        Mock -CommandName Show-InstalledPlatformPackage -MockWith {
+            [PSCustomObject]@{ Name = 'git'; Id = 'git'; Type = 'Formula' }
+        }
+        $promptReader = & $script:NewPromptReader @('5', '1', 'n', 'q')
 
         $result = @(Show-PlatformPackageManager -PackageManager brew -CommandRunner $runner -PromptReader $promptReader)
 
@@ -822,7 +834,10 @@ Describe 'Show-PlatformPackageManager' {
     }
 
     It 'explains that winget reverse dependency lookup is unavailable' {
-        $promptReader = & $script:NewPromptReader @('5', 'Git.Git', '2', 'n', 'q')
+        Mock -CommandName Show-InstalledPlatformPackage -MockWith {
+            [PSCustomObject]@{ Name = 'Git'; Id = 'Git.Git'; Type = '' }
+        }
+        $promptReader = & $script:NewPromptReader @('5', '2', 'n', 'q')
 
         $result = @(Show-PlatformPackageManager -PackageManager winget -PromptReader $promptReader)
 
@@ -831,7 +846,10 @@ Describe 'Show-PlatformPackageManager' {
     }
 
     It 'rejects partial Both dependency lookup for winget' {
-        $promptReader = & $script:NewPromptReader @('5', 'Git.Git', '3', 'n', 'q')
+        Mock -CommandName Show-InstalledPlatformPackage -MockWith {
+            [PSCustomObject]@{ Name = 'Git'; Id = 'Git.Git'; Type = '' }
+        }
+        $promptReader = & $script:NewPromptReader @('5', '3', 'n', 'q')
 
         $result = @(Show-PlatformPackageManager -PackageManager winget -PromptReader $promptReader)
 
@@ -841,9 +859,12 @@ Describe 'Show-PlatformPackageManager' {
 
     It 'keeps action results on a dedicated screen until the next action is chosen' {
         $runner = & $script:NewPackageCommandRunner @{
-            'brew deps --direct git' = Get-TestCommandResponse -Output @('gettext')
+            'brew deps --direct --formula git' = Get-TestCommandResponse -Output @('gettext')
         }
-        $promptReader = & $script:NewPromptReader @('5', 'git', '1', 'n', 'q')
+        Mock -CommandName Show-InstalledPlatformPackage -MockWith {
+            [PSCustomObject]@{ Name = 'git'; Id = 'git'; Type = 'Formula' }
+        }
+        $promptReader = & $script:NewPromptReader @('5', '1', 'n', 'q')
 
         $result = @(Show-PlatformPackageManager -PackageManager brew -CommandRunner $runner -PromptReader $promptReader)
 

@@ -292,6 +292,25 @@ Describe 'Show-InstalledPlatformPackage' {
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A toggle all  F: [all]' } -Times 1
         }
 
+        It 'uses a focused picker when selecting dependency lookup targets' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @())
+            }
+
+            $keyReader = {
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            }
+
+            $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PassThru -PickerMode Dependency)
+
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'git'
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'DEPENDENCY LOOKUP / HOMEBREW' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter inspect  D preview  V details  A toggle all  F: [all]' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*E export*' -or $Object -like '*R remove*' -or $Object -like '*U upgrade*' } -Times 0 -Exactly
+        }
+
         It 'returns the current package when PassThru is used without a selection' {
             $runner = & $script:NewPackageCommandRunner @{
                 'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0'))

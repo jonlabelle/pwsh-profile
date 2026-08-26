@@ -179,7 +179,11 @@ function Show-InstalledPlatformPackage
         [Int32]$PickerPageSize = 0,
 
         [Parameter(DontShow = $true)]
-        [Switch]$ReturnToPlatformPackageManagerOnBackKey
+        [Switch]$ReturnToPlatformPackageManagerOnBackKey,
+
+        [Parameter(DontShow = $true)]
+        [ValidateSet('Default', 'Dependency')]
+        [String]$PickerMode = 'Default'
     )
 
     begin
@@ -634,7 +638,11 @@ function Show-InstalledPlatformPackage
                 [ScriptBlock]$CommandRunner,
 
                 [Parameter()]
-                [Switch]$ReturnToPlatformPackageManagerOnBackKey
+                [Switch]$ReturnToPlatformPackageManagerOnBackKey,
+
+                [Parameter()]
+                [ValidateSet('Default', 'Dependency')]
+                [String]$PickerMode = 'Default'
             )
 
             function Get-PackageActionFirstFailureMessage
@@ -713,6 +721,7 @@ function Show-InstalledPlatformPackage
                 return @()
             }
 
+            $isDependencySelection = $PickerMode -eq 'Dependency'
             $allPackages = $InstalledPackages
             $uniqueSources = @($allPackages | ForEach-Object { $_.Source } | Where-Object { -not [String]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
             $hasEmptySource = @($allPackages | Where-Object { [String]::IsNullOrWhiteSpace($_.Source) }).Count -gt 0
@@ -1726,8 +1735,10 @@ function Show-InstalledPlatformPackage
 
                 Clear-Host
                 Write-PackageThemeText "$([char]0x25CF) " -NoNewline -ForegroundColor Cyan
-                Write-PackageThemeText 'Show-InstalledPlatformPackage Help' -ForegroundColor Cyan
-                Write-PackageThemeText 'Keyboard reference for installed package browsing.' -ForegroundColor DarkGray
+                $helpTitle = if ($isDependencySelection) { 'Dependency Package Selection Help' } else { 'Show-InstalledPlatformPackage Help' }
+                $helpDescription = if ($isDependencySelection) { 'Keyboard reference for choosing dependency lookup targets.' } else { 'Keyboard reference for installed package browsing.' }
+                Write-PackageThemeText $helpTitle -ForegroundColor Cyan
+                Write-PackageThemeText $helpDescription -ForegroundColor DarkGray
                 Write-PackageThemeText ''
                 Write-PackageThemeText "$([char]0x25CF) NAVIGATION" -ForegroundColor Cyan
                 Write-PackagePickerHelpItem -Shortcut 'Up/Down' -Description 'move one package'
@@ -1750,9 +1761,12 @@ function Show-InstalledPlatformPackage
                 Write-PackagePickerHelpItem -Shortcut 'D' -Description 'open or close the dependency view for the current package'
                 Write-PackagePickerHelpItem -Shortcut 'B' -Description 'return to the package list from the dependency view'
                 Write-PackagePickerHelpItem -Shortcut 'V' -Description 'load a missing winget description when available'
-                Write-PackagePickerHelpItem -Shortcut 'E' -Description 'export visible packages, or selected packages when any are selected, to JSON or CSV'
-                Write-PackagePickerHelpItem -Shortcut 'R' -Description 'remove the current package (with confirmation)'
-                Write-PackagePickerHelpItem -Shortcut 'U' -Description 'upgrade the current package (with confirmation)'
+                if (-not $isDependencySelection)
+                {
+                    Write-PackagePickerHelpItem -Shortcut 'E' -Description 'export visible packages, or selected packages when any are selected, to JSON or CSV'
+                    Write-PackagePickerHelpItem -Shortcut 'R' -Description 'remove the current package (with confirmation)'
+                    Write-PackagePickerHelpItem -Shortcut 'U' -Description 'upgrade the current package (with confirmation)'
+                }
                 Write-PackagePickerHelpItem -Shortcut 'Q, Esc, or Ctrl+C' -Description 'exit the browser'
                 Write-PackagePickerHelpItem -Shortcut '?' -Description 'show this help'
 
@@ -1762,7 +1776,8 @@ function Show-InstalledPlatformPackage
                     Write-PackageThemeText "$([char]0x25CF) SELECTION" -ForegroundColor Cyan
                     Write-PackagePickerHelpItem -Shortcut 'Space' -Description 'select or clear the current package'
                     Write-PackagePickerHelpItem -Shortcut 'A' -Description 'select or clear all visible packages'
-                    Write-PackagePickerHelpItem -Shortcut 'Enter' -Description 'return selected packages, or the current package if none are selected'
+                    $enterDescription = if ($isDependencySelection) { 'inspect selected packages, or the current package if none are selected' } else { 'return selected packages, or the current package if none are selected' }
+                    Write-PackagePickerHelpItem -Shortcut 'Enter' -Description $enterDescription
                 }
 
                 Write-PackageThemeText ''
@@ -2392,8 +2407,9 @@ function Show-InstalledPlatformPackage
                     -not [String]::IsNullOrWhiteSpace($currentPackageLookupKey) -and
                     -not $wingetDescriptionAttempted.ContainsKey($currentPackageLookupKey)
 
+                    $pickerTitle = if ($isDependencySelection) { 'DEPENDENCY LOOKUP' } else { 'INSTALLED PACKAGES' }
                     $frameLines = @(
-                        (Format-PickerFrameLine -Text "INSTALLED PACKAGES / $($InstalledPackages[0].PackageManagerDisplayName.ToUpperInvariant())" -ForegroundColor Cyan)
+                        (Format-PickerFrameLine -Text "$pickerTitle / $($InstalledPackages[0].PackageManagerDisplayName.ToUpperInvariant())" -ForegroundColor Cyan)
                     )
 
                     if ($showDependencyPanel -and $null -ne $currentPackage -and $dependencyPanelPackageKey -ne $currentPackageLookupKey)
@@ -2521,7 +2537,15 @@ function Show-InstalledPlatformPackage
                             }
                             $frameLines += Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedKeys.Count -FilterText ($filterSummary -join "  $([char]0x00B7)  ")) -ForegroundColor White
                             $frameLines += Format-PickerFrameLine -Text "$([char]0x25CF) CONTROLS" -ForegroundColor Cyan
-                            $frameLines += Format-PickerFrameLine -Text "Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A toggle all  F: [$nameFilterHintValue]" -ForegroundColor DarkGray
+                            $selectionControls = if ($isDependencySelection)
+                            {
+                                "Keys: Space select  Enter inspect  D preview  V details  A toggle all  F: [$nameFilterHintValue]"
+                            }
+                            else
+                            {
+                                "Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A toggle all  F: [$nameFilterHintValue]"
+                            }
+                            $frameLines += Format-PickerFrameLine -Text $selectionControls -ForegroundColor DarkGray
                             $frameLines += Format-PickerFrameLine -Text "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit$managerNavigationHint" -ForegroundColor DarkGray
                             $frameLines += ''
                             $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray
@@ -2895,6 +2919,11 @@ function Show-InstalledPlatformPackage
                         }
                         'E'
                         {
+                            if ($isDependencySelection)
+                            {
+                                continue
+                            }
+
                             $exportResult = Invoke-PackageExportPrompt
                             if ($null -ne $exportResult)
                             {
@@ -2904,6 +2933,11 @@ function Show-InstalledPlatformPackage
                         }
                         'R'
                         {
+                            if ($isDependencySelection)
+                            {
+                                continue
+                            }
+
                             if ($null -ne $currentPackage -and (Read-PackageActionConfirmation -Action 'Remove' -Package $currentPackage))
                             {
                                 $targetPackage = if (-not [String]::IsNullOrWhiteSpace($currentPackage.Id)) { $currentPackage.Id } else { $currentPackage.Name }
@@ -2934,6 +2968,11 @@ function Show-InstalledPlatformPackage
                         }
                         'U'
                         {
+                            if ($isDependencySelection)
+                            {
+                                continue
+                            }
+
                             if ($null -ne $currentPackage -and (Read-PackageActionConfirmation -Action 'Upgrade' -Package $currentPackage))
                             {
                                 $targetPackage = if (-not [String]::IsNullOrWhiteSpace($currentPackage.Id)) { $currentPackage.Id } else { $currentPackage.Name }
@@ -3071,7 +3110,7 @@ function Show-InstalledPlatformPackage
         }
 
         $selectedPackages = @(
-            Select-InstalledPackageRecords -InstalledPackages $installedPackages -KeyReader $KeyReader -PageSize $PickerPageSize -EnableSelection:$PassThru.IsPresent -SourceFilter $FilterSource -CommandRunner $CommandRunner -ReturnToPlatformPackageManagerOnBackKey:$ReturnToPlatformPackageManagerOnBackKey
+            Select-InstalledPackageRecords -InstalledPackages $installedPackages -KeyReader $KeyReader -PageSize $PickerPageSize -EnableSelection:$PassThru.IsPresent -SourceFilter $FilterSource -CommandRunner $CommandRunner -ReturnToPlatformPackageManagerOnBackKey:$ReturnToPlatformPackageManagerOnBackKey -PickerMode $PickerMode
         )
 
         if ($PassThru)
