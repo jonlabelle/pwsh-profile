@@ -340,8 +340,7 @@ Describe 'Find-PlatformPackage' {
 
             $result.Count | Should-Be 0
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like "*$([char]0x25CF) CONTROLS*" } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) PACKAGE DETAILS" } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) SELECTION" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25C7) PACKAGE DETAILS" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Registry query: git' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Space select  I install  V details  A toggle all' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-3 of 3 visible  $([char]0x00B7)  3 total  $([char]0x00B7)  0 selected  $([char]0x00B7)  source: All" } -Times 1
@@ -405,8 +404,8 @@ Describe 'Find-PlatformPackage' {
             $result = @(Find-PlatformPackage -PackageManager brew -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
 
             $result.Count | Should-Be 0
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) NAVIGATION" } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) RETURN" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25C8) NAVIGATION" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25C2) RETURN" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Find-PlatformPackage Help' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq '/: ' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'start a new search' } -Times 1

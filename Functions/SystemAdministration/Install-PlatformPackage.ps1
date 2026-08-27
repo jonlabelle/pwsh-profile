@@ -189,10 +189,22 @@ function Install-PlatformPackage
         $packageThemeCritical = $packageThemeEscape + '[91m'
         $packageThemeReset = $packageThemeEscape + '[0m'
 
-        if (-not (Get-Command -Name ConvertTo-PlatformPackagePickerLayout -ErrorAction SilentlyContinue))
+        if (-not (Get-Command -Name ConvertToPlatformPackagePickerLayout -ErrorAction SilentlyContinue))
         {
-            $pickerLayoutPath = Join-Path -Path $PSScriptRoot -ChildPath 'Private/ConvertTo-PlatformPackagePickerLayout.ps1'
+            $pickerLayoutPath = Join-Path -Path $PSScriptRoot -ChildPath 'Private/ConvertToPlatformPackagePickerLayout.ps1'
             . $pickerLayoutPath
+        }
+
+        if (-not (Get-Command -Name GetPlatformPackagePickerEmptyState -ErrorAction SilentlyContinue))
+        {
+            $pickerEmptyStatePath = Join-Path -Path $PSScriptRoot -ChildPath 'Private/GetPlatformPackagePickerEmptyState.ps1'
+            . $pickerEmptyStatePath
+        }
+
+        if (-not (Get-Command -Name GetPlatformPackagePickerSelectionBar -ErrorAction SilentlyContinue))
+        {
+            $pickerSelectionBarPath = Join-Path -Path $PSScriptRoot -ChildPath 'Private/GetPlatformPackagePickerSelectionBar.ps1'
+            . $pickerSelectionBarPath
         }
 
         function Write-PackageThemeText
@@ -1553,7 +1565,7 @@ function Install-PlatformPackage
 
                 $contentWidth = [Math]::Max(1, $frameWidth - 4)
                 $minimumLineCount = if ($MeasureOnly) { 0 } else { $pickerRenderState.RenderedLineCount }
-                $outputLines = @(ConvertTo-PlatformPackagePickerLayout -HeaderLines $HeaderLines -BodyLines $BodyLines -FooterLines $FooterLines -FrameWidth $frameWidth -MinimumLineCount $minimumLineCount -AllowWidthExpansion:(-not $pickerRenderState.UseInPlaceRedraw))
+                $outputLines = @(ConvertToPlatformPackagePickerLayout -HeaderLines $HeaderLines -BodyLines $BodyLines -FooterLines $FooterLines -FrameWidth $frameWidth -MinimumLineCount $minimumLineCount -AllowWidthExpansion:(-not $pickerRenderState.UseInPlaceRedraw))
                 $frameWidth = $outputLines[0].Text.Length
                 $contentWidth = $frameWidth - 4
 
@@ -1917,13 +1929,13 @@ function Install-PlatformPackage
                 Write-PackageThemeText 'Install-PlatformPackage Help' -ForegroundColor Cyan
                 Write-PackageThemeText 'Keyboard reference for package installation.' -ForegroundColor DarkGray
                 Write-PackageThemeText ''
-                Write-PackageThemeText "$([char]0x25CF) NAVIGATION" -ForegroundColor Cyan
+                Write-PackageThemeText "$([char]0x25C8) NAVIGATION" -ForegroundColor Cyan
                 Write-PackagePickerHelpItem -Shortcut 'Up/Down' -Description 'move one package'
                 Write-PackagePickerHelpItem -Shortcut 'PageUp/PageDown' -Description 'move one page'
                 Write-PackagePickerHelpItem -Shortcut 'Home/End' -Description 'move to the first or last package'
 
                 Write-PackageThemeText ''
-                Write-PackageThemeText "$([char]0x25CF) SELECTION" -ForegroundColor Cyan
+                Write-PackageThemeText "$([char]0x25C6) SELECTION" -ForegroundColor Cyan
                 Write-PackagePickerHelpItem -Shortcut 'Space' -Description 'select or clear the current package'
                 Write-PackagePickerHelpItem -Shortcut 'A' -Description 'select or clear all visible packages'
                 Write-PackagePickerHelpItem -Shortcut 'Enter' -Description 'install selected packages, or the current package if none are selected'
@@ -1936,18 +1948,18 @@ function Install-PlatformPackage
                 if ($hasSourceFilter)
                 {
                     Write-PackageThemeText ''
-                    Write-PackageThemeText "$([char]0x25CF) SOURCE FILTER" -ForegroundColor Cyan
+                    Write-PackageThemeText "$([char]0x25BE) SOURCE FILTER" -ForegroundColor Cyan
                     Write-PackagePickerHelpItem -Shortcut 'S' -Description "cycle source: $($availableSources -join ' | ')"
                 }
 
                 Write-PackageThemeText ''
-                Write-PackageThemeText "$([char]0x25CF) OTHER ACTIONS" -ForegroundColor Cyan
+                Write-PackageThemeText "$([char]0x25B8) OTHER ACTIONS" -ForegroundColor Cyan
                 Write-PackagePickerHelpItem -Shortcut 'V' -Description 'load a missing winget description when available'
                 Write-PackagePickerHelpItem -Shortcut 'Q, Esc, or Ctrl+C' -Description 'cancel installation'
                 Write-PackagePickerHelpItem -Shortcut '?' -Description 'show this help'
 
                 Write-PackageThemeText ''
-                Write-PackageThemeText "$([char]0x25CF) RETURN" -ForegroundColor Cyan
+                Write-PackageThemeText "$([char]0x25C2) RETURN" -ForegroundColor Cyan
                 Write-PackageThemeText 'Press any key to return to the picker. Q/Esc/Ctrl+C cancels.' -ForegroundColor DarkGray
 
                 $helpKey = & $KeyReader
@@ -2067,6 +2079,7 @@ function Install-PlatformPackage
                         (Format-PickerFrameLine -Text "Registry query: $QueryText" -ForegroundColor DarkGray)
                         (Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedKeys.Count -FilterText $sourceSummary) -ForegroundColor White)
                     )
+                    $headerLines += Format-PickerFrameLine -Text (GetPlatformPackagePickerSelectionBar -SelectedCount $selectedKeys.Count -TotalCount $allPackages.Count) -ForegroundColor Cyan
                     $footerLines = @(
                         (Format-PickerFrameLine -Text $selectionHint -ForegroundColor White)
                         (Format-PickerFrameLine -Text $navigationHint -ForegroundColor DarkGray)
@@ -2085,8 +2098,7 @@ function Install-PlatformPackage
 
                     if ($visiblePackages.Count -eq 0)
                     {
-                        $bodyLines += ''
-                        $bodyLines += Format-PickerFrameLine -Text 'No packages match this source filter. Press S to cycle.' -ForegroundColor DarkYellow
+                        $bodyLines += GetPlatformPackagePickerEmptyState -Message 'No matching packages' -Hint 'Nothing matches the current source filter.', 'Press S to cycle sources.' -FrameWidth $pickerFrameWidth
                         Write-PickerFrame -HeaderLines $headerLines -BodyLines $bodyLines -FooterLines $footerLines
 
                         $key = Read-PackagePickerNavigationKey
@@ -2171,25 +2183,12 @@ function Install-PlatformPackage
                     }
 
                     $bodyLines += ''
-                    $bodyLines += Format-PickerFrameLine -Text "$([char]0x25CF) PACKAGE DETAILS" -ForegroundColor Cyan
+                    $bodyLines += Format-PickerFrameLine -Text "$([char]0x25C7) PACKAGE DETAILS" -ForegroundColor Cyan
                     $currentPublisher = if ($null -eq $currentPackage -or [String]::IsNullOrWhiteSpace($currentPackage.Publisher)) { 'n/a' } else { $currentPackage.Publisher }
                     $currentSource = if ($null -eq $currentPackage -or [String]::IsNullOrWhiteSpace($currentPackage.Source)) { 'n/a' } else { $currentPackage.Source }
                     $bodyLines += Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor White
                     $bodyLines += Format-PickerFrameLine -Text ('Id: {0}  {1}  Source: {2}  {1}  Publisher: {3}  {1}  Installed: {4}' -f $currentPackage.Id, ([char]0x2022), $currentSource, $currentPublisher, ($(if ($currentPackage.Installed) { 'yes' } else { 'no' }))) -ForegroundColor DarkGray
                     $bodyLines += Format-PickerFrameLine -Text ('Description: {0}' -f $currentDescription) -ForegroundColor DarkGray
-                    $bodyLines += ''
-                    $bodyLines += Format-PickerFrameLine -Text "$([char]0x25CF) SELECTION" -ForegroundColor Cyan
-                    $selCount = $selectedKeys.Count
-                    $totalCount = $allPackages.Count
-                    $countText = if ($hasSourceFilter -and $availableSources[$sourceFilterIndex] -ne 'All')
-                    {
-                        "$selCount of $totalCount selected  |  $($visiblePackages.Count) of $totalCount visible (filter: $($availableSources[$sourceFilterIndex]))"
-                    }
-                    else
-                    {
-                        "$selCount of $totalCount package(s) selected."
-                    }
-                    $bodyLines += Format-PickerFrameLine -Text $countText -ForegroundColor White
 
                     if ($requestedPageSize -le 0)
                     {

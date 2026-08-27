@@ -170,7 +170,7 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should-Be 0
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like "*$([char]0x25CF) CONTROLS*" } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) PACKAGE DETAILS" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25C7) PACKAGE DETAILS" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Nav: Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  filter: all" } -Times 1
@@ -288,7 +288,6 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should-Be 1
             $result[0].Name | Should-Be 'git'
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) SELECTION" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A toggle all  F: [all]' } -Times 1
         }
 
@@ -348,8 +347,8 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should-Be 0
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) NAVIGATION" } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) RETURN" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25C8) NAVIGATION" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25C2) RETURN" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Show-InstalledPlatformPackage Help' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'D: ' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'open or close the dependency view for the current package' } -Times 1
@@ -521,9 +520,9 @@ Describe 'Show-InstalledPlatformPackage' {
             Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
             Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'PACKAGE RELATIONSHIPS / HOMEBREW' } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) PACKAGE DETAILS" } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) RELATIONSHIPS" } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) NAVIGATION" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25C7) PACKAGE DETAILS" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25C9) RELATIONSHIPS" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25C8) NAVIGATION" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Resolving dependencies...' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn + RequiredBy]' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn]' } -Times 1

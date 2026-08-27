@@ -343,8 +343,7 @@ Describe 'Remove-PlatformPackage' {
             $result.Removed | Should-Be 1
             ($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).StreamOutput | Should-BeTruthy
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like "*$([char]0x25CF) CONTROLS*" } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) PACKAGE DETAILS" } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) SELECTION" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25C7) PACKAGE DETAILS" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Keys: Space select  P purge/zap  Enter remove  D deps  V details  A toggle all  F: [all]" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "Nav: Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C cancel" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  0 selected" } -Times 1
@@ -374,8 +373,8 @@ Describe 'Remove-PlatformPackage' {
 
             $result.Selected | Should-Be 0
             $result.Removed | Should-Be 0
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) NAVIGATION" } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) RETURN" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25C8) NAVIGATION" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25C2) RETURN" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Remove-PlatformPackage Help' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'P: ' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'toggle purge/zap removal for the current package' } -Times 1
@@ -536,9 +535,9 @@ Describe 'Remove-PlatformPackage' {
             $result.Removed | Should-Be 0
             Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
             Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) PACKAGE DETAILS" } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) RELATIONSHIPS" } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) NAVIGATION" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25C7) PACKAGE DETAILS" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25C9) RELATIONSHIPS" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25C8) NAVIGATION" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Resolving dependencies...' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn + RequiredBy]' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Dependencies [DependsOn]' } -Times 1
@@ -611,7 +610,7 @@ Describe 'Remove-PlatformPackage' {
             $result.Removed | Should-Be 1
             @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall git' }).Count | Should-Be 1
             @($script:Invocations | Where-Object { $_.Key -eq 'brew uninstall curl' }).Count | Should-Be 0
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) FILTER" } -Times 2
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25BE) FILTER" } -Times 2
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) CONTROLS" } -Times 2
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Current filter: g' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -match 'F: \[g\]' } -Times 1

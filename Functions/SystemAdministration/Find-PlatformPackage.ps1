@@ -180,6 +180,18 @@ function Find-PlatformPackage
         $packageThemeCritical = $packageThemeEscape + '[91m'
         $packageThemeReset = $packageThemeEscape + '[0m'
 
+        if (-not (Get-Command -Name GetPlatformPackagePickerEmptyState -ErrorAction SilentlyContinue))
+        {
+            $pickerEmptyStatePath = Join-Path -Path $PSScriptRoot -ChildPath 'Private/GetPlatformPackagePickerEmptyState.ps1'
+            . $pickerEmptyStatePath
+        }
+
+        if (-not (Get-Command -Name GetPlatformPackagePickerSelectionBar -ErrorAction SilentlyContinue))
+        {
+            $pickerSelectionBarPath = Join-Path -Path $PSScriptRoot -ChildPath 'Private/GetPlatformPackagePickerSelectionBar.ps1'
+            . $pickerSelectionBarPath
+        }
+
         function Write-PackageThemeText
         {
             param(
@@ -2808,13 +2820,13 @@ function Find-PlatformPackage
                 Write-PackageThemeText 'Find-PlatformPackage Help' -ForegroundColor Cyan
                 Write-PackageThemeText 'Keyboard reference for package search and selection.' -ForegroundColor DarkGray
                 Write-PackageThemeText ''
-                Write-PackageThemeText "$([char]0x25CF) NAVIGATION" -ForegroundColor Cyan
+                Write-PackageThemeText "$([char]0x25C8) NAVIGATION" -ForegroundColor Cyan
                 Write-PackagePickerHelpItem -Shortcut 'Up/Down' -Description 'move one package'
                 Write-PackagePickerHelpItem -Shortcut 'PageUp/PageDown' -Description 'move one page'
                 Write-PackagePickerHelpItem -Shortcut 'Home/End' -Description 'move to the first or last package'
 
                 Write-PackageThemeText ''
-                Write-PackageThemeText "$([char]0x25CF) SEARCH ACTIONS" -ForegroundColor Cyan
+                Write-PackageThemeText "$([char]0x25B8) SEARCH ACTIONS" -ForegroundColor Cyan
                 Write-PackagePickerHelpItem -Shortcut '/' -Description 'start a new search'
                 Write-PackagePickerHelpItem -Shortcut 'I' -Description 'install selected packages, or the current package if none are selected'
                 Write-PackagePickerHelpItem -Shortcut 'V' -Description 'load a missing winget description when available'
@@ -2824,14 +2836,14 @@ function Find-PlatformPackage
                 if ($hasSourceFilter)
                 {
                     Write-PackageThemeText ''
-                    Write-PackageThemeText "$([char]0x25CF) SOURCE FILTER" -ForegroundColor Cyan
+                    Write-PackageThemeText "$([char]0x25BE) SOURCE FILTER" -ForegroundColor Cyan
                     Write-PackagePickerHelpItem -Shortcut 'S' -Description "cycle source: $($availableSources -join ' | ')"
                 }
 
                 if ($EnableSelection)
                 {
                     Write-PackageThemeText ''
-                    Write-PackageThemeText "$([char]0x25CF) SELECTION" -ForegroundColor Cyan
+                    Write-PackageThemeText "$([char]0x25C6) SELECTION" -ForegroundColor Cyan
                     Write-PackagePickerHelpItem -Shortcut 'Space' -Description 'select or clear the current package'
                     Write-PackagePickerHelpItem -Shortcut 'A' -Description 'select or clear all visible packages'
                 }
@@ -2842,7 +2854,7 @@ function Find-PlatformPackage
                 }
 
                 Write-PackageThemeText ''
-                Write-PackageThemeText "$([char]0x25CF) RETURN" -ForegroundColor Cyan
+                Write-PackageThemeText "$([char]0x25C2) RETURN" -ForegroundColor Cyan
                 Write-PackageThemeText 'Press any key to return to the picker. Q/Esc/Ctrl+C exits.' -ForegroundColor DarkGray
 
                 $helpKey = & $KeyReader
@@ -2952,6 +2964,10 @@ function Find-PlatformPackage
                         (Format-PickerFrameLine -Text ('Registry query: {0}' -f $QueryText) -ForegroundColor DarkGray)
                         (Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedSummary -FilterText $sourceSummary) -ForegroundColor White)
                     )
+                    if ($EnableSelection)
+                    {
+                        $headerLines += Format-PickerFrameLine -Text (GetPlatformPackagePickerSelectionBar -SelectedCount $selectedKeys.Count -TotalCount $allPackages.Count) -ForegroundColor Cyan
+                    }
                     $footerLines = @()
                     if ($EnableSelection -and $EnableReturnSelection)
                     {
@@ -2970,7 +2986,7 @@ function Find-PlatformPackage
 
                     if ($visiblePackages.Count -eq 0)
                     {
-                        $bodyLines += Format-PickerFrameLine -Text 'No packages match this source filter. Press S to cycle.' -ForegroundColor DarkYellow
+                        $bodyLines += GetPlatformPackagePickerEmptyState -Message 'No matching packages' -Hint 'Nothing matches the current source filter.', 'Press S to cycle sources.' -FrameWidth $pickerFrameWidth
                         Write-PickerFrame -HeaderLines $headerLines -BodyLines $bodyLines -FooterLines $footerLines
 
                         $key = Read-PackagePickerNavigationKey
@@ -3091,26 +3107,12 @@ function Find-PlatformPackage
                     }
 
                     $bodyLines += ''
-                    $bodyLines += Format-PickerFrameLine -Text "$([char]0x25CF) PACKAGE DETAILS" -ForegroundColor Cyan
+                    $bodyLines += Format-PickerFrameLine -Text "$([char]0x25C7) PACKAGE DETAILS" -ForegroundColor Cyan
                     $currentPublisher = if ([String]::IsNullOrWhiteSpace($currentPackage.Publisher)) { 'n/a' } else { $currentPackage.Publisher }
                     $currentSource = if ([String]::IsNullOrWhiteSpace($currentPackage.Source)) { 'n/a' } else { $currentPackage.Source }
                     $bodyLines += Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor White
                     $bodyLines += Format-PickerFrameLine -Text ('Id: {0}  {1}  Source: {2}  {1}  Publisher: {3}  {1}  Installed: {4}' -f $currentPackage.Id, ([char]0x2022), $currentSource, $currentPublisher, $installedStatus) -ForegroundColor DarkGray
                     $bodyLines += Format-PickerFrameLine -Text ('Description: {0}' -f $currentDescription) -ForegroundColor DarkGray
-                    if ($EnableSelection)
-                    {
-                        $bodyLines += ''
-                        $bodyLines += Format-PickerFrameLine -Text "$([char]0x25CF) SELECTION" -ForegroundColor Cyan
-                        $countText = if ($hasSourceFilter -and $availableSources[$sourceFilterIndex] -ne 'All')
-                        {
-                            "$($selectedKeys.Count) of $($allPackages.Count) selected  |  $($visiblePackages.Count) of $($allPackages.Count) visible (filter: $($availableSources[$sourceFilterIndex]))"
-                        }
-                        else
-                        {
-                            "$($selectedKeys.Count) of $($allPackages.Count) package(s) selected."
-                        }
-                        $bodyLines += Format-PickerFrameLine -Text $countText -ForegroundColor White
-                    }
 
                     if ($requestedPageSize -le 0)
                     {

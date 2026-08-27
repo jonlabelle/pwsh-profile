@@ -1852,11 +1852,8 @@
             )
 
             Clear-Host
-            Write-PlatformPackageManagerHeader -Title 'Platform Package Manager' -Subtitle 'Unified native package management workflows'
-            Write-PlatformPackageManagerPanelBorder -Position Top -Title 'Workflows'
-            Write-PlatformPackageManagerPanelLine -Segment @(
-                [PSCustomObject]@{ Text = ('{0,-4} {1,-7} {2,-3} {3,-24} {4}' -f '', 'Action', '', 'Workflow', 'Purpose'); Color = 'DarkGray' }
-            )
+            Write-PlatformPackageManagerHeader -Title 'Platform Package Manager' -Subtitle 'Cross-platform package management tools'
+            Write-PlatformPackageManagerPanelBorder -Position Top -Title 'Manage packages'
             Write-PlatformPackageManagerPanelLine
             for ($i = 0; $i -lt $Options.Count; $i++)
             {
@@ -1883,7 +1880,6 @@
             {
                 Write-PlatformPackageManagerPanelBorder -Position Top -Title 'Notice'
                 Write-PlatformPackageManagerPanelLine -Segment @(
-                    [PSCustomObject]@{ Text = "$packageThemeStatus "; Color = 'DarkYellow' }
                     [PSCustomObject]@{ Text = $Notification; Color = 'DarkYellow' }
                 )
                 Write-PlatformPackageManagerPanelBorder -Position Bottom
