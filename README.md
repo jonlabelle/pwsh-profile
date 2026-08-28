@@ -16,13 +16,13 @@ This profile turns the PowerShell profile directory into a small, portable toolk
 
 ## Install
 
-Prerequisites:
+### Requirements
 
 - PowerShell Desktop 5.1+ or PowerShell 6+ (`pwsh`)
 - Internet access for the installer and update checks
 - `git`, optional but recommended for `Update-Profile` and `Test-ProfileUpdate`
 
-The installer backs up profile content it may replace, preserves local paths such as `Functions/Local`, `Help`, `Modules`, `PSReadLine`, `Scripts`, and `powershell.config.json` in place, then deploys the latest profile files.
+The installer backs up profile content it may replace, preserves local paths such as `Functions/Local`, `Help`, `Modules`, `PSReadLine`, `Scripts`, and `powershell.config.json` in place, then deploys the latest profile files. See the [installation guide](docs/installation.md) for custom preservation and restore options.
 
 Git is optional. When Git is unavailable, the installer downloads the repository zip from GitHub.
 
@@ -67,13 +67,28 @@ Get-CertificateExpiration github.com
 Invoke-NetworkDiagnostics 'bing.com', 'microsoft.com' -MaxIterations 1
 ```
 
+## Common Workflows
+
+```powershell
+# Find a command, then read its built-in help
+Find-ProfileFunction certificate
+Get-Help Get-CertificateExpiration -Examples
+
+# Check for and apply profile updates
+Test-ProfileUpdate
+Update-Profile
+
+# Run the test suite from a cloned repository
+./Invoke-Tests.ps1 -TestType Unit
+```
+
 ## Screenshots
 
 The profile includes focused console interfaces for live diagnostics, package management, system monitoring, and command discovery.
 
 ### Network diagnostics
 
-`Invoke-NetworkDiagnostics` checks multiple hosts and renders live latency, packet-loss, and DNS results.
+[`Invoke-NetworkDiagnostics`](docs/functions.md#network-and-dns) checks multiple hosts and renders live latency, packet-loss, and DNS results.
 
 ```powershell
 PS > 'www.google.com', 'www.cloudflare.com' |
@@ -84,7 +99,7 @@ PS > 'www.google.com', 'www.cloudflare.com' |
 
 ### Package management
 
-`Show-PlatformPackageManager` provides a single interactive interface for winget, Homebrew, apt, and apk.
+[`Show-PlatformPackageManager`](docs/functions.md#system-administration) provides a single interactive interface for winget, Homebrew, apt, and apk.
 
 ```powershell
 PS > Show-PlatformPackageManager
@@ -94,7 +109,7 @@ PS > Show-PlatformPackageManager
 
 ### System resource monitor
 
-`Show-SystemResourceMonitor` presents live CPU, memory, disk, network activity, and top-process data.
+[`Show-SystemResourceMonitor`](docs/functions.md#system-administration) presents live CPU, memory, disk, network activity, and top-process data.
 
 ```powershell
 PS > Show-SystemResourceMonitor
@@ -104,7 +119,7 @@ PS > Show-SystemResourceMonitor
 
 ### Function discovery
 
-`Show-ProfileFunction` lists the loaded profile commands by category, with descriptions and optional aliases.
+[`Show-ProfileFunction`](docs/functions.md#profile-management) lists the loaded profile commands by category, with descriptions and optional aliases.
 
 ```powershell
 PS > Show-ProfileFunction -IncludeAliases
@@ -136,6 +151,17 @@ Everything you need to know about installation, functions, troubleshooting, and 
 | [Module Management](docs/functions.md#powershell-module-management) | module update checks and cleanup                                              |
 | [Profile Management](docs/functions.md#profile-management)          | function discovery and profile update checks                                  |
 | [Media Processing](docs/functions.md#media-processing)              | Encoding wrappers w/ ffmpeg, image metadata and privacy cleansing             |
+
+## Compatibility
+
+| Capability                              | Windows PowerShell 5.1 (Windows only)    | PowerShell Core (Windows/macOS/Linux)       |
+| --------------------------------------- | ---------------------------------------- | ------------------------------------------- |
+| Profile loading and core functions      | Supported                                | Supported                                   |
+| Unit tests                              | Supported on Windows                     | Supported                                   |
+| Integration tests                       | Available when explicitly selected in CI | Supported in CI                             |
+| Native package-manager and system tools | Depends on installed Windows tools       | Depends on the platform and installed tools |
+
+Platform-specific functions and integrations document their requirements in their help. The [function catalog](docs/functions.md) groups available commands by area.
 
 ## Local Functions
 
@@ -178,7 +204,7 @@ Contributions are welcome. Please keep changes aligned with the existing structu
 - Keep functions cross-platform unless they are clearly platform-specific.
 - Open a pull request with a short description and verification steps.
 
-See the complete [contributing guide](CONTRIBUTING.md) for more details:
+See the complete [contributing guide](CONTRIBUTING.md) for development setup, coding standards, and test guidance.
 
 ## Author
 
