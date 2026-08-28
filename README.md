@@ -69,9 +69,11 @@ Invoke-NetworkDiagnostics 'bing.com', 'microsoft.com' -MaxIterations 1
 
 ## Screenshots
 
-### Invoke-NetworkDiagnostics
+The profile includes focused console interfaces for live diagnostics, package management, system monitoring, and command discovery.
 
-Runs network and DNS checks for multiple hosts, then renders live latency graphs.
+### Network diagnostics
+
+`Invoke-NetworkDiagnostics` checks multiple hosts and renders live latency, packet-loss, and DNS results.
 
 ```powershell
 PS > 'www.google.com', 'www.cloudflare.com' |
@@ -80,10 +82,9 @@ PS > 'www.google.com', 'www.cloudflare.com' |
 
 ![Invoke-NetworkDiagnostics screenshot](resources/screenshots/Invoke-NetworkDiagnostics.png "Invoke-NetworkDiagnostics in action")
 
-<details>
-<summary><strong>Show-PlatformPackageManager</strong></summary>
+### Package management
 
-Provides a unified interface for managing platform packages across winget, brew, apt, and apk.
+`Show-PlatformPackageManager` provides a single interactive interface for winget, Homebrew, apt, and apk.
 
 ```powershell
 PS > Show-PlatformPackageManager
@@ -91,12 +92,9 @@ PS > Show-PlatformPackageManager
 
 ![Show-PlatformPackageManager screenshot](resources/screenshots/Show-PlatformPackageManager.png "Show-PlatformPackageManager in action")
 
-</details>
+### System resource monitor
 
-<details>
-<summary><strong>Show-SystemResourceMonitor</strong></summary>
-
-Displays a live monitor for CPU, memory, disk, network activity, and top processes.
+`Show-SystemResourceMonitor` presents live CPU, memory, disk, network activity, and top-process data.
 
 ```powershell
 PS > Show-SystemResourceMonitor
@@ -104,20 +102,15 @@ PS > Show-SystemResourceMonitor
 
 ![Show-SystemResourceMonitor screenshot](resources/screenshots/Show-SystemResourceMonitor.png "Show-SystemResourceMonitor in action")
 
-</details>
+### Function discovery
 
-<details>
-<summary><strong>Show-ProfileFunction</strong></summary>
-
-Lists all functions available in this profile, organized by category.
+`Show-ProfileFunction` lists the loaded profile commands by category, with descriptions and optional aliases.
 
 ```powershell
-PS > Show-ProfileFunction
+PS > Show-ProfileFunction -IncludeAliases
 ```
 
 ![Show-ProfileFunction screenshot](resources/screenshots/Show-ProfileFunction.png "Show-ProfileFunction in action")
-
-</details>
 
 ## Documentation
 
