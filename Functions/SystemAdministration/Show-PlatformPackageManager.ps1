@@ -675,13 +675,13 @@
                         Get-PlatformPackageManagerHelpItem -Shortcut 'Home/End' -Description 'move to the first or last action'
                         Get-PlatformPackageManagerHelpItem -Shortcut 'Enter' -Description 'run the selected action'
                         Get-PlatformPackageManagerHelpItem -Shortcut '1-6' -Description 'jump to a numbered workflow'
-                        Get-PlatformPackageManagerHelpItem -Shortcut 'B' -Description 'browse installed packages'
-                        Get-PlatformPackageManagerHelpItem -Shortcut 'E' -Description 'export installed packages'
-                        Get-PlatformPackageManagerHelpItem -Shortcut 'S or I' -Description 'search and install packages'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'P' -Description 'show installed packages'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'E' -Description 'export packages'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'S' -Description 'search packages'
                         Get-PlatformPackageManagerHelpItem -Shortcut 'U' -Description 'upgrade packages'
                         Get-PlatformPackageManagerHelpItem -Shortcut 'R' -Description 'remove packages'
-                        Get-PlatformPackageManagerHelpItem -Shortcut 'D' -Description 'inspect dependencies'
-                        Get-PlatformPackageManagerHelpItem -Shortcut 'Q, Esc, or Ctrl+C' -Description 'quit'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'D' -Description 'show package dependency relationships'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'Q, Esc, or Ctrl+C' -Description 'exit the package manager'
                         Get-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
                     )
                 }
@@ -692,6 +692,12 @@
             {
                 Write-PlatformPackageManagerHelpItem -Item $item
             }
+
+            Write-PackageThemeText ''
+            Write-PlatformPackageManagerSectionHeading -Title 'About'
+            Write-PackageThemeText '  Project: jonlabelle/pwsh-profile' -ForegroundColor DarkGray
+            Write-PackageThemeText '  Issue reports and enhancement requests:' -ForegroundColor DarkGray
+            Write-PackageThemeText '  https://github.com/jonlabelle/pwsh-profile/issues' -ForegroundColor DarkGray
 
             Write-PackageThemeText ''
             Write-PlatformPackageManagerPanelBorder -Position Top -Title 'Navigation'
@@ -1529,10 +1535,10 @@
                 })
             if ($result.Count -eq 0)
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Installed Packages' -Message 'Installed package browser closed.' -AutoReturn)
+                return (Get-PlatformPackageManagerActionResult -Title 'Show Packages' -Message 'Installed package browser closed.' -AutoReturn)
             }
 
-            return (Get-PlatformPackageManagerActionResult -Title 'Installed Packages' -Records $result)
+            return (Get-PlatformPackageManagerActionResult -Title 'Show Packages' -Records $result)
         }
 
         function Invoke-PlatformPackageManagerExport
@@ -1540,7 +1546,7 @@
             $exportPath = Read-PlatformPackageExportPath
             if ([String]::IsNullOrWhiteSpace($exportPath))
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Export Installed Packages' -Message 'Export cancelled; file path is required.' -AutoReturn)
+                return (Get-PlatformPackageManagerActionResult -Title 'Export Packages' -Message 'Export cancelled; file path is required.' -AutoReturn)
             }
 
             $exportFormat = Get-PlatformPackageExportFormatFromPath -Path $exportPath
@@ -1549,14 +1555,14 @@
                 $exportFormat = Read-PlatformPackageExportFormat -Path $exportPath
                 if ([String]::IsNullOrWhiteSpace($exportFormat))
                 {
-                    return (Get-PlatformPackageManagerActionResult -Title 'Export Installed Packages' -Message 'Export cancelled; format is required.' -AutoReturn)
+                    return (Get-PlatformPackageManagerActionResult -Title 'Export Packages' -Message 'Export cancelled; format is required.' -AutoReturn)
                 }
             }
 
             $dependencyMode = Read-PlatformPackageExportDependencyMode
             if ($null -eq $dependencyMode)
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Export Installed Packages' -Message 'Export cancelled.' -AutoReturn)
+                return (Get-PlatformPackageManagerActionResult -Title 'Export Packages' -Message 'Export cancelled.' -AutoReturn)
             }
 
             $parameters = Get-PlatformPackageManagerCommonParameters
@@ -1576,15 +1582,15 @@
             }
             catch
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Export Installed Packages' -Message "Export failed: $($_.Exception.Message)")
+                return (Get-PlatformPackageManagerActionResult -Title 'Export Packages' -Message "Export failed: $($_.Exception.Message)")
             }
 
             if ($result.Count -eq 0)
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Export Installed Packages' -Message 'Export completed with no result records.' -AutoReturn)
+                return (Get-PlatformPackageManagerActionResult -Title 'Export Packages' -Message 'Export completed with no result records.' -AutoReturn)
             }
 
-            return (Get-PlatformPackageManagerActionResult -Title 'Export Installed Packages' -Message 'Export completed.' -Records $result)
+            return (Get-PlatformPackageManagerActionResult -Title 'Export Packages' -Message 'Export completed.' -Records $result)
         }
 
         function Invoke-PlatformPackageManagerSearch
@@ -1594,7 +1600,7 @@
                 $query = Read-PlatformPackageManagerInput -Prompt 'Search query (? for help)'
                 if ($null -eq $query -or [String]::IsNullOrWhiteSpace($query))
                 {
-                    return (Get-PlatformPackageManagerActionResult -Title 'Search and Install Packages' -Message 'Search cancelled; query is required.' -AutoReturn)
+                    return (Get-PlatformPackageManagerActionResult -Title 'Search Packages' -Message 'Search cancelled; query is required.' -AutoReturn)
                 }
 
                 if ($query.Trim() -eq '?')
@@ -1628,10 +1634,10 @@
                 })
             if ($result.Count -eq 0)
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Search and Install Packages' -Message 'Search completed with no result records.' -AutoReturn)
+                return (Get-PlatformPackageManagerActionResult -Title 'Search Packages' -Message 'Search completed with no result records.' -AutoReturn)
             }
 
-            return (Get-PlatformPackageManagerActionResult -Title 'Search and Install Packages' -Records $result)
+            return (Get-PlatformPackageManagerActionResult -Title 'Search Packages' -Records $result)
         }
 
         function Invoke-PlatformPackageManagerUpgrade
@@ -1707,25 +1713,25 @@
                 })
             if ($package.Count -eq 0)
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message 'Dependency lookup cancelled; no packages were selected.' -AutoReturn)
+                return (Get-PlatformPackageManagerActionResult -Title 'Show Package Dependencies' -Message 'Dependency lookup cancelled; no packages were selected.' -AutoReturn)
             }
 
             $direction = Read-PlatformPackageDependencyDirection
             if ($null -eq $direction)
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message 'Dependency lookup cancelled.' -AutoReturn)
+                return (Get-PlatformPackageManagerActionResult -Title 'Show Package Dependencies' -Message 'Dependency lookup cancelled.' -AutoReturn)
             }
 
             $installedOnly = Read-PlatformPackageManagerYesNo -Prompt 'Limit related packages to installed packages?' -DefaultYes
             if ($null -eq $installedOnly)
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message 'Dependency lookup cancelled.' -AutoReturn)
+                return (Get-PlatformPackageManagerActionResult -Title 'Show Package Dependencies' -Message 'Dependency lookup cancelled.' -AutoReturn)
             }
 
             $resolvedManagerName = Get-PlatformPackageManagerDetectedName
             if ($resolvedManagerName -eq 'winget' -and $direction -ne 'DependsOn')
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message "Direction '$direction' is not supported by winget. winget does not expose reverse dependency metadata; choose DependsOn.")
+                return (Get-PlatformPackageManagerActionResult -Title 'Show Package Dependencies' -Message "Direction '$direction' is not supported by winget. winget does not expose reverse dependency metadata; choose DependsOn.")
             }
 
             $parameters = Get-PlatformPackageManagerCommonParameters
@@ -1739,10 +1745,10 @@
                 })
             if ($records.Count -eq 0)
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Message 'No dependency relationships were found.')
+                return (Get-PlatformPackageManagerActionResult -Title 'Show Package Dependencies' -Message 'No dependency relationships were found.')
             }
 
-            return (Get-PlatformPackageManagerActionResult -Title 'Package Dependencies' -Records $records)
+            return (Get-PlatformPackageManagerActionResult -Title 'Show Package Dependencies' -Records $records)
         }
 
         function Get-PlatformPackageManagerAutoReturnNotification
@@ -1780,7 +1786,7 @@
                 return 'No installed packages matched the requested filters.'
             }
 
-            # Nothing matched for search/install
+            # Nothing matched for search
             if ($summaryRecord.PSObject.Properties['TotalMatched'] -and [Int32]$summaryRecord.TotalMatched -eq 0 -and $summaryRecord.PSObject.Properties['Installed'])
             {
                 return 'No packages matched the requested search query.'
@@ -1802,38 +1808,38 @@
                 [PSCustomObject]@{
                     Choice = '2'
                     Symbol = '+'
-                    Workflow = 'Search and install'
-                    Purpose = 'Search the registry and optionally install results'
+                    Workflow = 'Search packages'
+                    Purpose = 'Search the package registry'
                 }
                 [PSCustomObject]@{
                     Choice = '3'
                     Symbol = [String][Char]0x25A6
-                    Workflow = 'Installed packages'
-                    Purpose = 'Browse or filter installed package records'
+                    Workflow = 'Show packages'
+                    Purpose = 'Show installed packages'
                 }
                 [PSCustomObject]@{
                     Choice = '4'
                     Symbol = [String][Char]0x2212
                     Workflow = 'Remove packages'
-                    Purpose = 'Review or remove installed packages'
+                    Purpose = 'Remove install packages'
                 }
                 [PSCustomObject]@{
                     Choice = '5'
                     Symbol = [String][Char]0x25C7
-                    Workflow = 'Dependencies'
-                    Purpose = 'Inspect dependency relationships'
+                    Workflow = 'Show package dependencies'
+                    Purpose = 'Show package dependency relationships'
                 }
                 [PSCustomObject]@{
                     Choice = '6'
                     Symbol = [String][Char]0x2193
-                    Workflow = 'Export installed'
-                    Purpose = 'Write installed package records to JSON or CSV'
+                    Workflow = 'Export packages'
+                    Purpose = 'Export installed packages to JSON or CSV'
                 }
                 [PSCustomObject]@{
                     Choice = 'Q'
                     Symbol = [String][Char]0x00D7
                     Workflow = 'Quit'
-                    Purpose = 'Exit the manager'
+                    Purpose = 'Exit the package manager'
                 }
             )
         }
@@ -1853,8 +1859,9 @@
 
             Clear-Host
             Write-PlatformPackageManagerHeader -Title 'Platform Package Manager' -Subtitle 'Cross-platform package management tools'
-            Write-PlatformPackageManagerPanelBorder -Position Top -Title 'Manage packages'
+            Write-PlatformPackageManagerPanelBorder -Position Top -Title 'PACKAGE MANAGEMENT'
             Write-PlatformPackageManagerPanelLine
+            $workflowColumnWidth = [Math]::Max(20, (@($Options | ForEach-Object { [String]$_.Workflow }) | Measure-Object -Maximum -Property Length).Maximum)
             for ($i = 0; $i -lt $Options.Count; $i++)
             {
                 if ($Options[$i].Choice -eq 'Q')
@@ -1866,10 +1873,10 @@
                 $accentColor = if ($i -eq $SelectedIndex) { 'Cyan' } else { 'DarkGray' }
                 $workflowColor = if ($i -eq $SelectedIndex) { 'Cyan' } else { 'White' }
                 Write-PlatformPackageManagerPanelLine -Segment @(
-                    [PSCustomObject]@{ Text = ('{0,-4} ' -f $marker); Color = $accentColor }
-                    [PSCustomObject]@{ Text = ('{0,-7} ' -f "[$($Options[$i].Choice)]"); Color = $accentColor }
-                    [PSCustomObject]@{ Text = ('{0,-3} ' -f $Options[$i].Symbol); Color = $accentColor }
-                    [PSCustomObject]@{ Text = ('{0,-24} ' -f $Options[$i].Workflow); Color = $workflowColor }
+                    [PSCustomObject]@{ Text = ('{0,-2} ' -f $marker); Color = $accentColor }
+                    [PSCustomObject]@{ Text = ('{0,-4} ' -f "[$($Options[$i].Choice)]"); Color = $accentColor }
+                    [PSCustomObject]@{ Text = ('{0,-2} ' -f $Options[$i].Symbol); Color = $accentColor }
+                    [PSCustomObject]@{ Text = ("{0,-$workflowColumnWidth}     " -f $Options[$i].Workflow); Color = $workflowColor }
                     [PSCustomObject]@{ Text = $Options[$i].Purpose; Color = 'DarkGray' }
                 )
             }
@@ -1995,7 +2002,8 @@
                             'b' { return '3' }
                             'e' { return '6' }
                             's' { return '2' }
-                            'i' { return '2' }
+                            'i' { return '3' }
+                            'p' { return '3' }
                             'u' { return '1' }
                             'r' { return '4' }
                             'd' { return '5' }

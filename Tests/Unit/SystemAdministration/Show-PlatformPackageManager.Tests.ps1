@@ -27,10 +27,19 @@ Describe 'Show-PlatformPackageManager' {
         $result.Count | Should-Be 0
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like "Manager: Auto $([Char]0x2192) *" } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Installed packages*' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Export installed*' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Search packages*' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { @($Object) -contains ('Search packages' + (' ' * 15)) } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Search the package registry' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Show packages*' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Show installed packages' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Remove install packages' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Export packages*' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like 'Export installed packages to JSON*' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Exit the package manager' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Direct install*' } -Times 0 -Exactly
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Dependencies*' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Show package dependencies*' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { @($Object) -contains ('Show package dependencies' + (' ' * 5)) } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like 'Show package dependency relation*' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([Char]0x2022) OPTIONS  " } -Times 0 -Exactly
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Flags: none' } -Times 0 -Exactly
         $escapeCharacter = [String][Char]27
@@ -117,7 +126,7 @@ Describe 'Show-PlatformPackageManager' {
         }
         $promptReader = & $script:NewPromptReader @()
         $keyReader = & $script:NewKeyReader @(
-            [System.ConsoleKeyInfo]::new('3', [ConsoleKey]::D3, $false, $false, $false)
+            [System.ConsoleKeyInfo]::new('p', [ConsoleKey]::P, $false, $false, $false)
             [System.ConsoleKeyInfo]::new('q', [ConsoleKey]::Q, $false, $false, $false)
         )
 
@@ -130,7 +139,7 @@ Describe 'Show-PlatformPackageManager' {
             $null -ne $KeyReader -and
             $ReturnToPlatformPackageManagerOnBackKey
         } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Installed Packages' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Show Packages' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*git*' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*gh*' } -Times 1
     }
@@ -153,7 +162,7 @@ Describe 'Show-PlatformPackageManager' {
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 2
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'INSTALLED PACKAGES / HOMEBREW' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Backspace/Delete: menu*' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Installed Packages' } -Times 0 -Exactly
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Show Packages' } -Times 0 -Exactly
     }
 
     It 'does not expose numbers outside 1-6 as valid actions' {
@@ -211,10 +220,16 @@ Describe 'Show-PlatformPackageManager' {
         $result.Count | Should-Be 0
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager Help' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) SHORTCUTS" } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'B: ' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'browse installed packages' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'P: ' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'show installed packages' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'E: ' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'export installed packages' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'export packages' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'S: ' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'search packages' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) ABOUT" } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq '  Project: jonlabelle/pwsh-profile' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq '  Issue reports and enhancement requests:' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq '  https://github.com/jonlabelle/pwsh-profile/issues' } -Times 1
     }
 
     It 'routes installed package export through Show-InstalledPlatformPackage from the manager shortcut' {
@@ -248,7 +263,7 @@ Describe 'Show-PlatformPackageManager' {
             $null -ne $ExportCancelRequested -and
             $NonInteractive
         } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Export Installed Packages' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Export Packages' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Export completed.' } -Times 1
     }
 
@@ -679,7 +694,7 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager apt -PromptReader $promptReader)
 
         $result.Count | Should-Be 0
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Search and Install Packages' } -Times 0 -Exactly
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Search Packages' } -Times 0 -Exactly
     }
 
     It 'returns directly to the menu without a result screen when no packages are selected in the picker' {
@@ -702,7 +717,7 @@ Describe 'Show-PlatformPackageManager' {
 
         $result.Count | Should-Be 0
         Should-Invoke -CommandName Install-PlatformPackage -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Search and Install Packages' } -Times 0 -Exactly
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Search Packages' } -Times 0 -Exactly
     }
 
     It 'shows a notification in the menu when search returns no matches' {
@@ -870,6 +885,6 @@ Describe 'Show-PlatformPackageManager' {
 
         $result.Count | Should-Be 0
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Package Dependencies' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Show Package Dependencies' } -Times 1
     }
 }

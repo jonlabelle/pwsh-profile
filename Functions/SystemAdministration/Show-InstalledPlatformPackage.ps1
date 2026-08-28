@@ -1881,7 +1881,7 @@ function Show-InstalledPlatformPackage
                     while ($true)
                     {
                         Clear-Host
-                        Write-PackageThemeText 'Export installed packages' -ForegroundColor Cyan
+                        Write-PackageThemeText 'Export packages' -ForegroundColor Cyan
                         Write-PackageThemeText ''
                         Write-PackageThemeText "Scope: $ScopeDescription" -ForegroundColor White
                         Write-PackageThemeText 'Formats: .json and .csv are supported. The format is inferred from the file extension.' -ForegroundColor DarkGray
@@ -2034,7 +2034,7 @@ function Show-InstalledPlatformPackage
                     while ($true)
                     {
                         Clear-Host
-                        Write-PackageThemeText 'Export installed packages' -ForegroundColor Cyan
+                        Write-PackageThemeText 'Export packages' -ForegroundColor Cyan
                         Write-PackageThemeText ''
                         Write-PackageThemeText "Scope: $ScopeDescription" -ForegroundColor White
                         Write-PackageThemeText "Format: $Format" -ForegroundColor White
