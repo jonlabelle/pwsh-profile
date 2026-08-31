@@ -994,7 +994,7 @@ function Show-InstalledPlatformPackage
                         }
 
                         # Reserve the fixed picker chrome, including the rounded top and bottom borders.
-                        $reservedRows = 25
+                        $reservedRows = 19
                         return [Math]::Min([Math]::Max(1, $windowHeight - $reservedRows), [Math]::Max(1, $ItemCount))
                     }
                 }
@@ -1360,44 +1360,19 @@ function Show-InstalledPlatformPackage
             {
                 param(
                     [Parameter()]
-                    [Object[]]$Lines = @(),
+                    [Object[]]$HeaderLines = @(),
+
+                    [Parameter()]
+                    [Object[]]$BodyLines = @(),
+
+                    [Parameter()]
+                    [Object[]]$FooterLines = @(),
 
                     [Parameter()]
                     [Switch]$MeasureOnly
                 )
 
                 $boxVertical = [String][Char]0x2502
-                $statusDot = [String][Char]0x25CF
-
-                $controlIndex = -1
-                for ($lineIndex = 0; $lineIndex -lt $Lines.Count; $lineIndex++)
-                {
-                    if ((Get-PickerFrameLineText -Line $Lines[$lineIndex]) -eq "$statusDot CONTROLS")
-                    {
-                        $controlIndex = $lineIndex
-                        break
-                    }
-                }
-
-                $headerLines = if ($controlIndex -gt 0) { @($Lines[0..($controlIndex - 1)]) } else { @($Lines | Select-Object -First 2) }
-                $footerLines = @()
-                $bodyStartIndex = $headerLines.Count
-                if ($controlIndex -ge 0)
-                {
-                    $bodyStartIndex = $Lines.Count
-                    for ($lineIndex = $controlIndex + 1; $lineIndex -lt $Lines.Count; $lineIndex++)
-                    {
-                        if ([String]::IsNullOrEmpty((Get-PickerFrameLineText -Line $Lines[$lineIndex])))
-                        {
-                            $bodyStartIndex = $lineIndex + 1
-                            break
-                        }
-
-                        $footerLines += $Lines[$lineIndex]
-                    }
-                }
-
-                $bodyLines = if ($bodyStartIndex -lt $Lines.Count) { @($Lines[$bodyStartIndex..($Lines.Count - 1)]) } else { @() }
 
                 $currentBufferWidth = Get-PickerConsoleBufferWidth
                 if ($currentBufferWidth -gt 0)
@@ -1413,7 +1388,7 @@ function Show-InstalledPlatformPackage
 
                 $contentWidth = [Math]::Max(1, $frameWidth - 4)
                 $minimumLineCount = if ($MeasureOnly) { 0 } else { $pickerRenderState.RenderedLineCount }
-                $outputLines = @(ConvertToPlatformPackagePickerLayout -HeaderLines $headerLines -BodyLines $bodyLines -FooterLines $footerLines -FrameWidth $frameWidth -MinimumLineCount $minimumLineCount -AllowWidthExpansion:(-not $pickerRenderState.UseInPlaceRedraw))
+                $outputLines = @(ConvertToPlatformPackagePickerLayout -HeaderLines $HeaderLines -BodyLines $BodyLines -FooterLines $FooterLines -FrameWidth $frameWidth -MinimumLineCount $minimumLineCount -AllowWidthExpansion:(-not $pickerRenderState.UseInPlaceRedraw))
                 $frameWidth = $outputLines[0].Text.Length
                 $contentWidth = $frameWidth - 4
 
@@ -1488,7 +1463,7 @@ function Show-InstalledPlatformPackage
                 catch
                 {
                     $pickerRenderState.UseInPlaceRedraw = $false
-                    Write-PickerFrame -Lines $Lines
+                    Write-PickerFrame -HeaderLines $HeaderLines -BodyLines $BodyLines -FooterLines $FooterLines
                 }
             }
 
@@ -2420,9 +2395,11 @@ function Show-InstalledPlatformPackage
                     -not $wingetDescriptionAttempted.ContainsKey($currentPackageLookupKey)
 
                     $pickerTitle = if ($isDependencySelection) { 'DEPENDENCY LOOKUP' } else { 'INSTALLED PACKAGES' }
-                    $frameLines = @(
+                    $headerLines = @(
                         (Format-PickerFrameLine -Text "$pickerTitle / $($InstalledPackages[0].PackageManagerDisplayName.ToUpperInvariant())" -ForegroundColor Cyan)
                     )
+                    $bodyLines = @()
+                    $footerLines = @()
 
                     if ($showDependencyPanel -and $null -ne $currentPackage -and $dependencyPanelPackageKey -ne $currentPackageLookupKey)
                     {
@@ -2472,17 +2449,30 @@ function Show-InstalledPlatformPackage
                             $dependencyFilterSummary += "source: $($availableSources[$sourceFilterIndex])"
                         }
 
-                        $frameLines = @(
+                        $dependencyPanelKeys = if ($isDependencySelection)
+                        {
+                            "Keys: B/Backspace/Delete/LeftArrow back  V details  ${nameFilterHint}"
+                        }
+                        else
+                        {
+                            "Keys: B/Backspace/Delete/LeftArrow back  V details  E export  ${nameFilterHint}"
+                        }
+
+                        $headerLines = @(
                             (Format-PickerFrameLine -Text "PACKAGE RELATIONSHIPS / $($InstalledPackages[0].PackageManagerDisplayName.ToUpperInvariant())" -ForegroundColor Cyan)
                             (Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount (-1) -FilterText ($dependencyFilterSummary -join "  $([char]0x00B7)  ")) -ForegroundColor White)
-                            (Format-PickerFrameLine -Text "$([char]0x25CF) CONTROLS" -ForegroundColor Cyan)
-                            (Format-PickerFrameLine -Text "Keys: B/Backspace/Delete/LeftArrow back  V details  E export  ${nameFilterHint}" -ForegroundColor DarkGray)
+                        )
+                        $footerLines = @(
+                            (Format-PickerFrameLine -Text $dependencyPanelKeys -ForegroundColor White)
                             (Format-PickerFrameLine -Text "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit" -ForegroundColor DarkGray)
+                        )
+                        $bodyLines = @(
                             (Format-PickerFrameLine -Text "$([char]0x25C7) PACKAGE DETAILS" -ForegroundColor Cyan)
-                            (Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor DarkGray)
-                            (Format-PickerFrameLine -Text ('Id: {0} | Source: {1} | Publisher: {2}' -f $currentPackage.Id, $currentSource, $currentPublisher) -ForegroundColor DarkGray)
+                            (Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor White)
+                            (Format-PickerFrameLine -Text ('Id: {0}  {1}  Source: {2}  {1}  Publisher: {3}' -f $currentPackage.Id, ([char]0x2022), $currentSource, $currentPublisher) -ForegroundColor DarkGray)
                             (Format-PickerFrameLine -Text ('Version: {0}' -f $currentVersion) -ForegroundColor DarkGray)
                             (Format-PickerFrameLine -Text ('Description: {0}' -f $currentDescription) -ForegroundColor DarkGray)
+                            ''
                             (Format-PickerFrameLine -Text "$([char]0x25C9) RELATIONSHIPS" -ForegroundColor Cyan)
                             (Format-PickerFrameLine -Text 'Dependencies [DependsOn + RequiredBy]' -ForegroundColor White)
                         )
@@ -2491,33 +2481,34 @@ function Show-InstalledPlatformPackage
                         {
                             if ($dependencySection.Direction -eq 'Resolving')
                             {
-                                $frameLines += ''
+                                $bodyLines += ''
                                 foreach ($dependencyLine in $dependencySection.Lines)
                                 {
-                                    $frameLines += Format-PickerFrameLine -Text $dependencyLine -ForegroundColor DarkGray
+                                    $bodyLines += Format-PickerFrameLine -Text $dependencyLine -ForegroundColor DarkGray
                                 }
 
                                 continue
                             }
 
-                            $frameLines += ''
-                            $frameLines += Format-PickerFrameLine -Text ("Dependencies [$($dependencySection.Direction)]") -ForegroundColor White
+                            $bodyLines += ''
+                            $bodyLines += Format-PickerFrameLine -Text ("Dependencies [$($dependencySection.Direction)]") -ForegroundColor White
 
                             if (-not [String]::IsNullOrWhiteSpace($dependencySection.Error))
                             {
-                                $frameLines += Format-PickerFrameLine -Text ("Dependency lookup failed: $($dependencySection.Error)") -ForegroundColor DarkYellow
+                                $bodyLines += Format-PickerFrameLine -Text ("Dependency lookup failed: $($dependencySection.Error)") -ForegroundColor DarkYellow
                                 continue
                             }
 
                             foreach ($dependencyLine in $dependencySection.Lines)
                             {
-                                $frameLines += $dependencyLine
+                                $bodyLines += $dependencyLine
                             }
                         }
 
-                        $frameLines += Format-PickerFrameLine -Text "$([char]0x25C8) NAVIGATION" -ForegroundColor Cyan
-                        $frameLines += Format-PickerFrameLine -Text 'Press B/Backspace/Delete/LeftArrow to return to the package list.' -ForegroundColor DarkGray
-                        Write-PickerFrame -Lines $frameLines
+                        $bodyLines += ''
+                        $bodyLines += Format-PickerFrameLine -Text "$([char]0x25C8) NAVIGATION" -ForegroundColor Cyan
+                        $bodyLines += Format-PickerFrameLine -Text 'Press B/Backspace/Delete/LeftArrow to return to the package list.' -ForegroundColor DarkGray
+                        Write-PickerFrame -HeaderLines $headerLines -BodyLines $bodyLines -FooterLines $footerLines
 
                         if ($null -ne $pendingDependencyPanelPackage)
                         {
@@ -2547,9 +2538,8 @@ function Show-InstalledPlatformPackage
                             {
                                 $filterSummary += "source: $($availableSources[$sourceFilterIndex])"
                             }
-                            $frameLines += Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedKeys.Count -FilterText ($filterSummary -join "  $([char]0x00B7)  ")) -ForegroundColor White
-                            $frameLines += Format-PickerFrameLine -Text (GetPlatformPackagePickerSelectionBar -SelectedCount $selectedKeys.Count -TotalCount $allPackages.Count) -ForegroundColor Cyan
-                            $frameLines += Format-PickerFrameLine -Text "$([char]0x25CF) CONTROLS" -ForegroundColor Cyan
+                            $headerLines += Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount $selectedKeys.Count -FilterText ($filterSummary -join "  $([char]0x00B7)  ")) -ForegroundColor White
+                            $headerLines += Format-PickerFrameLine -Text (GetPlatformPackagePickerSelectionBar -SelectedCount $selectedKeys.Count -TotalCount $allPackages.Count) -ForegroundColor Cyan
                             $selectionControls = if ($isDependencySelection)
                             {
                                 "Keys: Space select  Enter inspect  D preview  V details  A toggle all  F: [$nameFilterHintValue]"
@@ -2558,11 +2548,12 @@ function Show-InstalledPlatformPackage
                             {
                                 "Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A toggle all  F: [$nameFilterHintValue]"
                             }
-                            $frameLines += Format-PickerFrameLine -Text $selectionControls -ForegroundColor DarkGray
-                            $frameLines += Format-PickerFrameLine -Text "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit$managerNavigationHint" -ForegroundColor DarkGray
-                            $frameLines += ''
-                            $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray
-                            $frameLines += Format-PickerFrameLine -Text ('- {0} {1} {2} {3} {4} {5}' -f '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
+                            $footerLines = @(
+                                (Format-PickerFrameLine -Text $selectionControls -ForegroundColor White)
+                                (Format-PickerFrameLine -Text "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit$managerNavigationHint" -ForegroundColor DarkGray)
+                            )
+                            $bodyLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4} {5}' -f 'Sel', (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray
+                            $bodyLines += Format-PickerFrameLine -Text ('- {0} {1} {2} {3} {4} {5}' -f '---', ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
                         }
                         else
                         {
@@ -2571,20 +2562,20 @@ function Show-InstalledPlatformPackage
                             {
                                 $filterSummary += "source: $($availableSources[$sourceFilterIndex])"
                             }
-                            $frameLines += Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -FilterText ($filterSummary -join "  $([char]0x00B7)  ")) -ForegroundColor White
-                            $frameLines += Format-PickerFrameLine -Text "$([char]0x25CF) CONTROLS" -ForegroundColor Cyan
-                            $frameLines += Format-PickerFrameLine -Text "Keys: D deps  V details  E export  R remove  U upgrade  F: [$nameFilterHintValue]" -ForegroundColor DarkGray
-                            $frameLines += Format-PickerFrameLine -Text "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit$managerNavigationHint" -ForegroundColor DarkGray
-                            $frameLines += ''
-                            $frameLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4}' -f (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray
-                            $frameLines += Format-PickerFrameLine -Text ('- {0} {1} {2} {3} {4}' -f ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
+                            $headerLines += Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -FilterText ($filterSummary -join "  $([char]0x00B7)  ")) -ForegroundColor White
+                            $footerLines = @(
+                                (Format-PickerFrameLine -Text "Keys: D deps  V details  E export  R remove  U upgrade  F: [$nameFilterHintValue]" -ForegroundColor White)
+                                (Format-PickerFrameLine -Text "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit$managerNavigationHint" -ForegroundColor DarkGray)
+                            )
+                            $bodyLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4}' -f (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray
+                            $bodyLines += Format-PickerFrameLine -Text ('- {0} {1} {2} {3} {4}' -f ('-' * $nameWidth), ('-' * $idWidth), ('-' * $versionWidth), ('-' * $typeWidth), ('-' * $sourceWidth)) -ForegroundColor DarkGray
                         }
 
                         if ($visiblePackages.Count -eq 0)
                         {
                             if ([String]::IsNullOrWhiteSpace($nameFilterText))
                             {
-                                $frameLines += GetPlatformPackagePickerEmptyState -Message 'No matching packages' -Hint 'Nothing matches the current source filter.', 'Press S to cycle sources.' -FrameWidth $pickerFrameWidth
+                                $bodyLines += GetPlatformPackagePickerEmptyState -Message 'No matching packages' -Hint 'Nothing matches the current source filter.', 'Press S to cycle sources.' -FrameWidth $pickerFrameWidth
                             }
                             else
                             {
@@ -2594,9 +2585,9 @@ function Show-InstalledPlatformPackage
                                     $emptyKeys += 'S'
                                 }
 
-                                $frameLines += GetPlatformPackagePickerEmptyState -Message 'No matching packages' -Hint 'Nothing matches the active filters.', "Press $($emptyKeys -join ' or ') to adjust." -FrameWidth $pickerFrameWidth
+                                $bodyLines += GetPlatformPackagePickerEmptyState -Message 'No matching packages' -Hint 'Nothing matches the active filters.', "Press $($emptyKeys -join ' or ') to adjust." -FrameWidth $pickerFrameWidth
                             }
-                            Write-PickerFrame -Lines $frameLines
+                            Write-PickerFrame -HeaderLines $headerLines -BodyLines $bodyLines -FooterLines $footerLines
 
                             $key = Read-PackagePickerNavigationKey
                             if ($null -eq $key)
@@ -2662,19 +2653,19 @@ function Show-InstalledPlatformPackage
 
                             if ($i -eq $cursor -and $EnableSelection -and $selectedKeys.Contains($pkgKey))
                             {
-                                $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Green
+                                $bodyLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Green
                             }
                             elseif ($i -eq $cursor)
                             {
-                                $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Cyan
+                                $bodyLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Cyan
                             }
                             elseif ($EnableSelection -and $selectedKeys.Contains($pkgKey))
                             {
-                                $frameLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Green
+                                $bodyLines += Format-PickerFrameLine -Text $packageLine -ForegroundColor Green
                             }
                             else
                             {
-                                $frameLines += $packageLine
+                                $bodyLines += $packageLine
                             }
                         }
 
@@ -2702,22 +2693,24 @@ function Show-InstalledPlatformPackage
                             'n/a'
                         }
 
-                        $frameLines += Format-PickerFrameLine -Text "$([char]0x25C7) PACKAGE DETAILS" -ForegroundColor Cyan
-                        $frameLines += Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor DarkGray
-                        $frameLines += Format-PickerFrameLine -Text ('Id: {0} | Source: {1} | Publisher: {2}' -f $currentPackage.Id, $currentSource, $currentPublisher) -ForegroundColor DarkGray
-                        $frameLines += Format-PickerFrameLine -Text ('Version: {0}' -f $currentVersion) -ForegroundColor DarkGray
-                        $frameLines += Format-PickerFrameLine -Text ('Description: {0}' -f $currentDescription) -ForegroundColor DarkGray
+                        $bodyLines += ''
+                        $bodyLines += Format-PickerFrameLine -Text "$([char]0x25C7) PACKAGE DETAILS" -ForegroundColor Cyan
+                        $bodyLines += Format-PickerFrameLine -Text ('Current: {0}' -f $currentPackage.Name) -ForegroundColor White
+                        $bodyLines += Format-PickerFrameLine -Text ('Id: {0}  {1}  Source: {2}  {1}  Publisher: {3}' -f $currentPackage.Id, ([char]0x2022), $currentSource, $currentPublisher) -ForegroundColor DarkGray
+                        $bodyLines += Format-PickerFrameLine -Text ('Version: {0}' -f $currentVersion) -ForegroundColor DarkGray
+                        $bodyLines += Format-PickerFrameLine -Text ('Description: {0}' -f $currentDescription) -ForegroundColor DarkGray
 
                         if (-not [String]::IsNullOrWhiteSpace($actionStatus))
                         {
-                            $frameLines += Format-PickerFrameLine -Text "$([char]0x25CF) STATUS" -ForegroundColor Cyan
-                            $frameLines += Format-PickerFrameLine -Text ("Status: $actionStatus") -ForegroundColor $actionStatusColor
+                            $bodyLines += ''
+                            $bodyLines += Format-PickerFrameLine -Text "$([char]0x25CF) STATUS" -ForegroundColor Cyan
+                            $bodyLines += Format-PickerFrameLine -Text ("Status: $actionStatus") -ForegroundColor $actionStatusColor
                         }
 
                         if ($requestedPageSize -le 0)
                         {
                             # Measure the fully wrapped frame before drawing so automatic paging fills the window.
-                            $renderedLineCount = Write-PickerFrame -Lines $frameLines -MeasureOnly
+                            $renderedLineCount = Write-PickerFrame -HeaderLines $headerLines -BodyLines $bodyLines -FooterLines $footerLines -MeasureOnly
                             $adjustedPageSize = Get-PackagePickerPageSize -RequestedPageSize $requestedPageSize -ItemCount $visiblePackages.Count -CurrentPageSize $pageSize -RenderedLineCount $renderedLineCount
                             if ($adjustedPageSize -ne $pageSize)
                             {
@@ -2726,7 +2719,7 @@ function Show-InstalledPlatformPackage
                             }
                         }
 
-                        Write-PickerFrame -Lines $frameLines
+                        Write-PickerFrame -HeaderLines $headerLines -BodyLines $bodyLines -FooterLines $footerLines
                     }
 
                     if ($isCurrentWingetDescriptionPending)
@@ -3101,7 +3094,8 @@ function Show-InstalledPlatformPackage
         if ($installedPackages.Count -eq 0)
         {
             $hasInputFilter = $Name.Count -gt 0 -or $ExcludePackage.Count -gt 0 -or -not [String]::IsNullOrWhiteSpace($FilterSource)
-            Write-PackageThemeText (if ($hasInputFilter) { 'No installed packages matched the requested filters.' } else { 'No installed packages found.' }) -ForegroundColor White
+            $emptyMessage = if ($hasInputFilter) { 'No installed packages matched the requested filters.' } else { 'No installed packages found.' }
+            Write-PackageThemeText $emptyMessage -ForegroundColor White
             return @()
         }
 
