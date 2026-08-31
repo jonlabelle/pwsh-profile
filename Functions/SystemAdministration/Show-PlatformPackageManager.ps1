@@ -1809,7 +1809,7 @@
                     Choice = '2'
                     Symbol = '+'
                     Workflow = 'Search packages'
-                    Purpose = 'Search the package registry'
+                    Purpose = 'Search and optionally install packages'
                 }
                 [PSCustomObject]@{
                     Choice = '3'
@@ -1821,7 +1821,7 @@
                     Choice = '4'
                     Symbol = [String][Char]0x2212
                     Workflow = 'Remove packages'
-                    Purpose = 'Remove install packages'
+                    Purpose = 'Remove installed packages'
                 }
                 [PSCustomObject]@{
                     Choice = '5'

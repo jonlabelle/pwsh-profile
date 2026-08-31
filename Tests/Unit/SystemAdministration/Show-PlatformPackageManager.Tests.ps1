@@ -29,10 +29,10 @@ Describe 'Show-PlatformPackageManager' {
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like "Manager: Auto $([Char]0x2192) *" } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Search packages*' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { @($Object) -contains ('Search packages' + (' ' * 15)) } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Search the package registry' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Search and optionally install packages' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Show packages*' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Show installed packages' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Remove install packages' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Remove installed packages' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Export packages*' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like 'Export installed packages to JSON*' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Exit the package manager' } -Times 1
