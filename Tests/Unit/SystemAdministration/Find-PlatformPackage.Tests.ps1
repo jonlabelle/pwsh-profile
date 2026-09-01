@@ -339,7 +339,7 @@ Describe 'Find-PlatformPackage' {
             $result = @(Find-PlatformPackage -PackageManager brew -CommandRunner $runner -QueryReader $queryReader -KeyReader $keyReader)
 
             $result.Count | Should-Be 0
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like "*$([char]0x25CF) CONTROLS*" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*CONTROLS*' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25C7) PACKAGE DETAILS" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Registry query: git' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Space select  I install  V details  A toggle all' } -Times 1

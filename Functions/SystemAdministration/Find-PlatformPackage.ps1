@@ -2419,7 +2419,7 @@ function Find-PlatformPackage
                     }
                     else
                     {
-                        $titleToken = " $statusDot $($Title.ToUpperInvariant()) "
+                        $titleToken = " $($Title.ToUpperInvariant()) "
                         $ruleWidth = [Math]::Max(0, $frameWidth - $titleToken.Length - 3)
                         $boxTopLeft + $boxHorizontal + $titleToken + ($boxHorizontal * $ruleWidth) + $boxTopRight
                     }

@@ -166,7 +166,7 @@ function ConvertToPlatformPackagePickerLayout
         }
         else
         {
-            $titleToken = " $statusDot $($Title.ToUpperInvariant()) "
+            $titleToken = " $($Title.ToUpperInvariant()) "
             $ruleWidth = [Math]::Max(0, $FrameWidth - $titleToken.Length - 3)
             $topLeft + $horizontal + $titleToken + ($horizontal * $ruleWidth) + $topRight
         }

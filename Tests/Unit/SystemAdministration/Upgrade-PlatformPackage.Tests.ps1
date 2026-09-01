@@ -451,7 +451,7 @@ $result = Upgrade-PlatformPackage -PackageManager brew -CommandPathOverrides @{ 
             $result.NotSelected | Should-Be 1
             $result.Upgraded | Should-Be 0
             @($script:Invocations | Where-Object { $_.Key -eq 'brew upgrade git' }).Count | Should-Be 0
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like "*$([char]0x25CF) CONTROLS*" } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*CONTROLS*' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25C7) PACKAGE DETAILS" } -Times 1
         }
 

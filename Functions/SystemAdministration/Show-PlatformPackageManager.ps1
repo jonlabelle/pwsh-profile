@@ -219,7 +219,7 @@
                 return
             }
 
-            $titleToken = " $packageThemeStatus $($Title.ToUpperInvariant()) "
+            $titleToken = " $($Title.ToUpperInvariant()) "
             $titleToken = $titleToken.Substring(0, [Math]::Min($titleToken.Length, $width - 4))
             $ruleWidth = [Math]::Max(0, $width - $titleToken.Length - 3)
             Write-PackageThemeText ($packageThemeTopLeft + $packageThemeHorizontal + $titleToken + ($packageThemeHorizontal * $ruleWidth) + $packageThemeTopRight) -ForegroundColor Cyan
