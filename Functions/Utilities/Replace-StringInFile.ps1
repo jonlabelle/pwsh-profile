@@ -77,6 +77,10 @@ function Replace-StringInFile
     .PARAMETER Backup
         Create a backup of the original file with a .bak extension before making changes.
 
+    .PARAMETER Filter
+        One or more wildcard file-name patterns used when Path identifies a directory.
+        Directory searches are non-recursive. Explicit file paths are not restricted by Filter.
+
     .PARAMETER Encoding
         The file encoding to use when reading and writing files.
         When set to 'Auto' (default), the original file encoding is automatically detected and preserved.
@@ -339,6 +343,11 @@ function Replace-StringInFile
         Matches patterns like AB123456, CA98765432 (passport/license numbers).
         Use -WhatIf to verify patterns before making changes.
 
+    .EXAMPLE
+        PS > Replace-StringInFile -Path ./logs -Filter '*.log', '*.txt' -OldString 'debug' -NewString 'trace' -CaseInsensitive -WhatIf
+
+        Previews replacements in log and text files directly under the logs directory.
+
     .OUTPUTS
         PSCustomObject with details about each file processed, including:
         - FilePath: Full path to the file
@@ -391,6 +400,10 @@ function Replace-StringInFile
 
         [Parameter()]
         [Switch]$Backup,
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [String[]]$Filter,
 
         [Parameter()]
         [ValidateSet('Auto', 'UTF8', 'UTF8BOM', 'UTF16LE', 'UTF16BE', 'UTF32', 'UTF32BE', 'ASCII', 'ANSI')]
@@ -625,6 +638,57 @@ function Replace-StringInFile
             return 'Mixed Case'
         }
 
+        function Resolve-ReplacementFile
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$InputPath,
+
+                [String[]]$FilterPatterns
+            )
+
+            # Resolve wildcards and relative paths
+            $resolvedPaths = Resolve-Path -Path $InputPath -ErrorAction Stop
+
+            foreach ($resolvedPath in $resolvedPaths)
+            {
+                $item = Get-Item -LiteralPath $resolvedPath.Path -ErrorAction Stop
+
+                if ($item.PSIsContainer)
+                {
+                    if (-not $FilterPatterns)
+                    {
+                        Write-Verbose "Skipping directory: $($item.FullName)"
+                        continue
+                    }
+
+                    $seenDirectoryFiles = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+                    foreach ($filterPattern in $FilterPatterns)
+                    {
+                        $childItemParameters = @{
+                            LiteralPath = $item.FullName
+                            Filter = $filterPattern
+                            File = $true
+                            Force = $true
+                            ErrorAction = 'SilentlyContinue'
+                        }
+
+                        foreach ($candidateFile in (Get-ChildItem @childItemParameters))
+                        {
+                            if ($seenDirectoryFiles.Add($candidateFile.FullName))
+                            {
+                                $candidateFile
+                            }
+                        }
+                    }
+
+                    continue
+                }
+
+                $item
+            }
+        }
+
         # Validate parameter combinations
         if ($PreserveCase -and $Regex)
         {
@@ -681,20 +745,8 @@ function Replace-StringInFile
         {
             try
             {
-                # Resolve wildcards and relative paths
-                $resolvedPaths = Resolve-Path -Path $filePath -ErrorAction Stop
-
-                foreach ($resolvedPath in $resolvedPaths)
+                foreach ($file in (Resolve-ReplacementFile -InputPath $filePath -FilterPatterns $Filter))
                 {
-                    $file = Get-Item -Path $resolvedPath.Path -ErrorAction Stop
-
-                    # Skip directories
-                    if ($file.PSIsContainer)
-                    {
-                        Write-Verbose "Skipping directory: $($file.FullName)"
-                        continue
-                    }
-
                     Write-Verbose "Processing file: $($file.FullName)"
 
                     # Always auto-detect the source encoding for reading

@@ -46,6 +46,12 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
             'test content' | Set-Content -Path $testFile -NoNewline
             { $testFile | Replace-StringInFile -OldString 'test' -NewString 'new' -ErrorAction Stop } | Should -Not -Throw
         }
+
+        It 'Should have optional Filter string array parameter' {
+            $command = Get-Command Replace-StringInFile
+            $command.Parameters['Filter'].ParameterType | Should-Be ([String[]])
+            $command.Parameters['Filter'].Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateNotNullOrEmptyAttribute] } | Should -Not -BeNullOrEmpty
+        }
     }
 
     Context 'Basic String Replacement' {
@@ -222,6 +228,34 @@ Describe 'Replace-StringInFile' -Tag 'Unit' {
             (Get-Content -Path $file1 -Raw) | Should-Be 'bar'
             (Get-Content -Path $file2 -Raw) | Should-Be 'bar'
             (Get-Content -Path $file3 -Raw) | Should-Be 'foo'
+        }
+
+        It 'Should process directory files matching -Filter' {
+            $file1 = Join-Path -Path $script:testDir -ChildPath 'app.txt'
+            $file2 = Join-Path -Path $script:testDir -ChildPath 'script.ps1'
+            $file3 = Join-Path -Path $script:testDir -ChildPath 'notes.md'
+            'foo' | Set-Content -Path $file1 -NoNewline
+            'foo' | Set-Content -Path $file2 -NoNewline
+            'foo' | Set-Content -Path $file3 -NoNewline
+
+            $results = @(Replace-StringInFile -Path $script:testDir -Filter '*.txt', '*.ps1' -OldString 'foo' -NewString 'bar')
+
+            $results.Count | Should-Be 2
+            $results.FilePath | Should-ContainCollection $file1
+            $results.FilePath | Should-ContainCollection $file2
+            (Get-Content -Path $file1 -Raw) | Should-Be 'bar'
+            (Get-Content -Path $file2 -Raw) | Should-Be 'bar'
+            (Get-Content -Path $file3 -Raw) | Should-Be 'foo'
+        }
+
+        It 'Should not apply -Filter to explicit file paths' {
+            $file = Join-Path -Path $script:testDir -ChildPath 'app.log'
+            'foo' | Set-Content -Path $file -NoNewline
+
+            $result = Replace-StringInFile -Path $file -Filter '*.txt' -OldString 'foo' -NewString 'bar'
+
+            $result.MatchCount | Should-Be 1
+            (Get-Content -Path $file -Raw) | Should-Be 'bar'
         }
     }
 

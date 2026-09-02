@@ -57,6 +57,12 @@ Describe 'Search-FileContent' {
             $command.Parameters['Recurse'].SwitchParameter | Should-BeTruthy
         }
 
+        It 'Should have optional Filter string array parameter' {
+            $command = Get-Command Search-FileContent
+            $command.Parameters['Filter'].ParameterType | Should-Be ([String[]])
+            $command.Parameters['Filter'].Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateNotNullOrEmptyAttribute] } | Should -Not -BeNullOrEmpty
+        }
+
         It 'Should validate Context parameter range' {
             $command = Get-Command Search-FileContent
             $contextParam = $command.Parameters['Context']
@@ -298,6 +304,20 @@ Line 9
         It 'Should search all files when no filter specified' {
             $results = Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple
             $results.Count | Should-Be 4
+        }
+
+        It 'Should filter directory files with -Filter parameter' {
+            $results = @(Search-FileContent -Pattern 'MATCH' -Path $script:testDir -Simple -Filter '*.txt', '*.ps1')
+            $results.Count | Should-Be 2
+            $results.Path | Should-ContainCollection (Join-Path -Path $script:testDir -ChildPath 'file1.txt')
+            $results.Path | Should-ContainCollection (Join-Path -Path $script:testDir -ChildPath 'file2.ps1')
+        }
+
+        It 'Should not apply -Filter to explicit file paths' {
+            $explicitFile = Join-Path -Path $script:testDir -ChildPath 'file3.log'
+            $results = @(Search-FileContent -Pattern 'MATCH' -Path $explicitFile -Simple -Filter '*.txt')
+            $results.Count | Should-Be 1
+            $results[0].Path | Should-Be $explicitFile
         }
 
         It 'Should filter files with -Include parameter' {

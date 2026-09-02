@@ -64,6 +64,10 @@ function Search-FileContent
         File name patterns to include (e.g., '*.ps1', '*.txt').
         Supports multiple patterns as an array.
 
+    .PARAMETER Filter
+        File name patterns to search when Path identifies a directory (e.g., '*.ps1', '*.txt').
+        Supports multiple patterns as an array. Explicit file paths are not restricted by Filter.
+
     .PARAMETER Exclude
         File name patterns to exclude (e.g., '*.log', 'temp*').
         Supports multiple patterns as an array.
@@ -157,6 +161,11 @@ function Search-FileContent
 
         Searches for 'TODO' in PowerShell files with 2 lines of context before and after.
         Context lines are shown with '-' and matches with ':' after line numbers.
+
+    .EXAMPLE
+        PS > Search-FileContent -Pattern 'TODO' -Path ./src -Filter '*.ps1', '*.psm1'
+
+        Searches only PowerShell script and module files in the top-level src directory.
 
     .EXAMPLE
         PS > Search-FileContent -Pattern 'error' -Path ./logs -CaseInsensitive -CountOnly -Recurse
@@ -307,6 +316,10 @@ function Search-FileContent
 
         [Parameter()]
         [String[]]$Include,
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [String[]]$Filter,
 
         [Parameter()]
         [String[]]$Exclude,
@@ -638,6 +651,7 @@ function Search-FileContent
             param(
                 [String]$SearchPath,
                 [String[]]$IncludePatterns,
+                [String[]]$FilterPatterns,
                 [String[]]$ExcludePatterns,
                 [String[]]$ExcludeDirs,
                 [Int]$Depth,
@@ -680,6 +694,25 @@ function Search-FileContent
                 foreach ($candidateFile in $files)
                 {
                     $fileName = $candidateFile.Name
+
+                    # Apply directory file-name filter.
+                    if ($FilterPatterns)
+                    {
+                        $filterMatch = $false
+                        foreach ($pattern in $FilterPatterns)
+                        {
+                            if ($fileName -like $pattern)
+                            {
+                                $filterMatch = $true
+                                break
+                            }
+                        }
+
+                        if (-not $filterMatch)
+                        {
+                            continue
+                        }
+                    }
 
                     # Apply include filter.
                     if ($IncludePatterns)
@@ -1009,6 +1042,7 @@ function Search-FileContent
         {
             $files = Get-SearchFile -SearchPath $pathItem `
                 -IncludePatterns $Include `
+                -FilterPatterns $Filter `
                 -ExcludePatterns $Exclude `
                 -ExcludeDirs $ExcludeDirectory `
                 -Depth $MaxDepth `
