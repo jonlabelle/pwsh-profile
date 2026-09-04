@@ -424,7 +424,6 @@
 
     .NOTES
         CONTINUOUS MODE:
-        - Timestamps are shown for each refresh cycle: [HH:mm:ss] Refresh #N
         - Continuous mode is the default behavior
         - Use '-Continuous:$false' for a single-run diagnostic
         - Set '-Interval' to control seconds between refreshes (default: 5)
@@ -923,7 +922,7 @@
                 {
                     return $linesPrintedLocal
                 }
-                return ''
+                return
             }
 
             # Capture thresholds once at the start to avoid scope issues in nested functions
@@ -1264,7 +1263,7 @@
             {
                 return $linesPrintedLocal
             }
-            return ''
+            return
         }
     }
 
@@ -1308,7 +1307,7 @@
         # Main test loop
         $iteration = 0
         $previousMetricsByKey = @{}
-        $lastRenderLines = 0
+        $useAlternateScreen = $Continuous -and $ansiSupported -and ($RenderMode -in 'Auto', 'InPlace')
         $canClearHost = $true
         try
         {
@@ -1333,56 +1332,118 @@
         }
 
         $quitRequested = $false
-        do
+        if ($useAlternateScreen)
         {
-            $iteration++
+            $esc = [char]27
+            [Console]::Write("$esc[?1049h$esc[2J$esc[H")
+            [Console]::Out.Flush()
+        }
 
-            $effectiveRender = switch ($RenderMode)
+        try
+        {
+            do
             {
-                'InPlace'
+                $iteration++
+
+                $effectiveRender = switch ($RenderMode)
                 {
-                    if ($ansiSupported) { 'InPlace' } else { 'Clear' }  # Fall back to Clear if ANSI not supported
+                    'InPlace'
+                    {
+                        if ($ansiSupported) { 'InPlace' } else { 'Clear' }  # Fall back to Clear if ANSI not supported
+                    }
+                    'Clear' { 'Clear' }
+                    'Stack' { 'Stack' }
+                    default
+                    {
+                        # Auto mode: prefer InPlace if ANSI is supported, otherwise Clear (not Stack)
+                        if ($ansiSupported) { 'InPlace' } else { 'Clear' }
+                    }
                 }
-                'Clear' { 'Clear' }
-                'Stack' { 'Stack' }
-                default
+
+                Write-Verbose "Render mode: $RenderMode -> $effectiveRender (ANSI: $ansiSupported)"
+
+                # Collect metrics for all hosts FIRST, before any display changes
+                $results = [System.Collections.Generic.List[Object]]::new()
+                $useParallel = ($PSVersionTable.PSVersion.Major -ge 7 -and $allHosts.Count -gt 1)
+                if ($useParallel)
                 {
-                    # Auto mode: prefer InPlace if ANSI is supported, otherwise Clear (not Stack)
-                    if ($ansiSupported) { 'InPlace' } else { 'Clear' }
-                }
-            }
+                    Write-Verbose "Collecting metrics in parallel (ThrottleLimit=$ThrottleLimit)"
+                    $indexedHosts = for ($i = 0; $i -lt $allHosts.Count; $i++) { [PSCustomObject]@{ HostName = $allHosts[$i]; Index = $i } }
 
-            Write-Verbose "Render mode: $RenderMode -> $effectiveRender (ANSI: $ansiSupported)"
+                    # Use pipeline with proper completion waiting
+                    $parallelResults = @($indexedHosts | ForEach-Object -Parallel {
+                            $hostEntry = $_
 
-            # Collect metrics for all hosts FIRST, before any display changes
-            $results = [System.Collections.Generic.List[Object]]::new()
-            $useParallel = ($PSVersionTable.PSVersion.Major -ge 7 -and $allHosts.Count -gt 1)
-            if ($useParallel)
-            {
-                Write-Verbose "Collecting metrics in parallel (ThrottleLimit=$ThrottleLimit)"
-                $indexedHosts = for ($i = 0; $i -lt $allHosts.Count; $i++) { [PSCustomObject]@{ HostName = $allHosts[$i]; Index = $i } }
-
-                # Use pipeline with proper completion waiting
-                $parallelResults = @($indexedHosts | ForEach-Object -Parallel {
-                        $hostEntry = $_
-
-                        # Each parallel runspace starts clean; ensure the dependency is loaded locally using the captured path
-                        if (-not (Get-Command -Name 'Get-NetworkMetric' -ErrorAction SilentlyContinue) -and $using:MetricsPath)
-                        {
-                            try { . $using:MetricsPath } catch
+                            # Each parallel runspace starts clean; ensure the dependency is loaded locally using the captured path
+                            if (-not (Get-Command -Name 'Get-NetworkMetric' -ErrorAction SilentlyContinue) -and $using:MetricsPath)
                             {
-                                throw "Failed to load required dependency 'Get-NetworkMetric' from '$using:MetricsPath': $($_.Exception.Message)"
+                                try { . $using:MetricsPath } catch
+                                {
+                                    throw "Failed to load required dependency 'Get-NetworkMetric' from '$using:MetricsPath': $($_.Exception.Message)"
+                                }
                             }
-                        }
 
-                        $buildFailure = {
-                            param($name, $port, $count)
-                            [PSCustomObject]@{
-                                HostName = $name
-                                Port = $port
-                                SamplesTotal = $count
+                            $buildFailure = {
+                                param($name, $port, $count)
+                                [PSCustomObject]@{
+                                    HostName = $name
+                                    Port = $port
+                                    SamplesTotal = $count
+                                    SamplesSuccess = 0
+                                    SamplesFailure = $count
+                                    PacketLoss = 100
+                                    LatencyMin = $null
+                                    LatencyMax = $null
+                                    LatencyAvg = $null
+                                    Jitter = $null
+                                    DnsResolution = $null
+                                    LatencyData = @()
+                                    Timestamp = Get-Date
+                                }
+                            }
+
+                            $sw = [System.Diagnostics.Stopwatch]::StartNew()
+                            $metrics = $null
+                            try
+                            {
+                                $metrics = Get-NetworkMetric -HostName $hostEntry.HostName -Count $using:Count -Timeout $using:Timeout -Port $using:Port -IncludeDns:$using:IncludeDns -SampleDelayMilliseconds $using:SampleDelayMilliseconds
+                            }
+                            catch
+                            {
+                                $metrics = & $buildFailure $hostEntry.HostName $using:Port $using:Count
+                            }
+                            $sw.Stop()
+                            Add-Member -InputObject $metrics -NotePropertyName 'ElapsedMs' -NotePropertyValue ([Math]::Round($sw.Elapsed.TotalMilliseconds, 2)) -Force
+                            [PSCustomObject]@{ Index = $hostEntry.Index; Metrics = $metrics }
+                        } -ThrottleLimit $ThrottleLimit)
+
+                    # Wait for all parallel jobs to complete and sort results by index to maintain host order
+                    $results = @($parallelResults | Sort-Object Index | ForEach-Object { $_.Metrics })
+
+                    # Ensure all parallel outputs are flushed
+                    [Console]::Out.Flush()
+                    [Console]::Error.Flush()
+                    Start-Sleep -Milliseconds 50
+                }
+                else
+                {
+                    foreach ($hostTarget in $allHosts)
+                    {
+                        Write-Verbose "Collecting metrics for $hostTarget"
+                        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+
+                        try
+                        {
+                            $metrics = Get-NetworkMetric -HostName $hostTarget -Count $Count -Timeout $Timeout -Port $Port -IncludeDns:$IncludeDns -SampleDelayMilliseconds $SampleDelayMilliseconds
+                        }
+                        catch
+                        {
+                            $metrics = [PSCustomObject]@{
+                                HostName = $hostTarget
+                                Port = $Port
+                                SamplesTotal = $Count
                                 SamplesSuccess = 0
-                                SamplesFailure = $count
+                                SamplesFailure = $Count
                                 PacketLoss = 100
                                 LatencyMin = $null
                                 LatencyMax = $null
@@ -1393,219 +1454,148 @@
                                 Timestamp = Get-Date
                             }
                         }
-
-                        $sw = [System.Diagnostics.Stopwatch]::StartNew()
-                        $metrics = $null
-                        try
-                        {
-                            $metrics = Get-NetworkMetric -HostName $hostEntry.HostName -Count $using:Count -Timeout $using:Timeout -Port $using:Port -IncludeDns:$using:IncludeDns -SampleDelayMilliseconds $using:SampleDelayMilliseconds
-                        }
-                        catch
-                        {
-                            $metrics = & $buildFailure $hostEntry.HostName $using:Port $using:Count
-                        }
                         $sw.Stop()
                         Add-Member -InputObject $metrics -NotePropertyName 'ElapsedMs' -NotePropertyValue ([Math]::Round($sw.Elapsed.TotalMilliseconds, 2)) -Force
-                        [PSCustomObject]@{ Index = $hostEntry.Index; Metrics = $metrics }
-                    } -ThrottleLimit $ThrottleLimit)
 
-                # Wait for all parallel jobs to complete and sort results by index to maintain host order
-                $results = @($parallelResults | Sort-Object Index | ForEach-Object { $_.Metrics })
-
-                # Ensure all parallel outputs are flushed
-                [Console]::Out.Flush()
-                [Console]::Error.Flush()
-                Start-Sleep -Milliseconds 50
-            }
-            else
-            {
-                foreach ($hostTarget in $allHosts)
-                {
-                    Write-Verbose "Collecting metrics for $hostTarget"
-                    $sw = [System.Diagnostics.Stopwatch]::StartNew()
-
-                    try
-                    {
-                        $metrics = Get-NetworkMetric -HostName $hostTarget -Count $Count -Timeout $Timeout -Port $Port -IncludeDns:$IncludeDns -SampleDelayMilliseconds $SampleDelayMilliseconds
-                    }
-                    catch
-                    {
-                        $metrics = [PSCustomObject]@{
-                            HostName = $hostTarget
-                            Port = $Port
-                            SamplesTotal = $Count
-                            SamplesSuccess = 0
-                            SamplesFailure = $Count
-                            PacketLoss = 100
-                            LatencyMin = $null
-                            LatencyMax = $null
-                            LatencyAvg = $null
-                            Jitter = $null
-                            DnsResolution = $null
-                            LatencyData = @()
-                            Timestamp = Get-Date
-                        }
-                    }
-                    $sw.Stop()
-                    Add-Member -InputObject $metrics -NotePropertyName 'ElapsedMs' -NotePropertyValue ([Math]::Round($sw.Elapsed.TotalMilliseconds, 2)) -Force
-
-                    $results.Add($metrics)
-                }
-            }
-
-            # NOW that we have all the data, handle the display refresh
-            if ($Continuous)
-            {
-                # For parallel execution, add extra synchronization to prevent mixed output
-                if ($useParallel)
-                {
-                    # Allow any background output to complete
-                    [Console]::Out.Flush()
-                    [Console]::Error.Flush()
-                    Start-Sleep -Milliseconds 200
-                }
-
-                if ($effectiveRender -eq 'Clear' -and $iteration -gt 1)
-                {
-                    if ($canClearHost)
-                    {
-                        try
-                        {
-                            Clear-Host
-                        }
-                        catch
-                        {
-                            $canClearHost = $false
-                            Write-Verbose "Clear-Host is not available in this session; continuing without clearing: $($_.Exception.Message)"
-                        }
+                        $results.Add($metrics)
                     }
                 }
-                elseif ($effectiveRender -eq 'InPlace' -and $iteration -gt 1 -and $lastRenderLines -gt 0)
+
+                # NOW that we have all the data, handle the display refresh
+                if ($Continuous)
                 {
-                    # Move up exactly the previously-rendered block and clear down.
-                    [Console]::Out.Flush()
-                    [Console]::Error.Flush()
-                    Start-Sleep -Milliseconds 150
-
-                    $esc = [char]27
-                    $moveUpLines = [Math]::Max(1, $lastRenderLines)
-                    $upSequence = "$esc[{0}A" -f $moveUpLines
-                    $clearSequence = "$esc[0J"
-                    [Console]::Write($upSequence + $clearSequence)
-                    [Console]::Out.Flush()
-                }
-
-                # Print a single header line each refresh with timestamp and iteration.
-                $timestamp = (Get-Date).ToString('HH:mm:ss')
-                $headerRule = ([string][char]0x2550) * 3
-                Write-DiagnosticHost "$headerRule " -ForegroundColor DarkGray -NoNewline
-                Write-DiagnosticHost 'Network Diagnostic - Continuous Mode' -ForegroundColor White -NoNewline
-                Write-DiagnosticHost " $headerRule " -ForegroundColor DarkGray -NoNewline
-                Write-DiagnosticHost "[$timestamp]" -ForegroundColor Cyan -NoNewline
-                Write-DiagnosticHost ' ' -NoNewline
-                Write-DiagnosticHost "Refresh #$iteration" -ForegroundColor White
-                Write-DiagnosticHost
-            }
-            $linesPrinted = if ($Continuous) { 2 } else { 0 }
-
-            # Ensure we have a non-null collection for formatting
-            $results = @($results | Where-Object { $null -ne $_ })
-
-            # Display formatted output
-            $countOut = Format-DiagnosticOutput -Results $results `
-                -ReturnLineCount:([bool]$Continuous) `
-                -InPlace:([bool]$Continuous -and $effectiveRender -eq 'InPlace') `
-                -SummaryOnly:$SummaryOnly.IsPresent `
-                -PreviousMetrics $previousMetricsByKey `
-                -ShowTrend:([bool]$Continuous)
-
-            # Ensure all output is flushed before proceeding to timing calculations
-            if ($Continuous)
-            {
-                [Console]::Out.Flush()
-                [Console]::Error.Flush()
-
-                # For parallel execution, add extra stabilization time
-                if ($useParallel)
-                {
-                    Start-Sleep -Milliseconds 100
-                }
-            }
-
-            if ($Continuous)
-            {
-                if ($null -ne $countOut)
-                {
-                    $linesPrinted += [int]$countOut
-                }
-                Write-DiagnosticHost 'Press Q or Ctrl+C to stop monitoring.' -ForegroundColor DarkGray
-                $linesPrinted++
-
-                $nextSnapshot = @{}
-                foreach ($metric in $results)
-                {
-                    $metricKey = '{0}:{1}' -f $metric.HostName, $metric.Port
-                    $nextSnapshot[$metricKey] = [PSCustomObject]@{
-                        LatencyAvg = $metric.LatencyAvg
-                        Jitter = $metric.Jitter
-                        PacketLoss = $metric.PacketLoss
-                    }
-                }
-                $previousMetricsByKey = $nextSnapshot
-
-                if ($effectiveRender -eq 'InPlace')
-                {
-                    $lastRenderLines = $linesPrinted
-                }
-                else
-                {
-                    $lastRenderLines = 0
-                }
-
-                # Final flush before sleep to ensure all output is complete
-                [Console]::Out.Flush()
-                [Console]::Error.Flush()
-                if ($MaxIterations -eq 0 -or $iteration -lt $MaxIterations)
-                {
-                    # Sleep for the configured interval while polling for a 'q' keypress.
-                    $sleepStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-                    $intervalMs = $Interval * 1000
-
-                    while ($sleepStopwatch.ElapsedMilliseconds -lt $intervalMs)
+                    # For parallel execution, add extra synchronization to prevent mixed output
+                    if ($useParallel)
                     {
-                        if ($rawUiAvailable)
+                        # Allow any background output to complete
+                        [Console]::Out.Flush()
+                        [Console]::Error.Flush()
+                        Start-Sleep -Milliseconds 200
+                    }
+
+                    if ($effectiveRender -eq 'Clear' -and $iteration -gt 1)
+                    {
+                        if ($canClearHost)
                         {
                             try
                             {
-                                # [Console]::KeyAvailable avoids non-keyboard RawUI events that can block ReadKey.
-                                if ([Console]::KeyAvailable)
-                                {
-                                    $consoleKey = [Console]::ReadKey($true)
-                                    if ($consoleKey.KeyChar -eq 'q' -or $consoleKey.KeyChar -eq 'Q')
-                                    {
-                                        $quitRequested = $true
-                                        break
-                                    }
-                                }
+                                Clear-Host
                             }
                             catch
                             {
-                                Write-Verbose "Key read failed, disabling keyboard polling: $($_.Exception.Message)"
-                                $rawUiAvailable = $false
+                                $canClearHost = $false
+                                Write-Verbose "Clear-Host is not available in this session; continuing without clearing: $($_.Exception.Message)"
                             }
                         }
+                    }
+                    elseif ($effectiveRender -eq 'InPlace' -and $iteration -gt 1)
+                    {
+                        # Return to a known screen position instead of relying on line counts,
+                        # which can drift when terminal wrapping differs from the renderer's count.
+                        [Console]::Out.Flush()
+                        [Console]::Error.Flush()
 
+                        $esc = [char]27
+                        $clearSequence = "$esc[H$esc[2J"
+                        [Console]::Write($clearSequence)
+                        [Console]::Out.Flush()
+                    }
+
+                }
+
+                # Ensure we have a non-null collection for formatting
+                $results = @($results | Where-Object { $null -ne $_ })
+
+                # Display formatted output
+                Format-DiagnosticOutput -Results $results `
+                    -InPlace:([bool]$Continuous -and $effectiveRender -eq 'InPlace') `
+                    -SummaryOnly:$SummaryOnly.IsPresent `
+                    -PreviousMetrics $previousMetricsByKey `
+                    -ShowTrend:([bool]$Continuous)
+
+                # Ensure all output is flushed before proceeding to timing calculations
+                if ($Continuous)
+                {
+                    [Console]::Out.Flush()
+                    [Console]::Error.Flush()
+
+                    # For parallel execution, add extra stabilization time
+                    if ($useParallel)
+                    {
                         Start-Sleep -Milliseconds 100
                     }
+                }
 
-                    if ($quitRequested)
+                if ($Continuous)
+                {
+                    Write-DiagnosticHost 'Press Q or Ctrl+C to stop monitoring.' -ForegroundColor DarkGray
+
+                    $nextSnapshot = @{}
+                    foreach ($metric in $results)
                     {
-                        break
+                        $metricKey = '{0}:{1}' -f $metric.HostName, $metric.Port
+                        $nextSnapshot[$metricKey] = [PSCustomObject]@{
+                            LatencyAvg = $metric.LatencyAvg
+                            Jitter = $metric.Jitter
+                            PacketLoss = $metric.PacketLoss
+                        }
+                    }
+                    $previousMetricsByKey = $nextSnapshot
+
+                    # Final flush before sleep to ensure all output is complete
+                    [Console]::Out.Flush()
+                    [Console]::Error.Flush()
+                    if ($MaxIterations -eq 0 -or $iteration -lt $MaxIterations)
+                    {
+                        # Sleep for the configured interval while polling for a 'q' keypress.
+                        $sleepStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+                        $intervalMs = $Interval * 1000
+
+                        while ($sleepStopwatch.ElapsedMilliseconds -lt $intervalMs)
+                        {
+                            if ($rawUiAvailable)
+                            {
+                                try
+                                {
+                                    # [Console]::KeyAvailable avoids non-keyboard RawUI events that can block ReadKey.
+                                    if ([Console]::KeyAvailable)
+                                    {
+                                        $consoleKey = [Console]::ReadKey($true)
+                                        if ($consoleKey.KeyChar -eq 'q' -or $consoleKey.KeyChar -eq 'Q')
+                                        {
+                                            $quitRequested = $true
+                                            break
+                                        }
+                                    }
+                                }
+                                catch
+                                {
+                                    Write-Verbose "Key read failed, disabling keyboard polling: $($_.Exception.Message)"
+                                    $rawUiAvailable = $false
+                                }
+                            }
+
+                            Start-Sleep -Milliseconds 100
+                        }
+
+                        if ($quitRequested)
+                        {
+                            break
+                        }
                     }
                 }
-            }
 
-        } while ($Continuous -and ($MaxIterations -eq 0 -or $iteration -lt $MaxIterations))
+            } while ($Continuous -and ($MaxIterations -eq 0 -or $iteration -lt $MaxIterations))
+        }
+        finally
+        {
+            if ($useAlternateScreen)
+            {
+                $esc = [char]27
+                [Console]::Write("$esc[?1049l")
+                [Console]::Out.Flush()
+            }
+        }
 
         Write-Verbose 'Network diagnostics completed'
     }

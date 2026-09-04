@@ -52,7 +52,7 @@ BeforeAll {
 }
 
 Describe 'Invoke-NetworkDiagnostics (Default continuous mode single iteration via -MaxIterations)' {
-    It 'prints expected output and shows stop hint' {
+    It 'prints expected output without a refresh banner and shows stop hint' {
         # Prepare canned metrics
         $script:MockLatencies = @(61, 62, 63, 64, 65)
         $script:MockMetrics = [PSCustomObject]@{
@@ -70,17 +70,19 @@ Describe 'Invoke-NetworkDiagnostics (Default continuous mode single iteration vi
         }
 
         # Capture output
-        $output = Invoke-NetworkDiagnostics -HostName 'example.com' -Count 5 -MaxIterations 1 *>&1 | Out-String
+        $output = Invoke-NetworkDiagnostics -HostName 'example.com' -Count 5 -MaxIterations 1 -RenderMode Stack *>&1 | Out-String
 
         # Verify expected content
-        $output | Should-MatchString 'Network Diagnostic - Continuous Mode'
-        $output | Should-MatchString '\[\d{2}:\d{2}:\d{2}\]\s+Refresh #1'
         $output | Should-MatchString 'example\.com:443'
         $output | Should-MatchString 'Stats'
         $output | Should-MatchString 'Quality\s+5/5\s+successful'
         $output | Should-MatchString 'Press (Q or )?Ctrl\+C to stop monitoring\.'
         $output | Should-NotMatchString 'Samples per host'
         $output | Should-NotMatchString 'Continuous Mode \(Press Ctrl\+C to stop\)'
+        $output | Should-NotMatchString 'Network Diagnostic - Continuous Mode'
+        $output | Should-NotMatchString 'Refresh #'
+        $output | Should-MatchString "(?:`r?`n){2}Press Q or Ctrl\+C to stop monitoring\."
+        $output | Should-NotMatchString "(?:`r?`n){3}Press Q or Ctrl\+C to stop monitoring\."
 
         # Ensure NO timestamp or wait messages
         $output | Should-NotMatchString 'Test completed at:'
@@ -104,9 +106,16 @@ Describe 'Invoke-NetworkDiagnostics (Default continuous mode single iteration vi
 
         Mock -CommandName Start-Sleep {}
 
-        Invoke-NetworkDiagnostics -HostName 'example.com' -Count 5 -MaxIterations 1 -Interval 9 *> $null
+        Invoke-NetworkDiagnostics -HostName 'example.com' -Count 5 -MaxIterations 1 -Interval 9 -RenderMode Stack *> $null
 
         Should-Invoke -CommandName Start-Sleep -Times 0 -Exactly -ParameterFilter { $PSBoundParameters.ContainsKey('Seconds') -and $Seconds -eq 9 }
+    }
+
+    It 'uses the alternate screen buffer for ANSI in-place rendering' {
+        $source = Get-Content -Path $invokePath -Raw
+
+        $source | Should-MatchString '\[\?1049h'
+        $source | Should-MatchString '\[\?1049l'
     }
 
     It 'uses the accent, muted, and reset codes for a healthy diagnostic card' {
@@ -228,7 +237,7 @@ Describe 'Invoke-NetworkDiagnostics (Default continuous mode single iteration vi
 
         Mock -CommandName Start-Sleep {}
 
-        $output = Invoke-NetworkDiagnostics -HostName 'example.com' -Count 5 -MaxIterations 2 -Interval 1 *>&1 | Out-String
+        $output = Invoke-NetworkDiagnostics -HostName 'example.com' -Count 5 -MaxIterations 2 -Interval 1 -RenderMode Stack *>&1 | Out-String
         $upArrowPattern = [Regex]::Escape(([string][char]0x2191))
 
         Should-MatchString -Actual $output -Expected 'Trend'
