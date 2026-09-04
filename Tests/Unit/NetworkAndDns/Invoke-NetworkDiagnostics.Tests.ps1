@@ -111,6 +111,12 @@ Describe 'Invoke-NetworkDiagnostics (Default continuous mode single iteration vi
         Should-Invoke -CommandName Start-Sleep -Times 0 -Exactly -ParameterFilter { $PSBoundParameters.ContainsKey('Seconds') -and $Seconds -eq 9 }
     }
 
+    It 'rejects a negative iteration limit' {
+        {
+            Invoke-NetworkDiagnostics -HostName 'example.com' -MaxIterations -1
+        } | Should-Throw
+    }
+
     It 'uses the alternate screen buffer for ANSI in-place rendering' {
         $source = Get-Content -Path $invokePath -Raw
 

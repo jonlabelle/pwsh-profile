@@ -137,7 +137,7 @@
 
         Valid values:
         - Auto   : PowerShell 5.1 uses Clear (screen wipe), PowerShell 6+ uses InPlace (default)
-        - InPlace: Update the same block using ANSI cursor moves (Core only; falls back to Clear on 5.1)
+        - InPlace: Replace the dashboard in the ANSI alternate screen buffer (Core only; falls back to Clear on 5.1)
         - Clear  : Clear the screen between iterations
         - Stack  : Append output without clearing (useful for logs/debugging)
 
@@ -488,6 +488,7 @@
 
         # Hidden/testing-only: limit iterations for continuous mode (0 = infinite)
         [Parameter()]
+        [ValidateRange(0, [Int32]::MaxValue)]
         [Int32]$MaxIterations = 0,
 
         [Parameter()]
@@ -717,9 +718,6 @@
                 [PSCustomObject[]]$Results,
 
                 [Parameter()]
-                [Switch]$ReturnLineCount,
-
-                [Parameter()]
                 [Switch]$InPlace,
 
                 [Parameter()]
@@ -732,7 +730,6 @@
                 [Switch]$ShowTrend
             )
 
-            $linesPrintedLocal = 0
             $graphCache = [System.Collections.Generic.Dictionary[string, string]]::new()
             $getCachedGraph = {
                 param(
@@ -916,12 +913,6 @@
                 Write-DiagnosticHost '  No results to display. All connection attempts may have failed.' -ForegroundColor Red
                 Write-DiagnosticHost ("  Check your internet connection or firewall settings.$clearTail") -ForegroundColor Yellow
                 Write-DiagnosticHost $clearTail
-                $linesPrintedLocal += 3
-
-                if ($ReturnLineCount)
-                {
-                    return $linesPrintedLocal
-                }
                 return
             }
 
@@ -1005,8 +996,6 @@
                     Write-DiagnosticHost "$elapsedText" -ForegroundColor DarkGray -NoNewline
                 }
                 Write-DiagnosticHost $clearTail -ForegroundColor $statusColor
-                $linesPrintedLocal++
-
                 if ($SummaryOnly)
                 {
                     if ($null -ne $result.LatencyAvg)
@@ -1048,8 +1037,6 @@
                         Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Summary')
                         Write-DiagnosticHost ("No successful connections$clearTail") -ForegroundColor Red
                     }
-                    $linesPrintedLocal++
-
                     if ($ShowTrend)
                     {
                         Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Trend')
@@ -1075,12 +1062,10 @@
                         {
                             Write-DiagnosticHost ("insufficient data for trend$clearTail") -ForegroundColor DarkGray
                         }
-                        $linesPrintedLocal++
                     }
 
                     Write-DiagnosticHost (([string][char]0x255A + ([string][char]0x2550) * 79 + $clearTail)) -ForegroundColor $statusColor
                     Write-DiagnosticHost
-                    $linesPrintedLocal += 2
                     continue
                 }
 
@@ -1118,7 +1103,6 @@
                             Write-DiagnosticHost ("Graph data unavailable$clearTail") -ForegroundColor DarkGray
                             $graphLineCount = 1
                         }
-                        $linesPrintedLocal += ($graphLineCount + 1)
                     }
                 }
                 else
@@ -1130,13 +1114,11 @@
                         Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Latency')
                         # Use default color to preserve ANSI codes in sparkline
                         Write-DiagnosticHost ("$resetEsc$sparkline$resetEsc$clearTail")
-                        $linesPrintedLocal++
                     }
                     else
                     {
                         Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Latency')
                         Write-DiagnosticHost ("$resetEsc$sparkline$resetEsc$clearTail") -ForegroundColor Red
-                        $linesPrintedLocal++
                     }
 
                     # Statistics with color coding using threshold constants
@@ -1182,8 +1164,6 @@
                 Write-DiagnosticHost ' ' -NoNewline
                 Write-DiagnosticHost (([string][char]0x2588) * $filledCount) -NoNewline -ForegroundColor $qualityColor
                 Write-DiagnosticHost (([string][char]0x2591) * $emptyCount + $clearTail) -ForegroundColor DarkGray
-                $linesPrintedLocal++
-
                 if ($ShowTrend)
                 {
                     Write-FramePrefix -FrameColor $statusColor -Text (Get-LabelPrefixText -Label 'Trend')
@@ -1209,7 +1189,6 @@
                     {
                         Write-DiagnosticHost ("insufficient data for trend$clearTail") -ForegroundColor DarkGray
                     }
-                    $linesPrintedLocal++
                 }
 
                 # Call out issues inline with quick flags
@@ -1232,8 +1211,6 @@
                     }
                     Write-DiagnosticHost $clearTail
                 }
-                $linesPrintedLocal++
-
                 # DNS resolution time with color coding
                 if ($null -ne $result.DnsResolution)
                 {
@@ -1241,7 +1218,6 @@
                     $dnsColor = if ($result.DnsResolution -lt $t.Dns.Good) { 'Green' } elseif ($result.DnsResolution -lt $t.Dns.Critical) { 'Yellow' } else { 'Red' }
                     Write-DiagnosticHost "$($result.DnsResolution)ms" -NoNewline -ForegroundColor $dnsColor
                     Write-DiagnosticHost (" resolution time$clearTail")
-                    $linesPrintedLocal++
                 }
 
                 # Reset the console color so following output doesn't inherit previous foreground settings
@@ -1256,14 +1232,7 @@
 
                 Write-DiagnosticHost (([string][char]0x255A + ([string][char]0x2550) * 79 + $clearTail)) -ForegroundColor $statusColor
                 Write-DiagnosticHost
-                $linesPrintedLocal += 2
             }
-
-            if ($ReturnLineCount)
-            {
-                return $linesPrintedLocal
-            }
-            return
         }
     }
 
@@ -1291,10 +1260,11 @@
         {
             try
             {
-                $hasTermVar = -not [String]::IsNullOrEmpty([Environment]::GetEnvironmentVariable('TERM'))
+                $terminalType = [Environment]::GetEnvironmentVariable('TERM')
+                $hasTermVar = -not [String]::IsNullOrEmpty($terminalType) -and $terminalType -ne 'dumb'
                 $hasValidBufferSize = $Host.UI.RawUI.BufferSize.Width -gt 0
                 $isNotRedirected = [Console]::IsOutputRedirected -eq $false
-                $isInteractiveHost = $Host.Name -ne 'Default Host' -and $Host.UI.SupportsVirtualTerminal
+                $isInteractiveHost = $Host.Name -ne 'Default Host' -and $Host.UI.PSObject.Properties['SupportsVirtualTerminal'] -and $Host.UI.SupportsVirtualTerminal
 
                 $ansiSupported = $isNotRedirected -and ($hasTermVar -or $hasValidBufferSize -or $isInteractiveHost)
             }
@@ -1308,6 +1278,7 @@
         $iteration = 0
         $previousMetricsByKey = @{}
         $useAlternateScreen = $Continuous -and $ansiSupported -and ($RenderMode -in 'Auto', 'InPlace')
+        $alternateScreenActive = $false
         $canClearHost = $true
         try
         {
@@ -1332,13 +1303,6 @@
         }
 
         $quitRequested = $false
-        if ($useAlternateScreen)
-        {
-            $esc = [char]27
-            [Console]::Write("$esc[?1049h$esc[2J$esc[H")
-            [Console]::Out.Flush()
-        }
-
         try
         {
             do
@@ -1464,6 +1428,14 @@
                 # NOW that we have all the data, handle the display refresh
                 if ($Continuous)
                 {
+                    if ($useAlternateScreen -and -not $alternateScreenActive)
+                    {
+                        $esc = [char]27
+                        [Console]::Write("$esc[?1049h$esc[2J$esc[H")
+                        [Console]::Out.Flush()
+                        $alternateScreenActive = $true
+                    }
+
                     # For parallel execution, add extra synchronization to prevent mixed output
                     if ($useParallel)
                     {
@@ -1589,7 +1561,7 @@
         }
         finally
         {
-            if ($useAlternateScreen)
+            if ($alternateScreenActive)
             {
                 $esc = [char]27
                 [Console]::Write("$esc[?1049l")
