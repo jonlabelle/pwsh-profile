@@ -6,7 +6,10 @@ function Test-TlsProtocol
 
     .DESCRIPTION
         Tests one or more TLS versions by performing a real TLS handshake with a remote
-        TCP service. Direct TLS is supported for HTTPS and other implicit-TLS services.
+        TCP service. ComputerName can be a host name or an absolute URI; when a URI is
+        supplied, the host, service negotiation mode, and port are inferred from its
+        scheme unless explicitly overridden. Direct TLS is supported for HTTPS and
+        other implicit-TLS services.
         Application-aware negotiation is available for SMTP, IMAP, POP3, FTP,
         PostgreSQL, MySQL, and SQL Server TDS 7.x endpoints.
 
@@ -28,12 +31,14 @@ function Test-TlsProtocol
         Compatible with PowerShell Desktop 5.1+ on Windows, macOS, and Linux.
 
     .PARAMETER ComputerName
-        The target server hostname or IP address. Default is 'localhost'.
+        The target server hostname, IP address, or absolute URI. Default is 'localhost'.
 
     .PARAMETER Port
-        The target TCP port. The basic mode defaults to 443. In Full mode,
-        an omitted Port uses the conventional port for Service: Direct 443, SMTP 25,
-        IMAP 143, POP3 110, FTP 21, PostgreSQL 5432, MySQL 3306, or SQL Server 1433.
+        The target TCP port. The basic mode defaults to 443. When ComputerName is a URI,
+        an omitted Port uses an explicit URI port or the conventional port for its
+        scheme. In Full mode without a URI, an omitted Port uses the conventional port
+        for Service: Direct 443, SMTP 25, IMAP 143, POP3 110, FTP 21, PostgreSQL 5432,
+        MySQL 3306, or SQL Server 1433.
 
     .PARAMETER Timeout
         The connection, application negotiation, and TLS I/O timeout in milliseconds.
@@ -89,6 +94,12 @@ function Test-TlsProtocol
         PS > Test-TlsProtocol -ComputerName 'www.example.com' -Protocol Tls12,Tls13
 
         Tests direct TLS 1.2 and 1.3 support on the default HTTPS port.
+
+    .EXAMPLE
+        PS > Test-TlsProtocol -ComputerName 'https://www.example.com' -Protocol Tls12
+
+        Parses the HTTPS URI, connects to www.example.com on port 443, and uses the host
+        name for SNI and certificate checks.
 
     .EXAMPLE
         PS > Test-TlsProtocol -ComputerName '192.0.2.10' -Port 8443 -Protocol Tls12 -Full -TlsHostName 'db.example.test'
@@ -254,6 +265,113 @@ function Test-TlsProtocol
             PostgreSql = 5432
             MySql = 3306
             SqlServer = 1433
+        }
+
+        $uriSchemeTargets = @{
+            http = @{ Service = 'Direct'; Port = 80 }
+            https = @{ Service = 'Direct'; Port = 443 }
+            tls = @{ Service = 'Direct'; Port = 443 }
+            ldaps = @{ Service = 'Direct'; Port = 636 }
+            smtps = @{ Service = 'Direct'; Port = 465 }
+            imaps = @{ Service = 'Direct'; Port = 993 }
+            pop3s = @{ Service = 'Direct'; Port = 995 }
+            ftps = @{ Service = 'Direct'; Port = 990 }
+            amqps = @{ Service = 'Direct'; Port = 5671 }
+            mqtts = @{ Service = 'Direct'; Port = 8883 }
+            smtp = @{ Service = 'Smtp'; Port = 25 }
+            imap = @{ Service = 'Imap'; Port = 143 }
+            pop3 = @{ Service = 'Pop3'; Port = 110 }
+            ftp = @{ Service = 'Ftp'; Port = 21 }
+            postgres = @{ Service = 'PostgreSql'; Port = 5432 }
+            postgresql = @{ Service = 'PostgreSql'; Port = 5432 }
+            mysql = @{ Service = 'MySql'; Port = 3306 }
+            mssql = @{ Service = 'SqlServer'; Port = 1433 }
+            sqlserver = @{ Service = 'SqlServer'; Port = 1433 }
+        }
+
+        $resolveTlsTarget = {
+            param(
+                [Parameter(Mandatory)]
+                [String]$Target,
+
+                [Parameter(Mandatory)]
+                [String]$CurrentService,
+
+                [Parameter(Mandatory)]
+                [Int]$CurrentPort,
+
+                [Parameter(Mandatory)]
+                [Boolean]$PortSpecified,
+
+                [Parameter(Mandatory)]
+                [Boolean]$ServiceSpecified,
+
+                [String]$CurrentTlsHostName
+            )
+
+            $targetHost = $Target
+            $resolvedService = $CurrentService
+            $resolvedPort = if ($PortSpecified) { $CurrentPort } else { $servicePorts[$CurrentService] }
+            $resolvedTlsHostName = if ($CurrentTlsHostName) { $CurrentTlsHostName } else { $targetHost }
+
+            if ($Target -notmatch '^[A-Za-z][A-Za-z0-9+.-]*://')
+            {
+                return [PSCustomObject]@{
+                    ComputerName = $targetHost
+                    Port = [Int]$resolvedPort
+                    Service = $resolvedService
+                    TlsHostName = $resolvedTlsHostName
+                }
+            }
+
+            $uri = $null
+            if (-not [System.Uri]::TryCreate($Target, [System.UriKind]::Absolute, [Ref]$uri) -or [String]::IsNullOrWhiteSpace($uri.Host))
+            {
+                throw "ComputerName URI is invalid: $Target"
+            }
+
+            $targetHost = $uri.DnsSafeHost
+            if ([String]::IsNullOrWhiteSpace($targetHost))
+            {
+                $targetHost = $uri.Host
+            }
+
+            $schemeTarget = $uriSchemeTargets[$uri.Scheme]
+            if ($null -ne $schemeTarget)
+            {
+                if (-not $ServiceSpecified)
+                {
+                    $resolvedService = $schemeTarget.Service
+                }
+
+                if (-not $PortSpecified)
+                {
+                    $resolvedPort = if (-not $uri.IsDefaultPort -and $uri.Port -gt 0)
+                    {
+                        $uri.Port
+                    }
+                    else
+                    {
+                        $schemeTarget.Port
+                    }
+                }
+            }
+            elseif (-not $PortSpecified -and -not $uri.IsDefaultPort -and $uri.Port -gt 0)
+            {
+                $resolvedPort = $uri.Port
+            }
+
+            if (-not $CurrentTlsHostName)
+            {
+                $resolvedTlsHostName = $targetHost
+            }
+
+            return [PSCustomObject]@{
+                ComputerName = $targetHost
+                Port = [Int]$resolvedPort
+                Service = $resolvedService
+                TlsHostName = $resolvedTlsHostName
+            }
         }
 
         $writeTlsResult = {
@@ -814,17 +932,26 @@ namespace PwshProfile.Network
 
     process
     {
-        $effectivePort = if ($PSBoundParameters.ContainsKey('Port')) { $Port } else { $servicePorts[$Service] }
-        $effectiveTlsHostName = if ($TlsHostName) { $TlsHostName } else { $ComputerName }
+        $effectiveTarget = & $resolveTlsTarget `
+            -Target $ComputerName `
+            -CurrentService $Service `
+            -CurrentPort $Port `
+            -PortSpecified $PSBoundParameters.ContainsKey('Port') `
+            -ServiceSpecified $PSBoundParameters.ContainsKey('Service') `
+            -CurrentTlsHostName $TlsHostName
+        $effectiveComputerName = $effectiveTarget.ComputerName
+        $effectivePort = $effectiveTarget.Port
+        $effectiveService = $effectiveTarget.Service
+        $effectiveTlsHostName = $effectiveTarget.TlsHostName
 
         foreach ($targetProtocol in $Protocol)
         {
-            Write-Verbose "Testing $targetProtocol on ${ComputerName}:${effectivePort} using $Service negotiation"
+            Write-Verbose "Testing $targetProtocol on ${effectiveComputerName}:${effectivePort} using $effectiveService negotiation"
 
             $result = [PSCustomObject]@{
-                Server = $ComputerName
+                Server = $effectiveComputerName
                 Port = [Int]$effectivePort
-                Service = $Service
+                Service = $effectiveService
                 Provider = '.NET'
                 TlsHostName = $effectiveTlsHostName
                 Protocol = $targetProtocol
@@ -837,7 +964,7 @@ namespace PwshProfile.Network
                 Negotiation = $null
                 StartTlsAdvertised = $null
                 PreTlsCapabilities = [String[]]@()
-                ValidationScope = if ($Service -eq 'Direct') { 'TlsHandshake' } else { 'ServiceNegotiationAndTlsHandshake' }
+                ValidationScope = if ($effectiveService -eq 'Direct') { 'TlsHandshake' } else { 'ServiceNegotiationAndTlsHandshake' }
                 ApplicationPolicyStatus = 'NotEvaluated'
                 NegotiatedProtocol = $null
                 CipherSuite = $null
@@ -871,7 +998,7 @@ namespace PwshProfile.Network
                 continue
             }
 
-            if ($Service -eq 'SqlServer' -and $targetProtocol -eq 'Tls13')
+            if ($effectiveService -eq 'SqlServer' -and $targetProtocol -eq 'Tls13')
             {
                 $result.Status = 'TLS 1.3 requires SQL Server TDS 8.0; use Service Direct'
                 $result.FailureStage = 'Local'
@@ -894,7 +1021,7 @@ namespace PwshProfile.Network
 
                 try
                 {
-                    $connectResult = $tcpClient.BeginConnect($ComputerName, $effectivePort, $null, $null)
+                    $connectResult = $tcpClient.BeginConnect($effectiveComputerName, $effectivePort, $null, $null)
                     $waitHandle = $connectResult.AsyncWaitHandle
                     if (-not $waitHandle.WaitOne($Timeout, $false))
                     {
@@ -951,7 +1078,7 @@ namespace PwshProfile.Network
 
                 try
                 {
-                    switch ($Service)
+                    switch ($effectiveService)
                     {
                         'Direct'
                         {
@@ -1357,7 +1484,7 @@ namespace PwshProfile.Network
                     else
                     {
                         $result.TlsHandshakeSupported = $true
-                        $result.Status = if ($Service -eq 'SqlServer')
+                        $result.Status = if ($effectiveService -eq 'SqlServer')
                         {
                             'Transport handshake succeeded; SQL login policy not evaluated'
                         }
@@ -1372,7 +1499,7 @@ namespace PwshProfile.Network
 
                         if ($protocolRank[$targetProtocol] -lt $protocolRank[$MinimumProtocol])
                         {
-                            if ($Service -eq 'SqlServer')
+                            if ($effectiveService -eq 'SqlServer')
                             {
                                 $securityFindings.Add(
                                     "The protocol-layer TLS handshake accepted $targetProtocol, below the $MinimumProtocol checkpoint; SQL login policy was not evaluated."
@@ -1400,7 +1527,7 @@ namespace PwshProfile.Network
                             $securityFindings.Add("The negotiated cipher strength is $($result.CipherStrength) bits.")
                             $hasSecurityFailure = $true
                         }
-                        if ($Service -eq 'SqlServer')
+                        if ($effectiveService -eq 'SqlServer')
                         {
                             $securityFindings.Add(
                                 'SQL Server application/login policy was not evaluated; a subsequent SQL login can reject a transport-layer TLS handshake.'
@@ -1433,7 +1560,7 @@ namespace PwshProfile.Network
                     $usedOpenSslFallback = $false
 
                     $canUseOpenSslFallback = $targetProtocol -eq 'Tls13' -and
-                    $Service -eq 'Direct' -and
+                    $effectiveService -eq 'Direct' -and
                     $baseException -is [System.PlatformNotSupportedException] -and
                     $null -ne $opensslCommand
 
@@ -1452,7 +1579,7 @@ namespace PwshProfile.Network
 
                         Write-Verbose 'The local SslStream cannot pin TLS 1.3; using the bounded OpenSSL fallback'
                         $opensslResult = & $invokeOpenSslTls13 `
-                            -Target $ComputerName `
+                            -Target $effectiveComputerName `
                             -TargetPort $effectivePort `
                             -ServerName $effectiveTlsHostName `
                             -ProcessTimeout $Timeout

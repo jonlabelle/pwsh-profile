@@ -511,6 +511,34 @@ Describe 'Test-TlsProtocol' {
             $result[0].TlsHostName | Should-Be 'service.example.test'
         }
 
+        It 'Normalizes an HTTPS URI to its host and default TLS port' {
+            $result = Test-TlsProtocol -ComputerName "https://$script:FastFailureHost/some/path?ignored=true" -Protocol Tls12 -Timeout 100
+
+            $result[0].Server | Should-Be $script:FastFailureHost
+            $result[0].Port | Should-Be 443
+        }
+
+        It 'Uses an explicit URI port when Port is omitted' {
+            $result = Test-TlsProtocol -ComputerName "https://$script:FastFailureHost`:8443/" -Protocol Tls12 -Timeout 100
+
+            $result[0].Server | Should-Be $script:FastFailureHost
+            $result[0].Port | Should-Be 8443
+        }
+
+        It 'Preserves an explicit Port over the URI port' {
+            $result = Test-TlsProtocol -ComputerName "https://$script:FastFailureHost`:8443/" -Port 9443 -Protocol Tls12 -Timeout 100
+
+            $result[0].Server | Should-Be $script:FastFailureHost
+            $result[0].Port | Should-Be 9443
+        }
+
+        It 'Uses the URI host for default SNI and certificate validation' {
+            $result = Test-TlsProtocol -ComputerName "https://$script:FastFailureHost/" -Protocol Tls12 -Timeout 100 -Full
+
+            $result[0].Server | Should-Be $script:FastFailureHost
+            $result[0].TlsHostName | Should-Be $script:FastFailureHost
+        }
+
         It 'Separates connection failures from TLS handshake failures' {
             $result = Test-TlsProtocol -ComputerName $script:FastFailureHost -Protocol Tls12 -Timeout 100 -Full
 
@@ -544,6 +572,33 @@ Describe 'Test-TlsProtocol' {
         It 'Preserves an explicit custom port for an application-aware service' {
             $result = Test-TlsProtocol -ComputerName $script:FastFailureHost -Port 15432 -Protocol Tls12 -Timeout 100 -Full -Service PostgreSql
             $result.Port | Should-Be 15432
+        }
+
+        It 'Infers service and port from an explicit-TLS URI scheme' {
+            $result = Test-TlsProtocol -ComputerName "smtp://$script:FastFailureHost" -Protocol Tls12 -Timeout 100 -Full
+
+            $result.Server | Should-Be $script:FastFailureHost
+            $result.Port | Should-Be 25
+            $result.Service | Should-Be 'Smtp'
+            $result.ValidationScope | Should-Be 'ServiceNegotiationAndTlsHandshake'
+        }
+
+        It 'Infers a direct-TLS port from an implicit-TLS URI scheme' {
+            $result = Test-TlsProtocol -ComputerName "imaps://$script:FastFailureHost" -Protocol Tls12 -Timeout 100 -Full
+
+            $result.Server | Should-Be $script:FastFailureHost
+            $result.Port | Should-Be 993
+            $result.Service | Should-Be 'Direct'
+            $result.ValidationScope | Should-Be 'TlsHandshake'
+        }
+
+        It 'Preserves an explicit Service over the URI-inferred service' {
+            $result = Test-TlsProtocol -ComputerName "smtp://$script:FastFailureHost" -Protocol Tls12 -Timeout 100 -Full -Service Direct
+
+            $result.Server | Should-Be $script:FastFailureHost
+            $result.Port | Should-Be 25
+            $result.Service | Should-Be 'Direct'
+            $result.ValidationScope | Should-Be 'TlsHandshake'
         }
     }
 
