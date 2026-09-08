@@ -6,9 +6,11 @@
 
     .DESCRIPTION
         Tests network connectivity to one or more hosts and displays detailed metrics with
-        ASCII graph visualizations. Collects latency, packet loss, jitter, and DNS resolution
-        data over multiple samples. Per-host headers display the time spent collecting that
-        host's metrics (shown as "collect XXms").
+        ASCII graph visualizations. HostName can be a host name, IP address, or absolute
+        URI; when a URI is supplied, the host and port are inferred from its scheme unless
+        -Port is explicitly provided. Collects latency, packet loss, jitter, and DNS
+        resolution data over multiple samples. Per-host headers display the time spent
+        collecting that host's metrics (shown as "collect XXms").
 
         Features:
         - Multi-host testing with parallel execution
@@ -118,7 +120,7 @@
         See NOTES for PowerShell 5.1 behavior in continuous mode.
 
     .PARAMETER HostName
-        One or more hostnames or IP addresses to test. Supports pipeline input.
+        One or more hostnames, IP addresses, or absolute URIs to test. Supports pipeline input.
 
     .PARAMETER Count
         Number of test samples per host (default: 20)
@@ -127,7 +129,8 @@
         Timeout in milliseconds for each connection attempt (default: 2000)
 
     .PARAMETER Port
-        TCP port to test (default: 443 for HTTPS)
+        TCP port to test (default: 443 for HTTPS). When HostName is a URI and -Port is omitted,
+        an explicit URI port or the conventional scheme port is used.
 
     .PARAMETER SampleDelayMilliseconds
         Delay between samples in milliseconds (default: 100). Set to 0 for back-to-back samples.
@@ -186,6 +189,11 @@
 
         Starts continuous monitoring of bing.com with default settings (20 samples,
         port 443). Press Ctrl+C to stop.
+
+    .EXAMPLE
+        PS > Invoke-NetworkDiagnostics -HostName 'https://example.com/api' -Continuous:$false
+
+        Tests example.com on port 443 by parsing the HTTPS URI.
 
     .EXAMPLE
         PS > Invoke-NetworkDiagnostics -HostName 'bing.com' -Continuous:$false
@@ -570,6 +578,84 @@
             }
         }
 
+        $uriSchemePorts = @{
+            http = 80
+            https = 443
+            tls = 443
+            ldap = 389
+            ldaps = 636
+            smtp = 25
+            smtps = 465
+            submission = 587
+            imap = 143
+            imaps = 993
+            pop3 = 110
+            pop3s = 995
+            ftp = 21
+            ftps = 990
+            ssh = 22
+            postgres = 5432
+            postgresql = 5432
+            mysql = 3306
+            mssql = 1433
+            sqlserver = 1433
+            amqp = 5672
+            amqps = 5671
+            mqtt = 1883
+            mqtts = 8883
+            redis = 6379
+            rediss = 6380
+        }
+
+        function Resolve-NetworkDiagnosticTarget
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$Target,
+
+                [Parameter(Mandatory)]
+                [Int32]$DefaultPort,
+
+                [Parameter(Mandatory)]
+                [Boolean]$PortSpecified
+            )
+
+            $targetHostName = $Target
+            $targetPort = $DefaultPort
+
+            if ($Target -match '^[A-Za-z][A-Za-z0-9+.-]*://')
+            {
+                $uri = $null
+                if (-not [System.Uri]::TryCreate($Target, [System.UriKind]::Absolute, [Ref]$uri) -or [String]::IsNullOrWhiteSpace($uri.Host))
+                {
+                    throw "HostName URI is invalid: $Target"
+                }
+
+                $targetHostName = $uri.DnsSafeHost
+                if ([String]::IsNullOrWhiteSpace($targetHostName))
+                {
+                    $targetHostName = $uri.Host
+                }
+
+                if (-not $PortSpecified)
+                {
+                    if (-not $uri.IsDefaultPort -and $uri.Port -gt 0)
+                    {
+                        $targetPort = $uri.Port
+                    }
+                    elseif ($uriSchemePorts.ContainsKey($uri.Scheme))
+                    {
+                        $targetPort = $uriSchemePorts[$uri.Scheme]
+                    }
+                }
+            }
+
+            return [PSCustomObject]@{
+                HostName = $targetHostName
+                Port = [Int32]$targetPort
+            }
+        }
+
         # Health grade calculation based on combined metrics
         # Returns: A (excellent), B (good), C (acceptable), D (poor), F (critical)
         function Get-NetworkHealthGrade
@@ -707,8 +793,8 @@
             Write-Verbose 'Show-NetworkLatencyGraph is already loaded'
         }
 
-        # Collect all hosts from pipeline
-        $allHosts = [System.Collections.Generic.List[String]]::new()
+        # Collect all targets from pipeline
+        $allHosts = [System.Collections.Generic.List[Object]]::new()
 
         # Helper function to format the output
         function Format-DiagnosticOutput
@@ -1240,7 +1326,11 @@
     {
         foreach ($hostTarget in $HostName)
         {
-            $allHosts.Add($hostTarget)
+            $resolvedTarget = Resolve-NetworkDiagnosticTarget `
+                -Target $hostTarget `
+                -DefaultPort $Port `
+                -PortSpecified $PSBoundParameters.ContainsKey('Port')
+            $allHosts.Add($resolvedTarget)
         }
     }
 
@@ -1332,7 +1422,14 @@
                 if ($useParallel)
                 {
                     Write-Verbose "Collecting metrics in parallel (ThrottleLimit=$ThrottleLimit)"
-                    $indexedHosts = for ($i = 0; $i -lt $allHosts.Count; $i++) { [PSCustomObject]@{ HostName = $allHosts[$i]; Index = $i } }
+                    $indexedHosts = for ($i = 0; $i -lt $allHosts.Count; $i++)
+                    {
+                        [PSCustomObject]@{
+                            HostName = $allHosts[$i].HostName
+                            Port = $allHosts[$i].Port
+                            Index = $i
+                        }
+                    }
 
                     # Use pipeline with proper completion waiting
                     $parallelResults = @($indexedHosts | ForEach-Object -Parallel {
@@ -1370,11 +1467,11 @@
                             $metrics = $null
                             try
                             {
-                                $metrics = Get-NetworkMetric -HostName $hostEntry.HostName -Count $using:Count -Timeout $using:Timeout -Port $using:Port -IncludeDns:$using:IncludeDns -SampleDelayMilliseconds $using:SampleDelayMilliseconds
+                                $metrics = Get-NetworkMetric -HostName $hostEntry.HostName -Count $using:Count -Timeout $using:Timeout -Port $hostEntry.Port -IncludeDns:$using:IncludeDns -SampleDelayMilliseconds $using:SampleDelayMilliseconds
                             }
                             catch
                             {
-                                $metrics = & $buildFailure $hostEntry.HostName $using:Port $using:Count
+                                $metrics = & $buildFailure $hostEntry.HostName $hostEntry.Port $using:Count
                             }
                             $sw.Stop()
                             Add-Member -InputObject $metrics -NotePropertyName 'ElapsedMs' -NotePropertyValue ([Math]::Round($sw.Elapsed.TotalMilliseconds, 2)) -Force
@@ -1393,18 +1490,18 @@
                 {
                     foreach ($hostTarget in $allHosts)
                     {
-                        Write-Verbose "Collecting metrics for $hostTarget"
+                        Write-Verbose "Collecting metrics for $($hostTarget.HostName):$($hostTarget.Port)"
                         $sw = [System.Diagnostics.Stopwatch]::StartNew()
 
                         try
                         {
-                            $metrics = Get-NetworkMetric -HostName $hostTarget -Count $Count -Timeout $Timeout -Port $Port -IncludeDns:$IncludeDns -SampleDelayMilliseconds $SampleDelayMilliseconds
+                            $metrics = Get-NetworkMetric -HostName $hostTarget.HostName -Count $Count -Timeout $Timeout -Port $hostTarget.Port -IncludeDns:$IncludeDns -SampleDelayMilliseconds $SampleDelayMilliseconds
                         }
                         catch
                         {
                             $metrics = [PSCustomObject]@{
-                                HostName = $hostTarget
-                                Port = $Port
+                                HostName = $hostTarget.HostName
+                                Port = $hostTarget.Port
                                 SamplesTotal = $Count
                                 SamplesSuccess = 0
                                 SamplesFailure = $Count

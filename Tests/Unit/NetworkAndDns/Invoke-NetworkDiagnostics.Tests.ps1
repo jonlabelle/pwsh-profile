@@ -15,6 +15,17 @@ BeforeAll {
             [switch]$IncludeDns,
             [int]$SampleDelayMilliseconds
         )
+        if ($null -ne $script:MetricCalls)
+        {
+            $script:MetricCalls.Add([PSCustomObject]@{
+                    HostName = $HostName
+                    Count = $Count
+                    Timeout = $Timeout
+                    Port = $Port
+                    IncludeDns = $IncludeDns.IsPresent
+                    SampleDelayMilliseconds = $SampleDelayMilliseconds
+                })
+        }
         if ($null -ne $script:MockMetricsQueue -and $script:MockMetricsQueue.Count -gt 0)
         {
             $next = $script:MockMetricsQueue[0]
@@ -185,6 +196,98 @@ Describe 'Invoke-NetworkDiagnostics (Default continuous mode single iteration vi
         $output | Should-NotMatchString 'Stats\s+'
         $output | Should-NotMatchString 'Quality\s+'
         $output | Should-NotMatchString 'Findings\s+'
+    }
+
+    It 'normalizes an HTTPS URI to its host and default port before collecting metrics' {
+        $script:MetricCalls = [System.Collections.Generic.List[Object]]::new()
+        $script:MockMetrics = [PSCustomObject]@{
+            HostName = 'example.com'
+            Port = 443
+            SamplesTotal = 5
+            SamplesSuccess = 5
+            PacketLoss = 0
+            LatencyMin = 20.0
+            LatencyMax = 24.0
+            LatencyAvg = 22.0
+            Jitter = 1.5
+            DnsResolution = $null
+            LatencyData = @(20, 21, 22, 23, 24)
+        }
+
+        Invoke-NetworkDiagnostics -HostName 'https://example.com/api?ignored=true' -Count 5 -Continuous:$false *> $null
+
+        $script:MetricCalls.Count | Should-Be 1
+        $script:MetricCalls[0].HostName | Should-Be 'example.com'
+        $script:MetricCalls[0].Port | Should-Be 443
+    }
+
+    It 'uses an explicit URI port when Port is omitted' {
+        $script:MetricCalls = [System.Collections.Generic.List[Object]]::new()
+        $script:MockMetrics = [PSCustomObject]@{
+            HostName = 'example.com'
+            Port = 8443
+            SamplesTotal = 5
+            SamplesSuccess = 5
+            PacketLoss = 0
+            LatencyMin = 20.0
+            LatencyMax = 24.0
+            LatencyAvg = 22.0
+            Jitter = 1.5
+            DnsResolution = $null
+            LatencyData = @(20, 21, 22, 23, 24)
+        }
+
+        Invoke-NetworkDiagnostics -HostName 'https://example.com:8443/api' -Count 5 -Continuous:$false *> $null
+
+        $script:MetricCalls.Count | Should-Be 1
+        $script:MetricCalls[0].HostName | Should-Be 'example.com'
+        $script:MetricCalls[0].Port | Should-Be 8443
+    }
+
+    It 'preserves an explicit Port over the URI port' {
+        $script:MetricCalls = [System.Collections.Generic.List[Object]]::new()
+        $script:MockMetrics = [PSCustomObject]@{
+            HostName = 'example.com'
+            Port = 9443
+            SamplesTotal = 5
+            SamplesSuccess = 5
+            PacketLoss = 0
+            LatencyMin = 20.0
+            LatencyMax = 24.0
+            LatencyAvg = 22.0
+            Jitter = 1.5
+            DnsResolution = $null
+            LatencyData = @(20, 21, 22, 23, 24)
+        }
+
+        Invoke-NetworkDiagnostics -HostName 'https://example.com:8443/api' -Port 9443 -Count 5 -Continuous:$false *> $null
+
+        $script:MetricCalls.Count | Should-Be 1
+        $script:MetricCalls[0].HostName | Should-Be 'example.com'
+        $script:MetricCalls[0].Port | Should-Be 9443
+    }
+
+    It 'infers conventional ports from non-HTTPS URI schemes' {
+        $script:MetricCalls = [System.Collections.Generic.List[Object]]::new()
+        $script:MockMetrics = [PSCustomObject]@{
+            HostName = 'mail.example.com'
+            Port = 587
+            SamplesTotal = 5
+            SamplesSuccess = 5
+            PacketLoss = 0
+            LatencyMin = 20.0
+            LatencyMax = 24.0
+            LatencyAvg = 22.0
+            Jitter = 1.5
+            DnsResolution = $null
+            LatencyData = @(20, 21, 22, 23, 24)
+        }
+
+        Invoke-NetworkDiagnostics -HostName 'submission://mail.example.com' -Count 5 -Continuous:$false *> $null
+
+        $script:MetricCalls.Count | Should-Be 1
+        $script:MetricCalls[0].HostName | Should-Be 'mail.example.com'
+        $script:MetricCalls[0].Port | Should-Be 587
     }
 
     It 'routes ShowGraph output through the TimeSeries renderer' {
