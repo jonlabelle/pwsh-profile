@@ -2328,7 +2328,6 @@ function Find-PlatformPackage
                 $boxTopRight = [String][Char]0x256E
                 $boxBottomLeft = [String][Char]0x2570
                 $boxBottomRight = [String][Char]0x256F
-                $statusDot = [String][Char]0x25CF
 
                 $currentBufferWidth = Get-PickerConsoleBufferWidth
                 if ($currentBufferWidth -gt 0)
