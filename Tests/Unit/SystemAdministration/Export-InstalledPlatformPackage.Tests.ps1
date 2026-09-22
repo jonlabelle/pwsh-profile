@@ -113,7 +113,8 @@ Describe 'Export-InstalledPlatformPackage' {
             param(
                 [Object[]]$Package,
                 [String]$Direction,
-                [String]$PackageManager
+                [String]$PackageManager,
+                [Switch]$InstalledOnly
             )
 
             [PSCustomObject]@{
@@ -158,7 +159,8 @@ Describe 'Export-InstalledPlatformPackage' {
             param(
                 [Object[]]$Package,
                 [String]$Direction,
-                [String]$PackageManager
+                [String]$PackageManager,
+                [Switch]$InstalledOnly
             )
 
             if ($Direction -eq 'DependsOn')
@@ -195,7 +197,7 @@ Describe 'Export-InstalledPlatformPackage' {
         $exportedPackages[0].DependsOn | Should-Be 'openssl'
         $exportedPackages[0].RequiredBy | Should-Be 'git-extras'
         Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
-        Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
+        Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' -and $InstalledOnly } -Times 1
     }
 
     It 'rejects Both dependency export mode for winget records' {

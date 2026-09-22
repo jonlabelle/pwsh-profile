@@ -13,7 +13,9 @@ function Export-InstalledPlatformPackage
         Use -DependencyMode DependsOn to include direct dependency relationships, or
         -DependencyMode Both to include direct and reverse dependency relationships where
         the selected package manager supports them. winget does not expose reverse
-        dependency metadata, so Both is rejected for winget package records.
+        dependency metadata, so Both is rejected for winget package records. Homebrew
+        reverse relationships are limited to installed dependents so the export reflects
+        the local package graph without evaluating the entire trusted formula catalog.
 
     .PARAMETER Package
         Installed package records to export. Objects returned by Get-PlatformPackage or
@@ -28,7 +30,8 @@ function Export-InstalledPlatformPackage
     .PARAMETER DependencyMode
         Dependency relationships to include. None exports package records only. DependsOn
         includes direct dependencies. Both includes direct dependencies and packages that
-        require each exported package. winget supports only None and DependsOn.
+        require each exported package. Homebrew reverse relationships include installed
+        dependents only. winget supports only None and DependsOn.
 
     .PARAMETER ShowProgress
         Writes progress while dependency relationships are resolved.
@@ -395,6 +398,10 @@ function Export-InstalledPlatformPackage
                     Package = @($PackageRecord)
                     Direction = $direction
                     PackageManager = $PackageRecord.PackageManager
+                }
+                if ($direction -eq 'RequiredBy' -and $PackageRecord.PackageManager -eq 'brew')
+                {
+                    $parameters.InstalledOnly = $true
                 }
                 if ($CommandRunner)
                 {

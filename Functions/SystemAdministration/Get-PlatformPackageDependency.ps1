@@ -838,10 +838,6 @@ function Get-PlatformPackageDependency
                 {
                     $arguments += '--installed'
                 }
-                else
-                {
-                    $arguments += '--eval-all'
-                }
             }
             elseif ($InstalledOnly)
             {

@@ -58,9 +58,9 @@ Describe 'Get-PlatformPackageDependency' {
             $result[0].Installed | Should-BeTruthy
         }
 
-        It 'uses eval-all for broad dependent discovery' {
+        It 'uses trusted-tap behavior for broad dependent discovery' {
             $runner = & $script:NewPackageCommandRunner @{
-                'brew uses --eval-all jq' = Get-TestCommandResponse -Output @('gojq')
+                'brew uses jq' = Get-TestCommandResponse -Output @('gojq')
             }
 
             $result = @(Get-PlatformPackageDependency -PackageManager brew -Package jq -Direction RequiredBy -CommandRunner $runner)
@@ -74,7 +74,7 @@ Describe 'Get-PlatformPackageDependency' {
         It 'returns both dependency directions when Direction is Both' {
             $runner = & $script:NewPackageCommandRunner @{
                 'brew deps --direct openssl' = Get-TestCommandResponse -Output @('ca-certificates')
-                'brew uses --eval-all openssl' = Get-TestCommandResponse -Output @('curl')
+                'brew uses openssl' = Get-TestCommandResponse -Output @('curl')
             }
 
             $result = @(Get-PlatformPackageDependency -PackageManager brew -Package openssl -Direction Both -CommandRunner $runner)
