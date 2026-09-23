@@ -641,13 +641,23 @@
                 }
                 'ExportDependencyMode'
                 {
-                    @(
+                    $items = @(
                         Get-PlatformPackageManagerHelpItem -Shortcut '1 or None' -Description 'export package records only'
                         Get-PlatformPackageManagerHelpItem -Shortcut '2 or DependsOn' -Description 'include direct dependencies'
-                        Get-PlatformPackageManagerHelpItem -Shortcut '3 or Both' -Description 'include direct and required-by relationships'
                         Get-PlatformPackageManagerHelpItem -Shortcut 'Blank' -Description 'export package records only'
                         Get-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
                     )
+
+                    if ((Get-PlatformPackageManagerDetectedName) -ne 'winget')
+                    {
+                        $items = @(
+                            $items[0]
+                            Get-PlatformPackageManagerHelpItem -Shortcut '3 or Both' -Description 'include direct and required-by relationships'
+                            $items[1..($items.Count - 1)]
+                        )
+                    }
+
+                    $items
                 }
                 'DependencyDirection'
                 {
@@ -803,12 +813,17 @@
 
         function Read-PlatformPackageExportDependencyMode
         {
+            $supportsBoth = (Get-PlatformPackageManagerDetectedName) -ne 'winget'
+
             while ($true)
             {
                 Write-PackageThemeText 'Dependency export:' -ForegroundColor White
                 Write-PackageThemeText '  1. Packages only' -ForegroundColor White
                 Write-PackageThemeText '  2. Direct dependencies' -ForegroundColor White
-                Write-PackageThemeText '  3. Direct + required-by relationships' -ForegroundColor White
+                if ($supportsBoth)
+                {
+                    Write-PackageThemeText '  3. Direct + required-by relationships' -ForegroundColor White
+                }
                 Write-PackageThemeText '  ?. Help' -ForegroundColor DarkGray
 
                 $value = Read-PlatformPackageManagerInput -Prompt 'Select dependency mode [1, ? for help]'
@@ -827,9 +842,13 @@
                 {
                     { $_ -in @('1', 'n', 'no', 'none') } { return 'None' }
                     { $_ -in @('2', 'd', 'dependson', 'depends on', 'dependencies') } { return 'DependsOn' }
-                    { $_ -in @('3', 'b', 'both', 'all') } { return 'Both' }
+                    { $supportsBoth -and $_ -in @('3', 'b', 'both', 'all') } { return 'Both' }
                     '?' { Show-PlatformPackageManagerHelp -Topic ExportDependencyMode }
-                    default { Write-PackageThemeText 'Choose 1, 2, or 3.' -ForegroundColor DarkGray }
+                    default
+                    {
+                        $choices = if ($supportsBoth) { 'Choose 1, 2, or 3.' } else { 'Choose 1 or 2.' }
+                        Write-PackageThemeText $choices -ForegroundColor DarkGray
+                    }
                 }
             }
         }
