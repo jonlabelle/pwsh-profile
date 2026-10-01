@@ -451,6 +451,7 @@
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidDefaultValueSwitchParameter', '')]
     [CmdletBinding()]
+    [Alias('Invoke-NetworkDiagnostic')]
     [OutputType([void])]
     param(
         [Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]

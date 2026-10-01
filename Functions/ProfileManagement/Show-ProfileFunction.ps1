@@ -75,6 +75,7 @@ function Show-ProfileFunction
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding()]
     [OutputType([String])]
+    [Alias('Show-ProfileFunctions')]
     param(
         [Parameter(Position = 0)]
         [ArgumentCompleter({
