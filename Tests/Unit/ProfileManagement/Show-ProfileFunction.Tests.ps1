@@ -49,6 +49,10 @@ BeforeAll {
         'Utilities' = @(
             @{ Name = 'Format-Byte'; Synopsis = 'Formats byte quantities into human-friendly units.' }
         )
+        'PrivateOnly' = @(
+            @{ Name = 'Get-PrivateFileFunction'; FileName = 'PrivateFile'; Synopsis = 'Must be hidden because its file name is private.' }
+            @{ Name = 'PrivateFunction'; FileName = 'Get-PrivateFunction'; Synopsis = 'Must be hidden because its function name is private.' }
+        )
     }
 
     foreach ($catName in $categories.Keys)
@@ -75,7 +79,8 @@ function $($func.Name)
                 $funcContent += "`nSet-Alias -Name 'tad' -Value 'Test-ADCredential'`n"
             }
 
-            $funcFile = Join-Path -Path $catDir -ChildPath "$($func.Name).ps1"
+            $fileName = if ($func.FileName) { $func.FileName } else { $func.Name }
+            $funcFile = Join-Path -Path $catDir -ChildPath "$fileName.ps1"
             [System.IO.File]::WriteAllText($funcFile, $funcContent, [System.Text.UTF8Encoding]::new($false))
         }
     }
@@ -131,6 +136,14 @@ Describe 'Show-ProfileFunction' {
             $output = Show-ProfileFunction 6>&1
             $outputText = ($output | Out-String)
 
+            $outputText | Should-MatchString '7 functions'
+            $outputText | Should-MatchString '5 categories'
+        }
+
+        It 'Should not display private files or private functions' {
+            $outputText = (Show-ProfileFunction 6>&1 | Out-String)
+
+            $outputText | Should -Not -Match 'PrivateOnly|Get-PrivateFileFunction|PrivateFunction'
             $outputText | Should-MatchString '7 functions'
             $outputText | Should-MatchString '5 categories'
         }

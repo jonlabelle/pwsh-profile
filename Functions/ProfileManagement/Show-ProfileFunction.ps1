@@ -227,7 +227,8 @@ function Show-ProfileFunction
         try
         {
             # Get all PowerShell files in the Functions directory and subdirectories
-            $functionFiles = Get-ChildItem -Path $functionsPath -Filter '*.ps1' -File -Recurse
+            $functionFiles = Get-ChildItem -Path $functionsPath -Filter '*.ps1' -File -Recurse |
+            Where-Object { [System.IO.Path]::GetFileNameWithoutExtension($_.Name) -match '-' }
 
             if (-not $functionFiles)
             {
@@ -250,7 +251,8 @@ function Show-ProfileFunction
                 return
             }
 
-            $firstCategory = $true
+            $displayedCount = 0
+            $categoryCount = 0
 
             foreach ($categoryGroup in $functionsByCategory)
             {
@@ -258,16 +260,7 @@ function Show-ProfileFunction
                 $categoryDisplay = $categoryGroup.Name -creplace '([A-Z])', ' $1'
                 $categoryDisplay = $categoryDisplay.Trim()
 
-                # Display category header with blank line before (except first)
-                if ($firstCategory)
-                {
-                    Write-Host "`n$themeMuted${categoryDisplay}:$themeReset"
-                    $firstCategory = $false
-                }
-                else
-                {
-                    Write-Host "`n$themeMuted${categoryDisplay}:$themeReset"
-                }
+                $categoryDisplayed = $false
 
                 # Sort functions within category
                 $sortedFiles = $categoryGroup.Group | Sort-Object Name
@@ -295,6 +288,8 @@ function Show-ProfileFunction
                         if ($functionAst)
                         {
                             $functionName = $functionAst.Name
+                            if ($functionName -notmatch '-') { continue }
+
                             $helpContent = $functionAst.GetHelpContent()
 
                             # Fallback: If GetHelpContent() returns null or empty, manually parse the help block
@@ -388,6 +383,13 @@ function Show-ProfileFunction
                         $synopsis = 'Unable to read description'
                     }
 
+                    if (-not $categoryDisplayed)
+                    {
+                        Write-Host "`n$themeMuted${categoryDisplay}:$themeReset"
+                        $categoryDisplayed = $true
+                        $categoryCount++
+                    }
+
                     # Format and display the function with description
                     Write-Host "$themeMuted  - $themeReset" -NoNewline
                     Write-Host "$themeAccent$functionName$themeReset" -NoNewline
@@ -400,12 +402,11 @@ function Show-ProfileFunction
 
                     Write-Host "$themeMuted - $themeReset" -NoNewline
                     Write-Host $synopsis
+                    $displayedCount++
                 }
             }
 
             # Display summary statistics
-            $displayedCount = ($functionsByCategory | ForEach-Object { $_.Group.Count } | Measure-Object -Sum).Sum
-            $categoryCount = @($functionsByCategory).Count
             Write-Host "`n${themeAccent}Total: $themeReset" -NoNewline
             Write-Host "$displayedCount functions " -NoNewline
             Write-Host "${themeMuted}across $themeReset" -NoNewline
