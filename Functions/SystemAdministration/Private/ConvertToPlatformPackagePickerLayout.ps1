@@ -8,8 +8,10 @@ function ConvertToPlatformPackagePickerLayout
         Builds the structured lines used to render a platform package picker's header,
         body, and optional controls footer. Header and footer lines are placed inside
         borders, while body lines remain plain. Text is wrapped to fit the frame; when
-        requested, the frame width expands to accommodate the supplied lines. The result
-        contains line objects rather than writing anything to the console.
+        requested, the frame width expands to accommodate the supplied lines. Optional
+        line segments preserve per-fragment foreground colors for rows that fit without
+        wrapping. The result contains line objects rather than writing anything to the
+        console.
 
         Each input line can be a string or an object with a Text property. An optional
         ForegroundColor property is carried through to the corresponding output line.
@@ -45,7 +47,7 @@ function ConvertToPlatformPackagePickerLayout
 
     .OUTPUTS
         System.Object[]. An array of line objects with Kind, Text, and ForegroundColor
-        properties. Kind is Border, Panel, or Plain.
+        properties, and an optional Segments property. Kind is Border, Panel, or Plain.
     #>
     [CmdletBinding()]
     [OutputType([Object[]])]
@@ -144,13 +146,17 @@ function ConvertToPlatformPackagePickerLayout
 
             [Parameter()]
             [AllowNull()]
-            [Object]$ForegroundColor
+            [Object]$ForegroundColor,
+
+            [Parameter()]
+            [Object[]]$Segments = @()
         )
 
         [void]$outputLines.Add([PSCustomObject]@{
                 Kind = $Kind
                 Text = $Text
                 ForegroundColor = $ForegroundColor
+                Segments = @($Segments)
             })
     }
 
@@ -183,6 +189,14 @@ function ConvertToPlatformPackagePickerLayout
             if ([String]::IsNullOrEmpty($text))
             {
                 Add-OutputLine -Kind $Kind -ForegroundColor $color
+                continue
+            }
+
+            $segmentProperty = if ($null -ne $line) { $line.PSObject.Properties['Segments'] } else { $null }
+            $segments = if ($null -ne $segmentProperty) { @($segmentProperty.Value) } else { @() }
+            if ($segments.Count -gt 0 -and $text.Length -le $Width)
+            {
+                Add-OutputLine -Kind $Kind -Text $text -ForegroundColor $color -Segments $segments
                 continue
             }
 

@@ -160,6 +160,7 @@
             $text = if ($null -eq $Object) { '' } else { [String]$Object }
             $color = switch ([String]$ForegroundColor)
             {
+                'White' { $packageThemeEscape + '[97m'; break }
                 { $_ -in 'Green', 'DarkGreen', 'Cyan', 'DarkCyan' } { $packageThemeAccent; break }
                 { $_ -in 'Gray', 'DarkGray' } { $packageThemeMuted; break }
                 { $_ -in 'Yellow', 'DarkYellow' } { $packageThemeWarning; break }
@@ -1257,6 +1258,12 @@
                 [Object[]]$Records = @(),
 
                 [Parameter()]
+                [String]$Notification = '',
+
+                [Parameter()]
+                [String]$NotificationColor = 'DarkYellow',
+
+                [Parameter()]
                 [Switch]$AutoReturn
             )
 
@@ -1265,6 +1272,8 @@
                 PSTypeName = 'PlatformPackageManager.ActionResult'
                 Title = $Title
                 Message = $Message
+                Notification = $Notification
+                NotificationColor = $NotificationColor
                 Records = $recordList
                 RecordCount = $recordList.Count
                 AutoReturn = $AutoReturn.IsPresent
@@ -1548,16 +1557,36 @@
             $parameters = Get-PlatformPackageManagerCommonParameters
             Add-PlatformPackageManagerPickerParameters -Parameters $parameters
 
+            $actionNotices = [System.Collections.Generic.List[Object]]::new()
+            $actionNoticeCallback = {
+                param(
+                    [String]$Message,
+                    [ConsoleColor]$Color = [ConsoleColor]::White
+                )
+
+                if (-not [String]::IsNullOrWhiteSpace($Message))
+                {
+                    $actionNotices.Add([PSCustomObject]@{
+                            Message = $Message
+                            Color = [String]$Color
+                        })
+                }
+            }.GetNewClosure()
+            $parameters.ActionNoticeCallback = $actionNoticeCallback
+
             $result = @(Invoke-PlatformPackageManagerFunction -FunctionName 'Show-InstalledPlatformPackage' -FileName 'Show-InstalledPlatformPackage.ps1' -Parameters $parameters -Invocation {
                     param([Hashtable]$InvocationParameters)
                     Show-InstalledPlatformPackage @InvocationParameters
                 })
+            $actionNotice = if ($actionNotices.Count -gt 0) { $actionNotices[$actionNotices.Count - 1] } else { $null }
+            $notification = if ($null -ne $actionNotice) { [String]$actionNotice.Message } else { '' }
+            $notificationColor = if ($null -ne $actionNotice) { [String]$actionNotice.Color } else { 'DarkYellow' }
             if ($result.Count -eq 0)
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Show Packages' -Message 'Installed package browser closed.' -AutoReturn)
+                return (Get-PlatformPackageManagerActionResult -Title 'Show Packages' -Message 'Installed package browser closed.' -Notification $notification -NotificationColor $notificationColor -AutoReturn)
             }
 
-            return (Get-PlatformPackageManagerActionResult -Title 'Show Packages' -Records $result)
+            return (Get-PlatformPackageManagerActionResult -Title 'Show Packages' -Records $result -Notification $notification -NotificationColor $notificationColor)
         }
 
         function Invoke-PlatformPackageManagerExport
@@ -1777,6 +1806,11 @@
                 [PSCustomObject]$Result
             )
 
+            if (-not [String]::IsNullOrWhiteSpace($Result.Notification))
+            {
+                return $Result.Notification
+            }
+
             # Explicit cancels (empty query, browser closed, etc.) need no notification
             if ($Result.AutoReturn)
             {
@@ -1873,7 +1907,10 @@
                 [Int32]$SelectedIndex = -1,
 
                 [Parameter()]
-                [String]$Notification = ''
+                [String]$Notification = '',
+
+                [Parameter()]
+                [String]$NotificationColor = 'DarkYellow'
             )
 
             Clear-Host
@@ -1906,7 +1943,7 @@
             {
                 Write-PlatformPackageManagerPanelBorder -Position Top -Title 'Notice'
                 Write-PlatformPackageManagerPanelLine -Segment @(
-                    [PSCustomObject]@{ Text = $Notification; Color = 'DarkYellow' }
+                    [PSCustomObject]@{ Text = $Notification; Color = $NotificationColor }
                 )
                 Write-PlatformPackageManagerPanelBorder -Position Bottom
                 Write-PackageThemeText ''
@@ -1930,7 +1967,10 @@
         {
             param(
                 [Parameter()]
-                [String]$Notification = ''
+                [String]$Notification = '',
+
+                [Parameter()]
+                [String]$NotificationColor = 'DarkYellow'
             )
 
             $options = @(Get-PlatformPackageManagerMenuOptions)
@@ -1938,7 +1978,7 @@
             {
                 while ($true)
                 {
-                    Write-PlatformPackageManagerMenu -Options $options -Notification $Notification
+                    Write-PlatformPackageManagerMenu -Options $options -Notification $Notification -NotificationColor $NotificationColor
                     $promptChoice = (Read-PlatformPackageManagerInput -Prompt 'Select an action (? for help)').Trim()
                     if ($promptChoice -eq '?')
                     {
@@ -1953,7 +1993,7 @@
             $selectedIndex = 0
             while ($true)
             {
-                Write-PlatformPackageManagerMenu -Options $options -SelectedIndex $selectedIndex -Notification $Notification
+                Write-PlatformPackageManagerMenu -Options $options -SelectedIndex $selectedIndex -Notification $Notification -NotificationColor $NotificationColor
                 $key = Read-PlatformPackageManagerKey
                 if (Test-PlatformPackageManagerCancelKey -KeyInfo $key)
                 {
@@ -2058,11 +2098,13 @@
     {
         Assert-PlatformPackageManagerParameterSupport -ManagerName (Get-PlatformPackageManagerDetectedName)
         $notification = ''
+        $notificationColor = 'DarkYellow'
 
         while ($true)
         {
-            $choice = Read-PlatformPackageManagerMenuChoice -Notification $notification
+            $choice = Read-PlatformPackageManagerMenuChoice -Notification $notification -NotificationColor $notificationColor
             $notification = ''
+            $notificationColor = 'DarkYellow'
 
             if ($choice.ToLowerInvariant() -in @('q', 'quit', 'exit'))
             {
@@ -2091,6 +2133,10 @@
             else
             {
                 $notification = Get-PlatformPackageManagerAutoReturnNotification -Result $actionResult
+                if (-not [String]::IsNullOrWhiteSpace($actionResult.Notification))
+                {
+                    $notificationColor = $actionResult.NotificationColor
+                }
             }
         }
     }

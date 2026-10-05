@@ -166,6 +166,9 @@ function Show-InstalledPlatformPackage
         [ScriptBlock]$CommandRunner,
 
         [Parameter(DontShow = $true)]
+        [ScriptBlock]$ActionNoticeCallback,
+
+        [Parameter(DontShow = $true)]
         [ScriptBlock]$KeyReader,
 
         [Parameter(DontShow = $true)]
@@ -231,6 +234,7 @@ function Show-InstalledPlatformPackage
             $text = if ($null -eq $Object) { '' } else { [String]$Object }
             $color = switch ([String]$ForegroundColor)
             {
+                'White' { $packageThemeEscape + '[97m'; break }
                 { $_ -in 'Green', 'DarkGreen', 'Cyan', 'DarkCyan' } { $packageThemeAccent; break }
                 { $_ -in 'Gray', 'DarkGray' } { $packageThemeMuted; break }
                 { $_ -in 'Yellow', 'DarkYellow' } { $packageThemeWarning; break }
@@ -650,6 +654,9 @@ function Show-InstalledPlatformPackage
                 [ScriptBlock]$CommandRunner,
 
                 [Parameter()]
+                [ScriptBlock]$ActionNoticeCallback,
+
+                [Parameter()]
                 [Switch]$ReturnToPlatformPackageManagerOnBackKey,
 
                 [Parameter()]
@@ -726,6 +733,71 @@ function Show-InstalledPlatformPackage
                 }
 
                 return ConvertTo-PackageText -Value (Get-FirstPropertyValue -InputObject $ActionResult -PropertyName @('Message', 'ErrorMessage', 'Error'))
+            }
+
+            function Get-PackageActionNotice
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [ValidateSet('Remove', 'Upgrade')]
+                    [String]$Action,
+
+                    [Parameter(Mandatory)]
+                    [PSCustomObject]$Package,
+
+                    [Parameter()]
+                    [PSCustomObject]$ActionResult
+                )
+
+                $packageLabel = if (-not [String]::IsNullOrWhiteSpace($Package.Name)) { $Package.Name } else { $Package.Id }
+                $verb = if ($Action -eq 'Remove') { 'Removal' } else { 'Upgrade' }
+                if ($null -eq $ActionResult)
+                {
+                    return "$verb of ${packageLabel}: no result was returned, so command execution could not be confirmed."
+                }
+
+                $resultRecords = @($ActionResult.Results | Where-Object { $null -ne $_ })
+                $firstResult = $resultRecords | Select-Object -First 1
+                $status = if ($null -ne $firstResult -and $firstResult.PSObject.Properties['Status']) { [String]$firstResult.Status } else { '' }
+                $completedCount = if ($Action -eq 'Remove') { [Int32]$ActionResult.Removed } else { [Int32]$ActionResult.Upgraded }
+                $failedCount = [Int32]$ActionResult.Failed
+                $skippedCount = [Int32]$ActionResult.Skipped
+                $countLabel = if ($Action -eq 'Remove') { 'Removed' } else { 'Upgraded' }
+
+                if ($status -eq 'Skipped')
+                {
+                    $reason = if ($firstResult.PSObject.Properties['Message']) { [String]$firstResult.Message } else { '' }
+                    if ($reason -eq 'Skipped by ShouldProcess')
+                    {
+                        return "$verb of $packageLabel was not performed; no package-manager command was run (ShouldProcess skipped it)."
+                    }
+
+                    if (-not [String]::IsNullOrWhiteSpace($reason))
+                    {
+                        return "$verb of $packageLabel was not performed: $reason"
+                    }
+
+                    return "$verb of $packageLabel was not performed; the package action was skipped."
+                }
+
+                if ($status -eq 'Failed' -or $failedCount -gt 0)
+                {
+                    $failureMessage = Get-PackageActionFirstFailureMessage -ActionResult $ActionResult
+                    $failureText = if ([String]::IsNullOrWhiteSpace($failureMessage)) { "Failed: $failedCount." } else { "Failed: $failedCount. $failureMessage" }
+                    return "$verb of $packageLabel did not complete. $failureText"
+                }
+
+                if (($Action -eq 'Remove' -and $status -eq 'Removed') -or ($Action -eq 'Upgrade' -and $status -eq 'Upgraded'))
+                {
+                    return "$verb of $packageLabel completed. ${countLabel}: $completedCount; Failed: $failedCount; Skipped: $skippedCount."
+                }
+
+                if ($completedCount -eq 0 -and $failedCount -eq 0 -and $skippedCount -eq 0)
+                {
+                    return "$verb of $packageLabel was not performed; no package action was reported."
+                }
+
+                return "$verb of $packageLabel finished. ${countLabel}: $completedCount; Failed: $failedCount; Skipped: $skippedCount."
             }
 
             if ($InstalledPackages.Count -eq 0)
@@ -1241,6 +1313,69 @@ function Show-InstalledPlatformPackage
                 }
             }
 
+            function Get-PackageActionNoticeFrameLines
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [String]$Text,
+
+                    [Parameter(Mandatory)]
+                    [ConsoleColor]$TextColor
+                )
+
+                $availableFrameWidth = $pickerFrameWidth
+                if ($pickerRenderState.UseInPlaceRedraw -and $pickerRenderState.ConsoleBufferWidth -gt 0)
+                {
+                    $availableFrameWidth = [Math]::Max(40, $pickerRenderState.ConsoleBufferWidth - 1)
+                }
+
+                $frameWidth = [Math]::Max(40, $availableFrameWidth - 4)
+                $contentWidth = $frameWidth - 4
+                $horizontal = [String][Char]0x2500
+                $topLeft = [String][Char]0x256D
+                $topRight = [String][Char]0x256E
+                $bottomLeft = [String][Char]0x2570
+                $bottomRight = [String][Char]0x256F
+                $vertical = [String][Char]0x2502
+                $titleToken = ' NOTICE '
+                $titleRuleWidth = [Math]::Max(0, $frameWidth - $titleToken.Length - 3)
+                $lines = [System.Collections.Generic.List[Object]]::new()
+                $noticeTextLines = [System.Collections.Generic.List[String]]::new()
+                $lines.Add((Format-PickerFrameLine -Text ($topLeft + $horizontal + $titleToken + ($horizontal * $titleRuleWidth) + $topRight) -ForegroundColor Cyan))
+
+                $remainingText = [System.Text.RegularExpressions.Regex]::Replace($Text, '\s+', ' ').Trim()
+                while ($remainingText.Length -gt $contentWidth)
+                {
+                    $breakAt = $remainingText.LastIndexOf(' ', $contentWidth)
+                    if ($breakAt -le 0)
+                    {
+                        $breakAt = $contentWidth
+                    }
+
+                    $lineText = $remainingText.Substring(0, $breakAt).TrimEnd()
+                    $noticeTextLines.Add($lineText)
+                    $remainingText = $remainingText.Substring($breakAt).TrimStart()
+                }
+
+                $noticeTextLines.Add($remainingText)
+                foreach ($lineText in $noticeTextLines)
+                {
+                    $segments = @(
+                        [PSCustomObject]@{ Text = $vertical; ForegroundColor = [ConsoleColor]::Cyan }
+                        [PSCustomObject]@{ Text = (' ' + $lineText.PadRight($contentWidth) + ' '); ForegroundColor = $TextColor }
+                        [PSCustomObject]@{ Text = $vertical; ForegroundColor = [ConsoleColor]::Cyan }
+                    )
+                    $lines.Add([PSCustomObject]@{
+                            Text = ($segments.Text -join '')
+                            ForegroundColor = $null
+                            Segments = $segments
+                        })
+                }
+
+                $lines.Add((Format-PickerFrameLine -Text ($bottomLeft + ($horizontal * ($frameWidth - 2)) + $bottomRight) -ForegroundColor Cyan))
+                return $lines.ToArray()
+            }
+
             function Get-PickerFrameLineText
             {
                 param(
@@ -1413,6 +1548,20 @@ function Show-InstalledPlatformPackage
                             Write-PackageThemeText (' ' * ([Math]::Max(0, $contentWidth - $line.Text.Length))) -NoNewline
                             Write-PackageThemeText " $boxVertical" -ForegroundColor Cyan
                         }
+                        elseif (@($line.Segments).Count -gt 0)
+                        {
+                            for ($segmentIndex = 0; $segmentIndex -lt $line.Segments.Count; $segmentIndex++)
+                            {
+                                if ($segmentIndex -lt ($line.Segments.Count - 1))
+                                {
+                                    Write-PackageThemeText $line.Segments[$segmentIndex].Text -NoNewline -ForegroundColor $line.Segments[$segmentIndex].ForegroundColor
+                                }
+                                else
+                                {
+                                    Write-PackageThemeText $line.Segments[$segmentIndex].Text -ForegroundColor $line.Segments[$segmentIndex].ForegroundColor
+                                }
+                            }
+                        }
                         else
                         {
                             Write-PackageThemeText $line.Text -ForegroundColor $line.ForegroundColor
@@ -1441,7 +1590,31 @@ function Show-InstalledPlatformPackage
                             { $_ -in 'Red', 'DarkRed' } { $packageThemeCritical; break }
                             default { '' }
                         }
-                        if ($line.Kind -eq 'Border')
+                        if (@($line.Segments).Count -gt 0)
+                        {
+                            $styledSegments = foreach ($segment in $line.Segments)
+                            {
+                                $segmentColor = switch ([String]$segment.ForegroundColor)
+                                {
+                                    'White' { $packageThemeEscape + '[97m'; break }
+                                    { $_ -in 'Green', 'DarkGreen', 'Cyan', 'DarkCyan' } { $packageThemeAccent; break }
+                                    { $_ -in 'Gray', 'DarkGray' } { $packageThemeMuted; break }
+                                    { $_ -in 'Yellow', 'DarkYellow' } { $packageThemeWarning; break }
+                                    { $_ -in 'Red', 'DarkRed' } { $packageThemeCritical; break }
+                                    default { '' }
+                                }
+                                if ($segmentColor)
+                                {
+                                    "$segmentColor$($segment.Text)$packageThemeReset"
+                                }
+                                else
+                                {
+                                    [String]$segment.Text
+                                }
+                            }
+                            $lineText = ($styledSegments -join '') + (' ' * [Math]::Max(0, $frameWidth - $line.Text.Length))
+                        }
+                        elseif ($line.Kind -eq 'Border')
                         {
                             $lineText = "$packageThemeAccent$($line.Text)$packageThemeReset"
                         }
@@ -2703,8 +2876,7 @@ function Show-InstalledPlatformPackage
                         if (-not [String]::IsNullOrWhiteSpace($actionStatus))
                         {
                             $bodyLines += ''
-                            $bodyLines += Format-PickerFrameLine -Text "$([char]0x25CF) STATUS" -ForegroundColor Cyan
-                            $bodyLines += Format-PickerFrameLine -Text ("Status: $actionStatus") -ForegroundColor $actionStatusColor
+                            $bodyLines += @(Get-PackageActionNoticeFrameLines -Text $actionStatus -TextColor $actionStatusColor)
                         }
 
                         if ($requestedPageSize -le 0)
@@ -2927,32 +3099,45 @@ function Show-InstalledPlatformPackage
                                 continue
                             }
 
-                            if ($null -ne $currentPackage -and (Read-PackageActionConfirmation -Action 'Remove' -Package $currentPackage))
+                            if ($null -ne $currentPackage)
                             {
-                                $targetPackage = if (-not [String]::IsNullOrWhiteSpace($currentPackage.Id)) { $currentPackage.Id } else { $currentPackage.Name }
-                                $removeParameters = @{
-                                    PackageManager = $currentPackage.PackageManager
-                                    IncludePackage = @($targetPackage)
-                                    All = $true
-                                    FilterSource = $currentPackage.Source
-                                    Confirm = $false
-                                }
-                                if ($CommandRunner)
+                                if (Read-PackageActionConfirmation -Action 'Remove' -Package $currentPackage)
                                 {
-                                    $removeParameters.CommandRunner = $CommandRunner
-                                }
-
-                                $removeResult = Remove-PlatformPackage @removeParameters
-                                $actionStatus = "Removed: $($removeResult.Removed), Failed: $($removeResult.Failed), Skipped: $($removeResult.Skipped)"
-                                if ([Int32]$removeResult.Failed -gt 0)
-                                {
-                                    $failureMessage = Get-PackageActionFirstFailureMessage -ActionResult $removeResult
-                                    if (-not [String]::IsNullOrWhiteSpace($failureMessage))
+                                    $targetPackage = if (-not [String]::IsNullOrWhiteSpace($currentPackage.Id)) { $currentPackage.Id } else { $currentPackage.Name }
+                                    $removeParameters = @{
+                                        PackageManager = $currentPackage.PackageManager
+                                        IncludePackage = @($targetPackage)
+                                        All = $true
+                                        FilterSource = $currentPackage.Source
+                                        Confirm = $false
+                                    }
+                                    if ($CommandRunner)
                                     {
-                                        $actionStatus = "$actionStatus; First failure: $failureMessage"
+                                        $removeParameters.CommandRunner = $CommandRunner
+                                    }
+
+                                    try
+                                    {
+                                        $removeResult = Remove-PlatformPackage @removeParameters
+                                        $actionStatus = Get-PackageActionNotice -Action Remove -Package $currentPackage -ActionResult $removeResult
+                                        $actionStatusColor = if ([Int32]$removeResult.Removed -gt 0 -and [Int32]$removeResult.Failed -eq 0 -and [Int32]$removeResult.Skipped -eq 0) { [ConsoleColor]::White } else { [ConsoleColor]::DarkYellow }
+                                    }
+                                    catch
+                                    {
+                                        $actionStatus = "Removal of $($currentPackage.Name) could not be confirmed: $($_.Exception.Message)"
+                                        $actionStatusColor = [ConsoleColor]::DarkYellow
                                     }
                                 }
-                                $actionStatusColor = if ([Int32]$removeResult.Failed -gt 0) { [ConsoleColor]::DarkYellow } else { [ConsoleColor]::Green }
+                                else
+                                {
+                                    $actionStatus = "Removal of $($currentPackage.Name) was not performed; confirmation was declined."
+                                    $actionStatusColor = [ConsoleColor]::DarkYellow
+                                }
+
+                                if ($ActionNoticeCallback -and -not [String]::IsNullOrWhiteSpace($actionStatus))
+                                {
+                                    & $ActionNoticeCallback -Message $actionStatus -Color $actionStatusColor
+                                }
                             }
                         }
                         'U'
@@ -2962,33 +3147,46 @@ function Show-InstalledPlatformPackage
                                 continue
                             }
 
-                            if ($null -ne $currentPackage -and (Read-PackageActionConfirmation -Action 'Upgrade' -Package $currentPackage))
+                            if ($null -ne $currentPackage)
                             {
-                                $targetPackage = if (-not [String]::IsNullOrWhiteSpace($currentPackage.Id)) { $currentPackage.Id } else { $currentPackage.Name }
-                                $upgradeParameters = @{
-                                    PackageManager = $currentPackage.PackageManager
-                                    IncludePackage = @($targetPackage)
-                                    All = $true
-                                    FilterSource = $currentPackage.Source
-                                    SkipRefresh = $true
-                                    Confirm = $false
-                                }
-                                if ($CommandRunner)
+                                if (Read-PackageActionConfirmation -Action 'Upgrade' -Package $currentPackage)
                                 {
-                                    $upgradeParameters.CommandRunner = $CommandRunner
-                                }
-
-                                $upgradeResult = Upgrade-PlatformPackage @upgradeParameters
-                                $actionStatus = "Upgraded: $($upgradeResult.Upgraded), Failed: $($upgradeResult.Failed), Skipped: $($upgradeResult.Skipped)"
-                                if ([Int32]$upgradeResult.Failed -gt 0)
-                                {
-                                    $failureMessage = Get-PackageActionFirstFailureMessage -ActionResult $upgradeResult
-                                    if (-not [String]::IsNullOrWhiteSpace($failureMessage))
+                                    $targetPackage = if (-not [String]::IsNullOrWhiteSpace($currentPackage.Id)) { $currentPackage.Id } else { $currentPackage.Name }
+                                    $upgradeParameters = @{
+                                        PackageManager = $currentPackage.PackageManager
+                                        IncludePackage = @($targetPackage)
+                                        All = $true
+                                        FilterSource = $currentPackage.Source
+                                        SkipRefresh = $true
+                                        Confirm = $false
+                                    }
+                                    if ($CommandRunner)
                                     {
-                                        $actionStatus = "$actionStatus; First failure: $failureMessage"
+                                        $upgradeParameters.CommandRunner = $CommandRunner
+                                    }
+
+                                    try
+                                    {
+                                        $upgradeResult = Upgrade-PlatformPackage @upgradeParameters
+                                        $actionStatus = Get-PackageActionNotice -Action Upgrade -Package $currentPackage -ActionResult $upgradeResult
+                                        $actionStatusColor = if ([Int32]$upgradeResult.Upgraded -gt 0 -and [Int32]$upgradeResult.Failed -eq 0 -and [Int32]$upgradeResult.Skipped -eq 0) { [ConsoleColor]::White } else { [ConsoleColor]::DarkYellow }
+                                    }
+                                    catch
+                                    {
+                                        $actionStatus = "Upgrade of $($currentPackage.Name) could not be confirmed: $($_.Exception.Message)"
+                                        $actionStatusColor = [ConsoleColor]::DarkYellow
                                     }
                                 }
-                                $actionStatusColor = if ([Int32]$upgradeResult.Failed -gt 0) { [ConsoleColor]::DarkYellow } else { [ConsoleColor]::Green }
+                                else
+                                {
+                                    $actionStatus = "Upgrade of $($currentPackage.Name) was not performed; confirmation was declined."
+                                    $actionStatusColor = [ConsoleColor]::DarkYellow
+                                }
+
+                                if ($ActionNoticeCallback -and -not [String]::IsNullOrWhiteSpace($actionStatus))
+                                {
+                                    & $ActionNoticeCallback -Message $actionStatus -Color $actionStatusColor
+                                }
                             }
                         }
                         'S'
@@ -3100,7 +3298,7 @@ function Show-InstalledPlatformPackage
         }
 
         $selectedPackages = @(
-            Select-InstalledPackageRecords -InstalledPackages $installedPackages -KeyReader $KeyReader -PageSize $PickerPageSize -EnableSelection:$PassThru.IsPresent -SourceFilter $FilterSource -CommandRunner $CommandRunner -ReturnToPlatformPackageManagerOnBackKey:$ReturnToPlatformPackageManagerOnBackKey -PickerMode $PickerMode
+            Select-InstalledPackageRecords -InstalledPackages $installedPackages -KeyReader $KeyReader -PageSize $PickerPageSize -EnableSelection:$PassThru.IsPresent -SourceFilter $FilterSource -CommandRunner $CommandRunner -ActionNoticeCallback $ActionNoticeCallback -ReturnToPlatformPackageManagerOnBackKey:$ReturnToPlatformPackageManagerOnBackKey -PickerMode $PickerMode
         )
 
         if ($PassThru)
