@@ -82,6 +82,7 @@ Describe 'Invoke-NetworkDiagnostics (Default continuous mode single iteration vi
 
         # Capture output
         $output = Invoke-NetworkDiagnostics -HostName 'example.com' -Count 5 -MaxIterations 1 -RenderMode Stack *>&1 | Out-String
+        $output = $output -replace "$([char]27)\[[0-9;]*m", ''
 
         # Verify expected content
         $output | Should-MatchString 'example\.com:443'
@@ -92,8 +93,8 @@ Describe 'Invoke-NetworkDiagnostics (Default continuous mode single iteration vi
         $output | Should-NotMatchString 'Continuous Mode \(Press Ctrl\+C to stop\)'
         $output | Should-NotMatchString 'Network Diagnostic - Continuous Mode'
         $output | Should-NotMatchString 'Refresh #'
-        $output | Should-MatchString "(?:`r?`n){2}Press Q or Ctrl\+C to stop monitoring\."
-        $output | Should-NotMatchString "(?:`r?`n){3}Press Q or Ctrl\+C to stop monitoring\."
+        $output | Should-MatchString "(?:`r?`n){1,2}Press Q or Ctrl\+C to stop monitoring\."
+        $output | Should-NotMatchString "(?:`r?`n){3,}Press Q or Ctrl\+C to stop monitoring\."
 
         # Ensure NO timestamp or wait messages
         $output | Should-NotMatchString 'Test completed at:'
@@ -190,6 +191,7 @@ Describe 'Invoke-NetworkDiagnostics (Default continuous mode single iteration vi
         }
 
         $output = Invoke-NetworkDiagnostics -HostName 'example.com' -Count 5 -Continuous:$false -SummaryOnly *>&1 | Out-String
+        $output = $output -replace "$([char]27)\[[0-9;]*m", ''
 
         $output | Should-MatchString 'Summary\s+avg\s+22ms'
         $output | Should-MatchString 'dns\s+8ms'

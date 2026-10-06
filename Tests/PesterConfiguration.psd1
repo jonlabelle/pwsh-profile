@@ -33,7 +33,7 @@
   # Test result reporting settings
   TestResult = @{
     Enabled = $true # Enable test result reporting
-    OutputFormat = 'NUnitXml' # Options: 'NUnitXml', 'JUnitXml', 'TRX'
+    OutputFormat = 'NUnit3' # Pester sanitizes ANSI control characters in failed test messages
     OutputPath = './testresults.xml' # Output file for test results
   }
 }

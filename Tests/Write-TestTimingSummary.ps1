@@ -104,7 +104,8 @@ if (-not (Test-Path -LiteralPath $Path))
 
 try
 {
-    [xml]$testResults = Get-Content -LiteralPath $Path -Raw
+    $testResults = [System.Xml.XmlDocument]::new()
+    $testResults.Load((Resolve-Path -LiteralPath $Path).ProviderPath)
 }
 catch
 {
@@ -113,18 +114,36 @@ catch
     return
 }
 
-$rootSuite = $testResults.'test-results'.'test-suite'
+$reportFormat = $testResults.DocumentElement.LocalName
+if ($reportFormat -eq 'test-run')
+{
+    $rootSuite = $testResults.'test-run'
+    $fileSuites = @($testResults.SelectNodes('/test-run/test-suite[@type="Assembly"]'))
+    $caseNodes = @($testResults.SelectNodes('//test-case') | Where-Object { $_.result -ne 'Skipped' })
+    $durationAttribute = 'duration'
+    $totalTests = [int]$rootSuite.total
+    $failedTests = [int]$rootSuite.failed
+    $skippedTests = [int]$rootSuite.skipped
+}
+elseif ($reportFormat -eq 'test-results')
+{
+    $rootSuite = $testResults.'test-results'.'test-suite'
+    $fileSuites = @($rootSuite.results.'test-suite')
+    $caseNodes = @($testResults.SelectNodes('//test-case') | Where-Object { $_.executed -eq 'True' })
+    $durationAttribute = 'time'
+    $totalTests = [int]$testResults.'test-results'.total
+    $failedTests = [int]$testResults.'test-results'.failures
+    $skippedTests = [int]$testResults.'test-results'.skipped
+}
+
 if (-not $rootSuite)
 {
-    [void]$summaryLines.Add("No root test suite found in ``$Path``.")
+    [void]$summaryLines.Add("No supported NUnit root found in ``$Path``.")
     Write-MarkdownSummary -Lines $summaryLines.ToArray() -DestinationPath $OutputPath
     return
 }
 
-$totalSeconds = [double]$rootSuite.time
-$totalTests = [int]$testResults.'test-results'.total
-$failedTests = [int]$testResults.'test-results'.failures
-$skippedTests = [int]$testResults.'test-results'.skipped
+$totalSeconds = [double]$rootSuite.$durationAttribute
 
 [void]$summaryLines.Add('| Metric | Value |')
 [void]$summaryLines.Add('| --- | ---: |')
@@ -134,11 +153,11 @@ $skippedTests = [int]$testResults.'test-results'.skipped
 [void]$summaryLines.Add("| Skipped tests | $skippedTests |")
 [void]$summaryLines.Add('')
 
-$fileRows = @($rootSuite.results.'test-suite' | ForEach-Object {
+$fileRows = @($fileSuites | ForEach-Object {
         [PSCustomObject]@{
-            Name = Get-RelativeTestName -Name $_.name
+            Name = Get-RelativeTestName -Name $(if ($reportFormat -eq 'test-run') { $_.fullname } else { $_.name })
             Result = $_.result
-            Seconds = [double]$_.time
+            Seconds = [double]$_.$durationAttribute
         }
     } | Sort-Object -Property Seconds -Descending | Select-Object -First $Top)
 
@@ -151,11 +170,11 @@ foreach ($fileRow in $fileRows)
 }
 [void]$summaryLines.Add('')
 
-$caseRows = @($testResults.SelectNodes('//test-case') | Where-Object { $_.executed -eq 'True' } | ForEach-Object {
+$caseRows = @($caseNodes | ForEach-Object {
         [PSCustomObject]@{
             Name = $_.name
             Result = $_.result
-            Seconds = [double]$_.time
+            Seconds = [double]$_.$durationAttribute
         }
     } | Sort-Object -Property Seconds -Descending | Select-Object -First $Top)
 

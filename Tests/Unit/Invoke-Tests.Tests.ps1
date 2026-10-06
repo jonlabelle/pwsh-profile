@@ -77,6 +77,16 @@ function Invoke-Pester
         [Object]$Configuration
     )
 
+    if ($Configuration.TestResult.OutputFormat -ne 'NUnit3')
+    {
+        throw 'Invoke-Tests.ps1 must select NUnit3 reporting.'
+    }
+
+    if ($env:PWSPROFILE_FAKE_PESTER_NO_RESULT -eq '1')
+    {
+        return $null
+    }
+
     $outputPath = ''
     if ($Configuration -and $Configuration.TestResult -and $Configuration.TestResult.OutputPath)
     {
@@ -87,22 +97,18 @@ function Invoke-Pester
     {
         $xml = @"
 <?xml version="1.0" encoding="utf-8"?>
-<test-results total="2" failures="0" skipped="0">
-  <test-suite type="Assembly" name="/tmp/fake/Tests" executed="True" result="Success" time="7.5">
-    <results>
-      <test-suite type="TestFixture" name="/tmp/fake/Tests/Unit/Slow.Tests.ps1" executed="True" result="Success" time="6.4">
-        <results>
-          <test-case name="Slow case" executed="True" result="Success" time="5.8" />
-        </results>
-      </test-suite>
-      <test-suite type="TestFixture" name="/tmp/fake/Tests/Unit/Fast.Tests.ps1" executed="True" result="Success" time="1.1">
-        <results>
-          <test-case name="Fast case" executed="True" result="Success" time="0.9" />
-        </results>
-      </test-suite>
-    </results>
+<test-run total="2" passed="2" failed="0" skipped="0" duration="7.5">
+  <test-suite type="Assembly" name="Slow.Tests.ps1" fullname="/tmp/fake/Tests/Unit/Slow.Tests.ps1" result="Passed" duration="6.4">
+    <test-suite type="TestFixture" name="Slow tests" result="Passed" duration="6.4">
+      <test-case name="Slow case" result="Passed" duration="5.8" />
+    </test-suite>
   </test-suite>
-</test-results>
+  <test-suite type="Assembly" name="Fast.Tests.ps1" fullname="/tmp/fake/Tests/Unit/Fast.Tests.ps1" result="Passed" duration="1.1">
+    <test-suite type="TestFixture" name="Fast tests" result="Passed" duration="1.1">
+      <test-case name="Fast case" result="Passed" duration="0.9" />
+    </test-suite>
+  </test-suite>
+</test-run>
 "@
 
         [System.IO.File]::WriteAllText($outputPath, $xml, [System.Text.Encoding]::UTF8)
@@ -180,6 +186,27 @@ Describe 'Invoke-Tests.ps1 timing summary' -Tag 'Unit' {
         $LASTEXITCODE | Should-Be 0
 
         Test-Path -LiteralPath $summaryPath | Should-BeFalsy
+    }
+
+    It 'exits with failure when Pester returns no test results' {
+        $env:PSModulePath = $script:FakeProject.ModuleRootPath
+        $env:PWSPROFILE_FAKE_PESTER_NO_RESULT = '1'
+
+        try
+        {
+            $stdoutPath = Join-Path -Path $script:TestRootPath -ChildPath 'child-stdout.txt'
+            $stderrPath = Join-Path -Path $script:TestRootPath -ChildPath 'child-stderr.txt'
+            $arguments = '-NoProfile -File "{0}" -TestType Unit -OutputFormat Normal' -f $script:FakeProject.InvokeTestsPath
+            $process = Start-Process -FilePath $script:PowerShellExecutable -ArgumentList $arguments -Wait -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+
+            $process.ExitCode | Should-Be 1
+            $stderrText = (Get-Content -LiteralPath $stderrPath -Raw) -replace '\s+', ' '
+            $stderrText | Should-MatchString 'Pester did not return test results\.'
+        }
+        finally
+        {
+            Remove-Item Env:\PWSPROFILE_FAKE_PESTER_NO_RESULT -ErrorAction SilentlyContinue
+        }
     }
 
     It 'uses the latest installed Pester 6 version and ignores Pester 7' {

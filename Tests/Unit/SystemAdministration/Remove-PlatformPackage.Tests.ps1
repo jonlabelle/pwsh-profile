@@ -426,10 +426,10 @@ Describe 'Remove-PlatformPackage' {
         }
 
         It 'returns to the manager menu on <Name> when manager navigation is enabled' -TestCases @(
-            @{ Name = 'Backspace'; Key = [ConsoleKey]::Backspace; Char = [Char]8 }
-            @{ Name = 'Delete'; Key = [ConsoleKey]::Delete; Char = [Char]0 }
+            @{ Name = 'Backspace'; Key = [ConsoleKey]::Backspace; CharCode = 8 }
+            @{ Name = 'Delete'; Key = [ConsoleKey]::Delete; CharCode = 0 }
         ) {
-            param($Name, $Key, $Char)
+            param($Name, $Key, $CharCode)
 
             $runner = & $script:NewPackageCommandRunner @{
                 'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0')
@@ -438,7 +438,7 @@ Describe 'Remove-PlatformPackage' {
             }
 
             $keyReader = {
-                [System.ConsoleKeyInfo]::new($Char, $Key, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]$CharCode, $Key, $false, $false, $false)
             }.GetNewClosure()
 
             $result = Remove-PlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey -Confirm:$false
@@ -546,10 +546,10 @@ Describe 'Remove-PlatformPackage' {
         }
 
         It 'returns from dependency view to the removal picker on <Name> when manager navigation is enabled' -TestCases @(
-            @{ Name = 'Backspace'; Key = [ConsoleKey]::Backspace; Char = [Char]8 }
-            @{ Name = 'Delete'; Key = [ConsoleKey]::Delete; Char = [Char]0 }
+            @{ Name = 'Backspace'; Key = [ConsoleKey]::Backspace; CharCode = 8 }
+            @{ Name = 'Delete'; Key = [ConsoleKey]::Delete; CharCode = 0 }
         ) {
-            param($Name, $Key, $Char)
+            param($Name, $Key, $CharCode)
 
             $runner = & $script:NewPackageCommandRunner @{
                 'brew list --formula --versions' = Get-TestCommandResponse -Output @('git 2.44.0')
@@ -570,7 +570,7 @@ Describe 'Remove-PlatformPackage' {
             $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
             @(
                 [System.ConsoleKeyInfo]::new('d', [ConsoleKey]::D, $false, $false, $false)
-                [System.ConsoleKeyInfo]::new($Char, $Key, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]$CharCode, $Key, $false, $false, $false)
                 [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
             ) | ForEach-Object { $keys.Enqueue($_) }
             $keyReader = {

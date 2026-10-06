@@ -77,7 +77,7 @@
 
 .NOTES
     Requires Pester 6.x to be installed:
-        Install-Module -Name Pester -MinimumVersion 6.0.0 -MaximumVersion 6.999.999 -Force -SkipPublisherCheck
+        Install-Module -Name Pester -MinimumVersion 6.2.0 -MaximumVersion 6.999.999 -Force -SkipPublisherCheck
 #>
 
 [CmdletBinding()]
@@ -139,7 +139,7 @@ $TestTimingSummaryScriptPath = Join-Parts -BasePath $ScriptDirectory -PathSegmen
 # Import Pester if not already loaded
 if (-not (Get-Module Pester -ListAvailable))
 {
-    Write-Error 'Pester module is not installed. Please install Pester 6.x: Install-Module -Name Pester -MinimumVersion 6.0.0 -MaximumVersion 6.999.999 -Force -SkipPublisherCheck'
+    Write-Error 'Pester module is not installed. Please install Pester 6.x: Install-Module -Name Pester -MinimumVersion 6.2.0 -MaximumVersion 6.999.999 -Force -SkipPublisherCheck'
     exit 1
 }
 
@@ -155,7 +155,7 @@ No compatible Pester version is available.
 This test suite requires Pester 6.x.
 
 Please install Pester 6.x:
-    Install-Module -Name Pester -MinimumVersion 6.0.0 -MaximumVersion 6.999.999 -Force -SkipPublisherCheck
+    Install-Module -Name Pester -MinimumVersion 6.2.0 -MaximumVersion 6.999.999 -Force -SkipPublisherCheck
 
 Available Pester versions:
 $($availablePesterModules | ForEach-Object { "  - $($_.Version.ToString()) at $($_.ModuleBase)" } | Out-String)
@@ -197,7 +197,7 @@ This test suite requires Pester 6.x.
 
 Please install Pester 6.x:
 
-    Install-Module -Name Pester -MinimumVersion 6.0.0 -MaximumVersion 6.999.999 -Force -SkipPublisherCheck
+    Install-Module -Name Pester -MinimumVersion 6.2.0 -MaximumVersion 6.999.999 -Force -SkipPublisherCheck
 
 Current Pester installation: $($selectedPesterModule.ModuleBase)
 "@
@@ -223,7 +223,7 @@ $PesterConfiguration.Output.Verbosity = $OutputFormat
 
 # NUnit XML results
 $PesterConfiguration.TestResult.Enabled = $true
-$PesterConfiguration.TestResult.OutputFormat = 'NUnitXml'
+$PesterConfiguration.TestResult.OutputFormat = 'NUnit3'
 $PesterConfiguration.TestResult.OutputPath = $NUnitResultsPath
 
 # Run tests
@@ -241,6 +241,12 @@ catch
 finally
 {
     $global:ProgressPreference = $previousProgressPreference
+}
+
+if ($null -eq $pesterTestResults)
+{
+    Write-Error 'Pester did not return test results. Check the test output and XML report export error above.'
+    exit 1
 }
 
 # Output results summary

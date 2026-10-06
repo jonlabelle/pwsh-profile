@@ -9,6 +9,16 @@ BeforeAll {
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Remove-PlatformPackage.ps1"
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Upgrade-PlatformPackage.ps1"
     . "$PSScriptRoot/PlatformPackageTestHelpers.ps1"
+
+    function Get-CapturedPickerText
+    {
+        $fragments = foreach ($item in $script:HostOutput)
+        {
+            ([String]::Join('', [String[]]$item)) -replace "$([Char]27)\[[0-9;]*m", ''
+        }
+
+        return ((($fragments -join ' ') -replace '\u2502', ' ') -replace '\s+', ' ').Trim()
+    }
 }
 
 Describe 'Show-InstalledPlatformPackage' {
@@ -225,10 +235,10 @@ Describe 'Show-InstalledPlatformPackage' {
         }
 
         It 'returns to the manager menu on <Name> when manager navigation is enabled' -TestCases @(
-            @{ Name = 'Backspace'; Key = [ConsoleKey]::Backspace; Char = [Char]8 }
-            @{ Name = 'Delete'; Key = [ConsoleKey]::Delete; Char = [Char]0 }
+            @{ Name = 'Backspace'; Key = [ConsoleKey]::Backspace; CharCode = 8 }
+            @{ Name = 'Delete'; Key = [ConsoleKey]::Delete; CharCode = 0 }
         ) {
-            param($Name, $Key, $Char)
+            param($Name, $Key, $CharCode)
 
             $runner = & $script:NewPackageCommandRunner @{
                 'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0'))
@@ -236,7 +246,7 @@ Describe 'Show-InstalledPlatformPackage' {
             }
 
             $keyReader = {
-                [System.ConsoleKeyInfo]::new($Char, $Key, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]$CharCode, $Key, $false, $false, $false)
             }.GetNewClosure()
 
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey)
@@ -531,10 +541,10 @@ Describe 'Show-InstalledPlatformPackage' {
         }
 
         It 'returns from dependency view to the package list on <Name> when manager navigation is enabled' -TestCases @(
-            @{ Name = 'Backspace'; Key = [ConsoleKey]::Backspace; Char = [Char]8 }
-            @{ Name = 'Delete'; Key = [ConsoleKey]::Delete; Char = [Char]0 }
+            @{ Name = 'Backspace'; Key = [ConsoleKey]::Backspace; CharCode = 8 }
+            @{ Name = 'Delete'; Key = [ConsoleKey]::Delete; CharCode = 0 }
         ) {
-            param($Name, $Key, $Char)
+            param($Name, $Key, $CharCode)
 
             $runner = & $script:NewPackageCommandRunner @{
                 'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0'))
@@ -555,7 +565,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
             @(
                 [System.ConsoleKeyInfo]::new('d', [ConsoleKey]::D, $false, $false, $false)
-                [System.ConsoleKeyInfo]::new($Char, $Key, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]$CharCode, $Key, $false, $false, $false)
                 [System.ConsoleKeyInfo]::new([Char]3, [ConsoleKey]::C, $false, $false, $true)
             ) | ForEach-Object { $keys.Enqueue($_) }
             $keyReader = {
@@ -581,6 +591,7 @@ Describe 'Show-InstalledPlatformPackage' {
                     Removed = 1
                     Failed = 0
                     Skipped = 0
+                    Results = @([PSCustomObject]@{ Status = 'Removed' })
                 }
             }
 
@@ -603,7 +614,7 @@ Describe 'Show-InstalledPlatformPackage' {
                 @($IncludePackage).Count -eq 1 -and
                 @($IncludePackage)[0] -eq 'git'
             } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Status: Removed: 1, Failed: 0, Skipped: 0' } -Times 1
+            (Get-CapturedPickerText) | Should-MatchString 'Removal of git completed\. Removed: 1; Failed: 0; Skipped: 0\.'
         }
 
         It 'shows winget remediation text after a browser-launched remove failure' {
@@ -642,8 +653,8 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager winget -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey -WarningAction SilentlyContinue)
 
             $result.Count | Should-Be 0
-            $visibleOutput = ($script:HostOutput | ForEach-Object { "$_" }) -join "`n"
-            $visibleOutput | Should-MatchString 'Status: Removed: 0, Failed: 1, Skipped: 0'
+            $visibleOutput = Get-CapturedPickerText
+            $visibleOutput | Should-MatchString 'Removal of Pandoc did not complete\. Failed: 1\.'
             $visibleOutput | Should-MatchString 'winget uninstall --id JohnMacFarlane\.Pandoc --exact --source winget --accept-source-agreements'
             $visibleOutput | Should-MatchString 'Remediation: close running Pandoc processes and retry the uninstall'
         }
@@ -659,6 +670,7 @@ Describe 'Show-InstalledPlatformPackage' {
                     Upgraded = 1
                     Failed = 0
                     Skipped = 0
+                    Results = @([PSCustomObject]@{ Status = 'Upgraded' })
                 }
             }
 
@@ -682,7 +694,7 @@ Describe 'Show-InstalledPlatformPackage' {
                 @($IncludePackage).Count -eq 1 -and
                 @($IncludePackage)[0] -eq 'git'
             } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Status: Upgraded: 1, Failed: 0, Skipped: 0' } -Times 1
+            (Get-CapturedPickerText) | Should-MatchString 'Upgrade of git completed\. Upgraded: 1; Failed: 0; Skipped: 0\.'
         }
 
         It 'shows winget remediation text after a browser-launched upgrade failure' {
@@ -736,8 +748,8 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager winget -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey -WarningAction SilentlyContinue)
 
             $result.Count | Should-Be 0
-            $visibleOutput = ($script:HostOutput | ForEach-Object { "$_" }) -join "`n"
-            $visibleOutput | Should-MatchString 'Status: Upgraded: 0, Failed: 1, Skipped: 0'
+            $visibleOutput = Get-CapturedPickerText
+            $visibleOutput | Should-MatchString 'Upgrade of Pandoc 3\.9\.0\.2 did not complete\. Failed: 1\.'
             $visibleOutput | Should-MatchString 'APPINSTALLER_CLI_ERROR_EXEC_UNINSTALL_COMMAND_FAILED'
             $visibleOutput | Should-MatchString 'Running uninstall command failed'
             $visibleOutput | Should-MatchString 'winget uninstall --id JohnMacFarlane\.Pandoc --exact --source winget'
@@ -772,7 +784,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $exportedPackages.Count | Should-Be 2
             ($exportedPackages | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should-Be '2.44.0'
             ($exportedPackages | Where-Object { $_.Name -eq 'curl' }).PackageManager | Should-Be 'brew'
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like 'Status: Exported 2 package(s) to *installed-packages.json (JSON)' } -Times 1
+            (Get-CapturedPickerText) | Should-MatchString 'Exported 2 package\(s\) to .*installed-packages\.json \(JSON\)'
         }
 
         It 'exports selected packages to CSV with dependencies from the picker' {
@@ -837,7 +849,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $exportedPackages[0].RequiredBy | Should-Be 'git-extras'
             Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'DependsOn' } -Times 1
             Should-Invoke -CommandName Get-PlatformPackageDependency -ParameterFilter { $Direction -eq 'RequiredBy' } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like 'Status: Exported 1 package(s) with dependencies and required-by relationships to *selected-packages.csv (CSV)' } -Times 1
+            (Get-CapturedPickerText) | Should-MatchString 'Exported 1 package\(s\) with dependencies and required-by relationships to .*selected-packages\.csv \(CSV\)'
         }
 
         It 'exports direct dependencies without resolving required-by relationships' {
