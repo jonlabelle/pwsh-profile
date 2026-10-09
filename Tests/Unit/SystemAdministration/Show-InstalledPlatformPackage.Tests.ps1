@@ -77,6 +77,24 @@ Describe 'Show-InstalledPlatformPackage' {
             Should-Invoke -CommandName Write-Host -Times 0 -Exactly
         }
 
+        It 'exports only explicitly requested formulae when ExplicitOnly is used' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0', 'curl 8.7.1'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @())
+                'brew list --installed-on-request' = (& $script:NewTestCommandResponse -Output @('curl'))
+            }
+
+            $exportPath = Join-Path -Path $TestDrive -ChildPath 'requested-packages.json'
+            $result = @(Show-InstalledPlatformPackage -PackageManager brew -ExplicitOnly -CommandRunner $runner -ExportPath $exportPath)
+
+            $result[0].Count | Should-Be 1
+            $exportedPackages = @(Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json)
+            $exportedPackages.Count | Should-Be 1
+            $exportedPackages[0].Name | Should-Be 'curl'
+            ($script:Invocations | Where-Object { $_.Key -eq 'brew list --installed-on-request' }).Count | Should-Be 1
+            Should-Invoke -CommandName Write-Host -Times 0 -Exactly
+        }
+
         It 'exports installed packages to explicit CSV with dependency relationships' {
             $runner = & $script:NewPackageCommandRunner @{
                 'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0'))
@@ -181,9 +199,9 @@ Describe 'Show-InstalledPlatformPackage' {
             $result.Count | Should-Be 0
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*CONTROLS*' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25C7) PACKAGE DETAILS" } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  I: all packages  F: [all]' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Nav: Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit' } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "1-1 of 1 visible  $([char]0x00B7)  1 total  $([char]0x00B7)  filter: all" } -Times 1
+            (Get-CapturedPickerText -like '*1-1 of 1 visible*inventory: all installed*filter: all*') | Should-Be $true
             $escapeCharacter = [String][Char]27
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[38;5;37m" } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[38;5;244m" } -Times 1
@@ -208,7 +226,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should-Be 0
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 2
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  I: all packages  F: [all]' } -Times 2
         }
 
         It 'ignores Backspace and Delete as manager navigation when not launched by the manager' {
@@ -230,7 +248,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader)
 
             $result.Count | Should-Be 0
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 3
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  I: all packages  F: [all]' } -Times 3
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Backspace/Delete: menu' } -Times 0 -Exactly
         }
 
@@ -252,7 +270,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey)
 
             $result.Count | Should-Be 0
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  I: all packages  F: [all]' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Nav: Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit  Backspace/Delete: menu' } -Times 1
         }
 
@@ -298,7 +316,7 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should-Be 1
             $result[0].Name | Should-Be 'git'
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A toggle all  F: [all]' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  I: all packages  A toggle all  F: [all]' } -Times 1
         }
 
         It 'uses a focused picker when selecting dependency lookup targets' {
@@ -316,8 +334,55 @@ Describe 'Show-InstalledPlatformPackage' {
             $result.Count | Should-Be 1
             $result[0].Name | Should-Be 'git'
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'DEPENDENCY LOOKUP / HOMEBREW' } -Times 1
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter inspect  D preview  V details  A toggle all  F: [all]' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter inspect  D preview  V details  I: all packages  A toggle all  F: [all]' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*E export*' -or $Object -like '*R remove*' -or $Object -like '*U upgrade*' } -Times 0 -Exactly
+        }
+
+        It 'toggles the installed package browser to explicitly requested packages with I' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0', 'curl 8.7.1'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @())
+                'brew list --installed-on-request' = (& $script:NewTestCommandResponse -Output @('curl'))
+            }
+
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new('i', [ConsoleKey]::I, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PassThru)
+
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'curl'
+            Should-Invoke -CommandName Write-Host -ParameterFilter { (@($Object) -join '') -like '*I: explicit-only*' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { (@($Object) -join '') -like '*NOTICE*' } -Times 0 -Exactly
+        }
+
+        It 'toggles the dependency target picker to explicitly requested packages with I' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0', 'curl 8.7.1'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @())
+                'brew list --installed-on-request' = (& $script:NewTestCommandResponse -Output @('curl'))
+            }
+
+            $keys = [System.Collections.Generic.Queue[System.ConsoleKeyInfo]]::new()
+            @(
+                [System.ConsoleKeyInfo]::new('i', [ConsoleKey]::I, $false, $false, $false)
+                [System.ConsoleKeyInfo]::new([Char]13, [ConsoleKey]::Enter, $false, $false, $false)
+            ) | ForEach-Object { $keys.Enqueue($_) }
+            $keyReader = {
+                return $keys.Dequeue()
+            }.GetNewClosure()
+
+            $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -PassThru -PickerMode Dependency)
+
+            $result.Count | Should-Be 1
+            $result[0].Name | Should-Be 'curl'
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'DEPENDENCY LOOKUP / HOMEBREW' } -Times 2
         }
 
         It 'returns the current package when PassThru is used without a selection' {
@@ -334,7 +399,7 @@ Describe 'Show-InstalledPlatformPackage' {
 
             $result.Count | Should-Be 1
             $result[0].Name | Should-Be 'git'
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A toggle all  F: [all]' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  I: all packages  A toggle all  F: [all]' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Nav: S: [All]  Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit' } -Times 1
         }
 
@@ -366,6 +431,8 @@ Describe 'Show-InstalledPlatformPackage' {
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'return to the package list from the dependency view' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'V: ' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'load a missing winget description when available' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'I: ' } -Times 1
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'toggle between all installed and explicitly requested packages' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'E: ' } -Times 1
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'export visible packages, or selected packages when any are selected, to JSON or CSV' } -Times 1
         }
@@ -575,7 +642,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $result = @(Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -KeyReader $keyReader -ReturnToPlatformPackageManagerOnBackKey)
 
             $result.Count | Should-Be 0
-            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  F: [all]' } -Times 2
+            Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Keys: D deps  V details  E export  R remove  U upgrade  I: all packages  F: [all]' } -Times 2
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'PACKAGE RELATIONSHIPS / HOMEBREW' } -Times 2
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Press B/Backspace/Delete/LeftArrow to return to the package list.' } -Times 2
         }

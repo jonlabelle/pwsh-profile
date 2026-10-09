@@ -11,13 +11,22 @@ function Get-PlatformPackage
 
         Package records are normalized into a consistent object shape so they can be
         filtered, formatted, or piped into other commands. Use -Name and -ExcludePackage
-        to apply wildcard filtering against the package Name or Id properties.
+        to apply wildcard filtering against the package Name or Id properties. Use
+        -ExplicitOnly to select packages the native manager identifies as explicitly
+        requested. This is supported for Homebrew formulae, APT, and APK. Homebrew casks
+        are omitted because they do not expose equivalent request metadata, and WinGet
+        does not support this selection.
 
     .PARAMETER Name
         Optional package names or wildcard patterns to include. Matches package Name or Id.
 
     .PARAMETER ExcludePackage
         Optional package names or wildcard patterns to exclude. Matches package Name or Id.
+
+    .PARAMETER ExplicitOnly
+        Selects packages identified by the native package manager as explicitly requested.
+        Homebrew casks are omitted, and WinGet is unsupported. APK results include the
+        matching APK world constraint as RequestedConstraint.
 
     .EXAMPLE
         PS > Get-PlatformPackage
@@ -53,6 +62,11 @@ function Get-PlatformPackage
         PS > Get-PlatformPackage -PackageManager brew
 
         Returns installed packages using Homebrew.
+
+    .EXAMPLE
+        PS > Get-PlatformPackage -ExplicitOnly
+
+        Returns explicitly requested packages supported by the detected package manager.
 
     .EXAMPLE
         PS > Get-PlatformPackage -PackageManager apt
@@ -95,6 +109,9 @@ function Get-PlatformPackage
         [Parameter()]
         [Alias('Exclude')]
         [String[]]$ExcludePackage = @(),
+
+        [Parameter()]
+        [Switch]$ExplicitOnly,
 
         [Parameter(DontShow = $true)]
         [ValidateSet('Auto', 'winget', 'brew', 'apt', 'apk')]
@@ -1255,7 +1272,78 @@ function Get-PlatformPackage
         $manager = Resolve-PackageManager
         Write-Verbose "Using package manager: $($manager.DisplayName) ($($manager.Command))"
 
+        if ($ExplicitOnly -and $manager.Name -eq 'winget')
+        {
+            throw "Explicit-only package selection is not supported by package manager 'winget'."
+        }
+
         $installedPackages = @(Get-PlatformPackages -Manager $manager)
+
+        if ($ExplicitOnly)
+        {
+            switch ($manager.Name)
+            {
+                'brew'
+                {
+                    $requestedResult = Invoke-PackageManagerCommand -Command $manager.Command -Arguments @('list', '--installed-on-request')
+                    if ($requestedResult.ExitCode -ne 0)
+                    {
+                        $message = ($requestedResult.Output | Where-Object { -not [String]::IsNullOrWhiteSpace("$($_)") }) -join ' '
+                        throw "Failed to query explicitly requested Homebrew formulae: $message"
+                    }
+
+                    $requestedFormulae = @($requestedResult.Output | ForEach-Object { "$($_)".Trim() } | Where-Object { -not [String]::IsNullOrWhiteSpace($_) })
+                    $installedCasks = @($installedPackages | Where-Object { $_.Type -eq 'Cask' })
+                    if ($installedCasks.Count -gt 0)
+                    {
+                        Write-Warning 'Homebrew explicit-only selection excludes installed casks because Homebrew does not expose equivalent request-status filtering for casks.'
+                    }
+
+                    $installedPackages = @($installedPackages | Where-Object {
+                            $_.Type -eq 'Formula' -and $requestedFormulae -contains $_.Id
+                        })
+                }
+                'apt'
+                {
+                    $installedPackages = @($installedPackages | Where-Object { $_.Notes -ne 'Automatic' })
+                }
+                'apk'
+                {
+                    $worldPath = '/etc/apk/world'
+                    try
+                    {
+                        $worldConstraints = @(Get-Content -LiteralPath $worldPath -ErrorAction Stop)
+                    }
+                    catch
+                    {
+                        throw "Failed to read APK world constraints from '$worldPath': $($_.Exception.Message)"
+                    }
+
+                    $requestedConstraints = @{}
+                    foreach ($worldConstraint in $worldConstraints)
+                    {
+                        $constraint = "$worldConstraint".Trim()
+                        if ([String]::IsNullOrWhiteSpace($constraint) -or $constraint.StartsWith('!'))
+                        {
+                            continue
+                        }
+
+                        if ($constraint -match '^(?<Name>[^@<>=~]+)(?:@[^<>=~]+)?(?:[<>=~].*)?$')
+                        {
+                            $requestedConstraints[$Matches.Name] = $constraint
+                        }
+                    }
+
+                    $installedPackages = @($installedPackages | Where-Object {
+                            $requestedConstraints.ContainsKey($_.Name)
+                        })
+                    foreach ($package in $installedPackages)
+                    {
+                        $package | Add-Member -MemberType NoteProperty -Name RequestedConstraint -Value $requestedConstraints[$package.Name]
+                    }
+                }
+            }
+        }
 
         if ($Name -and $Name.Count -gt 0)
         {

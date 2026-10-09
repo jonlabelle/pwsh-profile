@@ -14,13 +14,20 @@ function Show-InstalledPlatformPackage
         directly. Use -ExportPath to bypass the interactive browser and write installed
         package records to JSON or CSV. Use -PassThru to select one or more packages in
         the browser and return them when Enter is pressed. If nothing is selected, Enter
-        returns the current package.
+        returns the current package. Press I in the browser to switch between all installed
+        packages and explicitly requested packages, including in dependency-target selection.
 
     .PARAMETER Name
         Optional package names or wildcard patterns to include. Matches package Name or Id.
 
     .PARAMETER ExcludePackage
         Optional package names or wildcard patterns to exclude. Matches package Name or Id.
+
+    .PARAMETER ExplicitOnly
+        Opens the browser with packages identified by the native package manager as
+        explicitly requested. Press I in the browser to switch inventory scope. Homebrew
+        casks are omitted, WinGet is unsupported, and APK world constraints are preserved
+        in matching package records.
 
     .PARAMETER FilterSource
         Sets the initial source filter in the interactive browser. When specified, the browser
@@ -68,6 +75,11 @@ function Show-InstalledPlatformPackage
         PS > Show-InstalledPlatformPackage -NonInteractive
 
         Returns installed packages as objects without opening the browser.
+
+    .EXAMPLE
+        PS > Show-InstalledPlatformPackage -ExplicitOnly -ExportPath ./requested-packages.json
+
+        Exports explicitly requested packages supported by the detected package manager.
 
     .EXAMPLE
         PS > Show-InstalledPlatformPackage -NonInteractive | Format-Table Name, InstalledVersion, Source
@@ -136,6 +148,9 @@ function Show-InstalledPlatformPackage
         [Parameter()]
         [Alias('Exclude')]
         [String[]]$ExcludePackage = @(),
+
+        [Parameter()]
+        [Switch]$ExplicitOnly,
 
         [Parameter()]
         [String]$FilterSource = '',
@@ -654,6 +669,12 @@ function Show-InstalledPlatformPackage
                 [ScriptBlock]$CommandRunner,
 
                 [Parameter()]
+                [Hashtable]$PackageQueryParameters,
+
+                [Parameter()]
+                [Switch]$ExplicitOnly,
+
+                [Parameter()]
                 [ScriptBlock]$ActionNoticeCallback,
 
                 [Parameter()]
@@ -807,6 +828,8 @@ function Show-InstalledPlatformPackage
 
             $isDependencySelection = $PickerMode -eq 'Dependency'
             $allPackages = $InstalledPackages
+            $packageManagerDisplayName = $allPackages[0].PackageManagerDisplayName
+            $isExplicitOnly = $ExplicitOnly.IsPresent
             $uniqueSources = @($allPackages | ForEach-Object { $_.Source } | Where-Object { -not [String]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
             $hasEmptySource = @($allPackages | Where-Object { [String]::IsNullOrWhiteSpace($_.Source) }).Count -gt 0
             $availableSources = @('All') + $uniqueSources
@@ -867,6 +890,33 @@ function Show-InstalledPlatformPackage
 
                 $namePattern = "*$NameFilter*"
                 return @($sourcePackages | Where-Object { $_.Name -like $namePattern -or $_.Id -like $namePattern })
+            }
+
+            function Get-PackageInventoryScope
+            {
+                param(
+                    [Parameter(Mandatory)]
+                    [Switch]$RequestedOnly
+                )
+
+                $queryParameters = $PackageQueryParameters.Clone()
+                $null = $queryParameters.Remove('ExplicitOnly')
+                if ($RequestedOnly)
+                {
+                    $queryParameters.ExplicitOnly = $true
+                }
+                $packages = @(Get-PlatformPackage @queryParameters)
+                $sources = @($packages | ForEach-Object { $_.Source } | Where-Object { -not [String]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
+                $hasEmptyPackageSource = @($packages | Where-Object { [String]::IsNullOrWhiteSpace($_.Source) }).Count -gt 0
+
+                [PSCustomObject]@{
+                    Packages = $packages
+                    IsExplicitOnly = $RequestedOnly.IsPresent
+                    UniqueSources = $sources
+                    HasEmptySource = $hasEmptyPackageSource
+                    AvailableSources = @('All') + $sources
+                    HasSourceFilter = $sources.Count -gt 1 -or ($sources.Count -eq 1 -and $hasEmptyPackageSource)
+                }
             }
 
             function Read-PackageNameFilter
@@ -1904,6 +1954,7 @@ function Show-InstalledPlatformPackage
                 Write-PackagePickerHelpItem -Shortcut 'Up/Down' -Description 'move one package'
                 Write-PackagePickerHelpItem -Shortcut 'PageUp/PageDown' -Description 'move one page'
                 Write-PackagePickerHelpItem -Shortcut 'Home/End' -Description 'move to the first or last package'
+                Write-PackagePickerHelpItem -Shortcut 'I' -Description 'toggle between all installed and explicitly requested packages'
 
                 if ($hasSourceFilter)
                 {
@@ -2569,7 +2620,7 @@ function Show-InstalledPlatformPackage
 
                     $pickerTitle = if ($isDependencySelection) { 'DEPENDENCY LOOKUP' } else { 'INSTALLED PACKAGES' }
                     $headerLines = @(
-                        (Format-PickerFrameLine -Text "$pickerTitle / $($InstalledPackages[0].PackageManagerDisplayName.ToUpperInvariant())" -ForegroundColor Cyan)
+                        (Format-PickerFrameLine -Text "$pickerTitle / $($packageManagerDisplayName.ToUpperInvariant())" -ForegroundColor Cyan)
                     )
                     $bodyLines = @()
                     $footerLines = @()
@@ -2589,6 +2640,7 @@ function Show-InstalledPlatformPackage
                     $sourceHint = if ($hasSourceFilter) { "S: [$($availableSources[$sourceFilterIndex])]  " } else { '' }
                     $nameFilterHintValue = if ([String]::IsNullOrWhiteSpace($nameFilterText)) { 'all' } else { $nameFilterText }
                     $nameFilterHint = "F: [$nameFilterHintValue]  "
+                    $inventoryScopeHint = if ($isExplicitOnly) { 'I: explicit-only' } else { 'I: all packages' }
 
                     if ($showDependencyPanel)
                     {
@@ -2616,7 +2668,8 @@ function Show-InstalledPlatformPackage
                             'n/a'
                         }
 
-                        $dependencyFilterSummary = @("filter: $nameFilterHintValue")
+                        $inventorySummary = if ($isExplicitOnly) { 'inventory: explicitly requested' } else { 'inventory: all installed' }
+                        $dependencyFilterSummary = @($inventorySummary, "filter: $nameFilterHintValue")
                         if ($hasSourceFilter)
                         {
                             $dependencyFilterSummary += "source: $($availableSources[$sourceFilterIndex])"
@@ -2624,15 +2677,15 @@ function Show-InstalledPlatformPackage
 
                         $dependencyPanelKeys = if ($isDependencySelection)
                         {
-                            "Keys: B/Backspace/Delete/LeftArrow back  V details  ${nameFilterHint}"
+                            "Keys: B/Backspace/Delete/LeftArrow back  V details  ${inventoryScopeHint}  ${nameFilterHint}"
                         }
                         else
                         {
-                            "Keys: B/Backspace/Delete/LeftArrow back  V details  E export  ${nameFilterHint}"
+                            "Keys: B/Backspace/Delete/LeftArrow back  V details  E export  ${inventoryScopeHint}  ${nameFilterHint}"
                         }
 
                         $headerLines = @(
-                            (Format-PickerFrameLine -Text "PACKAGE RELATIONSHIPS / $($InstalledPackages[0].PackageManagerDisplayName.ToUpperInvariant())" -ForegroundColor Cyan)
+                            (Format-PickerFrameLine -Text "PACKAGE RELATIONSHIPS / $($packageManagerDisplayName.ToUpperInvariant())" -ForegroundColor Cyan)
                             (Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -SelectedCount (-1) -FilterText ($dependencyFilterSummary -join "  $([char]0x00B7)  ")) -ForegroundColor White)
                         )
                         $footerLines = @(
@@ -2704,9 +2757,10 @@ function Show-InstalledPlatformPackage
                     else
                     {
                         $managerNavigationHint = if ($ReturnToPlatformPackageManagerOnBackKey) { '  Backspace/Delete: menu' } else { '' }
+                        $inventorySummary = if ($isExplicitOnly) { 'inventory: explicitly requested' } else { 'inventory: all installed' }
                         if ($EnableSelection)
                         {
-                            $filterSummary = @("filter: $nameFilterHintValue")
+                            $filterSummary = @($inventorySummary, "filter: $nameFilterHintValue")
                             if ($hasSourceFilter)
                             {
                                 $filterSummary += "source: $($availableSources[$sourceFilterIndex])"
@@ -2715,11 +2769,11 @@ function Show-InstalledPlatformPackage
                             $headerLines += Format-PickerFrameLine -Text (GetPlatformPackagePickerSelectionBar -SelectedCount $selectedKeys.Count -TotalCount $allPackages.Count) -ForegroundColor Cyan
                             $selectionControls = if ($isDependencySelection)
                             {
-                                "Keys: Space select  Enter inspect  D preview  V details  A toggle all  F: [$nameFilterHintValue]"
+                                "Keys: Space select  Enter inspect  D preview  V details  ${inventoryScopeHint}  A toggle all  F: [$nameFilterHintValue]"
                             }
                             else
                             {
-                                "Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  A toggle all  F: [$nameFilterHintValue]"
+                                "Keys: Space select  Enter return  D deps  V details  E export  R remove  U upgrade  ${inventoryScopeHint}  A toggle all  F: [$nameFilterHintValue]"
                             }
                             $footerLines = @(
                                 (Format-PickerFrameLine -Text $selectionControls -ForegroundColor White)
@@ -2730,14 +2784,14 @@ function Show-InstalledPlatformPackage
                         }
                         else
                         {
-                            $filterSummary = @("filter: $nameFilterHintValue")
+                            $filterSummary = @($inventorySummary, "filter: $nameFilterHintValue")
                             if ($hasSourceFilter)
                             {
                                 $filterSummary += "source: $($availableSources[$sourceFilterIndex])"
                             }
                             $headerLines += Format-PickerFrameLine -Text (Get-PickerViewportSummary -TopIndex $topIndex -BottomIndex $bottomIndex -VisibleCount $visiblePackages.Count -TotalCount $allPackages.Count -FilterText ($filterSummary -join "  $([char]0x00B7)  ")) -ForegroundColor White
                             $footerLines = @(
-                                (Format-PickerFrameLine -Text "Keys: D deps  V details  E export  R remove  U upgrade  F: [$nameFilterHintValue]" -ForegroundColor White)
+                                (Format-PickerFrameLine -Text "Keys: D deps  V details  E export  R remove  U upgrade  ${inventoryScopeHint}  F: [$nameFilterHintValue]" -ForegroundColor White)
                                 (Format-PickerFrameLine -Text "Nav: ${sourceHint}Home/End/PgUp/PgDn  ?: help  Q/Esc/Ctrl+C exit$managerNavigationHint" -ForegroundColor DarkGray)
                             )
                             $bodyLines += Format-PickerFrameLine -Text ('  {0} {1} {2} {3} {4}' -f (Format-PickerCell -Text 'Name' -Width $nameWidth), (Format-PickerCell -Text 'Id' -Width $idWidth), (Format-PickerCell -Text 'Ver' -Width $versionWidth), (Format-PickerCell -Text 'Typ' -Width $typeWidth), (Format-PickerCell -Text 'Src' -Width $sourceWidth)) -ForegroundColor DarkGray
@@ -2748,11 +2802,11 @@ function Show-InstalledPlatformPackage
                         {
                             if ([String]::IsNullOrWhiteSpace($nameFilterText))
                             {
-                                $bodyLines += GetPlatformPackagePickerEmptyState -Message 'No matching packages' -Hint 'Nothing matches the current source filter.', 'Press S to cycle sources.' -FrameWidth $pickerFrameWidth
+                                $bodyLines += GetPlatformPackagePickerEmptyState -Message 'No matching packages' -Hint 'Press I to change inventory scope or S to cycle sources.' -FrameWidth $pickerFrameWidth
                             }
                             else
                             {
-                                $emptyKeys = @('F')
+                                $emptyKeys = @('F', 'I')
                                 if ($hasSourceFilter)
                                 {
                                     $emptyKeys += 'S'
@@ -2802,6 +2856,36 @@ function Show-InstalledPlatformPackage
                                     $visiblePackages = @(Get-FilteredVisiblePackages -SourceIndex $sourceFilterIndex -NameFilter $nameFilterText)
                                     $cursor = 0
                                     $topIndex = 0
+                                }
+                            }
+
+                            if ($key.Key -eq [ConsoleKey]::I)
+                            {
+                                try
+                                {
+                                    $nextExplicitOnly = -not $isExplicitOnly
+                                    $inventoryScope = Get-PackageInventoryScope -RequestedOnly:$nextExplicitOnly
+                                    Clear-PickerFrame
+                                    $allPackages = @($inventoryScope.Packages)
+                                    $isExplicitOnly = $inventoryScope.IsExplicitOnly
+                                    $uniqueSources = @($inventoryScope.UniqueSources)
+                                    $hasEmptySource = $inventoryScope.HasEmptySource
+                                    $availableSources = @($inventoryScope.AvailableSources)
+                                    $hasSourceFilter = $inventoryScope.HasSourceFilter
+                                    $sourceFilterIndex = 0
+                                    $visiblePackages = @(Get-FilteredVisiblePackages -SourceIndex $sourceFilterIndex -NameFilter $nameFilterText)
+                                    $selectedKeys.Clear()
+                                    $cursor = 0
+                                    $topIndex = 0
+                                    $showDependencyPanel = $false
+                                    $dependencyPanelRestoreInPlaceRedraw = $null
+                                    $pendingDependencyPanelPackage = $null
+                                    $actionStatus = ''
+                                }
+                                catch
+                                {
+                                    $actionStatus = "Unable to change inventory scope: $($_.Exception.Message)"
+                                    $actionStatusColor = [ConsoleColor]::DarkYellow
                                 }
                             }
 
@@ -3210,6 +3294,40 @@ function Show-InstalledPlatformPackage
                                 $topIndex = 0
                             }
                         }
+                        'I'
+                        {
+                            try
+                            {
+                                $nextExplicitOnly = -not $isExplicitOnly
+                                $inventoryScope = Get-PackageInventoryScope -RequestedOnly:$nextExplicitOnly
+                                Clear-PickerFrame
+                                $allPackages = @($inventoryScope.Packages)
+                                $isExplicitOnly = $inventoryScope.IsExplicitOnly
+                                $uniqueSources = @($inventoryScope.UniqueSources)
+                                $hasEmptySource = $inventoryScope.HasEmptySource
+                                $availableSources = @($inventoryScope.AvailableSources)
+                                $hasSourceFilter = $inventoryScope.HasSourceFilter
+                                $sourceFilterIndex = 0
+                                $visiblePackages = @(Get-FilteredVisiblePackages -SourceIndex $sourceFilterIndex -NameFilter $nameFilterText)
+                                $selectedKeys.Clear()
+                                $cursor = 0
+                                $topIndex = 0
+                                if ($null -ne $dependencyPanelRestoreInPlaceRedraw)
+                                {
+                                    $pickerRenderState.UseInPlaceRedraw = $dependencyPanelRestoreInPlaceRedraw
+                                    $dependencyPanelRestoreInPlaceRedraw = $null
+                                    $pickerRenderState.RenderedLineCount = 0
+                                }
+                                $showDependencyPanel = $false
+                                $pendingDependencyPanelPackage = $null
+                                $actionStatus = ''
+                            }
+                            catch
+                            {
+                                $actionStatus = "Unable to change inventory scope: $($_.Exception.Message)"
+                                $actionStatusColor = [ConsoleColor]::DarkYellow
+                            }
+                        }
                         'Enter'
                         {
                             if (-not $EnableSelection)
@@ -3248,6 +3366,11 @@ function Show-InstalledPlatformPackage
             ExcludePackage = $ExcludePackage
             CommandRunner = $CommandRunner
         }
+        if ($ExplicitOnly)
+        {
+            $getPlatformPackageParameters.ExplicitOnly = $true
+        }
+
         if (-not $NonInteractive -and (Test-InteractiveWingetDescriptionEnrichmentShouldBeSkipped))
         {
             $getPlatformPackageParameters.SkipDescriptionEnrichment = $true
@@ -3291,14 +3414,14 @@ function Show-InstalledPlatformPackage
 
         if ($installedPackages.Count -eq 0)
         {
-            $hasInputFilter = $Name.Count -gt 0 -or $ExcludePackage.Count -gt 0 -or -not [String]::IsNullOrWhiteSpace($FilterSource)
+            $hasInputFilter = $Name.Count -gt 0 -or $ExcludePackage.Count -gt 0 -or $ExplicitOnly -or -not [String]::IsNullOrWhiteSpace($FilterSource)
             $emptyMessage = if ($hasInputFilter) { 'No installed packages matched the requested filters.' } else { 'No installed packages found.' }
             Write-PackageThemeText $emptyMessage -ForegroundColor White
             return @()
         }
 
         $selectedPackages = @(
-            Select-InstalledPackageRecords -InstalledPackages $installedPackages -KeyReader $KeyReader -PageSize $PickerPageSize -EnableSelection:$PassThru.IsPresent -SourceFilter $FilterSource -CommandRunner $CommandRunner -ActionNoticeCallback $ActionNoticeCallback -ReturnToPlatformPackageManagerOnBackKey:$ReturnToPlatformPackageManagerOnBackKey -PickerMode $PickerMode
+            Select-InstalledPackageRecords -InstalledPackages $installedPackages -KeyReader $KeyReader -PageSize $PickerPageSize -EnableSelection:$PassThru.IsPresent -SourceFilter $FilterSource -CommandRunner $CommandRunner -PackageQueryParameters $getPlatformPackageParameters -ExplicitOnly:$ExplicitOnly.IsPresent -ActionNoticeCallback $ActionNoticeCallback -ReturnToPlatformPackageManagerOnBackKey:$ReturnToPlatformPackageManagerOnBackKey -PickerMode $PickerMode
         )
 
         if ($PassThru)

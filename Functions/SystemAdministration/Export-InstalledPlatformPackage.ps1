@@ -490,6 +490,11 @@ function Export-InstalledPlatformPackage
                 Notes = $PackageRecord.Notes
             }
 
+            if ($PackageRecord.PSObject.Properties['RequestedConstraint'])
+            {
+                $baseRecord['RequestedConstraint'] = $PackageRecord.RequestedConstraint
+            }
+
             if ($ResolvedFormat -eq 'Csv')
             {
                 $baseRecord['DependsOn'] = (($dependencyRecords | Where-Object { $_.Direction -eq 'DependsOn' } | ForEach-Object { $_.RelatedPackage }) -join '; ')

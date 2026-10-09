@@ -53,6 +53,33 @@ Describe 'Export-InstalledPlatformPackage' {
         Should-Invoke -CommandName Write-Host -Times 0 -Exactly
     }
 
+    It 'preserves APK world constraints in exports' {
+        $package = [PSCustomObject]@{
+            Name = 'py3-requests'
+            Id = 'py3-requests'
+            PackageManager = 'apk'
+            PackageManagerDisplayName = 'APK'
+            Type = 'Package'
+            InstalledVersion = '2.31.0-r0'
+            Source = 'apk'
+            Publisher = 'Alpine'
+            Description = ''
+            Notes = ''
+            RequestedConstraint = 'py3-requests=2.31.0-r0'
+        }
+
+        $exportPath = Join-Path -Path $TestDrive -ChildPath 'apk-requested-packages.json'
+        $null = Export-InstalledPlatformPackage -Package $package -Path $exportPath
+
+        $exportedPackage = Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json
+        $exportedPackage.RequestedConstraint | Should-Be 'py3-requests=2.31.0-r0'
+
+        $csvPath = Join-Path -Path $TestDrive -ChildPath 'apk-requested-packages.csv'
+        $null = Export-InstalledPlatformPackage -Package $package -Path $csvPath
+        $csvPackage = Import-Csv -LiteralPath $csvPath
+        $csvPackage.RequestedConstraint | Should-Be 'py3-requests=2.31.0-r0'
+    }
+
     It 'uses the accent and muted palette for progress output' {
         $package = [PSCustomObject]@{
             Name = 'git'
@@ -213,7 +240,7 @@ Describe 'Export-InstalledPlatformPackage' {
         $exportPath = Join-Path -Path $TestDrive -ChildPath 'winget-both.json'
 
         { Export-InstalledPlatformPackage -Package $package -Path $exportPath -DependencyMode Both } |
-            Should-Throw -ExceptionMessage "*Value 'Both' for parameter -DependencyMode*package manager 'winget'*supports only 'None' and 'DependsOn'*"
+        Should-Throw -ExceptionMessage "*Value 'Both' for parameter -DependencyMode*package manager 'winget'*supports only 'None' and 'DependsOn'*"
 
         Test-Path -LiteralPath $exportPath | Should-BeFalsy
     }
