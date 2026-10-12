@@ -1,3 +1,5 @@
+. (Join-Path -Path $PSScriptRoot -ChildPath 'Private/GetPlatformPackageSourceCompletion.ps1')
+
 function Show-InstalledPlatformPackage
 {
     <#
@@ -32,7 +34,7 @@ function Show-InstalledPlatformPackage
     .PARAMETER FilterSource
         Sets the initial source filter in the interactive browser. When specified, the browser
         opens showing only packages from this source. Press S in the browser to cycle through
-        available sources. Only applicable when multiple package sources are present.
+        available sources. With -ExportPath, exports only packages from this source.
 
     .PARAMETER NonInteractive
         Returns installed package records without opening the interactive browser. The
@@ -90,6 +92,11 @@ function Show-InstalledPlatformPackage
         PS > Show-InstalledPlatformPackage -ExportPath ./installed-packages.json
 
         Exports installed packages to JSON without opening the browser.
+
+    .EXAMPLE
+        PS > Show-InstalledPlatformPackage -FilterSource homebrew/cask -ExportPath ./casks.json
+
+        Exports only installed packages from the selected source.
 
     .EXAMPLE
         PS > Show-InstalledPlatformPackage -Name 'git' -ExportPath ./git.csv -ExportDependencyMode Both
@@ -153,6 +160,9 @@ function Show-InstalledPlatformPackage
         [Switch]$ExplicitOnly,
 
         [Parameter()]
+        [ArgumentCompleter({
+                Get-PlatformPackageSourceCompletion -WordToComplete $args[2] -BoundParameters $args[4]
+            })]
         [String]$FilterSource = '',
 
         [Parameter()]
@@ -3406,6 +3416,7 @@ function Show-InstalledPlatformPackage
                 Path = $ExportPath
                 Format = $ExportFormat
                 DependencyMode = $ExportDependencyMode
+                FilterSource = $FilterSource
             }
             if ($ShowExportProgress)
             {

@@ -1,3 +1,5 @@
+. (Join-Path -Path $PSScriptRoot -ChildPath 'Private/GetPlatformPackageSourceCompletion.ps1')
+
 function Export-InstalledPlatformPackage
 {
     <#
@@ -5,7 +7,8 @@ function Export-InstalledPlatformPackage
         Exports installed platform package records to JSON or CSV.
 
     .DESCRIPTION
-        Writes normalized package records to a JSON or CSV file. Package records can be
+        Writes normalized package records to a JSON or CSV file. With no package input,
+        queries installed packages with Get-PlatformPackage. Package records can also be
         piped from Get-PlatformPackage or supplied through -Package. The export format is
         inferred from the file extension by default, or can be supplied explicitly with
         -Format. Each record includes an InstallCommand for supported package managers
@@ -20,13 +23,17 @@ function Export-InstalledPlatformPackage
 
     .PARAMETER Package
         Installed package records to export. Objects returned by Get-PlatformPackage or
-        Show-InstalledPlatformPackage can be piped directly into this function.
+        Show-InstalledPlatformPackage can be piped directly into this function. If omitted
+        without pipeline input, installed packages are queried automatically.
 
     .PARAMETER Path
         Output file path. .json and .csv extensions are inferred when -Format is Auto.
 
     .PARAMETER Format
         Export format. Auto infers the format from the output path extension.
+
+    .PARAMETER FilterSource
+        Exports only packages whose Source matches this value (case insensitive).
 
     .PARAMETER DependencyMode
         Dependency relationships to include. None exports package records only. DependsOn
@@ -52,6 +59,16 @@ function Export-InstalledPlatformPackage
         PS > Get-PlatformPackage | Export-InstalledPlatformPackage -Path ./packages -Format Csv
 
         Exports installed packages to CSV when the path does not have a .csv extension.
+
+    .EXAMPLE
+        PS > Get-PlatformPackage | Export-InstalledPlatformPackage -Path ./casks.json -FilterSource homebrew/cask
+
+        Exports only installed Homebrew casks.
+
+    .EXAMPLE
+        PS > Export-InstalledPlatformPackage -Path ./winget.json -FilterSource winget
+
+        Queries installed packages and exports only those from the winget source.
 
     .OUTPUTS
         System.Management.Automation.PSCustomObject
@@ -79,6 +96,12 @@ function Export-InstalledPlatformPackage
         [String]$Format = 'Auto',
 
         [Parameter()]
+        [ArgumentCompleter({
+                Get-PlatformPackageSourceCompletion -WordToComplete $args[2] -BoundParameters $args[4]
+            })]
+        [String]$FilterSource = '',
+
+        [Parameter()]
         [ValidateSet('None', 'DependsOn', 'Both')]
         [String]$DependencyMode = 'None',
 
@@ -95,6 +118,7 @@ function Export-InstalledPlatformPackage
     begin
     {
         $packageRecords = New-Object 'System.Collections.Generic.List[PSCustomObject]'
+        $discoverInstalledPackages = -not $MyInvocation.ExpectingInput -and -not $PSBoundParameters.ContainsKey('Package')
 
         $packageThemeEscape = [String][Char]27
         $packageThemeAccent = $packageThemeEscape + '[38;5;37m'
@@ -601,14 +625,47 @@ function Export-InstalledPlatformPackage
     {
         foreach ($packageRecord in @($Package | Where-Object { $null -ne $_ }))
         {
+            if (-not [String]::IsNullOrWhiteSpace($FilterSource) -and "$($packageRecord.Source)".Trim() -ine $FilterSource.Trim())
+            {
+                continue
+            }
             $packageRecords.Add($packageRecord)
         }
     }
 
     end
     {
+        if ($discoverInstalledPackages)
+        {
+            $getPlatformPackagePath = Get-ExportDependencyPathIfNeeded -FunctionName 'Get-PlatformPackage' -RelativePath 'Get-PlatformPackage.ps1'
+            if ($getPlatformPackagePath)
+            {
+                . $getPlatformPackagePath
+            }
+
+            $queryParameters = @{}
+            if ($CommandRunner)
+            {
+                $queryParameters.CommandRunner = $CommandRunner
+            }
+
+            foreach ($packageRecord in @(Get-PlatformPackage @queryParameters))
+            {
+                if ($null -eq $packageRecord -or
+                    (-not [String]::IsNullOrWhiteSpace($FilterSource) -and "$($packageRecord.Source)".Trim() -ine $FilterSource.Trim()))
+                {
+                    continue
+                }
+                $packageRecords.Add($packageRecord)
+            }
+        }
+
         if ($packageRecords.Count -eq 0)
         {
+            if (-not [String]::IsNullOrWhiteSpace($FilterSource))
+            {
+                throw "No packages matched FilterSource '$FilterSource'."
+            }
             throw 'No packages are available for the current scope'
         }
 

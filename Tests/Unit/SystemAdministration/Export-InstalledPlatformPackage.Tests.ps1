@@ -4,6 +4,7 @@ BeforeAll {
     $Global:ProgressPreference = 'SilentlyContinue'
 
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Export-InstalledPlatformPackage.ps1"
+    . "$PSScriptRoot/../../../Functions/SystemAdministration/Get-PlatformPackage.ps1"
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Get-PlatformPackageDependency.ps1"
 }
 
@@ -52,6 +53,87 @@ Describe 'Export-InstalledPlatformPackage' {
         ($exportedPackages | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should-Be '2.44.0'
         ($exportedPackages | Where-Object { $_.Name -eq 'git' }).InstallCommand | Should-Be 'brew install git'
         Should-Invoke -CommandName Write-Host -Times 0 -Exactly
+    }
+
+    It 'queries installed packages for a standalone source-filtered export' {
+        Mock -CommandName Get-PlatformPackage -MockWith {
+            [PSCustomObject]@{ Name = 'Git'; Id = 'Git.Git'; PackageManager = 'winget'; Source = 'winget' }
+            [PSCustomObject]@{ Name = 'PowerToys'; Id = 'Microsoft.PowerToys'; PackageManager = 'winget'; Source = 'winget' }
+            [PSCustomObject]@{ Name = 'Store app'; Id = 'Store.App'; PackageManager = 'winget'; Source = 'msstore' }
+        }
+        $exportPath = Join-Path -Path $TestDrive -ChildPath 'winget-only.json'
+
+        $result = Export-InstalledPlatformPackage -Path $exportPath -FilterSource winget
+
+        $result.Count | Should-Be 2
+        $exported = Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json
+        $exported.Count | Should-Be 2
+        @($exported | ForEach-Object { $_.Name }) | Should-ContainCollection 'Git', 'PowerToys'
+        foreach ($record in $exported)
+        {
+            $record.Source | Should-Be 'winget'
+        }
+        Should-Invoke -CommandName Get-PlatformPackage -Times 1 -Exactly
+    }
+
+    It 'does not query installed packages for an empty pipeline' {
+        Mock -CommandName Get-PlatformPackage -MockWith {
+            throw 'Get-PlatformPackage should not be called for pipeline input.'
+        }
+        $exportPath = Join-Path -Path $TestDrive -ChildPath 'empty-pipeline.json'
+
+        { @() | Export-InstalledPlatformPackage -Path $exportPath } | Should-Throw '*No packages are available*'
+        Should-Invoke -CommandName Get-PlatformPackage -Times 0 -Exactly
+    }
+
+    It 'filters piped records by source before exporting' {
+        $packages = @(
+            [PSCustomObject]@{ Name = 'git'; Id = 'git'; PackageManager = 'brew'; Source = 'homebrew/core' }
+            [PSCustomObject]@{ Name = 'code'; Id = 'code'; PackageManager = 'brew'; Source = 'homebrew/cask' }
+            [PSCustomObject]@{ Name = 'other'; Id = 'other'; PackageManager = 'brew'; Source = 'homebrew/core' }
+        )
+        $exportPath = Join-Path -Path $TestDrive -ChildPath 'filtered-packages.json'
+
+        $result = $packages | Export-InstalledPlatformPackage -Path $exportPath -FilterSource 'HOMEBREW/CASK'
+
+        $result.Count | Should-Be 1
+        $exported = @(Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json)
+        $exported.Count | Should-Be 1
+        $exported[0].Name | Should-Be 'code'
+    }
+
+    It 'does not create a file when no package matches the source' {
+        $package = [PSCustomObject]@{ Name = 'git'; Id = 'git'; PackageManager = 'brew'; Source = 'homebrew/core' }
+        $exportPath = Join-Path -Path $TestDrive -ChildPath 'no-source-match.json'
+
+        { Export-InstalledPlatformPackage -Package $package -Path $exportPath -FilterSource 'homebrew/cask' } |
+        Should-Throw "*No packages matched FilterSource 'homebrew/cask'*"
+        Test-Path -LiteralPath $exportPath | Should-BeFalse
+    }
+
+    It 'offers unique source completions from directly supplied packages' {
+        $packages = @(
+            [PSCustomObject]@{ Source = 'homebrew/core' }
+            [PSCustomObject]@{ Source = 'homebrew/cask' }
+            [PSCustomObject]@{ Source = 'HOMEBREW/CORE' }
+            [PSCustomObject]@{ Source = '' }
+        )
+
+        $completions = @(Get-PlatformPackageSourceCompletion -WordToComplete 'homebrew/c' -BoundParameters @{ Package = $packages })
+
+        $completions.Count | Should-Be 2
+        @($completions.ListItemText) | Should-ContainCollection 'homebrew/cask', 'homebrew/core'
+        @($completions.CompletionText) | Should-ContainCollection "'homebrew/cask'", "'homebrew/core'"
+    }
+
+    It 'uses FilterSource tab completion for a bound Package variable' {
+        $packages = @([PSCustomObject]@{ Source = "team's apps" })
+        $line = 'Export-InstalledPlatformPackage -Package $packages -Path out.json -FilterSource team'
+
+        $matches = @((TabExpansion2 -InputScript $line -CursorColumn $line.Length).CompletionMatches)
+
+        $matches.Count | Should-Be 1
+        $matches[0].CompletionText | Should-Be "'team''s apps'"
     }
 
     It 'exports the install command for <Description>' -TestCases @(

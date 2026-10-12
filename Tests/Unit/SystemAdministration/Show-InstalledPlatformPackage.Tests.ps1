@@ -5,6 +5,7 @@ BeforeAll {
 
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Export-InstalledPlatformPackage.ps1"
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Show-InstalledPlatformPackage.ps1"
+    . "$PSScriptRoot/../../../Functions/SystemAdministration/Get-PlatformPackage.ps1"
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Get-PlatformPackageDependency.ps1"
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Remove-PlatformPackage.ps1"
     . "$PSScriptRoot/../../../Functions/SystemAdministration/Upgrade-PlatformPackage.ps1"
@@ -30,6 +31,20 @@ Describe 'Show-InstalledPlatformPackage' {
     }
 
     Context 'Object output' {
+        It 'completes FilterSource from the selected manager inventory' {
+            Mock -CommandName Get-PlatformPackage -MockWith {
+                [PSCustomObject]@{ Source = 'msstore' }
+                [PSCustomObject]@{ Source = 'winget' }
+            }
+
+            $line = 'Show-InstalledPlatformPackage -PackageManager winget -FilterSource ms'
+            $matches = @((TabExpansion2 -InputScript $line -CursorColumn $line.Length).CompletionMatches)
+
+            $matches.Count | Should-Be 1
+            $matches[0].CompletionText | Should-Be "'msstore'"
+            Should-Invoke -CommandName Get-PlatformPackage -ParameterFilter { $PackageManager -eq 'winget' -and $SkipDescriptionEnrichment } -Times 1
+        }
+
         It 'returns installed packages as objects when NonInteractive is used' {
             $runner = & $script:NewPackageCommandRunner @{
                 'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0'))
@@ -75,6 +90,21 @@ Describe 'Show-InstalledPlatformPackage' {
             $exportedPackages.Count | Should-Be 2
             ($exportedPackages | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should-Be '2.44.0'
             Should-Invoke -CommandName Write-Host -Times 0 -Exactly
+        }
+
+        It 'applies FilterSource to ExportPath output' {
+            $runner = & $script:NewPackageCommandRunner @{
+                'brew list --formula --versions' = (& $script:NewTestCommandResponse -Output @('git 2.44.0'))
+                'brew list --cask --versions' = (& $script:NewTestCommandResponse -Output @('visual-studio-code 1.89.0'))
+            }
+
+            $exportPath = Join-Path -Path $TestDrive -ChildPath 'casks-only.json'
+            $result = Show-InstalledPlatformPackage -PackageManager brew -CommandRunner $runner -ExportPath $exportPath -FilterSource 'HOMEBREW/CASK'
+
+            $result.Count | Should-Be 1
+            $exported = @(Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json)
+            $exported.Count | Should-Be 1
+            $exported[0].Name | Should-Be 'visual-studio-code'
         }
 
         It 'exports only explicitly requested formulae when ExplicitOnly is used' {
