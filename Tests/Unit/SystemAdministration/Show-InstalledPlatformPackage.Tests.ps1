@@ -181,6 +181,32 @@ Describe 'Show-InstalledPlatformPackage' {
             $escapeCharacter = [String][Char]27
             Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[38;5;37m" } -Times 2
         }
+
+        It 'updates the manager export view while loading winget descriptions' {
+            $wingetListJson = @{
+                Sources = @(
+                    @{
+                        Packages = @(
+                            @{ PackageName = 'Git'; PackageIdentifier = 'Git.Git'; Version = '2.45.1'; Source = 'winget' }
+                            @{ PackageName = 'PowerToys'; PackageIdentifier = 'Microsoft.PowerToys'; Version = '0.80.0'; Source = 'winget' }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget list --accept-source-agreements --output json' = (& $script:NewTestCommandResponse -Output @($wingetListJson))
+            }
+
+            $exportPath = Join-Path -Path $TestDrive -ChildPath 'winget-packages.json'
+            $result = @(Show-InstalledPlatformPackage -PackageManager winget -NonInteractive -CommandRunner $runner -ExportPath $exportPath -ShowExportProgress)
+
+            $result.Count | Should-Be 1
+            $result[0].Count | Should-Be 2
+            $visibleOutput = Get-CapturedPickerText
+            $visibleOutput | Should-MatchString 'Loading packages.*Package: 1 of 2 - Git.*Retrieving winget descriptions'
+            $visibleOutput | Should-MatchString 'Loading packages.*Package: 2 of 2 - PowerToys.*Retrieving winget descriptions'
+            (Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json).Count | Should-Be 2
+        }
     }
 
     Context 'Interactive browsing' {

@@ -3381,6 +3381,22 @@ function Show-InstalledPlatformPackage
             Write-PackageThemeText 'Loading packages...' -ForegroundColor Cyan
         }
 
+        if (-not [String]::IsNullOrWhiteSpace($ExportPath) -and $ShowExportProgress)
+        {
+            $getPlatformPackageParameters.DescriptionProgressCallback = {
+                param(
+                    [PSCustomObject]$Package,
+                    [Int32]$Index,
+                    [Int32]$Count
+                )
+
+                Clear-Host
+                Write-PackageThemeText 'Loading packages...' -ForegroundColor Cyan
+                Write-PackageThemeText "Package: $Index of $Count - $($Package.Name)" -ForegroundColor White
+                Write-PackageThemeText 'Retrieving winget descriptions...' -ForegroundColor DarkGray
+            }
+        }
+
         $installedPackages = @(Get-PlatformPackage @getPlatformPackageParameters)
 
         if (-not [String]::IsNullOrWhiteSpace($ExportPath))

@@ -80,6 +80,36 @@ Describe 'Get-PlatformPackage' {
             $result[0].Source | Should-Be 'winget'
             $result[0].Publisher | Should-Be 'winget'
         }
+
+        It 'reports only missing winget descriptions to the progress callback' {
+            $wingetJson = @{
+                Sources = @(
+                    @{
+                        Packages = @(
+                            @{ PackageName = 'Git'; PackageIdentifier = 'Git.Git'; Version = '2.45.1'; Source = 'winget' }
+                            @{ PackageName = 'PowerToys'; PackageIdentifier = 'Microsoft.PowerToys'; Version = '0.80.0'; Source = 'winget'; Description = 'Windows utilities' }
+                            @{ PackageName = 'Terminal'; PackageIdentifier = 'Microsoft.WindowsTerminal'; Version = '1.21.0'; Source = 'winget' }
+                        )
+                    }
+                )
+            } | ConvertTo-Json -Depth 6 -Compress
+            $runner = & $script:NewPackageCommandRunner @{
+                'winget list --accept-source-agreements --output json' = Get-TestCommandResponse -Output @($wingetJson)
+            }
+            $script:DescriptionEvents = [System.Collections.Generic.List[String]]::new()
+            $progressCallback = {
+                param([PSCustomObject]$Package, [Int32]$Index, [Int32]$Count)
+                $script:DescriptionEvents.Add("$Index of $Count - $($Package.Name)")
+                'callback output must not become a package record'
+            }
+
+            $result = @(Get-PlatformPackage -PackageManager winget -CommandRunner $runner -DescriptionProgressCallback $progressCallback)
+
+            $result.Count | Should-Be 3
+            $script:DescriptionEvents.Count | Should-Be 2
+            $script:DescriptionEvents[0] | Should-Be '1 of 2 - Git'
+            $script:DescriptionEvents[1] | Should-Be '2 of 2 - Terminal'
+        }
     }
 
     Context 'Linux package discovery' {

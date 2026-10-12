@@ -121,6 +121,9 @@ function Get-PlatformPackage
         [Switch]$SkipDescriptionEnrichment,
 
         [Parameter(DontShow = $true)]
+        [ScriptBlock]$DescriptionProgressCallback,
+
+        [Parameter(DontShow = $true)]
         [ScriptBlock]$CommandRunner
     )
 
@@ -842,15 +845,23 @@ function Get-PlatformPackage
                 return @()
             }
 
-            if ($CommandRunner)
+            if ($CommandRunner -and -not $DescriptionProgressCallback)
             {
                 return @($Packages)
             }
 
             $descriptionLookup = @{}
-            foreach ($package in $Packages)
+            $packagesNeedingDescriptions = @($Packages | Where-Object { [String]::IsNullOrWhiteSpace($_.Description) })
+            $descriptionIndex = 0
+            foreach ($package in $packagesNeedingDescriptions)
             {
-                if (-not [String]::IsNullOrWhiteSpace($package.Description))
+                $descriptionIndex++
+                if ($DescriptionProgressCallback)
+                {
+                    $null = & $DescriptionProgressCallback -Package $package -Index $descriptionIndex -Count $packagesNeedingDescriptions.Count
+                }
+
+                if ($CommandRunner)
                 {
                     continue
                 }
