@@ -50,7 +50,45 @@ Describe 'Export-InstalledPlatformPackage' {
         $exportedPackages = Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json
         $exportedPackages.Count | Should-Be 2
         ($exportedPackages | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should-Be '2.44.0'
+        ($exportedPackages | Where-Object { $_.Name -eq 'git' }).InstallCommand | Should-Be 'brew install git'
         Should-Invoke -CommandName Write-Host -Times 0 -Exactly
+    }
+
+    It 'exports the install command for <Description>' -TestCases @(
+        @{ Description = 'a Homebrew formula'; Manager = 'brew'; Name = 'ffmpeg'; Id = 'ffmpeg'; Type = 'Formula'; Source = 'homebrew/core'; Constraint = ''; Extension = 'json'; Expected = 'brew install ffmpeg' }
+        @{ Description = 'a Homebrew cask'; Manager = 'brew'; Name = 'visual-studio-code'; Id = 'visual-studio-code'; Type = 'Cask'; Source = 'homebrew/cask'; Constraint = ''; Extension = 'csv'; Expected = 'brew install --cask visual-studio-code' }
+        @{ Description = 'a WinGet package with a source'; Manager = 'winget'; Name = 'Git'; Id = 'Git.Git'; Type = 'Package'; Source = 'winget'; Constraint = ''; Extension = 'csv'; Expected = 'winget install --id Git.Git --exact --source winget' }
+        @{ Description = 'an APT package'; Manager = 'apt'; Name = 'ffmpeg'; Id = 'ffmpeg'; Type = 'amd64'; Source = 'stable'; Constraint = ''; Extension = 'json'; Expected = 'apt install ffmpeg' }
+        @{ Description = 'an APK package with a requested constraint'; Manager = 'apk'; Name = 'py3-requests'; Id = 'py3-requests'; Type = 'Package'; Source = 'apk'; Constraint = 'py3-requests=2.31.0-r0'; Extension = 'csv'; Expected = "apk add 'py3-requests=2.31.0-r0'" }
+        @{ Description = 'an unsupported manager'; Manager = 'other'; Name = 'ffmpeg'; Id = 'ffmpeg'; Type = 'Package'; Source = ''; Constraint = ''; Extension = 'csv'; Expected = '' }
+        @{ Description = 'a WinGet package without an ID'; Manager = 'winget'; Name = 'Git'; Id = ''; Type = 'Package'; Source = 'winget'; Constraint = ''; Extension = 'json'; Expected = '' }
+        @{ Description = 'a package name requiring POSIX quoting'; Manager = 'brew'; Name = "formula's tool"; Id = ''; Type = 'Formula'; Source = ''; Constraint = ''; Extension = 'json'; Expected = "brew install 'formula'\''s tool'" }
+        @{ Description = 'a WinGet source requiring PowerShell quoting'; Manager = 'winget'; Name = 'Git'; Id = 'Git.Git'; Type = 'Package'; Source = "team's apps"; Constraint = ''; Extension = 'json'; Expected = "winget install --id Git.Git --exact --source 'team''s apps'" }
+    ) {
+        param($Description, $Manager, $Name, $Id, $Type, $Source, $Constraint, $Extension, $Expected)
+
+        $package = [PSCustomObject]@{
+            Name = $Name
+            Id = $Id
+            PackageManager = $Manager
+            PackageManagerDisplayName = $Manager
+            Type = $Type
+            InstalledVersion = '1.0'
+            Source = $Source
+            Publisher = ''
+            Description = ''
+            Notes = ''
+        }
+        if ($Constraint)
+        {
+            $package | Add-Member -MemberType NoteProperty -Name RequestedConstraint -Value $Constraint
+        }
+
+        $exportPath = Join-Path -Path $TestDrive -ChildPath "install-command.$Extension"
+        $null = Export-InstalledPlatformPackage -Package $package -Path $exportPath
+        $exportedPackage = if ($Extension -eq 'csv') { Import-Csv -LiteralPath $exportPath } else { Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json }
+
+        $exportedPackage.InstallCommand | Should-Be $Expected
     }
 
     It 'preserves APK world constraints in exports' {

@@ -8,7 +8,8 @@ function Export-InstalledPlatformPackage
         Writes normalized package records to a JSON or CSV file. Package records can be
         piped from Get-PlatformPackage or supplied through -Package. The export format is
         inferred from the file extension by default, or can be supplied explicitly with
-        -Format.
+        -Format. Each record includes an InstallCommand for supported package managers
+        when the package has a usable name or identifier.
 
         Use -DependencyMode DependsOn to include direct dependency relationships, or
         -DependencyMode Both to include direct and reverse dependency relationships where
@@ -444,6 +445,92 @@ function Export-InstalledPlatformPackage
             }
         }
 
+        function Format-PackageInstallArgument
+        {
+            param(
+                [Parameter(Mandatory)]
+                [String]$Value,
+
+                [Parameter(Mandatory)]
+                [ValidateSet('PowerShell', 'Posix')]
+                [String]$Shell
+            )
+
+            $argument = $Value.Trim()
+            if ($argument -match '^[A-Za-z0-9_./:@+-]+$')
+            {
+                return $argument
+            }
+
+            $quote = [String][Char]39
+            if ($Shell -eq 'PowerShell')
+            {
+                return $quote + $argument.Replace($quote, $quote + $quote) + $quote
+            }
+
+            $escapedQuote = $quote + [Char]92 + $quote + $quote
+            return $quote + $argument.Replace($quote, $escapedQuote) + $quote
+        }
+
+        function Get-PackageExportInstallCommand
+        {
+            param(
+                [Parameter(Mandatory)]
+                [PSCustomObject]$PackageRecord
+            )
+
+            $managerName = "$($PackageRecord.PackageManager)".Trim().ToLowerInvariant()
+            $packageName = "$($PackageRecord.Name)".Trim()
+            $packageId = "$($PackageRecord.Id)".Trim()
+
+            switch ($managerName)
+            {
+                'winget'
+                {
+                    if ([String]::IsNullOrWhiteSpace($packageId)) { return '' }
+                    $idArgument = Format-PackageInstallArgument -Value $packageId -Shell PowerShell
+                    $command = "winget install --id $idArgument --exact"
+                    $source = "$($PackageRecord.Source)".Trim()
+                    if (-not [String]::IsNullOrWhiteSpace($source))
+                    {
+                        $sourceArgument = Format-PackageInstallArgument -Value $source -Shell PowerShell
+                        $command += " --source $sourceArgument"
+                    }
+                    return $command
+                }
+                'brew'
+                {
+                    if ([String]::IsNullOrWhiteSpace($packageName)) { return '' }
+                    $nameArgument = Format-PackageInstallArgument -Value $packageName -Shell Posix
+                    if ($PackageRecord.Type -eq 'Cask')
+                    {
+                        return "brew install --cask $nameArgument"
+                    }
+                    return "brew install $nameArgument"
+                }
+                'apt'
+                {
+                    if ([String]::IsNullOrWhiteSpace($packageName)) { return '' }
+                    $nameArgument = Format-PackageInstallArgument -Value $packageName -Shell Posix
+                    return "apt install $nameArgument"
+                }
+                'apk'
+                {
+                    if ([String]::IsNullOrWhiteSpace($packageName)) { return '' }
+                    $packageArgument = $packageName
+                    $requestedConstraint = "$($PackageRecord.RequestedConstraint)".Trim()
+                    if (-not [String]::IsNullOrWhiteSpace($requestedConstraint) -and
+                        $requestedConstraint -match "^$([Regex]::Escape($packageName))(?=@|[<>=~]|$)")
+                    {
+                        $packageArgument = $requestedConstraint
+                    }
+                    $formattedArgument = Format-PackageInstallArgument -Value $packageArgument -Shell Posix
+                    return "apk add $formattedArgument"
+                }
+                default { return '' }
+            }
+        }
+
         function ConvertTo-PackageExportRecord
         {
             param(
@@ -482,6 +569,7 @@ function Export-InstalledPlatformPackage
                 Id = $PackageRecord.Id
                 PackageManager = $PackageRecord.PackageManager
                 PackageManagerDisplayName = $PackageRecord.PackageManagerDisplayName
+                InstallCommand = Get-PackageExportInstallCommand -PackageRecord $PackageRecord
                 Type = $PackageRecord.Type
                 InstalledVersion = $PackageRecord.InstalledVersion
                 Source = $PackageRecord.Source

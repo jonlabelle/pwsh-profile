@@ -91,7 +91,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $exportedPackages = @(Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json)
             $exportedPackages.Count | Should-Be 1
             $exportedPackages[0].Name | Should-Be 'curl'
-            ($script:Invocations | Where-Object { $_.Key -eq 'brew list --installed-on-request' }).Count | Should-Be 1
+            @($script:Invocations | Where-Object { $_.Key -eq 'brew list --installed-on-request' }).Count | Should-Be 1
             Should-Invoke -CommandName Write-Host -Times 0 -Exactly
         }
 
@@ -876,6 +876,7 @@ Describe 'Show-InstalledPlatformPackage' {
             $exportedPackages = Get-Content -LiteralPath $exportPath -Raw | ConvertFrom-Json
             $exportedPackages.Count | Should-Be 2
             ($exportedPackages | Where-Object { $_.Name -eq 'git' }).InstalledVersion | Should-Be '2.44.0'
+            ($exportedPackages | Where-Object { $_.Name -eq 'git' }).InstallCommand | Should-Be 'brew install git'
             ($exportedPackages | Where-Object { $_.Name -eq 'curl' }).PackageManager | Should-Be 'brew'
             (Get-CapturedPickerText) | Should-MatchString 'Exported 2 package\(s\) to .*installed-packages\.json \(JSON\)'
         }
