@@ -663,8 +663,8 @@
                 'DependencyDirection'
                 {
                     @(
-                        Get-PlatformPackageManagerHelpItem -Shortcut '1 or DependsOn' -Description 'show packages required by the requested package'
-                        Get-PlatformPackageManagerHelpItem -Shortcut '2 or RequiredBy' -Description 'show packages that depend on the requested package'
+                        Get-PlatformPackageManagerHelpItem -Shortcut '1 or DependsOn' -Description 'Show installed packages required by the requested package'
+                        Get-PlatformPackageManagerHelpItem -Shortcut '2 or RequiredBy' -Description 'Show installed packages that depend on the requested package'
                         Get-PlatformPackageManagerHelpItem -Shortcut '3 or Both' -Description 'show both relationship directions'
                         Get-PlatformPackageManagerHelpItem -Shortcut 'Blank' -Description 'use DependsOn'
                         Get-PlatformPackageManagerHelpItem -Shortcut '?' -Description 'show this help'
@@ -686,9 +686,9 @@
                         Get-PlatformPackageManagerHelpItem -Shortcut 'Home/End' -Description 'move to the first or last action'
                         Get-PlatformPackageManagerHelpItem -Shortcut 'Enter' -Description 'run the selected action'
                         Get-PlatformPackageManagerHelpItem -Shortcut '1-6' -Description 'jump to a numbered workflow'
-                        Get-PlatformPackageManagerHelpItem -Shortcut 'P' -Description 'show installed packages'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'P' -Description 'Show installed packages on the system'
                         Get-PlatformPackageManagerHelpItem -Shortcut 'E' -Description 'export packages'
-                        Get-PlatformPackageManagerHelpItem -Shortcut 'S' -Description 'search packages'
+                        Get-PlatformPackageManagerHelpItem -Shortcut 'S' -Description 'install packages'
                         Get-PlatformPackageManagerHelpItem -Shortcut 'U' -Description 'upgrade packages'
                         Get-PlatformPackageManagerHelpItem -Shortcut 'R' -Description 'remove packages'
                         Get-PlatformPackageManagerHelpItem -Shortcut 'D' -Description 'show package dependency relationships'
@@ -1583,10 +1583,10 @@
             $notificationColor = if ($null -ne $actionNotice) { [String]$actionNotice.Color } else { 'DarkYellow' }
             if ($result.Count -eq 0)
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Show Packages' -Message 'Installed package browser closed.' -Notification $notification -NotificationColor $notificationColor -AutoReturn)
+                return (Get-PlatformPackageManagerActionResult -Title 'Show installed packages' -Message 'Installed package browser closed.' -Notification $notification -NotificationColor $notificationColor -AutoReturn)
             }
 
-            return (Get-PlatformPackageManagerActionResult -Title 'Show Packages' -Records $result -Notification $notification -NotificationColor $notificationColor)
+            return (Get-PlatformPackageManagerActionResult -Title 'Show installed packages' -Records $result -Notification $notification -NotificationColor $notificationColor)
         }
 
         function Invoke-PlatformPackageManagerExport
@@ -1648,7 +1648,7 @@
                 $query = Read-PlatformPackageManagerInput -Prompt 'Search query (? for help)'
                 if ($null -eq $query -or [String]::IsNullOrWhiteSpace($query))
                 {
-                    return (Get-PlatformPackageManagerActionResult -Title 'Search Packages' -Message 'Search cancelled; query is required.' -AutoReturn)
+                    return (Get-PlatformPackageManagerActionResult -Title 'Install packages' -Message 'Search cancelled; query is required.' -AutoReturn)
                 }
 
                 if ($query.Trim() -eq '?')
@@ -1682,10 +1682,10 @@
                 })
             if ($result.Count -eq 0)
             {
-                return (Get-PlatformPackageManagerActionResult -Title 'Search Packages' -Message 'Search completed with no result records.' -AutoReturn)
+                return (Get-PlatformPackageManagerActionResult -Title 'Install packages' -Message 'Search completed with no result records.' -AutoReturn)
             }
 
-            return (Get-PlatformPackageManagerActionResult -Title 'Search Packages' -Records $result)
+            return (Get-PlatformPackageManagerActionResult -Title 'Install packages' -Records $result)
         }
 
         function Invoke-PlatformPackageManagerUpgrade
@@ -1861,14 +1861,14 @@
                 [PSCustomObject]@{
                     Choice = '2'
                     Symbol = '+'
-                    Workflow = 'Search packages'
+                    Workflow = 'Install packages'
                     Purpose = 'Search and optionally install packages'
                 }
                 [PSCustomObject]@{
                     Choice = '3'
                     Symbol = [String][Char]0x25A6
-                    Workflow = 'Show packages'
-                    Purpose = 'Show installed packages'
+                    Workflow = 'Show installed packages'
+                    Purpose = 'Show installed packages on the system'
                 }
                 [PSCustomObject]@{
                     Choice = '4'

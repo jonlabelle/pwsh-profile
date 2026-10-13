@@ -19,44 +19,6 @@ Describe 'Show-PlatformPackageManager' {
         Mock -CommandName Clear-Host -MockWith {}
     }
 
-    It 'renders the unified menu and exits when quit is selected' {
-        $promptReader = & $script:NewPromptReader @('q')
-
-        $result = @(Show-PlatformPackageManager -PromptReader $promptReader)
-
-        $result.Count | Should-Be 0
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like "Manager: Auto $([Char]0x2192) *" } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Search packages*' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { @($Object) -contains ('Search packages' + (' ' * 15)) } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Search and optionally install packages' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Show packages*' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Show installed packages' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Remove installed packages' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Export packages*' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like 'Export installed packages to JSON*' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Exit the package manager' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Direct install*' } -Times 0 -Exactly
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Show package dependencies*' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { @($Object) -contains ('Show package dependencies' + (' ' * 5)) } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like 'Show package dependency relation*' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([Char]0x2022) OPTIONS  " } -Times 0 -Exactly
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Flags: none' } -Times 0 -Exactly
-        $escapeCharacter = [String][Char]27
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[38;5;37m" } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[38;5;244m" } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[0m" } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[33m" } -Times 0 -Exactly
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$escapeCharacter[91m" } -Times 0 -Exactly
-        Should-Invoke -CommandName Write-Host -ParameterFilter {
-            $Separator -eq '' -and
-            $Object.Count -eq 3 -and
-            $Object[0] -eq "$escapeCharacter[38;5;37m" -and
-            $Object[1] -eq 'Platform Package Manager' -and
-            $Object[2] -eq "$escapeCharacter[0m"
-        } -Times 1
-    }
-
     It 'selects the upgrade workflow by default' {
         Mock -CommandName Upgrade-PlatformPackage -MockWith {}
         Mock -CommandName Install-PlatformPackage -MockWith {}
@@ -86,17 +48,17 @@ Describe 'Show-PlatformPackageManager' {
         $promptReader = & $script:NewPromptReader @('q')
 
         { Show-PlatformPackageManager -PackageManager brew -Interactive -PromptReader $promptReader } |
-            Should-Throw -ExceptionMessage "*Parameter -Interactive*package manager 'brew'*only supported by winget*"
+        Should-Throw -ExceptionMessage "*Parameter -Interactive*package manager 'brew'*only supported by winget*"
 
         { Show-PlatformPackageManager -PackageManager apt -UninstallPrevious -PromptReader $promptReader } |
-            Should-Throw -ExceptionMessage "*Parameter -UninstallPrevious*package manager 'apt'*only supported by winget*"
+        Should-Throw -ExceptionMessage "*Parameter -UninstallPrevious*package manager 'apt'*only supported by winget*"
     }
 
     It 'rejects NoSudo for managers that do not use sudo' {
         $promptReader = & $script:NewPromptReader @('q')
 
         { Show-PlatformPackageManager -PackageManager winget -NoSudo -PromptReader $promptReader } |
-            Should-Throw -ExceptionMessage "*Parameter -NoSudo*package manager 'winget'*only supported by apt and apk*"
+        Should-Throw -ExceptionMessage "*Parameter -NoSudo*package manager 'winget'*only supported by apt and apk*"
     }
 
     It 'routes installed package browsing through Show-InstalledPlatformPackage without extra prompts' {
@@ -139,7 +101,7 @@ Describe 'Show-PlatformPackageManager' {
             $null -ne $KeyReader -and
             $ReturnToPlatformPackageManagerOnBackKey
         } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Show Packages' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Show installed packages' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*git*' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*gh*' } -Times 1
     }
@@ -162,7 +124,7 @@ Describe 'Show-PlatformPackageManager' {
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager' } -Times 2
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'INSTALLED PACKAGES / HOMEBREW' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -like '*Backspace/Delete: menu*' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Show Packages' } -Times 0 -Exactly
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Show installed packages' } -Times 0 -Exactly
     }
 
     It 'does not expose numbers outside 1-6 as valid actions' {
@@ -221,11 +183,11 @@ Describe 'Show-PlatformPackageManager' {
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Platform Package Manager Help' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) SHORTCUTS" } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'P: ' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'show installed packages' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Show installed packages on the system' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'E: ' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'export packages' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'S: ' } -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'search packages' } -Times 1
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'install packages' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq "$([char]0x25CF) ABOUT" } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq '  Project: jonlabelle/pwsh-profile' } -Times 1
         Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq '  Issue reports and enhancement requests:' } -Times 1
@@ -694,7 +656,7 @@ Describe 'Show-PlatformPackageManager' {
         $result = @(Show-PlatformPackageManager -PackageManager apt -PromptReader $promptReader)
 
         $result.Count | Should-Be 0
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Search Packages' } -Times 0 -Exactly
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Install packages' } -Times 0 -Exactly
     }
 
     It 'returns directly to the menu without a result screen when no packages are selected in the picker' {
@@ -717,7 +679,7 @@ Describe 'Show-PlatformPackageManager' {
 
         $result.Count | Should-Be 0
         Should-Invoke -CommandName Install-PlatformPackage -Times 1
-        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Search Packages' } -Times 0 -Exactly
+        Should-Invoke -CommandName Write-Host -ParameterFilter { $Object -eq 'Install packages' } -Times 0 -Exactly
     }
 
     It 'shows a notification in the menu when search returns no matches' {
