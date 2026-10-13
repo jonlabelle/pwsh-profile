@@ -38,10 +38,10 @@ Describe 'Show-InstalledPlatformPackage' {
             }
 
             $line = 'Show-InstalledPlatformPackage -PackageManager winget -FilterSource ms'
-            $matches = @((TabExpansion2 -InputScript $line -CursorColumn $line.Length).CompletionMatches)
+            $completions = @((TabExpansion2 -InputScript $line -CursorColumn $line.Length).CompletionMatches)
 
-            $matches.Count | Should-Be 1
-            $matches[0].CompletionText | Should-Be "'msstore'"
+            $completions.Count | Should-Be 1
+            $completions[0].CompletionText | Should-Be "'msstore'"
             Should-Invoke -CommandName Get-PlatformPackage -ParameterFilter { $PackageManager -eq 'winget' -and $SkipDescriptionEnrichment } -Times 1
         }
 

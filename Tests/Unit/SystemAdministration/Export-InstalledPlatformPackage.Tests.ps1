@@ -128,12 +128,13 @@ Describe 'Export-InstalledPlatformPackage' {
 
     It 'uses FilterSource tab completion for a bound Package variable' {
         $packages = @([PSCustomObject]@{ Source = "team's apps" })
-        $line = 'Export-InstalledPlatformPackage -Package $packages -Path out.json -FilterSource team'
+        $sourcePrefix = ($packages[0].Source -split "'")[0]
+        $line = 'Export-InstalledPlatformPackage -Package $packages -Path out.json -FilterSource {0}' -f $sourcePrefix
 
-        $matches = @((TabExpansion2 -InputScript $line -CursorColumn $line.Length).CompletionMatches)
+        $completions = @((TabExpansion2 -InputScript $line -CursorColumn $line.Length).CompletionMatches)
 
-        $matches.Count | Should-Be 1
-        $matches[0].CompletionText | Should-Be "'team''s apps'"
+        $completions.Count | Should-Be 1
+        $completions[0].CompletionText | Should-Be "'team''s apps'"
     }
 
     It 'exports the install command for <Description>' -TestCases @(
