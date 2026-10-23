@@ -21,6 +21,7 @@ concurrency:
 permissions:
   contents: read
   security-events: write
+  pull-requests: read
 
 jobs:
   analyze:
@@ -37,6 +38,10 @@ jobs:
           languages: actions
           build-mode: none
           queries: security-and-quality
+          config: |
+            threat-models:
+              - remote
+              - local
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@main
