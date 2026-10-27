@@ -1,5 +1,5 @@
 $script:ExifToolCommand = Get-Command 'exiftool' -CommandType Application, ExternalScript -ErrorAction SilentlyContinue |
-    Select-Object -First 1
+Select-Object -First 1
 $script:HasExifTool = $null -ne $script:ExifToolCommand
 
 BeforeAll {
@@ -10,6 +10,7 @@ BeforeAll {
     . "$PSScriptRoot/../../../Functions/MediaProcessing/Invoke-FFmpeg.ps1"
     . "$PSScriptRoot/../../../Functions/MediaProcessing/Get-ImageMetadata.ps1"
     . "$PSScriptRoot/../../../Functions/MediaProcessing/Remove-ImageMetadata.ps1"
+    . "$PSScriptRoot/../../../Functions/MediaProcessing/Resize-Image.ps1"
     . "$PSScriptRoot/../../../Functions/MediaProcessing/Rename-VideoSeasonFile.ps1"
 
     # Check if required external dependencies are available
@@ -20,7 +21,7 @@ BeforeAll {
 Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
     Context 'Recurse Parameter Consistency' {
         It 'All functions should have Recurse parameter' {
-            $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Remove-ImageMetadata', 'Rename-VideoSeasonFile')
+            $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Remove-ImageMetadata', 'Rename-VideoSeasonFile', 'Resize-Image')
 
             foreach ($funcName in $functions)
             {
@@ -30,7 +31,7 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
         }
 
         It 'No functions should have NoRecursion parameter' {
-            $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Remove-ImageMetadata', 'Rename-VideoSeasonFile')
+            $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Remove-ImageMetadata', 'Rename-VideoSeasonFile', 'Resize-Image')
 
             foreach ($funcName in $functions)
             {
@@ -40,7 +41,7 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
         }
 
         It 'All functions should have Exclude parameter' {
-            $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Remove-ImageMetadata', 'Rename-VideoSeasonFile')
+            $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Remove-ImageMetadata', 'Rename-VideoSeasonFile', 'Resize-Image')
 
             foreach ($funcName in $functions)
             {
@@ -52,7 +53,7 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
 
     Context 'Parameter Types Consistency' {
         It 'All Recurse parameters should be Switch type' {
-            $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Remove-ImageMetadata', 'Rename-VideoSeasonFile')
+            $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Remove-ImageMetadata', 'Rename-VideoSeasonFile', 'Resize-Image')
 
             foreach ($funcName in $functions)
             {
@@ -63,7 +64,7 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
         }
 
         It 'All Exclude parameters should be String array type' {
-            $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Remove-ImageMetadata', 'Rename-VideoSeasonFile')
+            $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Remove-ImageMetadata', 'Rename-VideoSeasonFile', 'Resize-Image')
 
             foreach ($funcName in $functions)
             {
@@ -76,7 +77,7 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
 
     Context 'Filter Parameter Consistency' {
         It 'All functions should have Filter parameter' {
-            $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Remove-ImageMetadata', 'Rename-VideoSeasonFile')
+            $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Remove-ImageMetadata', 'Rename-VideoSeasonFile', 'Resize-Image')
 
             foreach ($funcName in $functions)
             {
@@ -86,7 +87,7 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
         }
 
         It 'All Filter parameters should be String array type' {
-            $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Remove-ImageMetadata', 'Rename-VideoSeasonFile')
+            $functions = @('Get-MediaInfo', 'Invoke-FFmpeg', 'Remove-ImageMetadata', 'Rename-VideoSeasonFile', 'Resize-Image')
 
             foreach ($funcName in $functions)
             {
@@ -129,6 +130,7 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
             { Get-MediaInfo -Path $testRoot -Verbose } | Should -Not -Throw
             { Invoke-FFmpeg -Path $testRoot -WhatIf } | Should -Not -Throw
             { Remove-ImageMetadata -Path $testRoot -WhatIf } | Should -Not -Throw
+            { Resize-Image -Path $testRoot -Width 100 -WhatIf } | Should -Not -Throw
             { Rename-VideoSeasonFile -Path $testRoot -WhatIf } | Should -Not -Throw
         }
     }
@@ -143,7 +145,7 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
             [System.IO.File]::WriteAllBytes($sampleImage, $sampleGifBytes)
 
             $exifToolCommand = Get-Command 'exiftool' -CommandType Application, ExternalScript -ErrorAction Stop |
-                Select-Object -First 1
+            Select-Object -First 1
             $exifToolPath = $exifToolCommand.Path
             $global:LASTEXITCODE = 0
             $metadataWriteOutput = @(& $exifToolPath -overwrite_original '-Comment=Private integration comment' $sampleImage 2>&1)

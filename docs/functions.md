@@ -131,6 +131,7 @@
 - [`Invoke-FFmpeg`](../Functions/MediaProcessing/Invoke-FFmpeg.ps1) - Converts video files using Samsung-friendly H.264 or H.265 settings.
 - [`Remove-ImageMetadata`](../Functions/MediaProcessing/Remove-ImageMetadata.ps1) - Removes metadata and privacy-sensitive information from images.
 - [`Rename-VideoSeasonFile`](../Functions/MediaProcessing/Rename-VideoSeasonFile.ps1) - Renames files into a consistent season sequence format.
+- [`Resize-Image`](../Functions/MediaProcessing/Resize-Image.ps1) - Resizes images using ImageMagick.
 
 ## Utilities
 
