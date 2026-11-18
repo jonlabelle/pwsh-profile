@@ -755,16 +755,16 @@ function Start-KeepAlive
     }
 }
 
-# Create alias 'keepalive' if it doesn't conflict
-if (-not (Get-Command -Name 'keepalive' -ErrorAction SilentlyContinue))
+# Create alias 'ska' if it doesn't conflict
+if (-not (Get-Command -Name 'ska' -ErrorAction SilentlyContinue))
 {
     try
     {
-        Write-Verbose "Creating 'keepalive' alias for Start-KeepAlive"
-        Set-Alias -Name 'keepalive' -Value 'Start-KeepAlive' -Force -ErrorAction Stop
+        Write-Verbose "Creating 'ska' alias for Start-KeepAlive"
+        Set-Alias -Name 'ska' -Value 'Start-KeepAlive' -Force -ErrorAction Stop
     }
     catch
     {
-        Write-Warning "Start-KeepAlive: Could not create 'keepalive' alias: $($_.Exception.Message)"
+        Write-Warning "Start-KeepAlive: Could not create 'ska' alias: $($_.Exception.Message)"
     }
 }
