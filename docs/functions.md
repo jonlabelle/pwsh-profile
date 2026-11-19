@@ -135,6 +135,7 @@
 
 ## Utilities
 
+- [`Clear-Clipboard`](../Functions/Utilities/Clear-Clipboard.ps1) - Empties the active system clipboard across all formats on Windows, macOS, and Linux.
 - [`Convert-LineEnding`](../Functions/Utilities/Convert-LineEnding.ps1) - Converts line endings between LF and CRLF with optional encoding conversion.
 - [`ConvertFrom-Base64`](../Functions/Utilities/ConvertFrom-Base64.ps1) - Decodes a Base64-encoded string to text or file content.
 - [`ConvertTo-Base64`](../Functions/Utilities/ConvertTo-Base64.ps1) - Converts a string or file content to Base64 encoding.

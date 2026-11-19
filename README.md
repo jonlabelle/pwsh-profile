@@ -78,6 +78,9 @@ Get-Help Get-CertificateExpiration -Examples
 Test-ProfileUpdate
 Update-Profile
 
+# Empty the active system clipboard
+Clear-Clipboard
+
 # Run the test suite from a cloned repository
 ./Invoke-Tests.ps1 -TestType Unit
 ```
@@ -145,7 +148,7 @@ Everything you need to know about installation, functions, troubleshooting, and 
 | [Network and DNS](docs/functions.md#network-and-dns)                | DNS, ports, TLS checks, ping, traceroute, WHOIS, GeoIP, latency graphs        |
 | [System Administration](docs/functions.md#system-administration)    | permissions, elevation, system info, package managers, resource monitor       |
 | [Developer](docs/functions.md#developer)                            | .NET, dotenv, Git, GitHub, Docker, SQLFluff, Magika                           |
-| [Utilities](docs/functions.md#utilities)                            | Base64, Markdown, time zones, copy/sync, delimited search, symlinks, archives |
+| [Utilities](docs/functions.md#utilities)                            | clipboard, Base64, Markdown, time zones, sync, search, symlinks, archives     |
 | [Security](docs/functions.md#security)                              | JWT decoding, certificate inspection, password-based file protection          |
 | [Active Directory](docs/functions.md#active-directory)              | credentials, account lockout checks, group policy update                      |
 | [Module Management](docs/functions.md#powershell-module-management) | module update checks and cleanup                                              |

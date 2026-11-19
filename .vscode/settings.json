@@ -204,6 +204,7 @@
     "onprem",
     "Ookla",
     "OPTOUT",
+    "osascript",
     "pacman",
     "pacmd",
     "pactl",
@@ -316,6 +317,7 @@
     "winget",
     "wshell",
     "xrandr",
+    "xsel",
     "xset",
     "XTEST",
     "zoneinfo"
