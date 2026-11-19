@@ -1,6 +1,7 @@
 $script:ExifToolCommand = Get-Command 'exiftool' -CommandType Application, ExternalScript -ErrorAction SilentlyContinue |
 Select-Object -First 1
 $script:HasExifTool = $null -ne $script:ExifToolCommand
+$script:HasImageMagick = $null -ne (Get-Command 'magick' -CommandType Application, ExternalScript -ErrorAction SilentlyContinue)
 
 BeforeAll {
     # Suppress progress bars to prevent freezing in non-interactive environments
@@ -136,11 +137,12 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
     }
 
     Context 'Image Metadata Cleanup' {
-        It 'Should remove watched metadata tags through the real ExifTool verification round trip' -Skip:(-not $script:HasExifTool) {
+        It 'Should verify watched tags on a sanitized copy with a custom extension' -Skip:(-not $script:HasExifTool) {
             $testRoot = Join-Path -Path $TestDrive -ChildPath 'ImageMetadataRoundTrip'
             New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
 
             $sampleImage = Join-Path -Path $testRoot -ChildPath 'private-comment.gif'
+            $outputImage = Join-Path -Path $testRoot -ChildPath 'clean [1].dat'
             $sampleGifBytes = [Convert]::FromBase64String('R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==')
             [System.IO.File]::WriteAllBytes($sampleImage, $sampleGifBytes)
 
@@ -155,7 +157,7 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
             $beforeCleanup = Get-ImageMetadata -Path $sampleImage -ExifToolPath $exifToolPath -Tag 'Comment' -NoEmptyProperties
             $beforeCleanup.Metadata['File:Comment'] | Should-Be 'Private integration comment'
 
-            $cleanupResult = Remove-ImageMetadata -Path $sampleImage -ExifToolPath $exifToolPath -Verify -PassThru
+            $cleanupResult = Remove-ImageMetadata -Path $sampleImage -OutputPath $outputImage -ExifToolPath $exifToolPath -Verify
 
             $cleanupResult.MetadataRemoved | Should-Be $true
             $cleanupResult.RemovedMetadataTagCount | Should-BeGreaterThan 0
@@ -163,8 +165,85 @@ Describe 'MediaProcessing Functions Integration' -Tag 'Integration' {
             $cleanupResult.Verified | Should-Be $true
             $cleanupResult.RemainingMetadataTags | Should -BeNullOrEmpty
 
-            $afterCleanup = Get-ImageMetadata -Path $sampleImage -ExifToolPath $exifToolPath -Tag 'Comment' -NoEmptyProperties
-            $afterCleanup.Metadata.Contains('File:Comment') | Should-Be $false
+            $afterCleanup = Get-ImageMetadata -Path $outputImage -Filter '*' -ExifToolPath $exifToolPath -PrivacyOnly
+            $afterCleanup.TagCount | Should-Be 0
+        }
+
+        It 'Should verify paranoid JPEG cleanup when only the remover is loaded' -Skip:(-not ($script:HasExifTool -and $script:HasImageMagick)) {
+            $sampleImage = Join-Path -Path $TestDrive -ChildPath 'photo [1].jpeg'
+            $null = & magick -size 8x6 'xc:gold' $sampleImage
+            $LASTEXITCODE | Should-Be 0
+            $null = & exiftool -overwrite_original '-Make=Test Camera' '-Comment=Synthetic comment' $sampleImage
+            $LASTEXITCODE | Should-Be 0
+
+            $cleanerPath = Join-Path -Path $PSScriptRoot -ChildPath '../../../Functions/MediaProcessing/Remove-ImageMetadata.ps1'
+            $isolatedSession = [PowerShell]::Create()
+            try
+            {
+                $null = $isolatedSession.AddScript({
+                        param($ScriptPath, $ImagePath)
+                        . $ScriptPath
+                        Remove-ImageMetadata -Path $ImagePath -Paranoid -Verify -ErrorAction Stop
+                    }).AddArgument($cleanerPath).AddArgument($sampleImage)
+                $cleanupResult = $isolatedSession.Invoke()
+            }
+            finally
+            {
+                $isolatedSession.Dispose()
+            }
+
+            $cleanupResult.Count | Should-Be 1
+            $cleanupResult.MetadataRemoved | Should-Be $true
+            $cleanupResult.Verified | Should-Be $true
+            $cleanupResult.RemovedMetadataTags | Should-ContainCollection 'File:Comment'
+            $cleanupResult.RemovedMetadataTags | Should-ContainCollection 'IFD0:Make'
+
+            $allTags = Get-ImageMetadata -Path $sampleImage
+            $allTags.Metadata['File:ImageWidth'] | Should-Be 8
+            $allTags.MetadataTags | Should-ContainCollection 'System:FileName'
+            $privacyTags = Get-ImageMetadata -Path $sampleImage -PrivacyOnly
+            $privacyTags.TagCount | Should-Be 0
+        }
+
+        It 'Should remove common TIFF metadata and retain the image fields' -Skip:(-not ($script:HasExifTool -and $script:HasImageMagick)) {
+            $sampleImage = Join-Path -Path $TestDrive -ChildPath 'scan.tiff'
+            $null = & magick -size 8x6 'xc:gold' -strip $sampleImage
+            $LASTEXITCODE | Should-Be 0
+            $metadataArgs = @(
+                '-IFD0:Artist=Test Artist'
+                '-IFD0:ModifyDate=2024:01:02 03:04:05'
+                '-IFD0:DocumentName=Test Scan'
+                '-IFD0:HostComputer=Test Host'
+                '-IFD0:CameraSerialNumber=Synthetic serial'
+            )
+            $null = & exiftool -overwrite_original @metadataArgs $sampleImage
+            $LASTEXITCODE | Should-Be 0
+
+            $cleanupResult = Remove-ImageMetadata -Path $sampleImage -Verify
+
+            $cleanupResult.Verified | Should-Be $true
+            $cleanupResult.RemovedMetadataTags | Should-ContainCollection 'IFD0:Artist'
+            $cleanupResult.RemovedMetadataTags | Should-ContainCollection 'IFD0:ModifyDate'
+            $cleanupResult.RemovedMetadataTags | Should-ContainCollection 'IFD0:DocumentName'
+            $cleanupResult.RemovedMetadataTags | Should-ContainCollection 'IFD0:HostComputer'
+            $cleanupResult.RemovedMetadataTags | Should-ContainCollection 'IFD0:CameraSerialNumber'
+            $afterCleanup = Get-ImageMetadata -Path $sampleImage
+            $afterCleanup.Metadata['IFD0:ImageWidth'] | Should-Be 8
+        }
+
+        It 'Should detect and remove custom PNG text tags' -Skip:(-not ($script:HasExifTool -and $script:HasImageMagick)) {
+            $sampleImage = Join-Path -Path $TestDrive -ChildPath 'custom-text.png'
+            $null = & magick -size 8x6 'xc:gold' -set 'FixtureIdentifier' 'Synthetic text' $sampleImage
+            $LASTEXITCODE | Should-Be 0
+
+            $beforeCleanup = Get-ImageMetadata -Path $sampleImage -PrivacyOnly
+            $beforeCleanup.Metadata['PNG:FixtureIdentifier'] | Should-Be 'Synthetic text'
+            $beforeCleanup.Metadata.Contains('PNG:ImageWidth') | Should-Be $false
+
+            $cleanupResult = Remove-ImageMetadata -Path $sampleImage -Verify
+
+            $cleanupResult.Verified | Should-Be $true
+            $cleanupResult.RemovedMetadataTags | Should-ContainCollection 'PNG:FixtureIdentifier'
         }
     }
 }

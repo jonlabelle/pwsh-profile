@@ -83,16 +83,16 @@ function Remove-ImageMetadata
         deletion may not fully normalize.
 
     .PARAMETER Verify
-        Runs post-cleanup verification and reports remaining watched metadata as
-        tag/value entries (for example, [EXIF] Make = Canon) using Get-ImageMetadata.
-        Watched tags include EXIF, GPS, XMP, IPTC, ICC profile, Photoshop,
-        comments, titles, authors, software, device details, and thumbnail/preview tags.
+        Checks the result using Get-ImageMetadata -PrivacyOnly -NoEmptyProperties
+        and reports remaining tags and values, for example [IFD0] Make = Canon.
+        MetadataRemoved is true when cleanup succeeds and, if requested, verification
+        finds no watched tags. ExitCode reports the ExifTool write status.
 
     .PARAMETER PassThru
         Returns a result object for each image file considered for processing.
-        Successful cleanup results include RemovedMetadataTagCount and
-        RemovedMetadataTags, whose tag names match the Group:Tag names returned
-        by Get-ImageMetadata.
+        RemovedMetadataTagCount and RemovedMetadataTags describe watched tags
+        that disappeared during cleanup. The tag names match those returned by
+        Get-ImageMetadata -PrivacyOnly.
 
     .EXAMPLE
         PS > Remove-ImageMetadata -Path '.\photo.jpg'
@@ -800,7 +800,8 @@ function Remove-ImageMetadata
 
             try
             {
-                if ([System.Management.Automation.WildcardPattern]::ContainsWildcardCharacters($InputPath))
+                if ([System.Management.Automation.WildcardPattern]::ContainsWildcardCharacters($InputPath) -and
+                    -not (Test-Path -LiteralPath $InputPath))
                 {
                     $resolvedItems = @(Resolve-Path -Path $InputPath -ErrorAction Stop)
                 }
@@ -980,8 +981,15 @@ function Remove-ImageMetadata
                 $exifToolArgs += '-P'
             }
 
-            $exifToolArgs += '-all='
-            $exifToolArgs += $FilePath
+            # TIFF requires IFD0 for its image data, so remove descriptive tags individually.
+            $exifToolArgs += @(
+                '-all='
+                '-CommonIFD0='
+                '-IFD0:DocumentName='
+                '-IFD0:HostComputer='
+                '-IFD0:CameraSerialNumber='
+                $FilePath
+            )
 
             Write-Verbose "ExifTool command: $exifToolExecutable $($exifToolArgs -join ' ')"
 
@@ -1043,23 +1051,6 @@ function Remove-ImageMetadata
             }
         }
 
-        function Import-ImageMetadataReader
-        {
-            if (-not (Get-Command -Name 'Get-ImageMetadata' -CommandType Function -ErrorAction SilentlyContinue))
-            {
-                if (-not [String]::IsNullOrWhiteSpace($PSScriptRoot))
-                {
-                    $getImageMetadataPath = Join-Path -Path $PSScriptRoot -ChildPath 'Get-ImageMetadata.ps1'
-                    if (Test-Path -LiteralPath $getImageMetadataPath -PathType Leaf)
-                    {
-                        . $getImageMetadataPath
-                    }
-                }
-            }
-
-            return [Boolean](Get-Command -Name 'Get-ImageMetadata' -CommandType Function -ErrorAction SilentlyContinue)
-        }
-
         function Format-ImageMetadataTagLabel
         {
             param([String]$MetadataName)
@@ -1091,187 +1082,35 @@ function Remove-ImageMetadata
                 $valueText = "$Value"
             }
 
-            if ([String]::IsNullOrWhiteSpace($valueText))
-            {
-                return $null
-            }
-
             return "$label = $valueText"
         }
 
-        function Get-ImageMetadataTagSnapshot
+        function Get-ImageMetadataSnapshot
         {
             param([String]$FilePath)
-
-            if (-not (Import-ImageMetadataReader))
-            {
-                return [PSCustomObject]@{
-                    Success = $false
-                    Tags = @()
-                    Message = 'Get-ImageMetadata is not available in the current session.'
-                }
-            }
-
-            $metadataTags = [System.Collections.Generic.List[String]]::new()
 
             try
             {
                 Write-Verbose "Get-ImageMetadata tag snapshot target: $FilePath"
-                $metadataResult = @(Get-ImageMetadata -Path $FilePath -ExifToolPath $exifToolExecutable -NoEmptyProperties -ErrorAction Stop)
-
-                foreach ($item in $metadataResult)
+                # The cleaner already selected the file, including any custom extension.
+                $metadataResult = @(Get-ImageMetadata -Path $FilePath -Filter '*' -ExifToolPath $exifToolExecutable -PrivacyOnly -NoEmptyProperties -ErrorAction Stop)
+                if ($metadataResult.Count -ne 1 -or $metadataResult[0].Path -ne $FilePath -or
+                    $null -eq $metadataResult[0].Metadata)
                 {
-                    if ($null -ne $item.MetadataTags)
-                    {
-                        foreach ($tagName in @($item.MetadataTags))
-                        {
-                            if (-not [String]::IsNullOrWhiteSpace($tagName))
-                            {
-                                $metadataTags.Add([String]$tagName)
-                            }
-                        }
+                    throw "Get-ImageMetadata returned no metadata result for '$FilePath'."
+                }
 
-                        continue
-                    }
-
-                    if ($null -eq $item.Metadata)
-                    {
-                        continue
-                    }
-
-                    foreach ($metadataName in $item.Metadata.Keys)
-                    {
-                        if (-not [String]::IsNullOrWhiteSpace($metadataName))
-                        {
-                            $metadataTags.Add([String]$metadataName)
-                        }
-                    }
+                return [PSCustomObject]@{
+                    Metadata = $metadataResult[0].Metadata
+                    Message = ''
                 }
             }
             catch
             {
                 return [PSCustomObject]@{
-                    Success = $false
-                    Tags = @()
+                    Metadata = $null
                     Message = $_.Exception.Message
                 }
-            }
-
-            return [PSCustomObject]@{
-                Success = $true
-                Tags = @($metadataTags | Sort-Object -Unique)
-                Message = ''
-            }
-        }
-
-        function Compare-ImageMetadataTagSnapshot
-        {
-            param(
-                [PSCustomObject]$Before,
-                [PSCustomObject]$After
-            )
-
-            if (-not $Before -or -not $After -or -not $Before.Success -or -not $After.Success)
-            {
-                return @()
-            }
-
-            $afterTagsByName = @{}
-            foreach ($tagName in @($After.Tags))
-            {
-                $afterTagsByName[$tagName] = $true
-            }
-
-            return @(
-                @($Before.Tags) |
-                Where-Object { -not $afterTagsByName.ContainsKey($_) } |
-                Sort-Object -Unique
-            )
-        }
-
-        function Get-RemainingImageMetadataTag
-        {
-            param([String]$FilePath)
-
-            if (-not (Import-ImageMetadataReader))
-            {
-                return [PSCustomObject]@{
-                    Success = $false
-                    Tags = @('Verification failed: Get-ImageMetadata is not available in the current session.')
-                }
-            }
-
-            $verifyTags = @(
-                'EXIF:all'
-                'GPS:all'
-                'XMP:all'
-                'IPTC:all'
-                'MakerNotes:all'
-                'ICC_Profile:all'
-                'Photoshop:all'
-                'Comment'
-                'UserComment'
-                'ImageDescription'
-                'Description'
-                'Title'
-                'Subject'
-                'Keywords'
-                'Artist'
-                'Author'
-                'Creator'
-                'Copyright'
-                'Software'
-                'Make'
-                'Model'
-                'SerialNumber'
-                'OwnerName'
-                'DocumentName'
-                'XPTitle'
-                'XPComment'
-                'XPAuthor'
-                'XPKeywords'
-                'XPSubject'
-                'ThumbnailImage'
-                'PreviewImage'
-            )
-
-            $remainingTags = [System.Collections.Generic.List[String]]::new()
-            try
-            {
-                Write-Verbose "Get-ImageMetadata verify target: $FilePath"
-                $verificationResult = @(Get-ImageMetadata -Path $FilePath -ExifToolPath $exifToolExecutable -Tag $verifyTags -NoEmptyProperties -ErrorAction Stop)
-
-                foreach ($item in $verificationResult)
-                {
-                    if ($null -eq $item.Metadata)
-                    {
-                        continue
-                    }
-
-                    foreach ($entry in $item.Metadata.GetEnumerator())
-                    {
-                        $metadataName = [String]$entry.Key
-                        $value = $entry.Value
-                        $tagValueText = Format-ImageMetadataTagValue -MetadataName $metadataName -Value $value
-
-                        if (-not [String]::IsNullOrWhiteSpace($tagValueText))
-                        {
-                            $remainingTags.Add($tagValueText)
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                return [PSCustomObject]@{
-                    Success = $false
-                    Tags = @("Verification failed: $($_.Exception.Message)")
-                }
-            }
-
-            return [PSCustomObject]@{
-                Success = $true
-                Tags = @($remainingTags | Sort-Object -Unique)
             }
         }
 
@@ -1293,6 +1132,16 @@ function Remove-ImageMetadata
         elseif ($Paranoid)
         {
             Write-Verbose 'WhatIf is active; ImageMagick path validation is deferred.'
+        }
+
+        if (($PassThru -or $Verify) -and -not $WhatIfPreference -and $PSScriptRoot -and
+            -not (Get-Command -Name 'Get-ImageMetadata' -CommandType Function -ErrorAction SilentlyContinue))
+        {
+            $getImageMetadataPath = Join-Path -Path $PSScriptRoot -ChildPath 'Get-ImageMetadata.ps1'
+            if (Test-Path -LiteralPath $getImageMetadataPath -PathType Leaf)
+            {
+                . $getImageMetadataPath
+            }
         }
 
         $processedCount = 0
@@ -1341,7 +1190,8 @@ function Remove-ImageMetadata
             $usesOutputPath = [Boolean]$OutputPath
             $outputCopied = $false
             $timestampReset = $false
-            $verified = $null
+            $metadataRemoved = $false
+            $verified = if ($Verify) { $false } else { $null }
             $remainingMetadataTags = @()
             $removedMetadataTags = @()
             $exitCode = $null
@@ -1414,13 +1264,13 @@ function Remove-ImageMetadata
 
                 try
                 {
-                    $metadataTagsBeforeRemoval = $null
+                    $beforeCleanup = $null
                     if ($PassThru -or $Verify)
                     {
-                        $metadataTagsBeforeRemoval = Get-ImageMetadataTagSnapshot -FilePath $sourcePath
-                        if (-not $metadataTagsBeforeRemoval.Success)
+                        $beforeCleanup = Get-ImageMetadataSnapshot -FilePath $sourcePath
+                        if ($null -eq $beforeCleanup.Metadata)
                         {
-                            $messageParts.Add("Metadata tag snapshot before cleanup failed: $($metadataTagsBeforeRemoval.Message)")
+                            $messageParts.Add("Metadata tag snapshot before cleanup failed: $($beforeCleanup.Message)")
                         }
                     }
 
@@ -1475,35 +1325,55 @@ function Remove-ImageMetadata
 
                     if ($PassThru -or $Verify)
                     {
-                        $metadataTagsAfterRemoval = Get-ImageMetadataTagSnapshot -FilePath $targetPath
-                        if ($metadataTagsAfterRemoval.Success)
+                        $afterCleanup = Get-ImageMetadataSnapshot -FilePath $targetPath
+                        if ($null -eq $afterCleanup.Metadata)
                         {
-                            $removedMetadataTags = @(Compare-ImageMetadataTagSnapshot -Before $metadataTagsBeforeRemoval -After $metadataTagsAfterRemoval)
+                            $messageParts.Add("Metadata tag snapshot after cleanup failed: $($afterCleanup.Message)")
                         }
-                        else
+                        elseif ($null -ne $beforeCleanup.Metadata)
                         {
-                            $messageParts.Add("Metadata tag snapshot after cleanup failed: $($metadataTagsAfterRemoval.Message)")
+                            $removedMetadataTags = @(
+                                $beforeCleanup.Metadata.Keys |
+                                Where-Object { -not $afterCleanup.Metadata.Contains($_) } |
+                                Sort-Object
+                            )
                         }
                     }
 
                     if ($Verify)
                     {
-                        $verifyResult = Get-RemainingImageMetadataTag -FilePath $targetPath
-                        $verified = ($verifyResult.Success -and $verifyResult.Tags.Count -eq 0)
-                        $remainingMetadataTags = @($verifyResult.Tags)
-
-                        if ($verified)
+                        if ($null -eq $afterCleanup.Metadata)
                         {
+                            $remainingMetadataTags = @("Verification failed: $($afterCleanup.Message)")
+                            Write-Warning $remainingMetadataTags[0]
+                        }
+                        elseif ($afterCleanup.Metadata.Count -eq 0)
+                        {
+                            $verified = $true
                             Write-Verbose "Verification found no watched metadata tags in: $targetPath"
                         }
                         else
                         {
+                            $remainingMetadataTags = @(
+                                foreach ($entry in ($afterCleanup.Metadata.GetEnumerator() | Sort-Object -Property Key))
+                                {
+                                    Format-ImageMetadataTagValue -MetadataName $entry.Key -Value $entry.Value
+                                }
+                            )
                             Write-Warning "Verification found remaining watched metadata tags in '$targetPath': $($remainingMetadataTags -join ', ')"
                         }
                     }
 
-                    $successfulCount++
-                    Write-Verbose "Removed metadata from: $targetPath"
+                    $metadataRemoved = (-not $Verify -or $verified)
+                    if ($metadataRemoved)
+                    {
+                        $successfulCount++
+                        Write-Verbose "Cleaned image metadata in: $targetPath"
+                    }
+                    else
+                    {
+                        $failedCount++
+                    }
                 }
                 catch
                 {
@@ -1525,7 +1395,7 @@ function Remove-ImageMetadata
                         SourcePath = $sourcePath
                         Path = $targetPath
                         Name = [System.IO.Path]::GetFileName($targetPath)
-                        MetadataRemoved = ($exitCode -eq 0)
+                        MetadataRemoved = $metadataRemoved
                         RemovedMetadataTagCount = $removedMetadataTags.Count
                         RemovedMetadataTags = @($removedMetadataTags)
                         OutputCopied = $outputCopied

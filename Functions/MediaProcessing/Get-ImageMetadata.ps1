@@ -10,10 +10,11 @@ function Get-ImageMetadata
         wildcard paths. Directory searches are non-recursive by default; use
         -Recurse to include subdirectories.
 
-        By default, all available ExifTool tag groups are requested with group
-        names included in the returned metadata keys and MetadataTags list, such
-        as EXIF:Make, GPS:GPSLatitude, XMP:Title, or File:ImageSize. Use -Tag to
-        request a smaller set of ExifTool tags or tag groups.
+        By default, TagCount includes all returned ExifTool tags, including
+        filesystem information, image encoding details, and calculated fields.
+        Use -PrivacyOnly for the embedded tags checked by Remove-ImageMetadata
+        -Verify, or use -Tag to request a custom set. Metadata keys include
+        group names such as IFD0:Make, GPS:GPSLatitude, or File:ImageWidth.
 
         Dependencies:
         - `exiftool` must be available in PATH or specified via -ExifToolPath.
@@ -40,8 +41,14 @@ function Get-ImageMetadata
 
     .PARAMETER Tag
         One or more ExifTool tags or tag groups to request, such as EXIF:Make,
-        GPS:all, XMP:Title, File:ImageSize, or -DateTimeOriginal. A leading dash
+        GPS:all, XMP:Title, File:ImageWidth, or -DateTimeOriginal. A leading dash
         is optional.
+
+    .PARAMETER PrivacyOnly
+        Requests the embedded tags checked by Remove-ImageMetadata -Verify.
+        These include camera details, dates, GPS, XMP, IPTC, ICC profiles,
+        comments, PNG text, and previews that ExifTool can detect. Use with
+        -NoEmptyProperties to match verification's treatment of empty values.
 
     .PARAMETER Flatten
         Returns one object per metadata tag instead of one object per image.
@@ -60,6 +67,11 @@ function Get-ImageMetadata
         PS > Get-ImageMetadata -Path './photo.jpg'
 
         Retrieves all available metadata from photo.jpg.
+
+    .EXAMPLE
+        PS > Get-ImageMetadata -Path './photo.jpg' -PrivacyOnly -NoEmptyProperties | Format-List TagCount, MetadataTags
+
+        Shows how many watched tags remain after cleanup and lists their names.
 
     .EXAMPLE
         PS > Get-ImageMetadata './photo.jpg' | Select-Object -ExpandProperty Metadata
@@ -176,7 +188,7 @@ function Get-ImageMetadata
         https://github.com/jonlabelle/pwsh-profile/blob/main/Functions/MediaProcessing/Get-ImageMetadata.ps1
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '', Justification = 'Metadata is a mass noun in this command name.')]
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'AllTags')]
     [OutputType([PSCustomObject])]
     param(
         [Parameter(Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
@@ -204,11 +216,15 @@ function Get-ImageMetadata
         [String]
         $ExifToolPath,
 
-        [Parameter()]
+        [Parameter(Mandatory, ParameterSetName = 'SelectedTags')]
         [Alias('Tags')]
         [ValidateNotNullOrEmpty()]
         [String[]]
-        $Tag = @(),
+        $Tag,
+
+        [Parameter(Mandatory, ParameterSetName = 'PrivacyTags')]
+        [Switch]
+        $PrivacyOnly,
 
         [Parameter()]
         [Switch]
@@ -536,7 +552,8 @@ function Get-ImageMetadata
 
             try
             {
-                if ([System.Management.Automation.WildcardPattern]::ContainsWildcardCharacters($InputPath))
+                if ([System.Management.Automation.WildcardPattern]::ContainsWildcardCharacters($InputPath) -and
+                    -not (Test-Path -LiteralPath $InputPath))
                 {
                     $resolvedItems = @(Resolve-Path -Path $InputPath -ErrorAction Stop)
                 }
@@ -664,7 +681,53 @@ function Get-ImageMetadata
                 $exifToolArgs += '-n'
             }
 
-            if ($Tag.Count -gt 0)
+            if ($PrivacyOnly)
+            {
+                # IFD0 also holds TIFF image data. CommonIFD0 selects descriptive tags from it.
+                # SavePath lets ExifTool select PNG text chunks, including custom keywords.
+                $exifToolArgs += @(
+                    '-api'
+                    'SavePath=1'
+                    '-CommonIFD0'
+                    '-ExifIFD:all'
+                    '-InteropIFD:all'
+                    '-GPS:all'
+                    '-XMP:all'
+                    '-IPTC:all'
+                    '-MakerNotes:all'
+                    '-ICC_Profile:all'
+                    '-Photoshop:all'
+                    '-5PNG-TextualData:all'
+                    '-Keys:all'
+                    '-ItemList:all'
+                    '-UserData:all'
+                    '-Author:all'
+                    '-Time:all'
+                    '-Location:all'
+                    '-Preview:all'
+                    '-Comment*'
+                    '-UserComment'
+                    '-Description'
+                    '-ImageDescription'
+                    '-Title'
+                    '-Subject'
+                    '-Keywords'
+                    '-Software'
+                    '-SerialNumber'
+                    '-CameraSerialNumber'
+                    '-OwnerName'
+                    '-DocumentName'
+                    '-HostComputer'
+                    '-ThumbnailImage'
+                    '-PreviewImage'
+                    '-OtherImage'
+                    '-EmbeddedVideo'
+                    '--System:all'
+                    '--ExifTool:all'
+                    '--Composite:all'
+                )
+            }
+            elseif ($Tag)
             {
                 foreach ($tagName in $Tag)
                 {
@@ -722,9 +785,10 @@ function Get-ImageMetadata
             }
 
             $metadataObjects = @($parsedMetadata)
-            if ($metadataObjects.Count -eq 0)
+            if ($metadataObjects.Count -ne 1 -or $metadataObjects[0] -isnot [PSCustomObject] -or
+                -not $metadataObjects[0].PSObject.Properties['SourceFile'])
             {
-                throw "ExifTool returned no metadata object for '$FilePath'."
+                throw "ExifTool did not return a metadata object for '$FilePath'."
             }
 
             return [PSCustomObject]@{

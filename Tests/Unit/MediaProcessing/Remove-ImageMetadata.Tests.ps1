@@ -367,6 +367,7 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $loggedArgs = Get-Content -LiteralPath $script:ExifToolLogPath
             $loggedArgs | Should-ContainCollection '-overwrite_original'
             $loggedArgs | Should-ContainCollection '-all='
+            $loggedArgs | Should-ContainCollection '-CommonIFD0='
             $loggedArgs | Should-ContainCollection $script:SampleImage
             $result.MetadataRemoved | Should-Be $true
             $result.ExitCode | Should-Be 0
@@ -421,9 +422,7 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
                 '}',
                 'else {',
                 '    $global:LASTEXITCODE = 0',
-                '    if ($env:PWSH_PROFILE_FAKE_EXIFTOOL_REMAINING_TAG) {',
-                '        ''[EXIF]          Make                            : Test Camera''',
-                '    }',
+                '    @{ SourceFile = [String]$RemainingArgs[-1] } | ConvertTo-Json',
                 '}'
             ) -join [Environment]::NewLine
 
@@ -517,8 +516,7 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
         It 'Should surface remaining metadata tag values when output-path verification is incomplete' {
             Mock -CommandName Get-ImageMetadata -MockWith {
                 [PSCustomObject]@{
-                    Path = $script:PrivacyOutputImage
-                    Name = 'private-photo.jpg'
+                    Path = $Path[0]
                     Metadata = [ordered]@{
                         'EXIF:Make' = 'Test Camera'
                         'XMP:Title' = 'Private Album'
@@ -529,13 +527,14 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $result = Remove-ImageMetadata -Path $script:PrivacySourceImage -OutputPath $script:PrivacyOutputDir -ExifToolPath $script:PrivacyFakeExifToolPath -Verify -PassThru
 
             $result | Should -Not -BeNullOrEmpty
+            $result.MetadataRemoved | Should-Be $false
             $result.Verified | Should-Be $false
             $result.Path | Should-Be $script:PrivacyOutputImage
             $result.OutputCopied | Should-Be $true
             $result.RemainingMetadataTags | Should-ContainCollection '[EXIF] Make = Test Camera'
             $result.RemainingMetadataTags | Should-ContainCollection '[XMP] Title = Private Album'
             Should-Invoke -CommandName Get-ImageMetadata -Times 1 -Exactly -ParameterFilter { $Path -eq $script:PrivacySourceImage }
-            Should-Invoke -CommandName Get-ImageMetadata -Times 2 -Exactly -ParameterFilter { $Path -eq $script:PrivacyOutputImage }
+            Should-Invoke -CommandName Get-ImageMetadata -Times 1 -Exactly -ParameterFilter { $PrivacyOnly -and $Path -eq $script:PrivacyOutputImage }
         }
 
         It 'Should surface remaining metadata tag values when in-place verification is incomplete' {
@@ -558,7 +557,18 @@ Describe 'Remove-ImageMetadata' -Tag 'Unit' {
             $result.OutputCopied | Should-Be $false
             $result.RemainingMetadataTags | Should-ContainCollection '[GPS] GPSLatitude = 41.88'
             $result.RemainingMetadataTags | Should-ContainCollection '[IPTC] Keywords = private, home'
-            Should-Invoke -CommandName Get-ImageMetadata -Times 3 -Exactly -ParameterFilter { $Path -eq $script:PrivacySourceImage }
+            Should-Invoke -CommandName Get-ImageMetadata -Times 2 -Exactly -ParameterFilter { $Path -eq $script:PrivacySourceImage }
+        }
+
+        It 'Should fail verification when the output metadata read yields no result' {
+            Mock -CommandName Get-ImageMetadata -ParameterFilter { $Path -eq $script:PrivacyOutputImage } -MockWith { return }
+
+            $result = Remove-ImageMetadata -Path $script:PrivacySourceImage -OutputPath $script:PrivacyOutputDir -ExifToolPath $script:PrivacyFakeExifToolPath -Verify -WarningAction SilentlyContinue
+
+            $result.MetadataRemoved | Should-Be $false
+            $result.Verified | Should-Be $false
+            $result.ExitCode | Should-Be 0
+            $result.RemainingMetadataTags[0] | Should-BeLikeString 'Verification failed:*'
         }
     }
 }
